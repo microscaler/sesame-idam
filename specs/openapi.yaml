@@ -1,0 +1,1733 @@
+openapi: 3.0.0
+info:
+  title: Sesame Auth Service for the Microscaler Platform
+  description: Openapi spec for sesame authentication service includes WebAuthn, session management, rate limiting, and webhook events.
+  version: 0.0.1
+servers:
+  - url: http://localhost:4010
+    description: Containerized OpenAPI Mock server
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.dev.sesame.microscaler.io
+    description: development server
+  - url: https://api.staging.sesame.microscaler.io
+    description: Staging server
+  - url: https://api.prod.sesame.microscaler.io
+    description: Production server
+tags:
+  - name: Authentication
+    description: Endpoints for user authentication and session management
+  - name: Users
+    description: Endpoints for managing users and their roles
+  - name: Organizations
+    description: Endpoints for managing organisations and their settings
+  - name: RBAC
+    description: Endpoints for managing roles, permissions, and access control
+  - name: SSO
+    description: Endpoints for Single Sign-On (SSO) configurations
+  - name: API Keys
+    description: Endpoints for managing API keys and their rate limits
+  - name: Audit
+    description: Endpoints for accessing audit logs and metrics
+  - name: SCIM
+    description: Endpoints for SCIM (System for Cross-domain Identity Management) operations
+  - name: Metrics
+    description: Endpoints for accessing various metrics related to authentication and usage
+  - name: Security
+    description: Endpoints for security-related operations
+
+paths:
+  /favicon:ico:
+    get:
+      summary: Favicon
+      description: Returns the favicon for the API
+      responses:
+        '200':
+          description: Favicon image
+          content:
+            image/x-icon:
+              schema:
+                type: string
+                format: binary
+
+  /auth/login:
+    post:
+      tags: [ Authentication ]
+      summary: User login
+      description: |
+        Supports multiple authentication methods:
+        - Email/password
+        - Social providers (OIDC)
+        - Passkeys
+        - API key exchange
+      operationId: postLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/EmailPasswordLogin'
+                - $ref: '#/components/schemas/SocialLogin'
+                - $ref: '#/components/schemas/PasskeyAuth'
+                - $ref: '#/components/schemas/APIKeyExchange'
+            examples:
+              emailPassword:
+                value:
+                  method: "email_password"
+                  email: "user@example.com"
+                  password: "SecurePassword123!"
+              googleOAuth:
+                value:
+                  method: "oidc"
+                  provider: "google"
+                  token: "eyJhbGciOiJSUzI1NiIsImtpZ..."
+              passkey:
+                value:
+                  method: passkey
+                  challenge: "random-challenge-string"
+              apiKeyExchange:
+                value:
+                  method: api_key
+      responses:
+        '200':
+          description: Returns JWT tokens
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          description: Invalid authentication method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "invalid_auth_method"
+                message: "Unsupported authentication method"
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                description: Seconds to wait before next attempt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [ Authentication ]
+      summary: Get active authentication methods
+      description: List enabled authentication methods for current context
+      operationId: getLoginMethods
+      parameters:
+        - name: organization_id
+          in: query
+          schema:
+            type: string
+          description: Optional organization context
+      responses:
+        '200':
+          description: Available methods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuthMethod'
+        '403':
+          description: Forbidden
+
+  /auth/logout:
+    post:
+      tags: [ Authentication ]
+      summary: Invalidate session
+      operationId: postLogout
+      security:
+        - BearerAuth: [ ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                  description: Specific session to invalidate (defaults to current)
+                everywhere:
+                  type: boolean
+                  description: Invalidate all sessions
+      responses:
+        '204':
+          description: Logout successful
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags: [ Authentication ]
+      summary: Purge expired sessions
+      operationId: deleteExpiredSessions
+      security:
+        - BearerAuth: [ admin ]
+      parameters:
+        - name: older_than
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Delete sessions older than timestamp
+      responses:
+        '200':
+          description: Sessions purged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+
+  /oauth2/token:
+    post:
+      tags: [ Authentication ]
+      summary: OAuth2 token exchange
+      operationId: postOAuth2Token
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                  enum: [ authorization_code, refresh_token ]
+                code:
+                  type: string
+                redirect_uri:
+                  type: string
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+                refresh_token:
+                  type: string
+              examples:
+                refreshTokenExample:
+                  value:
+                    grant_type: "refresh_token"
+                    refresh_token: "your-refresh-token"
+                    client_id: "your-client-id"
+                    client_secret: "your-client-secret"
+      responses:
+        '200':
+          description: OAuth2 tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Tokens'
+
+  /auth/mfa:
+    get:
+      tags: [ Authentication ]
+      summary: Get MFA configuration
+      operationId: getMFAConfig
+      security:
+        - BearerAuth: [ ]
+      responses:
+        '200':
+          description: MFA status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MFAStatus'
+
+    post:
+      tags: [ Authentication ]
+      summary: Enroll MFA device
+      operationId: enrollMFA
+      security:
+        - BearerAuth: [ ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/TOTPEnrollment'
+                - $ref: '#/components/schemas/WebAuthnRegistration'
+      responses:
+        '201':
+          description: MFA enrolled
+        '409':
+          description: MFA already configured
+
+    delete:
+      tags: [ Authentication ]
+      summary: Remove MFA configuration
+      operationId: removeMFA
+      security:
+        - BearerAuth: [ ]
+      parameters:
+        - name: mfa_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [ totp, webauthn ]
+      responses:
+        '204':
+          description: MFA removed
+        '400':
+          description: Invalid MFA type
+
+  /auth/password-reset:
+    post:
+      tags: [ Authentication ]
+      summary: Initiate password reset
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '202':
+          description: Reset request accepted
+
+    patch:
+      tags: [ Authentication ]
+      summary: Complete password reset
+      operationId: completePasswordReset
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                new_password:
+                  type: string
+                confirm_password:
+                  type: string
+      responses:
+        '204':
+          description: Password updated
+        '410':
+          description: Expired token
+
+  /auth/mfa/verify:
+    post:
+      tags: [ Authentication ]
+      summary: Verify MFA code
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+                session_id: { type: string }
+
+
+  # Organizations
+  /organizations:
+    post:
+      summary: Create organization
+      security:
+        - ApiKeyAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Organization'
+      responses:
+        '201':
+          description: Organization created
+
+  /organizations/{id}:
+    get:
+      summary: Get organization
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+
+  /organizations/{id}/sso:
+    post:
+      tags: [ Organizations ]
+      summary: Configure organization SSO
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SAMLConfig'
+
+  # Users
+  /users:
+    post:
+      tags: [ Users ]
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: User created
+        '202':
+          description: Added to waitlist
+
+  /users/{id}/roles:
+    post:
+      summary: Assign role to user
+      security:
+        - BearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role_id:
+                  type: string
+      responses:
+        '200':
+          description: Role assigned
+
+  /users/{id}/impersonate:
+    post:
+      tags: [ Users ]
+      summary: Generate impersonation token
+      security:
+        - BearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+
+  # RBAC
+  /roles:
+    post:
+      summary: Create role
+      security:
+        - BearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        '201':
+          description: Role created
+        '400':
+          description: Invalid request
+
+  /roles/{id}/inheritance:
+    post:
+      tags: [ RBAC ]
+      summary: Add role inheritance
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_role_id: { type: string }
+
+  /permissions:
+    post:
+      tags: [ RBAC ]
+      summary: Create permission
+      security:
+        - BearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Permission'
+      responses:
+        '201':
+          description: Permission created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+    get:
+      tags: [ RBAC ]
+      summary: List all permissions
+      responses:
+        '200':
+          description: List of permissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Permission'
+
+
+  /roles/{id}:
+    get:
+      tags: [ RBAC ]
+      summary: Get role details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '404':
+          description: Role not found
+
+  /roles/{id}/permissions:
+    post:
+      tags: [ RBAC ]
+      summary: Assign permissions to a role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                permissions:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Permissions assigned
+        '404':
+          description: Role not found
+
+  /permissions/{id}/constraints:
+    put:
+      tags: [ RBAC ]
+      summary: Add permission constraints
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                condition: { type: string }
+
+  # API Keys
+  /api-keys:
+    get:
+      tags: [ API Keys ]
+      summary: Retrieve API key rate limit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the API key
+      responses:
+        '200':
+          description: Rate limit details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests_per_minute:
+                    type: integer
+    post:
+      summary: Generate API key
+      security:
+        - BearerAuth: [ ]
+      responses:
+        '201':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key:
+                    type: string
+
+  /api-keys/{id}/rate-limit:
+    patch:
+      tags: [ API Keys ]
+      summary: Update API key rate limit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requests_per_minute: { type: integer }
+
+  # SSO
+  /saml/metadata:
+    get:
+      summary: Get SAML metadata
+      responses:
+        '200':
+          description: SAML metadata XML
+
+  /saml/acs:
+    post:
+      tags: [ SSO ]
+      summary: SAML Assertion Consumer Service
+      requestBody:
+        content:
+          application/xml:
+            schema:
+              type: string
+
+  /sso/config:
+    get:
+      tags: [ SSO ]
+      summary: Retrieve SSO configuration
+      description: Get the current SSO configuration for the organization.
+      operationId: getSSOConfig
+      security:
+        - BearerAuth: [ admin ]
+      responses:
+        '200':
+          description: SSO configuration details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SAMLConfig'
+
+    post:
+      tags: [ SSO ]
+      summary: Update SSO configuration
+      description: Update the SSO configuration for the organization.
+      operationId: updateSSOConfig
+      security:
+        - BearerAuth: [ admin ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SAMLConfig'
+      responses:
+        '200':
+          description: SSO configuration updated
+
+  /audit-logs:
+    get:
+      tags: [ Audit ]
+      summary: Get audit logs
+      security:
+        - BearerAuth: [ ]
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Audit logs list
+
+  /metrics/logins:
+    get:
+      tags: [ Metrics ]
+      summary: Get login metrics
+      parameters:
+        - name: period
+          in: query
+          schema: { type: string, enum: [ 7d, 30d, 90d ] }
+
+  /webauthn/register/start:
+    post:
+      tags: [ Authentication ]
+      summary: Start WebAuthn registration
+      operationId: startWebAuthnRegistration
+      security:
+        - BearerAuth: [ ]
+      responses:
+        '200':
+          description: Registration options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebAuthnRegistrationOptions'
+              example:
+                challenge: "aGVsbG8gd29ybGQh"
+                rp:
+                  name: "Acme Corp"
+                  id: "acme.com"
+                user:
+                  id: "123e4567-e89b-12d3-a456-426614174000"
+                  name: "user@acme.com"
+                  displayName: "User Name"
+                pubKeyCredParams:
+                  - type: "public-key"
+                    alg: -7
+
+  /webauthn/register/complete:
+    post:
+      tags: [ Authentication ]
+      summary: Complete WebAuthn registration
+      operationId: completeWebAuthnRegistration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebAuthnRegistrationResponse'
+              example:
+                id: "ABCDEFG..."
+                rawId: "ABCDEFG...="
+                type: "public-key"
+                response:
+                  clientDataJSON: "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRl..."
+                  attestationObject: "o2NmbXRoZmlsby11cmgBAQEF..."
+
+  /sessions:
+    get:
+      tags: [ Authentication ]
+      summary: List active sessions
+      parameters:
+        - $ref: '#/components/parameters/device_type'
+        - $ref: '#/components/parameters/ip_address'
+        - $ref: '#/components/parameters/session_age'
+        - name: user_agent
+          in: query
+          schema:
+            type: string
+          description: Partial user agent match
+      responses:
+        '200':
+          description: List of active sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+
+  /rate-limits:
+    get:
+      tags: [ Security ]
+      summary: Get rate limit configurations
+      description: List all rate limit configurations for the API.
+      responses:
+        '200':
+          description: List of rate limit configurations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RateLimitBucket'
+
+
+  /webhooks:
+    post:
+      tags: [ Security ]
+      summary: Handle webhook events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/UserCreatedEvent'
+                - $ref: '#/components/schemas/AuthFailedEvent'
+                - $ref: '#/components/schemas/MFAEnrolledEvent'
+      headers:
+        X-Webhook-Signature:
+          schema:
+            type: string
+          description: HMAC signature
+      responses:
+        '200':
+          description: Webhook processed
+
+  /webauthn/attestation/verify:
+    post:
+      tags: [ Authentication ]
+      summary: Verify WebAuthn attestation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebAuthnAttestationVerification'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebAuthnVerificationResult'
+        '422':
+          description: Invalid attestation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttestationError'
+
+  /sessions/{session_id}:
+    delete:
+      tags: [ Authentication ]
+      summary: Revoke specific session
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Session revoked
+        '404':
+          description: Session not found
+
+  /users/{user_id}/sessions:
+    delete:
+      tags: [ Authentication ]
+      summary: Bulk revoke sessions
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum: [ all, device_type, ip_range ]
+        - name: value
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked_count:
+                    type: integer
+
+  /rate-limits/redis:
+    patch:
+      tags: [ Security ]
+      summary: Update Redis rate limit config
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedisRateLimitConfig'
+      responses:
+        '200':
+          description: Redis config updated
+
+  /password/breach-check:
+    post:
+      tags: [ Security ]
+      summary: Check password against breach database
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  breach_count:
+                    type: integer
+
+  /scim/Groups:
+    post:
+      tags: [ SCIM ]
+      summary: SCIM group management
+      requestBody:
+        content:
+          application/scim+json:
+            schema:
+              $ref: '#/components/schemas/SCIMGroup'
+
+  /scim/Users:
+    post:
+      summary: SCIM create user
+      security:
+        - BearerAuth: [ ]
+      requestBody:
+        content:
+          application/scim+json:
+            schema:
+              $ref: '#/components/schemas/SCIMUser'
+      responses:
+        '201':
+          description: User created
+
+  /scim/v2/Users:
+    patch:
+      tags: [ SCIM ]
+      summary: SCIM user update
+      requestBody:
+        content:
+          application/scim+json:
+            schema:
+              $ref: '#/components/schemas/SCIMPatchOp'
+    get:
+      tags: [ SCIM ]
+      summary: List SCIM users
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+          example: "userName eq \"user@example.com\""
+
+  /organizations/{id}/shares:
+    post:
+      tags: [ Organizations ]
+      summary: Create org-to-org share
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgShareRequest'
+    get:
+      tags: [ Organizations ]
+      summary: List organization shares
+
+components:
+  headers:
+    RateLimit-Policy:
+      schema:
+        type: string
+      description: RFC 9434 RateLimit Policy
+    RateLimit-Limit:
+      schema:
+        type: integer
+      description: Request limit per window
+    RateLimit-Remaining:
+      schema:
+        type: integer
+      description: Remaining requests
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        mfa_enabled:
+          type: boolean
+        properties:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    UserCreate:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        waitlist_code: { type: string }
+        org_id: { type: string }
+        mfa_preference: { type: string, enum: [ sms, totp, none ] }
+
+    AuthTokens:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        token_type:
+          type: string
+          default: Bearer
+
+    MFAStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        methods:
+          type: array
+          items:
+            type: string
+            enum: [ totp, webauthn, sms ]
+        enforced:
+          type: boolean
+
+    TOTPEnrollment:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [ totp ]
+        code:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        error_uri:
+          type: string
+          format: uri
+        instance_id:
+          type: string
+          format: uuid
+        code: { type: string }
+        message: { type: string }
+        context: { type: object }
+
+    SAMLConfig:
+      type: object
+      properties:
+        entity_id: { type: string }
+        idp_metadata_url: { type: string }
+        force_authn: { type: boolean }
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        parent_org_id:
+          type: string
+        sso_enforced:
+          type: boolean
+
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+
+    Permission:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+      required:
+        - name
+
+    RoleInheritance:
+      type: object
+      properties:
+        parent_role_id:
+          type: string
+        child_role_id:
+          type: string
+      required:
+        - parent_role_id
+        - child_role_id
+
+    SCIMUser:
+      type: object
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+        userName:
+          type: string
+        name:
+          type: object
+          properties:
+            givenName:
+              type: string
+            familyName:
+              type: string
+
+    SCIMGroup:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              display:
+                type: string
+
+    APIKey:
+      type: object
+      properties:
+        id:
+          type: string
+        prefix:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        rate_limit:
+          type: integer
+
+    EmailPasswordLogin:
+      type: object
+      properties:
+        method:
+          type: string
+          enum: [ email_password ]
+          description: The authentication method type.
+        email:
+          type: string
+          format: email
+          description: The user's email address.
+        password:
+          type: string
+          description: The user's password.
+      required:
+        - method
+        - email
+        - password
+
+    SocialLogin:
+      type: object
+      description:
+      properties:
+        method:
+          type: string
+          enum: [oidc]
+          description: The authentication method type.
+        provider:
+          type: string
+          enum: [google,facebook,github]
+          description: The social provider used for authentication (e.g., Google, Facebook).
+        token:
+          type: string
+          description: The access token issued by the social provider.
+      required:
+        - method
+        - provider
+        - token
+
+    APIKeyExchange:
+      type: object
+      description: API key exchange request
+      properties:
+        method:
+          type: string
+          enum: [api_key]
+          description: The authentication method type.
+        api_key:
+          type: string
+          pattern: '^sk-[a-zA-Z0-9]{32}$'
+          example: sk-1234567890abcdef1234567890abcdef
+      required:
+        - method
+        - api_key
+
+    PasskeyAuth:
+      type: object
+      description: Passkey authentication request
+      properties:
+        method:
+          type: string
+          enum: [ passkey ]
+          description: The authentication method type.
+        credential_id:
+          type: string
+          description: The unique identifier for the passkey credential.
+        client_data:
+          type: string
+          description: The client data JSON used in the authentication process.
+        authenticator_data:
+          type: string
+          description: The authenticator data from the passkey.
+        signature:
+          type: string
+          description: The signature generated by the authenticator.
+      required:
+        - method
+        - credential_id
+        - client_data
+        - authenticator_data
+        - signature
+
+    OAuth2Tokens:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: The OAuth2 access token.
+        refresh_token:
+          type: string
+          description: The OAuth2 refresh token.
+        expires_in:
+          type: integer
+          description: The number of seconds until the access token expires.
+        token_type:
+          type: string
+          description: The type of token issued.
+          default: Bearer
+      required:
+        - access_token
+        - expires_in
+        - token_type
+
+    AuditLog:
+      type: object
+      description: Audit log entry
+      properties:
+        id:
+          type: string
+        action:
+          type: string
+        user_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    WebAuthnRegistrationOptions:
+      type: object
+      description: Options for WebAuthn registration
+      properties:
+        challenge: { type: string, format: byte }
+        rp:
+          type: object
+          properties:
+            name: { type: string }
+            id: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: string, format: byte }
+            name: { type: string }
+            displayName: { type: string }
+        pubKeyCredParams:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              alg: { type: integer }
+
+    WebAuthnRegistrationResponse:
+      type: object
+      description: Response from WebAuthn registration
+      properties:
+        id: { type: string }
+        rawId: { type: string, format: byte }
+        type: { type: string }
+        response:
+          type: object
+          properties:
+            clientDataJSON: { type: string, format: byte }
+            attestationObject: { type: string, format: byte }
+
+    Session:
+      type: object
+      description: User session information
+      properties:
+        id: { type: string }
+        device_type:
+          type: string
+          enum: [ browser, mobile, desktop, cli ]
+        ip_address: { type: string, format: ipv4 }
+        user_agent: { type: string }
+        created_at: { type: string, format: date-time }
+        last_accessed: { type: string, format: date-time }
+
+    RateLimitBucket:
+      type: object
+      description: Rate limit bucket configuration
+      properties:
+        endpoint: { type: string }
+        scope:
+          type: string
+          enum: [ user, ip, org ]
+        limit: { type: integer }
+        interval:
+          type: string
+          enum: [ 1m, 5m, 1h, 1d ]
+        remaining: { type: integer }
+      example:
+        endpoint: "/auth/login"
+        scope: "ip"
+        limit: 10
+        interval: "1m"
+        remaining: 9
+
+    PasswordPolicy:
+      type: object
+      description: Password policy configuration
+      properties:
+        min_length: { type: integer, minimum: 8 }
+        require_upper: { type: boolean }
+        require_lower: { type: boolean }
+        require_number: { type: boolean }
+        require_special: { type: boolean }
+        reject_common: { type: boolean }
+      example:
+        min_length: 12
+        require_upper: true
+        require_lower: true
+        require_number: true
+        require_special: true
+        reject_common: true
+
+    UserCreatedEvent:
+      type: object
+      description: Event triggered when a new user is created
+      properties:
+        event_type: { type: string, const: "user.created" }
+        user:
+          $ref: '#/components/schemas/User'
+        timestamp: { type: string, format: date-time }
+      required: [ event_type, user ]
+
+    AuthFailedEvent:
+      type: object
+      description: Event triggered on authentication failure
+      properties:
+        event_type: { type: string, const: "auth.failed" }
+        reason: { type: string }
+        metadata:
+          type: object
+          properties:
+            ip_address: { type: string }
+            user_agent: { type: string }
+      required: [ event_type, reason ]
+
+    RedisRateLimitConfig:
+      type: object
+      description: Redis configuration for rate limiting
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        tls:
+          type: boolean
+        cluster_mode:
+          type: boolean
+      example:
+        host: "redis-cluster.prod.example.com"
+        port: 6379
+        tls: true
+        cluster_mode: true
+
+    WebAuthnRegistration:
+      type: object
+      description: Request to register a WebAuthn credential
+      properties:
+        type:
+          type: string
+          enum: [webauthn]
+        credential_id:
+          type: string
+          description: The unique identifier for the credential.
+        public_key:
+          type: string
+          description: The public key associated with the credential.
+        attestation_format:
+          type: string
+          description: The format of the attestation statement.
+        transports:
+          type: array
+          items:
+            type: string
+            enum: [usb, nfc, ble, internal]
+          description: The supported transports for the credential.
+        user_handle:
+          type: string
+          description: The user handle associated with the credential.
+      required:
+        - type
+        - credential_id
+        - public_key
+        - attestation_format
+
+    WebAuthnAttestationVerification:
+      type: object
+      description: Request to verify WebAuthn attestation
+      properties:
+        credential:
+          $ref: '#/components/schemas/WebAuthnRegistrationResponse'
+        expected_origin:
+          type: string
+        challenge:
+          type: string
+
+    WebAuthnVerificationResult:
+      type: object
+      properties:
+        verified:
+          type: boolean
+        authenticator_data:
+          type: string
+
+    BreachedPasswordResponse:
+      type: object
+      description: Response from the password breach check
+      properties:
+        hash_prefix:
+          type: string
+        suffix_count:
+          type: integer
+
+    OrgShareRequest:
+      type: object
+      description: Request to share resources with another organization
+      properties:
+        target_org_id:
+          type: string
+        resource_type:
+          type: string
+          enum: [ data, users, roles ]
+        permissions:
+          type: array
+          items:
+            type: string
+
+    SCIMPatchOp:
+      type: object
+      description: SCIM patch operation for user updates
+      properties:
+        Operations:
+          type: array
+          items:
+            type: object
+            properties:
+              op:
+                type: string
+                enum: [ add, remove, replace ]
+                description: The operation to perform.
+              path:
+                type: string
+                description: The attribute path targeted by the operation.
+              value:
+                type: object
+                description: The value to be added, replaced, or removed.
+      required:
+        - Operations
+
+    # Webhook Queueing
+    WebhookQueueConfig:
+      type: object
+      properties:
+        queue_name:
+          type: string
+        retry_policy:
+          type: object
+          properties:
+            max_attempts:
+              type: integer
+            backoff_ms:
+              type: integer
+        dead_letter_queue:
+          type: string
+
+    SessionRevokedEvent:
+      type: object
+      properties:
+        session_id:
+          type: string
+        revoked_at:
+          type: string
+          format: date-time
+      required:
+        - session_id
+        - revoked_at
+
+    PasswordBreachEvent:
+      type: object
+      properties:
+        password:
+          type: string
+          description: The password that was checked for breaches.
+        breach_count:
+          type: integer
+          description: The number of times the password was found in breach databases.
+      required:
+        - password
+        - breach_count
+
+    AttestationError:
+      type: object
+      properties:
+        error_code:
+          type: string
+          description: A unique code representing the attestation error.
+        message:
+          type: string
+          description: A human-readable description of the error.
+        details:
+          type: object
+          description: Additional details about the error.
+          properties:
+            field:
+              type: string
+              description: The field that caused the error.
+            reason:
+              type: string
+              description: The reason for the error.
+
+    MFAEnrolledEvent:
+      type: object
+      properties:
+        event_type:
+          type: string
+          const: "mfa.enrolled"
+        user_id:
+          type: string
+          format: uuid
+        mfa_type:
+          type: string
+          enum: [totp, webauthn, sms]
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - event_type
+        - user_id
+        - mfa_type
+        - timestamp
+
+    AuthMethod:
+      type: object
+      properties:
+        method:
+          type: string
+          enum: [ email_password, oidc, passkeys, api_key ]
+          description: The type of authentication method.
+        description:
+          type: string
+          description: A brief description of the authentication method.
+
+
+
+  parameters:
+    device_type:
+      name: device_type
+      in: query
+      schema:
+        type: string
+        enum: [ browser, mobile, desktop, cli ]
+    ip_address:
+      name: ip_address
+      in: query
+      schema:
+        type: string
+        format: ipv4
+    session_age:
+      name: age
+      in: query
+      schema:
+        type: string
+        enum: [ active, expired ]
+    PageNumber:
+      name: page
+      in: query
+      schema: { type: integer, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, default: 50 }
+    MfaTypeQuery:
+      name: mfa_type
+      in: query
+      required: true
+      schema:
+        type: string
+        enum: [totp, webauthn]
+      description: Type of MFA to operate on
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for service-to-service authentication
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Authorization header using the Bearer scheme
+    WebhookSignature:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: HMAC-SHA256 signature of webhook payload
+    MutualTLS:
+      type: mutualTLS
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: /oauth2/token
+          scopes:
+            read: Grants read access
+            write: Grants write access
+            client: Client authentication scope
+
+    SCIMAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      x-scim-version: "2.0"
+
+  x-auth-methods:
+    password:
+      security: [ ]
+    api_key:
+      security:
+        - ApiKeyAuth: [ ]
+    oidc:
+      security:
+        - OAuth2: [ client ]
+    passkey:
+      security: [ ]
+
+  x-enterprise-config:
+    redis:
+      rate_limiting:
+        $ref: '#/components/schemas/RedisRateLimitConfig'
+    webhooks:
+      queue_system: "rabbitmq"
+      retry_policy:
+        max_attempts: 5
+        backoff_base: 3000
+    breach_check:
+      provider: "haveibeenpwned"
+      api_version: "v3"
+      cache_ttl: 3600
+
+  responses:
+    PasswordComplexityError:
+      description: Password does not meet complexity requirements
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              validation_errors:
+                type: array
+                items:
+                  type: string
+            example:
+              error: "Password complexity requirements not met"
+              validation_errors:
+                - "Must contain at least one uppercase letter"
+                - "Must be at least 12 characters"
+
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidToken:
+              value:
+                error: "invalid_token"
+                error_description: "The access token expired"
+
+webhooks:
+  session_revoked:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionRevokedEvent'
+  password_breached:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordBreachEvent'
+
+
+# ======================
+# Security Requirements
+# ======================
+security:
+  - {}  # Allow anonymous access for password/passkey flows
+  - BearerAuth: [ admin ]
+  - MutualTLS: [ ]
+  - WebhookSignature: [ ]
+  - ApiKeyAuth: []  # Service-to-service auth
+  - OAuth2: [client]  # Client credential flow
