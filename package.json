@@ -1,0 +1,23 @@
+{
+  "name": "sesame-idam",
+  "version": "1.0.0",
+  "description": "Mock server for sesame IDAM",
+  "main": "index.js",
+  "scripts": {
+    "mock": "prism mock --dynamic specs/openapi.yaml --port 4010",
+    "mock2": "prism mock --dynamic specs/postman/openapi.yaml --port 4010"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microscaler/sesame-idam.git"
+  },
+  "private": true,
+  "dependencies": {
+    "@redocly/openapi-cli": "^1.0.0-beta.95",
+    "@stoplight/prism-cli": "^5.14.2",
+    "@stoplight/spectral-cli": "^6.15.0",
+    "add": "^2.0.6",
+    "postman-to-openapi": "^3.0.1",
+    "supabase": "^2.22.12"
+  }
+}
