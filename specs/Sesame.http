@@ -1,0 +1,671 @@
+# Sesame
+
+###
+# group: User APIs
+# @name Create User
+POST {{AUTH_URL}}/api/backend/v1/user/
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+  "email": "test@sesame.microscaler.io",
+  "email_confirmed": false,
+  "send_email_to_confirm_email_address": false,
+  "password": "hxjV6A0zcp",
+  "ask_user_to_update_password_on_login": true,
+  "username": "ant",
+  "first_name": "Anthony",
+  "last_name": "Edwards",
+  "properties": {
+    "favoriteSport": "basketball"
+  },
+  "ignore_domain_restrictions": false
+}
+
+<> ./sesame_responses/success_response_(200).200.json
+// /api/backend/v1/user/
+
+###
+# group: User APIs
+# @name Fetch User By User ID
+GET {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}?
+    include_orgs=true
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_1.json
+// /api/backend/v1/user/?include_orgs=true
+
+###
+# group: User APIs
+# @name Fetch User By Email Address
+GET {{AUTH_URL}}/api/backend/v1/user/email?
+    email=test@sesame.microscaler.io&
+    include_orgs=true
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_2.json
+// /api/backend/v1/user/email?email=test@sesame.microscaler.io&include_orgs=true
+
+###
+# group: User APIs
+# @name Fetch User By Username
+GET {{AUTH_URL}}/api/backend/v1/user/username?
+    username=ant&
+    include_orgs=true
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_3.json
+// /api/backend/v1/user/username?username=ant&include_orgs=true
+
+###
+# group: User APIs
+# @name Query For Users
+GET {{AUTH_URL}}/api/backend/v1/user/query?
+    page_size=10&
+    page_number=0&
+    order_by=CREATED_AT_ASC&
+    email_or_username=test@example.com&
+    include_orgs=true&
+    legacy_user_id=1234
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_4.json
+// /api/backend/v1/user/query
+
+###
+# group: User APIs
+# @name Update User
+PUT {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+  "username": "username",
+  "first_name": "firstName",
+  "last_name": "lastName",
+  "picture_url": "https://example.com/img.png",
+  "properties": {
+    "favoriteSport": "value"
+  },
+  "update_password_required": false,
+  "legacy_user_id": "abc123"
+}
+
+<> ./sesame_responses/success_response_(200).200_5.json
+// /api/backend/v1/user/
+
+###
+# group: User APIs
+# @name Update User Email
+PUT {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}/email
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+  "new_email": "test@example.com",
+  "require_email_confirmation": false
+}
+
+<> ./sesame_responses/success_response_(200).200_6.json
+// /api/backend/v1/user//email
+
+###
+# group: User APIs
+# @name Update User Password
+PUT {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}/password
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+  "password": "moresecurethanthis",
+  "ask_user_to_update_password_on_login": false
+}
+
+<> ./sesame_responses/success_response_(200).200_7.json
+// /api/backend/v1/user//password
+
+###
+# group: User APIs
+# @name Create Magic Link
+POST {{AUTH_URL}}/api/backend/v1/magic_link
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "redirect_to_url": "http://localhost:3000",
+  "expires_in_hours": 1,
+  "create_new_user_if_one_doesnt_exist": false
+}
+
+<> ./sesame_responses/success_response_(200).200_8.json
+// /api/backend/v1/magic_link
+
+###
+# group: User APIs
+# @name Create Access Token
+POST {{AUTH_URL}}/api/backend/v1/access_token
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "user_id": "{{USER_ID}}",
+    "duration_in_minutes": 1440
+}
+
+<> ./sesame_responses/success_response_(200).200_9.json
+// /api/backend/v1/access_token
+
+###
+# group: User APIs
+# @name Migrate User From External Source
+POST {{AUTH_URL}}/api/backend/v1/migrate_user/?
+    page_size=10&
+    page_number=1&
+    order_by=CREATED_AT_ASC
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "email_confirmed": true,
+  "existing_user_id": "1234",
+  "existing_password_hash": "bcrypt_hash",
+  "existing_mfa_base32_encoded_secret": "base32_encoded_secret",
+  "update_password_required": false,
+  "enabled": true,
+  "username": "airbud3",
+  "first_name": "Buddy",
+  "last_name": "Framm",
+  "picture_url": "https://example.com/img.png",
+  "properties": {
+    "favoriteSport": "basketball"
+  }
+}
+
+<> ./sesame_responses/success_response_(200).200_10.json
+// /api/backend/v1/migrate_user/
+
+###
+# group: User APIs
+# @name Update Migrated User's Password
+POST {{AUTH_URL}}/api/backend/v1/migrate_user/password
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "user_id": "{{USER_ID}}",
+    "password_hash": "the_password_hash"
+}
+
+<> ./sesame_responses/success_response_(200).200_11.json
+// {{AUTH_URL}}/api/backend/v1/migrate_user/password
+
+###
+# group: User APIs
+# @name Delete User
+DELETE {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_12.json
+// /api/backend/v1/user/
+
+###
+# group: User APIs
+# @name Block User
+POST {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}/disable
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+<> ./sesame_responses/success_response_(200).200_13.json
+// /api/backend/v1/user//disable
+
+###
+# group: User APIs
+# @name Unblock User
+POST {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}/enable
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+<> ./sesame_responses/success_response_(200).200_14.json
+// /api/backend/v1/user//enable
+
+###
+# group: User APIs
+# @name Disable User 2FA
+POST {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}/disable_2fa
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+<> ./sesame_responses/success_response_(200).200_15.json
+// /api/backend/v1/user//disable_2fa
+
+###
+# group: User APIs
+# @name Resend Email Confirmation
+POST {{AUTH_URL}}/api/backend/v1/resend_email_confirmation
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "user_id": "{{USER_ID}}"
+}
+
+###
+# group: User APIs
+# @name Force Logout All User Sessions
+POST {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}/logout_all_sessions
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+###
+# group: Organization APIs
+# @name Fetch Org
+GET {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_16.json
+// {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}
+
+###
+# group: Organization APIs
+# @name Fetch Orgs
+GET {{AUTH_URL}}/api/backend/v1/org/query?
+    page_size=10&
+    page_number=0&
+    order_by=CREATED_AT_ASC&
+    name=acme.com&
+    legacy_org_id=1234
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_17.json
+// {{AUTH_URL}}/api/backend/v1/org/query?page_size=10&page_number=0&order_by=CREATED_AT_ASC&name=acme.com
+
+###
+# group: Organization APIs
+# @name Fetch Users in Org
+GET {{AUTH_URL}}/api/backend/v1/user/org/{{ORG_ID}}?
+    page_size=10&
+    page_number=0&
+    role=Admin&
+    include_orgs=true
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_18.json
+// {{AUTH_URL}}/api/backend/v1/user/org/{{ORG_ID}}?page_size=10&page_number=0&role=Admin&include_orgs=true
+
+###
+# group: Organization APIs
+# @name Create Org
+POST {{AUTH_URL}}/api/backend/v1/org/
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "name": "Acme Inc",
+    "domain": "acme.com",
+    "enable_auto_joining_by_domain": true,
+    "members_must_have_matching_domain": true,
+    "custom_role_mapping_name": "{{ROLE_CONFIGURATION_NAME}}",
+    "legacy_org_id": "1234",
+    "max_users": 100
+}
+
+<> ./sesame_responses/success_response_(200).200_19.json
+// {{AUTH_URL}}/api/backend/v1/org/
+
+###
+# group: Organization APIs
+# @name Add User to Org
+POST {{AUTH_URL}}/api/backend/v1/org/add_user
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "user_id": "{{USER_ID}}",
+    "org_id": "{{ORG_ID}}",
+    "role": "Member"
+}
+
+<> ./sesame_responses/success_response_(200).200_20.json
+// {{AUTH_URL}}/api/backend/v1/org/add_user
+
+###
+# group: Organization APIs
+# @name Invite User to Org
+POST {{AUTH_URL}}/api/backend/v1/invite_user
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "email": "test@sesame.microscaler.io",
+    "org_id": "{{ORG_ID}}",
+    "role": "Member"
+}
+
+<> ./sesame_responses/success_response_(200).200.txt
+// {{AUTH_URL}}/api/backend/v1/invite_user
+
+###
+# group: Organization APIs
+# @name Change Role
+POST {{AUTH_URL}}/api/backend/v1/org/change_role
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "user_id": "{{USER_ID}}",
+    "org_id": "{{ORG_ID}}",
+    "role": "Member"
+}
+
+<> ./sesame_responses/success_response_(200).200_21.json
+// {{AUTH_URL}}/api/backend/v1/org/change_role
+
+###
+# group: Organization APIs
+# @name Remove User From Org
+POST {{AUTH_URL}}/api/backend/v1/org/remove_user
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "user_id": "{{USER_ID}}",
+    "org_id": "{{ORG_ID}}"
+}
+
+<> ./sesame_responses/success_response_(200).200_22.json
+// {{AUTH_URL}}/api/backend/v1/org/remove_user
+
+###
+# group: Organization APIs
+# @name Update Org
+PUT {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+  "name": "Acme Inc",
+  "domain": "acme.com",
+  "extra_domains": [
+    "sesame.microscaler.io"
+  ],
+  "enable_auto_joining_by_domain": true,
+  "members_must_have_matching_domain": true,
+  "max_users": 100,
+  "can_setup_saml": true,
+  "legacy_org_id": "1234",
+  "require_2fa_by": "2024-02-20 12:34:56 UTC",
+  "metadata": {
+    "customKey": "customValue"
+  }
+}
+
+###
+# group: Organization APIs
+# @name Delete Org
+DELETE {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}
+Authorization: Bearer {{API_KEY}}
+
+###
+# group: Organization APIs
+# @name Enable SAML for Org
+POST {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}/allow_saml
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+<> ./sesame_responses/success_response_(200).200_23.json
+// {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}/allow_saml
+
+###
+# group: Organization APIs
+# @name Disable SAML for Org
+POST {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}/disallow_saml
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+<> ./sesame_responses/success_response_(200).200_24.json
+// {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}/disallow_saml
+
+###
+# group: Organization APIs
+# @name Fetch Role Configurations
+GET {{AUTH_URL}}/api/backend/v1/custom_role_mappings
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_25.json
+// {{AUTH_URL}}/api/backend/v1/custom_role_mappings
+
+###
+# group: Organization APIs
+# @name Subscribe Org To Role Configuration
+PUT {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}
+Authorization: Bearer {{API_KEY}}
+Content-Type: Content-Type
+
+{
+    "custom_role_mapping_name": "{{ROLE_CONFIGURATION_NAME}}"
+}
+
+<> ./sesame_responses/success_response_(200).200_26.json
+// {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}
+
+###
+# group: Organization APIs
+# @name Get Pending Org Invites
+GET
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_27.json
+// {{AUTH_URL}}/api/backend/v1/pending_org_invites?org_id={{ORG_ID}}&page_size=10&page_number=0
+
+###
+# group: Organization APIs
+# @name Revoke Pending Org Invite
+DELETE {{AUTH_URL}}/api/backend/v1/pending_org_invites
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "invitee_email": "test@sesame.microscaler.io",
+    "org_id": "{{ORG_ID}}"
+}
+
+<> ./sesame_responses/success_response_(200).200_28.json
+// {{AUTH_URL}}/api/backend/v1/pending_org_invites
+
+###
+# group: Organization APIs
+# @name Create SAML Connection Link
+POST {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}/create_saml_connection_link
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+  "expires_in_seconds": 86400
+}
+
+<> ./sesame_responses/success_response_(200).200_29.json
+// {{AUTH_URL}}/api/backend/v1/org/{{ORG_ID}}/create_saml_connection_link
+
+###
+# group: Organization APIs
+# @name Fetch Org SAML Metadata
+GET {{AUTH_URL}}/api/backend/v1/saml_sp_metadata/{{ORG_ID}}
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_30.json
+// {{AUTH_URL}}/api/backend/v1/saml_sp_metadata/{{ORG_ID}}
+
+###
+# group: Organization APIs
+# @name Set SAML IdP Metadata
+POST {{AUTH_URL}}/api/backend/v1/saml_idp_metadata
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "idp_entity_id": "http://www.okta.com/example",
+    "idp_sso_url": "https://dev.okta.com/app/example/example/sso/saml",
+    "idp_certificate": "-----BEGIN CERTIFICATE-----MIIDqDCCApCgAw-----END CERTIFICATE-----",
+    "provider": "Okta",
+    "org_id": "{{ORG_ID}}"
+}
+
+###
+# group: Organization APIs
+# @name Enable SAML Connection
+POST {{AUTH_URL}}/api/backend/v1/saml_idp_metadata/go_live/{{ORG_ID}}
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{}
+
+###
+# group: Organization APIs
+# @name Delete SAML Connection
+DELETE {{AUTH_URL}}/api/backend/v1/saml_idp_metadata/{{ORG_ID}}
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "idp_entity_id": "",
+    "idp_sso_url": "",
+    "idp_certificate": "",
+    "provider": "",
+    "org_id": {{org_id}}
+}
+
+###
+# group: API Key APIs
+# @name Validate API Key
+POST {{AUTH_URL}}/api/backend/v1/end_user_api_keys/validate
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "api_key_token": "{{END_USER_API_KEY}}"
+}
+
+<> ./sesame_responses/success_response_(200).200_31.json
+// {{AUTH_URL}}/api/backend/v1/end_user_api_keys/validate
+
+###
+# group: API Key APIs
+# @name Create API Key
+POST {{AUTH_URL}}/api/backend/v1/end_user_api_keys
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "user_id": "{{USER_ID}}",
+    "expires_at_seconds": 1712880246,
+    "metadata": {
+        "customKey": "customValue"
+    }
+}
+
+<> ./sesame_responses/success_response_(200).200_32.json
+// {{AUTH_URL}}/api/backend/v1/end_user_api_keys
+
+###
+# group: API Key APIs
+# @name Update API Key
+PATCH {{AUTH_URL}}/api/backend/v1/end_user_api_keys/{{END_USER_API_KEY_ID}}
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+  "expires_at_seconds": 1712848015,
+  "metadata": {
+    "customKey": "customValue"
+  }
+}
+
+###
+# group: API Key APIs
+# @name Delete API Key
+DELETE {{AUTH_URL}}/api/backend/v1/end_user_api_keys/{{END_USER_API_KEY_ID}}
+Authorization: Bearer {{API_KEY}}
+
+###
+# group: API Key APIs
+# @name Fetch API Key
+GET {{AUTH_URL}}/api/backend/v1/end_user_api_keys/{{END_USER_API_KEY_ID}}
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_33.json
+// {{AUTH_URL}}/api/backend/v1/end_user_api_keys/{{END_USER_API_KEY_ID}}
+
+###
+# group: API Key APIs
+# @name Fetch Active API Keys
+GET {{AUTH_URL}}/api/backend/v1/end_user_api_keys?
+    user_id=<user_id>&
+    user_email=<user_email>&
+    org_id=<org_id>&
+    page_size=10&
+    page_number=0
+Authorization: Bearer {{API_KEY}}
+
+<> ./sesame_responses/success_response_(200).200_34.json
+// {{AUTH_URL}}/api/backend/v1/end_user_api_keys?user_id=<user_id>&user_email=<user_email>&org_id=<org_id>&page_size=10&page_number=0
+
+###
+# group: API Key APIs
+# @name Fetch Expired API Keys
+GET {{AUTH_URL}}/api/backend/v1/end_user_api_keys/archived?
+    user_id=<user_id>&
+    user_email=<user_email>&
+    org_id=<org_id>&
+    page_size=10&
+    page_number=0
+Authorization: Bearer {{API_KEY}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+
+--WebAppBoundary
+
+<> ./sesame_responses/success_response_(200).200_35.json
+// {{AUTH_URL}}/api/backend/v1/end_user_api_keys/archived?user_id=<user_id>&user_email=<user_email>&org_id=<org_id>&page_size=10&page_number=0
+
+###
+# group: Social Login APIs
+# @name Fetch User OAuth Tokens
+GET {{AUTH_URL}}/api/backend/v1/user/{{USER_ID}}/oauth_token
+Authorization: Bearer {{API_KEY}}
+
+###
+# group: Step-Up MFA APIs
+# @name Verify TOTP Challenge
+POST {{AUTH_URL}}/api/backend/v1/mfa/step-up/verify-totp
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "action_type": "SENSITIVE_ACTION",
+    "user_id": "{{USER_ID}}",
+    "code": "123456",
+    "grant_type": "TIME_BASED",
+    "valid_for_seconds": 60
+}
+
+<> ./sesame_responses/success_response_(200).200_36.json
+// {{AUTH_URL}}/api/backend/v1/mfa/step-up/verify-totp
+
+###
+# group: Step-Up MFA APIs
+# @name Verify Step-Up Grant
+POST {{AUTH_URL}}/api/backend/v1/mfa/step-up/verify-grant
+Authorization: Bearer {{API_KEY}}
+Content-Type: application/json
+
+{
+    "action_type": "SENSITIVE_ACTION",
+    "user_id": "{{USER_ID}}",
+    "grant": "765ba468d62..."
+}
+
+<> ./sesame_responses/success_response_(200).200_37.json
+// {{AUTH_URL}}/api/backend/v1/mfa/step-up/verify-grant

@@ -1,0 +1,47 @@
+version: '3.9'
+services:
+  # Postgres database with Supabase (pgjwt) extension support
+  db:
+    image: supabase/postgres:17.0.1.078-orioledb
+    container_name: supabase_db
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  prism:
+    image:  sesame-prism:latest
+    container_name: sesame_prism
+    ports:
+      - "4010:4010"
+
+  # see https://github.com/mailhog/MailHog
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    environment:
+      - MH_STORAGE=maildir
+
+
+#  backend:
+#    build: ./sesame
+#    container_name: backend_service
+#    environment:
+#      DATABASE_URL: postgres://postgres:example@db:5432/postgres
+#      JWT_SECRET: supersecretkey
+#      HOST_PORT: 0.0.0.0:3000
+#    depends_on:
+#      - db
+#    ports:
+#      - "3000:3000"
+
+volumes:
+  db_data:

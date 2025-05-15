@@ -1,0 +1,36 @@
+{
+  "api_keys": [
+    {
+      "api_key_id": "6ba56a96c76f86141435c8211309f4c8",
+      "created_at": 1712846425,
+      "expires_at_seconds": 1630425600,
+      "metadata": {
+        "customKey": "customValue"
+      },
+      "user_id": "a04d69d7-9347-48a3-aa01-8e7ce9aeee04",
+      "org_id": "4896c602-7c67-4d32-a25d-5adb9a15a60e"
+    },
+    {
+      "api_key_id": "8488868c3e6b31adaf7883c31e78c0d9",
+      "created_at": 1712846196,
+      "expires_at_seconds": 1,
+      "metadata": null,
+      "user_id": "813a8a12-eecc-4629-a36e-16e73d094b54",
+      "org_id": null
+    },
+    {
+      "api_key_id": "a7dcac6aba8deb36d50a600698b776a1",
+      "created_at": 1705684299,
+      "expires_at_seconds": 1,
+      "metadata": {
+        "customKey": "customValue"
+      },
+      "user_id": null,
+      "org_id": null
+    }
+  ],
+  "total_api_keys": 3,
+  "current_page": 0,
+  "page_size": 10,
+  "has_more_results": false
+}
