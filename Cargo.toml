@@ -1,0 +1,10 @@
+[workspace]
+members = ["microservices"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+# All IDAM crate members are defined in microservices/Cargo.toml.
+# Current microservices: idam/authentication, idam/authorization (gen/impl to be added when implementing).

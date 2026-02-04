@@ -1,0 +1,13 @@
+---
+# Sesame-IDAM Microservices Namespace
+# Create at cluster creation (e.g. just dev-up). Tilt does not manage it.
+# If stuck in "Terminating": kubectl patch namespace sesame-idam -p '{"metadata":{"finalizers":[]}}' --type=merge
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sesame-idam
+  labels:
+    app: sesame-idam
+    managed-by: cluster-bootstrap
+  annotations:
+    description: "Sesame-IDAM microservices (authentication, authorization)"

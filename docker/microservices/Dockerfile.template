@@ -1,0 +1,29 @@
+# Minimal runtime-only Dockerfile for Sesame-IDAM {{service_name}} (Tilt development)
+# Same pattern as RERP. Binary is cross-compiled on host and copied in.
+# Rendered with --service authentication or --service authorization.
+# Build: docker build -f docker/microservices/Dockerfile.<service> ... or render template.
+#
+# Multi-arch: TARGETARCH amd64 | arm64 | arm/v7.
+
+FROM alpine:3.19
+
+ARG TARGETARCH=amd64
+COPY ./build_artifacts/${TARGETARCH}/{{binary_name}} /app/{{binary_name}}
+RUN chmod +x /app/{{binary_name}}
+
+RUN mkdir -p /app/config /app/doc /app/static_site && chmod -R 777 /app
+
+COPY ./microservices/idam/{{module}}/impl/config /app/config
+COPY ./microservices/idam/{{module}}/gen/doc /app/doc
+COPY ./microservices/idam/{{module}}/gen/static_site /app/static_site
+
+EXPOSE {{port}}
+
+ENV RUST_BACKTRACE=1
+ENV RUST_LOG=debug
+
+ENTRYPOINT ["/app/{{binary_name}}", \
+    "--spec", "/app/doc/openapi.yaml", \
+    "--doc-dir", "/app/doc", \
+    "--static-dir", "/app/static_site", \
+    "--config", "/app/config/config.yaml"]

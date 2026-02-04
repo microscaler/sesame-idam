@@ -1,0 +1,28 @@
+[workspace]
+members = [
+    # IDAM microservices (gen/impl crates to be added when implementing)
+    # "idam/authentication/gen",
+    # "idam/authentication/impl",
+    # "idam/authorization/gen",
+    # "idam/authorization/impl",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+# Uncomment and adjust paths when adding implementations (BRRTRouter, lifeguard, etc.)
+# brrtrouter = { path = "../../BRRTRouter", default-features = false }
+# brrtrouter_macros = { path = "../../BRRTRouter/brrtrouter_macros" }
+# lifeguard = { path = "../../lifeguard" }
+# lifeguard-derive = { path = "../../lifeguard/lifeguard-derive" }
+# serde = { version = "1.0", features = ["derive"] }
+# serde_json = "1.0"
+# anyhow = "1.0"
+# config = "0.14"
+# http = "1.0"
+# may = "0.3"
+# may_minihttp = "0.1"
+# clap = { version = "4.5", features = ["derive"] }

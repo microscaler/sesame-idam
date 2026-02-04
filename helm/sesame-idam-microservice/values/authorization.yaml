@@ -1,0 +1,13 @@
+service:
+  name: authorization
+  port: 8002
+  containerPort: 8002
+  nodePort: 30802
+image:
+  name: sesame-idam-authorization
+  tag: tilt
+deployment:
+  namespace: sesame-idam
+app:
+  binaryName: authorization
+  serviceName: authorization
