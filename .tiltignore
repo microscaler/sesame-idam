@@ -1,0 +1,25 @@
+# Tilt file watching (same DX as RERP)
+# Speeds up Tilt by not watching unnecessary files
+
+# Tooling
+tooling/.venv/
+tooling/**/__pycache__/
+tooling/**/*.pyc
+tooling/.pytest_cache/
+tooling/.ruff_cache/
+tooling/**/*.egg-info/
+tooling/dist/
+
+# Build artifacts
+target/
+build_artifacts/
+microservices/target/
+
+# IDE / OS
+.idea/
+.vscode/
+.git/
+.DS_Store
+*.log
+*.swp
+*.swo

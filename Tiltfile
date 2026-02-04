@@ -1,68 +1,98 @@
-# Usage default features:
-# tilt up
-#
-# Usage with features:
-# tilt up telemetry
-config.define_string("features", args=True)
+# Sesame-IDAM Development Environment (same DX as RERP)
+# Run with: tilt up
+# Cluster: kind-sesame-idam (create with: just dev-up)
+
+allow_k8s_contexts(['kind-sesame-idam'])
+
+update_settings(k8s_upsert_timeout_secs=60)
+config.define_string('tilt_port', args=False, usage='Port for Tilt web UI')
 cfg = config.parse()
+tilt_port = cfg.get('tilt_port', '10351')
+os.putenv('TILT_PORT', tilt_port)
 
+# ====================
+# Tooling (sesame CLI)
+# ====================
+TOOLING_IGNORE = [
+    '**/*.pyc',
+    '**/*.pyo',
+    '**/__pycache__',
+    '**/.pytest_cache',
+    '**/.coverage',
+    '**/.coverage.*',
+    '**/htmlcov',
+    '**/coverage.xml',
+    '**/.ruff_cache',
+    '**/.mypy_cache',
+    '**/*.egg',
+    '**/*.egg-info',
+    '**/.eggs',
+    '**/dist',
+    '**/.hypothesis',
+]
 
-features = cfg.get('features', "")
-print("compiling with features: {}".format(features))
+local_resource(
+    'build-tooling',
+    'just build-tooling',
+    deps=[
+        './tooling/src',
+        './tooling/pyproject.toml',
+    ],
+    ignore=TOOLING_IGNORE,
+    labels=['tooling'],
+    allow_parallel=True,
+)
 
-load('ext://configmap', 'configmap_create')
-k8s_yaml('./yaml/services/collector/collector.yaml')
-k8s_yaml('./yaml/services/prometheus/prometheus.yaml')
-k8s_yaml('./yaml/services/prometheus/config.yaml')
-k8s_yaml('./yaml/services/grafana/grafana.yaml')
-configmap_create('tilt-grafana-config',
-                 from_file=[
-                   'grafana.ini=./yaml/services/grafana/grafana.ini',
-                   'dashboards.yaml=./yaml/services/grafana/dashboards.yaml',
-                   'datasource-prometheus.yaml=./yaml/services/grafana/datasource-prometheus.yaml',
-                 ])
-configmap_create('tilt-grafana-dashboards',
-                 from_file=[
-                   'tiltfile-execution.json=./yaml/services/grafana/tiltfile-execution.json',
-                 ])
+local_resource(
+    'lint-tooling',
+    'just lint-fix && just format',
+    deps=[
+        './tooling/src',
+        './tooling/tests',
+        './tooling/pyproject.toml',
+    ],
+    ignore=TOOLING_IGNORE,
+    labels=['tooling'],
+    allow_parallel=True,
+)
 
-k8s_resource('tilt-local-metrics-collector',
-             port_forwards=[
-               port_forward(4317, name='receiverGrpc'),
-               port_forward(8888),
-             ],
-             links=[
-               link('http://localhost:8888/metrics', 'metrics'),
-             ])
+local_resource(
+    'test-tooling',
+    'tooling/.venv/bin/pytest tooling/tests -v --tb=short',
+    deps=[
+        './tooling/src',
+        './tooling/tests',
+        './tooling/pyproject.toml',
+    ],
+    ignore=TOOLING_IGNORE,
+    labels=['tooling'],
+    allow_parallel=True,
+)
 
+# ====================
+# Data components (Redis; Supabase Postgres externalised to microscaler-supabase)
+# ====================
+# Supabase stack (namespace data, postgres, etc.) is applied via: just supabase-apply
+# (requires microscaler-supabase as side-clone at ../microscaler-supabase).
+# Tilt loads: sesame-idam namespace, Redis PV, Redis.
 
-k8s_resource('tilt-local-metrics-prometheus',
-             port_forwards=[
-               port_forward(10353, 9090, name='prometheus'),
-             ],
-             resource_deps=['tilt-local-metrics-collector'])
+k8s_yaml('k8s/microservices/namespace.yaml')
+k8s_yaml('k8s/data/persistent-volumes.yaml')
+k8s_yaml('k8s/data/redis.yaml')
 
-k8s_resource('tilt-local-metrics-grafana',
-             port_forwards=[
-               port_forward(10354, 3000, name='grafana'),
-             ],
-             resource_deps=['tilt-local-metrics-prometheus'])
+k8s_resource(
+    'redis',
+    port_forwards=['6379:6379'],
+    labels=['data'],
+)
 
-# experimental_metrics_settings(
-#  enabled=True, address='localhost:8888', insecure=True, reporting_period='5s')
-
-
-local_resource('fmt', 'just fmt')
-local_resource('Pedantic as Fuck', 'just clippy')
-local_resource('compile', 'just compile %s' % features)
-local_resource('unit-test', 'just test-unit')
-local_resource('test-telemetry', 'just test-telemetry')
-docker_build('casibbald/yair-controller', '.', dockerfile='Dockerfile')
-# local_resource('cleanup', 'just cleanup-resources')
-local_resource('generate', 'just generate')
-k8s_yaml('yaml/doc_crds/crd.yaml')
-k8s_yaml('yaml/doc_crds/instance-samuel.yaml')
-k8s_yaml('yaml/doc_crds/instance-lorem.yaml')
-k8s_yaml('yaml/doc_crds/instance-illegal.yaml')
-k8s_yaml('yaml/deployment.yaml')
-k8s_resource('yair-controller', port_forwards=8080,)
+# ====================
+# IDAM Microservices (when gen+impl exist)
+# ====================
+# When microservices/idam/authentication/gen and impl (and authorization) exist:
+# - Add create_microservice_lint(name, spec) for openapi/idam/authentication/openapi.yaml etc.
+# - Add create_microservice_gen(name, spec, output_dir) calling just gen-auth / just gen-authorization or sesame gen
+# - Add create_microservice_build_resource(name) and create_microservice_deployment(name)
+# - Use docker/microservices/Dockerfile.template, helm/sesame-idam-microservice, build_artifacts/amd64/
+# - Ports: authentication 8001, authorization 8002 (see helm values/)
+# For now only tooling is live; run just gen to generate gen crates, then add impl and wire Tilt here.

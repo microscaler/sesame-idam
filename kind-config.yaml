@@ -1,0 +1,42 @@
+# Kind cluster configuration for Sesame-IDAM (same DX as RERP)
+# Port mappings: PostgreSQL 5433, Redis 6379, Prometheus 9091, Grafana 3002
+# Microservice ports (8001, 8002) are forwarded by Tilt; do NOT add hostPort for them.
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: sesame-idam
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # PostgreSQL (host 5433 to avoid conflict with local postgres on 5432)
+      - containerPort: 30432
+        hostPort: 5433
+        protocol: TCP
+      # Redis
+      - containerPort: 30379
+        hostPort: 6379
+        protocol: TCP
+      # Prometheus (NodePort)
+      - containerPort: 30091
+        hostPort: 9091
+        protocol: TCP
+      # Grafana
+      - containerPort: 30002
+        hostPort: 3002
+        protocol: TCP
+    # Mount host dir for PV data (postgres, redis) so data persists across cluster restarts
+    extraMounts:
+      - hostPath: /tmp/sesame-idam-data
+        containerPath: /mnt/sesame-idam-data
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
+      endpoint = ["http://kind-registry:5000"]
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]
+      endpoint = ["http://kind-registry:5000"]
