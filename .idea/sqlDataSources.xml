@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DdlMappings">
+    <mapping uuid="766c2536-59c7-46c8-892f-8baed0e84216" name="DDL data source Mapping">
+      <data-sources db="3c2dc200-74a3-4bf6-884e-590d7a40b721" ddl="21ec6531-00e1-44bd-ab04-655206964695" />
+      <scope>
+        <node kind="database" qname="postgres" />
+      </scope>
+    </mapping>
+  </component>
+  <component name="SqlDataSourceStorage">
+    <option name="dataSources">
+      <list>
+        <State>
+          <option name="id" value="21ec6531-00e1-44bd-ab04-655206964695" />
+          <option name="name" value="sesame" />
+          <option name="dbmsName" value="POSTGRES" />
+          <option name="urls">
+            <array>
+              <option value="file://$PROJECT_DIR$/docs/mermaid/sesame_Complete.ddl" />
+            </array>
+          </option>
+          <option name="outLayout" value="File per object by schema.groovy" />
+        </State>
+      </list>
+    </option>
+  </component>
+</project>
