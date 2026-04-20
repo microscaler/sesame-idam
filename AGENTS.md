@@ -1,5 +1,17 @@
 # Sesame-IDAM Agent Notes
 
+> **Desktop dev environment** — before doing anything in this repo, read the
+> Microscaler-wide topology brief. It explains that you are on a Mac but the
+> code lives on `ms02` (NFS), where commands execute for this environment, how
+> the Kind cluster and vLLM fit in, and the network constraints behind the SSH
+> tunneling. Do not duplicate its contents here — link to it. If reality drifts,
+> fix the canonical doc, not this copy.
+>
+> - GitHub: [`cylon-local-infra/docs/desktop-dev-environment.md`](https://github.com/microscaler/cylon-local-infra/blob/main/docs/desktop-dev-environment.md)
+> - On ms02 NFS: `~/Workspace/microscaler/cylon-local-infra/docs/desktop-dev-environment.md`
+
+---
+
 **Purpose:** Quick reference for agentic coding assistants working on the Sesame-IDAM repository.
 
 ## Repository role
