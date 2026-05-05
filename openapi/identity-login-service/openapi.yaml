@@ -1,0 +1,1119 @@
+# Sesame-IDAM login-service Service - OpenAPI 3.1
+# Extracted from openapi/identity-auth/openapi.yaml
+# Login Service
+openapi: 3.1.0
+info:
+  title: Login Service
+  version: 1.0.0
+  description: |
+    Slow-path service for authentication flows.
+    Handles password login, registration, token exchange, password reset,
+    social login redirects, and OAuth2 authorization.
+    HIGH frequency with HIGH per-request cost (bcrypt/scrypt hashing, token signing).
+    CPU-bound operations limit throughput — requires vertical scaling.
+  contact:
+    name: Platform / Security
+
+servers:
+  - url: /auth
+    description: Login Service API
+
+tags:
+  - name: AuthFlows
+    description: Authentication flows (login, register, token exchange, OTP, social)
+  - name: PasswordReset
+    description: Forgot/reset password flows
+  - name: SocialLogin
+    description: OAuth provider login redirects (GitHub, Google, SAML)
+  - name: Sessions
+    description: Token management and session lifecycle
+
+security:
+  - BearerAuth: []
+  - ApiKeyHeader: []
+
+paths:
+  # ============================================================================
+  # PASSWORD AUTH
+  # ============================================================================
+
+  /auth/login:
+    post:
+      tags: [AuthFlows]
+      summary: Login with password
+      description: |
+        Authenticate with email+password. Returns access token and refresh token.
+        If MFA is enabled on the account, returns 202 with MFA verification flow.
+      operationId: auth_login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '202':
+          description: MFA required — complete step 2 with MFA code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaRequiredResponse'
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # EMAIL OTP AUTH (PriceWhisperer dual-verification flow)
+  # ============================================================================
+
+  /auth/login/email-otp:
+    post:
+      tags: [AuthFlows]
+      summary: Send email OTP
+      description: |
+        Sends a time-limited OTP code to the user's email address.
+        Used for passwordless email login and dual OTP verification.
+      operationId: login_email_otp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailOTPRequest'
+      responses:
+        '200':
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Verification code sent to your email"
+        '400':
+          description: Bad request (invalid email, account not found)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/verify/email-otp:
+    post:
+      tags: [AuthFlows]
+      summary: Verify email OTP and complete login
+      description: |
+        Verifies the OTP code sent to the user's email. On success, returns
+        access token and refresh token. This is step 2 of the email-only OTP flow.
+      operationId: verify_email_otp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailOTPVerifyRequest'
+      responses:
+        '200':
+          description: Email verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # PHONE OTP AUTH (PriceWhisperer dual-verification flow)
+  # ============================================================================
+
+  /auth/login/phone-otp:
+    post:
+      tags: [AuthFlows]
+      summary: Send phone SMS OTP
+      description: |
+        Sends a 6-digit SMS OTP code to the user's phone number.
+        Used for passwordless phone login and dual OTP verification.
+      operationId: login_phone_otp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneOTPRequest'
+      responses:
+        '200':
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Verification code sent to your phone"
+        '400':
+          description: Bad request (invalid phone, SMS provider error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/verify/phone-otp:
+    post:
+      tags: [AuthFlows]
+      summary: Verify phone SMS OTP and complete login
+      description: |
+        Verifies the 6-digit SMS OTP code. On success, returns access token
+        and refresh token. Sets phone_verified=true on the user's profile.
+        This is step 2 of the phone-only OTP flow.
+      operationId: verify_phone_otp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneOTPVerifyRequest'
+      responses:
+        '200':
+          description: Phone verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # DUAL OTP AUTH (PriceWhisperer dual-verification flow)
+  # ============================================================================
+
+  /auth/login/dual-otp:
+    post:
+      tags: [AuthFlows]
+      summary: Send OTPs to both email and phone simultaneously
+      description: |
+        Step 1 of dual OTP verification. Sends OTP codes to both the user's
+        email and phone number. User must verify both codes before login completes.
+        Used when a user is signing up or logging in with both email and phone provided.
+      operationId: login_dual_otp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DualOTPRequest'
+      responses:
+        '200':
+          description: OTPs sent to both channels
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DualOTPResponse'
+        '400':
+          description: Bad request (missing email or phone, user not found)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/verify/dual-otp:
+    post:
+      tags: [AuthFlows]
+      summary: Verify dual OTP codes and complete login
+      description: |
+        Step 2 of dual OTP verification. Accepts one or both OTP codes.
+        User can verify email and phone in any order. On both verified, returns tokens.
+      operationId: verify_dual_otp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DualOTPVerifyRequest'
+      responses:
+        '200':
+          description: Both codes verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DualOTPCompleteResponse'
+        '206':
+          description: Partial verification — one code verified, await the other
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DualOTPPartialResponse'
+        '400':
+          description: Invalid or expired codes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # REGISTRATION
+  # ============================================================================
+
+  /auth/register:
+    post:
+      tags: [AuthFlows]
+      summary: Register new user with email and password
+      description: |
+        Creates a new user account with email+password.
+        Returns access token immediately if email auto-verified, otherwise returns
+        pending-verification state requiring email confirmation.
+      operationId: auth_register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created and logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '202':
+          description: User created, email confirmation required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingEmailVerificationResponse'
+        '400':
+          description: Validation error (duplicate email, weak password)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # TOKEN EXCHANGE
+  # ============================================================================
+
+  /auth/token:
+    post:
+      tags: [Sessions]
+      summary: Token endpoint (refresh, client_credentials, token_exchange RFC 8693)
+      description: |
+        OAuth2 token endpoint supporting:
+        - refresh_token grant: rotate refresh token, issue new access token
+        - client_credentials grant: M2M token for service accounts
+        - urn:ietf:params:oauth:grant-type:token-exchange: cross-token exchange
+      operationId: auth_token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: Token issued or refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid grant type or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # PASSWORD RESET
+  # ============================================================================
+
+  /auth/forgot-password:
+    post:
+      tags: [PasswordReset]
+      summary: Request password reset email
+      description: |
+        Sends a password reset email with a time-limited token to the given email.
+      operationId: auth_forgot_password
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Reset email sent (returns success regardless of email existence)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "If the email is registered, a reset link has been sent"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/reset-password:
+    post:
+      tags: [PasswordReset]
+      summary: Confirm password reset with token
+      description: |
+        Validates the reset token from the password reset email and sets a new password.
+      operationId: auth_reset_password
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Password has been reset successfully"
+        '400':
+          description: Invalid or expired reset token, weak new password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # LOGOUT
+  # ============================================================================
+
+  /auth/logout:
+    post:
+      tags: [Sessions]
+      summary: Logout (revoke refresh token)
+      description: |
+        Revokes the current refresh token and ends the user's session.
+        Requires BearerAuth header with a valid access token.
+      operationId: auth_logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '204':
+          description: Logged out successfully
+        '401':
+          description: Unauthorized (invalid or missing token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # SOCIAL LOGIN (GitHub, Google, etc.)
+  # ============================================================================
+
+  /social/{provider}/login:
+    get:
+      tags: [SocialLogin]
+      summary: Initiate OAuth login with provider
+      description: |
+        Redirects the user to the OAuth provider's login page.
+        Providers: google, github, linkedin, facebook, apple, microsoft, or custom.
+        For GitHub specifically: used by PriceWhisperer platform login flow.
+      operationId: social_login
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string }
+          description: OAuth provider name (e.g., github, google)
+        - name: redirect_uri
+          in: query
+          required: true
+          schema: { type: string, format: uri }
+          description: Where to redirect after OAuth completion
+        - name: scope
+          in: query
+          schema: { type: string }
+          description: Additional OAuth scopes (e.g., "user:email" for GitHub)
+      responses:
+        '302':
+          description: Redirect to OAuth provider authorization page
+        '400':
+          description: Unsupported provider or missing redirect_uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /social/{provider}/callback:
+    post:
+      tags: [SocialLogin]
+      summary: Exchange OAuth provider callback for tokens
+      description: |
+        Step 2 of social login. Receives the provider's authorization code
+        (from OAuth redirect), exchanges it for tokens, and completes login.
+        For GitHub: exchanges the GitHub code for user profile + access tokens.
+      operationId: social_callback
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string }
+          description: OAuth provider name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialCallbackRequest'
+      responses:
+        '200':
+          description: OAuth flow complete, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLoginResponse'
+        '400':
+          description: Invalid code, state mismatch, or provider error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # OAUTH2 AUTHORIZATION (third-party app delegation)
+  # ============================================================================
+
+  /oauth/authorize:
+    get:
+      tags: [Sessions]
+      summary: OAuth2 authorization endpoint
+      description: |
+        Redirects user to the Sesame login page. Compatible with `code` response type.
+        After successful login, redirects to `redirect_uri` with `code` parameter.
+        Supports PKCE for public clients.
+      operationId: oauth_authorize
+      security: []
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema: { type: string }
+          description: OAuth2 client ID
+        - name: response_type
+          in: query
+          required: true
+          schema: { type: string, enum: [code] }
+          description: Must be `code` for authorization code flow
+        - name: redirect_uri
+          in: query
+          required: true
+          schema: { type: string, format: uri }
+          description: Registered redirect URI
+        - name: state
+          in: query
+          required: true
+          schema: { type: string }
+          description: CSRF protection state parameter
+        - name: scope
+          in: query
+          schema: { type: string }
+          description: Requested scopes (openid, email, profile, etc.)
+        - name: code_challenge
+          in: query
+          schema: { type: string }
+          description: PKCE code challenge (S256)
+        - name: code_challenge_method
+          in: query
+          schema: { type: string, enum: [S256, plain] }
+          description: PKCE method
+      responses:
+        '302':
+          description: Redirect to login page or back with authorization code
+
+  # ============================================================================
+  # COMPONENTS
+  # ============================================================================
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token (from Identity Service)
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+
+  schemas:
+    # ============================================================================
+    # AUTH ERROR RESPONSES
+    # ============================================================================
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum: [invalid_request, invalid_credentials, invalid_grant, invalid_code, account_locked, mfa_required, email_not_confirmed, phone_not_verified, duplicate_email, weak_password, rate_limited, invalid_token, not_found]
+          description: Machine-readable error code
+        error_description:
+          type: string
+          description: Human-readable error message
+        retry_after:
+          type: integer
+          description: Retry-After seconds (only for rate_limited)
+        hint:
+          type: string
+          description: Additional guidance for resolving the error
+
+    # ============================================================================
+    # LOGIN CREDENTIALS
+    # ============================================================================
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Primary email address
+        password:
+          type: string
+          minLength: 8
+          description: User's password
+        organization_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional org hint for multi-tenant login
+
+    # ============================================================================
+    # TOKEN RESPONSES
+    # ============================================================================
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in, refresh_token, user_id]
+      properties:
+        access_token:
+          type: string
+          description: JWT access token (valid for 15 minutes by default)
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Always "Bearer"
+        expires_in:
+          type: integer
+          description: "Access token lifetime in seconds (default: 900)"
+        refresh_token:
+          type: string
+          description: Refresh token for obtaining new access tokens
+        refresh_token_expires_in:
+          type: integer
+          description: "Refresh token lifetime in seconds (default: 2592000 = 30 days)"
+        user_id:
+          type: string
+          format: uuid
+          description: UUID of the authenticated user
+        email:
+          type: string
+          format: email
+          description: User's email address
+        email_verified:
+          type: boolean
+          description: Whether the email has been verified
+        phone_verified:
+          type: boolean
+          description: Whether the phone has been verified
+        mfa_required:
+          type: boolean
+          description: Whether MFA is required for this user (false means login complete)
+
+    PendingEmailVerificationResponse:
+      type: object
+      required: [user_id, email, email_verified]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: UUID of the newly created user
+        email:
+          type: string
+          format: email
+          description: Email address (unverified)
+        email_verified:
+          type: boolean
+          description: Always false — user must confirm via email link
+        message:
+          type: string
+          example: "A confirmation email has been sent. Please verify your email to complete registration."
+
+    # ============================================================================
+    # MFA
+    # ============================================================================
+
+    MfaRequiredResponse:
+      type: object
+      required: [mfa_required, challenge_type]
+      properties:
+        mfa_required:
+          type: boolean
+          example: true
+        challenge_type:
+          type: string
+          enum: [totp, sms, email, webauthn]
+          description: Type of MFA challenge to complete
+        session_id:
+          type: string
+          format: uuid
+          description: Session identifier for completing the MFA step
+        expires_in:
+          type: integer
+          description: Seconds until the MFA challenge expires
+
+    # ============================================================================
+    # EMAIL OTP (PriceWhisperer dual-verification)
+    # ============================================================================
+
+    EmailOTPRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address to send OTP to
+
+    EmailOTPVerifyRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address that received the OTP
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          description: 6-digit OTP code sent to email
+
+    # ============================================================================
+    # PHONE OTP (PriceWhisperer dual-verification)
+    # ============================================================================
+
+    PhoneOTPRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          pattern: '^\\+[1-9]\\d{1,14}$'
+          description: Phone number in E.164 format (e.g. +14155551234)
+
+    PhoneOTPVerifyRequest:
+      type: object
+      required: [phone, code]
+      properties:
+        phone:
+          type: string
+          pattern: '^\\+[1-9]\\d{1,14}$'
+          description: Phone number that received the OTP (E.164 format)
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          description: 6-digit SMS OTP code
+
+    # ============================================================================
+    # DUAL OTP (PriceWhisperer dual-verification — both email + phone)
+    # ============================================================================
+
+    DualOTPRequest:
+      type: object
+      required: [email, phone]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address to send OTP to
+        phone:
+          type: string
+          pattern: '^\\+[1-9]\\d{1,14}$'
+          description: Phone number in E.164 format (e.g. +14155551234)
+        send_welcome_email:
+          type: boolean
+          default: false
+          description: Send welcome email after successful verification
+
+    DualOTPResponse:
+      type: object
+      required: [success, email_sent, phone_sent]
+      properties:
+        success:
+          type: boolean
+          example: true
+        email_sent:
+          type: boolean
+          description: Whether OTP was sent to email
+        phone_sent:
+          type: boolean
+          description: Whether OTP was sent to phone
+        email_verified:
+          type: boolean
+          example: false
+          description: Whether email was previously verified
+        phone_verified:
+          type: boolean
+          example: false
+          description: Whether phone was previously verified
+        both_verified:
+          type: boolean
+          example: false
+          description: Whether both were already verified (auto-complete login)
+        message:
+          type: string
+          example: "Verification codes have been sent to your email and phone"
+
+    DualOTPVerifyRequest:
+      type: object
+      required: [email, phone]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address to verify
+        email_code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          nullable: true
+          description: 6-digit email OTP code (omit if already verified)
+        phone:
+          type: string
+          pattern: '^\\+[1-9]\\d{1,14}$'
+          description: Phone number to verify (E.164 format)
+        phone_code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          nullable: true
+          description: 6-digit phone OTP code (omit if already verified)
+        session_id:
+          type: string
+          format: uuid
+          description: Session ID from the dual-otp send step
+
+    DualOTPCompleteResponse:
+      type: object
+      required: [success, access_token, token_type, expires_in, refresh_token, user_id]
+      allOf:
+        - $ref: '#/components/schemas/TokenResponse'
+      properties:
+        email_verified:
+          type: boolean
+          description: Email verification status after this operation
+        phone_verified:
+          type: boolean
+          description: Phone verification status after this operation
+        newly_verified_email:
+          type: boolean
+          description: Whether email was just verified in this operation
+        newly_verified_phone:
+          type: boolean
+          description: Whether phone was just verified in this operation
+
+    DualOTPPartialResponse:
+      type: object
+      required: [success, email_verified, phone_verified, both_verified]
+      properties:
+        success:
+          type: boolean
+          example: true
+        email_verified:
+          type: boolean
+          description: Current email verification status
+        phone_verified:
+          type: boolean
+          description: Current phone verification status
+        both_verified:
+          type: boolean
+          description: Always false — both codes still needed
+        message:
+          type: string
+          example: "Email verified. Please verify your phone to complete login."
+
+    # ============================================================================
+    # REGISTRATION
+    # ============================================================================
+
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Primary email address (must be unique)
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: User's password (minimum 8 characters)
+        first_name:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: User's first name
+        last_name:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: User's last name
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          nullable: true
+          description: Optional human-identifiable username
+        phone:
+          type: string
+          pattern: '^\\+[1-9]\\d{1,14}$'
+          nullable: true
+          description: Phone number in E.164 format (for dual verification flow)
+
+    # ============================================================================
+    # TOKEN EXCHANGE
+    # ============================================================================
+
+    TokenRequest:
+      type: object
+      required: [grant_type]
+      properties:
+        grant_type:
+          type: string
+          enum: [refresh_token, client_credentials, urn:ietf:params:oauth:grant-type:token-exchange]
+          description: OAuth2 grant type
+        refresh_token:
+          type: string
+          description: Refresh token (required for refresh_token grant)
+        scope:
+          type: string
+          description: Requested scopes (space-separated)
+        client_id:
+          type: string
+          description: Client ID (required for client_credentials and token exchange)
+        client_secret:
+          type: string
+          description: Client secret (required for client_credentials and token exchange)
+        subject_token:
+          type: string
+          description: Subject token for token exchange (RFC 8693)
+        subject_token_type:
+          type: string
+          enum: [urn:ietf:params:oauth:token-type:access_token, urn:ietf:params:oauth:token-type:refresh_token]
+          description: Type of the subject token
+        requested_token_type:
+          type: string
+          enum: [urn:ietf:params:oauth:token-type:access_token, urn:ietf:params:oauth:token-type:refresh_token]
+          description: Type of token being requested
+
+    # ============================================================================
+    # PASSWORD RESET
+    # ============================================================================
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address to send reset link to
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, new_password]
+      properties:
+        token:
+          type: string
+          description: Password reset token from the reset email
+        new_password:
+          type: string
+          minLength: 8
+          description: New password (minimum 8 characters)
+
+    # ============================================================================
+    # LOGOUT
+    # ============================================================================
+
+    LogoutRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token to revoke (sent in body if not in header)
+
+    # ============================================================================
+    # SOCIAL LOGIN
+    # ============================================================================
+
+    SocialCallbackRequest:
+      type: object
+      required: [code, state]
+      properties:
+        code:
+          type: string
+          description: Authorization code from the OAuth provider redirect
+        state:
+          type: string
+          description: CSRF state parameter (must match the one from login)
+        redirect_uri:
+          type: string
+          format: uri
+          description: Redirect URI used in the initial login request
+
+    SocialLoginResponse:
+      type: object
+      required: [access_token, token_type, expires_in, refresh_token, user_id, social_provider]
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Always "Bearer"
+        expires_in:
+          type: integer
+          description: Access token lifetime in seconds
+        refresh_token:
+          type: string
+          description: Refresh token
+        user_id:
+          type: string
+          format: uuid
+          description: UUID of the authenticated user
+        email:
+          type: string
+          format: email
+          description: User's email from the social provider
+        email_verified:
+          type: boolean
+          description: Whether the provider verified the email
+        social_provider:
+          type: string
+          description: OAuth provider name (e.g., "github", "google")
+        social_provider_user_id:
+          type: string
+          description: User ID from the social provider
+
+  examples:
+    LoginSuccessful:
+      value:
+        access_token: "eyJhbGciOiJSUzI1NiIs..."
+        token_type: "Bearer"
+        expires_in: 900
+        refresh_token: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+        user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d"
+        email: "test@example.com"
+        email_verified: true
+        phone_verified: false
+        mfa_required: false
+
+    DualOTPSent:
+      value:
+        success: true
+        email_sent: true
+        phone_sent: true
+        email_verified: false
+        phone_verified: false
+        both_verified: false
+        message: "Verification codes have been sent to your email and phone"
+
+    SocialCallbackComplete:
+      value:
+        access_token: "eyJhbGciOiJSUzI1NiIs..."
+        token_type: "Bearer"
+        expires_in: 900
+        refresh_token: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+        user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d"
+        email: "developer@example.com"
+        email_verified: true
+        social_provider: "github"
+        social_provider_user_id: "12345"

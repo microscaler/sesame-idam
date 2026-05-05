@@ -1,16 +1,33 @@
 # IDAM domain
 
-Identity and Access Management (IDAM) microservices. Layout follows RERP-style: each service can have `gen/` (BRRTRouter-generated API crate) and `impl/` (implementation binary).
+> **Four independent services.** Driven by per-endpoint access frequency AND per-request cost.
+> See `docs/service-topology-design.md` for the full analysis.
 
 ## Microservices
 
-| Service | Description |
-|---------|-------------|
-| **authentication** | Identity and auth: login, refresh, logout, token exchange, register, sessions, JWKS/OIDC discovery. Aligns with [Generic Identity Service](https://github.com/microscaler/BRRTRouter/blob/main/docs/SPIFFY_mTLS/Generic_Identity_Service_IDAM_Design.md) and `identity-openapi.yaml`. |
-| **authorization** | Access Management: applications, roles, permissions, principal assignments, `principal/effective`, `authorize`. Aligns with [Generic Access Management Service](https://github.com/microscaler/BRRTRouter/blob/main/docs/SPIFFY_mTLS/Generic_Access_Management_Service_Design.md) and `access-management-openapi.yaml`. |
+| Service | OpenAPI | Base Path | Port | Frequency | Cost | Responsibility |
+|---------|---------|-----------|------|-----------|------|----------------|
+| **identity-auth** | `openapi/identity-auth/` (4 sub-specs) | `/auth/*`, `/.well-known/*` | 8001 | HIGH | Mixed | Login, register, refresh, logout, MFA, password reset, OIDC, JWKS, user CRUD, sessions, token exchange (RFC 8693) |
+| **authz-core** | `openapi/authz-core/openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | 8002 | EXTREME | LOW | Per-request authorization checks, principal/effective resolution, role/permission evaluation |
+| **api-keys** | `openapi/api-keys/openapi.yaml` | `/api/v1/am/api-keys/*` | 8003 | HIGH | LOW | API key lifecycle, validation (personal + org variants), rotation, revocation |
+| **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | 8004 | LOW | MEDIUM | Org/tenant CRUD, memberships, invitations, SSO/SAML/SCIM, roles, permissions, applications, webhooks |
 
-Further IDAM components (e.g. discovery, session store) may be added under `idam/` as needed.
+### inter-service dependencies
 
-## OpenAPI
+```
+identity-auth ──calls──→ authz-core (at login only, for JWT claim enrichment)
 
-Specs are under repo root `openapi/idam/` (see `openapi/idam/authentication/`, `openapi/idam/authorization/`). Canonical sources: `BRRTRouter/docs/SPIFFY_mTLS/openapi/`.
+api-keys (independent, no calls to other services)
+
+org-mgmt (independent, no calls to other services)
+```
+
+The **only** cross-service dependency is identity-auth calling authz-core's `/principal/effective` endpoint at login time to populate JWT claims. After the JWT is issued, it is self-contained.
+
+### Implementation pattern
+
+Each service follows the BRRTRouter pattern:
+- `gen/` — BRRTRouter-generated crate from OpenAPI spec (controllers, handlers, registry)
+- `impl/` — Binary crate depending on `gen/`, plus persistence (lifeguard) and service-specific logic
+
+Add to `microservices/Cargo.toml` workspace members when implementing.

@@ -1,0 +1,1986 @@
+# Sesame-IDAM org-mgmt Service - OpenAPI 3.1
+# Extracted from openapi/authorization/openapi.yaml
+# Organization Management Service
+#Organization lifecycle, membership management, invitations, SSO/SAML/SCIM configuration, and application/role/permission definitions. Admin-heavy operations with low access frequency.
+openapi: 3.1.0
+info:
+  title: Organization Management Service
+  version: 1.0.0
+  description: |
+    Organization lifecycle, membership management, invitations, SSO/SAML/SCIM configuration, and application/role/permission definitions. Admin-heavy operations with low access frequency.
+  contact:
+    name: Platform / Security
+
+servers:
+  - url: /orgs
+    description: Org Mgmt API
+
+tags:
+  - name: Organizations
+    description: Organization lifecycle (create, fetch, update, delete, query)
+  - name: Membership
+    description: User-org relationships, invites, roles
+  - name: SSO
+    description: Enterprise SAML/OIDC/SCIM per-organisation configuration
+  - name: Applications
+    description: Register applications and define roles/permissions
+  - name: Roles
+    description: Roles per application
+  - name: Permissions
+    description: Permissions per application
+  - name: Webhooks
+    description: Webhook subscription management for real-time event notifications
+
+security:
+  - BearerAuth: []
+  - ApiKeyHeader: []
+
+paths:
+  # ============================================================================
+  # ORGANIZATION LIFECYCLE
+  # ============================================================================
+
+  # --- Create Org ---
+  /orgs:
+    post:
+      tags: [Organizations]
+      summary: Create organization
+      description: |
+        Creates a new organisation. SaaS customers can only create orgs they own.
+        Platform admins can create any org.
+      operationId: create_org
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrgRequest'
+      responses:
+        '201':
+          description: Organisation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Org'
+        '400':
+          description: Invalid request
+
+  # --- Query Orgs ---
+  /orgs:
+    get:
+      tags: [Organizations]
+      summary: Query for organisations
+      description: |
+        Paginated search for organisations. SaaS customers see only their own orgs.
+        Platform admins see all orgs.
+      operationId: query_orgs
+      parameters:
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+        - name: page_number
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: order_by
+          in: query
+          schema:
+            type: string
+            enum: [CREATED_AT_ASC, CREATED_AT_DESC, NAME]
+        - name: name
+          in: query
+          schema: { type: string }
+          description: Name filter (substring match)
+        - name: domain
+          in: query
+          schema: { type: string }
+          description: Filter by domain match
+        - name: legacy_org_id
+          in: query
+          schema: { type: string }
+          description: Filter by legacy ID from previous auth system
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Organisation list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgListResponse'
+
+  # --- Fetch Org ---
+  /orgs/{org_id}:
+    get:
+      tags: [Organizations]
+      summary: Fetch organisation by ID
+      description: Returns organisation details including SAML config, domain, metadata.
+      operationId: fetch_org
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Organisation found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Org'
+        '404':
+          description: Not found
+
+    put:
+      tags: [Organizations]
+      summary: Update organisation
+      description: |
+        Updates organisation fields. SaaS customers can only update their own orgs.
+      operationId: update_org
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrgRequest'
+      responses:
+        '200':
+          description: Organisation updated
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+    delete:
+      tags: [Organizations]
+      summary: Delete organisation
+      description: Irreversible deletion of organisation.
+      operationId: delete_org
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Organisation deleted
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # ORG MEMBERSHIP & ROLES
+  # ============================================================================
+
+  # --- Fetch Users in Org ---
+  /orgs/{org_id}/users:
+    get:
+      tags: [Membership]
+      summary: Fetch users in organisation
+      description: |
+        Returns users in this organisation with optional role filter.
+        SaaS customers see only users in their own orgs.
+      operationId: fetch_users_in_org
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: role
+          in: query
+          schema: { type: string }
+          description: Filter by role (case-sensitive)
+        - name: include_orgs
+          in: query
+          schema: { type: boolean }
+          description: Include all orgs each user belongs to in response
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+        - name: page_number
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Users in organisation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersInOrgResponse'
+
+  # --- Add User to Org ---
+  /orgs/{org_id}/add-user:
+    post:
+      tags: [Membership]
+      summary: Add user to organisation
+      description: |
+        Adds an existing user to this organisation with a specified role.
+        SaaS customers can only add users to their own orgs.
+      operationId: add_user_to_org
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddUserToOrgRequest'
+      responses:
+        '200':
+          description: User added
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+  # --- Invite User to Org ---
+  /orgs/{org_id}/invite-user:
+    post:
+      tags: [Membership]
+      summary: Invite user to organisation by email
+      description: |
+        Sends an email invitation to join this organisation with a specified role.
+        The invitee does not need to exist as a user yet.
+      operationId: invite_user_to_org
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteUserToOrgRequest'
+      responses:
+        '200':
+          description: Invite sent
+        '400':
+          description: Invalid request
+
+  # --- Invite User to Org by User ID ---
+  /orgs/{org_id}/invite-user-by-id:
+    post:
+      tags: [Membership]
+      summary: Invite existing user to organisation
+      description: |
+        Invites an already-registered user to join this organisation.
+        Sends an email notification.
+      operationId: invite_user_to_org_by_id
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteUserToOrgByIdRequest'
+      responses:
+        '200':
+          description: Invite sent
+        '400':
+          description: Invalid request
+
+  # --- Change User Role in Org ---
+  /orgs/{org_id}/change-role:
+    post:
+      tags: [Membership]
+      summary: Change user role in organisation
+      description: |
+        Changes a user's primary role and/or additional roles within this organisation.
+        Multi-role support allows a user to hold multiple roles in a single org.
+      operationId: change_user_role_in_org
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeUserRoleRequest'
+      responses:
+        '200':
+          description: Role changed
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+  # --- Remove User from Org ---
+  /orgs/{org_id}/remove-user:
+    post:
+      tags: [Membership]
+      summary: Remove user from organisation
+      description: |
+        Removes a user from this organisation. The user retains their account and may belong to other orgs.
+      operationId: remove_user_from_org
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveUserFromOrgRequest'
+      responses:
+        '200':
+          description: User removed
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # PENDING INVITES
+  # ============================================================================
+
+  # --- Fetch Pending Invites ---
+  /orgs/{org_id}/pending-invites:
+    get:
+      tags: [Membership]
+      summary: Fetch pending organisation invites
+      description: |
+        Returns paginated list of pending invites for this organisation.
+        Platform admins can filter by org_id; SaaS customers see only their own orgs.
+      operationId: fetch_pending_invites
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+        - name: page_number
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Pending invites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingInvitesResponse'
+
+  # --- Revoke Pending Invite ---
+  /orgs/{org_id}/pending-invites:
+    delete:
+      tags: [Membership]
+      summary: Revoke pending organisation invite
+      description: |
+        Cancels a pending invite. The invitee will no longer be able to accept.
+      operationId: revoke_pending_invite
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeInviteRequest'
+      responses:
+        '200':
+          description: Invite revoked
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # CUSTOM ROLE MAPPINGS & DOMAIN CONFIG
+  # ============================================================================
+
+  # --- Fetch Role Mappings ---
+  /orgs/{org_id}/role-mappings:
+    get:
+      tags: [Membership]
+      summary: Fetch custom role mappings for organisation
+      description: |
+        Returns the role configuration (e.g. "Free Plan", "Paid Plan") subscribed to this organisation.
+        Plan-based roles automatically assign roles/permissions to all org members.
+      operationId: fetch_role_mappings
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Role mappings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleMappingResponse'
+
+  # --- Subscribe Org to Role Mapping ---
+  /orgs/{org_id}/subscribe-role-mapping:
+    put:
+      tags: [Membership]
+      summary: Subscribe organisation to a role mapping
+      description: |
+        Links an organisation to a plan-based role configuration.
+        E.g., "Paid Plan" → all members get Admin + Member roles.
+      operationId: subscribe_org_to_role_mapping
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscribeRoleMappingRequest'
+      responses:
+        '200':
+          description: Subscription updated
+        '400':
+          description: Invalid mapping name
+        '404':
+          description: Not found
+
+  # --- Update Org Domains ---
+  /orgs/{org_id}/domains:
+    put:
+      tags: [Organizations]
+      summary: Update organisation domain settings
+      description: |
+        Configures domain-based auto-join, restrictions, and extra domains for the organisation.
+      operationId: update_org_domains
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgDomainsRequest'
+      responses:
+        '200':
+          description: Domains updated
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # ENTERPRISE SSO & SCIM
+  # ============================================================================
+
+  # --- Allow Org to Setup SAML ---
+  /orgs/{org_id}/allow-saml:
+    post:
+      tags: [SSO]
+      summary: Allow organisation to set up SAML SSO
+      description: |
+        Enables SAML self-setup for this organisation. Users can configure their own SAML IdP.
+      operationId: allow_org_saml
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: SAML setup allowed
+        '404':
+          description: Not found
+
+  # --- Disallow Org from SAML ---
+  /orgs/{org_id}/disallow-saml:
+    post:
+      tags: [SSO]
+      summary: Disallow organisation from using SAML SSO
+      description: |
+        Prevents this organisation from using SAML SSO. If SAML is already configured, it will be disabled.
+      operationId: disallow_org_saml
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: SAML disabled
+        '404':
+          description: Not found
+
+  # --- Create SAML Connection Link ---
+  /orgs/{org_id}/create-saml-link:
+    post:
+      tags: [SSO]
+      summary: Create SAML connection setup link
+      description: |
+        Creates a link that allows SAML setup without requiring login or account creation.
+        Useful for onboarding emails with self-serve SAML configuration.
+      operationId: create_saml_link
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SamlLinkRequest'
+      responses:
+        '200':
+          description: Connection link created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SamlConnectionLinkResponse'
+
+  # --- Fetch SAML SP Metadata ---
+  /orgs/{org_id}/saml-metadata:
+    get:
+      tags: [SSO]
+      summary: Fetch organisation SAML SP metadata
+      description: |
+        Returns SAML Service Provider metadata XML for IdP configuration.
+      operationId: fetch_saml_metadata
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: SAML metadata
+          content:
+            application/xml:
+              schema:
+                type: string
+
+  # --- Set SAML IdP Metadata ---
+  /orgs/{org_id}/saml-metadata:
+    put:
+      tags: [SSO]
+      summary: Set SAML IdP metadata for organisation
+      description: |
+        Imports SAML Identity Provider metadata XML to configure SSO for this organisation.
+      operationId: set_saml_idp_metadata
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: SAML IdP metadata set
+        '400':
+          description: Invalid XML
+
+  # --- Set OIDC IdP Metadata ---
+  /orgs/{org_id}/oidc-metadata:
+    post:
+      tags: [SSO]
+      summary: Set OIDC IdP metadata for organisation
+      description: |
+        Configures OIDC Identity Provider metadata for this organisation.
+      operationId: set_oidc_idp_metadata
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcMetadataRequest'
+      responses:
+        '200':
+          description: OIDC metadata set
+        '400':
+          description: Invalid metadata
+
+  # --- Enable SAML Connection ---
+  /orgs/{org_id}/enable-saml:
+    post:
+      tags: [SSO]
+      summary: Enable SAML connection for organisation
+      description: |
+        Activates the SAML connection so users can authenticate via SSO.
+      operationId: enable_saml
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: SAML enabled
+        '404':
+          description: Not found
+
+  # --- Delete SAML Connection ---
+  /orgs/{org_id}/saml:
+    delete:
+      tags: [SSO]
+      summary: Delete SAML connection
+      description: Removes the SAML configuration from this organisation.
+      operationId: delete_saml
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: SAML connection deleted
+        '404':
+          description: Not found
+
+  # --- Migrate Org to Isolated SAML ---
+  /orgs/{org_id}/migrate-to-isolated:
+    post:
+      tags: [SSO]
+      summary: Migrate organisation to isolated SAML mode
+      description: |
+        Moves the organisation to an isolated identity pool, separating SAML users from the main user database.
+        Platform admin only.
+      operationId: migrate_org_isolated
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Organisation migrated to isolated mode
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+  # --- Fetch SCIM Groups ---
+  /orgs/{org_id}/scim/groups:
+    get:
+      tags: [SSO]
+      summary: Fetch SCIM groups for organisation
+      description: |
+        Returns paginated list of SCIM groups for this organisation.
+        Used for SCIM provisioning integrations.
+      operationId: fetch_scim_groups
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+        - name: page_number
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: SCIM groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimGroupsResponse'
+
+  # --- Fetch SCIM Group ---
+  /orgs/{org_id}/scim/groups/{group_id}:
+    get:
+      tags: [SSO]
+      summary: Fetch a specific SCIM group
+      description: Returns a specific SCIM group by ID with member details.
+      operationId: fetch_scim_group
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: group_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: SCIM group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimGroup'
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # APPLICATION & ROLE MANAGEMENT (Existing Sesame patterns)
+  # ============================================================================
+
+  # --- Applications ---
+  /api/v1/am/applications:
+    get:
+      tags: [Applications]
+      summary: List applications
+      operationId: list_applications
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationListResponse'
+    post:
+      tags: [Applications]
+      summary: Register application
+      operationId: create_application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApplicationRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: Invalid request (e.g. slug already exists)
+
+  /api/v1/am/applications/{app_id}:
+    get:
+      tags: [Applications]
+      summary: Get application by id
+      operationId: get_application
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '404':
+          description: Not found
+
+  # --- Roles (per application) ---
+  /api/v1/am/applications/{app_id}/roles:
+    get:
+      tags: [Roles]
+      summary: List roles for application
+      operationId: list_roles
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleListResponse'
+    post:
+      tags: [Roles]
+      summary: Create role for application
+      operationId: create_role
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          description: Invalid request
+
+  /api/v1/am/applications/{app_id}/roles/{role_id}:
+    get:
+      tags: [Roles]
+      summary: Get role by id
+      operationId: get_role
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: role_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '404':
+          description: Not found
+
+  # --- Permissions (per application) ---
+  /api/v1/am/applications/{app_id}/permissions:
+    get:
+      tags: [Permissions]
+      summary: List permissions for application
+      operationId: list_permissions
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionListResponse'
+    post:
+      tags: [Permissions]
+      summary: Create permission for application
+      operationId: create_permission
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePermissionRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+        '400':
+          description: Invalid request
+
+  # --- Role-Permission links ---
+  /api/v1/am/applications/{app_id}/roles/{role_id}/permissions:
+    get:
+      tags: [Roles]
+      summary: Get permissions for role
+      operationId: get_role_permissions
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: role_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionListResponse'
+        '404':
+          description: Not found
+    post:
+      tags: [Roles]
+      summary: Assign permission to role
+      operationId: assign_permission_to_role
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: role_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignPermissionRequest'
+      responses:
+        '204':
+          description: Assigned
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+    delete:
+      tags: [Roles]
+      summary: Revoke permission from role
+      operationId: revoke_permission_from_role
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: role_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: permission_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Revoked
+        '404':
+          description: Not found
+
+
+# ============================================================================
+
+  # ============================================================================
+  # WEBHOOK SUBSCRIPTIONS
+  # ============================================================================
+
+  # --- Create Webhook Subscription ---
+  /orgs/{org_id}/webhooks:
+    post:
+      tags: [Webhooks]
+      summary: Create webhook subscription for organisation
+      description: |
+        Registers a webhook endpoint to receive real-time notifications
+        for organisation events (user joins, role changes, org updates, etc.).
+      operationId: create_webhook_subscription
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebhookSubscriptionRequest'
+      responses:
+        '201':
+          description: Webhook subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSubscription'
+        '400':
+          description: Invalid request
+
+  # --- Fetch Webhook Subscriptions ---
+  /orgs/{org_id}/webhooks:
+    get:
+      tags: [Webhooks]
+      summary: Fetch organisation webhook subscriptions
+      description: Returns all active webhook subscriptions for this organisation.
+      operationId: fetch_webhook_subscriptions
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Webhook subscriptions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSubscriptionListResponse'
+
+  # --- Fetch Webhook Subscription by ID ---
+  /orgs/{org_id}/webhooks/{subscription_id}:
+    get:
+      tags: [Webhooks]
+      summary: Fetch webhook subscription details
+      description: Returns details for a specific webhook subscription.
+      operationId: fetch_webhook_subscription
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: subscription_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Webhook subscription details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSubscription'
+        '404':
+          description: Not found
+
+  # --- Update Webhook Subscription ---
+  /orgs/{org_id}/webhooks/{subscription_id}:
+    patch:
+      tags: [Webhooks]
+      summary: Update webhook subscription
+      description: Updates the endpoint URL or enabled status of a webhook subscription.
+      operationId: update_webhook_subscription
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: subscription_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWebhookSubscriptionRequest'
+      responses:
+        '200':
+          description: Webhook subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSubscription'
+        '404':
+          description: Not found
+
+  # --- Delete Webhook Subscription ---
+  /orgs/{org_id}/webhooks/{subscription_id}:
+    delete:
+      tags: [Webhooks]
+      summary: Delete webhook subscription
+      description: |
+        Deletes a webhook subscription. No more events will be sent to this endpoint.
+        Irreversible - use disable to temporarily stop deliveries.
+      operationId: delete_webhook_subscription
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: subscription_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Webhook subscription deleted
+        '404':
+          description: Not found
+
+  # --- Test Webhook Delivery ---
+  /orgs/{org_id}/webhooks/{subscription_id}/test:
+    post:
+      tags: [Webhooks]
+      summary: Test webhook delivery
+      description: |
+        Sends a test event to the webhook endpoint to verify connectivity
+        and payload format. Useful for debugging webhook configuration.
+      operationId: test_webhook_delivery
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: subscription_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Test delivery sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookTestResponse'
+        '404':
+          description: Not found
+
+  # ============================================================================
+# COMPONENTS
+# ============================================================================
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token (from Identity Service)
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+
+    # --- Organization Schemas ---
+    CreateOrgRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Organisation name
+        slug:
+          type: string
+          description: Organisation slug (URL-safe identifier)
+        logo_url:
+          type: string
+          format: uri
+          description: Organisation logo URL
+        domain:
+          type: string
+          description: Primary organisation domain
+        domains:
+          type: array
+          items: { type: string }
+          description: Additional domains for auto-join
+        domain_auto_join:
+          type: boolean
+          default: false
+          description: Enable domain-based auto-join for members
+        domain_restrict:
+          type: boolean
+          default: false
+          description: Restrict signups to the organisation's domain(s) only
+        password_rotation_enabled:
+          type: boolean
+          default: false
+          description: Enforce password rotation for all org users
+        password_rotation_history_size:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 24
+          description: Number of past passwords to remember (to prevent reuse)
+        password_rotation_period:
+          type: integer
+          default: 2592000
+          minimum: 3600
+          description: Password expiry period in seconds (default 30 days)
+        max_users:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Maximum number of users allowed in the organisation (seat limit). null means unlimited.
+        legacy_org_id:
+          type: string
+          nullable: true
+          description: Legacy organisation ID from a previous auth system
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Free-form organisation metadata
+
+    Org:
+      type: object
+      required: [id, name, slug, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Organisation ID
+        name:
+          type: string
+          description: Organisation name
+        slug:
+          type: string
+          description: Organisation slug
+        logo_url:
+          type: string
+          format: uri
+          description: Organisation logo URL
+        domain:
+          type: string
+          nullable: true
+          description: Primary organisation domain
+        domains:
+          type: array
+          items: { type: string }
+          nullable: true
+          description: Additional domains for auto-join
+        domain_auto_join:
+          type: boolean
+          default: false
+          description: Whether domain-based auto-join is enabled for members
+        domain_restrict:
+          type: boolean
+          default: false
+          description: Whether signups are restricted to the organisation's domain(s) only
+        password_rotation_enabled:
+          type: boolean
+          default: false
+          description: Whether password rotation is enforced for all org users
+        password_rotation_history_size:
+          type: integer
+          default: 5
+          description: Number of past passwords remembered to prevent reuse
+        password_rotation_period:
+          type: integer
+          default: 2592000
+          description: Password expiry period in seconds (default 30 days)
+        max_users:
+          type: integer
+          nullable: true
+          description: Maximum number of users allowed (seat limit). null means unlimited.
+        legacy_org_id:
+          type: string
+          nullable: true
+          description: Legacy organisation ID from a previous auth system
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Free-form organisation metadata
+        is_saml_configured:
+          type: boolean
+          default: false
+          description: Whether SAML SSO is configured for this org
+        is_saml_in_test_mode:
+          type: boolean
+          default: false
+          description: Whether SAML is in test mode
+        can_setup_saml:
+          type: boolean
+          default: true
+          description: Whether the org can configure SAML SSO
+        isolated:
+          type: boolean
+          default: false
+          description: Whether the org uses isolated SAML (separate identity pool)
+        sso_trust_level:
+          type: string
+          nullable: true
+          description: SAML trust level — AlwaysTrust, NeverTrust, TrustForDomain
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateOrgRequest:
+      type: object
+      description: Partial update for organisation settings. All fields are optional.
+      properties:
+        name:
+          type: string
+          nullable: true
+          description: Organisation name
+        slug:
+          type: string
+          nullable: true
+          description: Organisation slug (URL-safe identifier)
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Organisation logo URL
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Free-form organisation metadata
+        domain:
+          type: string
+          nullable: true
+          description: Primary organisation domain
+        domains:
+          type: array
+          items: { type: string }
+          nullable: true
+          description: Additional domains for auto-join
+        domain_auto_join:
+          type: boolean
+          nullable: true
+          description: Toggle domain-based auto-join for members
+        domain_restrict:
+          type: boolean
+          nullable: true
+          description: Restrict signups to the organisation's domain(s) only
+        password_rotation_enabled:
+          type: boolean
+          nullable: true
+          description: Enable or disable password rotation enforcement
+        password_rotation_history_size:
+          type: integer
+          minimum: 1
+          maximum: 24
+          nullable: true
+          description: Number of past passwords to remember (1-24)
+        password_rotation_period:
+          type: integer
+          minimum: 3600
+          nullable: true
+          description: Password expiry period in seconds (minimum 1 hour)
+        max_users:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Seat limit for the organisation. null means unlimited.
+        legacy_org_id:
+          type: string
+          nullable: true
+          description: Legacy organisation ID
+        is_saml_configured:
+          type: boolean
+          nullable: true
+          description: Toggle SAML configuration (write-only flag)
+        isolated:
+          type: boolean
+          nullable: true
+          description: Migrate to isolated SAML mode
+
+    OrgListResponse:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Org' }
+        total:
+          type: integer
+          description: Total number of organisations
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    # --- Membership Schemas ---
+    UsersInOrgResponse:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+                format: uuid
+              email:
+                type: string
+                format: email
+              name:
+                type: string
+              role:
+                type: string
+              created_at:
+                type: string
+                format: date-time
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    AddUserToOrgRequest:
+      type: object
+      required: [user_id, role]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: User to add
+        role:
+          type: string
+          description: Role to assign
+
+    InviteUserToOrgRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email to invite
+        role:
+          type: string
+          description: Role to assign
+
+    InviteUserToOrgByIdRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: User ID to invite
+        role:
+          type: string
+          description: Role to assign
+
+    ChangeUserRoleRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: User to update
+        primary_role:
+          type: string
+          description: Primary role
+        additional_roles:
+          type: array
+          items: { type: string }
+          description: Additional roles
+
+    RemoveUserFromOrgRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: User to remove
+
+    PendingInvitesResponse:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              email:
+                type: string
+                format: email
+              role:
+                type: string
+              invited_by:
+                type: string
+                format: uuid
+              created_at:
+                type: string
+                format: date-time
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    RevokeInviteRequest:
+      type: object
+      required: [invite_id]
+      properties:
+        invite_id:
+          type: string
+          format: uuid
+          description: Invite to revoke
+
+    # --- Role Mapping Schemas ---
+    RoleMappingResponse:
+      type: object
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        mapping_name:
+          type: string
+          description: Plan-based role mapping name
+        assigned_roles:
+          type: array
+          items: { type: string }
+          description: Roles automatically assigned to org members
+        subscribed_at:
+          type: string
+          format: date-time
+
+    SubscribeRoleMappingRequest:
+      type: object
+      required: [mapping_name]
+      properties:
+        mapping_name:
+          type: string
+          description: Plan-based role mapping name to subscribe to
+
+    # --- Domain Schemas ---
+    OrgDomainsRequest:
+      type: object
+      properties:
+        primary_domain:
+          type: string
+          description: Primary organisation domain
+        auto_join_domain:
+          type: boolean
+          description: Enable domain-based auto-join
+        extra_domains:
+          type: array
+          items: { type: string }
+          description: Additional domains for auto-join
+
+    # --- SSO Schemas ---
+    SamlLinkRequest:
+      type: object
+      required: [redirect_url]
+      properties:
+        redirect_url:
+          type: string
+          format: uri
+          description: URL to redirect to after SAML setup
+
+    SamlConnectionLinkResponse:
+      type: object
+      required: [link, org_id]
+      properties:
+        link:
+          type: string
+          format: uri
+          description: SAML setup link
+        org_id:
+          type: string
+          format: uuid
+
+    OidcMetadataRequest:
+      type: object
+      required: [metadata_url]
+      properties:
+        metadata_url:
+          type: string
+          format: uri
+          description: OIDC discovery document URL
+        issuer:
+          type: string
+          description: OIDC issuer URL
+        client_id:
+          type: string
+          description: OIDC client ID
+        client_secret:
+          type: string
+          description: OIDC client secret
+
+    # --- SCIM Schemas ---
+    ScimGroupsResponse:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ScimGroup' }
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    ScimGroup:
+      type: object
+      required: [id, name, members]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Group name
+        description:
+          type: string
+          description: Group description
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+                format: uuid
+              email:
+                type: string
+                format: email
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # --- Application Schemas ---
+    ApplicationListResponse:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Application' }
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    Application:
+      type: object
+      required: [id, name, slug, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Application name
+        slug:
+          type: string
+          description: Application URL-safe slug
+        org_id:
+          type: string
+          format: uuid
+          description: Owning organisation ID
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateApplicationRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          description: Application name
+        slug:
+          type: string
+          description: Application URL-safe slug
+
+    # --- Role Schemas ---
+    RoleListResponse:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Role' }
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    Role:
+      type: object
+      required: [id, name, application_id, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Role name
+        description:
+          type: string
+          description: Role description
+        application_id:
+          type: string
+          format: uuid
+          description: Owning application ID
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateRoleRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Role name
+        description:
+          type: string
+          description: Role description
+
+    # --- Permission Schemas ---
+    PermissionListResponse:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Permission' }
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    Permission:
+      type: object
+      required: [id, name, application_id, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Permission name (e.g. "read:docs")
+        description:
+          type: string
+          description: Permission description
+        application_id:
+          type: string
+          format: uuid
+          description: Owning application ID
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreatePermissionRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Permission name
+        description:
+          type: string
+          description: Permission description
+
+    AssignPermissionRequest:
+      type: object
+      required: [permission_id]
+      properties:
+        permission_id:
+          type: string
+          format: uuid
+          description: Permission to assign to role
+    CreateWebhookSubscriptionRequest:
+      type: object
+      required: [endpoint_url, events]
+      properties:
+        endpoint_url:
+          type: string
+          format: uri
+          description: The URL to receive webhook events
+        events:
+          type: array
+          items:
+            type: string
+            enum: [org.created, org.updated, org.deleted, user.joined, user.left, user.role_changed, user.enabled, user.disabled, invite.created, invite.accepted, invite.revoked, role_assigned, role_removed, domain_added, domain_removed, saml_configured, saml_disabled]
+          description: List of events to subscribe to
+        secret:
+          type: string
+          nullable: true
+          description: Optional shared secret for signing webhook payloads (HMAC-SHA256)
+        enabled:
+          type: boolean
+          default: true
+          description: Whether this webhook is currently active
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Custom key-value metadata
+
+    UpdateWebhookSubscriptionRequest:
+      type: object
+      properties:
+        endpoint_url:
+          type: string
+          format: uri
+          nullable: true
+          description: New endpoint URL
+        events:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Updated list of subscribed events
+        secret:
+          type: string
+          nullable: true
+          description: Optional new shared secret for signing
+        enabled:
+          type: boolean
+          nullable: true
+          description: Toggle webhook enabled status
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Updated metadata
+
+    WebhookSubscription:
+      type: object
+      properties:
+        subscription_id:
+          type: string
+          format: uuid
+          description: Unique ID of the webhook subscription
+        org_id:
+          type: string
+          format: uuid
+          description: Organisation ID this subscription belongs to
+        endpoint_url:
+          type: string
+          format: uri
+          description: The URL to receive webhook events
+        events:
+          type: array
+          items:
+            type: string
+          description: List of subscribed events
+        secret_present:
+          type: boolean
+          description: Whether a signing secret is configured (never returns the actual secret)
+        enabled:
+          type: boolean
+          description: Whether this webhook is currently active
+        last_delivery_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the last successful delivery
+        last_delivery_status:
+          type: string
+          nullable: true
+          description: HTTP status of the last delivery attempt
+        total_deliveries:
+          type: integer
+          description: Total number of delivery attempts
+        failed_deliveries:
+          type: integer
+          description: Number of failed delivery attempts
+        created_at:
+          type: string
+          format: date-time
+          description: When the subscription was created
+        updated_at:
+          type: string
+          format: date-time
+          description: When the subscription was last updated
+
+    WebhookSubscriptionListResponse:
+      type: object
+      properties:
+        subscriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebhookSubscription'
+        total:
+          type: integer
+          description: Total number of webhook subscriptions
+
+    WebhookTestResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the test delivery was sent successfully
+        endpoint_url:
+          type: string
+          format: uri
+          description: The endpoint that received the test event
+        delivery_status:
+          type: integer
+          nullable: true
+          description: HTTP status code returned by the endpoint
+        message:
+          type: string
+          description: Status message
+
+    WebhookEvent:
+      type: object
+      required: [event_id, event_type, org_id, timestamp, data]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+          description: Unique ID for this webhook event
+        event_type:
+          type: string
+          description: The event type that triggered this notification
+        org_id:
+          type: string
+          format: uuid
+          description: Organisation ID this event relates to
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred
+        data:
+          type: object
+          additionalProperties: true
+          description: Event-specific payload data
+        delivery_attempts:
+          type: integer
+          description: Number of delivery attempts for this event
+

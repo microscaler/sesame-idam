@@ -1,23 +1,34 @@
 # Sesame-IDAM justfile
-# Repo layout: microservices/idam/{authentication,authorization}; openapi/idam/{authentication,authorization}.
+# Repo layout: 4 services split by access pattern:
+#   identity-auth  — user-facing identity/authentication (8001)
+#   authz-core     — per-request authorization checks (8002)
+#   api-keys       — M2M key management/validation (8003)
+#   org-mgmt       — org lifecycle & SSO admin (8004)
+# OpenAPI specs: openapi/{identity-auth,authz-core,api-keys,org-mgmt}/openapi.yaml
 # Consumes shared BRRTRouter tooling (brrtrouter-gen) for codegen, lint, serve.
 # Set BRRTRouter_DIR if BRRTRouter is not a sibling repo (e.g. export BRRTRouter_DIR=/path/to/BRRTRouter).
 
 set shell := ["bash", "-uc"]
 
-# BRRTRouter repo path (sibling of seasame-idam by default)
-brrtrouter_dir := env_var("BRRTRouter_DIR") or "../BRRTRouter"
+# BRRTRouter repo path (sibling of seasame-idam)
+# Override with: BRRTRouter_DIR=/path/to/BRRTRouter just lint-openapi
+brrtrouter_dir := "../BRRTRouter"
 
-# microscaler-supabase side-clone (for Supabase stack). Set SUPABASE_DIR if not a sibling.
-supabase_dir := env_var("SUPABASE_DIR") or "../microscaler-supabase"
+# microscaler-supabase side-clone (for Supabase stack)
+# Override with: SUPABASE_DIR=/path/to/microscaler-supabase just supabase-apply
+supabase_dir := "../microscaler-supabase"
 
-# OpenAPI spec paths
-spec_auth := "openapi/idam/authentication/openapi.yaml"
-spec_authorization := "openapi/idam/authorization/openapi.yaml"
+# OpenAPI spec paths (4 services split by access frequency & cost)
+spec_identity_auth  := "openapi/identity-auth/openapi.yaml"
+spec_authz_core     := "openapi/authz-core/openapi.yaml"
+spec_api_keys       := "openapi/api-keys/openapi.yaml"
+spec_org_mgmt       := "openapi/org-mgmt/openapi.yaml"
 
 # Output dirs for brrtrouter-gen (gen crates live under each microservice)
-out_auth := "microservices/idam/authentication/gen"
-out_authorization := "microservices/idam/authorization/gen"
+out_identity_auth  := "microservices/idam/identity-auth/gen"
+out_authz_core     := "microservices/idam/authz-core/gen"
+out_api_keys       := "microservices/idam/api-keys/gen"
+out_org_mgmt       := "microservices/idam/org-mgmt/gen"
 
 default:
   @just --list --unsorted
@@ -137,7 +148,9 @@ lint-unused-imports:
 # =============================================================================
 # Run `just init` before first dev-up so sesame tilt setup-kind-registry is available.
 
-# Start development environment (Kind cluster + local registry + Tilt)
+# Start development environment (shared Kind cluster; owned by shared-kind-cluster).
+# Platform infra (postgres, postgres-meta, parquet-lake) lives in namespace data
+# from shared-kind-cluster. Sesame-IDAM adds Redis in namespace sesame-idam.
 dev-up:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -146,31 +159,43 @@ dev-up:
     echo "❌ tooling/.venv not found. Run: just init"
     exit 1
   fi
-  echo "📦 Creating Kind cluster..."
-  kind create cluster --config kind-config.yaml || true
+
+  # Verify shared Kind cluster exists (owned by shared-kind-cluster; DO NOT create/delete here)
+  echo "📦 Checking shared Kind cluster..."
+  if ! kind get clusters 2>/dev/null | grep -qxF kind; then
+    echo "[FAIL] Shared Kind cluster not found."
+    echo "  Create it: cd ../shared-kind-cluster && just dev-up"
+    exit 1
+  fi
+  echo "[OK] Shared Kind cluster exists"
+
   echo "📦 Setting up local registry (localhost:5001)..."
   tooling/.venv/bin/sesame tilt setup-kind-registry
   echo "⏳ Waiting for cluster to be ready..."
   kubectl wait --for=condition=Ready nodes --all --timeout=300s
+
+  # Create sesame-idam namespace (Tilt does not manage it)
   echo "📁 Creating sesame-idam namespace..."
   kubectl apply -f k8s/microservices/namespace.yaml
-  echo "💾 Creating PersistentVolumes (data + monitoring)..."
+
+  echo "💾 Creating PersistentVolumes (Redis PV)..."
   tooling/.venv/bin/sesame tilt setup-persistent-volumes || true
+
   echo "📦 Creating data dir on host for PVs (if using extraMounts)..."
   mkdir -p /tmp/sesame-idam-data/postgres /tmp/sesame-idam-data/parquet-lake /tmp/sesame-idam-data/redis /tmp/sesame-idam-data/prometheus /tmp/sesame-idam-data/grafana
+
   echo "📦 Apply Supabase stack once: just supabase-apply (then start Tilt)"
   echo "🎯 Starting Tilt (loads Redis, tooling; Postgres from microscaler-supabase in namespace data)..."
   tilt up --host=0.0.0.0 --port=10351
 
-# Stop development environment (Kind cluster and Tilt; local registry left running)
+# Stop Sesame-IDAM Tilt only (cluster owned by shared-kind-cluster; registry left running)
 dev-down:
   #!/usr/bin/env bash
   set -euo pipefail
   echo "🛑 Stopping Sesame-IDAM development environment..."
   pkill -f "tilt up" 2>/dev/null || true
-  kind delete cluster --name sesame-idam 2>/dev/null || true
   echo "✅ Development environment stopped"
-  echo "   (Local registry kind-registry is left running. To remove: just dev-down-full)"
+  echo "   (Kind cluster unchanged — owned by shared-kind-cluster. Registry kind-registry left running.)"
 
 # Stop development environment and remove the local registry
 dev-down-full: dev-down
@@ -191,27 +216,28 @@ teardown:
 # Start services with Tilt (cluster and namespace must exist; see dev-up)
 up:
   @echo "Starting all services with Tilt..."
-  @tilt up
+  @tilt up --host=0.0.0.0 --port=10351
 
 # Start with Kind (cluster and namespace must exist)
 up-k8s:
   @kubectl apply -f k8s/microservices/namespace.yaml 2>/dev/null || true
   @echo "Starting all services with Tilt (Kubernetes mode)..."
-  @tilt up -- --use-kind
+  @tilt up --host=0.0.0.0 --port=10351 -- --use-kind
 
 # Stop Tilt
 down:
-  @tilt down
+  @tilt down --port 10351
 
-# Show cluster and service status
+# Show cluster and service status (shared cluster)
 status:
   #!/usr/bin/env bash
   set -euo pipefail
   echo "Cluster status:"
-  kind get clusters 2>/dev/null | grep sesame-idam || echo "No sesame-idam Kind cluster found"
+  echo "  Current context: $(kubectl config current-context 2>/dev/null)"
+  echo "  Kind clusters: $(kind get clusters 2>/dev/null | tr '\n' ', ' || echo 'none')"
   echo ""
   echo "Pods (sesame-idam):"
-  kubectl get pods -n sesame-idam 2>/dev/null || echo "Namespace not found"
+  kubectl get pods -n sesame-idam 2>/dev/null || echo "Namespace not found (run dev-up first)"
   echo ""
   echo "Services:"
   kubectl get svc -n sesame-idam 2>/dev/null || echo "No services found"
@@ -254,69 +280,118 @@ check:
 # =============================================================================
 # BRRTRouter codegen (shared tooling)
 # =============================================================================
-# Requires BRRTRouter at BRRTRouter_DIR. Run from seasame-idam repo root.
+# BRRTRouter codegen (shared tooling)
+# =============================================================================
 
-# Regenerate both authentication and authorization gen crates from OpenAPI
-gen: gen-auth gen-authorization
+# Regenerate all 4 services from OpenAPI
+gen: gen-identity-auth gen-authz-core gen-api-keys gen-org-mgmt
 
-# Regenerate authentication (Identity) gen crate from OpenAPI
-gen-auth:
+# Regenerate identity-auth (user-facing identity/authentication) gen crate
+gen-identity-auth:
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
     echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR or clone BRRTRouter as a sibling."
     exit 1
   fi
-  echo "🔨 Generating authentication (Identity) from {{spec_auth}}..."
+  echo "🔨 Generating identity-auth from {{spec_identity_auth}}..."
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
-    --spec "$(cd - >/dev/null && pwd)/{{spec_auth}}" \
-    --output "$(cd - >/dev/null && pwd)/{{out_auth}}" \
-    --package-name sesame_idam_authentication_gen \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_auth}}" \
+    --output "$(cd - >/dev/null && pwd)/{{out_identity_auth}}" \
+    --package-name sesame_idam_identity_auth_gen \
     --force
-  echo "✅ Generated {{out_auth}}"
+  echo "✅ Generated {{out_identity_auth}}"
 
-# Regenerate authorization (Access Management) gen crate from OpenAPI
-gen-authorization:
+# Regenerate authz-core (per-request authorization checks) gen crate
+gen-authz-core:
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
     echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR or clone BRRTRouter as a sibling."
     exit 1
   fi
-  echo "🔨 Generating authorization (AM) from {{spec_authorization}}..."
+  echo "🔨 Generating authz-core from {{spec_authz_core}}..."
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
-    --spec "$(cd - >/dev/null && pwd)/{{spec_authorization}}" \
-    --output "$(cd - >/dev/null && pwd)/{{out_authorization}}" \
-    --package-name sesame_idam_authorization_gen \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_authz_core}}" \
+    --output "$(cd - >/dev/null && pwd)/{{out_authz_core}}" \
+    --package-name sesame_idam_authz_core_gen \
     --force
-  echo "✅ Generated {{out_authorization}}"
+  echo "✅ Generated {{out_authz_core}}"
 
-# Lint both OpenAPI specs (via BRRTRouter)
-lint-openapi: lint-openapi-auth lint-openapi-authorization
+# Regenerate api-keys (M2M key management/validation) gen crate
+gen-api-keys:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR or clone BRRTRouter as a sibling."
+    exit 1
+  fi
+  echo "🔨 Generating api-keys from {{spec_api_keys}}..."
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_api_keys}}" \
+    --output "$(cd - >/dev/null && pwd)/{{out_api_keys}}" \
+    --package-name sesame_idam_api_keys_gen \
+    --force
+  echo "✅ Generated {{out_api_keys}}"
 
-# Lint authentication OpenAPI spec
-lint-openapi-auth:
+# Regenerate org-mgmt (org lifecycle & SSO admin) gen crate
+gen-org-mgmt:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR or clone BRRTRouter as a sibling."
+    exit 1
+  fi
+  echo "🔨 Generating org-mgmt from {{spec_org_mgmt}}..."
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_org_mgmt}}" \
+    --output "$(cd - >/dev/null && pwd)/{{out_org_mgmt}}" \
+    --package-name sesame_idam_org_mgmt_gen \
+    --force
+  echo "✅ Generated {{out_org_mgmt}}"
+
+# Lint all 4 OpenAPI specs
+lint-openapi: lint-openapi-identity-auth lint-openapi-authz-core lint-openapi-api-keys lint-openapi-org-mgmt
+
+lint-openapi-identity-auth:
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
     echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
     exit 1
   fi
-  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_auth}}" --fail-on-error
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_identity_auth}}" --fail-on-error
 
-# Lint authorization OpenAPI spec
-lint-openapi-authorization:
+lint-openapi-authz-core:
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
     echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
     exit 1
   fi
-  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_authorization}}" --fail-on-error
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_authz_core}}" --fail-on-error
 
-# Serve authentication API with echo handlers (for local try-out)
-# Usage: just serve-auth [addr]
-serve-auth addr="0.0.0.0:8080":
+lint-openapi-api-keys:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_api_keys}}" --fail-on-error
+
+lint-openapi-org-mgmt:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_org_mgmt}}" --fail-on-error
+
+# Serve identity-auth API with echo handlers (for local try-out)
+# Usage: just serve-identity-auth [addr]
+serve-identity-auth addr="0.0.0.0:8001":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -324,12 +399,12 @@ serve-auth addr="0.0.0.0:8080":
     exit 1
   fi
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- serve \
-    --spec "$(cd - >/dev/null && pwd)/{{spec_auth}}" \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_auth}}" \
     --addr {{addr}}
 
-# Serve authorization API with echo handlers (for local try-out)
-# Usage: just serve-authorization [addr]
-serve-authorization addr="0.0.0.0:8081":
+# Serve authz-core API with echo handlers (for local try-out)
+# Usage: just serve-authz-core [addr]
+serve-authz-core addr="0.0.0.0:8002":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -337,7 +412,33 @@ serve-authorization addr="0.0.0.0:8081":
     exit 1
   fi
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- serve \
-    --spec "$(cd - >/dev/null && pwd)/{{spec_authorization}}" \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_authz_core}}" \
+    --addr {{addr}}
+
+# Serve api-keys API with echo handlers (for local try-out)
+# Usage: just serve-api-keys [addr]
+serve-api-keys addr="0.0.0.0:8003":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- serve \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_api_keys}}" \
+    --addr {{addr}}
+
+# Serve org-mgmt API with echo handlers (for local try-out)
+# Usage: just serve-org-mgmt [addr]
+serve-org-mgmt addr="0.0.0.0:8004":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- serve \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_org_mgmt}}" \
     --addr {{addr}}
 
 # =============================================================================
@@ -345,7 +446,10 @@ serve-authorization addr="0.0.0.0:8081":
 # =============================================================================
 # Copy canonical OpenAPI from BRRTRouter into this repo (e.g. after upstream changes).
 # Then review diff and commit.
-
+#
+# Note: These sync only the identity and access-management canonicals.
+# After syncing, you MUST manually split the merged spec into the 4 service
+# directories (identity-auth, authz-core, api-keys, org-mgmt).
 sync-specs-from-brrtrouter:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -353,6 +457,9 @@ sync-specs-from-brrtrouter:
     echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
     exit 1
   fi
-  cp "{{brrtrouter_dir}}/docs/SPIFFY_mTLS/openapi/identity-openapi.yaml" "{{spec_auth}}"
-  cp "{{brrtrouter_dir}}/docs/SPIFFY_mTLS/openapi/access-management-openapi.yaml" "{{spec_authorization}}"
-  echo "✅ Copied canonical specs. Restore header comments in openapi files (Sesame-IDAM derived from canonical) then run just lint-openapi"
+  echo "⚠️  After syncing, manually split into 4 service directories:"
+  echo "   1. Copy identity-openapi.yaml → openapi/identity-auth/openapi.yaml"
+  echo "   2. Extract /api/v1/am/principals/*, /api/v1/am/authorize → openapi/authz-core/"
+  echo "   3. Extract /api/v1/am/api-keys/* → openapi/api-keys/"
+  echo "   4. Extract /orgs/*, /api/v1/am/applications/* → openapi/org-mgmt/"
+  echo "   5. Run: just lint-openapi"
