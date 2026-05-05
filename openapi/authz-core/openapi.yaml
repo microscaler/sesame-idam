@@ -1,0 +1,414 @@
+# Sesame-IDAM authz-core Service - OpenAPI 3.1
+# Extracted from openapi/authorization/openapi.yaml
+# Authorization Core Service (AuthZ Core)
+# Real-time authorization checks and principal rights resolution. Called on every API request from consuming applications for both coarse-grained (JWT claim) and fine-grained permission checks.
+openapi: 3.1.0
+info:
+  title: Authorization Core Service (AuthZ Core)
+  version: 1.0.0
+  description: |
+    Real-time authorization checks and principal rights resolution. Called on every
+    API request from consuming applications for both coarse-grained (JWT claim) and
+    fine-grained permission checks.
+  contact:
+    name: Platform / Security
+
+servers:
+  - url: /api/v1/am
+    description: Authz Core API
+
+tags:
+  - name: Principal
+    description: Principal role assignment, attributes, effective rights, and authorization checks
+
+security:
+  - BearerAuth: []
+  - ApiKeyHeader: []
+
+paths:
+  # ============================================================================
+  # PRINCIPAL ASSIGNMENTS & AUTHORIZATION
+  # ============================================================================
+
+  # --- Assign/Revoke Principal Roles ---
+  /api/v1/am/principals/roles:
+    post:
+      tags: [Principal]
+      summary: Assign role to principal
+      description: |
+        Assigns a role to a principal (sub) within an application, organisation, and tenant scope.
+        SaaS customers assign roles within their own org; platform admins assign globally.
+      operationId: assign_principal_role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignPrincipalRoleRequest'
+      responses:
+        '204':
+          description: Assigned
+        '400':
+          description: Invalid request
+        '404':
+          description: Application or role not found
+    delete:
+      tags: [Principal]
+      summary: Revoke role from principal
+      operationId: revoke_principal_role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokePrincipalRoleRequest'
+      responses:
+        '204':
+          description: Revoked
+        '404':
+          description: Not found
+
+  # --- Set Principal Attributes (ABAC) ---
+  /api/v1/am/principals/attributes:
+    post:
+      tags: [Principal]
+      summary: Set attribute for principal (ABAC)
+      operationId: set_principal_attribute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPrincipalAttributeRequest'
+      responses:
+        '204':
+          description: Set
+        '400':
+          description: Invalid request
+
+  # --- Effective Rights (JWT Enrichment) ---
+  /api/v1/am/principal/effective:
+    post:
+      tags: [Principal]
+      summary: Get effective roles and permissions for principal
+      description: |
+        Returns the effective roles and permissions for a principal within an application,
+        organisation, and tenant scope. Used by Identity service for JWT enrichment.
+        SaaS customers query for their own principals; platform admins query globally.
+      operationId: principal_effective
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EffectiveRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EffectiveResponse'
+        '400':
+          description: Invalid request
+        '404':
+          description: Application not found
+
+  # --- Authorize (Per-Request Check) ---
+  /api/v1/am/authorize:
+    post:
+      tags: [Principal]
+      summary: Check if principal is allowed to perform action on resource
+      description: |
+        Real-time authorization check. Consuming microservices call this to verify
+        a user has permission for a specific action on a resource.
+        SaaS customers check within their own org; platform admins check globally.
+      operationId: authorize
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizeResponse'
+        '400':
+          description: Invalid request
+
+
+# ============================================================================
+# COMPONENTS
+# ============================================================================
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token (from Identity Service)
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+
+  schemas:
+    # ============================================================================
+    # ERROR RESPONSES
+    # ============================================================================
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum: [invalid_request, not_found, permission_denied, application_not_found, role_not_found, attribute_too_large]
+          description: Machine-readable error code
+        error_description:
+          type: string
+          description: Human-readable error message
+
+    # ============================================================================
+    # PRINCIPAL ROLE MANAGEMENT
+    # ============================================================================
+
+    AssignPrincipalRoleRequest:
+      type: object
+      required: [user_id, role, app_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Principal's user ID (the `sub` claim)
+        role:
+          type: string
+          description: Role identifier (e.g., "admin", "editor", "viewer")
+        app_id:
+          type: string
+          format: uuid
+          description: Application ID that defines this role
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Organisation scope (for multi-tenant orgs)
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Tenant scope (for multi-tenant orgs)
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional role expiration time
+
+    RevokePrincipalRoleRequest:
+      type: object
+      required: [user_id, role, app_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Principal's user ID
+        role:
+          type: string
+          description: Role to revoke
+        app_id:
+          type: string
+          format: uuid
+          description: Application ID
+
+    # ============================================================================
+    # PRINCIPAL ATTRIBUTES (ABAC)
+    # ============================================================================
+
+    SetPrincipalAttributeRequest:
+      type: object
+      required: [user_id, key, value]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Principal's user ID
+        key:
+          type: string
+          maxLength: 128
+          description: Attribute key (e.g., "department", "clearance_level", "region")
+        value:
+          type: string
+          maxLength: 1024
+          description: Attribute value
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Organisation scope (optional — unset for user-level attributes)
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Tenant scope
+
+    # ============================================================================
+    # EFFECTIVE RIGHTS (JWT ENRICHMENT)
+    # ============================================================================
+
+    EffectiveRequest:
+      type: object
+      required: [user_id, app_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Principal's user ID
+        app_id:
+          type: string
+          format: uuid
+          description: Application ID
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Organisation scope
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Tenant scope
+        include_inherited:
+          type: boolean
+          default: true
+          description: Include roles/permissions inherited from parent scopes
+
+    EffectiveResponse:
+      type: object
+      required: [user_id, roles, permissions]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Principal's user ID
+        roles:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                description: Role name
+              app_id:
+                type: string
+                format: uuid
+                description: Application ID
+              org_id:
+                type: string
+                format: uuid
+                nullable: true
+                description: Organisation scope
+              inherited:
+                type: boolean
+                description: Whether this role was inherited
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Flat list of all permission codes (e.g., "accounting:invoices:write")
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+          description: ABAC attributes set on this principal
+
+    # ============================================================================
+    # AUTHORIZE (PER-REQUEST CHECK)
+    # ============================================================================
+
+    AuthorizeRequest:
+      type: object
+      required: [user_id, action, resource]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Principal's user ID
+        action:
+          type: string
+          description: Action to check (e.g., "read", "write", "delete", "approve")
+        resource:
+          type: string
+          description: Resource identifier (e.g., "accounting:invoices", "users:123")
+        app_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Application scope
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Organisation scope
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Tenant scope
+        context:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Additional context for ABAC evaluation (e.g., resource attributes)
+
+    AuthorizeResponse:
+      type: object
+      required: [allowed]
+      properties:
+        allowed:
+          type: boolean
+          description: Whether the principal is authorized for this action
+        reason:
+          type: string
+          nullable: true
+          description: |
+            Reason for denial (null when allowed).
+            Examples: "no_matching_role", "insufficient_permissions", "resource_not_owned"
+        roles_matched:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Roles that contributed to the decision (for audit logging)
+        permissions_used:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Permission codes that granted access
+
+  examples:
+    AuthorizeAllowed:
+      value:
+        allowed: true
+        reason: null
+        roles_matched: ["editor", "admin"]
+        permissions_used: ["accounting:invoices:write"]
+    AuthorizeDenied:
+      value:
+        allowed: false
+        reason: "insufficient_permissions"
+        roles_matched: ["viewer"]
+        permissions_used: ["accounting:invoices:read"]

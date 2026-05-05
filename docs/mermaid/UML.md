@@ -1,54 +1,82 @@
+# Sesame-IDAM Entity Model
+
+> Canonical entity model with relationships.
+> Date: 2026-05-02 (updated)
+
+---
+
+## Core Entity Class Diagram
+
 ```mermaid
 classDiagram
     class User {
-        UUID user_id PK
-        text legacy_user_id
-        text email
-        boolean email_confirmed
-        text username
-        text first_name
-        text last_name
-        text picture_url
+        UUID id PK
+        text email (unique)
+        boolean email_verified
+        text phone_number
+        boolean phone_verified
+        text user_type ('customer' | 'platform')
+        text display_name
+        text profile_image_url
         jsonb properties
         boolean has_password
-        boolean update_password_required
+        text password_hash
         boolean locked
         boolean enabled
-        boolean mfa_enabled
-        boolean can_create_orgs
-        bigint created_at
-        bigint last_active_at
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz last_active_at
+        timestamptz deleted_at (soft delete)
     }
 
     class Organization {
-        UUID org_id PK
-        text org_name
-        jsonb org_metadata
+        UUID id PK
+        text platform (app domain)
+        text name
+        text slug (unique per platform)
+        jsonb metadata
+        jsonb settings
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
     }
 
-    class UserOrganizationInfo {
+    class OrganizationMember {
+        UUID organization_id FK
         UUID user_id FK
-        UUID org_id FK
-        text user_role
-        text url_safe_org_name
-        text org_role_structure
-        text[] inherited_user_roles_plus_current_role
-        text[] user_permissions
-        text[] additional_roles
+        UUID role_id FK
+        timestamptz joined_at
+        timestamptz invited_at
+        UUID invited_by
+        text status ('invited' | 'active' | 'removed')
+    }
+
+    class Application {
+        UUID id PK
+        text platform_domain (unique)
+        text name
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     class Role {
-        UUID role_id PK
-        UUID org_id FK
+        UUID id PK
+        UUID application_id FK
+        UUID organization_id FK (nullable)
         text name
+        text display_name
         text description
+        boolean is_system
+        UUID parent_role_id FK (self-ref)
         timestamptz created_at
+        timestamptz updated_at
     }
 
     class Permission {
-        UUID permission_id PK
-        UUID org_id FK
-        text name
+        UUID id PK
+        UUID application_id FK
+        text name (e.g. "invoices:write")
         text description
         timestamptz created_at
     }
@@ -60,76 +88,105 @@ classDiagram
 
     class UserRole {
         UUID user_id FK
+        UUID organization_id FK
         UUID role_id FK
-        timestamptz assigned_at
+        UUID granted_by
+        timestamptz granted_at
     }
 
-    class RoleInheritance {
-        UUID role_id FK
-        UUID parent_role_id FK
+    class Session {
+        UUID id PK
+        UUID user_id FK
+        UUID application_id FK
+        text session_token (hashed)
+        text refresh_token (hashed)
+        INET ip_address
+        text user_agent
+        timestamptz created_at
+        timestamptz expires_at
+        boolean revoked
+        timestamptz last_used_at
     }
-        
-    class RateLimitPolicy {
-        int policy_id PK
-        text name
-        text scope
-        int limit_count
-        int window_sec
+
+    class APIKey {
+        UUID id PK
+        UUID application_id FK
+        text key_hash
+        text key_prefix
         text description
+        text[] permissions
+        timestamptz expires_at
+        boolean revoked
+        UUID created_by
+        timestamptz created_at
+        timestamptz last_used_at
+    }
+
+    class MFADevice {
+        UUID id PK
+        UUID user_id FK
+        text type ('totp' | 'webauthn' | 'sms')
+        text secret (encrypted)
+        boolean is_active
+        text label
+        timestamptz created_at
+        timestamptz last_used_at
+    }
+
+    class AuditLog {
+        UUID id PK
+        UUID user_id
+        UUID organization_id
+        UUID application_id
+        text action
+        text resource_type
+        text resource_id
+        jsonb metadata
+        INET ip_address
+        text user_agent
         timestamptz created_at
     }
 
-    class RateLimitCounter {
-        int policy_id FK
-        text key_id
-        timestamptz window_start
-        int count
-        timestamptz last_updated
+    class WebhookEndpoint {
+        UUID id PK
+        UUID application_id FK
+        text url
+        text secret (HMAC key)
+        text[] events
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
     }
 
-    class RateLimitPolicy {
-        int policy_id PK
-        text name
-        text scope
-        int limit_count
-        int window_sec
-        text description
+    class WebhookDelivery {
+        UUID id PK
+        UUID webhook_endpoint_id FK
+        text event_type
+        jsonb payload
+        text status ('pending' | 'success' | 'failed')
+        integer attempts
+        timestamptz last_attempt_at
+        timestamptz next_retry_at
+        integer response_status
+        text response_body
         timestamptz created_at
     }
 
-    class RateLimitCounter {
-        int policy_id FK
-        UUID user_id FK
-        UUID org_id  FK
-        timestamptz window_start
-        int count
-        timestamptz last_updated
-    }
-
-    class RateLimitAssignment {
-        int policy_id FK
-        UUID user_id FK
-        UUID org_id  FK
-    }
-
-    RateLimitPolicy "1" <-- "0..*" RateLimitCounter : counts
-    RateLimitPolicy "1" <-- "0..*" RateLimitAssignment : applies to
-    User              "1" <-- "0..*" RateLimitCounter : for user
-    Organization      "1" <-- "0..*" RateLimitCounter : for org
-    User              "1" <-- "0..*" RateLimitAssignment : for user
-    Organization      "1" <-- "0..*" RateLimitAssignment : for org
-
-    User <-- UserOrganizationInfo : has
-    Organization <-- UserOrganizationInfo : belongs to
-    RateLimitPolicy <-- RateLimitCounter : "1 to many"
-    Organization "1" <-- "0..*" Role            : defines
-    Organization "1" <-- "0..*" Permission      : owns
-    Role         "1" <-- "0..*" RolePermission : grants
-    Permission   "1" <-- "0..*" RolePermission : assigned to
-    User         "1" <-- "0..*" UserRole       : has
-    Role         "1" <-- "0..*" UserRole       : assigned
-    Role         "1" <-- "0..*" RoleInheritance: child
-    Role         "1" <-- "0..*" RoleInheritance: parent
+    Organization "1" *-- "0..*" OrganizationMember
+    User "1" *-- "0..*" OrganizationMember
+    Organization "1" *-- "0..*" Role
+    Organization "1" *-- "0..*" Permission
+    Role "1" *-- "0..*"" RolePermission
+    Permission "1" *-- "0..*"" RolePermission
+    User "1" *-- "0..*"" UserRole
+    Role "1" *-- "0..*"" UserRole
+    User "1" *-- "0..*"" Session
+    Application "1" *-- "0..*"" Session
+    User "1" *-- "0..*"" APIKey
+    Application "1" *-- "0..*"" APIKey
+    User "1" *-- "0..*"" MFADevice
+    User "1" *-- "0..*"" AuditLog
+    Application "1" *-- "0..*"" WebhookEndpoint
+    WebhookEndpoint "1" *-- "0..*"" WebhookDelivery
+    Role "1" *-- "0..*"" Role : parent_role_id
 ```
-
-
