@@ -15,17 +15,17 @@ Multi-factor authentication device model. Supports TOTP setup, verification, and
 
 ## Schema (from OpenAPI)
 
-|| Column | Type | Notes |
-||--------|------|-------|
-|| id | uuid (PK) | |
-|| user_id | uuid (FK) | |
-|| type | text | `totp` |
-|| secret | text | Encrypted secret key |
-|| is_active | boolean | |
-|| label | text | Human label (e.g., "iPhone 15") |
-|| tenant_id | uuid (FK) | **REQUIRED** — MFA factors scoped to tenant |
-|| created_at | timestamptz | |
-|| last_used_at | timestamptz | |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid (PK) | |
+| user_id | uuid (FK) | |
+| type | text | `totp` |
+| secret | text | Encrypted secret key |
+| is_active | boolean | |
+| label | text | Human label (e.g., "iPhone 15") |
+| tenant_id | uuid (FK) | **REQUIRED** — MFA factors scoped to tenant |
+| created_at | timestamptz | |
+| last_used_at | timestamptz | |
 
 ## API Endpoints
 

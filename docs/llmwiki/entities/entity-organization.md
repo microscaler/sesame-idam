@@ -11,7 +11,7 @@ Owned by: **org-mgmt** (consumed by api-keys for org data in validation)
 
 ## Description
 
-Multi-tenant organization model. Organizations are scoped per-platform (via `platform` column) so the same org name can exist in different applications without conflict.
+Multi-tenant organization model. Organizations are scoped to a `tenant_id` so the same org name can exist in different tenants without conflict.
 
 Each org supports: SAML SSO, OIDC, SCIM user provisioning, webhooks, application/role/permission RBAC, and domain-based auto-join.
 
@@ -38,14 +38,14 @@ Each org supports: SAML SSO, OIDC, SCIM user provisioning, webhooks, application
 | isolated | boolean | Org isolation flag |
 | sso_trust_level | text | SSO trust level |
 | legacy_org_id | text (nullable) | Migration from legacy system |
-| tenant_id | uuid (FK) | **REQUIRED** — orgs belong to one consuming platform |
+| tenant_id | uuid (FK) | **REQUIRED** — orgs belong to one tenant |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 | deleted_at | timestamptz | Soft delete |
 
 ## Key Design Decisions
 
-1. **Per-platform scoping.** The `platform` column means orgs with the same name can exist across different applications.
+1. **Per-tenant scoping.** The `tenant_id` column means orgs with the same name can exist across different tenants.
 2. **Seat management.** `max_users` is nullable — NULL means unlimited.
 3. **Domain controls.** `domain_auto_join` and `domain_restrict` control email-based org access.
 4. **SSO settings.** SAML configuration stored per-org in the same table.

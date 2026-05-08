@@ -15,21 +15,21 @@ M2M API key model. Keys can be user-scoped or org-scoped. Used for server-to-ser
 
 ## Schema (from OpenAPI)
 
-|| Column | Type | Notes |
-||--------|------|-------|
-|| id | uuid (PK) | |
-|| user_id | uuid (FK, nullable) | User-scoped keys |
-|| org_id | uuid (FK, nullable) | Org-scoped keys |
-|| key_hash | text | SHA-256 of stored key — PG only |
-|| key_prefix | text | Human-readable prefix (e.g., "sk_live_abc") |
-|| display_name | text | |
-|| description | text (nullable) | |
-|| metadata | jsonb | Custom metadata |
-|| expires_at | timestamptz (nullable) | NULL = no expiry |
-|| revoked | boolean | Revocation flag |
-|| tenant_id | uuid (FK) | **REQUIRED** — keys belong to one platform |
-|| created_at | timestamptz | |
-|| last_used_at | timestamptz | |
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid (PK) | |
+| user_id | uuid (FK, nullable) | User-scoped keys |
+| org_id | uuid (FK, nullable) | Org-scoped keys |
+| key_hash | text | SHA-256 of stored key — PG only |
+| key_prefix | text | Human-readable prefix (e.g., "sk_live_abc") |
+| display_name | text | |
+| description | text (nullable) | |
+| metadata | jsonb | Custom metadata |
+| expires_at | timestamptz (nullable) | NULL = no expiry |
+| revoked | boolean | Revocation flag |
+| tenant_id | uuid (FK) | **REQUIRED** — keys belong to one platform |
+| created_at | timestamptz | |
+| last_used_at | timestamptz | |
 
 ## Key Design Decisions
 
