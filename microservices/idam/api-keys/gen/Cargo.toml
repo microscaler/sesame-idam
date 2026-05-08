@@ -1,7 +1,12 @@
 [package]
-name = "sesame_idam_api_keys_gen"
+name = "api_keys_service_api"
 version = "0.1.0"
 edition = "2021"
+
+
+[lib]
+name = "api_keys_service_api"
+path = "src/lib.rs"
 
 [features]
 default = []

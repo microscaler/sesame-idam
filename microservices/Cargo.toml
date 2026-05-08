@@ -1,14 +1,19 @@
 [workspace]
 members = [
-    # IDAM microservices (gen crates)
-    # Identity services (split for independent scaling)
+    # IDAM microservices — gen crates (generated types + handlers)
     "idam/identity-login-service/gen",
+    "idam/identity-login-service/impl",
     "idam/identity-session-service/gen",
+    "idam/identity-session-service/impl",
     "idam/identity-user-mgmt-service/gen",
+    "idam/identity-user-mgmt-service/impl",
+    "idam/api-keys/gen",
+    "idam/api-keys/impl",
     # Core services
     "idam/authz-core/gen",
-    "idam/api-keys/gen",
+    "idam/authz-core/impl",
     "idam/org-mgmt/gen",
+    "idam/org-mgmt/impl",
 ]
 resolver = "2"
 

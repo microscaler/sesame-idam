@@ -21,7 +21,7 @@ Users support multiple authentication methods: password, email OTP, phone OTP, d
 |--------|------|-------|
 | id | uuid (PK) | |
 | email | text | Email address |
-| application_id | uuid (FK, UK part 1) | **REQUIRED** — partitions data per consuming platform |
+| tenant_id | uuid (FK, UK part 1) | **REQUIRED** — partitions data per tenant |
 | email_confirmed | boolean | |
 | phone_number | text (nullable) | |
 | phone_confirmed | boolean | |
@@ -42,7 +42,9 @@ Users support multiple authentication methods: password, email OTP, phone OTP, d
 
 ## Multi-Tenancy
 
-**Critical:** `UNIQUE(application_id, email)` — the same email can exist on different tenants but represents unrelated users. `alice@corp.com` on `Tenant A` and `alice@corp.com` on `Tenant B` are different people. No cross-tenant identity exists.
+**Critical:** `UNIQUE(tenant_id, email)` — the same email can exist on different tenants but represents unrelated users. `alice@corp.com` on `Tenant A` and `alice@corp.com` on `Tenant B` are different people. No cross-tenant identity exists.
+
+Within a single tenant, email is globally unique. Within a multi-application tenant (e.g., hauliage with hauliage-web, hauliage-api, hauliage-admin), all applications share the same user base.
 
 ## Auth Method Flags
 

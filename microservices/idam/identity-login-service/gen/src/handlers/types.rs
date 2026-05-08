@@ -314,6 +314,58 @@ pub struct LogoutRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MagicLinkRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MagicLinkResponse {
+    pub expires_in: i32,
+
+    pub magic_link_sent: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MagicLinkSendRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MagicLinkSendResponse {
+    pub expires_in: i32,
+
+    pub magic_link_sent: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MagicLinkVerifyRequest {
+    pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MagicLinkVerifyResponse {
+    pub access_token: String,
+
+    pub email: String,
+
+    pub email_verified: bool,
+
+    pub expires_in: i32,
+
+    pub mfa_required: bool,
+
+    pub phone_verified: bool,
+
+    pub refresh_token: String,
+
+    pub refresh_token_expires_in: i32,
+
+    pub token_type: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MfaRequiredResponse {
     pub challenge_type: String,
 
@@ -367,6 +419,85 @@ pub struct ResetPasswordRequest {
     pub new_password: String,
 
     pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SignupValidateResponse {
+    pub allowed: bool,
+
+    pub reasons: Vec<String>,
+
+    pub requires_mfa: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SignupValidationRequest {
+    pub email: String,
+
+    pub phone: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SignupValidationResponse {
+    pub allowed: bool,
+
+    pub reasons: Vec<String>,
+
+    pub requires_mfa: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SmsMagicLinkRequest {
+    pub phone: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SmsMagicLinkResponse {
+    pub expires_in: i32,
+
+    pub magic_link_sent: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SmsMagicLinkSendRequest {
+    pub phone: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SmsMagicLinkSendResponse {
+    pub expires_in: i32,
+
+    pub magic_link_sent: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SmsMagicLinkVerifyRequest {
+    pub phone: String,
+
+    pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SmsMagicLinkVerifyResponse {
+    pub access_token: String,
+
+    pub email: String,
+
+    pub email_verified: bool,
+
+    pub expires_in: i32,
+
+    pub mfa_required: bool,
+
+    pub phone_verified: bool,
+
+    pub refresh_token: String,
+
+    pub refresh_token_expires_in: i32,
+
+    pub token_type: String,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

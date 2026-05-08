@@ -1,53 +1,73 @@
-# Sesame-IDAM Helm Values — identity-session-service
-# Token refresh, OIDC discovery, JWKS
-# Port: 8005
-
-replicaCount: 1
+service:
+  name: identity-session-service
+  port: 8105
+  containerPort: 8105
+  nodePort: null
 
 image:
-  repository: localhost:5001/sesame-idam-identity-session-service
+  repository: localhost:5001
+  name: sesame-idam-identity-session-service
+  tag: tilt
   pullPolicy: IfNotPresent
-  tag: "tilt"
 
-nameOverride: ""
-fullnameOverride: ""
+deployment:
+  replicas: 1
+  namespace: sesame-idam
 
-serviceAccount:
-  create: true
-  automountServiceAccountToken: true
-
-podAnnotations: {}
-podLabels: {}
-podSecurityContext: {}
-securityContext: {}
-
-service:
-  type: ClusterIP
-  port: 8005
-  targetPort: 8005
+app:
+  binaryName: identity-session-service
+  serviceName: identity-session-service
+  config:
+    security:
+      api_keys:
+        ApiKeyHeader:
+          key: "test123"
+    http:
+      keep_alive: true
+      timeout_secs: 5
+      max_requests: 50000
+    database:
+      host: "postgres.data.svc.cluster.local"
+      port: 5432
+      name: "postgres"
+      user: "postgres"
+      password: "postgres"
+      max_connections: 10
+    redis:
+      host: "redis"
+      port: 6379
+      db: 0
+      max_connections: 10
 
 resources:
   requests:
-    memory: "128Mi"
+    memory: "256Mi"
     cpu: "100m"
   limits:
-    memory: "256Mi"
+    memory: "512Mi"
     cpu: "500m"
 
-livenessProbe:
-  httpGet:
-    path: /health
-    port: 8005
-  initialDelaySeconds: 5
-  periodSeconds: 10
+healthCheck:
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 2
 
-readinessProbe:
-  httpGet:
-    path: /health
-    port: 8005
-  initialDelaySeconds: 2
-  periodSeconds: 5
+env:
+  RUST_LOG: "debug"
+  RUST_BACKTRACE: "1"
+  BRRTR_LOG_FORMAT: "json"
+  BRRTR_STACK_SIZE: "0x8000"
 
-config:
-  serviceName: identity-session-service
-  servicePort: 8005
+serviceType: NodePort
+
+prometheus:
+  enabled: true
+  port: 9090
+  path: "/metrics"

@@ -357,10 +357,19 @@ config:
   layout: elk
 ---
 erDiagram
+    Tenant {
+        uuid id PK "outer isolation boundary — each customer is one tenant"
+        text name "e.g., 'Hauliage', 'RERP'"
+        text domain "primary domain"
+        timestamptz created_at
+        timestamptz updated_at
+    }
     Application {
-        uuid id PK "tenant boundary — each consuming platform is one application"
-        text name "e.g., 'Acme Logistics Platform'"
-        text domain "custom domain for the platform"
+        uuid id PK "logical grouping within a tenant — NOT an isolation boundary"
+        uuid tenant_id FK "belongs to one tenant"
+        text name "e.g., 'Hauliage Web', 'Hauliage API', 'Hauliage Admin'"
+        text slug
+        text platform "application domain"
         text jwt_signing_key_id FK "per-tenant JWT keys"
         boolean is_active
         timestamptz created_at
@@ -368,8 +377,8 @@ erDiagram
     }
     User {
         uuid id PK
-        uuid application_id FK "TENANT BOUNDARY — user scoped to one platform"
-        text email "UNIQUE(application_id, email) — same email on different tenants = unrelated users"
+        uuid tenant_id FK "TENANT BOUNDARY — user scoped to one tenant"
+        text email "UNIQUE(tenant_id, email) — same email on different tenants = unrelated users"
         boolean email_confirmed
         text phone_number
         boolean phone_confirmed
@@ -389,7 +398,7 @@ erDiagram
     }
     Organization {
         uuid id PK
-        uuid application_id FK "TENANT BOUNDARY — org scoped to one platform"
+        uuid tenant_id FK "TENANT BOUNDARY — org scoped to one tenant"
         text name
         text slug
         text logo_url
@@ -413,7 +422,7 @@ erDiagram
     }
     Role {
         uuid id PK
-        uuid application_id FK "per-platform roles"
+        uuid tenant_id FK "scoped to tenant"
         uuid organization_id FK "nullable for platform-level roles"
         uuid parent_role_id FK "role inheritance"
         text name
@@ -425,8 +434,8 @@ erDiagram
     }
     Permission {
         uuid id PK
-        uuid application_id FK "per-platform permissions"
-        text name "e.g., invoices&#58;write"
+        uuid tenant_id FK "scoped to tenant"
+        text name "e.g., invoices:write"
         text description
         timestamptz created_at
     }
@@ -445,7 +454,7 @@ erDiagram
     }
     APIKey {
         uuid id PK
-        uuid application_id FK "TENANT BOUNDARY — keys scoped to one platform"
+        uuid tenant_id FK "TENANT BOUNDARY — keys scoped to one tenant"
         uuid user_id FK "nullable for org-scoped keys"
         uuid org_id FK "nullable for user-scoped keys"
         text key_hash
@@ -471,7 +480,7 @@ erDiagram
     Session {
         uuid id PK
         uuid user_id FK
-        uuid application_id FK "TENANT BOUNDARY"
+        uuid tenant_id FK "TENANT BOUNDARY"
         text session_token "hashed"
         text refresh_token "hashed"
         inet ip_address
@@ -485,7 +494,7 @@ erDiagram
         uuid id PK
         uuid user_id
         uuid org_id
-        uuid application_id
+        uuid tenant_id
         text action
         text resource_type
         text resource_id
@@ -519,7 +528,7 @@ erDiagram
     }
     McpAgent {
         uuid agent_id PK
-        uuid application_id FK "scoped to platform"
+        uuid tenant_id FK "scoped to tenant"
         text name
         text tool_namespace
         text description
@@ -531,13 +540,18 @@ erDiagram
         timestamptz last_used_at
         integer total_tokens_issued
     }
-    Application ||--o{ User : "has"
-    Application ||--o{ Organization : "has"
-    Application ||--o{ APIKey : "has"
-    Application ||--o{ Session : "has"
-    Application ||--o{ Role : "defines"
-    Application ||--o{ Permission : "defines"
-    Application ||--o{ McpAgent : "owns"
+    Tenant ||--o{ Application : "has"
+    Tenant ||--o{ User : "has"
+    Tenant ||--o{ Organization : "has"
+    Tenant ||--o{ APIKey : "has"
+    Tenant ||--o{ Session : "has"
+    Tenant ||--o{ Role : "defines"
+    Tenant ||--o{ Permission : "defines"
+    Tenant ||--o{ McpAgent : "owns"
+    Application ||--o{ User : "groups"
+    Application ||--o{ Organization : "groups"
+    Application ||--o{ APIKey : "groups"
+    Application ||--o{ Session : "groups"
     Organization ||--o{ UserOrganization : "has"
     User ||--o{ UserOrganization : "belongs to"
     Organization ||--o{ Role : "defines"
@@ -558,18 +572,18 @@ erDiagram
 
 ### 5.2 Key Design Decisions
 
-|| Decision | Rationale |
+| Decision | Rationale |
 |----------|-----------|
-| **Application = Tenant boundary** | Each consuming platform (Software X, Software Y) is an `Application` entity that acts as a tenant. All users, orgs, and keys are scoped to one application. |
-| **No shared users across tenants** | `UNIQUE(application_id, email)` — the same email can exist on different applications but represents unrelated users. No cross-tenant identity. |
+| **Two-level hierarchy: Tenant > Application** | A `Tenant` is the isolation boundary (zero bleed between tenants). An `Application` is a logical grouping within a tenant (e.g., hauliage has hauliage-web, hauliage-api, hauliage-admin). `X-Tenant-ID` maps to the Tenant. |
+| **No shared users across tenants** | `UNIQUE(tenant_id, email)` — the same email can exist on different tenants but represents unrelated users. No cross-tenant identity. |
 | **One user table, two user types** | No separate `platform_user` and `customer_user` tables. The `user_type` column distinguishes them, and the JWT claim shape differs. |
-| **Organisations are per-tenant** | The same organisation name can exist in different applications without conflict. An org is always scoped to the application it was created in. |
-| **Roles are per-tenant, scoped to orgs** | Platform-level roles have `org_id: NULL`. Org-level roles are scoped to a specific org within a specific application. |
-| **Role inheritance via `parent_role_id`** | A role can inherit from another role within the same application. Effective permissions are resolved by walking the inheritance chain. |
-| **Sessions are per-tenant AND per-user** | A user has sessions only within the application they authenticated against. Refresh tokens are application-scoped. |
-| **Soft deletes everywhere** | `deleted_at` columns on user, organisation, and application allow graceful deletion with auditability. |
+| **Organisations are per-tenant** | The same organisation name can exist in different tenants without conflict. An org is always scoped to the tenant it was created in. |
+| **Roles are per-tenant, scoped to orgs** | Platform-level roles have `org_id: NULL`. Org-level roles are scoped to a specific org within a specific tenant. |
+| **Role inheritance via `parent_role_id`** | A role can inherit from another role within the same tenant. Effective permissions are resolved by walking the inheritance chain. |
+| **Sessions are per-tenant AND per-user** | A user has sessions only within the tenant they authenticated against. Refresh tokens are tenant-scoped. |
+| **Soft deletes everywhere** | `deleted_at` columns on user, organisation, application, and tenant allow graceful deletion with auditability. |
 | **Refresh tokens are rotated** | On every `/refresh`, the old token is revoked and a new one issued. Prevents replay attacks. |
-| **API keys are per-tenant** | Each key belongs to exactly one application (tenant). Keys from one tenant cannot be used in another. |
+| **API keys are per-tenant** | Each key belongs to exactly one tenant. Keys from one tenant cannot be used in another. |
 
 ---
 

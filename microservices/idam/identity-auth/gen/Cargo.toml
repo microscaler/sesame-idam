@@ -3,6 +3,11 @@ name = "sesame_idam_identity_auth_gen"
 version = "0.1.0"
 edition = "2021"
 
+
+[lib]
+name = "sesame_idam_identity_auth_gen"
+path = "src/lib.rs"
+
 [features]
 default = []
 # jemalloc is opt-in (--features jemalloc). On armv7-unknown-linux-musleabihf and other musl

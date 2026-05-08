@@ -7,10 +7,10 @@
 
 | Service | Directory | Spec Files | Base Path | Port |
 |---------|-----------|------------|-----------|------|
-| **identity-auth** | `openapi/identity-auth/` | `openapi.yaml` (canonical), `identity-login-service/openapi.yaml`, `identity-session-service/openapi.yaml`, `identity-user-mgmt-service/openapi.yaml` | `/auth/*`, `/.well-known/*` | 8001 |
-| **authz-core** | `openapi/authz-core/` | `openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | 8002 |
-| **api-keys** | `openapi/api-keys/` | `openapi.yaml` | `/api/v1/am/api-keys/*` | 8003 |
-| **org-mgmt** | `openapi/org-mgmt/` | `openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | 8004 |
+| **identity-auth** | `openapi/identity-auth/` | `openapi.yaml` (canonical), `identity-login-service/openapi.yaml`, `identity-session-service/openapi.yaml`, `identity-user-mgmt-service/openapi.yaml` | `/auth/*`, `/.well-known/*` | 8101 |
+| **authz-core** | `openapi/authz-core/` | `openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | 8102 |
+| **api-keys** | `openapi/api-keys/` | `openapi.yaml` | `/api/v1/am/api-keys/*` | 8103 |
+| **org-mgmt** | `openapi/org-mgmt/` | `openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | 8104 |
 
 ## identity-auth (combined + sub-specs)
 

@@ -1,3 +1,3 @@
-"""Sesame-IDAM development tooling: lint, format, QA; same guard rails as RERP."""
+"""Shim package: install ``brrtrouter-tooling`` and delegate to ``brrtrouter_tooling.workspace``."""
 
-__version__ = "0.1.0"
+__all__: list[str] = []

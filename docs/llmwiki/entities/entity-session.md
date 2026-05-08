@@ -19,7 +19,7 @@ User session model. Sessions are per-user AND per-application — a user has sep
 |--------|------|-------|
 | id | uuid (PK) | |
 | user_id | uuid (FK) | |
-| application_id | uuid (FK) | Per-application sessions |
+| tenant_id | uuid (FK) | Per-application sessions |
 | session_token | text (hashed) | Also cached in Redis |
 | refresh_token | text (hashed) | Also cached in Redis |
 | ip_address | inet | |

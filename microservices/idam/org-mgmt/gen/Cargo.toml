@@ -1,5 +1,5 @@
 [package]
-name = "sesame_idam_org_mgmt_gen"
+name = "org_mgmt_service_api"
 version = "0.1.0"
 edition = "2021"
 

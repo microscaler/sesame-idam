@@ -5,6 +5,10 @@
 
 pub mod types;
 
+pub mod query_orgs;
+
+pub mod invalidate_user_api_keys;
+
 pub mod list_applications;
 
 pub mod create_application;
@@ -26,8 +30,6 @@ pub mod get_role_permissions;
 pub mod assign_permission_to_role;
 
 pub mod revoke_permission_from_role;
-
-pub mod query_orgs;
 
 pub mod fetch_org;
 
@@ -70,6 +72,14 @@ pub mod set_saml_idp_metadata;
 pub mod fetch_scim_groups;
 
 pub mod fetch_scim_group;
+
+pub mod scim_list_users;
+
+pub mod scim_create_user;
+
+pub mod scim_update_user;
+
+pub mod scim_delete_user;
 
 pub mod subscribe_org_to_role_mapping;
 
