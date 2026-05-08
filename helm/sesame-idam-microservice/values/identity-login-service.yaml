@@ -1,0 +1,53 @@
+# Sesame-IDAM Helm Values — identity-login-service
+# Login, register, social auth, OTP flows
+# Port: 8001
+
+replicaCount: 1
+
+image:
+  repository: localhost:5001/sesame-idam-identity-login-service
+  pullPolicy: IfNotPresent
+  tag: "tilt"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automountServiceAccountToken: true
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8001
+  targetPort: 8001
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "500m"
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8001
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8001
+  initialDelaySeconds: 2
+  periodSeconds: 5
+
+config:
+  serviceName: identity-login-service
+  servicePort: 8001

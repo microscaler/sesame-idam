@@ -1,0 +1,2570 @@
+# Sesame-IDAM Identity Auth Service - OpenAPI 3.1
+# Contains all user-facing identity and authentication endpoints
+# Derived from BRRTRouter canonical: docs/SPIFFY_mTLS/openapi/identity-openapi.yaml
+# Sync with canonical when updating org/tenant, auth, or discovery contracts.
+# Generic Identity Service (IDAM) - OpenAPI 3.1
+# Identity service may call Access Management for JWT enrichment (roles/permissions).
+openapi: 3.1.0
+info:
+  title: Identity Auth Service
+  version: 1.0.0
+  description: |
+    Generic Identity and Authentication service. Single source of truth for identity, email/phone, sessions.
+    Supports OAuth 2.1/OIDC, tenant-scoped JWTs, refresh/logout, token exchange (RFC 8693).
+    No PII in URIs; use POST + body for email/phone lookups.
+
+    **SaaS customer model:** Customers are **individual** (natural person) or **organisational** (legal entity).
+    Organisational customers may have **multiple tenants** under one organisation (e.g. divisions, regions);
+    tenants are demarcated beneath a single organisation.
+
+    **Platform vs SaaS differentiation:** Most endpoints accept an optional `org_id` in the request body.
+    - For **SaaS customers**: `org_id` is required and must belong to the caller's organisation.
+    - For **platform admins**: `org_id` is optional — if omitted, operates globally across all organisations.
+  contact:
+    name: Platform / Security
+
+servers:
+  - url: /api/v1/identity
+    description: Identity API base
+  - url: /auth
+    description: Auth endpoints (login, refresh, logout, token)
+  - url: /oauth
+    description: OAuth2/OIDC endpoints
+  - url: /
+    description: Discovery (/.well-known)
+
+tags:
+  - name: Users
+    description: User lifecycle (create, fetch, update, delete, query)
+  - name: Sessions
+    description: Login, refresh, logout, session management
+  - name: AuthFlows
+    description: Registration, password, magic link, OTP flows
+  - name: PasswordSecurity
+    description: Password management, MFA, account security
+  - name: UserMigration
+    description: Import users from external auth systems
+  - name: SocialLogin
+    description: OAuth provider login and account linking
+  - name: Discovery
+    description: OIDC/JWKS discovery
+  - name: MCP
+    description: Model Context Protocol — AI agent authentication and token generation
+  - name: Identity
+    description: Email, phone, user profile
+
+security:
+  - BearerAuth: []
+  - ApiKeyHeader: []
+
+paths:
+  # ============================================================================
+  # USER LIFECYCLE
+  # ============================================================================
+
+  # --- Create User (idempotent) ---
+  /api/v1/identity/users:
+    post:
+      tags: [Users]
+      summary: Create user (idempotent by email)
+      description: |
+        Creates a new user. Idempotent if email matches existing user — returns existing user.
+        SaaS customers must provide their own `org_id`; platform admins may omit it.
+      operationId: create_user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '200':
+          description: User already exists (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+    get:
+      tags: [ Users]
+      summary: Query for users
+      description: |
+        Paginated search for users. SaaS customers can only query users in their org.
+        Platform admins can query across all orgs.
+      operationId: query_users
+      parameters:
+        - name: email
+          in: query
+          schema: { type: string, format: email }
+          description: Filter by email (exact match)
+        - name: email_pattern
+          in: query
+          schema: { type: string }
+          description: Filter by email prefix/substring
+        - name: username
+          in: query
+          schema: { type: string }
+          description: Filter by username
+        - name: enabled
+          in: query
+          schema: { type: boolean }
+          description: Filter by enabled status
+        - name: disabled
+          in: query
+          schema: { type: boolean }
+          description: Filter by disabled status
+        - name: locked
+          in: query
+          schema: { type: boolean }
+          description: Filter by locked status
+        - name: email_confirmed
+          in: query
+          schema: { type: boolean }
+          description: Filter by email confirmation status
+        - name: created_after
+          in: query
+          schema: { type: string, format: date-time }
+          description: Filter by creation date (after)
+        - name: created_before
+          in: query
+          schema: { type: string, format: date-time }
+          description: Filter by creation date (before)
+        - name: org_id
+          in: query
+          schema: { type: string, format: uuid }
+          description: Filter users in this organisation (SaaS required, platform optional)
+        - name: signup_flow
+          in: query
+          schema:
+            type: string
+            enum: [signup, invite, magiclink, password, social, saml]
+          description: Filter by signup flow type
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+
+  # --- Query Users ---
+
+
+  # --- Get User By ID ---
+  /api/v1/identity/users/{user_id}:
+    get:
+      tags: [Users]
+      summary: Fetch user by user ID
+      description: |
+        Fetches a single user by ID. SaaS customers can only fetch users in their org.
+        Platform admins can fetch any user.
+      operationId: get_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Not found
+    put:
+      tags: [ Users]
+      summary: Update user
+      description: |
+        Updates user fields (firstName, lastName, username, pictureUrl, extraProperties, emailConfirmed, canCreateOrgs, locked, sendWelcomeEmail, sendMagicLink).
+        SaaS customers can only update users in their org. Platform admins can update any user.
+      operationId: update_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+    delete:
+      tags: [ Users]
+      summary: Delete user
+      description: Irreversible deletion of user. SaaS customers can only delete users in their org.
+      operationId: delete_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: User deleted
+        '404':
+          description: Not found
+
+  # --- Update User ---
+
+
+  # --- Delete User ---
+
+
+  # --- Current User Profile ---
+  /api/v1/identity/users/me:
+    get:
+      tags: [Identity]
+      summary: Current user profile
+      operationId: users_me_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+    patch:
+      tags: [Identity]
+      summary: Update current user profile
+      operationId: users_me_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+
+  # --- Fetch By Email ---
+  /api/v1/identity/users/email:
+    get:
+      tags: [Users]
+      summary: Fetch user by email
+      description: |
+        Returns the user associated with the given email. No PII in URI.
+      operationId: fetch_user_by_email
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema: { type: string, format: email }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Not found
+
+  # --- Fetch By Username ---
+  /api/v1/identity/users/username:
+    get:
+      tags: [Users]
+      summary: Fetch user by username
+      operationId: fetch_user_by_username
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Not found
+
+  # --- Employee Mode (B2B filtered view) ---
+  /api/v1/identity/users/{user_id}/employee:
+    get:
+      tags: [Users]
+      summary: Fetch user in employee mode
+      description: |
+        Returns user info filtered to the caller's organisation context only.
+        Used for B2B directory lookup — omits orgs the user is not part of.
+        Requires BearerAuth with org context.
+      operationId: fetch_employee
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeResponse'
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # SESSION MANAGEMENT
+  # ============================================================================
+
+  # --- Login (Password) ---
+  /auth/login:
+    post:
+      tags: [AuthFlows]
+      summary: Login with password
+      operationId: auth_login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '202':
+          description: MFA required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaRequiredResponse'
+        '400':
+          description: Bad request
+        '401':
+          description: Invalid credentials
+
+  # --- Refresh Token ---
+  /auth/refresh:
+    post:
+      tags: [Sessions]
+      summary: Refresh access token
+      operationId: auth_refresh
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid or expired refresh token
+
+  # --- Logout ---
+  /auth/logout:
+    post:
+      tags: [Sessions]
+      summary: Logout (revoke session)
+      operationId: auth_logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '204':
+          description: Logged out
+        '401':
+          description: Unauthorized
+
+  # --- Register ---
+  /auth/register:
+    post:
+      tags: [AuthFlows]
+      summary: Register new user
+      operationId: auth_register
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Validation error
+
+  # --- Token Endpoint (OAuth2) ---
+  /auth/token:
+    post:
+      tags: [Sessions]
+      summary: Token endpoint (refresh, client_credentials, token_exchange RFC 8693)
+      operationId: auth_token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid grant
+        '401':
+          description: Unauthorized
+
+  # ============================================================================
+  # PASSWORD & AUTHENTICATION SECURITY
+  # ============================================================================
+
+  # --- Magic Link ---
+  /api/v1/identity/users/{user_id}/magiclink:
+    post:
+      tags: [AuthFlows]
+      summary: Send magic link for login
+      description: Sends an email with a magic link for passwordless login.
+      operationId: create_magic_link
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Magic link sent
+        '404':
+          description: Not found
+
+  # --- Set/Change Password ---
+  /api/v1/identity/users/{user_id}/password:
+    put:
+      tags: [PasswordSecurity]
+      summary: Set or change user password
+      description: |
+        For platform admins: sets password for any user.
+        For SaaS: only users in their org.
+      operationId: update_user_password
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasswordRequest'
+      responses:
+        '200':
+          description: Password set
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+    delete:
+      tags: [ PasswordSecurity]
+      summary: Clear password (for SSO-only users)
+      description: Removes password so user can only login via SSO/SAML.
+      operationId: clear_user_password
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Password cleared
+        '404':
+          description: Not found
+
+  # --- Clear Password (SSO-only users) ---
+
+
+  # --- Forgot Password ---
+  /auth/forgot-password:
+    post:
+      tags: [AuthFlows]
+      summary: Request password reset
+      operationId: auth_forgot_password
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Reset email sent
+        '400':
+          description: Bad request
+
+  # --- Reset Password ---
+  /auth/reset-password:
+    post:
+      tags: [AuthFlows]
+      summary: Confirm password reset
+      operationId: auth_reset_password
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset
+        '400':
+          description: Invalid token or request
+
+  # --- Email Verification ---
+  /api/v1/identity/users/{user_id}/email/verify:
+    post:
+      tags: [PasswordSecurity]
+      summary: Verify user email
+      operationId: verify_user_email
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Email verified
+        '400':
+          description: Invalid token
+        '404':
+          description: Not found
+
+  # --- Resend Email Confirmation ---
+  /api/v1/identity/users/{user_id}/resend-email-confirmation:
+    post:
+      tags: [PasswordSecurity]
+      summary: Resend email confirmation
+      operationId: resend_email_confirmation
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Email sent
+        '404':
+          description: Not found
+
+  # --- MFA Disable ---
+  /api/v1/identity/users/{user_id}/mfa/disable:
+    post:
+      tags: [PasswordSecurity]
+      summary: Disable user 2FA
+      description: Disables all 2FA methods for a user. Platform admin or user themselves.
+      operationId: disable_user_mfa
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: 2FA disabled
+        '404':
+          description: Not found
+
+  # --- MFA Setup (TOTP) ---
+  /api/v1/identity/users/{user_id}/mfa/setup:
+    post:
+      tags: [PasswordSecurity]
+      summary: Set up TOTP MFA
+      description: |
+        Generates a TOTP secret QR code for the user to scan with an authenticator app.
+        Requires the user's current password for verification.
+        Returns a provisioning URI that can be rendered as a QR code.
+      operationId: setup_user_mfa_totp
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaSetupRequest'
+      responses:
+        '200':
+          description: TOTP secret generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaSetupResponse'
+        '400':
+          description: Invalid password or MFA already configured
+        '404':
+          description: Not found
+
+  # --- MFA Verify (complete setup or login step) ---
+  /api/v1/identity/users/{user_id}/mfa/verify:
+    post:
+      tags: [PasswordSecurity]
+      summary: Verify MFA code
+      description: |
+        Verifies an MFA code for either:
+        1. Completing MFA setup (step 2 after setup generated QR code)
+        2. Completing login (step 2 of password login when MFA is required)
+      operationId: verify_user_mfa
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaVerifyRequest'
+      responses:
+        '200':
+          description: MFA verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid code
+        '404':
+          description: Not found
+
+  # --- Phone Number Setup ---
+  /api/v1/identity/users/{user_id}/phone:
+    post:
+      tags: [PasswordSecurity]
+      summary: Add phone number for user
+      description: |
+        Adds a phone number to the user's profile and sends an SMS verification code.
+        Phone must be verified before it can be used for authentication.
+      operationId: setup_user_phone
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneNumberRequest'
+      responses:
+        '200':
+          description: Phone number added, SMS code sent
+        '400':
+          description: Invalid phone number
+        '404':
+          description: Not found
+
+  # --- Phone Number Verification ---
+  /api/v1/identity/users/{user_id}/phone/verify:
+    post:
+      tags: [PasswordSecurity]
+      summary: Verify phone number
+      description: Verifies the phone number using the SMS OTP code.
+      operationId: verify_user_phone
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneVerificationRequest'
+      responses:
+        '200':
+          description: Phone number verified
+        '400':
+          description: Invalid code
+        '404':
+          description: Not found
+
+  # --- Change User Email ---
+  /api/v1/identity/users/{user_id}/email:
+    put:
+      tags: [Identity]
+      summary: Change user email
+      operationId: update_user_email
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmailRequest'
+      responses:
+        '200':
+          description: Email updated
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # ACCOUNT SECURITY
+  # ============================================================================
+
+  # --- Disable/Block User ---
+  /api/v1/identity/users/{user_id}/disable:
+    post:
+      tags: [PasswordSecurity]
+      summary: Disable/block user
+      description: Prevents user from logging in. Platform admin or SaaS with org context.
+      operationId: disable_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: User disabled
+        '404':
+          description: Not found
+
+  # --- Enable/Unblock User ---
+  /api/v1/identity/users/{user_id}/enable:
+    post:
+      tags: [PasswordSecurity]
+      summary: Enable/unblock user
+      description: Re-enables a previously disabled user.
+      operationId: enable_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: User enabled
+        '404':
+          description: Not found
+
+  # --- Logout All Sessions ---
+  /api/v1/identity/users/{user_id}/logout-all-sessions:
+    post:
+      tags: [Sessions]
+      summary: Logout all user sessions
+      description: Invalidates all active sessions for this user. Platform admin or user themselves.
+      operationId: logout_all_sessions
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: All sessions invalidated
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # USER MIGRATION
+  # ============================================================================
+
+  # --- Migrate User From External ---
+  /api/v1/identity/users/migrate:
+    post:
+      tags: [UserMigration]
+      summary: Migrate user from external auth system
+      description: |
+        Imports a user from another authentication system. Includes hash+salt password import,
+        extra properties, legacy user ID mapping. Platform admin only.
+      operationId: migrate_user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrateUserRequest'
+      responses:
+        '201':
+          description: User migrated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+
+  # --- Bulk Migrate Passwords ---
+  /api/v1/identity/users/migrate-password:
+    post:
+      tags: [UserMigration]
+      summary: Bulk migrate passwords (hash+salt)
+      description: |
+        Imports passwords from another system. Password hash format: $2a$14$... (bcrypt).
+        Platform admin only.
+      operationId: migrate_user_passwords
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigratePasswordRequest'
+      responses:
+        '200':
+          description: Passwords migrated
+        '400':
+          description: Invalid hash format
+
+  # ============================================================================
+  # SOCIAL LOGIN
+  # ============================================================================
+
+  # --- Social Login Link (redirect to provider) ---
+  /social/{provider}/login:
+    get:
+      tags: [SocialLogin]
+      summary: Login with OAuth provider
+      description: |
+        Redirects the user to the OAuth provider's login page.
+        Providers: google, github, linkedin, facebook, twitter, apple, microsoft, slack, okta, or custom.
+      operationId: social_login
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string }
+          description: OAuth provider name
+        - name: scope
+          in: query
+          schema: { type: string }
+          description: Additional OAuth scopes
+        - name: login_hint
+          in: query
+          schema: { type: string, format: email }
+          description: Pre-fill email for provider
+        - name: redirect_uri
+          in: query
+          schema: { type: string }
+          description: URL to redirect after successful login
+      responses:
+        '302':
+          description: Redirect to provider
+
+  # --- Link Social Account ---
+  /api/v1/identity/users/{user_id}/social/link:
+    post:
+      tags: [SocialLogin]
+      summary: Link social account to user
+      description: |
+        Redirects user to OAuth provider to link an additional social account.
+        Requires authentication (user must be logged in).
+      operationId: link_social_account
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkSocialAccountRequest'
+      responses:
+        '302':
+          description: Redirect to provider for linking
+
+  # --- Fetch OAuth Tokens ---
+  /api/v1/identity/users/{user_id}/social/tokens:
+    get:
+      tags: [SocialLogin]
+      summary: Fetch user's OAuth tokens from providers
+      operationId: fetch_user_oauth_tokens
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenListResponse'
+
+  # --- Refresh OAuth Token ---
+  /api/v1/identity/users/{user_id}/social/tokens/{provider}/refresh:
+    get:
+      tags: [SocialLogin]
+      summary: Fetch fresh token from provider
+      description: Refreshes an expired OAuth token for the given provider.
+      operationId: fetch_fresh_oauth_token
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+
+  # ============================================================================
+  # OIDC / OAUTH2 ENDPOINTS
+  # ============================================================================
+
+  # --- Authorization Endpoint ---
+  /oauth/authorize:
+    get:
+      tags: [Sessions]
+      summary: OAuth2 authorization endpoint
+      description: |
+        Redirects user to the Sesame login page. Compatible with `code` response type.
+        After successful login, redirects to `redirect_uri` with `code` parameter.
+      operationId: oauth_authorize
+      security: []
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema: { type: string }
+          description: OAuth2 client ID (found in dashboard)
+        - name: response_type
+          in: query
+          required: true
+          schema: { type: string }
+          description: Must be `code`
+        - name: redirect_uri
+          in: query
+          required: true
+          schema: { type: string }
+          description: Registered redirect URI
+        - name: state
+          in: query
+          required: true
+          schema: { type: string }
+          description: CSRF protection state parameter
+        - name: prompt
+          in: query
+          schema:
+            type: string
+            enum: [login, consent, none, select_account]
+          description: |
+            login: Always force login flow
+            consent: Force consent screen
+            none: No login screen (error if not logged in)
+            select_account: Let user pick account
+        - name: scope
+          in: query
+          schema: { type: string }
+          description: Requested scopes (openid, email, profile, etc.)
+        - name: code_challenge
+          in: query
+          schema: { type: string }
+          description: PKCE code challenge
+        - name: code_challenge_method
+          in: query
+          schema: { type: string }
+          description: PKCE method (S256 or plain)
+      responses:
+        '302':
+          description: Redirect to login or back with code
+
+  # --- User Info Endpoint ---
+  /oauth/userinfo:
+    get:
+      tags: [Sessions]
+      summary: User Info endpoint
+      description: Returns user profile claims. Requires Bearer token.
+      operationId: oauth_userinfo
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+
+  # --- Logout Endpoint ---
+  /oauth/logout:
+    post:
+      tags: [Sessions]
+      summary: OAuth2 logout endpoint
+      description: |
+        Invalidates the user's session and optionally triggers post-logout redirect.
+      operationId: oauth_logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthLogoutRequest'
+      responses:
+        '200':
+          description: Logout successful
+
+  # ============================================================================
+  # DISCOVERY
+  # ============================================================================
+
+  # --- OIDC Discovery ---
+  /.well-known/openid-configuration:
+    get:
+      tags: [Discovery]
+      summary: OIDC discovery
+      operationId: openid_configuration
+      security: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenIDConfiguration'
+
+  # --- JWKS ---
+  /.well-known/jwks.json:
+    get:
+      tags: [Discovery]
+      summary: JWKS for JWT verification
+      operationId: jwks
+      security: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWKS'
+
+# ============================================================================
+# MCP (Model Context Protocol) — AI Agent Authentication
+# ============================================================================
+
+# --- MCP Token Exchange ---
+# AI agents authenticate to Sesame-IDAM via an OAuth 2.0-compatible token
+# exchange, producing a short-lived MCP-access token with agent-specific
+# claims.  The agent presents the token in the `Authorization` header of
+# every MCP tool call.
+
+  /mcp/token:
+    post:
+      tags: [MCP]
+      summary: Issue an MCP token for AI agent authentication
+      description: |
+        Exchanges an existing identity token (JWT) for a short-lived
+        **MCP token** scoped to a specific agent and tool namespace.
+        The MCP token carries `agent_id`, `mcp_version`, and an
+        optional `tool_namespace` claim so downstream MCP servers
+        can enforce per-agent permissions without a backend round-trip.
+
+        **Usage:**
+        1. Agent completes a standard login (password, magic link, SSO, etc.).
+        2. Agent calls this endpoint with its identity JWT.
+        3. Sesame-IDAM validates the identity JWT and returns an MCP token.
+        4. Agent includes `Authorization: Bearer <mcp_token>` in every MCP call.
+
+        The MCP token has a short TTL (default 15 min, configurable) and
+        can be refreshed using the identity service's refresh endpoint.
+
+      operationId: mcp_token_exchange
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/McpTokenRequest'
+      responses:
+        '200':
+          description: MCP token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpTokenResponse'
+        '401':
+          description: Invalid or expired identity token
+        '400':
+          description: Missing agent_id or invalid tool_namespace
+
+# --- MCP Token Validation ---
+# MCP servers (or any service) call this to validate an MCP token
+# and receive the full agent context without hitting the main
+# identity validation path.
+
+  /mcp/token/validate:
+    post:
+      tags: [MCP]
+      summary: Validate an MCP token and return agent context
+      description: |
+        Validates an MCP token and returns the agent's full context
+        (user, org, permissions) for use by MCP servers or policy
+        enforcement points. This is the equivalent of the standard
+        `/auth/token/validate` but optimised for MCP protocol flows.
+
+        MCP servers should call this on every tool invocation to
+        ensure the token is still valid and has not been revoked.
+
+      operationId: mcp_validate_token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/McpValidateRequest'
+      responses:
+        '200':
+          description: Token valid with agent context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpValidationResponse'
+        '401':
+          description: Invalid or revoked MCP token
+        '400':
+          description: Malformed validation request
+
+# --- MCP Agent Registration ---
+# Platform admins register AI agents before they can authenticate.
+# This is a one-time setup per agent (similar to registering a client
+# in OIDC).
+
+  /api/v1/platform/mcp/agents:
+    post:
+      tags: [MCP]
+      summary: Register a new MCP agent
+      description: |
+        Registers a new AI agent with Sesame-IDAM. The agent receives
+        a unique `agent_id` and optional API key for server-to-server
+        authentication. Agents must be registered before they can
+        exchange tokens via `/mcp/token`.
+
+        **Platform admins** can register agents for the entire platform.
+        **SaaS customers** can only register agents for their own org.
+
+      operationId: register_mcp_agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterMcpAgentRequest'
+      responses:
+        '201':
+          description: Agent registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpAgent'
+        '400':
+          description: Invalid request (duplicate agent_id, etc.)
+        '401':
+          description: Not authorised to register agents
+
+    get:
+      tags: [MCP]
+      summary: List registered MCP agents
+      description: |
+        Returns paginated list of registered MCP agents.
+        Platform admins see all agents; SaaS customers see only
+        their own org's agents.
+
+      operationId: list_mcp_agents
+      parameters:
+        - name: org_id
+          in: query
+          schema: { type: string, format: uuid }
+          description: Filter agents by organisation (platform admins only)
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Agent list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpAgentListResponse'
+
+# --- MCP Agent Management ---
+
+  /api/v1/platform/mcp/agents/{agent_id}:
+    get:
+      tags: [MCP]
+      summary: Fetch agent details
+      description: Returns details for a registered MCP agent.
+      operationId: get_mcp_agent
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpAgent'
+        '404':
+          description: Agent not found
+
+    delete:
+      tags: [MCP]
+      summary: De-register an MCP agent
+      description: |
+        De-registers an MCP agent. All existing MCP tokens for this
+        agent will be invalidated on next validation.
+
+      operationId: deregister_mcp_agent
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Agent de-registered
+        '404':
+          description: Agent not found
+
+# ============================================================================
+# COMPONENTS
+# ============================================================================
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token issued by this Identity Service
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+
+  schemas:
+    # ============================================================================
+    # USER ENTITY (core identity object)
+    # ============================================================================
+
+    User:
+      type: object
+      description: |
+        Complete user entity returned from user lifecycle operations.
+        Contains identity attributes, account status, and migration metadata.
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Unique opaque identifier for this user (not PII)
+        email:
+          type: string
+          format: email
+          description: Primary email address (unique, not in URI)
+        email_confirmed:
+          type: boolean
+          description: Whether the email address has been verified
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's last name
+        username:
+          type: string
+          nullable: true
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Optional human-identifiable username (alphanumeric, underscore, hyphen)
+        picture_url:
+          type: string
+          nullable: true
+          format: uri
+          description: Profile picture URL (e.g. from social login)
+        properties:
+          type: object
+          additionalProperties: true
+          description: |
+            Custom key-value metadata attached to the user.
+            Platform admins can set arbitrary properties; SaaS customers limited to org-scoped keys.
+        locked:
+          type: boolean
+          description: |
+            If true, the user is locked and cannot authenticate.
+            Locked users are typically flagged after repeated failed login attempts.
+        enabled:
+          type: boolean
+          description: |
+            If true, the user account is active and can authenticate.
+            Disabled users are explicitly blocked (e.g. by admin action).
+        has_password:
+          type: boolean
+          description: |
+            Whether the user has a password set.
+            Users with has_password=false can only authenticate via MFA, social login, or SSO.
+        update_password_required:
+          type: boolean
+          description: |
+            If true, the user must change their password at next login.
+            Set when password has expired or was reset by admin.
+        mfa_enabled:
+          type: boolean
+          description: Whether any 2FA method is currently enabled for this user
+        can_create_orgs:
+          type: boolean
+          description: Whether this user can create new organisations (platform admin flag)
+        created_at:
+          type: integer
+          format: int64
+          description: Unix epoch timestamp (seconds) when the user was created
+        last_active_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: Unix epoch timestamp of last successful authentication
+        legacy_user_id:
+          type: string
+          nullable: true
+          description: |
+            Identifier from the previous authentication system.
+            Set during user migration to maintain referential integrity.
+        phone_number:
+          type: string
+          nullable: true
+          description: Primary phone number in E.164 format (e.g. +14155551234)
+        phone_verified:
+          type: boolean
+          description: Whether the phone number has been verified (via SMS OTP)
+        mfa_factors:
+          type: array
+          items:
+            $ref: '#/components/schemas/MfaFactor'
+          description: List of 2FA methods currently enabled for this user
+      required:
+        - user_id
+        - email
+        - email_confirmed
+        - locked
+        - enabled
+        - has_password
+        - created_at
+      example:
+        user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d"
+        email: "test@example.com"
+        email_confirmed: true
+        first_name: "Test"
+        last_name: "User"
+        username: "testuser"
+        picture_url: "https://example.com/avatar.png"
+        properties:
+          favorite_sport: "basketball"
+          department: "engineering"
+        locked: false
+        enabled: true
+        has_password: true
+        update_password_required: false
+        mfa_enabled: false
+        phone_number: "+14155551234"
+        phone_verified: true
+        mfa_factors:
+          - type: totp
+            is_primary: true
+          - type: webauthn
+            is_primary: false
+        can_create_orgs: false
+        created_at: 1625476380
+        last_active_at: 1625476380
+
+    CreateUserRequest:
+      type: object
+      description: |
+        Creates a new user. Idempotent: if an existing user with the same email
+        is found, returns the existing user instead of creating a duplicate.
+        Platform admins may omit `org_id` to create users without org membership.
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Primary email address (must be unique)
+        email_confirmed:
+          type: boolean
+          default: false
+          description: |
+            If true, the email is considered pre-verified (no confirmation email sent).
+            Useful for platform-admin-created users or migrated accounts.
+        send_email_confirmation:
+          type: boolean
+          default: false
+          description: |
+            If true, sends a verification email to the user's address.
+            Only meaningful when email_confirmed=false.
+        first_name:
+          type: string
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          maxLength: 100
+          description: User's last name
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Optional human-identifiable username
+        picture_url:
+          type: string
+          format: uri
+          description: Initial profile picture URL
+        send_welcome_email:
+          type: boolean
+          default: false
+          description: If true, sends a welcome email after user creation
+        extra_properties:
+          type: object
+          additionalProperties: true
+          description: Custom key-value metadata (arbitrary JSON)
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            For SaaS customers: required, must be their own organisation.
+            For platform admins: optional — if omitted, creates a platform-level user.
+            When present, the user is automatically added to this organisation.
+      example:
+        email: "newuser@example.com"
+        email_confirmed: false
+        send_email_confirmation: true
+        first_name: "New"
+        last_name: "User"
+        username: "newuser"
+        send_welcome_email: true
+        extra_properties:
+          department: "engineering"
+          role: "developer"
+        org_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492"
+
+    UpdateUserRequest:
+      type: object
+      description: |
+        Partial update of user attributes. Only provided fields are modified.
+        SaaS customers can only update users within their own organisation.
+      properties:
+        first_name:
+          type: string
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          maxLength: 100
+          description: User's last name
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Optional human-identifiable username
+        picture_url:
+          type: string
+          format: uri
+          description: Profile picture URL
+        email_confirmed:
+          type: boolean
+          description: Force email verification status
+        can_create_orgs:
+          type: boolean
+          description: Platform admin flag controlling org creation rights
+        locked:
+          type: boolean
+          description: Lock or unlock user account
+        send_welcome_email:
+          type: boolean
+          description: Send welcome email after update (if email was changed)
+        send_magic_link:
+          type: boolean
+          description: Send a magic link to the user's email after update
+      example:
+        first_name: "Updated"
+        last_name: "Name"
+        locked: false
+
+    UserListResponse:
+      type: object
+      description: Paginated response containing user list and metadata.
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          description: List of user entities
+        total_users:
+          type: integer
+          description: Total number of users matching the query (not just this page)
+        current_page:
+          type: integer
+          description: Current page number (0-indexed)
+        page_size:
+          type: integer
+          description: Number of items per page
+        has_more_results:
+          type: boolean
+          description: Whether additional pages of results exist
+      example:
+        users:
+          - user_id: "31c41c16-..."
+            email: "test@example.com"
+            email_confirmed: true
+            locked: false
+            enabled: true
+            created_at: 1625476380
+        total_users: 1
+        current_page: 0
+        page_size: 10
+        has_more_results: false
+
+    # --- MFA ---
+    MfaFactor:
+      type: object
+      description: A 2FA method enabled for a user.
+      properties:
+        type:
+          type: string
+          enum: [totp, webauthn, sms, email]
+          description: The MFA factor type
+        is_primary:
+          type: boolean
+          description: Whether this is the user's primary (default) MFA factor
+        name:
+          type: string
+          nullable: true
+          description: Human-readable label for the factor (e.g. "Work phone", "YubiKey")
+        created_at:
+          type: integer
+          format: int64
+          description: Unix timestamp when this factor was created
+      example:
+        type: totp
+        is_primary: true
+        name: "Google Authenticator"
+        created_at: 1625476380
+
+    # --- Phone ---
+    PhoneNumberRequest:
+      type: object
+      properties:
+        phone_number:
+          type: string
+          pattern: '^\\+[1-9]\\d{1,14}$'
+          description: Phone number in E.164 format (e.g. +14155551234)
+
+    PhoneVerificationRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 4
+          maxLength: 10
+          description: OTP code received via SMS
+        phone_number:
+          type: string
+          pattern: '^\\+[1-9]\\d{1,14}$'
+          description: Phone number to verify (E.164 format)
+      description: |
+              Verify a phone number via SMS OTP code.
+      example:
+        phone_number: "+14155551234"
+        code: "123456"
+
+    # --- Auth Flows ---
+    LoginRequest:
+      type: object
+      description: |
+        Authenticate with either email or phone_number.
+        Platform admins can optionally specify organization_id to scope the login.
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: Primary email address
+        phone_number:
+          type: string
+          pattern: '^\\+[1-9]\\d{1,14}$'
+          description: |
+            Alternative login method using phone number (E.164 format).
+            If provided, email is ignored. Phone OTP flow returns MFA_REQUIRED.
+        password:
+          type: string
+          description: User's password (only required when logging in with email, not with phone OTP)
+        organization_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional organisation hint for multi-tenant orgs
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Tenant for multi-tenant orgs
+      oneOf:
+        - required: [email, password]
+        - required: [phone_number]
+      example:
+        email: "test@example.com"
+        password: "secret123"
+        organization_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492"
+      x-examples:
+        email_password:
+          email: "test@example.com"
+          password: "secret123"
+        phone_otp:
+          phone_number: "+14155551234"
+
+    LoginResponse:
+      type: object
+      required: [access_token, refresh_token, expires_in, token_type]
+      description: |
+        Returns JWT access token (RS256, short-lived, enriched with org/role/permission claims)
+        and a refresh token for session rotation.
+      properties:
+        access_token:
+          type: string
+          description: |
+            Signed JWT access token (RS256). Contains:
+            - Standard claims: sub, email, email_verified, name, preferred_username
+            - Identity claims: user_id, first_name, last_name, username
+            - Session claims: org_id, org_name, user_role, user_permissions
+            - Metadata: mfa_enabled, phone_number, phone_verified
+          refresh_token:
+            type: string
+            description: Opaque refresh token for session rotation
+          id_token:
+            type: string
+            nullable: true
+            description: OIDC ID token (present when scope=openid is requested)
+          expires_in:
+            type: integer
+            description: "Access token TTL in seconds"
+          token_type:
+            type: string
+            enum: [Bearer]
+          user:
+            $ref: '#/components/schemas/UserProfile'
+            nullable: true
+            description: Current user profile (enriched with active org context)
+      example:
+        access_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+        id_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expires_in: 900
+        token_type: Bearer
+        user:
+          sub: "31c41c16-c281-44ae-9602-8a047e3bf33d"
+          email: "test@example.com"
+          email_verified: true
+          first_name: "Test"
+          last_name: "User"
+          preferred_username: "testuser"
+          phone_number: "+14155551234"
+          phone_verified: true
+          org_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492"
+          org_name: "Acme Inc"
+          user_role: "Admin"
+          user_permissions:
+            - "accounting:invoices:write"
+            - "accounting:invoices:read"
+
+    MfaRequiredResponse:
+      type: object
+      description: |
+        Returned when the login attempt requires a second factor.
+        The client must present the appropriate factor code before completing auth.
+      properties:
+        session_id:
+          type: string
+          description: |
+            Opaque session identifier for the auth flow. Must be included
+            in the subsequent MFA verification call.
+        mfa_required:
+          type: boolean
+          default: true
+        mfa_type:
+          type: string
+          enum: [totp, webauthn, sms, email]
+          description: |
+            The MFA factor the client must present next:
+            - totp: 6-digit TOTP code from authenticator app
+            - webauthn: Biometric or hardware key challenge
+            - sms: 4-6 digit SMS code
+            - email: 4-6 digit email code
+        mfa_challenge:
+          type: object
+          nullable: true
+          description: |
+            Optional challenge payload for WebAuthn verification.
+            Present when mfa_type is webauthn.
+          properties:
+            challenge_id:
+              type: string
+            public_key_credential_request_options:
+              type: string
+              description: Base64-encoded WebAuthn options
+      example:
+        session_id: "sess_abc123"
+        mfa_required: true
+        mfa_type: sms
+
+
+
+    MfaSetupRequest:
+      type: object
+      description: |
+        Request to set up TOTP MFA for a user.
+        Requires the user's current password for verification.
+      properties:
+        password:
+          type: string
+          description: User's current password for verification
+        name:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: |
+            Optional label for the TOTP factor (e.g. "Google Authenticator", "Work phone").
+            Shown in MFA management UI.
+      required: [password]
+      example:
+        password: "secret123"
+        name: "Google Authenticator"
+
+    MfaSetupResponse:
+      type: object
+      description: |
+        Returns the TOTP provisioning URI that can be rendered as a QR code.
+        The user must scan the QR code and enter the resulting code to complete setup.
+      properties:
+        provisioning_uri:
+          type: string
+          description: |
+            TOTP provisioning URI in the format:
+            `otpauth://totp/{issuer}:{user_id}?secret={secret}&issuer={issuer}`
+            This can be rendered as a QR code for the user to scan.
+        secret:
+          type: string
+          description: |
+            Base32-encoded TOTP secret (also available in the provisioning URI).
+            Shown as a fallback if the QR code cannot be scanned.
+        user_id:
+          type: string
+          format: uuid
+          description: The user ID for whom MFA is being set up
+      example:
+        provisioning_uri: "otpauth://totp/Sesame:test@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Sesame"
+        secret: "JBSWY3DPEHPK3PXP"
+        user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d"
+
+    MfaVerifyRequest:
+      type: object
+      description: |
+        Verifies an MFA code. Can be used for:
+        1. Login step 2 (after MFA_REQUIRED response, includes session_id)
+        2. MFA setup step 2 (after MFA setup generated QR code)
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 4
+          maxLength: 10
+          description: The MFA verification code (6-digit TOTP, 4-6 digit SMS, etc.)
+        session_id:
+          type: string
+          nullable: true
+          description: |
+            Session ID from MFA_REQUIRED login response. Required for step 2 of login.
+        challenge_id:
+          type: string
+          nullable: true
+          description: |
+            WebAuthn challenge ID from MFA_REQUIRED response (for webauthn factor type).
+      example:
+        code: "123456"
+        session_id: "sess_abc123"
+
+
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    LogoutRequest:
+      type: object
+      properties:
+        refresh_token: { type: string }
+        session_id: { type: string }
+
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+        organization_id: { type: string, format: uuid, nullable: true, description: Legal-entity customer }
+        tenant_id: { type: string, format: uuid, nullable: true, description: Tenant for multi-tenant org }
+        name: { type: string }
+
+    TokenRequest:
+      type: object
+      required: [grant_type]
+      properties:
+        grant_type:
+          type: string
+          enum:
+            - refresh_token
+            - client_credentials
+            - urn:ietf:params:oauth:grant-type:token-exchange
+        refresh_token: { type: string }
+        client_id: { type: string }
+        client_secret: { type: string }
+        subject_token: { type: string, description: For token_exchange }
+        subject_token_type: { type: string }
+        audience: { type: string }
+        scope: { type: string }
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string, nullable: true }
+        id_token: { type: string, nullable: true }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer }
+        scope: { type: string, nullable: true }
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, new_password]
+      properties:
+        token: { type: string }
+        new_password: { type: string }
+
+    UpdatePasswordRequest:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string }
+
+    UpdateEmailRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+
+    # --- Migration ---
+    MigrateUserRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+        email_confirmed: { type: boolean }
+        first_name: { type: string }
+        last_name: { type: string }
+        username: { type: string }
+        picture_url: { type: string }
+        legacy_user_id: { type: string }
+        extra_properties: { type: object, additionalProperties: true }
+        hash: { type: string }
+        salt: { type: string }
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            For SaaS: required, their own org. For platform: optional.
+
+    MigratePasswordRequest:
+      type: object
+      required: [migrations]
+      properties:
+        migrations:
+          type: array
+          items:
+            type: object
+            required: [email, hash, salt]
+            properties:
+              email: { type: string, format: email }
+              hash: { type: string, description: "bcrypt hash format: $2a$14$..." }
+              salt: { type: string, }
+
+    # --- Social ---
+    LinkSocialAccountRequest:
+      type: object
+      required: [provider]
+      properties:
+        provider: { type: string, description: OAuth provider name }
+        scope: { type: string, description: Additional OAuth scopes }
+
+    TokenListResponse:
+      type: object
+      properties:
+        tokens:
+          type: array
+          items:
+            type: object
+            properties:
+              provider: { type: string }
+              created_at: { type: integer, format: int64 }
+              expires_at: { type: integer, format: int64, nullable: true }
+              scopes: { type: array, items: { type: string } }
+
+    OAuthTokenResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        expires_in: { type: integer }
+        token_type: { type: string }
+        scope: { type: string }
+
+    OAuthLogoutRequest:
+      type: object
+      properties:
+        post_logout_redirect_uri: { type: string }
+        id_token_hint: { type: string }
+
+    # --- Employee ---
+    EmployeeResponse:
+      type: object
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        first_name: { type: string, nullable: true }
+        last_name: { type: string, nullable: true }
+        username: { type: string, nullable: true }
+        picture_url: { type: string, nullable: true }
+        org_id_to_org_info:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              org_id: { type: string, format: uuid }
+              org_name: { type: string }
+              user_role: { type: string }
+              user_permissions: { type: array, items: { type: string } }
+
+    # --- Profile ---
+    UserProfile:
+      type: object
+      description: |
+        OIDC-compliant user profile. This is the shape returned by:
+        - GET /api/v1/identity/users/me (current user profile)
+        - GET /oauth/userinfo (OIDC userinfo endpoint)
+        - LoginResponse.user (enriched with active org context)
+        
+        Combines standard OIDC claims (sub, email_verified, name, preferred_username)
+        with identity-specific fields (user_id, first_name, last_name) and session context
+        (org_id, org_name, user_role, user_permissions).
+      properties:
+        # Standard OIDC claims
+        sub:
+          type: string
+          format: uuid
+          description: Subject — the user's opaque identifier (not PII)
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Primary email address
+        email_verified:
+          type: boolean
+          description: Whether the email address has been verified
+        name:
+          type: string
+          nullable: true
+          description: Full display name (first_name + " " + last_name)
+        preferred_username:
+          type: string
+          nullable: true
+          description: Human-identifiable username (alias for username)
+        # Identity-specific fields
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Opaque user identifier (alias for sub)
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's last name
+        username:
+          type: string
+          nullable: true
+          description: Alias for preferred_username
+        picture_url:
+          type: string
+          nullable: true
+          format: uri
+          description: Profile picture URL
+        properties:
+          type: object
+          additionalProperties: true
+          description: Custom key-value metadata (user-level, not org-scoped)
+        # Phone (Microscaler pattern)
+        phone_number:
+          type: string
+          nullable: true
+          description: Primary phone number in E.164 format (e.g. +14155551234)
+        phone_verified:
+          type: boolean
+          description: Whether the phone number has been verified (via SMS OTP)
+        # Session context (injected by JWT enrichment)
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Active organisation context (set by JWT enrichment)
+        org_name:
+          type: string
+          nullable: true
+          description: Name of the active organisation
+        user_role:
+          type: string
+          nullable: true
+          description: Primary role in the active organisation
+        user_permissions:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: |
+            Permission codes for the active organisation.
+            Uses dot-notation format (e.g. "accounting:invoices:read")
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last profile update timestamp
+      example:
+        sub: "31c41c16-c281-44ae-9602-8a047e3bf33d"
+        email: "test@example.com"
+        email_verified: true
+        name: "Test User"
+        preferred_username: "testuser"
+        first_name: "Test"
+        last_name: "User"
+        username: "testuser"
+        picture_url: "https://example.com/avatar.png"
+        phone_number: "+14155551234"
+        phone_verified: true
+        org_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492"
+        org_name: "Acme Inc"
+        user_role: "Admin"
+        user_permissions:
+          - "accounting:invoices:write"
+          - "accounting:invoices:read"
+        updated_at: "2025-01-15T10:30:00Z"
+
+    UpdateUserProfileRequest:
+      type: object
+      description: |
+        Partial update of the current user's profile.
+        Only provided fields are modified.
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Full display name
+        preferred_username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Human-identifiable username
+        first_name:
+          type: string
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          maxLength: 100
+          description: User's last name
+        picture_url:
+          type: string
+          format: uri
+          description: Profile picture URL
+      example:
+        first_name: "Updated"
+        last_name: "Name"
+
+    # --- Discovery ---
+    OpenIDConfiguration:
+      type: object
+      description: |
+        OpenID Connect Discovery document (RFC 8414).
+        Returned by GET /.well-known/openid-configuration
+      properties:
+        issuer:
+          type: string
+          description: Identity provider issuer identifier
+        authorization_endpoint:
+          type: string
+          description: OAuth2 authorization endpoint
+        token_endpoint:
+          type: string
+          description: OAuth2 token endpoint
+        jwks_uri:
+          type: string
+          description: JWKS endpoint for JWT verification
+        userinfo_endpoint:
+          type: string
+          nullable: true
+          description: OIDC userinfo endpoint
+        registration_endpoint:
+          type: string
+          nullable: true
+          description: OAuth2 Dynamic Client Registration endpoint
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 scopes
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 response types
+        response_modes_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 response modes
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 grant types
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported subject types
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported JWT signing algorithms (e.g. RS256)
+        userinfo_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported userinfo signing algorithms
+        userinfo_encryption_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported userinfo encryption algorithms
+        userinfo_encryption_enc_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported userinfo encryption encodings
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+            enum: [S256, plain]
+          description: Supported PKCE challenge methods
+      example:
+        issuer: "https://identity.seasame-idam.microscaler.local"
+        authorization_endpoint: "https://identity.seasame-idam.microscaler.local/oauth/authorize"
+        token_endpoint: "https://identity.seasame-idam.microscaler.local/auth/token"
+        jwks_uri: "https://identity.seasame-idam.microscaler.local/.well-known/jwks.json"
+        userinfo_endpoint: "https://identity.seasame-idam.microscaler.local/oauth/userinfo"
+        scopes_supported:
+          - openid
+          - email
+          - profile
+          - phone
+        response_types_supported:
+          - code
+          - id_token
+          - id_token token
+        response_modes_supported:
+          - query
+          - fragment
+          - form_post
+        grant_types_supported:
+          - authorization_code
+          - implicit
+          - refresh_token
+          - client_credentials
+          - urn:ietf:params:oauth:grant-type:token-exchange
+        subject_types_supported:
+          - public
+          - pairwise
+        id_token_signing_alg_values_supported:
+          - RS256
+        code_challenge_methods_supported:
+          - S256
+
+    JWKS:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          description: |
+            JSON Web Key Set containing the signing keys for JWT verification.
+            Keys may be rotated; consumers should cache but periodically re-fetch.
+          items:
+            type: object
+            required: [kty, kid, use, alg, n, e, x5c]
+            properties:
+              kty:
+                type: string
+                description: Key type (e.g. "RSA")
+              kid:
+                type: string
+                description: Key ID — unique identifier for this key (used by JWT `kid` header)
+              use:
+                type: string
+                description: Intended use of the public key (sig = signature)
+              alg:
+                type: string
+                description: Intended algorithm for using the key (e.g. "RS256")
+              n:
+                type: string
+                description: RSA modulus (base64url-encoded)
+              e:
+                type: string
+                description: RSA exponent (base64url-encoded)
+              x5c:
+                type: array
+                items:
+                  type: string
+                description: |
+                  X.509 certificate chain (base64url-encoded DER).
+                  Enables certificate pinning and trust anchor validation.
+              x5t:
+                type: string
+                nullable: true
+                description: X.509 certificate thumbprint (base64url-encoded SHA-1)
+            example:
+              kty: "RSA"
+              kid: "sesame-prod-2025-01"
+              use: "sig"
+              alg: "RS256"
+              n: "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2in..."
+              e: "AQAB"
+              x5c:
+                - MIIDdTCCAl2gAwIBAgITBn+USII9N7z2GPaVWCQDIQ...
+    UserQueryItem:
+      type: object
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        first_name: { type: string, nullable: true }
+        last_name: { type: string, nullable: true }
+        username: { type: string, nullable: true }
+        email_confirmed: { type: boolean }
+        enabled: { type: boolean }
+        locked: { type: boolean }
+        has_password: { type: boolean }
+        created_at: { type: string, format: date-time }
+        signup_flow: { type: string, nullable: true }
+
+    UserQueryResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items: { $ref: '#/components/schemas/UserQueryItem' }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        has_more: { type: boolean }
+
+    # ============================================================================
+    # MCP (Model Context Protocol) Schemas
+    # ============================================================================
+
+    McpTokenRequest:
+      type: object
+      description: |
+        Request to exchange an identity JWT for an MCP token.
+        The caller must present a valid identity JWT in the Authorization header.
+      required: [agent_id]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+          description: Registered AI agent ID
+        tool_namespace:
+          type: string
+          nullable: true
+          description: |
+            Optional tool namespace the token should be scoped to.
+            If omitted, the token is scoped to all namespaces the agent
+            is permitted to access.
+        ttl_seconds:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 900
+          nullable: true
+          description: |
+            Token TTL in seconds (60-3600). Defaults to 900 (15 min).
+            Used by agents that need longer-lived tokens for batch operations.
+
+    McpTokenResponse:
+      type: object
+      required: [mcp_token, token_type, expires_in]
+      properties:
+        mcp_token:
+          type: string
+          description: |
+            The MCP token — a short-lived JWT signed by Sesame-IDAM.
+            The agent should store this and send it in the
+            `Authorization: Bearer <mcp_token>` header of every MCP call.
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Token type
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+        mcp_version:
+          type: string
+          description: MCP protocol version supported (e.g., "2025-01-01")
+
+    McpValidateRequest:
+      type: object
+      description: |
+        Request to validate an MCP token. MCP servers should call this
+        on every tool invocation.
+      required: [mcp_token]
+      properties:
+        mcp_token:
+          type: string
+          description: The MCP JWT to validate
+
+    McpValidationResponse:
+      type: object
+      required: [valid, agent]
+      properties:
+        valid:
+          type: boolean
+          description: Whether the MCP token is valid and not revoked
+        agent:
+          $ref: '#/components/schemas/McpAgent'
+        permissions:
+          type: array
+          items:
+            type: string
+          description: |
+            Permissions the agent has been granted.
+            MCP servers should use these to enforce tool access.
+        expires_at:
+          type: string
+          format: date-time
+          description: Token expiration timestamp
+
+    RegisterMcpAgentRequest:
+      type: object
+      required: [name, tool_namespace]
+      properties:
+        name:
+          type: string
+          description: Human-readable name for the agent (e.g., "Invoice Summariser Bot")
+        tool_namespace:
+          type: string
+          description: |
+            The tool namespace this agent operates in.
+            Agents are scoped to one namespace to enforce permission boundaries.
+            Examples: "accounting:invoices", "hr:employees", "support:tickets"
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Agent description for admin reference
+        max_tokens_per_minute:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          nullable: true
+          description: Rate limit for token issuance (tokens per minute)
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Custom key-value metadata for the agent
+
+    McpAgent:
+      type: object
+      required: [agent_id, name, tool_namespace, created_at]
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+          description: Unique opaque agent identifier
+        name:
+          type: string
+          description: Agent display name
+        tool_namespace:
+          type: string
+          description: Tool namespace this agent is scoped to
+        description:
+          type: string
+          nullable: true
+          description: Agent description
+        api_key_prefix:
+          type: string
+          nullable: true
+          description: |
+            Prefix of the API key for this agent (full key only shown at creation time).
+            Used for server-to-server authentication when the agent needs to
+            bypass interactive login.
+        active:
+          type: boolean
+          default: true
+          description: Whether the agent is currently active
+        max_tokens_per_minute:
+          type: integer
+          nullable: true
+          description: Rate limit for token issuance
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Custom metadata
+        created_at:
+          type: string
+          format: date-time
+          description: When the agent was registered
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last time an MCP token was issued for this agent
+        total_tokens_issued:
+          type: integer
+          default: 0
+          description: Total MCP tokens issued to this agent
+
+    McpAgentListResponse:
+      type: object
+      required: [agents, total, page, page_size]
+      properties:
+        agents:
+          type: array
+          items: { $ref: '#/components/schemas/McpAgent' }
+        total:
+          type: integer
+          description: Total number of registered agents
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    ErrorMcp:
+      type: object
+      description: Error response for MCP endpoints
+      required: [error, error_description]
+      properties:
+        error:
+          type: string
+          enum: [invalid_agent, agent_not_found, agent_deactivated, token_expired, token_revoked, rate_limited, invalid_namespace]
+          description: MCP-specific error code
+        error_description:
+          type: string
+          description: Human-readable error message
+        agent_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Agent ID if applicable

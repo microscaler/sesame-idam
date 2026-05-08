@@ -1,0 +1,53 @@
+# Sesame-IDAM Helm Values — identity-user-mgmt-service
+# User CRUD, MFA, email/phone management
+# Port: 8006
+
+replicaCount: 1
+
+image:
+  repository: localhost:5001/sesame-idam-identity-user-mgmt-service
+  pullPolicy: IfNotPresent
+  tag: "tilt"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automountServiceAccountToken: true
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8006
+  targetPort: 8006
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "500m"
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8006
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8006
+  initialDelaySeconds: 2
+  periodSeconds: 5
+
+config:
+  serviceName: identity-user-mgmt-service
+  servicePort: 8006

@@ -1,0 +1,17 @@
+# Shared database configuration for sesame-idam microservices
+# Same pattern as RERP's _database-kubernetes.yaml
+# Points to Supabase stack in namespace data
+
+database:
+  host: "postgres.data.svc.cluster.local"
+  port: 5432
+  name: "postgres"
+  user: "postgres"
+  password: "postgres"
+  max_connections: 10
+
+redis:
+  host: "redis"
+  port: 6379
+  db: 0
+  max_connections: 10

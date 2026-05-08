@@ -32,10 +32,10 @@ insufficient because:
 
 | Service | OpenAPI Spec | Base Path | Ports | Scaling Profile |
 |---------|-------------|-----------|-------|----------------|
-| **identity-auth** | `openapi/identity-auth/` (4 sub-specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/api/v1/identity/*`, `/.well-known/*` | 8001 | HIGH: refresh + users/me = read-heavy, fast DB |
-| **authz-core** | `openapi/authz-core/openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | 8002 | EXTREME: called on EVERY consumer API request |
-| **api-keys** | `openapi/api-keys/openapi.yaml` | `/api/v1/am/api-keys/*` | 8003 | HIGH: M2M validation = hash lookup, independently spiky |
-| **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | 8004 | LOW: admin-heavy, near-zero scaling pressure |
+| **identity-auth** | `openapi/identity-auth/` (4 sub-specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/api/v1/identity/*`, `/.well-known/*` | 8101 | HIGH: refresh + users/me = read-heavy, fast DB |
+| **authz-core** | `openapi/authz-core/openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | 8102 | EXTREME: called on EVERY consumer API request |
+| **api-keys** | `openapi/api-keys/openapi.yaml` | `/api/v1/am/api-keys/*` | 8103 | HIGH: M2M validation = hash lookup, independently spiky |
+| **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | 8104 | LOW: admin-heavy, near-zero scaling pressure |
 
 ## Architecture Diagram
 
@@ -52,10 +52,10 @@ graph TB
     end
 
     subgraph "Sesame-IDAM Services"
-        IA[identity-auth<br/>Port 8001<br/>HIGH frequency]
-        AC[authz-core<br/>Port 8002<br/>EXTREME frequency]
-        AK[api-keys<br/>Port 8003<br/>HIGH frequency]
-        OM[org-mgmt<br/>Port 8004<br/>LOW frequency]
+        IA[identity-auth<br/>Port 8101<br/>HIGH frequency]
+        AC[authz-core<br/>Port 8102<br/>EXTREME frequency]
+        AK[api-keys<br/>Port 8103<br/>HIGH frequency]
+        OM[org-mgmt<br/>Port 8104<br/>LOW frequency]
     end
 
     subgraph "Storage"
@@ -317,23 +317,26 @@ openapi/
 └── org-mgmt/openapi.yaml         # /orgs/*, applications, roles, permissions, SSO/SCIM
 ```
 
+| **Application** | `openapi/idam/org-mgmt/openapi.yaml` | Application/tenant management, roles, permissions, applications |
+| **SCIM** | `openapi/idam/org-mgmt/openapi.yaml` | SCIM user/group provisioning for enterprise SSO |
+
 ### Schema ownership per service
 
-| Schema | Service | Used by Others? |
-|--------|---------|----------------|
-| `User` | identity-auth | Yes (org-mgmt returns user snapshots) |
-| `UserProfile` | identity-auth | Yes (returned from authz-core principal endpoints) |
-| `LoginRequest/Response` | identity-auth | No |
-| `TokenResponse` | identity-auth | No |
-| `MfaFactor/MfaSetupRequest/Response` | identity-auth | No |
-| `OpenIDConfiguration/JWKS` | identity-auth | No |
-| `Org` | org-mgmt | Yes (returned from api-keys validation) |
-| `AuthorizeRequest/Response` | authz-core | No |
-| `EffectiveRequest/Response` | authz-core | No |
-| `Application` | org-mgmt | No |
-| `Role/Permission` | org-mgmt | No |
-| `ApiKey/ApiKeyValidationResponse` | api-keys | No |
-| `ScimGroup` | org-mgmt | No |
+|| Schema | Service | Used by Others? |
+||--------|---------|----------------|
+|| `User` | identity-login-service | Yes (org-mgmt returns user snapshots) |
+|| `UserProfile` | identity-login-service | Yes (returned from authz-core principal endpoints) |
+|| `LoginRequest/Response` | identity-login-service | No |
+|| `TokenResponse` | identity-login-service | No |
+|| `MfaFactor/MfaSetupRequest/Response` | identity-login-service | No |
+|| `OpenIDConfiguration/JWKS` | identity-session-service | No |
+|| `Org` | org-mgmt | Yes (returned from api-keys validation) |
+|| `AuthorizeRequest/Response` | authz-core | No |
+|| `EffectiveRequest/Response` | authz-core | No |
+|| `Application` | org-mgmt | Yes (tenant boundary, returned in responses) |
+|| `Role/Permission` | org-mgmt | No |
+|| `ApiKey/ApiKeyValidationResponse` | api-keys | No |
+|| `ScimGroup` | org-mgmt | No |
 
 Shared schemas are duplicated in each consuming spec's `components/schemas` section. This
 is intentional — each OpenAPI spec must be self-contained for BRRTRouter codegen to work.

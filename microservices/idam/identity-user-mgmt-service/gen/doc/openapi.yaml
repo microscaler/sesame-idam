@@ -1,0 +1,1321 @@
+# Sesame-IDAM user-mgmt-service Service - OpenAPI 3.1
+# Extracted from openapi/identity-auth/openapi.yaml
+# User Management Service
+openapi: 3.1.0
+info:
+  title: User Management Service
+  version: 1.0.0
+  description: |
+    Admin-heavy service for user lifecycle management.
+    Handles user CRUD, account security (MFA, phone, email), password management,
+    social account linking, and user migration from external systems.
+    EXTREMELY LOW frequency with MEDIUM per-request cost.
+    Write-heavy with no caching pressure.
+  contact:
+    name: Platform / Security
+
+servers:
+  - url: /api/v1/identity
+    description: User Mgmt Service API
+
+tags:
+  - name: Users
+    description: User lifecycle (CRUD, lookup, search, employee view)
+  - name: AccountSecurity
+    description: Enable/disable, MFA, phone, email verification
+  - name: PasswordManagement
+    description: Password set, clear, magic link, verification
+  - name: SocialAccounts
+    description: Social account linking and token management
+  - name: UserMigration
+    description: Import users from external auth systems
+
+
+security:
+  - BearerAuth: []
+  - ApiKeyHeader: []
+
+paths:
+# ============================================================================
+# PATHS
+# ============================================================================
+
+  /api/v1/identity/users:
+    post:
+      tags: [Users]
+      summary: Create user (idempotent by email)
+      description: |
+        Creates a new user. Idempotent if email matches existing user — returns existing user.
+        SaaS customers must provide their own `org_id`; platform admins may omit it.
+      operationId: create_user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '200':
+          description: User already exists (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+
+  # --- Query Users ---
+  /api/v1/identity/users/{user_id}:
+    get:
+      tags: [Users]
+      summary: Fetch user by user ID
+      description: |
+        Fetches a single user by ID. SaaS customers can only fetch users in their org.
+        Platform admins can fetch any user.
+      operationId: get_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Not found
+
+  # --- Update User (full update) ---
+  /api/v1/identity/users/{user_id}:
+    put:
+      tags: [Users]
+      summary: Update user fields
+      description: |
+        Updates user fields (firstName, lastName, username, pictureUrl, extraProperties,
+        emailConfirmed, canCreateOrgs, locked, sendWelcomeEmail, sendMagicLink).
+        Platform admins can update any user; SaaS customers can only update their own org members.
+      operationId: update_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+  # --- Delete User (hard delete) ---
+  /api/v1/identity/users/{user_id}:
+    delete:
+      tags: [Users]
+      summary: Delete user (irreversible)
+      description: |
+        Irreversibly deletes a user account and all associated data.
+        Platform admin only. Users in an org can only delete themselves.
+      operationId: delete_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: User deleted
+        '404':
+          description: Not found
+
+  # --- Query/Search Users ---
+  /api/v1/identity/users/query:
+    get:
+      tags: [Users]
+      summary: Paginated query for users with filters
+      description: |
+        Returns paginated list of users matching the given filters.
+        Platform admins can search across all users; SaaS customers can only search their own org.
+      operationId: query_users
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: email_pattern
+          in: query
+          schema: { type: string }
+          description: Email substring filter (case-insensitive)
+        - name: email_confirmed
+          in: query
+          schema: { type: boolean, nullable: true }
+          description: Filter by email confirmation status
+        - name: enabled
+          in: query
+          schema: { type: boolean, nullable: true }
+          description: Filter by enabled status
+        - name: disabled
+          in: query
+          schema: { type: boolean, nullable: true }
+          description: Filter by disabled status
+        - name: locked
+          in: query
+          schema: { type: boolean, nullable: true }
+          description: Filter by locked status
+        - name: created_after
+          in: query
+          schema: { type: string, format: date-time, nullable: true }
+          description: Filter by creation date (inclusive)
+        - name: created_before
+          in: query
+          schema: { type: string, format: date-time, nullable: true }
+          description: Filter by creation date (inclusive)
+        - name: signup_flow
+          in: query
+          schema: { type: string, enum: [signup, invite, magiclink, password, social, saml], nullable: true }
+          description: Filter by signup method
+      responses:
+        '200':
+          description: Users found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserQueryResponse'
+        '400':
+          description: Invalid request
+
+  # --- Fetch By Email ---
+  /api/v1/identity/users/email:
+    get:
+      tags: [Users]
+      summary: Fetch user by email
+      description: |
+        Returns the user associated with the given email. No PII in URI.
+      operationId: fetch_user_by_email
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema: { type: string, format: email }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Not found
+
+  # --- Fetch By Username ---
+  /api/v1/identity/users/username:
+    get:
+      tags: [Users]
+      summary: Fetch user by username
+      operationId: fetch_user_by_username
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Not found
+
+  # --- Update User (full update) ---
+  /api/v1/identity/users/{user_id}:
+    put:
+      tags: [Users]
+      summary: Update user fields
+      description: |
+        Updates user fields (firstName, lastName, username, pictureUrl, extraProperties,
+        emailConfirmed, canCreateOrgs, locked, sendWelcomeEmail, sendMagicLink).
+        Platform admins can update any user; SaaS customers can only update their own org members.
+      operationId: update_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+  # --- Delete User (hard delete) ---
+  /api/v1/identity/users/{user_id}:
+    delete:
+      tags: [Users]
+      summary: Delete user (irreversible)
+      description: |
+        Irreversibly deletes a user account and all associated data.
+        Platform admin only. Users in an org can only delete themselves.
+      operationId: delete_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: User deleted
+        '404':
+          description: Not found
+
+  # --- Query/Search Users ---
+  /api/v1/identity/users/query:
+    get:
+      tags: [Users]
+      summary: Paginated query for users with filters
+      description: |
+        Returns paginated list of users matching the given filters.
+        Platform admins can search across all users; SaaS customers can only search their own org.
+      operationId: query_users
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: email_pattern
+          in: query
+          schema: { type: string }
+          description: Email substring filter (case-insensitive)
+        - name: email_confirmed
+          in: query
+          schema: { type: boolean, nullable: true }
+          description: Filter by email confirmation status
+        - name: enabled
+          in: query
+          schema: { type: boolean, nullable: true }
+          description: Filter by enabled status
+        - name: disabled
+          in: query
+          schema: { type: boolean, nullable: true }
+          description: Filter by disabled status
+        - name: locked
+          in: query
+          schema: { type: boolean, nullable: true }
+          description: Filter by locked status
+        - name: created_after
+          in: query
+          schema: { type: string, format: date-time, nullable: true }
+          description: Filter by creation date (inclusive)
+        - name: created_before
+          in: query
+          schema: { type: string, format: date-time, nullable: true }
+          description: Filter by creation date (inclusive)
+        - name: signup_flow
+          in: query
+          schema: { type: string, enum: [signup, invite, magiclink, password, social, saml], nullable: true }
+          description: Filter by signup method
+      responses:
+        '200':
+          description: Users found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserQueryResponse'
+        '400':
+          description: Invalid request
+
+  # --- Employee Mode (B2B filtered view) ---
+  /api/v1/identity/users/{user_id}/employee:
+    get:
+      tags: [Users]
+      summary: Fetch user in employee mode
+      description: |
+        Returns user info filtered to the caller's organisation context only.
+        Used for B2B directory lookup — omits orgs the user is not part of.
+        Requires BearerAuth with org context.
+      operationId: fetch_employee
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeResponse'
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # SESSION MANAGEMENT
+  # ============================================================================
+
+  # --- Login (Password) ---
+  /api/v1/identity/users/{user_id}/disable:
+    post:
+      tags: [PasswordSecurity]
+      summary: Disable/block user
+      description: Prevents user from logging in. Platform admin or SaaS with org context.
+      operationId: disable_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: User disabled
+        '404':
+          description: Not found
+
+  # --- Enable/Unblock User ---
+  /api/v1/identity/users/{user_id}/enable:
+    post:
+      tags: [PasswordSecurity]
+      summary: Enable/unblock user
+      description: Re-enables a previously disabled user.
+      operationId: enable_user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: User enabled
+        '404':
+          description: Not found
+
+  # --- Logout All Sessions ---
+  /api/v1/identity/users/{user_id}/logout-all-sessions:
+    post:
+      tags: [Sessions]
+      summary: Logout all user sessions
+      description: Invalidates all active sessions for this user. Platform admin or user themselves.
+      operationId: logout_all_sessions
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: All sessions invalidated
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # USER MIGRATION
+  # ============================================================================
+
+  # --- Migrate User From External ---
+  /api/v1/identity/users/{user_id}/magiclink:
+    post:
+      tags: [AuthFlows]
+      summary: Send magic link for login
+      description: Sends an email with a magic link for passwordless login.
+      operationId: create_magic_link
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Magic link sent
+        '404':
+          description: Not found
+
+  # --- Set/Change Password ---
+  /api/v1/identity/users/{user_id}/password:
+    put:
+      tags: [PasswordSecurity]
+      summary: Set or change user password
+      description: |
+        For platform admins: sets password for any user.
+        For SaaS: only users in their org.
+      operationId: update_user_password
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasswordRequest'
+      responses:
+        '200':
+          description: Password set
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+  # --- Clear Password (SSO-only users) ---
+  /api/v1/identity/users/{user_id}/password:
+    delete:
+      tags: [PasswordSecurity]
+      summary: Clear password (convert to SSO-only)
+      description: |
+        Removes the user's password, converting them to SSO-only authentication.
+        Useful when an organisation enforces SAML SSO and users should no longer use email/password.
+        Platform admin only.
+      operationId: clear_user_password
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Password cleared
+        '404':
+          description: Not found
+        '400':
+          description: User has no password to clear
+
+  # --- Verify User Email ---
+  /api/v1/identity/users/{user_id}/email/verify:
+    post:
+      tags: [PasswordSecurity]
+      summary: Verify user email
+      operationId: verify_user_email
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Email verified
+        '400':
+          description: Invalid token
+        '404':
+          description: Not found
+
+  # --- Resend Email Confirmation ---
+  /api/v1/identity/users/{user_id}/resend-email-confirmation:
+    post:
+      tags: [PasswordSecurity]
+      summary: Resend email confirmation
+      operationId: resend_email_confirmation
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Email sent
+        '404':
+          description: Not found
+
+  # --- MFA Disable ---
+  /api/v1/identity/users/{user_id}/mfa/disable:
+    post:
+      tags: [PasswordSecurity]
+      summary: Disable user 2FA
+      description: Disables all 2FA methods for a user. Platform admin or user themselves.
+      operationId: disable_user_mfa
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: 2FA disabled
+        '404':
+          description: Not found
+
+  # --- MFA Setup (TOTP) ---
+  /api/v1/identity/users/{user_id}/mfa/setup:
+    post:
+      tags: [PasswordSecurity]
+      summary: Set up TOTP MFA
+      description: |
+        Generates a TOTP secret QR code for the user to scan with an authenticator app.
+        Requires the user's current password for verification.
+        Returns a provisioning URI that can be rendered as a QR code.
+      operationId: setup_user_mfa_totp
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaSetupRequest'
+      responses:
+        '200':
+          description: TOTP secret generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaSetupResponse'
+        '400':
+          description: Invalid password or MFA already configured
+        '404':
+          description: Not found
+
+  # --- MFA Verify (complete setup or login step) ---
+  /api/v1/identity/users/{user_id}/mfa/verify:
+    post:
+      tags: [PasswordSecurity]
+      summary: Verify MFA code
+      description: |
+        Verifies an MFA code for either:
+        1. Completing MFA setup (step 2 after setup generated QR code)
+        2. Completing login (step 2 of password login when MFA is required)
+      operationId: verify_user_mfa
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaVerifyRequest'
+      responses:
+        '200':
+          description: MFA verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid code
+        '404':
+          description: Not found
+
+  # --- Phone Number Setup ---
+  /api/v1/identity/users/{user_id}/phone:
+    post:
+      tags: [PasswordSecurity]
+      summary: Add phone number for user
+      description: |
+        Adds a phone number to the user's profile and sends an SMS verification code.
+        Phone must be verified before it can be used for authentication.
+      operationId: setup_user_phone
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneNumberRequest'
+      responses:
+        '200':
+          description: Phone number added, SMS code sent
+        '400':
+          description: Invalid phone number
+        '404':
+          description: Not found
+
+  # --- Phone Number Verification ---
+  /api/v1/identity/users/{user_id}/phone/verify:
+    post:
+      tags: [PasswordSecurity]
+      summary: Verify phone number
+      description: Verifies the phone number using the SMS OTP code.
+      operationId: verify_user_phone
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneVerificationRequest'
+      responses:
+        '200':
+          description: Phone number verified
+        '400':
+          description: Invalid code
+        '404':
+          description: Not found
+
+  # --- Change User Email ---
+  /api/v1/identity/users/{user_id}/email:
+    put:
+      tags: [Identity]
+      summary: Change user email
+      operationId: update_user_email
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmailRequest'
+      responses:
+        '200':
+          description: Email updated
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+
+  # ============================================================================
+  # ACCOUNT SECURITY
+  # ============================================================================
+
+  # --- Disable/Block User ---
+  /api/v1/identity/users/{user_id}/social/link:
+    post:
+      tags: [SocialLogin]
+      summary: Link social account to user
+      description: |
+        Redirects user to OAuth provider to link an additional social account.
+        Requires authentication (user must be logged in).
+      operationId: link_social_account
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkSocialAccountRequest'
+      responses:
+        '302':
+          description: Redirect to provider for linking
+
+  # --- Fetch OAuth Tokens ---
+  /api/v1/identity/users/{user_id}/social/tokens:
+    get:
+      tags: [SocialLogin]
+      summary: Fetch user's OAuth tokens from providers
+      operationId: fetch_user_oauth_tokens
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenListResponse'
+
+  # --- Refresh OAuth Token ---
+  /api/v1/identity/users/{user_id}/social/tokens/{provider}/refresh:
+    get:
+      tags: [SocialLogin]
+      summary: Fetch fresh token from provider
+      description: Refreshes an expired OAuth token for the given provider.
+      operationId: fetch_fresh_oauth_token
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+
+  # ============================================================================
+  # OIDC / OAUTH2 ENDPOINTS
+  # ============================================================================
+
+  # --- Authorization Endpoint ---
+  /api/v1/identity/users/migrate:
+    post:
+      tags: [UserMigration]
+      summary: Migrate user from external auth system
+      description: |
+        Imports a user from another authentication system. Includes hash+salt password import,
+        extra properties, legacy user ID mapping. Platform admin only.
+      operationId: migrate_user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrateUserRequest'
+      responses:
+        '201':
+          description: User migrated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+
+  # --- Bulk Migrate Passwords ---
+  /api/v1/identity/users/migrate-password:
+    post:
+      tags: [UserMigration]
+      summary: Bulk migrate passwords (hash+salt)
+      description: |
+        Imports passwords from another system. Password hash format: $2a$14$... (bcrypt).
+        Platform admin only.
+      operationId: migrate_user_passwords
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigratePasswordRequest'
+      responses:
+        '200':
+          description: Passwords migrated
+        '400':
+          description: Invalid hash format
+
+  # ============================================================================
+  # SOCIAL LOGIN
+  # ============================================================================
+
+  # --- Social Login Link (redirect to provider) ---
+  /oauth/logout:
+    post:
+      tags: [Sessions]
+      summary: OAuth2 logout endpoint
+      description: |
+        Invalidates the user's session and optionally triggers post-logout redirect.
+      operationId: oauth_logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthLogoutRequest'
+      responses:
+        '200':
+          description: Logout successful
+
+  # ============================================================================
+  # DISCOVERY
+  # ============================================================================
+
+  # --- OIDC Discovery ---
+# ============================================================================
+# COMPONENTS
+# ============================================================================
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token (from Identity Service)
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+
+  schemas:
+    # TODO: enrich schemas with User, LoginRequest, etc.
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+
+    CreateUserRequest:
+      type: object
+      description: |
+        Creates a new user. Idempotent: if an existing user with the same email
+        is found, returns the existing user instead of creating a duplicate.
+        Platform admins may omit `org_id` to create users without org membership.
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Primary email address (must be unique)
+        email_confirmed:
+          type: boolean
+          default: false
+          description: |
+            If true, the email is considered pre-verified (no confirmation email sent).
+            Useful for platform-admin-created users or migrated accounts.
+        send_email_confirmation:
+          type: boolean
+          default: false
+          description: |
+            If true, sends a verification email to the user's address.
+            Only meaningful when email_confirmed=false.
+        first_name:
+          type: string
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          maxLength: 100
+          description: User's last name
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Optional human-identifiable username
+        picture_url:
+          type: string
+          format: uri
+          description: Initial profile picture URL
+        send_welcome_email:
+          type: boolean
+          default: false
+          description: If true, sends a welcome email after user creation
+        extra_properties:
+          type: object
+          additionalProperties: true
+          description: Custom key-value metadata (arbitrary JSON)
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            For SaaS customers: required, must be their own organisation.
+            For platform admins: optional — if omitted, creates a platform-level user.
+            When present, the user is automatically added to this organisation.
+      example:
+        email: "newuser@example.com"
+        email_confirmed: false
+        send_email_confirmation: true
+        first_name: "New"
+        last_name: "User"
+        username: "newuser"
+        send_welcome_email: true
+        extra_properties:
+          department: "engineering"
+          role: "developer"
+        org_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492"
+
+
+    EmployeeResponse:
+      type: object
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        first_name: { type: string, nullable: true }
+        last_name: { type: string, nullable: true }
+        username: { type: string, nullable: true }
+        picture_url: { type: string, nullable: true }
+        org_id_to_org_info:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              org_id: { type: string, format: uuid }
+              org_name: { type: string }
+              user_role: { type: string }
+              user_permissions: { type: array, items: { type: string } }
+
+    # --- Profile ---
+
+    LinkSocialAccountRequest:
+      type: object
+      required: [provider]
+      properties:
+        provider: { type: string, description: OAuth provider name }
+        scope: { type: string, description: Additional OAuth scopes }
+
+
+    MfaSetupRequest:
+      type: object
+      description: |
+        Request to set up TOTP MFA for a user.
+        Requires the user's current password for verification.
+      properties:
+        password:
+          type: string
+          description: User's current password for verification
+        name:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: |
+            Optional label for the TOTP factor (e.g. "Google Authenticator", "Work phone").
+            Shown in MFA management UI.
+      required: [password]
+      example:
+        password: "secret123"
+        name: "Google Authenticator"
+
+
+    MfaSetupResponse:
+      type: object
+      description: |
+        Returns the TOTP provisioning URI that can be rendered as a QR code.
+        The user must scan the QR code and enter the resulting code to complete setup.
+      properties:
+        provisioning_uri:
+          type: string
+          description: |
+            TOTP provisioning URI in the format:
+            `otpauth://totp/{issuer}:{user_id}?secret={secret}&issuer={issuer}`
+            This can be rendered as a QR code for the user to scan.
+        secret:
+          type: string
+          description: |
+            Base32-encoded TOTP secret (also available in the provisioning URI).
+            Shown as a fallback if the QR code cannot be scanned.
+        user_id:
+          type: string
+          format: uuid
+          description: The user ID for whom MFA is being set up
+      example:
+        provisioning_uri: "otpauth://totp/Sesame:test@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Sesame"
+        secret: "JBSWY3DPEHPK3PXP"
+        user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d"
+
+
+    MfaVerifyRequest:
+      type: object
+      description: |
+        Verifies an MFA code. Can be used for:
+        1. Login step 2 (after MFA_REQUIRED response, includes session_id)
+        2. MFA setup step 2 (after MFA setup generated QR code)
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 4
+          maxLength: 10
+          description: The MFA verification code (6-digit TOTP, 4-6 digit SMS, etc.)
+        session_id:
+          type: string
+          nullable: true
+          description: |
+            Session ID from MFA_REQUIRED login response. Required for step 2 of login.
+        challenge_id:
+          type: string
+          nullable: true
+          description: |
+            WebAuthn challenge ID from MFA_REQUIRED response (for webauthn factor type).
+      example:
+        code: "123456"
+        session_id: "sess_abc123"
+
+
+
+    MigrateUserRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+        email_confirmed: { type: boolean }
+        first_name: { type: string }
+        last_name: { type: string }
+        username: { type: string }
+        picture_url: { type: string }
+        legacy_user_id: { type: string }
+        extra_properties: { type: object, additionalProperties: true }
+        hash: { type: string }
+        salt: { type: string }
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            For SaaS: required, their own org. For platform: optional.
+
+
+    MigratePasswordRequest:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            type: object
+            required: [email, hash, salt]
+            properties:
+              email: { type: string, format: email }
+              hash: { type: string, description: bcrypt hash ($2a$14$...) }
+              salt: { type: string, description: Original salt if different from hash }
+
+    OAuthLogoutRequest:
+      type: object
+      properties:
+        post_logout_redirect_uri: { type: string }
+        id_token_hint: { type: string }
+
+    # --- Employee ---
+
+    OAuthTokenResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        expires_in: { type: integer }
+        token_type: { type: string }
+        scope: { type: string }
+
+
+    PhoneNumberRequest:
+      type: object
+      properties:
+        phone_number:
+          type: string
+          pattern: '^\\\\+[1-9]\\\\d{1,14}$'
+          description: Phone number in E.164 format (e.g. +141****1234)
+
+
+    PhoneVerificationRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 4
+          maxLength: 10
+          description: OTP code received via SMS
+        phone_number:
+          type: string
+          pattern: '^\\\\+[1-9]\\\\d{1,14}$'
+          description: Phone number to verify (E.164 format)
+      description: |
+              Verify a phone number via SMS OTP code.
+      example:
+        phone_number: "+141****1234"
+        code: "123456"
+
+    # --- Auth Flows ---
+
+    TokenListResponse:
+      type: object
+      properties:
+        tokens:
+          type: array
+          items:
+            type: object
+            properties:
+              provider: { type: string }
+              created_at: { type: integer, format: int64 }
+              expires_at: { type: integer, format: int64, nullable: true }
+              scopes: { type: array, items: { type: string } }
+
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string, nullable: true }
+        id_token: { type: string, nullable: true }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer }
+        scope: { type: string, nullable: true }
+
+
+    UserQueryItem:
+      type: object
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        first_name: { type: string, nullable: true }
+        last_name: { type: string, nullable: true }
+        username: { type: string, nullable: true }
+        email_confirmed: { type: boolean }
+        enabled: { type: boolean }
+        locked: { type: boolean }
+        has_password: { type: boolean }
+        created_at: { type: string, format: date-time }
+        signup_flow: { type: string, nullable: true }
+
+    UserQueryResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items: { $ref: '#/components/schemas/UserQueryItem' }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        has_more: { type: boolean }
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 100
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 100
+        username:
+          type: string
+          nullable: true
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+        picture_url:
+          type: string
+          nullable: true
+          format: uri
+        email_confirmed:
+          type: boolean
+          nullable: true
+        locked:
+          type: boolean
+          nullable: true
+        enabled:
+          type: boolean
+          nullable: true
+        extra_properties:
+          type: object
+          additionalProperties: true
+          nullable: true
+        send_welcome_email:
+          type: boolean
+          nullable: true
+
+    UpdateEmailRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+
+    # --- Migration ---
+
+    UpdatePasswordRequest:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string }
+
+
+    User:
+      type: object
+      description: |
+        Complete user entity returned from user lifecycle operations.
+        Contains identity attributes, account status, and migration metadata.
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Unique opaque identifier for this user (not PII)
+        email:
+          type: string
+          format: email
+          description: Primary email address (unique, not in URI)
+        email_confirmed:
+          type: boolean
+          description: Whether the email address has been verified
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's last name
+        username:
+          type: string
+          nullable: true
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Optional human-identifiable username (alphanumeric, underscore, hyphen)
+        picture_url:
+          type: string
+          nullable: true
+          format: uri
+          description: Profile picture URL (e.g. from social login)
+        properties:
+          type: object
+          additionalProperties: true
+          description: |
+            Custom key-value metadata attached to the user.
+            Platform admins can set arbitrary properties; SaaS customers limited to org-scoped keys.
+        locked:
+          type: boolean
+          description: |
+            If true, the user is locked and cannot authenticate.
+            Locked users are typically flagged after repeated failed login attempts.
+        enabled:
+          type: boolean
+          description: |
+            If true, the user account is active and can authenticate.
+            Disabled users are explicitly blocked (e.g. by admin action).
+        has_password:
+          type: boolean
+          description: |
+            Whether the user has a password set.

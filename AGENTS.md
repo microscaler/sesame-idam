@@ -1,4 +1,4 @@
-# Sesame-IDAM Agent Notes
+# Sesame-IDAM — Agent Rules
 
 > **Desktop dev environment** — before doing anything in this repo, read the
 > Microscaler-wide topology brief. It explains that you are on a Mac but the
@@ -12,68 +12,173 @@
 
 ---
 
-**Purpose:** Quick reference for agentic coding assistants working on the Sesame-IDAM repository.
+Strict operational rules for AI assistants and humans working in this repository. **Knowledge about how Sesame-IDAM works is in [`docs/llmwiki/`](./docs/llmwiki/), not here.** This file only holds rules the agent must obey.
 
-## Repository role
+---
 
-Sesame-IDAM is an **IDAM component for microservices**, not a standalone SaaS IDAM product. The repo is laid out like **RERP** with a `microservices/` directory. All previous Rust code has been removed; implementations will be added as microservices under `microservices/idam/`.
+## Before you do anything
 
-## Layout (RERP-style)
+1. Read [`docs/llmwiki/README.md`](./docs/llmwiki/README.md) — the wiki entry point. It redirects to `SCHEMA.md` + `index.md` + `log.md`.
+2. Read [`docs/llmwiki/index.md`](./docs/llmwiki/index.md) — the wiki index. Scan it to identify what pages are relevant to your task.
+3. Tail [`docs/llmwiki/log.md`](./docs/llmwiki/log.md) for recent context.
+4. Read **only** the wiki pages identified in step 2. Drill into linked pages only when the wiki flags drift or a gap.
 
-- **microservices/** — Workspace crates (see `microservices/Cargo.toml`). No members yet; add `idam/authentication/gen`, `idam/authentication/impl`, `idam/authorization/gen`, `idam/authorization/impl` when implementing.
-- **microservices/idam/** — IDAM domain. Two microservices identified so far:
-  - **authentication** — Identity, login, refresh, logout, token exchange, register, sessions, JWKS/OIDC. See `microservices/idam/authentication/README.md`.
-  - **authorization** — Access Management: apps, roles, permissions, principal/effective, authorize. See `microservices/idam/authorization/README.md`.
-  - Further components may be added under `idam/` as needed.
-- **openapi/idam/** — OpenAPI specs per microservice. Each has `openapi.yaml` (derived from BRRTRouter canonical). Canonical: `BRRTRouter/docs/SPIFFY_mTLS/openapi/` (identity-openapi.yaml, access-management-openapi.yaml). See `openapi/idam/README.md`.
-- **specs/** — Legacy/openapi.yaml (pre-pivot); may be retired or aligned with openapi/idam.
-- **Cargo.toml** (root) — Workspace with `members = ["microservices"]`.
+**Key principle: Read index.md, identify what you need, read only those pages. Never read the whole wiki.** Loading all wiki pages into context for a single-file change wastes tokens and buries relevant information under noise.
 
-## Tooling (same guard rails as RERP)
+Working on identity-login-service entity? Read `entities/entity-*.md` for that service's entities and `topics/lifeguard-schema-authoring.md`. Skip authz-core and org-mgmt pages.
 
-Sesame-IDAM has a **tooling/** package (Python) with the same strict **ruff** and **pre-commit** guard rails as RERP:
+---
 
-- **Ruff:** Same select/ignore and mccabe max-complexity 20 as RERP (see `tooling/pyproject.toml`).
-- **Pre-commit:** `just qa` (lint + format-check + pytest) and check for forbidden empty print statements (`.pre-commit-config.yaml`).
-- **Justfile:** `just init`, `just build-tooling`, `just venv`, `just lint`, `just format`, `just format-check`, `just qa`, `just install-hooks`, `just lint-fix`, `just lint-unused-imports`.
+## Documentation layout
 
-Run **`just init`** once, then **`just qa`** before commit; **`just install-hooks`** to install pre-commit hooks. CI runs **tooling-qa** (just init + just qa).
+`docs/` is organized into wiki pages and design documents:
 
-## Development environment (same DX as RERP)
+| Path | What lives here |
+|---|---|
+| [`docs/llmwiki/`](./docs/llmwiki/) | Living, LLM-maintained knowledge base — start here. |
+| [`docs/design-doc.md`](./docs/design-doc.md) | System-level design (architecture, data model, API surface). Keep current. |
+| [`docs/service-topology-design.md`](./docs/service-topology-design.md) | Service split rationale and scaling profiles. |
+| [`docs/sesame-idam-complete.md`](./docs/sesame-idam-complete.md) | Vision, developer contract, integration patterns. |
 
-- **Kind:** Cluster name `sesame-idam` (context `kind-sesame-idam`). Config: `kind-config.yaml` with port mappings (PostgreSQL 5433, Redis 6379, Prometheus 9091, Grafana 3002) and extraMounts (`/tmp/sesame-idam-data` → `/mnt/sesame-idam-data` for PV data).
-- **Namespace:** `sesame-idam` (created at dev-up via `k8s/microservices/namespace.yaml`).
-- **Local registry:** `localhost:5001` (container `kind-registry`). Setup: `sesame tilt setup-kind-registry`.
-- **Data components:** **Supabase stack** (Postgres, postgres-meta, parquet-lake) is **externalised** to **microscaler-supabase** (side clone at `../microscaler-supabase`). Apply once: `just supabase-apply` (applies `k8s/overlays/seasame-idam` from microscaler-supabase; creates namespace `data`, postgres, etc.). **Redis** remains in-repo: `k8s/data/persistent-volumes.yaml` (Redis PV only), `k8s/data/redis.yaml`. Tilt loads namespace, Redis PV, Redis only; `just port-forward` forwards postgres (namespace `data`) and redis (namespace `sesame-idam`).
-- **Helm app config:** `app.config.database` host `postgres.data.svc.cluster.local` (postgres in namespace `data`), name/user `postgres`; `app.config.redis` host `redis`, port 6379.
-- **Tilt:** Port 10351. Run `just dev-up` (Kind + registry + namespace + PVs + Tilt). Run `just supabase-apply` once to deploy Supabase stack (namespace `data`), then `just port-forward` for postgres + redis.
-- **Justfile:** `supabase-apply` (apply Supabase from microscaler-supabase overlay), `dev-up`, `dev-down`, `dev-down-full`, `setup`, `teardown`, `up`, `up-k8s`, `down`, `status`, `port-forward`.
-- **Docker:** `docker/microservices/Dockerfile.template` for authentication/authorization (when gen+impl exist).
-- **Helm:** `helm/sesame-idam-microservice/` with values for authentication (8001) and authorization (8002); configmap includes database and redis (same as RERP).
-- **Tiltfile:** Tooling + data (Supabase postgres, Redis) live; microservice deploy wired when gen+impl exist.
+Forward-looking planning (`PRD_*.md`, `ROADMAP.md`) stays at the `docs/` root.
 
-## Build and deploy (shared BRRTRouter tooling)
+---
 
-Sesame-IDAM consumes **BRRTRouter** for codegen, lint, and serve (same pattern as RERP). Set `BRRTRouter_DIR` if BRRTRouter is not a sibling repo (default `../BRRTRouter`).
+## Repo shape
 
-| Command | Description |
-|--------|-------------|
-| `just gen` | Regenerate both authentication and authorization gen crates from OpenAPI (writes to `microservices/idam/*/gen`) |
-| `just gen-auth` | Regenerate authentication (Identity) gen crate only |
-| `just gen-authorization` | Regenerate authorization (AM) gen crate only |
-| `just lint-openapi` | Lint both OpenAPI specs via brrtrouter-gen |
-| `just serve-auth [addr]` | Serve authentication API with echo handlers (default `0.0.0.0:8080`) |
-| `just serve-authorization [addr]` | Serve authorization API with echo handlers (default `0.0.0.0:8081`) |
-| `just sync-specs-from-brrtrouter` | Copy canonical specs from BRRTRouter; then restore Sesame-IDAM header comments and run `just lint-openapi` |
+Six Rust microservices, each with `gen/` (BRRTRouter-generated from OpenAPI) + `impl/` (binary + lifeguard/persistence). Total: **119 endpoints, 26 tags**.
 
-After adding `gen/` and `impl/` crates, extend the justfile with build/docker/Tilt targets (like RERP) that use BRRTRouter tooling or delegate to a future Python tooling layer.
+| Service | Path | Port | Access Pattern | Endpoints |
+|---------|------|------|----------------|-----------|
+| identity-login-service | `microservices/idam/identity-login-service/` | 8101 | HIGH — login, register, social OAuth, OTP, passwordless | 20 |
+| identity-session-service | `microservices/idam/identity-session-service/` | 8105 | HIGH — refresh, OIDC, JWKS, step-up, impersonation, MCP | 13 |
+| identity-user-mgmt-service | `microservices/idam/identity-user-mgmt-service/` | 8106 | MEDIUM — user CRUD, MFA, email/phone, passwordless | 25 |
+| authz-core | `microservices/idam/authz-core/` | 8102 | EXTREME — every consumer API request | 4 |
+| api-keys | `microservices/idam/api-keys/` | 8103 | HIGH — M2M key validation, archiving | 10 |
+| org-mgmt | `microservices/idam/org-mgmt/` | 8104 | LOW — org lifecycle, SSO/SCIM, webhooks, SCIM | 34 |
 
-## Key context
+OpenAPI specs: `openapi/{service}/openapi.yaml` (6 directories, no canonical/merged spec).
+Workspace: `microservices/Cargo.toml` (all 12 crates registered: gen+impl for each service).
+Shared tooling: `tooling/` (Python, ruff, pre-commit).
 
-- **Audit and transformation:** `BRRTRouter/docs/SPIFFY_mTLS/Sesame_IDAM_Audit_and_Transformation_Analysis.md` — pivot rationale, gap analysis, transformation roadmap.
-- **Target design:** Identity + Access Management as in `BRRTRouter/docs/SPIFFY_mTLS/Generic_Identity_Service_IDAM_Design.md`, `Generic_Access_Management_Service_Design.md`, and the OpenAPI specs there.
-- **Implementing a microservice:** Follow RERP pattern: `gen/` (BRRTRouter-generated from OpenAPI) + `impl/` (binary + lifeguard/persistence). Register both in `microservices/Cargo.toml`.
+---
 
-## Archive
+## Build commands
 
-Pre-pivot state (SaaS IDAM with Sea-ORM and single Rust crate) is preserved on branch `archive/saas-idam-pre-microservice-pivot`, tag `archive/saas-idam-2025-02-02`, and repo `git@github.com:microscaler/sesame-idam-archived.git`.
+All commands from repo root unless noted.
+
+### Tooling (Python)
+
+```
+just init              # Create .venv and install tooling
+just qa                # lint + format-check + tests (run before commit)
+just lint              # ruff check tooling/
+just format            # ruff format tooling/
+just install-hooks     # Install pre-commit hooks
+```
+
+### Codegen
+
+```
+just gen                # Regenerate all 6 services from OpenAPI
+just gen-identity-login # Single service codegen
+just lint-openapi       # Lint all 6 OpenAPI specs via brrtrouter-gen
+just sync-specs-from-brrtrouter  # Copy canonical specs from BRRTRouter
+```
+
+### Build
+
+```
+cargo check --workspace           # From microservices/
+cargo build --workspace           # From microservices/
+cargo test --workspace            # From microservices/
+```
+
+### Serve (echo handlers)
+
+```
+just serve-identity-login [addr]  # Default 0.0.0.0:8101
+just serve-authz-core [addr]      # Default 0.0.0.0:8102
+# ... (similar for all 6 services)
+```
+
+### Dev environment
+
+```
+just dev-up          # Kind (shared cluster) + Tilt (port 10351)
+just dev-down        # Stop Tilt
+just supabase-apply  # Apply Supabase stack once (namespace: data)
+just port-forward    # Forward postgres (data) + redis (sesame-idam)
+just tilt-up         # Start Tilt via systemd
+just tilt-log        # Tail Tilt logs
+```
+
+---
+
+## Tenancy & Isolation
+
+**CRITICAL: Sesame-IDAM is a "Hard-Segment" multi-tenant system.**
+
+*   **Application = Tenant boundary.** Each consuming platform (Software X, Software Y) is an `Application` entity that acts as a tenant. The `X-Tenant-ID` header maps to the Application ID.
+*   **No Shared Users:** Users are strictly scoped to a single `application_id`. `alice@corp.com` on `Tenant A` and `alice@corp.com` on `Tenant B` are completely different, unrelated users. No cross-tenant identity exists.
+*   **`X-Tenant-ID` Header:** Every API request must include the `X-Tenant-ID` header (or be authenticated via a tenant-scoped API key). This maps to the `application_id` in the system.
+*   **Database Partitioning:**
+    *   **SaaS Model:** Single PostgreSQL schema shared by all tenants. Isolation is enforced via the `application_id` column on every major table (`users`, `orgs`, `api_keys`).
+    *   **Self-Hosted Model:** The `sesame_idam` database/schema is isolated from the tenant's business logic (e.g., `app` schema) to prevent table name collisions.
+*   **Zero Bleed:** Data for `Tenant A` is never visible to `Tenant B`. This is enforced at the application layer (context injection), database layer (RLS policies), and database level (`UNIQUE(application_id, email)` on users, etc.).
+
+## Core rules the agent must obey
+
+Each rule points at the authoritative source. Open the source when the rule is ambiguous.
+
+### 1. Never edit generated code under `gen/`
+
+`microservices/<service>/gen/` is regenerated by `brrtrouter-gen` from `openapi/<service>/openapi.yaml`. Any edit will be clobbered on next regen. Fix the OpenAPI spec instead.
+
+### 2. Schema changes via Lifeguard entities only
+
+Edit `microservices/<service>/impl/src/models/*.rs`, then regenerate with the migrator. Do **not** hand-write SQL migrations.
+
+### 3. OpenAPI spec is source of truth for request/response shapes
+
+Every UI-dynamic field must be in the spec. BRRTRouter's parser silently drops unrecognized fields.
+
+### 4. Shared schemas are duplicated per spec
+
+Each OpenAPI spec must be self-contained for codegen. Shared schemas (User, UserProfile, Org) are duplicated in `components/schemas` of each consuming spec. This is intentional.
+
+### 5. Only cross-service dependency: login → authz-core
+
+`identity-login-service` calls `authz-core` `/principal/effective` at login time for JWT claim enrichment. After the JWT is issued, it is self-contained. All other services are fully independent.
+
+### 6. Native PostgreSQL via Kind
+
+Tests bind directly to the shared Kind PostgreSQL (namespace `data`, forwarded to localhost:5432). Do not introduce testcontainers.
+
+### 7. Code style + test discipline
+
+- Run `cargo fmt` + `cargo clippy -- -D warnings` before committing Rust changes.
+- Run `just qa` before committing Python changes in `tooling/`.
+- Maintain test coverage for new behavior.
+
+---
+
+## Commit discipline
+
+- Commits follow Conventional Commits (`feat(scope):`, `fix(scope):`, `docs(scope):`, `chore(scope):`, `refactor(scope):`).
+- **Never push** without explicit human authorization.
+- **Never use `--no-verify`** or `--no-verify-commit`. Let pre-commit hooks run and fix what they flag.
+- **Never commit secrets** (`.env`, credentials, tokens).
+- Prefer small, logically-grouped commits with full messages explaining the *why*.
+
+---
+
+## Wiki obligation (task-relevant reading)
+
+**Every session starts with reading [`docs/llmwiki/index.md`](./docs/llmwiki/index.md) and drilling down only to pages relevant to your task.** This is not optional. The wiki accumulates what earlier agents learned; not reading it means you repeat work already done.
+
+Read `index.md`, pick only pages whose title or heading matches your task. Do not load the entire wiki.
+
+If the wiki is out of date or contradicts the code, fix it **in the wiki** as part of your session's deliverable, per [`docs/llmwiki/SCHEMA.md`](./docs/llmwiki/SCHEMA.md) "Agent workflow".
+
+End-of-session: update the wiki pages you touched, append a `log.md` entry, flag any `> **Open:**` questions. Leave the wiki one step more useful than you found it.

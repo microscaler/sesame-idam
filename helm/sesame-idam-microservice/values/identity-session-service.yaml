@@ -1,0 +1,53 @@
+# Sesame-IDAM Helm Values — identity-session-service
+# Token refresh, OIDC discovery, JWKS
+# Port: 8005
+
+replicaCount: 1
+
+image:
+  repository: localhost:5001/sesame-idam-identity-session-service
+  pullPolicy: IfNotPresent
+  tag: "tilt"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automountServiceAccountToken: true
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8005
+  targetPort: 8005
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "500m"
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8005
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8005
+  initialDelaySeconds: 2
+  periodSeconds: 5
+
+config:
+  serviceName: identity-session-service
+  servicePort: 8005

@@ -1,10 +1,12 @@
 # Sesame-IDAM justfile
-# Repo layout: 4 services split by access pattern:
-#   identity-auth  — user-facing identity/authentication (8001)
-#   authz-core     — per-request authorization checks (8002)
-#   api-keys       — M2M key management/validation (8003)
-#   org-mgmt       — org lifecycle & SSO admin (8004)
-# OpenAPI specs: openapi/{identity-auth,authz-core,api-keys,org-mgmt}/openapi.yaml
+# Repo layout: 6 services split by access pattern for independent scaling:
+#   identity-login-service   — login, register, social, OTP flows (8001)
+#   identity-session-service — refresh, OIDC, JWKS (8005)
+#   identity-user-mgmt-service — user CRUD, MFA, email/phone (8006)
+#   authz-core               — per-request authorization checks (8002)
+#   api-keys                 — M2M key management/validation (8003)
+#   org-mgmt                 — org lifecycle & SSO admin (8004)
+# OpenAPI specs: openapi/{identity-login-service,identity-session-service,identity-user-mgmt-service,authz-core,api-keys,org-mgmt}/openapi.yaml
 # Consumes shared BRRTRouter tooling (brrtrouter-gen) for codegen, lint, serve.
 # Set BRRTRouter_DIR if BRRTRouter is not a sibling repo (e.g. export BRRTRouter_DIR=/path/to/BRRTRouter).
 
@@ -18,17 +20,21 @@ brrtrouter_dir := "../BRRTRouter"
 # Override with: SUPABASE_DIR=/path/to/microscaler-supabase just supabase-apply
 supabase_dir := "../microscaler-supabase"
 
-# OpenAPI spec paths (4 services split by access frequency & cost)
-spec_identity_auth  := "openapi/identity-auth/openapi.yaml"
-spec_authz_core     := "openapi/authz-core/openapi.yaml"
-spec_api_keys       := "openapi/api-keys/openapi.yaml"
-spec_org_mgmt       := "openapi/org-mgmt/openapi.yaml"
+# OpenAPI spec paths (6 services split by access pattern)
+spec_identity_login     := "openapi/identity-login-service/openapi.yaml"
+spec_identity_session   := "openapi/identity-session-service/openapi.yaml"
+spec_identity_user_mgmt := "openapi/identity-user-mgmt-service/openapi.yaml"
+spec_authz_core         := "openapi/authz-core/openapi.yaml"
+spec_api_keys           := "openapi/api-keys/openapi.yaml"
+spec_org_mgmt           := "openapi/org-mgmt/openapi.yaml"
 
 # Output dirs for brrtrouter-gen (gen crates live under each microservice)
-out_identity_auth  := "microservices/idam/identity-auth/gen"
-out_authz_core     := "microservices/idam/authz-core/gen"
-out_api_keys       := "microservices/idam/api-keys/gen"
-out_org_mgmt       := "microservices/idam/org-mgmt/gen"
+out_identity_login      := "microservices/idam/identity-login-service/gen"
+out_identity_session    := "microservices/idam/identity-session-service/gen"
+out_identity_user_mgmt  := "microservices/idam/identity-user-mgmt-service/gen"
+out_authz_core          := "microservices/idam/authz-core/gen"
+out_api_keys            := "microservices/idam/api-keys/gen"
+out_org_mgmt            := "microservices/idam/org-mgmt/gen"
 
 default:
   @just --list --unsorted
@@ -283,24 +289,56 @@ check:
 # BRRTRouter codegen (shared tooling)
 # =============================================================================
 
-# Regenerate all 4 services from OpenAPI
-gen: gen-identity-auth gen-authz-core gen-api-keys gen-org-mgmt
+# Regenerate all 6 services from OpenAPI
+gen: gen-identity-login gen-identity-session gen-identity-user-mgmt gen-authz-core gen-api-keys gen-org-mgmt
 
-# Regenerate identity-auth (user-facing identity/authentication) gen crate
-gen-identity-auth:
+# Regenerate identity-login-service (login, register, social, OTP) gen crate
+gen-identity-login:
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
     echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR or clone BRRTRouter as a sibling."
     exit 1
   fi
-  echo "🔨 Generating identity-auth from {{spec_identity_auth}}..."
+  echo "🔨 Generating identity-login-service from {{spec_identity_login}}..."
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
-    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_auth}}" \
-    --output "$(cd - >/dev/null && pwd)/{{out_identity_auth}}" \
-    --package-name sesame_idam_identity_auth_gen \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_login}}" \
+    --output "$(cd - >/dev/null && pwd)/{{out_identity_login}}" \
+    --package-name sesame_idam_identity_login_service_gen \
     --force
-  echo "✅ Generated {{out_identity_auth}}"
+  echo "✅ Generated {{out_identity_login}}"
+
+# Regenerate identity-session-service (refresh, OIDC, JWKS) gen crate
+gen-identity-session:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR or clone BRRTRouter as a sibling."
+    exit 1
+  fi
+  echo "🔨 Generating identity-session-service from {{spec_identity_session}}..."
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_session}}" \
+    --output "$(cd - >/dev/null && pwd)/{{out_identity_session}}" \
+    --package-name sesame_idam_identity_session_service_gen \
+    --force
+  echo "✅ Generated {{out_identity_session}}"
+
+# Regenerate identity-user-mgmt-service (user CRUD, MFA, email/phone) gen crate
+gen-identity-user-mgmt:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR or clone BRRTRouter as a sibling."
+    exit 1
+  fi
+  echo "🔨 Generating identity-user-mgmt-service from {{spec_identity_user_mgmt}}..."
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_user_mgmt}}" \
+    --output "$(cd - >/dev/null && pwd)/{{out_identity_user_mgmt}}" \
+    --package-name sesame_idam_identity_user_mgmt_service_gen \
+    --force
+  echo "✅ Generated {{out_identity_user_mgmt}}"
 
 # Regenerate authz-core (per-request authorization checks) gen crate
 gen-authz-core:
@@ -350,17 +388,35 @@ gen-org-mgmt:
     --force
   echo "✅ Generated {{out_org_mgmt}}"
 
-# Lint all 4 OpenAPI specs
-lint-openapi: lint-openapi-identity-auth lint-openapi-authz-core lint-openapi-api-keys lint-openapi-org-mgmt
+# Lint all 6 OpenAPI specs
+lint-openapi: lint-openapi-identity-login lint-openapi-identity-session lint-openapi-identity-user-mgmt lint-openapi-authz-core lint-openapi-api-keys lint-openapi-org-mgmt
 
-lint-openapi-identity-auth:
+lint-openapi-identity-login:
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
     echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
     exit 1
   fi
-  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_identity_auth}}" --fail-on-error
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_identity_login}}" --fail-on-error
+
+lint-openapi-identity-session:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_identity_session}}" --fail-on-error
+
+lint-openapi-identity-user-mgmt:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_identity_user_mgmt}}" --fail-on-error
 
 lint-openapi-authz-core:
   #!/usr/bin/env bash
@@ -389,9 +445,9 @@ lint-openapi-org-mgmt:
   fi
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_org_mgmt}}" --fail-on-error
 
-# Serve identity-auth API with echo handlers (for local try-out)
-# Usage: just serve-identity-auth [addr]
-serve-identity-auth addr="0.0.0.0:8001":
+# Serve identity-login-service API with echo handlers (for local try-out)
+# Usage: just serve-identity-login [addr]
+serve-identity-login addr="0.0.0.0:8001":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -399,7 +455,33 @@ serve-identity-auth addr="0.0.0.0:8001":
     exit 1
   fi
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- serve \
-    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_auth}}" \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_login}}" \
+    --addr {{addr}}
+
+# Serve identity-session-service API with echo handlers (for local try-out)
+# Usage: just serve-identity-session [addr]
+serve-identity-session addr="0.0.0.0:8005":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- serve \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_session}}" \
+    --addr {{addr}}
+
+# Serve identity-user-mgmt-service API with echo handlers (for local try-out)
+# Usage: just serve-identity-user-mgmt [addr]
+serve-identity-user-mgmt addr="0.0.0.0:8006":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- serve \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_identity_user_mgmt}}" \
     --addr {{addr}}
 
 # Serve authz-core API with echo handlers (for local try-out)
@@ -457,9 +539,11 @@ sync-specs-from-brrtrouter:
     echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR."
     exit 1
   fi
-  echo "⚠️  After syncing, manually split into 4 service directories:"
-  echo "   1. Copy identity-openapi.yaml → openapi/identity-auth/openapi.yaml"
-  echo "   2. Extract /api/v1/am/principals/*, /api/v1/am/authorize → openapi/authz-core/"
-  echo "   3. Extract /api/v1/am/api-keys/* → openapi/api-keys/"
-  echo "   4. Extract /orgs/*, /api/v1/am/applications/* → openapi/org-mgmt/"
-  echo "   5. Run: just lint-openapi"
+  echo "⚠️  After syncing, manually split into 6 service directories:"
+  echo "   1. Split identity login/registration/OTP → openapi/identity-login-service/"
+  echo "   2. Split refresh/OIDC/JWKS → openapi/identity-session-service/"
+  echo "   3. Split user CRUD/MFA/email-phone → openapi/identity-user-mgmt-service/"
+  echo "   4. Extract /api/v1/am/principals/*, /api/v1/am/authorize → openapi/authz-core/"
+  echo "   5. Extract /api/v1/am/api-keys/* → openapi/api-keys/"
+  echo "   6. Extract /orgs/*, /api/v1/am/applications/* → openapi/org-mgmt/"
+  echo "   7. Run: just lint-openapi"
