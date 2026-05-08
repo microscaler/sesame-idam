@@ -1,0 +1,481 @@
+# Sesame-IDAM session-service Service - OpenAPI 3.1
+# Extracted from openapi/identity-auth/openapi.yaml
+# Session Service
+openapi: 3.1.0
+info:
+  title: Session Service
+  version: 1.0.0
+  description: |
+    Fast-path service for session management and identity discovery.
+    Handles token refresh, user profile lookup, and OIDC/JWKS endpoints.
+    EXTREME frequency with LOW per-request cost (indexed DB lookups, cached static data).
+    Must respond in <5ms to avoid blocking client-side navigation.
+  contact:
+    name: Platform / Security
+
+servers:
+  - url: /auth
+    description: Session Service API
+  - url: /.well-known
+    description: OIDC/JWKS discovery
+
+tags:
+  - name: Sessions
+    description: Session management (refresh, profile, discovery, OIDC)
+
+
+security:
+  - BearerAuth: []
+  - ApiKeyHeader: []
+
+paths:
+# ============================================================================
+# PATHS
+# ============================================================================
+
+  /auth/refresh:
+    post:
+      tags: [Sessions]
+      summary: Refresh access token
+      operationId: auth_refresh
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid or expired refresh token
+
+  # --- Logout ---
+  /api/v1/identity/users/me:
+    get:
+      tags: [Identity]
+      summary: Current user profile
+      operationId: users_me_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+    patch:
+      tags: [Identity]
+      summary: Update current user profile
+      operationId: users_me_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+
+  # --- Fetch By Email ---
+  /.well-known/openid-configuration:
+    get:
+      tags: [Discovery]
+      summary: OIDC discovery
+      operationId: openid_configuration
+      security: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenIDConfiguration'
+
+  # --- JWKS ---
+  /.well-known/jwks.json:
+    get:
+      tags: [Discovery]
+      summary: JWKS for JWT verification
+      operationId: jwks
+      security: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWKS'
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token (from Identity Service)
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+
+  schemas:
+    # TODO: enrich schemas with User, LoginRequest, etc.
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+
+    JWKS:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          description: |
+            JSON Web Key Set containing the signing keys for JWT verification.
+            Keys may be rotated; consumers should cache but periodically re-fetch.
+          items:
+            type: object
+            required: [kty, kid, use, alg, n, e, x5c]
+            properties:
+              kty:
+                type: string
+                description: Key type (e.g. "RSA")
+              kid:
+                type: string
+                description: Key ID — unique identifier for this key (used by JWT `kid` header)
+              use:
+                type: string
+                description: Intended use of the public key (sig = signature)
+              alg:
+                type: string
+                description: Intended algorithm for using the key (e.g. "RS256")
+              n:
+                type: string
+                description: RSA modulus (base64url-encoded)
+              e:
+                type: string
+                description: RSA exponent (base64url-encoded)
+              x5c:
+                type: array
+                items:
+                  type: string
+                description: |
+                  X.509 certificate chain (base64url-encoded DER).
+                  Enables certificate pinning and trust anchor validation.
+              x5t:
+                type: string
+                nullable: true
+                description: X.509 certificate thumbprint (base64url-encoded SHA-1)
+            example:
+              kty: "RSA"
+              kid: "sesame-prod-2025-01"
+              use: "sig"
+              alg: "RS256"
+              n: "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2in..."
+              e: "AQAB"
+              x5c:
+                - MIIDdTCCAl2gAwIBAgITBn+USII9N7z2GPaVWCQDIQ...
+
+
+    OpenIDConfiguration:
+      type: object
+      description: |
+        OpenID Connect Discovery document (RFC 8414).
+        Returned by GET /.well-known/openid-configuration
+      properties:
+        issuer:
+          type: string
+          description: Identity provider issuer identifier
+        authorization_endpoint:
+          type: string
+          description: OAuth2 authorization endpoint
+        token_endpoint:
+          type: string
+          description: OAuth2 token endpoint
+        jwks_uri:
+          type: string
+          description: JWKS endpoint for JWT verification
+        userinfo_endpoint:
+          type: string
+          nullable: true
+          description: OIDC userinfo endpoint
+        registration_endpoint:
+          type: string
+          nullable: true
+          description: OAuth2 Dynamic Client Registration endpoint
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 scopes
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 response types
+        response_modes_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 response modes
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 grant types
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported subject types
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported JWT signing algorithms (e.g. RS256)
+        userinfo_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported userinfo signing algorithms
+        userinfo_encryption_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported userinfo encryption algorithms
+        userinfo_encryption_enc_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported userinfo encryption encodings
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+            enum: [S256, plain]
+          description: Supported PKCE challenge methods
+      example:
+        issuer: "https://identity.seasame-idam.microscaler.local"
+        authorization_endpoint: "https://identity.seasame-idam.microscaler.local/oauth/authorize"
+        token_endpoint: "https://identity.seasame-idam.microscaler.local/auth/token"
+        jwks_uri: "https://identity.seasame-idam.microscaler.local/.well-known/jwks.json"
+        userinfo_endpoint: "https://identity.seasame-idam.microscaler.local/oauth/userinfo"
+        scopes_supported:
+          - openid
+          - email
+          - profile
+          - phone
+        response_types_supported:
+          - code
+          - id_token
+          - id_token token
+        response_modes_supported:
+          - query
+          - fragment
+          - form_post
+        grant_types_supported:
+          - authorization_code
+          - implicit
+          - refresh_token
+          - client_credentials
+          - urn:ietf:params:oauth:grant-type:token-exchange
+        subject_types_supported:
+          - public
+          - pairwise
+        id_token_signing_alg_values_supported:
+          - RS256
+        code_challenge_methods_supported:
+          - S256
+
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string, nullable: true }
+        id_token: { type: string, nullable: true }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer }
+        scope: { type: string, nullable: true }
+
+
+    UpdateUserProfileRequest:
+      type: object
+      description: |
+        Partial update of the current user's profile.
+        Only provided fields are modified.
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Full display name
+        preferred_username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Human-identifiable username
+        first_name:
+          type: string
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          maxLength: 100
+          description: User's last name
+        picture_url:
+          type: string
+          format: uri
+          description: Profile picture URL
+      example:
+        first_name: "Updated"
+        last_name: "Name"
+
+    # --- Discovery ---
+
+    UserProfile:
+      type: object
+      description: |
+        OIDC-compliant user profile. This is the shape returned by:
+        - GET /api/v1/identity/users/me (current user profile)
+        - GET /oauth/userinfo (OIDC userinfo endpoint)
+        - LoginResponse.user (enriched with active org context)
+        
+        Combines standard OIDC claims (sub, email_verified, name, preferred_username)
+        with identity-specific fields (user_id, first_name, last_name) and session context
+        (org_id, org_name, user_role, user_permissions).
+      properties:
+        # Standard OIDC claims
+        sub:
+          type: string
+          format: uuid
+          description: Subject — the user's opaque identifier (not PII)
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Primary email address
+        email_verified:
+          type: boolean
+          description: Whether the email address has been verified
+        name:
+          type: string
+          nullable: true
+          description: Full display name (first_name + " " + last_name)
+        preferred_username:
+          type: string
+          nullable: true
+          description: Human-identifiable username (alias for username)
+        # Identity-specific fields
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Opaque user identifier (alias for sub)
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's last name
+        username:
+          type: string
+          nullable: true
+          description: Alias for preferred_username
+        picture_url:
+          type: string
+          nullable: true
+          format: uri
+          description: Profile picture URL
+        properties:
+          type: object
+          additionalProperties: true
+          description: Custom key-value metadata (user-level, not org-scoped)
+        # Phone (Microscaler pattern)
+        phone_number:
+          type: string
+          nullable: true
+          description: Primary phone number in E.164 format (e.g. +14155551234)
+        phone_verified:
+          type: boolean
+          description: Whether the phone number has been verified (via SMS OTP)
+        # Session context (injected by JWT enrichment)
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Active organisation context (set by JWT enrichment)
+        org_name:
+          type: string
+          nullable: true
+          description: Name of the active organisation
+        user_role:
+          type: string
+          nullable: true
+          description: Primary role in the active organisation
+        user_permissions:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: |
+            Permission codes for the active organisation.
+            Uses dot-notation format (e.g. "accounting:invoices:read")
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last profile update timestamp
+      example:
+        sub: "31c41c16-c281-44ae-9602-8a047e3bf33d"
+        email: "test@example.com"
+        email_verified: true
+        name: "Test User"
+        preferred_username: "testuser"
+        first_name: "Test"
+        last_name: "User"
+        username: "testuser"
+        picture_url: "https://example.com/avatar.png"
+        phone_number: "+14155551234"
+        phone_verified: true
+        org_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492"
+        org_name: "Acme Inc"
+        user_role: "Admin"
+        user_permissions:
+          - "accounting:invoices:write"
+          - "accounting:invoices:read"
+        updated_at: "2025-01-15T10:30:00Z"
+

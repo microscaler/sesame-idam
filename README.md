@@ -15,10 +15,11 @@
 Sesame-IDAM is an **open-source bolt-on identity platform** that any B2B SaaS application can integrate in hours — not months. The consuming application implements **zero authentication logic**.
 
 Sesame manages:
-- **Users** — create, fetch, update, delete, search, invite, impersonate
-- **Organizations** — org lifecycle, memberships, invites, seat limits, domain controls
+- **Login & Registration** — email/password, social OAuth, email/phone OTP, dual OTP, magic links
+- **Session Management** — token refresh, OIDC discovery, JWKS, logout
+- **User Management** — create, fetch, update, delete, search, MFA, email/phone verification, social links, migration
+- **Organizations** — org lifecycle, memberships, invites, seat limits, domain controls, SSO/SCIM
 - **Roles & Permissions** — RBAC with inheritance, ABAC attributes, fine-grained checks
-- **Sessions** — login, refresh, logout, token rotation, MFA, social login
 - **API Keys** — M2M authentication for services and CLI tools
 - **Enterprise SSO** — SAML/OIDC per organization
 - **Webhooks** — real-time event delivery for identity state changes
@@ -46,7 +47,7 @@ Sesame combines the **B2B complexity of PropelAuth** with the **database-native 
 
 ## Architecture
 
-Sesame is **four independent Rust microservices**, not a monolith. Split by per-request frequency and cost:
+Sesame is **six independent Rust microservices**, not a monolith. Split by per-request frequency and cost so each can scale independently:
 
 ```mermaid
 graph TB
@@ -61,7 +62,9 @@ graph TB
     end
 
     subgraph "Sesame-IDAM Services"
-        IA[identity-auth<br/>Port 8001<br/>HIGH frequency]
+        IL[identity-login-service<br/>Port 8001<br/>Login, register, social, OTP]
+        IS[identity-session-service<br/>Port 8005<br/>Refresh, OIDC, JWKS]
+        IU[identity-user-mgmt-service<br/>Port 8006<br/>User CRUD, MFA, email/phone]
         AC[authz-core<br/>Port 8002<br/>EXTREME frequency]
         AK[api-keys<br/>Port 8003<br/>HIGH frequency]
         OM[org-mgmt<br/>Port 8004<br/>LOW frequency]
@@ -75,17 +78,20 @@ graph TB
     SPA --> Proxy
     Microsvc --> Proxy
     Admin --> Proxy
-    Proxy --> IA
+    Proxy --> IL
+    Proxy --> IS
+    Proxy --> IU
     Proxy --> AC
     Proxy --> AK
     Proxy --> OM
 
-    IA -. login calls .-> AC
-    AC -. cache .-> Redis
-    IA -. session cache .-> Redis
+    IL -. login calls .-> AC
+    IS -. session cache .-> Redis
     AC -. role/perm cache .-> Redis
     AK -. validation cache .-> Redis
-    IA -. user/session data .-> PG
+    IL -. user/session data .-> PG
+    IS -. session cache .-> PG
+    IU -. user data .-> PG
     AC -. role/perm definitions .-> PG
     AK -. key data .-> PG
     OM -. org/role/perm data .-> PG
@@ -95,10 +101,12 @@ graph TB
 
 | Service | Base Path | Frequency | Purpose |
 |---------|-----------|-----------|---------|
-| **identity-auth** | `/auth/*`, `/api/v1/identity/*`, `/.well-known/*` | HIGH | Login, register, refresh, logout, MFA, user CRUD, OIDC, JWKS, MCP |
-| **authz-core** | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | EXTREME | Per-request authorization, principal/effective, role evaluation |
+| **identity-login-service** | `/auth/login`, `/auth/register`, `/auth/logout`, `/social/*`, `/oauth/authorize` | HIGH | Email/password login, social OAuth, email/phone OTP, dual OTP, magic links, registration |
+| **identity-session-service** | `/auth/refresh`, `/.well-known/openid-configuration`, `/.well-known/jwks.json` | HIGH | Token refresh, OIDC discovery, JWKS endpoint |
+| **identity-user-mgmt-service** | `/api/v1/identity/users/*`, `/api/v1/identity/users/{id}/mfa/*`, `/api/v1/identity/users/{id}/email/*`, `/api/v1/identity/users/{id}/phone/*`, `/api/v1/identity/users/{id}/social/*` | HIGH | User CRUD, MFA setup/verify, email/phone verification, social link management, migration |
+| **authz-core** | `/api/v1/am/authorize`, `/api/v1/am/principal/*`, `/api/v1/am/principals/*` | EXTREME | Per-request authorization, principal/effective, role evaluation, attribute management |
 | **api-keys** | `/api/v1/am/api-keys/*` | HIGH | API key lifecycle, validation (personal + org), rotation, archival |
-| **org-mgmt** | `/orgs/*`, `/api/v1/am/applications/*` | LOW | Org lifecycle, memberships, SSO/SCIM, roles, permissions, webhooks |
+| **org-mgmt** | `/orgs/*`, `/api/v1/am/applications/*` | LOW | Org lifecycle, memberships, SSO/SCIM, roles, permissions, applications, webhooks |
 
 ---
 
@@ -219,13 +227,15 @@ All claims are **authoritative in Sesame** — written at token generation, neve
 
 | Service | Specs | Endpoints | Schemas |
 |---------|-------|-----------|---------|
-| identity-auth | `openapi/identity-auth/openapi.yaml` + 3 sub-specs | 48 | 43 |
+| identity-login-service | `openapi/identity-login-service/openapi.yaml` | 15 | 12 |
+| identity-session-service | `openapi/identity-session-service/openapi.yaml` | 4 | 5 |
+| identity-user-mgmt-service | `openapi/identity-user-mgmt-service/openapi.yaml` | 25 | 20 |
 | authz-core | `openapi/authz-core/openapi.yaml` | 5 | 8 |
 | api-keys | `openapi/api-keys/openapi.yaml` | 10 | 15 |
 | org-mgmt | `openapi/org-mgmt/openapi.yaml` | 38 | 37 |
-| **Total** | **7 files** | **146 endpoints** | **152 schemas** |
+| **Total** | **7 spec files** | **97 endpoints** | **97 schemas** |
 
-The canonical combined spec (`identity-auth/openapi.yaml`) feeds BRRTRouter codegen. Sub-specs are self-contained copies for navigation.
+Each OpenAPI spec is self-contained (schemas duplicated across specs). Each feeds BRRTRouter codegen for its own gen crate.
 
 ---
 
@@ -266,10 +276,15 @@ just port-forward    # Forward postgres + redis to localhost
 
 ### Build & Generate
 ```bash
-just gen         # Generate crates from OpenAPI specs
-just gen-auth    # Generate identity-auth crate only
-just lint-openapi  # Lint all specs via brrtrouter-gen
-just serve-auth    # Start echo server for local testing
+just gen         # Generate all 6 crates from OpenAPI specs
+just gen-identity-login   # Generate identity-login-service crate only
+just gen-identity-session # Generate identity-session-service crate only
+just gen-identity-user-mgmt # Generate identity-user-mgmt-service crate only
+just gen-authz-core       # Generate authz-core crate only
+just gen-api-keys         # Generate api-keys crate only
+just gen-org-mgmt         # Generate org-mgmt crate only
+just lint-openapi         # Lint all specs via brrtrouter-gen
+just serve-identity-login # Start echo server for local testing
 ```
 
 ### Guard Rails

@@ -1,0 +1,62 @@
+# Sesame-IDAM LLM Wiki — Index
+
+## Core
+
+- [README](./README.md) — Wiki entry point
+- [SCHEMA.md](./SCHEMA.md) — Conventions and page format
+- [log.md](./log.md) — Session log
+
+## Docs Catalog
+
+- [docs-catalog.md](./docs-catalog.md) — Inventory of design docs and merge status
+
+## Entities
+
+Data structures and database entities across all 6 microservices.
+
+| Page | Service | Status |
+|------|---------|--------|
+| [entity-user](./entities/entity-user.md) | identity-login-service | partially-verified |
+| [entity-organization](./entities/entity-organization.md) | org-mgmt | partially-verified |
+| [entity-session](./entities/entity-session.md) | identity-session-service | partially-verified |
+| [entity-api-key](./entities/entity-api-key.md) | api-keys | partially-verified |
+| [entity-role](./entities/entity-role.md) | org-mgmt | partially-verified |
+| [entity-permission](./entities/entity-permission.md) | org-mgmt | partially-verified |
+| [entity-application](./entities/entity-application.md) | org-mgmt | partially-verified |
+| [entity-mfa-device](./entities/entity-mfa-device.md) | identity-user-mgmt-service | partially-verified |
+| [entity-audit-log](./entities/entity-audit-log.md) | all services | partially-verified |
+| [entity-webhook](./entities/entity-webhook.md) | org-mgmt | partially-verified |
+
+## Topics
+
+Architectural concepts, workflows, and cross-cutting concerns.
+
+|| Page | Description |
+||------|-------------|
+|| [topic-architecture-overview](./topics/topic-architecture-overview.md) | Six-service split rationale, service map |
+|| [topic-tenancy-model](./topics/topic-tenancy-model.md) | Hard-segment multi-tenant model, X-Tenant-ID, isolation guarantees |
+|| [topic-openapi-tenancy-strategy](./topics/topic-openapi-tenancy-strategy.md) | Global spec + middleware injection pattern, why not per-tenant specs |
+|| [topic-jwt-schema](./topics/topic-jwt-schema.md) | JWT enrichment claims, coarse vs fine-grained auth |
+|| [topic-login-flow](./topics/topic-login-flow.md) | User login flow: login → authz-core → JWT |
+|| [topic-authorization-flow](./topics/topic-authorization-flow.md) | Per-request authorization: Redis cache, role evaluation |
+|| [topic-api-key-validation](./topics/topic-api-key-validation.md) | M2M key validation flow |
+|| [topic-rls-bridge](./topics/topic-rls-bridge.md) | RLS helpers, session injection, database security |
+|| [topic-brrtrouter-codegen](./topics/topic-brrtrouter-codegen.md) | OpenAPI → codegen workflow, gen/ vs impl/ |
+|| [topic-data-model](./topics/topic-data-model.md) | Full ERD, key design decisions |
+|| [topic-scaling-profiles](./topics/topic-scaling-profiles.md) | Per-service scaling, cache strategies |
+|| [topic-openapi-convention](./topics/topic-openapi-convention.md) | Spec layout, schema duplication convention |
+|| [topic-inter-service-deps](./topics/topic-inter-service-deps.md) | Only dependency: login → authz-core at login |
+|| [topic-two-user-types](./topics/topic-two-user-types.md) | customer vs platform user model |
+|| [topic-org-personas](./topics/topic-org-personas.md) | Platform, provider, consumer org types |
+|| [topic-developer-contract](./topics/topic-developer-contract.md) | 3-layer SDK, Admin API, RLS helpers |
+
+## Reference
+
+External integrations, API surfaces, patterns.
+
+| Page | Description |
+|------|-------------|
+| [ref-api-surface](./reference/ref-api-surface.md) | Complete API surface across 6 services (119 endpoints, 26 tags) |
+| [ref-propelauth-comparison](./reference/ref-propelauth-comparison.md) | PropelAuth vs Supabase vs Sesame benchmark |
+| [ref-frontend-sdk](./reference/ref-frontend-sdk.md) | Frontend SDK integration pattern |
+| [ref-backend-admin-api](./reference/ref-backend-admin-api.md) | Backend Admin API contract |

@@ -30,10 +30,15 @@
 
 ## 1. Executive Summary
 
+**Executive Summary:**
+
 Sesame-IDAM is an **open-source bolt-on identity and access management platform** built for B2B SaaS applications. Any application can integrate Sesame in hours — not months — and implement zero authentication logic.
 
 The platform provides:
-- **User & org management** — create users, invite members, assign roles, manage memberships
+- **Login & registration** — email/password, social OAuth, email/phone OTP, dual OTP, magic links
+- **Session management** — token refresh, OIDC discovery, JWKS — scaled independently due to EXTREME frequency
+- **User management** — user CRUD, MFA, email/phone verification, social link management, migration
+- **Organizations** — org lifecycle, memberships, invites, roles, permissions, SSO/SCIM, webhooks
 - **Enriched JWTs** — every token contains user identity, org membership, roles, and permissions
 - **Database-level security** — automatic RLS injection via `SET LOCAL` session variables, no JWT ever enters the database
 - **API key management** — M2M authentication for services and CLI tools
@@ -45,7 +50,7 @@ Sesame combines the best of two worlds:
 - **The B2B complexity of PropelAuth** — orgs, invites, roles, seat management, SSO
 - **The database-native security of Supabase** — RLS helpers that lock down data automatically
 
-It is built in **Rust**, deployed as **four independent microservices**, and designed for Kubernetes.
+It is built in **Rust**, deployed as **six independent microservices** (split by access frequency for independent scaling), and designed for Kubernetes.
 
 ---
 
@@ -94,9 +99,20 @@ The `org_type` claim in every JWT determines access rules — provider orgs can 
 
 ---
 
-## 3. Architecture — Four Independent Services
+## 3. Architecture — Six Independent Services
 
-Sesame-IDAM is **four independent Rust microservices**, not a monolith. This split is driven by per-request frequency and per-request cost analysis: user lookups take microseconds, login takes milliseconds (password hashing + DB write + JWT signing), and SSO setup takes seconds (external IdP communication).
+Sesame-IDAM is **six independent Rust microservices**, not a monolith. This split is driven by per-request frequency and per-request cost analysis — each service scales independently based on its load profile:
+
+| Service | Base Path | Frequency | Per-Request Cost | Scale Profile |
+|---------|-----------|-----------|-----------------|---------------|
+| **identity-login-service** | `/auth/login`, `/auth/register`, `/social/*`, `/oauth/authorize`, OTP endpoints | HIGH | Medium-High (password hashing, DB writes, JWT signing) | Scales with auth events — login spikes, social OAuth traffic |
+| **identity-session-service** | `/auth/refresh`, `/.well-known/openid-configuration`, `/.well-known/jwks.json` | HIGH | Low (cache hit / static response) | Scales with active sessions — steady state |
+| **identity-user-mgmt-service** | `/api/v1/identity/users/*`, MFA, email/phone, social links, migration | MEDIUM | Medium (DB reads/writes) | Scales with admin operations and user profile changes |
+| **authz-core** | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | EXTREME | Low-Medium (cache hit, role evaluation) | Scales with every authenticated request — highest volume |
+| **api-keys** | `/api/v1/am/api-keys/*` | MEDIUM | Low-Medium (DB validation, cache) | Scales with M2M service traffic |
+| **org-mgmt** | `/orgs/*`, `/api/v1/am/applications/*`, SCIM, webhooks | LOW | High (complex org operations, external SSO) | Scales with org lifecycle events — low volume, high complexity |
+
+This gives us independent scaling units. During a login surge, only `identity-login-service` needs more capacity. During a per-request authorization storm, only `authz-core` scales. `identity-session-service` can be sized purely on active session counts.
 
 ```mermaid
 graph TB
@@ -109,10 +125,12 @@ graph TB
         Proxy[Route by path prefix]
     end
     subgraph "Sesame-IDAM Services"
-        IA[identity-auth<br/>Port 8001<br/>HIGH frequency]
-        AC[authz-core<br/>Port 8002<br/>EXTREME frequency]
-        AK[api-keys<br/>Port 8003<br/>HIGH frequency]
-        OM[org-mgmt<br/>Port 8004<br/>LOW frequency]
+        IL[identity-login-service<br/>Port 8101<br/>Login, register, social, OTP]
+        IS[identity-session-service<br/>Port 8105<br/>Refresh, OIDC, JWKS]
+        IU[identity-user-mgmt-service<br/>Port 8106<br/>User CRUD, MFA, email/phone]
+        AC[authz-core<br/>Port 8102<br/>EXTREME frequency]
+        AK[api-keys<br/>Port 8103<br/>HIGH frequency]
+        OM[org-mgmt<br/>Port 8104<br/>LOW frequency]
     end
     subgraph "Storage"
         PG[(PostgreSQL)]
@@ -121,73 +139,135 @@ graph TB
     SPA --> Proxy
     Microsvc --> Proxy
     Admin --> Proxy
-    Proxy --> IA
+    Proxy --> IL
+    Proxy --> IS
+    Proxy --> IU
     Proxy --> AC
     Proxy --> AK
     Proxy --> OM
-    IA -. calls at login only .-> AC
-    AC -. cache .-> Redis
-    IA -. session cache .-> Redis
+    IL -. principal/effective at login .-> AC
+    IS -. session cache .-> Redis
     AC -. role/perm cache .-> Redis
     AK -. key validation cache .-> Redis
-    IA -. user/session data .-> PG
+    IL -. user/session data .-> PG
+    IS -. session cache .-> PG
+    IU -. user data .-> PG
     AC -. role/perm definitions .-> PG
     AK -. key data .-> PG
     OM -. org/role/perm data .-> PG
 ```
 
-**Why four services?**
-1. **Per-request cost differs by orders of magnitude** — a user lookup takes microseconds, a login takes milliseconds, SSO setup takes seconds
-2. **Traffic patterns diverge completely** — M2M API key validation traffic spikes independently from user-facing traffic
-3. **Failure domains must be isolated** — a spike in M2M key validation must not degrade user-facing login flows
-4. **Independent scaling** — authz-core must scale to handle every consumer API request, org-mgmt can scale to near-zero
+**Why six services?**
+1. **Different access patterns demand different scales** — login handles bursts, refresh handles steady state, authorize handles every API call
+2. **Different per-request costs** — password hashing is expensive, JWT verification is cheap
+3. **Failure domains are isolated** — a login outage doesn't affect session refresh or authorization
+4. **Independent deployment cycles** — OTP flows can ship without touching user management
 
 ### 3.1 Inter-Service Dependencies
 
 ```mermaid
 graph LR
-    IA[identity-auth] -->|principal/effective at login| AC[authz-core]
+    IL[identity-login-service] -->|principal/effective at login| AC[authz-core]
+    IS[identity-session-service] -. independent .- AC
+    IU[identity-user-mgmt-service] -. independent .- AC
     AK[api-keys] -. independent .- AC
     OM[org-mgmt] -. independent .- AC
-classDef iaStyle fill:#eef2ff,stroke:#818cf8,color:#1e1b4b
+classDef ilStyle fill:#eef2ff,stroke:#818cf8,color:#1e1b4b
+classDef isStyle fill:#f0fdf4,stroke:#4ade80,color:#1e1b4b
+classDef iuStyle fill:#fef3c7,stroke:#fbbf24,color:#1e1b4b
 classDef acStyle fill:#fef2f2,stroke:#f87171,color:#1e1b4b
 classDef akStyle fill:#fff7ed,stroke:#fb923c,color:#1e1b4b
-classDef omStyle fill:#f0fdf4,stroke:#4ade80,color:#1e1b4b
-class IA iaStyle
+classDef omStyle fill:#fdf4ff,stroke:#a78bfa,color:#1e1b4b
+class IL ilStyle
+class IS isStyle
+class IU iuStyle
 class AC acStyle
 class AK akStyle
 class OM omStyle
 ```
 
-The **only** cross-service dependency is identity-auth calling authz-core's `/principal/effective` endpoint at login time to populate JWT claims. After the JWT is issued, it is self-contained. api-keys and org-mgmt are fully independent.
+The **only** cross-service dependency is `identity-login-service` calling authz-core's `/principal/effective` endpoint at login time to populate JWT claims. After the JWT is issued, it is self-contained. All other services are fully independent.
 
 ---
 
 ## 4. Service Details
 
-### 4.1 identity-auth (Port 8001)
+### 4.1 identity-login-service (Port 8101)
 
-The primary identity and authentication service. Handles everything user-facing related to identity.
+The primary authentication entry point. Handles all user-facing login, registration, and social OAuth flows.
 
-**Base paths:** `/auth/*`, `/api/v1/identity/*`, `/.well-known/*`
+**Base paths:** `/auth/login`, `/auth/register`, `/auth/logout`, `/auth/token`, `/social/*`, `/oauth/authorize`, OTP endpoints
 
 | Sub-area | Endpoints | Frequency | Cost |
 |----------|-----------|-----------|------|
-| **Login & Auth Flows** | `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/token` | HIGH | HIGH (password hash + JWT sign) |
-| **Sessions** | `/auth/refresh`, `/auth/logout`, `/oauth/authorize`, `/oauth/logout` | EXTREME | LOW (cached lookups) |
-| **User Management** | `POST/GET/PUT/DELETE /api/v1/identity/users`, `/api/v1/identity/users/{user_id}/email`, `/mfa/*`, `/phone/*`, `/social/*` | LOW | MEDIUM (write-heavy) |
-| **Discovery** | `/.well-known/openid-configuration`, `/.well-known/jwks.json` | EXTREME | NEGLIGIBLE (static) |
-| **MCP** | `/mcp/token`, `/mcp/token/validate`, `/api/v1/platform/mcp/agents*` | LOW | LOW |
+| **Password Login** | `/auth/login`, `/auth/token` | HIGH | HIGH (password hash + JWT sign) |
+| **Social OAuth** | `/social/{provider}/login`, `/social/{provider}/callback` | HIGH | HIGH (external IdP + JWT sign) |
+| **Email OTP** | `/auth/login/email-otp`, `/auth/verify/email-otp` | MEDIUM | MEDIUM (email send + JWT sign) |
+| **Phone OTP** | `/auth/login/phone-otp`, `/auth/verify/phone-otp` | MEDIUM | MEDIUM (SMS send + JWT sign) |
+| **Dual OTP** | `/auth/login/dual-otp`, `/auth/verify/dual-otp` | LOW | HIGH (2x channel + JWT sign) |
+| **Session Init** | `/auth/register`, `/auth/forgot-password`, `/auth/reset-password` | MEDIUM | MEDIUM (DB writes) |
+| **Magic Link** | `/api/v1/identity/users/{id}/magiclink` | LOW | LOW-MEDIUM (email send) |
 
 **Key endpoints:**
 - `POST /auth/login` — email/password login, returns enriched JWT
-- `POST /auth/refresh` — refresh access token (rotation-safe)
-- `POST /api/v1/identity/users` — idempotent user creation
-- `POST /mcp/token` — exchange identity JWT for MCP token (AI agents)
+- `POST /auth/register` — idempotent user creation with email/password
+- `POST /auth/login/email-otp` — passwordless email OTP flow
+- `POST /auth/login/dual-otp` — simultaneous email + phone OTP for high-security
+- `POST /social/{provider}/login` — initiate social OAuth (redirect)
+- `POST /social/{provider}/callback` — exchange OAuth code for tokens
+- `POST /oauth/authorize` — authorization code flow for OIDC SPAs
 
-**Storage:** PostgreSQL (users, sessions), Redis (session cache, refresh token rotation)
+**Storage:** PostgreSQL (users, sessions), Redis (session cache, OTP tokens)
 
-### 4.2 authz-core (Port 8002)
+### 4.2 identity-session-service (Port 8105)
+
+Token lifecycle and OIDC discovery. Handles refresh, logout, and JWKS/OIDC endpoints.
+
+**Base paths:** `/auth/refresh`, `/auth/logout`, `/.well-known/openid-configuration`, `/.well-known/jwks.json`
+
+| Sub-area | Endpoints | Frequency | Cost |
+|----------|-----------|-----------|------|
+| **Token Refresh** | `/auth/refresh` | EXTREME | LOW (DB lookup + rotate + sign) |
+| **OIDC Discovery** | `/.well-known/openid-configuration` | EXTREME | NEGLIGIBLE (static) |
+| **JWKS** | `/.well-known/jwks.json` | EXTREME | NEGLIGIBLE (cached key set) |
+| **Session Info** | `GET /api/v1/identity/users/me` | HIGH | LOW (cached profile) |
+| **Session Update** | `PATCH /api/v1/identity/users/me` | LOW | MEDIUM (DB write) |
+| **Logout** | `/auth/logout` | MEDIUM | LOW (token revocation) |
+
+**Key endpoints:**
+- `POST /auth/refresh` — rotate refresh token, issue new access token
+- `GET /.well-known/openid-configuration` — OIDC discovery document
+- `GET /.well-known/jwks.json` — public key set for JWT verification
+- `GET /api/v1/identity/users/me` — current user profile (from token or session)
+
+**Storage:** PostgreSQL (refresh tokens), Redis (session cache, JWKS cache)
+
+### 4.3 identity-user-mgmt-service (Port 8106)
+
+Admin-facing user lifecycle management. Handles user CRUD, MFA, email/phone verification, social link management, and migration.
+
+**Base paths:** `/api/v1/identity/users/*`, `/api/v1/identity/users/{id}/mfa/*`, `/api/v1/identity/users/{id}/email/*`, `/api/v1/identity/users/{id}/phone/*`, `/api/v1/identity/users/{id}/social/*`
+
+| Sub-area | Endpoints | Frequency | Cost |
+|----------|-----------|-----------|------|
+| **User CRUD** | `POST/GET/PUT/DELETE /api/v1/identity/users`, `GET /api/v1/identity/users/query` | MEDIUM | MEDIUM (DB reads/writes) |
+| **Email Mgmt** | `PUT /api/v1/identity/users/{id}/email`, verify, resend confirmation | MEDIUM | MEDIUM (DB + email) |
+| **Phone Mgmt** | `POST /api/v1/identity/users/{id}/phone`, verify | LOW | MEDIUM (DB + SMS) |
+| **MFA** | `POST/DELETE /api/v1/identity/users/{id}/mfa/*`, verify | MEDIUM | MEDIUM (DB + TOTP setup) |
+| **Social Links** | `POST/GET /api/v1/identity/users/{id}/social/*`, refresh tokens | LOW | MEDIUM (external IdP + DB) |
+| **Account Actions** | disable, enable, logout-all, clear-password, migrate | LOW | LOW-MEDIUM |
+
+**Key endpoints:**
+- `POST /api/v1/identity/users` — create user (admin)
+- `GET /api/v1/identity/users/query` — paginated user search with filters
+- `POST /api/v1/identity/users/{id}/mfa/setup` — TOTP setup
+- `POST /api/v1/identity/users/{id}/mfa/verify` — MFA verification
+- `POST /api/v1/identity/users/migrate` — bulk password migration
+- `POST /api/v1/identity/users/{id}/social/link` — link OAuth account
+
+**Storage:** PostgreSQL (users, MFA secrets, social tokens)
+
+### 4.4 authz-core (Port 8102)
 
 Real-time authorization evaluation. Called on every consumer API request for fine-grained permission checks.
 
@@ -206,7 +286,7 @@ Real-time authorization evaluation. Called on every consumer API request for fin
 
 **Caching:** Redis with 30-second TTL for permission resolution results. Cache hit ratio targets >99%.
 
-### 4.3 api-keys (Port 8003)
+### 4.5 api-keys (Port 8103)
 
 M2M authentication for services and CLI tools. Independent from user-facing authentication.
 
@@ -225,7 +305,7 @@ M2M authentication for services and CLI tools. Independent from user-facing auth
 
 **Validation flow:** Simple hash comparison (SHA-256 of stored key). Extremely fast CPU. Returns user + org context if valid.
 
-### 4.4 org-mgmt (Port 8004)
+### 4.6 org-mgmt (Port 8104)
 
 Organisation lifecycle, membership, SSO/SCIM, application/role/permission definitions.
 
@@ -249,6 +329,26 @@ Organisation lifecycle, membership, SSO/SCIM, application/role/permission defini
 
 ## 5. Data Model
 
+### 5.0 Multi-Tenant Partitioning
+
+**Sesame-IDAM uses a hard-segment multi-tenant architecture.** Every major entity includes a `tenant_id` (UUID) column that partitions data per consuming platform. The same email can exist across tenants but represents unrelated identities.
+
+| Entity | `tenant_id` Column | UK Constraint |
+|--------|-------------------|---------------|
+| `users` | `uuid NOT NULL FK` | `UNIQUE(tenant_id, email)` |
+| `organizations` | `uuid NOT NULL FK` | `UNIQUE(tenant_id, name)` |
+| `api_keys` | `uuid NOT NULL FK` | `UNIQUE(tenant_id, key_hash)` |
+| `mfa_devices` | `uuid NOT NULL FK` | N/A |
+| `audit_logs` | `uuid NOT NULL FK` | N/A |
+| `applications` | `uuid NOT NULL FK` | N/A |
+
+Tenant isolation is enforced at three layers (defense in depth):
+1. **Application layer** — `SesameExecutor` injects `tenant_id` into every query
+2. **Lifeguard ORM** — transparent context injection via database wrapper
+3. **PostgreSQL RLS** — policies silently strip cross-tenant data
+
+See [`topics/topic-tenancy-model.md`](./topics/topic-tenancy-model.md) for the full model.
+
 ### 5.1 Entity Relationship Diagram
 
 ```mermaid
@@ -257,9 +357,19 @@ config:
   layout: elk
 ---
 erDiagram
+    Application {
+        uuid id PK "tenant boundary — each consuming platform is one application"
+        text name "e.g., 'Acme Logistics Platform'"
+        text domain "custom domain for the platform"
+        text jwt_signing_key_id FK "per-tenant JWT keys"
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
     User {
         uuid id PK
-        text email UK
+        uuid application_id FK "TENANT BOUNDARY — user scoped to one platform"
+        text email "UNIQUE(application_id, email) — same email on different tenants = unrelated users"
         boolean email_confirmed
         text phone_number
         boolean phone_confirmed
@@ -279,6 +389,7 @@ erDiagram
     }
     Organization {
         uuid id PK
+        uuid application_id FK "TENANT BOUNDARY — org scoped to one platform"
         text name
         text slug
         text logo_url
@@ -300,30 +411,21 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
-    Application {
-        uuid id PK
-        text name
-        text slug
-        uuid org_id
-        boolean is_active
-        timestamptz created_at
-        timestamptz updated_at
-    }
     Role {
         uuid id PK
-        uuid application_id FK
-        uuid organization_id FK "nullable for platform roles"
+        uuid application_id FK "per-platform roles"
+        uuid organization_id FK "nullable for platform-level roles"
+        uuid parent_role_id FK "role inheritance"
         text name
         text display_name
         text description
         boolean is_system
-        uuid parent_role_id FK "role inheritance"
         timestamptz created_at
         timestamptz updated_at
     }
     Permission {
         uuid id PK
-        uuid application_id FK
+        uuid application_id FK "per-platform permissions"
         text name "e.g., invoices&#58;write"
         text description
         timestamptz created_at
@@ -343,6 +445,7 @@ erDiagram
     }
     APIKey {
         uuid id PK
+        uuid application_id FK "TENANT BOUNDARY — keys scoped to one platform"
         uuid user_id FK "nullable for org-scoped keys"
         uuid org_id FK "nullable for user-scoped keys"
         text key_hash
@@ -368,7 +471,7 @@ erDiagram
     Session {
         uuid id PK
         uuid user_id FK
-        uuid application_id FK
+        uuid application_id FK "TENANT BOUNDARY"
         text session_token "hashed"
         text refresh_token "hashed"
         inet ip_address
@@ -416,6 +519,7 @@ erDiagram
     }
     McpAgent {
         uuid agent_id PK
+        uuid application_id FK "scoped to platform"
         text name
         text tool_namespace
         text description
@@ -427,10 +531,18 @@ erDiagram
         timestamptz last_used_at
         integer total_tokens_issued
     }
+    Application ||--o{ User : "has"
+    Application ||--o{ Organization : "has"
+    Application ||--o{ APIKey : "has"
+    Application ||--o{ Session : "has"
+    Application ||--o{ Role : "defines"
+    Application ||--o{ Permission : "defines"
+    Application ||--o{ McpAgent : "owns"
     Organization ||--o{ UserOrganization : "has"
     User ||--o{ UserOrganization : "belongs to"
     Organization ||--o{ Role : "defines"
     Organization ||--o{ Permission : "defines"
+    Organization ||--o{ WebhookEndpoint : "configures"
     Role ||--o{ RolePermission : "contains"
     Permission ||--o{ RolePermission : "belongs to"
     Role ||--o{ Role : "inherits from"
@@ -439,31 +551,41 @@ erDiagram
     User ||--o{ MFADevice : "has"
     User ||--o{ Session : "has"
     User ||--o{ AuditLog : "generates"
-    Organization ||--o{ WebhookEndpoint : "configures"
     WebhookEndpoint ||--o{ WebhookDelivery : "delivers"
-    Application ||--o{ Role : "defines"
-    Application ||--o{ Permission : "defines"
-    Application ||--o{ Session : "has"
     
     
 ```
 
 ### 5.2 Key Design Decisions
 
-| Decision | Rationale |
+|| Decision | Rationale |
 |----------|-----------|
+| **Application = Tenant boundary** | Each consuming platform (Software X, Software Y) is an `Application` entity that acts as a tenant. All users, orgs, and keys are scoped to one application. |
+| **No shared users across tenants** | `UNIQUE(application_id, email)` — the same email can exist on different applications but represents unrelated users. No cross-tenant identity. |
 | **One user table, two user types** | No separate `platform_user` and `customer_user` tables. The `user_type` column distinguishes them, and the JWT claim shape differs. |
-| **Organisations are per-application** | The same organisation name can exist in different applications without conflict. An org is always scoped to the application it was created in. |
-| **Roles are per-application, scoped to orgs** | Platform-level roles have `org_id: NULL`. Org-level roles are scoped to a specific org. |
+| **Organisations are per-tenant** | The same organisation name can exist in different applications without conflict. An org is always scoped to the application it was created in. |
+| **Roles are per-tenant, scoped to orgs** | Platform-level roles have `org_id: NULL`. Org-level roles are scoped to a specific org within a specific application. |
 | **Role inheritance via `parent_role_id`** | A role can inherit from another role within the same application. Effective permissions are resolved by walking the inheritance chain. |
-| **Sessions are per-user AND per-application** | A user has separate sessions per application. Refresh tokens are also per-application. |
+| **Sessions are per-tenant AND per-user** | A user has sessions only within the application they authenticated against. Refresh tokens are application-scoped. |
 | **Soft deletes everywhere** | `deleted_at` columns on user, organisation, and application allow graceful deletion with auditability. |
 | **Refresh tokens are rotated** | On every `/refresh`, the old token is revoked and a new one issued. Prevents replay attacks. |
-| **API keys are per-application** | Each key grants a specific set of permissions to a specific application. |
+| **API keys are per-tenant** | Each key belongs to exactly one application (tenant). Keys from one tenant cannot be used in another. |
 
 ---
 
 ## 6. Authentication & Authorization
+
+### 6.0 Multi-Tenant Context
+
+Every request enters Sesame-IDAM with a tenant context that partitions all data. The `X-Tenant-ID` header (or tenant-scoped API key) identifies which consuming platform the request belongs to. This header is injected by the consuming application's gateway or SDK.
+
+**Critical rules:**
+- The same email can exist on multiple tenants but represents unrelated users
+- All database queries automatically scope to `tenant_id` via `SesameExecutor`
+- JWTs include `tenant_id` in claims so downstream services stay in context
+- No cross-tenant identity, no cross-tenant data, no cross-tenant operations
+
+See [`topics/topic-tenancy-model.md`](./topics/topic-tenancy-model.md) for the full model.
 
 ### 6.1 Authentication Flows
 
@@ -473,11 +595,11 @@ flowchart TD
     B -->|No| C[Login page]
     B -->|Yes| D[Show app content]
     C --> E{Auth method?}
-    E -->|Password| F[POST /auth/login]
-    E -->|Magic link| G[POST /auth/magic-link]
-    E -->|Social| H[Redirect to provider]
-    E -->|SSO| I[Redirect to IdP]
-    E -->|API key| J[POST /api/v1/am/api-keys/validate]
+    E -->|Password| F[POST /auth/login<br/>X-Tenant-ID: header]
+    E -->|Magic link| G[POST /auth/magic-link<br/>X-Tenant-ID: header]
+    E -->|Social| H[Redirect to provider<br/>X-Tenant-ID: header]
+    E -->|SSO| I[Redirect to IdP<br/>X-Tenant-ID: header]
+    E -->|API key| J[POST /api-keys/validate<br/>tenant-scoped key]
     F --> K{Valid?}
     K -->|No| L[Show error]
     K -->|Yes| M[Check MFA]
@@ -486,12 +608,12 @@ flowchart TD
     O -->|No| L
     O -->|Yes| P[Sign enriched JWT]
     M -->|Not required| P
-    P --> Q[Return access_token + refresh_token]
+    P --> Q[Return access_token<br/>+ refresh_token<br/>+ tenant_id]
     Q --> D
     G --> P
     H --> P
     I --> P
-    J --> R[Return user + org context]
+    J --> R[Return user + org<br/>+ tenant_id context]
     R --> D
     D --> S{Token expired?}
     S -->|Yes| T[POST /auth/refresh]
@@ -527,6 +649,7 @@ Every JWT issued by Sesame is an RS256-signed token containing all the identity 
   "exp": 1715003600,
   "iat": 1715000000,
   "jti": "tok_abc123",
+  "tenant_id": "app_a4b9c1...",
   "user_id": "31c41c16-...",
   "user_type": "customer",
   "org_id": "1189c444-...",
@@ -1014,10 +1137,10 @@ sequenceDiagram
 **Ports:**
 | Service | Port |
 |---------|------|
-| identity-auth | 8001 |
-| authz-core | 8002 |
-| api-keys | 8003 |
-| org-mgmt | 8004 |
+| identity-auth | 8101 |
+| authz-core | 8102 |
+| api-keys | 8103 |
+| org-mgmt | 8104 |
 
 **Database:** PostgreSQL (hosted externally or via Supabase stack), Redis for caching
 

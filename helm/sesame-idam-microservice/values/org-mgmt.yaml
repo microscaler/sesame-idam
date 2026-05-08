@@ -1,0 +1,73 @@
+service:
+  name: org-mgmt
+  port: 8004
+  containerPort: 8004
+  nodePort: null
+
+image:
+  repository: localhost:5001
+  name: sesame-idam-org-mgmt
+  tag: tilt
+  pullPolicy: IfNotPresent
+
+deployment:
+  replicas: 1
+  namespace: sesame-idam
+
+app:
+  binaryName: org-mgmt
+  serviceName: org-mgmt
+  config:
+    security:
+      api_keys:
+        ApiKeyHeader:
+          key: "test123"
+    http:
+      keep_alive: true
+      timeout_secs: 5
+      max_requests: 50000
+    database:
+      host: "postgres.data.svc.cluster.local"
+      port: 5432
+      name: "postgres"
+      user: "postgres"
+      password: "postgres"
+      max_connections: 10
+    redis:
+      host: "redis"
+      port: 6379
+      db: 0
+      max_connections: 10
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+healthCheck:
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 2
+
+env:
+  RUST_LOG: "debug"
+  RUST_BACKTRACE: "1"
+  BRRTR_LOG_FORMAT: "json"
+  BRRTR_STACK_SIZE: "0x8000"
+
+serviceType: NodePort
+
+prometheus:
+  enabled: true
+  port: 9090
+  path: "/metrics"

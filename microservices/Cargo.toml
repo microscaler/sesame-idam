@@ -1,10 +1,14 @@
 [workspace]
 members = [
-    # IDAM microservices (gen/impl crates to be added when implementing)
-    # "idam/authentication/gen",
-    # "idam/authentication/impl",
-    # "idam/authorization/gen",
-    # "idam/authorization/impl",
+    # IDAM microservices (gen crates)
+    # Identity services (split for independent scaling)
+    "idam/identity-login-service/gen",
+    "idam/identity-session-service/gen",
+    "idam/identity-user-mgmt-service/gen",
+    # Core services
+    "idam/authz-core/gen",
+    "idam/api-keys/gen",
+    "idam/org-mgmt/gen",
 ]
 resolver = "2"
 
@@ -13,16 +17,21 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-# Uncomment and adjust paths when adding implementations (BRRTRouter, lifeguard, etc.)
-# brrtrouter = { path = "../../BRRTRouter", default-features = false }
-# brrtrouter_macros = { path = "../../BRRTRouter/brrtrouter_macros" }
-# lifeguard = { path = "../../lifeguard" }
-# lifeguard-derive = { path = "../../lifeguard/lifeguard-derive" }
-# serde = { version = "1.0", features = ["derive"] }
-# serde_json = "1.0"
-# anyhow = "1.0"
-# config = "0.14"
-# http = "1.0"
-# may = "0.3"
-# may_minihttp = "0.1"
-# clap = { version = "4.5", features = ["derive"] }
+# BRRTRouter: default-features = false so cross builds don't pull in jemalloc
+brrtrouter = { path = "../../BRRTRouter", default-features = false }
+brrtrouter_macros = { path = "../../BRRTRouter/brrtrouter_macros" }
+
+# Standard dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+config = "0.14"
+http = "1.0"
+may = "0.3"
+may_minihttp = "0.1"
+may_http = { git = "https://github.com/rust-may/may_http.git" }
+http_legacy = { package = "http", version = "0.2" }
+anyhow = "1.0"
+arc-swap = "1.7"
+clap = { version = "4.5", features = ["derive"] }
+tikv-jemallocator = { version = "0.6", features = ["profiling"] }
