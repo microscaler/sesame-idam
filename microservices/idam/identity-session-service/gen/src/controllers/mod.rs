@@ -7,8 +7,30 @@ pub mod jwks;
 
 pub mod openid_configuration;
 
+pub mod admin_impersonate;
+
+pub mod admin_restore_impersonation;
+
 pub mod users_me_get;
 
 pub mod users_me_patch;
 
+pub mod admin_issue_token;
+
+pub mod oauth_userinfo;
+
+pub mod mcp_list_agents;
+
+pub mod mcp_create_agent;
+
+pub mod mcp_get_agent;
+
+pub mod mcp_delete_agent;
+
+pub mod mcp_token;
+
+pub mod mcp_validate;
+
 pub mod auth_refresh;
+
+pub mod step_up_verify;

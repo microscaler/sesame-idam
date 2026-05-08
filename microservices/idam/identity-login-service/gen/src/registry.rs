@@ -36,6 +36,30 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "magic_link_send",
+        crate::controllers::magic_link_send::MagicLinkSendController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "magic_link_verify",
+        crate::controllers::magic_link_verify::MagicLinkVerifyController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "sms_magic_link_send",
+        crate::controllers::sms_magic_link_send::SmsMagicLinkSendController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "sms_magic_link_verify",
+        crate::controllers::sms_magic_link_verify::SmsMagicLinkVerifyController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "login_phone_otp",
         crate::controllers::login_phone_otp::LoginPhoneOtpController,
         16384,
@@ -48,6 +72,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "oauth_authorize",
+        crate::controllers::oauth_authorize::OauthAuthorizeController,
+        24576,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "auth_register",
         crate::controllers::auth_register::AuthRegisterController,
         16384,
@@ -57,6 +87,24 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         "auth_reset_password",
         crate::controllers::auth_reset_password::AuthResetPasswordController,
         16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "signup_validate",
+        crate::controllers::signup_validate::SignupValidateController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "social_callback",
+        crate::controllers::social_callback::SocialCallbackController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "social_login",
+        crate::controllers::social_login::SocialLoginController,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -81,24 +129,6 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         "verify_phone_otp",
         crate::controllers::verify_phone_otp::VerifyPhoneOtpController,
         16384,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "oauth_authorize",
-        crate::controllers::oauth_authorize::OauthAuthorizeController,
-        24576,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "social_callback",
-        crate::controllers::social_callback::SocialCallbackController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "social_login",
-        crate::controllers::social_login::SocialLoginController,
-        20480,
     );
 }
 
@@ -151,6 +181,38 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "magic_link_send" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::magic_link_send::MagicLinkSendController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "magic_link_verify" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::magic_link_verify::MagicLinkVerifyController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "sms_magic_link_send" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::sms_magic_link_send::SmsMagicLinkSendController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "sms_magic_link_verify" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::sms_magic_link_verify::SmsMagicLinkVerifyController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "login_phone_otp" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::login_phone_otp::LoginPhoneOtpController,
@@ -167,6 +229,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "oauth_authorize" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::oauth_authorize::OauthAuthorizeController,
+                    24576,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "auth_register" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_register::AuthRegisterController,
@@ -179,6 +249,30 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_reset_password::AuthResetPasswordController,
                     16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "signup_validate" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::signup_validate::SignupValidateController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "social_callback" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::social_callback::SocialCallbackController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "social_login" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::social_login::SocialLoginController,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -211,30 +305,6 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::verify_phone_otp::VerifyPhoneOtpController,
                     16384,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "oauth_authorize" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::oauth_authorize::OauthAuthorizeController,
-                    24576,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "social_callback" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::social_callback::SocialCallbackController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "social_login" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::social_login::SocialLoginController,
-                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

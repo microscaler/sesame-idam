@@ -10,126 +10,120 @@ tags:
 
 # Tenancy Model
 
-Sesame-IDAM uses a **Hard-Segment (partitioned) multi-tenant architecture**. Each subscribing software product ("Tenant") is a completely isolated ecosystem with zero data bleed.
+Sesame-IDAM uses a **two-level hierarchy: Tenant (isolation boundary) > Application (logical grouping)**.
 
-## Core Principles
+## The Two Levels
 
-### No Shared Users Across Tenants
+### Tenant — The Isolation Boundary
 
-A user is strictly scoped to a single `tenant_id`. The same email address can exist on multiple tenants but represents entirely unrelated identities:
+A **Tenant** represents an entire customer organization. Tenants are completely isolated — **zero bleed** between tenants.
 
-```
-Tenant A: user_id=usr_1, email=alice@corp.com, application_id=app_A
-Tenant B: user_id=usr_2, email=alice@corp.com, application_id=app_B
-```
+**Examples:**
+- `hauliage` = one tenant (the entire hauliage business)
+- `rerp` = one tenant (the entire rerp business)
 
-There is **no cross-tenant identity**. These are two different people who happen to share an email address.
+Within a tenant, all users, orgs, and keys share the same data space. `alice@corp.com` on hauliage is a single identity that hauliage-web, hauliage-api, hauliage-admin, and hauliage-mobile all share.
 
-### `X-Tenant-ID` Header
+### Application — Logical Grouping Within Tenant
 
-Every API request must identify which tenant it belongs to via:
-- **Header:** `X-Tenant-ID: <uuid>` — used for public endpoints (login, register, social)
-- **API Key:** Tenant-scoped API keys implicitly carry the tenant identity
-- **JWT Claim:** The `tenant_id` claim in every JWT ensures downstream services operate in the correct context
+An **Application** is a logical grouping within a tenant. Applications do NOT provide isolation — they are purely organizational.
 
-### Single PostgreSQL Schema (SaaS)
+**Examples (within hauliage tenant):**
+- `hauliage-web` = the web frontend application
+- `hauliage-api` = the backend API application
+- `hauliage-admin` = the admin dashboard
+- `hauliage-mobile` = the mobile app
 
-In Microscaler's SaaS deployment:
-- **One PostgreSQL instance** serves all tenants
-- **One schema** (e.g., `public` or `sesame_idam`) contains all tenant data
-- **`application_id` column** on every major table is the partition key
-- **RLS policies** enforce row-level isolation as a safety net
+All hauliage applications share the same tenant data (same users, orgs, keys). Applications are just a way to organize and label parts of a tenant's deployment.
 
-### Dual Schema (Self-Hosted)
+**Examples (within rerp tenant):**
+- `rerp-openapi` = openapi service
+- `rerp-admin` = admin panel
+- `rerp-mobile` = mobile app
 
-In self-hosted deployments:
-- **Two schemas** on the same Postgres instance:
-  - `app` — Tenant's business logic (orders, products, etc.)
-  - `sesame_idam` — Sesame-managed identity tables
-- **Schema separation** prevents table name collisions
-- Sesame only operates on the `sesame_idam` schema
+## Core Rules
+
+1. **`X-Tenant-ID` maps to `tenant_id`** — Every API request includes `X-Tenant-ID` header, which resolves to a `tenant_id` in the database.
+2. **Same email on different tenants = unrelated users** — `alice@corp.com` on hauliage and `alice@corp.com` on rerp are completely different users.
+3. **UNIQUE(tenant_id, email)** — Prevents duplicate emails within a tenant, but allows the same email across tenants.
+4. **No cross-tenant identity** — Users, orgs, keys, sessions, roles, and permissions NEVER cross tenant boundaries.
+5. **Applications share tenant data** — All applications within a tenant share the same user base and org structure.
 
 ## Database Schema
 
-Every major entity includes an `application_id` (UUID) column — the Application entity IS the tenant boundary:
+Every major entity includes a `tenant_id` (UUID) column:
 
 ### `users`
 | Column | Type | Constraint |
 |--------|------|------------|
 | `id` | UUID | PK |
-| `email` | String | `UNIQUE(application_id, email)` |
-| `application_id` | UUID | `NOT NULL` — partitions data (Application FK) |
+| `email` | String | `UNIQUE(tenant_id, email)` |
+| `tenant_id` | UUID | `NOT NULL` — partitions data |
 | `created_at` | Timestamp | |
 
 ### `organizations`
 | Column | Type | Constraint |
 |--------|------|------------|
 | `id` | UUID | PK |
-| `name` | String | `UNIQUE(application_id, name)` |
-| `application_id` | UUID | `NOT NULL` — Application FK |
+| `name` | String | `UNIQUE(tenant_id, name)` |
+| `tenant_id` | UUID | `NOT NULL` |
 
 ### `api_keys`
 | Column | Type | Constraint |
 |--------|------|------------|
 | `id` | UUID | PK |
-| `key_value` | String | `UNIQUE(application_id, key_value)` |
-| `application_id` | UUID | `NOT NULL` — Application FK |
+| `key_value` | String | `UNIQUE(tenant_id, key_value)` |
+| `tenant_id` | UUID | `NOT NULL` |
 | `scope_type` | String | `user` or `org` |
 
 ## Isolation Mechanisms (Defense in Depth)
 
-### Layer 1: Application Context (Primary)
-
+### Layer 1: BRRTRouter Middleware
 BRRTRouter middleware extracts `tenant_id` from the `X-Tenant-ID` header or JWT and stores it in the request context. All database queries automatically include `WHERE tenant_id = ?`.
 
-### Layer 2: Lifeguard Executor (Transparent)
-
+### Layer 2: SesameExecutor
 The `SesameExecutor` wrapper on the database connection injects `SET LOCAL current_tenant_id = ?` at the start of every transaction.
 
-### Layer 3: Row-Level Security (Safety Net)
-
+### Layer 3: PostgreSQL RLS
 PostgreSQL RLS policies on every table enforce `WHERE tenant_id = current_tenant_id`. Even if application-layer filtering is missed, the database silently strips cross-tenant data.
 
-## Deployment Models
+## Deployment Scenarios
 
-| Feature | SaaS (Microscaler) | Self-Hosted (Customer) |
-|---------|-------------------|----------------------|
-| DB Host | Microscaler's cluster | Customer's GCP/VPC |
-| Schema | Single shared (`public`) | Dual (`app` + `sesame_idam`) |
-| Partition Key | `application_id` column | Schema boundary + `tenant_id` |
-| Bleed Protection | RLS + App Layer | Schema boundaries |
-| Backups | Single DB dump | Per-database dump |
+### SaaS (Microscaler-hosted)
+- **One PostgreSQL instance** serves all tenants
+- **One schema** contains all tenant data
+- **`tenant_id` column** on every major table is the partition key
+- **RLS policies** enforce row-level isolation as a safety net
 
-## Enterprise Escape Hatch (Future)
+### Self-Hosted
+- **Two schemas** on the same Postgres instance:
+  - `app` — Tenant's business logic (orders, products, etc.)
+  - `sesame_idam` — Sesame-managed identity tables
+- **Schema separation** prevents table name collisions
+- Sesame only operates on the `sesame_idam` schema
+- The tenant's `X-Tenant-ID` is their own platform ID
 
-Schema-per-tenant can be offered as an opt-in "Enterprise" tier for clients requiring:
-- **GDPR Data Dumps:** `pg_dump tenant_x_schema` for instant export
-- **Massive Scale:** 5M+ users per tenant crushing shared schema performance
-- **Compliance:** Physical data isolation requirements
+## API Key Validation
 
-This is **not** the default and requires:
-- Schema routing middleware per tenant
-- Per-schema migration orchestration
-- Separate connection pool per schema
+When `api-keys` validates a key, it returns the `tenant_id` to confirm the key belongs to the correct tenant:
 
-## OpenAPI Implications
+```json
+{
+  "valid": true,
+  "tenant_id": "tenant_hauliage_uuid",
+  "org_id": "org_xyz",
+  "scope_type": "org",
+  "permissions": ["...", "..."]
+}
+```
 
-Every OpenAPI spec must be updated to:
+The consuming platform validates that the `tenant_id` matches their expected tenant before trusting the response.
 
-1. Accept `X-Tenant-ID` header on public endpoints (`/auth/login`, `/auth/register`, `/social/*`)
-2. Return `tenant_id` in all responses (`LoginResponse`, `ApiKeyValidationResponse`)
-3. Include `tenant_id` in JWT claims (`access_token` payload)
-4. Scope all resource endpoints (`/orgs/*`, `/api/keys/*`) to the authenticated tenant
+## Design Constraints
 
-## Pitfalls
-
+- **Do** scope all database queries by `tenant_id`
+- **Do** return `tenant_id` in all responses (`LoginResponse`, `ApiKeyValidationResponse`)
+- **Do** include `tenant_id` in JWT claims (`access_token` payload)
 - **Do not** add global uniqueness constraints on `email` — they must be scoped to `tenant_id`
-- **Do not** assume users exist across tenants — there is no cross-tenant user lookup
-- **Do not** skip RLS — application-layer filtering alone is insufficient for "Zero Bleed"
 - **Do not** use `tenant_id` in user-facing URLs — it's an internal partition key
-
-## Related
-
-- [RLS Architecture](../reference/ref-rls-architecture.md) — How RLS enforces tenant isolation
-- [SesameExecutor Pattern](../reference/ref-rls-architecture.md) — Transparent context injection
-- [OpenAPI Multi-Spec Architecture](../topics/topic-openapi-multi-spec-architecture.md) — How specs are structured
+- **Do not** allow applications from one tenant to query data from another tenant

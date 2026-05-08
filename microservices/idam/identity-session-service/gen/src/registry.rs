@@ -24,6 +24,18 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "admin_impersonate",
+        crate::controllers::admin_impersonate::AdminImpersonateController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "admin_restore_impersonation",
+        crate::controllers::admin_restore_impersonation::AdminRestoreImpersonationController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "users_me_get",
         crate::controllers::users_me_get::UsersMeGetController,
         16384,
@@ -36,8 +48,62 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "admin_issue_token",
+        crate::controllers::admin_issue_token::AdminIssueTokenController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "oauth_userinfo",
+        crate::controllers::oauth_userinfo::OauthUserinfoController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mcp_list_agents",
+        crate::controllers::mcp_list_agents::McpListAgentsController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mcp_create_agent",
+        crate::controllers::mcp_create_agent::McpCreateAgentController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mcp_get_agent",
+        crate::controllers::mcp_get_agent::McpGetAgentController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mcp_delete_agent",
+        crate::controllers::mcp_delete_agent::McpDeleteAgentController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mcp_token",
+        crate::controllers::mcp_token::McpTokenController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mcp_validate",
+        crate::controllers::mcp_validate::McpValidateController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "auth_refresh",
         crate::controllers::auth_refresh::AuthRefreshController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "step_up_verify",
+        crate::controllers::step_up_verify::StepUpVerifyController,
         16384,
     );
 }
@@ -75,6 +141,22 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "admin_impersonate" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::admin_impersonate::AdminImpersonateController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "admin_restore_impersonation" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::admin_restore_impersonation::AdminRestoreImpersonationController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "users_me_get" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::users_me_get::UsersMeGetController,
@@ -91,9 +173,81 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "admin_issue_token" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::admin_issue_token::AdminIssueTokenController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "oauth_userinfo" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::oauth_userinfo::OauthUserinfoController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mcp_list_agents" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mcp_list_agents::McpListAgentsController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mcp_create_agent" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mcp_create_agent::McpCreateAgentController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mcp_get_agent" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mcp_get_agent::McpGetAgentController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mcp_delete_agent" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mcp_delete_agent::McpDeleteAgentController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mcp_token" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mcp_token::McpTokenController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mcp_validate" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mcp_validate::McpValidateController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "auth_refresh" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_refresh::AuthRefreshController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "step_up_verify" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::step_up_verify::StepUpVerifyController,
                     16384,
                     Some(route.handler_name.as_ref()),
                 );

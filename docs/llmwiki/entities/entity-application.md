@@ -22,7 +22,7 @@ Owned by: **org-mgmt**
 | slug | text | |
 | platform | text | Application domain (e.g., "myapp.com") |
 | is_active | boolean | |
-| tenant_id | uuid (FK) | **REQUIRED** — application IS the tenant (same as `application.id`, alias for `application_id` column in other tables) |
+| tenant_id | uuid (FK) | **REQUIRED** — application IS the tenant (same as `application.id`, alias for `tenant_id` column in other tables) |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 | deleted_at | timestamptz | Soft delete |

@@ -27,7 +27,7 @@ M2M API key model. Keys can be user-scoped or org-scoped. Used for server-to-ser
 || metadata | jsonb | Custom metadata |
 || expires_at | timestamptz (nullable) | NULL = no expiry |
 || revoked | boolean | Revocation flag |
-|| application_id | uuid (FK) | **REQUIRED** — keys belong to one platform |
+|| tenant_id | uuid (FK) | **REQUIRED** — keys belong to one platform |
 || created_at | timestamptz | |
 || last_used_at | timestamptz | |
 

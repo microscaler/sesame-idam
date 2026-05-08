@@ -1,7 +1,12 @@
 [package]
-name = "sesame_idam_authz_core_gen"
+name = "authz_core_service_api"
 version = "0.1.0"
 edition = "2021"
+
+
+[lib]
+name = "authz_core_service_api"
+path = "src/lib.rs"
 
 [features]
 default = []

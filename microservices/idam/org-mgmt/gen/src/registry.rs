@@ -12,6 +12,18 @@ use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 #[allow(dead_code)]
 pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
+        "query_orgs",
+        crate::controllers::query_orgs::QueryOrgsController,
+        24576,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "invalidate_user_api_keys",
+        crate::controllers::invalidate_user_api_keys::InvalidateUserApiKeysController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "list_applications",
         crate::controllers::list_applications::ListApplicationsController,
         20480,
@@ -75,12 +87,6 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         "revoke_permission_from_role",
         crate::controllers::revoke_permission_from_role::RevokePermissionFromRoleController,
         20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "query_orgs",
-        crate::controllers::query_orgs::QueryOrgsController,
-        24576,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -210,6 +216,30 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "scim_list_users",
+        crate::controllers::scim_list_users::ScimListUsersController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "scim_create_user",
+        crate::controllers::scim_create_user::ScimCreateUserController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "scim_update_user",
+        crate::controllers::scim_update_user::ScimUpdateUserController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "scim_delete_user",
+        crate::controllers::scim_delete_user::ScimDeleteUserController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "subscribe_org_to_role_mapping",
         crate::controllers::subscribe_org_to_role_mapping::SubscribeOrgToRoleMappingController,
         20480,
@@ -257,6 +287,22 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
     for route in routes {
         // JSF P0-2: Use as_ref() for Arc<str> -> &str conversion
         match route.handler_name.as_ref() {
+            "query_orgs" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::query_orgs::QueryOrgsController,
+                    24576,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "invalidate_user_api_keys" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::invalidate_user_api_keys::InvalidateUserApiKeysController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "list_applications" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::list_applications::ListApplicationsController,
@@ -341,14 +387,6 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::revoke_permission_from_role::RevokePermissionFromRoleController,
                     20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "query_orgs" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::query_orgs::QueryOrgsController,
-                    24576,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -516,6 +554,38 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "fetch_scim_group" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::fetch_scim_group::FetchScimGroupController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "scim_list_users" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::scim_list_users::ScimListUsersController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "scim_create_user" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::scim_create_user::ScimCreateUserController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "scim_update_user" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::scim_update_user::ScimUpdateUserController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "scim_delete_user" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::scim_delete_user::ScimDeleteUserController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

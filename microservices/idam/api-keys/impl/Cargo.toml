@@ -1,0 +1,37 @@
+
+[package]
+name = "sesame_idam_api_keys_gen_impl"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "api_keys"
+path = "src/main.rs"
+
+[features]
+default = []
+# jemalloc is opt-in (--features jemalloc). On armv7-unknown-linux-musleabihf and other musl
+# targets, tikv-jemallocator can pull in compiler-rt symbols (e.g. __ffsdi2) that are not
+# provided by musl, causing link errors. Use default = [] and enable jemalloc only for
+# amd64/arm64 glibc builds where it is supported. See: https://github.com/rust-lang/compiler-builtins
+jemalloc = ["tikv-jemallocator"]
+
+[dependencies]
+api_keys_service_api = { path = "../gen" }
+
+brrtrouter = { workspace = true }
+brrtrouter_macros = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tikv-jemallocator = { workspace = true, optional = true }
+clap = { workspace = true }
+may = { workspace = true }
+
+# For brrtrouter runtime: ArcSwap for lock-free router/dispatcher updates
+arc-swap = { workspace = true }
+
+# Direct `may_postgres` is required for `lifeguard_derive` (`LifeModel` / `LifeRecord`) macros.
+# Workspaces may `[patch]` this git URL to a local fork (e.g. Microscaler `may_postgres`).
+may_postgres = { git = "https://github.com/microscaler/may_postgres.git", branch = "master", features = ["with-serde_json-1", "with-chrono-0_4"] }
+
+# Add your additional dependencies here

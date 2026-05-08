@@ -18,7 +18,7 @@ Permission model. Permissions are per-application and referenced by roles via Ro
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid (PK) | |
-| application_id | uuid (FK) | |
+| tenant_id | uuid (FK) | |
 | name | text | e.g., "invoices:write" |
 | description | text | |
 | created_at | timestamptz | |

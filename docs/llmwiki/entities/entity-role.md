@@ -18,7 +18,7 @@ Role model with inheritance support. Roles are per-application, scoped to organi
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid (PK) | |
-| application_id | uuid (FK) | |
+| tenant_id | uuid (FK) | |
 | organization_id | uuid (FK, nullable) | NULL = platform role |
 | name | text | Internal name |
 | display_name | text | Human-readable name |

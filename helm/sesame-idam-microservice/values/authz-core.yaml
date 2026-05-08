@@ -1,7 +1,7 @@
 service:
   name: authz-core
-  port: 8002
-  containerPort: 8002
+  port: 8102
+  containerPort: 8102
   nodePort: null
 
 image:

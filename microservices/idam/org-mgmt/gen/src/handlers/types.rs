@@ -332,6 +332,20 @@ pub struct GetRoleResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct InvalidateKeysResponse {
+    pub invalidated: i32,
+
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct InvalidateUserApiKeysResponse {
+    pub invalidated: i32,
+
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct InviteUserToOrgByIdRequest {
     pub role: String,
 
@@ -567,6 +581,40 @@ pub struct SamlLinkRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimCreateUserRequest {
+    pub active: bool,
+
+    pub emails: Vec<serde_json::Value>,
+
+    pub name: serde_json::Value,
+
+    pub roles: Vec<String>,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "userName")]
+    pub user_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimCreateUserResponse {
+    pub active: bool,
+
+    pub emails: Vec<serde_json::Value>,
+
+    pub id: String,
+
+    pub name: serde_json::Value,
+
+    pub roles: Vec<String>,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "userName")]
+    pub user_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ScimGroup {
     pub created_at: String,
 
@@ -590,6 +638,124 @@ pub struct ScimGroupsResponse {
     pub page_size: i32,
 
     pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimListUsersResponse {
+    #[serde(rename = "Resources")]
+    pub resources: Vec<ScimUser>,
+
+    #[serde(rename = "itemsPerPage")]
+    pub items_per_page: i32,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "startIndex")]
+    pub start_index: i32,
+
+    #[serde(rename = "totalResults")]
+    pub total_results: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimUpdateUserRequest {
+    pub active: bool,
+
+    pub emails: Vec<serde_json::Value>,
+
+    pub name: serde_json::Value,
+
+    pub roles: Vec<String>,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "userName")]
+    pub user_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimUpdateUserResponse {
+    pub active: bool,
+
+    pub emails: Vec<serde_json::Value>,
+
+    pub id: String,
+
+    pub name: serde_json::Value,
+
+    pub roles: Vec<String>,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "userName")]
+    pub user_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimUser {
+    pub active: bool,
+
+    pub emails: Vec<serde_json::Value>,
+
+    pub id: String,
+
+    pub name: serde_json::Value,
+
+    pub roles: Vec<String>,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "userName")]
+    pub user_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimUserCreateRequest {
+    pub active: bool,
+
+    pub emails: Vec<serde_json::Value>,
+
+    pub name: serde_json::Value,
+
+    pub roles: Vec<String>,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "userName")]
+    pub user_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimUserListResponse {
+    #[serde(rename = "Resources")]
+    pub resources: Vec<ScimUser>,
+
+    #[serde(rename = "itemsPerPage")]
+    pub items_per_page: i32,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "startIndex")]
+    pub start_index: i32,
+
+    #[serde(rename = "totalResults")]
+    pub total_results: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimUserUpdateRequest {
+    pub active: bool,
+
+    pub emails: Vec<serde_json::Value>,
+
+    pub name: serde_json::Value,
+
+    pub roles: Vec<String>,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "userName")]
+    pub user_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

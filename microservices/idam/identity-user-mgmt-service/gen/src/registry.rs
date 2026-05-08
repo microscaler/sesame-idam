@@ -12,6 +12,12 @@ use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 #[allow(dead_code)]
 pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
+        "oauth_logout",
+        crate::controllers::oauth_logout::OauthLogoutController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "create_user",
         crate::controllers::create_user::CreateUserController,
         16384,
@@ -154,12 +160,6 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         crate::controllers::fetch_fresh_oauth_token::FetchFreshOauthTokenController,
         20480,
     );
-
-    dispatcher.register_typed_with_stack_size(
-        "oauth_logout",
-        crate::controllers::oauth_logout::OauthLogoutController,
-        16384,
-    );
 }
 
 /// Dynamically register handlers for the provided routes using their handler names.
@@ -179,6 +179,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
     for route in routes {
         // JSF P0-2: Use as_ref() for Arc<str> -> &str conversion
         match route.handler_name.as_ref() {
+            "oauth_logout" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::oauth_logout::OauthLogoutController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "create_user" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::create_user::CreateUserController,
@@ -367,14 +375,6 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::fetch_fresh_oauth_token::FetchFreshOauthTokenController,
                     20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "oauth_logout" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::oauth_logout::OauthLogoutController,
-                    16384,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

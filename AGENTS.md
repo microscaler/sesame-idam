@@ -117,15 +117,19 @@ just tilt-log        # Tail Tilt logs
 
 ## Tenancy & Isolation
 
-**CRITICAL: Sesame-IDAM is a "Hard-Segment" multi-tenant system.**
+**CRITICAL: Sesame-IDAM uses a two-level hierarchy: Tenant (isolation boundary) and Application (logical grouping).**
 
-*   **Application = Tenant boundary.** Each consuming platform (Software X, Software Y) is an `Application` entity that acts as a tenant. The `X-Tenant-ID` header maps to the Application ID.
-*   **No Shared Users:** Users are strictly scoped to a single `application_id`. `alice@corp.com` on `Tenant A` and `alice@corp.com` on `Tenant B` are completely different, unrelated users. No cross-tenant identity exists.
-*   **`X-Tenant-ID` Header:** Every API request must include the `X-Tenant-ID` header (or be authenticated via a tenant-scoped API key). This maps to the `application_id` in the system.
+*   **Tenant = Hard-Segment isolation boundary.** Each customer (e.g., `hauliage`, `rerp`) is a `Tenant`. The `X-Tenant-ID` header maps to the Tenant ID. Data for `Tenant A` is never visible to `Tenant B` — **zero bleed enforced at database level**.
+*   **Application = Logical grouping within Tenant.** A tenant can have multiple applications (e.g., hauliage has hauliage-web, hauliage-api, hauliage-admin, hauliage-mobile). Applications share the same tenant data — they are not isolation boundaries.
+*   **No Shared Users across Tenants:** Users are strictly scoped to a single `tenant_id`. `alice@corp.com` on `Tenant A` and `alice@corp.com` on `Tenant B` are completely different, unrelated users. No cross-tenant identity exists.
+*   **`X-Tenant-ID` Header:** Every API request must include the `X-Tenant-ID` header (or be authenticated via a tenant-scoped API key). This maps to the `tenant_id` in the system.
 *   **Database Partitioning:**
-    *   **SaaS Model:** Single PostgreSQL schema shared by all tenants. Isolation is enforced via the `application_id` column on every major table (`users`, `orgs`, `api_keys`).
+    *   **SaaS Model:** Single PostgreSQL schema shared by all tenants. Isolation is enforced via the `tenant_id` column on every major table (`users`, `orgs`, `api_keys`).
     *   **Self-Hosted Model:** The `sesame_idam` database/schema is isolated from the tenant's business logic (e.g., `app` schema) to prevent table name collisions.
-*   **Zero Bleed:** Data for `Tenant A` is never visible to `Tenant B`. This is enforced at the application layer (context injection), database layer (RLS policies), and database level (`UNIQUE(application_id, email)` on users, etc.).
+*   **Zero Bleed:** Enforced at three layers:
+    1.  **Application layer:** BRRTRouter middleware extracts `tenant_id` from `X-Tenant-ID` header, appends `WHERE tenant_id = ?` to all queries.
+    2.  **Database layer:** `SesameExecutor` runs `SET LOCAL current_tenant_id = ?` per transaction.
+    3.  **RLS policies:** PostgreSQL policies enforce `WHERE tenant_id = current_tenant_id` as a failsafe.
 
 ## Core rules the agent must obey
 

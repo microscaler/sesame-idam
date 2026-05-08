@@ -20,7 +20,7 @@ Immutable audit trail for all identity and access management operations.
 || id | uuid (PK) | |
 || user_id | uuid | Who performed the action |
 || org_id | uuid | Which org was affected |
-|| application_id | uuid (FK) | **REQUIRED** — audit logs scoped to platform |
+|| tenant_id | uuid (FK) | **REQUIRED** — audit logs scoped to platform |
 || action | text | e.g., "user.login", "org.create" |
 || resource_type | text | e.g., "user", "organization" |
 || resource_id | text | ID of the affected resource |

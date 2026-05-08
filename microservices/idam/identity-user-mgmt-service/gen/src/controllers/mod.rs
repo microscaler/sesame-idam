@@ -3,6 +3,8 @@
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
 
+pub mod oauth_logout;
+
 pub mod create_user;
 
 pub mod fetch_user_by_email;
@@ -50,5 +52,3 @@ pub mod link_social_account;
 pub mod fetch_user_oauth_tokens;
 
 pub mod fetch_fresh_oauth_token;
-
-pub mod oauth_logout;

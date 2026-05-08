@@ -1,11 +1,11 @@
 # Sesame-IDAM justfile
 # Repo layout: 6 services split by access pattern for independent scaling:
-#   identity-login-service   — login, register, social, OTP flows (8001)
-#   identity-session-service — refresh, OIDC, JWKS (8005)
-#   identity-user-mgmt-service — user CRUD, MFA, email/phone (8006)
-#   authz-core               — per-request authorization checks (8002)
-#   api-keys                 — M2M key management/validation (8003)
-#   org-mgmt                 — org lifecycle & SSO admin (8004)
+#   identity-login-service   — login, register, social, OTP flows (8101)
+#   identity-session-service — refresh, OIDC, JWKS (8105)
+#   identity-user-mgmt-service — user CRUD, MFA, email/phone (8106)
+#   authz-core               — per-request authorization checks (8102)
+#   api-keys                 — M2M key management/validation (8103)
+#   org-mgmt                 — org lifecycle & SSO admin (8104)
 # OpenAPI specs: openapi/{identity-login-service,identity-session-service,identity-user-mgmt-service,authz-core,api-keys,org-mgmt}/openapi.yaml
 # Consumes shared BRRTRouter tooling (brrtrouter-gen) for codegen, lint, serve.
 # Set BRRTRouter_DIR if BRRTRouter is not a sibling repo (e.g. export BRRTRouter_DIR=/path/to/BRRTRouter).
@@ -447,7 +447,7 @@ lint-openapi-org-mgmt:
 
 # Serve identity-login-service API with echo handlers (for local try-out)
 # Usage: just serve-identity-login [addr]
-serve-identity-login addr="0.0.0.0:8001":
+serve-identity-login addr="0.0.0.0:8101":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -460,7 +460,7 @@ serve-identity-login addr="0.0.0.0:8001":
 
 # Serve identity-session-service API with echo handlers (for local try-out)
 # Usage: just serve-identity-session [addr]
-serve-identity-session addr="0.0.0.0:8005":
+serve-identity-session addr="0.0.0.0:8105":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -473,7 +473,7 @@ serve-identity-session addr="0.0.0.0:8005":
 
 # Serve identity-user-mgmt-service API with echo handlers (for local try-out)
 # Usage: just serve-identity-user-mgmt [addr]
-serve-identity-user-mgmt addr="0.0.0.0:8006":
+serve-identity-user-mgmt addr="0.0.0.0:8106":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -486,7 +486,7 @@ serve-identity-user-mgmt addr="0.0.0.0:8006":
 
 # Serve authz-core API with echo handlers (for local try-out)
 # Usage: just serve-authz-core [addr]
-serve-authz-core addr="0.0.0.0:8002":
+serve-authz-core addr="0.0.0.0:8102":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -499,7 +499,7 @@ serve-authz-core addr="0.0.0.0:8002":
 
 # Serve api-keys API with echo handlers (for local try-out)
 # Usage: just serve-api-keys [addr]
-serve-api-keys addr="0.0.0.0:8003":
+serve-api-keys addr="0.0.0.0:8103":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -512,7 +512,7 @@ serve-api-keys addr="0.0.0.0:8003":
 
 # Serve org-mgmt API with echo handlers (for local try-out)
 # Usage: just serve-org-mgmt [addr]
-serve-org-mgmt addr="0.0.0.0:8004":
+serve-org-mgmt addr="0.0.0.0:8104":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -547,3 +547,43 @@ sync-specs-from-brrtrouter:
   echo "   5. Extract /api/v1/am/api-keys/* → openapi/api-keys/"
   echo "   6. Extract /orgs/*, /api/v1/am/applications/* → openapi/org-mgmt/"
   echo "   7. Run: just lint-openapi"
+
+# =============================================================================
+# Systemd Service Management (tilt-sesame-idam)
+# =============================================================================
+# The Tilt service is managed via systemd user units:
+#   ~/.config/systemd/user/tilt-sesame-idam.service
+#
+# Usage:
+#   just tilt-up     — start the Tilt systemd service (or use: systemctl --user start tilt-sesame-idam)
+#   just tilt-down   — stop the Tilt systemd service (or use: systemctl --user stop tilt-sesame-idam)
+#   just tilt-log    — tail the Tilt service journal (or use: journalctl --user -u tilt-sesame-idam -f)
+#   just tilt-status — check Tilt service status (or use: systemctl --user status tilt-sesame-idam)
+
+# Start Tilt via systemd (loads on login via WantedBy=default.target)
+tilt-up:
+  @echo "Starting sesame-idam Tilt via systemd..."
+  @systemctl --user start tilt-sesame-idam.service
+  @sleep 2
+  @echo "Tilt UI: http://localhost:10351"
+
+# Stop Tilt via systemd
+tilt-down:
+  @echo "Stopping sesame-idam Tilt via systemd..."
+  @systemctl --user stop tilt-sesame-idam.service
+  @pkill -f "tilt up" 2>/dev/null || true
+  @echo "Tilt stopped"
+
+# Tail Tilt service logs
+tilt-log:
+  @journalctl --user -u tilt-sesame-idam.service -f
+
+# Check Tilt service status
+tilt-status:
+  @systemctl --user status tilt-sesame-idam.service
+
+# Reload systemd after unit file changes (e.g. editing the .service file)
+tilt-reload:
+  @echo "Reloading systemd user daemon..."
+  @systemctl --user daemon-reload
+  @echo "Done — Tilt unit reloaded"

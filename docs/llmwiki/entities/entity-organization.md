@@ -21,7 +21,7 @@ Each org supports: SAML SSO, OIDC, SCIM user provisioning, webhooks, application
 |--------|------|-------|
 | id | uuid (PK) | |
 | name | text | |
-| slug | text (UK per platform) | |
+| slug | text (UK per tenant) | |
 | logo_url | text (nullable) | |
 | domain | text (nullable) | Single domain for auto-join |
 | domains | text[] | Multiple domains |
@@ -38,7 +38,7 @@ Each org supports: SAML SSO, OIDC, SCIM user provisioning, webhooks, application
 | isolated | boolean | Org isolation flag |
 | sso_trust_level | text | SSO trust level |
 | legacy_org_id | text (nullable) | Migration from legacy system |
-| application_id | uuid (FK) | **REQUIRED** — orgs belong to one consuming platform |
+| tenant_id | uuid (FK) | **REQUIRED** — orgs belong to one consuming platform |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 | deleted_at | timestamptz | Soft delete |

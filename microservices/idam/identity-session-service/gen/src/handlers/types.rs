@@ -5,6 +5,64 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AdminImpersonateRequest {
+    pub actor_user_id: String,
+
+    pub reason: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AdminImpersonateResponse {
+    pub access_token: String,
+
+    pub impersonated_user_id: String,
+
+    pub original_user_id: String,
+
+    pub refresh_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AdminIssueTokenRequest {
+    pub expires_in: i32,
+
+    pub scope: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AdminIssueTokenResponse {
+    pub access_token: String,
+
+    pub expires_in: i32,
+
+    pub id_token: String,
+
+    pub refresh_token: String,
+
+    pub scope: String,
+
+    pub token_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AdminRestoreImpersonationRequest {
+    pub admin_user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AdminRestoreImpersonationResponse {
+    pub access_token: String,
+
+    pub impersonated_user_id: String,
+
+    pub original_user_id: String,
+
+    pub refresh_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthRefreshRequest {
     pub refresh_token: String,
 }
@@ -25,8 +83,162 @@ pub struct AuthRefreshResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CreateUserRequest {
+    pub email: String,
+
+    pub email_confirmed: bool,
+
+    pub extra_properties: serde_json::Value,
+
+    pub first_name: String,
+
+    pub last_name: String,
+
+    pub org_id: String,
+
+    pub picture_url: String,
+
+    pub send_email_confirmation: bool,
+
+    pub send_welcome_email: bool,
+
+    pub username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DualOTPCompleteResponse {
+    pub email_verified: bool,
+
+    pub newly_verified_email: bool,
+
+    pub newly_verified_phone: bool,
+
+    pub phone_verified: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DualOTPPartialResponse {
+    pub both_verified: bool,
+
+    pub email_verified: bool,
+
+    pub message: String,
+
+    pub phone_verified: bool,
+
+    pub success: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DualOTPRequest {
+    pub email: String,
+
+    pub phone: String,
+
+    pub send_welcome_email: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DualOTPResponse {
+    pub both_verified: bool,
+
+    pub email_sent: bool,
+
+    pub email_verified: bool,
+
+    pub message: String,
+
+    pub phone_sent: bool,
+
+    pub phone_verified: bool,
+
+    pub success: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DualOTPVerifyRequest {
+    pub email: String,
+
+    pub email_code: String,
+
+    pub phone: String,
+
+    pub phone_code: String,
+
+    pub session_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct EmailOTPRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct EmailOTPVerifyRequest {
+    pub code: String,
+
+    pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct EmployeeResponse {
+    pub email: String,
+
+    pub first_name: String,
+
+    pub last_name: String,
+
+    pub org_id_to_org_info: serde_json::Value,
+
+    pub picture_url: String,
+
+    pub user_id: String,
+
+    pub username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Error {
     pub error: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ErrorResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ForgotPasswordRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ImpersonateRequest {
+    pub actor_user_id: String,
+
+    pub reason: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ImpersonateResponse {
+    pub access_token: String,
+
+    pub impersonated_user_id: String,
+
+    pub original_user_id: String,
+
+    pub refresh_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ImpersonateRestoreRequest {
+    pub admin_user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -37,6 +249,207 @@ pub struct JWKS {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct JwksResponse {
     pub keys: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct LinkSocialAccountRequest {
+    pub provider: String,
+
+    pub scope: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct LoginRequest {
+    pub email: String,
+
+    pub organization_id: String,
+
+    pub password: String,
+
+    pub phone_number: String,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct LogoutRequest {
+    pub refresh_token: String,
+
+    pub session_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpAgent {
+    pub created_at: String,
+
+    pub enabled: bool,
+
+    pub id: String,
+
+    pub name: String,
+
+    pub org_id: String,
+
+    pub permissions: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpTokenRequest {
+    pub agent_id: String,
+
+    pub credential: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpTokenResponse {
+    pub access_token: String,
+
+    pub expires_in: i32,
+
+    pub scope: String,
+
+    pub token_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpValidateRequest {
+    pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpValidateResponse {
+    pub agent_id: String,
+
+    pub expires_at: String,
+
+    pub permissions: Vec<String>,
+
+    pub valid: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaRequiredResponse {
+    pub mfa_challenge: serde_json::Value,
+
+    pub mfa_required: bool,
+
+    pub mfa_type: String,
+
+    pub session_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaSetupRequest {
+    pub name: String,
+
+    pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaSetupResponse {
+    pub provisioning_uri: String,
+
+    pub secret: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaVerifyRequest {
+    pub challenge_id: String,
+
+    pub code: String,
+
+    pub session_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MigratePasswordRequest {
+    pub migrations: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MigrateUserRequest {
+    pub email: String,
+
+    pub email_confirmed: bool,
+
+    pub extra_properties: serde_json::Value,
+
+    pub first_name: String,
+
+    pub hash: String,
+
+    pub last_name: String,
+
+    pub legacy_user_id: String,
+
+    pub org_id: String,
+
+    pub picture_url: String,
+
+    pub salt: String,
+
+    pub username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OAuthLogoutRequest {
+    pub id_token_hint: String,
+
+    pub post_logout_redirect_uri: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OAuthTokenResponse {
+    pub access_token: String,
+
+    pub expires_in: i32,
+
+    pub refresh_token: String,
+
+    pub scope: String,
+
+    pub token_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OauthUserinfoResponse {
+    pub email: String,
+
+    pub email_verified: bool,
+
+    pub first_name: String,
+
+    pub last_name: String,
+
+    pub name: String,
+
+    pub org_id: String,
+
+    pub org_name: String,
+
+    pub phone_number: String,
+
+    pub phone_verified: bool,
+
+    pub picture_url: String,
+
+    pub preferred_username: String,
+
+    pub properties: serde_json::Value,
+
+    pub sub: String,
+
+    pub updated_at: String,
+
+    pub user_id: String,
+
+    pub user_permissions: Vec<String>,
+
+    pub user_role: String,
+
+    pub username: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -110,8 +523,155 @@ pub struct OpenidConfigurationResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PhoneNumberRequest {
+    pub phone_number: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PhoneOTPRequest {
+    pub phone: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PhoneOTPVerifyRequest {
+    pub code: String,
+
+    pub phone: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PhoneVerificationRequest {
+    pub code: String,
+
+    pub phone_number: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct RefreshRequest {
     pub refresh_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RegisterRequest {
+    pub email: String,
+
+    pub name: String,
+
+    pub organization_id: String,
+
+    pub password: String,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ResetPasswordRequest {
+    pub new_password: String,
+
+    pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SocialCallbackRequest {
+    pub code: String,
+
+    pub redirect_uri: String,
+
+    pub state: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SocialLoginResponse {
+    pub access_token: String,
+
+    pub email: String,
+
+    pub email_verified: bool,
+
+    pub expires_in: i32,
+
+    pub refresh_token: String,
+
+    pub social_provider: String,
+
+    pub social_provider_user_id: String,
+
+    pub token_type: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct StepUpRequest {
+    pub action: String,
+
+    pub mfa_method: String,
+
+    pub session_id: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct StepUpResponse {
+    pub mfa_method: String,
+
+    pub session_id: String,
+
+    pub verified: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct StepUpVerifyRequest {
+    pub action: String,
+
+    pub mfa_method: String,
+
+    pub session_id: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct StepUpVerifyResponse {
+    pub mfa_method: String,
+
+    pub session_id: String,
+
+    pub verified: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TokenIssuanceRequest {
+    pub expires_in: i32,
+
+    pub scope: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TokenListResponse {
+    pub tokens: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TokenRequest {
+    pub audience: String,
+
+    pub client_id: String,
+
+    pub client_secret: String,
+
+    pub grant_type: String,
+
+    pub refresh_token: String,
+
+    pub scope: String,
+
+    pub subject_token: String,
+
+    pub subject_token_type: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -130,6 +690,16 @@ pub struct TokenResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UpdateEmailRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UpdatePasswordRequest {
+    pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateUserProfileRequest {
     pub first_name: String,
 
@@ -140,6 +710,89 @@ pub struct UpdateUserProfileRequest {
     pub picture_url: String,
 
     pub preferred_username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UpdateUserRequest {
+    pub can_create_orgs: bool,
+
+    pub email_confirmed: bool,
+
+    pub first_name: String,
+
+    pub last_name: String,
+
+    pub locked: bool,
+
+    pub picture_url: String,
+
+    pub send_magic_link: bool,
+
+    pub send_welcome_email: bool,
+
+    pub username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactor {
+    pub id: String,
+
+    pub user_id: String,
+
+    #[serde(rename = "type")]
+    pub r#type: String,
+
+    pub secret: String,
+
+    pub is_active: bool,
+
+    pub label: String,
+
+    pub created_at: i32,
+
+    pub last_used_at: i32,
+}
+
+pub struct User {
+    pub can_create_orgs: bool,
+
+    pub created_at: i32,
+
+    pub email: String,
+
+    pub email_confirmed: bool,
+
+    pub enabled: bool,
+
+    pub first_name: String,
+
+    pub has_password: bool,
+
+    pub last_active_at: i32,
+
+    pub last_name: String,
+
+    pub legacy_user_id: String,
+
+    pub locked: bool,
+
+    pub mfa_enabled: bool,
+
+    pub mfa_factors: Vec<MfaFactor>,
+
+    pub phone_number: String,
+
+    pub phone_verified: bool,
+
+    pub picture_url: String,
+
+    pub properties: serde_json::Value,
+
+    pub update_password_required: bool,
+
+    pub user_id: String,
+
+    pub username: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -179,6 +832,44 @@ pub struct UserProfile {
     pub user_role: String,
 
     pub username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UserQueryItem {
+    pub created_at: String,
+
+    pub email: String,
+
+    pub email_confirmed: bool,
+
+    pub enabled: bool,
+
+    pub first_name: String,
+
+    pub has_password: bool,
+
+    pub last_name: String,
+
+    pub locked: bool,
+
+    pub signup_flow: String,
+
+    pub user_id: String,
+
+    pub username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UserQueryResponse {
+    pub has_more: bool,
+
+    pub limit: i32,
+
+    pub page: i32,
+
+    pub total: i32,
+
+    pub users: Vec<UserQueryItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

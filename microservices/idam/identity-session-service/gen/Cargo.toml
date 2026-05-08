@@ -1,5 +1,5 @@
 [package]
-name = "sesame_idam_identity_session_service_gen"
+name = "identity_session_service_service_api"
 version = "0.1.0"
 edition = "2021"
 
