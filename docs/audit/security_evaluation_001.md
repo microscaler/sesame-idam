@@ -20,10 +20,10 @@
 | 7 | TokenResponse varies between specs | ✅ Fixed — standardized to 12 properties across login + session service |
 | 8 | Missing summary fields | ❌ Retracted — all 119 ops already have summaries |
 | 9 | Health check endpoints | ❌ Retracted — BRRTRouter provides these natively |
-| 10 | SCIM standard compliance | ⏳ Pending |
-| 11 | LinkSocialAccount returns 302 | ⏳ Pending |
-| 12 | UpdateApiKeyRequest has no key_id | ⏳ Pending |
-| 13 | Impersonation path parameter security | ⏳ Pending (info only — no spec fix needed) |
+|| 10 | SCIM standard compliance | ✅ Fixed — all 4 SCIM endpoints use ScimError on 5 error codes (400/401/403/404/409) |
+|| 11 | LinkSocialAccount returns 302 | ⏳ Pending |
+|| 12 | UpdateApiKeyRequest has no key_id | ✅ Fixed — added PUT /{key_id} endpoint referencing UpdateApiKeyRequest |
+|| 13 | Impersonation path parameter security | ⏳ Pending (info only — no spec fix needed) |
 | 14 | X-Tenant-ID header missing from all specs | ✅ Fixed — added to all 146 operations across 6 specs |
 
 ---
@@ -214,7 +214,7 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 | Summary on all operations | 100% | 100% | N/A (already OK) |
 | Response code diversity | Inconsistent | Inconsistent | Pending |
 | Tenancy enforcement in spec | 0/146 | ~3/146 | ⏳ Partially fixed |
-| SCIM standard compliance | 0/5 | 0/5 | ⏳ Pending |
+|| SCIM standard compliance | 0/5 | 4/4 | ✅ Fixed |
 | MCP endpoint coverage | 0/4 | 4/4 | ✅ Fixed |
 
 ## Remediated Issues (2026-05-09)
@@ -226,7 +226,7 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 5. **API key validation consolidation** — Added `key_type` query param to `/validate`, deprecated `/validate/personal` and `/validate/org`
 6. **HTTP method corrections** — Refactored 3 action-oriented POSTs: `remove-user` → DELETE, `add-user` → POST to `/users`, `change-role` → PATCH
 7. **TokenResponse standardization** — Unified to 12 properties across login + session service specs, with matching fields in both
-8. **SCIM RFC 7644 compliance** — Added ScimError responses to all 4 SCIM endpoints (list, create, update, delete) with full error code coverage (400/401/403/404/409) and verified schema compliance |
+8. **SCIM RFC 7644 compliance** — Added ScimError responses to all 4 SCIM endpoints (list, create, update, delete) with full error code coverage (400/401/403/404/409) and verified schema compliance
 ## Retracted Findings
 
 - **Health check endpoints** — BRRTRouter provides health/metrics natively; no OpenAPI declaration needed
@@ -234,13 +234,12 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 
 ## Pending Items
 
-|| Finding | Severity | Effort |
-||---|---|---|
-|| SCIM standard compliance | Medium | Update 5 SCIM endpoints with SCIM error schemas |
-|| LinkSocialAccount 302 | Medium | Change to JSON redirect response |
-|| UpdateApiKeyRequest missing key_id | High | Add key_id to schema or use path param |
-|| Tenancy enforcement | Critical | Add tenant_id as required param to all identity/login endpoints |
-|| Response code diversity | Medium | Standardize on 200/201/204/400/401/403/404 per operation |
+| Finding | Severity | Effort |
+|---|---|---|
+| LinkSocialAccount 302 | Medium | Change to JSON redirect response |
+| UpdateApiKeyRequest missing key_id | High | Add key_id to schema or use path param |
+| Tenancy enforcement | Critical | Add tenant_id as required param to all identity/login endpoints |
+| Response code diversity | Medium | Standardize on 200/201/204/400/401/403/404 per operation |
 
 ## Tenancy Header Enforcement (2026-05-09)
 

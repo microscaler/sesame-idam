@@ -142,9 +142,9 @@ Organization lifecycle, SAML/SCIM SSO, membership management, application/role/p
 | `/{org_id}` | DELETE | Delete organisation |
 | `/{org_id}` | GET | Fetch organisation by ID |
 | `/{org_id}` | PUT | Update organisation |
-| `/{org_id}/add-user` | POST | Add user to organisation |
+| `/{org_id}/users` | POST | Add user to organisation |
 | `/{org_id}/allow-saml` | POST | Allow organisation to set up SAML SSO |
-| `/{org_id}/change-role` | POST | Change user role in organisation |
+| `/{org_id}/users/{user_id}/role` | PATCH | Change user role in organisation |
 | `/{org_id}/create-saml-link` | POST | Create SAML connection setup link |
 | `/{org_id}/disallow-saml` | POST | Disallow organisation from using SAML SSO |
 | `/{org_id}/domains` | PUT | Update organisation domain settings |
@@ -154,7 +154,7 @@ Organization lifecycle, SAML/SCIM SSO, membership management, application/role/p
 | `/{org_id}/migrate-to-isolated` | POST | Migrate organisation to isolated SAML mode |
 | `/{org_id}/oidc-metadata` | POST | Set OIDC IdP metadata for organisation |
 | `/{org_id}/pending-invites` | DELETE | Revoke pending organisation invite |
-| `/{org_id}/remove-user` | POST | Remove user from organisation |
+| `/{org_id}/users` | DELETE | Remove user from organisation |
 | `/{org_id}/role-mappings` | GET | Fetch custom role mappings for organisation |
 | `/{org_id}/saml` | DELETE | Delete SAML connection |
 | `/{org_id}/saml-metadata` | PUT | Set SAML IdP metadata for organisation |
@@ -237,12 +237,12 @@ Organization lifecycle, SAML/SCIM SSO, membership management, application/role/p
 - `DELETE /{org_id}/pending-invites`
 - `GET /{org_id}/role-mappings`
 - `GET /{org_id}/users`
-- `POST /{org_id}/add-user`
-- `POST /{org_id}/change-role`
+- `POST /{org_id}/users`
 - `POST /{org_id}/invite-user`
 - `POST /{org_id}/invite-user-by-id`
-- `POST /{org_id}/remove-user`
+- `DELETE /{org_id}/users`
 - `PUT /{org_id}/subscribe-role-mapping`
+- `PATCH /{org_id}/users/{user_id}/role`
 
 ### Organizations (5 endpoints)
 

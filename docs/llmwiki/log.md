@@ -1,5 +1,35 @@
 # LLM Wiki — Session Log
 
+## [2026-05-09] SCIM RFC 7644 Compliance Fix
+
+### Summary
+
+Made all 4 SCIM endpoints (list, create, update, delete) RFC 7644 compliant by replacing generic `ErrorResponse` with the `ScimError` schema across all 5 error codes (400/401/403/404/409).
+
+### Changes
+
+- **scim_list_users** — Added 400/401/403/404/409 with ScimError (was missing all error responses)
+- **scim_create_user** — Changed 401 from ErrorResponse to ScimError, added 403/404
+- **scim_update_user** — Added 401/403 with ScimError (400/404/409 already covered)
+- **scim_delete_user** — Added 400/401/403/409 with ScimError (404 already covered)
+
+### ScimError Schema Validation
+
+RFC 7644 Section 3.7 verified:
+- ✅ Required: schemas, detail, status (all present in required + properties)
+- ✅ Optional: scimType (all 8 RFC 7643 enum values: invalidFilter, uniqueness, value, mutability, invalidPath, noTarget, sensitive, tooMany)
+- ✅ schemas field: array of string with example "urn:ietf:params:scim:api:messages:2.0:Error"
+- ✅ status field: string type (HTTP status code as string per spec)
+- ✅ detail field: string type (human-readable error)
+
+### Verification
+- brrtrouter-gen lint: 0 errors
+- cargo check --workspace: passes
+- 4/4 SCIM endpoints have complete ScimError coverage
+
+---
+
+
 ## [2026-05-09] OpenAPI Spec Audit — Tenant Header Enforcement + Compilation Fix
 
 ### Summary

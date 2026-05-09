@@ -69,11 +69,11 @@ Each org supports: SAML SSO, OIDC, SCIM user provisioning, webhooks, application
 | `/{org_id}` | PUT | Update organization |
 | `/{org_id}` | DELETE | Delete organization |
 | `/{org_id}/users` | GET | List users in org |
-| `/{org_id}/add-user` | POST | Add user to org |
+| `/{org_id}/users` | POST | Add user to org |
+| `/{org_id}/users` | DELETE | Remove user from org |
+| `/{org_id}/users/{user_id}/role` | PATCH | Change user role in org |
 | `/{org_id}/invite-user` | POST | Invite user by email |
 | `/{org_id}/invite-user-by-id` | POST | Invite existing user |
-| `/{org_id}/remove-user` | POST | Remove user from org |
-| `/{org_id}/change-role` | POST | Change user role in org |
 | `/{org_id}/role-mappings` | GET | Get role mappings |
 | `/{org_id}/pending-invites` | DELETE | Revoke pending invites |
 | `/{org_id}/subscribe-role-mapping` | PUT | Subscribe to role mapping |
