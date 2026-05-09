@@ -2,7 +2,8 @@ openapi: 3.1.0
 info:
   title: Authorization Core Service (AuthZ Core)
   version: 1.0.0
-  description: 'Real-time authorization checks and principal rights resolution. Called on every
+  description: 'Real-time authorization checks and principal rights resolution. Called
+    on every
 
     API request from consuming applications for both coarse-grained (JWT claim) and
 
@@ -16,7 +17,8 @@ servers:
   description: Authz Core API
 tags:
 - name: Principal
-  description: Principal role assignment, attributes, effective rights, and authorization checks
+  description: Principal role assignment, attributes, effective rights, and authorization
+    checks
 security:
 - BearerAuth: []
 - ApiKeyHeader: []
@@ -26,7 +28,8 @@ paths:
       tags:
       - Principal
       summary: Assign role to principal
-      description: 'Assigns a role to a principal (sub) within an application, organisation, and tenant scope.
+      description: 'Assigns a role to a principal (sub) within an application, organisation,
+        and tenant scope.
 
         SaaS customers assign roles within their own org; platform admins assign globally.
 
@@ -40,6 +43,13 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AssignPrincipalRoleRequest'
+            examples:
+              default:
+                summary: Example for assign_principal_role
+                value:
+                  principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                  role_id: 550e8400-e29b-41d4-a716-446655440010
+                  tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
       responses:
         '204':
           description: Assigned
@@ -69,7 +79,8 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
     delete:
       tags:
       - Principal
@@ -128,7 +139,8 @@ paths:
       tags:
       - Principal
       summary: Get effective roles and permissions for principal
-      description: 'Returns the effective roles and permissions for a principal within an application,
+      description: 'Returns the effective roles and permissions for a principal within
+        an application,
 
         organisation, and tenant scope. Used by Identity service for JWT enrichment.
 
@@ -175,7 +187,8 @@ paths:
       tags:
       - Principal
       summary: Check if principal is allowed to perform action on resource
-      description: 'Real-time authorization check. Consuming microservices call this to verify
+      description: 'Real-time authorization check. Consuming microservices call this
+        to verify
 
         a user has permission for a specific action on a resource.
 
@@ -191,12 +204,26 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AuthorizeRequest'
+            examples:
+              default:
+                summary: Example for authorize
+                value:
+                  principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                  resource: user:123
+                  action: read
+                  tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
       responses:
         '200':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthorizeResponse'
+              examples:
+                default:
+                  summary: Example for authorize 200
+                  value:
+                    allowed: true
+                    reason: explicit_role_assignment
         '400':
           description: Invalid request
           content:

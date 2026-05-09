@@ -2,7 +2,8 @@ openapi: 3.1.0
 info:
   title: API Key Service
   version: 1.0.0
-  description: 'Machine-to-machine API key management and validation. Handles key creation, rotation,
+  description: 'Machine-to-machine API key management and validation. Handles key
+    creation, rotation,
 
     revocation, and real-time validation for M2M consumers.
 
@@ -64,7 +65,8 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
   /current:
     get:
       tags:
@@ -198,7 +200,8 @@ paths:
       tags:
       - APIKeys
       summary: Validate API key
-      description: 'Validates an API key and returns the associated user, organisation, and permissions.
+      description: 'Validates an API key and returns the associated user, organisation,
+        and permissions.
 
         Used by consuming services to authenticate incoming API key requests.
 
@@ -208,7 +211,8 @@ paths:
         If specified and the key doesn''t match the requested type, returns 401.
 
 
-        Endpoints `/validate/personal` and `/validate/org` are deprecated — use `/validate?key_type=personal` or `/validate?key_type=org` instead.
+        Endpoints `/validate/personal` and `/validate/org` are deprecated — use `/validate?key_type=personal`
+        or `/validate?key_type=org` instead.
 
 
 
@@ -248,13 +252,15 @@ paths:
           - personal
           - org
           default: any
-        description: Filter validation to a specific key type. "any" validates all key types.
+        description: Filter validation to a specific key type. "any" validates all
+          key types.
   /usage:
     get:
       tags:
       - APIKeys
       summary: Fetch API key usage
-      description: 'Returns the number of API key validation calls for a given key/user/org on a specific date.
+      description: 'Returns the number of API key validation calls for a given key/user/org
+        on a specific date.
 
 
 
@@ -298,7 +304,8 @@ paths:
       tags:
       - APIKeys
       summary: 'DEPRECATED: Validate personal API key'
-      description: 'DEPRECATED — Use POST /validate?key_type=personal instead. Validates a personal (user-scoped) API key.
+      description: 'DEPRECATED — Use POST /validate?key_type=personal instead. Validates
+        a personal (user-scoped) API key.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -414,7 +421,8 @@ paths:
       tags:
       - APIKeys
       summary: Import API keys from external system
-      description: 'Bulk imports API keys from another system. Each key is created with its
+      description: 'Bulk imports API keys from another system. Each key is created
+        with its
 
         original secret hash, metadata, and expiration. Platform admin only.
 
@@ -451,7 +459,8 @@ paths:
       tags:
       - APIKeys
       summary: 'DEPRECATED: Validate organisation API key'
-      description: 'DEPRECATED — Use POST /validate?key_type=org instead. Validates an organisation-scoped API key.
+      description: 'DEPRECATED — Use POST /validate?key_type=org instead. Validates
+        an organisation-scoped API key.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -538,7 +547,8 @@ components:
           type: array
           items:
             type: string
-          description: 'Permission codes to include in the key. If omitted, includes all permissions
+          description: 'Permission codes to include in the key. If omitted, includes
+            all permissions
 
             for the user/org scope.
 
@@ -592,7 +602,8 @@ components:
           description: Unique ID of the created API key
         api_key:
           type: string
-          description: 'The raw API key (secret). This is the ONLY time the secret is returned.
+          description: 'The raw API key (secret). This is the ONLY time the secret
+            is returned.
 
             Store it securely — it cannot be retrieved again.
 
@@ -855,7 +866,8 @@ components:
                 description: Owner user ID or org ID
               secret_hash:
                 type: string
-                description: Pre-computed hash of the API key secret (not the raw secret)
+                description: Pre-computed hash of the API key secret (not the raw
+                  secret)
               permissions:
                 type: array
                 items:

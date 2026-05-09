@@ -38,7 +38,8 @@ paths:
       tags:
       - Users
       summary: Create user (idempotent by email)
-      description: 'Creates a new user. Idempotent if email matches existing user — returns existing user.
+      description: 'Creates a new user. Idempotent if email matches existing user
+        — returns existing user.
 
         SaaS customers must provide their own `org_id`; platform admins may omit it.
 
@@ -52,6 +53,16 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateUserRequest'
+            examples:
+              default:
+                summary: Example for create_user
+                value:
+                  email: newuser@example.com
+                  first_name: New
+                  last_name: User
+                  phone: '+1234567890'
+                  username: newuser
+                  send_welcome_email: true
       responses:
         '201':
           description: User created
@@ -59,6 +70,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+              examples:
+                default:
+                  summary: Example for create_user 201
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: newuser@example.com
+                    email_verified: false
+                    phone_verified: false
+                    phone: '+1234567890'
+                    username: newuser
+                    first_name: New
+                    last_name: User
+                    avatar_url: null
+                    role: user
+                    is_active: true
+                    created_at: '2024-01-15T10:30:00Z'
         '200':
           description: User already exists (idempotent)
           content:
@@ -82,7 +109,8 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
   /users/{user_id}:
     delete:
       tags:
@@ -123,7 +151,8 @@ paths:
       summary: Paginated query for users with filters
       description: 'Returns paginated list of users matching the given filters.
 
-        Platform admins can search across all users; SaaS customers can only search their own org.
+        Platform admins can search across all users; SaaS customers can only search
+        their own org.
 
 
 
@@ -284,7 +313,8 @@ paths:
       tags:
       - Users
       summary: Fetch user in employee mode
-      description: 'Returns user info filtered to the caller''s organisation context only.
+      description: 'Returns user info filtered to the caller''s organisation context
+        only.
 
         Used for B2B directory lookup — omits orgs the user is not part of.
 
@@ -322,7 +352,8 @@ paths:
       tags:
       - PasswordSecurity
       summary: Disable/block user
-      description: 'Prevents user from logging in. Platform admin or SaaS with org context.
+      description: 'Prevents user from logging in. Platform admin or SaaS with org
+        context.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -382,7 +413,8 @@ paths:
       tags:
       - Sessions
       summary: Logout all user sessions
-      description: 'Invalidates all active sessions for this user. Platform admin or user themselves.
+      description: 'Invalidates all active sessions for this user. Platform admin
+        or user themselves.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -444,7 +476,8 @@ paths:
       summary: Clear password (convert to SSO-only)
       description: 'Removes the user''s password, converting them to SSO-only authentication.
 
-        Useful when an organisation enforces SAML SSO and users should no longer use email/password.
+        Useful when an organisation enforces SAML SSO and users should no longer use
+        email/password.
 
         Platform admin only.
 
@@ -579,7 +612,8 @@ paths:
       tags:
       - PasswordSecurity
       summary: Set up TOTP MFA
-      description: 'Generates a TOTP secret QR code for the user to scan with an authenticator app.
+      description: 'Generates a TOTP secret QR code for the user to scan with an authenticator
+        app.
 
         Requires the user''s current password for verification.
 
@@ -687,7 +721,8 @@ paths:
       tags:
       - PasswordSecurity
       summary: Add phone number for user
-      description: 'Adds a phone number to the user''s profile and sends an SMS verification code.
+      description: 'Adds a phone number to the user''s profile and sends an SMS verification
+        code.
 
         Phone must be verified before it can be used for authentication.
 
@@ -822,7 +857,8 @@ paths:
       tags:
       - SocialLogin
       summary: Link social account to user
-      description: 'Redirects user to OAuth provider to link an additional social account.
+      description: 'Redirects user to OAuth provider to link an additional social
+        account.
 
         Requires authentication (user must be logged in).
 
@@ -851,6 +887,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LinkSocialAccountResponse'
+              examples:
+                default:
+                  summary: Example for link_social_account 200
+                  value:
+                    redirect_url: https://github.com/login/oauth/authorize?client_id=abc
+                    state: csrf-token-xyz
         '400':
           description: Bad Request - Invalid provider or user_id
           content:
@@ -924,7 +966,8 @@ paths:
       tags:
       - UserMigration
       summary: Migrate user from external auth system
-      description: 'Imports a user from another authentication system. Includes hash+salt password import,
+      description: 'Imports a user from another authentication system. Includes hash+salt
+        password import,
 
         extra properties, legacy user ID mapping. Platform admin only.
 
@@ -961,7 +1004,8 @@ paths:
       tags:
       - UserMigration
       summary: Bulk migrate passwords (hash+salt)
-      description: 'Imports passwords from another system. Password hash format: $2a$14$... (bcrypt).
+      description: 'Imports passwords from another system. Password hash format: $2a$14$...
+        (bcrypt).
 
         Platform admin only.
 
@@ -994,7 +1038,8 @@ paths:
       tags:
       - Sessions
       summary: OAuth2 logout endpoint
-      description: 'Invalidates the user''s session and optionally triggers post-logout redirect.
+      description: 'Invalidates the user''s session and optionally triggers post-logout
+        redirect.
 
 
 
@@ -1046,7 +1091,8 @@ components:
           description: Error message
     CreateUserRequest:
       type: object
-      description: 'Creates a new user. Idempotent: if an existing user with the same email
+      description: 'Creates a new user. Idempotent: if an existing user with the same
+        email
 
         is found, returns the existing user instead of creating a duplicate.
 
@@ -1063,7 +1109,8 @@ components:
         email_confirmed:
           type: boolean
           default: false
-          description: 'If true, the email is considered pre-verified (no confirmation email sent).
+          description: 'If true, the email is considered pre-verified (no confirmation
+            email sent).
 
             Useful for platform-admin-created users or migrated accounts.
 
@@ -1188,7 +1235,8 @@ components:
           type: string
           nullable: true
           maxLength: 50
-          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator", "Work phone").
+          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator",
+            "Work phone").
 
             Shown in MFA management UI.
 
@@ -1200,7 +1248,8 @@ components:
         name: Google Authenticator
     MfaSetupResponse:
       type: object
-      description: 'Returns the TOTP provisioning URI that can be rendered as a QR code.
+      description: 'Returns the TOTP provisioning URI that can be rendered as a QR
+        code.
 
         The user must scan the QR code and enter the resulting code to complete setup.
 
@@ -1217,7 +1266,8 @@ components:
             '
         secret:
           type: string
-          description: 'Base32-encoded TOTP secret (also available in the provisioning URI).
+          description: 'Base32-encoded TOTP secret (also available in the provisioning
+            URI).
 
             Shown as a fallback if the QR code cannot be scanned.
 
@@ -1250,13 +1300,15 @@ components:
         session_id:
           type: string
           nullable: true
-          description: 'Session ID from MFA_REQUIRED login response. Required for step 2 of login.
+          description: 'Session ID from MFA_REQUIRED login response. Required for
+            step 2 of login.
 
             '
         challenge_id:
           type: string
           nullable: true
-          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn factor type).
+          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn
+            factor type).
 
             '
       example:
@@ -1543,7 +1595,8 @@ components:
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
-          description: Optional human-identifiable username (alphanumeric, underscore, hyphen)
+          description: Optional human-identifiable username (alphanumeric, underscore,
+            hyphen)
         picture_url:
           type: string
           nullable: true
@@ -1554,7 +1607,8 @@ components:
           additionalProperties: true
           description: 'Custom key-value metadata attached to the user.
 
-            Platform admins can set arbitrary properties; SaaS customers limited to org-scoped keys.
+            Platform admins can set arbitrary properties; SaaS customers limited to
+            org-scoped keys.
 
             '
         locked:
@@ -1623,8 +1677,11 @@ components:
         redirect_url:
           type: string
           format: uri
-          description: URL to redirect the user's browser to the OAuth provider for linking
+          description: URL to redirect the user's browser to the OAuth provider for
+            linking
         state:
           type: string
-          description: Unique state token for CSRF protection, must be included in the callback
-      description: Response containing OAuth provider redirect URL and CSRF state token
+          description: Unique state token for CSRF protection, must be included in
+            the callback
+      description: Response containing OAuth provider redirect URL and CSRF state
+        token
