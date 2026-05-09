@@ -16,11 +16,11 @@ pub struct Request {
     #[serde(rename = "reason")]
     pub reason: Option<String>,
 
-    #[serde(rename = "X-Tenant-ID")]
-    pub x_tenant_id: String,
-
     #[serde(rename = "user_id")]
     pub user_id: String,
+
+    #[serde(rename = "X-Tenant-ID")]
+    pub x_tenant_id: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -59,20 +59,6 @@ impl TryFrom<HandlerRequest> for Request {
             );
         } else {
             return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
-        }
-
-        if let Some(v) = req.get_path_param("user_id") {
-            data_map.insert(
-                "user_id".to_string(),
-                brrtrouter::server::request::decode_param_value(
-                    v,
-                    Some(&serde_json::json!({"format":"uuid","type":"string"})),
-                    None,
-                    None,
-                ),
-            );
-        } else {
-            return Err(anyhow::anyhow!("Missing required parameter 'user_id'"));
         }
 
         if let Some(body) = req.body {

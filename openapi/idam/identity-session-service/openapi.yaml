@@ -215,99 +215,6 @@ paths:
           type: string
           format: uuid
         description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
-  /admin/users/{user_id}/impersonate:
-    post:
-      tags:
-      - Impersonation
-      summary: Impersonate user
-      description: 'Admin switches to user session for debugging/support. Creates a new session for the target user.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: admin_impersonate
-      security:
-      - BearerAuth: []
-      parameters:
-      - *id001
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ImpersonateRequest'
-      responses:
-        '200':
-          description: Impersonation successful, new session created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ImpersonateResponse'
-        '403':
-          description: Forbidden (not an admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Forbidden (insufficient permissions)
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-  /admin/users/{user_id}/impersonate/restore:
-    post:
-      tags:
-      - Impersonation
-      summary: Restore admin session
-      description: 'Switch back from impersonated user session to admin session.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: admin_restore_impersonation
-      security:
-      - BearerAuth: []
-      parameters:
-      - *id001
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ImpersonateRestoreRequest'
-      responses:
-        '200':
-          description: Restored to admin session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ImpersonateResponse'
-        '403':
-          description: Forbidden (not impersonating or not admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Forbidden (insufficient permissions)
   /api/v1/identity/users/me/token:
     post:
       tags:
@@ -555,6 +462,87 @@ paths:
       parameters:
       - *id001
       description: Requires `X-Tenant-ID` header for tenant resolution.
+  /admin/impersonate:
+    post:
+      tags:
+      - Impersonation
+      summary: Impersonate user
+      description: 'Admin switches to user session for debugging/support. Creates a new session for the target user.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: admin_impersonate
+      security:
+      - BearerAuth: []
+      parameters:
+      - *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImpersonateRequest'
+      responses:
+        '200':
+          description: Impersonation successful, new session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImpersonateResponse'
+        '403':
+          description: Forbidden (not an admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Forbidden (insufficient permissions)
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+  /admin/impersonate/restore:
+    post:
+      tags:
+      - Impersonation
+      summary: Restore admin session
+      description: 'Switch back from impersonated user session to admin session.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: admin_restore_impersonation
+      security:
+      - BearerAuth: []
+      parameters:
+      - *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImpersonateRestoreRequest'
+      responses:
+        '200':
+          description: Restored to admin session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImpersonateResponse'
+        '403':
+          description: Forbidden (not impersonating or not admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Forbidden (insufficient permissions)
 components:
   parameters:
     Page:
@@ -900,6 +888,7 @@ components:
       type: object
       required:
       - actor_user_id
+      - user_id
       properties:
         actor_user_id:
           type: string
@@ -911,6 +900,10 @@ components:
           - debug
           - support
           description: Audit reason for impersonation
+        user_id:
+          type: string
+          format: uuid
+          description: The target user to impersonate. This replaces the path parameter for security (prevents leaking user_id in access logs/CDN keys)
     ImpersonateResponse:
       type: object
       required:
@@ -941,7 +934,7 @@ components:
         admin_user_id:
           type: string
           format: uuid
-          description: Original admin user ID
+          description: The original admin user ID (replaces path parameter for security)
     JWKS:
       type: object
       required:
