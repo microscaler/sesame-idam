@@ -1569,6 +1569,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScimUserListResponse'
+        '400':
+          description: Invalid filter, malformed request, or unsupported SCIM query parameter
+          content: &id002
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
+        '401':
+          description: Unauthorized — valid SCIM credentials required
+          content: *id002
+        '403':
+          description: Forbidden — insufficient permissions for SCIM list operations
+          content: *id002
+        '404':
+          description: Not found — org not found or SCIM provisioning disabled
+          content: *id002
+        '409':
+          description: Conflict — unsupported filter combination
+          content: *id002
     post:
       tags:
       - SCIM
@@ -1594,23 +1612,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ScimUser'
         '400':
-          description: Invalid SCIM request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScimError'
+          description: Invalid request body — malformed SCIM user or invalid attribute values
+          content: *id002
         '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Unauthorized — valid SCIM credentials required
+          content: *id002
         '409':
-          description: Duplicate (user already exists)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScimError'
+          description: Conflict — duplicate user (email or username already exists)
+          content: *id002
+        '403':
+          description: Forbidden — insufficient permissions to create users
+          content: *id002
+        '404':
+          description: Not found — org not found or SCIM provisioning disabled
+          content: *id002
       parameters:
       - *id001
   /{org_id}/scim/users/{user_id}:
@@ -1647,23 +1662,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ScimUser'
         '400':
-          description: Invalid SCIM request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScimError'
+          description: Invalid request body — malformed SCIM user or unsupported attribute mutation
+          content: *id002
         '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScimError'
+          description: Not found — user not found or org not found
+          content: *id002
         '409':
-          description: Conflict (attribute uniqueness violation)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScimError'
+          description: Conflict — version mismatch (etag) or duplicate attribute
+          content: *id002
+        '401':
+          description: Unauthorized — valid SCIM credentials required
+          content: *id002
+        '403':
+          description: Forbidden — insufficient permissions to update user
+          content: *id002
     delete:
       tags:
       - SCIM
@@ -1687,11 +1699,20 @@ paths:
         '204':
           description: User deleted
         '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScimError'
+          description: Not found — user not found or org not found
+          content: *id002
+        '400':
+          description: Invalid filter — malformed delete request
+          content: *id002
+        '401':
+          description: Unauthorized — valid SCIM credentials required
+          content: *id002
+        '403':
+          description: Forbidden — insufficient permissions to delete user
+          content: *id002
+        '409':
+          description: Conflict — user has active dependencies preventing deletion
+          content: *id002
   /{org_id}/users/{user_id}:
     delete:
       tags:
