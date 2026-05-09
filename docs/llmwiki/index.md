@@ -25,6 +25,7 @@ Data structures and database entities across all 6 microservices.
 | [entity-application](./entities/entity-application.md) | org-mgmt | partially-verified |
 | [entity-mfa-device](./entities/entity-mfa-device.md) | identity-user-mgmt-service | partially-verified |
 | [entity-audit-log](./entities/entity-audit-log.md) | all services | partially-verified |
+|| [entity-tenant](./entities/entity-tenant.md) | all services | partially-verified |
 | [entity-webhook](./entities/entity-webhook.md) | org-mgmt | partially-verified |
 
 ## Topics

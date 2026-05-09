@@ -57,7 +57,7 @@ Six Rust microservices, each with `gen/` (BRRTRouter-generated from OpenAPI) + `
 | api-keys | `microservices/idam/api-keys/` | 8103 | HIGH — M2M key validation, archiving | 10 |
 | org-mgmt | `microservices/idam/org-mgmt/` | 8104 | LOW — org lifecycle, SSO/SCIM, webhooks, SCIM | 34 |
 
-OpenAPI specs: `openapi/{service}/openapi.yaml` (6 directories, no canonical/merged spec).
+OpenAPI specs: `openapi/idam/{service}/openapi.yaml` (6 directories, no canonical/merged spec).
 Workspace: `microservices/Cargo.toml` (all 12 crates registered: gen+impl for each service).
 Shared tooling: `tooling/` (Python, ruff, pre-commit).
 
