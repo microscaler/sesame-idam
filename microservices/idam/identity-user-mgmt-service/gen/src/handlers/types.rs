@@ -244,6 +244,13 @@ pub struct LinkSocialAccountRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct LinkSocialAccountResponse {
+    pub redirect_url: String,
+
+    pub state: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LogoutAllSessionsResponse {
     pub error: String,
 

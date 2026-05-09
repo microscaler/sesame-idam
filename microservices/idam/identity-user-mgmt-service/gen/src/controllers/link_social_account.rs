@@ -6,5 +6,8 @@ use brrtrouter_macros::handler;
 
 #[handler(LinkSocialAccountController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {}
+    Response {
+        redirect_url: "example".to_string(),
+        state: "example".to_string(),
+    }
 }
