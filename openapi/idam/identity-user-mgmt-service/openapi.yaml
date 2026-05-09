@@ -236,6 +236,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserQueryResponse'
+              examples:
+                default:
+                  summary: Example response 200 for query_users
+                  value:
+                    users:
+                    - user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                      email: alice@example.com
+                      email_verified: true
+                      phone_verified: false
+                      phone: '+1234567890'
+                      username: alice
+                      first_name: Alice
+                      last_name: Smith
+                      avatar_url: null
+                      role: user
+                      is_active: true
+                      created_at: '2024-01-01T00:00:00Z'
+                    - user_id: 42d52c27-d392-55bf-0713-5b158f4cf44e
+                      email: bob@example.com
+                      email_verified: true
+                      phone_verified: true
+                      phone: '+1987654321'
+                      username: bob
+                      first_name: Bob
+                      last_name: Jones
+                      avatar_url: https://example.com/avatars/bob.png
+                      role: admin
+                      is_active: true
+                      created_at: '2024-01-02T00:00:00Z'
+                    total: 2
+                    page: 1
+                    limit: 20
         '400':
           description: Invalid request
           content:
@@ -270,6 +302,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+              examples:
+                default:
+                  summary: Example response 200 for fetch_user_by_email
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    phone: '+1234567890'
+                    username: alice
+                    first_name: Alice
+                    last_name: Smith
+                    avatar_url: https://example.com/avatars/alice.png
+                    role: user
+                    is_active: true
+                    created_at: '2024-01-01T00:00:00Z'
+                    updated_at: '2024-01-15T10:30:00Z'
         '404':
           description: Not found
           content:
@@ -298,6 +347,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+              examples:
+                default:
+                  summary: Example response 200 for fetch_user_by_username
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    phone: '+1234567890'
+                    username: alice
+                    first_name: Alice
+                    last_name: Smith
+                    avatar_url: https://example.com/avatars/alice.png
+                    role: user
+                    is_active: true
+                    created_at: '2024-01-01T00:00:00Z'
+                    updated_at: '2024-01-15T10:30:00Z'
         '404':
           description: Not found
           content:
@@ -338,6 +404,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EmployeeResponse'
+              examples:
+                default:
+                  summary: Example response 200 for fetch_employee
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    employee_id: EMP-001
+                    email: alice@example.com
+                    first_name: Alice
+                    last_name: Smith
+                    department: Engineering
+                    title: Senior Developer
         '404':
           description: Not found
           content:
@@ -637,6 +714,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/MfaSetupRequest'
+            examples:
+              default:
+                summary: Example request for setup_user_mfa_totp
+                value:
+                  password: SecureP@ss123!
       responses:
         '200':
           description: TOTP secret generated
@@ -644,6 +726,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MfaSetupResponse'
+              examples:
+                default:
+                  summary: Example response 200 for setup_user_mfa_totp
+                  value:
+                    mfa_required: true
+                    secret: JBSWY3DPEHPK3PXP
+                    qr_code: data:image/png;base64,example
+                    backup_codes:
+                    - '12345678'
+                    - '87654321'
+                    - '11111111'
+                    - '22222222'
+                    - '33333333'
         '400':
           description: Invalid password or MFA already configured
           content:
@@ -691,6 +786,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/MfaVerifyRequest'
+            examples:
+              default:
+                summary: Example request for verify_user_mfa
+                value:
+                  password: SecureP@ss123!
+                  code: '123456'
       responses:
         '200':
           description: MFA verified
@@ -698,6 +799,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default:
+                  summary: Example response 200 for verify_user_mfa
+                  value:
+                    mfa_required: false
+                    success: true
+                    message: MFA verified successfully
         '400':
           description: Invalid code
           content:
@@ -744,6 +852,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PhoneNumberRequest'
+            examples:
+              default:
+                summary: Example request for setup_user_phone
+                value:
+                  phone: '+1234567890'
       responses:
         '200':
           description: Phone number added, SMS code sent
@@ -789,6 +902,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PhoneVerificationRequest'
+            examples:
+              default:
+                summary: Example request for verify_user_phone
+                value:
+                  phone: '+1234567890'
+                  code: '654321'
       responses:
         '200':
           description: Phone number verified
@@ -830,6 +949,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateEmailRequest'
+            examples:
+              default:
+                summary: Example request for update_user_email
+                value:
+                  email: alice.j@example.com
       responses:
         '200':
           description: Email updated
@@ -931,6 +1055,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenListResponse'
+              examples:
+                default:
+                  summary: Example response 200 for fetch_user_oauth_tokens
+                  value:
+                    oauth_tokens:
+                    - id: 550e8400-e29b-41d4-a716-446655440001
+                      provider: github
+                      provider_user_id: '12345'
+                      scope: repo,user
+                      created_at: '2024-01-10T00:00:00Z'
+                      expires_at: null
+                    - id: 550e8400-e29b-41d4-a716-446655440002
+                      provider: google
+                      provider_user_id: '67890'
+                      scope: email,profile
+                      created_at: '2024-01-12T00:00:00Z'
+                      expires_at: '2024-07-12T00:00:00Z'
       description: Requires `X-Tenant-ID` header for tenant resolution.
   /users/{user_id}/social/tokens/{provider}/refresh:
     get:
@@ -961,6 +1102,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OAuthTokenResponse'
+              examples:
+                default:
+                  summary: Example response 200 for fetch_fresh_oauth_token
+                  value:
+                    token: gho_new123abc456
+                    provider: github
+                    expires_in: 3600
   /users/migrate:
     post:
       tags:
@@ -981,6 +1129,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/MigrateUserRequest'
+            examples:
+              default:
+                summary: Example request for migrate_user
+                value:
+                  source_provider: legacy
+                  source_user_id: LEG-001
       responses:
         '201':
           description: User migrated
@@ -988,6 +1142,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+              examples:
+                default:
+                  summary: Example response 201 for migrate_user
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    migrated: true
+                    email: alice@example.com
+                    migrated_at: '2024-01-15T10:30:00Z'
         '400':
           description: Invalid request
           content:
