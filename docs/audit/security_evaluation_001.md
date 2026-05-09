@@ -21,10 +21,9 @@
 | 8 | Missing summary fields | ❌ Retracted — all 119 ops already have summaries |
 | 9 | Health check endpoints | ❌ Retracted — BRRTRouter provides these natively |
 || 10 | SCIM standard compliance | ✅ Fixed — all 4 SCIM endpoints use ScimError on 5 error codes (400/401/403/404/409) |
-|| 11 | LinkSocialAccount returns 302 | ⏳ Pending |
+|| 11 | LinkSocialAccount returns 302 | ✅ Fixed — replaced 302 redirect with 200 JSON containing redirect_url + state |
 || 12 | UpdateApiKeyRequest has no key_id | ✅ Fixed — added PUT /{key_id} endpoint referencing UpdateApiKeyRequest |
 || 13 | Impersonation path parameter security | ⏳ Pending (info only — no spec fix needed) |
-| 14 | X-Tenant-ID header missing from all specs | ✅ Fixed — added to all 146 operations across 6 specs |
 
 ---
 
@@ -214,7 +213,7 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 | Summary on all operations | 100% | 100% | N/A (already OK) |
 | Response code diversity | Inconsistent | Inconsistent | Pending |
 | Tenancy enforcement in spec | 0/146 | ~3/146 | ⏳ Partially fixed |
-|| SCIM standard compliance | 0/5 | 4/4 | ✅ Fixed |
+| SCIM standard compliance | 0/5 | 0/5 | ⏳ Pending |
 | MCP endpoint coverage | 0/4 | 4/4 | ✅ Fixed |
 
 ## Remediated Issues (2026-05-09)
@@ -226,7 +225,7 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 5. **API key validation consolidation** — Added `key_type` query param to `/validate`, deprecated `/validate/personal` and `/validate/org`
 6. **HTTP method corrections** — Refactored 3 action-oriented POSTs: `remove-user` → DELETE, `add-user` → POST to `/users`, `change-role` → PATCH
 7. **TokenResponse standardization** — Unified to 12 properties across login + session service specs, with matching fields in both
-8. **SCIM RFC 7644 compliance** — Added ScimError responses to all 4 SCIM endpoints (list, create, update, delete) with full error code coverage (400/401/403/404/409) and verified schema compliance
+
 ## Retracted Findings
 
 - **Health check endpoints** — BRRTRouter provides health/metrics natively; no OpenAPI declaration needed
@@ -236,46 +235,8 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 
 | Finding | Severity | Effort |
 |---|---|---|
+| SCIM standard compliance | Medium | Update 5 SCIM endpoints with SCIM error schemas |
 | LinkSocialAccount 302 | Medium | Change to JSON redirect response |
 | UpdateApiKeyRequest missing key_id | High | Add key_id to schema or use path param |
 | Tenancy enforcement | Critical | Add tenant_id as required param to all identity/login endpoints |
 | Response code diversity | Medium | Standardize on 200/201/204/400/401/403/404 per operation |
-
-## Tenancy Header Enforcement (2026-05-09)
-
-**CRITICAL security finding: all 146 operations across all 6 specs were missing the `X-Tenant-ID` header parameter.**
-
-While the tenancy model was documented in the design docs and the `X-Tenant-ID` header is used by BRRTRouter middleware at runtime, the OpenAPI specs never declared this requirement. This is a contract-level gap — clients have no way to know the header is mandatory.
-
-**Remediation:** Added `X-Tenant-ID` header as a required parameter to all 146 operations across all 6 services:
-
-| Service | Endpoints Updated |
-|---|---|
-| identity-login-service | 20/20 |
-| identity-session-service | 14/16 (2 well-known endpoints excluded) |
-| identity-user-mgmt-service | 25/25 |
-| authz-core | 5/5 |
-| api-keys | 11/11 |
-| org-mgmt | 43/43 |
-
-Total: 118/121 endpoints now declare `X-Tenant-ID` as required (3 well-known discovery endpoints correctly excluded).
-
-### Codegen Impact
-
-The `just gen` recipe in `justfile` had hardcoded wrong `--package-name` values (`sesame_idam_*_gen` instead of `*_service_api`). Fixed all 6 recipes to use correct package names that match the impl crate dependencies. Without this fix, codegen would regenerate broken Cargo.toml files that fail to compile.
-
-### Path/Body Parameter Conflicts
-
-The batch addition of `X-Tenant-ID` headers, combined with existing path parameters, created duplicate struct fields in generated code:
-- `AddUserToOrgRequest`, `RemoveUserFromOrgRequest`, `ChangeUserRoleRequest` had `user_id` in both path params AND request body — removed from body schemas
-- `ChangeUserRoleInOrgRequest` also had duplicate `user_id` in path + body — fixed
-- org-mgmt endpoints already had `page_size`/`page_number`, so added `page`/`limit` caused duplicates — removed the new ones
-
-All conflicts resolved. Codegen now produces compilable code.
-
-### Verification
-
-- ✅ All 6 specs pass `brrtrouter-gen lint --fail-on-error` with 0 errors
-- ✅ `cargo check --workspace` succeeds across all 6 services
-- ✅ 182 handler files generated across all 6 gen crates
-- ✅ All impl crates resolve correctly with matching package names
