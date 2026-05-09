@@ -241,3 +241,4 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 |---|---|---|
 | ApiKeyListResponse sorting/filtering | Low | Add sort/filter metadata to response schema |
 | LogoutRequest required fields documentation | Low | Document whether refresh_token in body is needed |
+| Impersonation path parameter security | Low | No spec fix needed — path params documented in security section |

@@ -27,6 +27,55 @@
   - `DELETE /{org_id}/users/{user_id}`: 200 → 204 (No Content)
 - **Result:** All specs now follow HTTP semantic conventions
 
+### Password Reset Token Expiry Fix
+- **Issue:** `POST /forgot-password` response only had `success` + `message` fields
+- **Fix:** Added `expires_in` (integer, minutes) and `token_type` (string, e.g. "reset") to response schema
+- **Benefit:** Clients can display token expiry info to users ("check your email within 15 minutes")
+
+### Audit Doc Status Updates
+- STATUS table: SCIM, LinkSocialAccount, UpdateApiKeyRequest, Response code diversity all marked ✅ Fixed
+- Pending Items: removed 4 items, only Impersonation path parameter remains (no spec fix needed)
+- Scorecard: Response code diversity, SCIM, Tenancy all marked ✅ Fixed
+- Remediated Issues: added items 8-10 (SCIM, LinkSocialAccount, Response codes)
+
+### Files Updated
+- `docs/audit/security_evaluation_001.md` — STATUS table, scorecard, pending items, remediated issues
+- `docs/llmwiki/log.md` — session log entry
+- `docs/llmwiki/entities/entity-organization.md` — stale endpoint paths fixed
+- `docs/llmwiki/reference/ref-api-surface.md` — stale paths + Membership tag section
+- `docs/llmwiki/index.md` — entity-tenant added (was missing from index)
+- `AGENTS.md` — OpenAPI path corrected from `openapi/{service}/` to `openapi/idam/{service}/`
+
+---
+
+
+## [2026-05-09] Session Log — Latest Fixes
+
+### SCIM RFC 7644 Compliance Fix
+- **Issue:** All 4 SCIM endpoints (list, create, update, delete) were using generic `ErrorResponse` for error responses instead of RFC 7644 `ScimError`
+- **Fix:** Updated all 4 SCIM endpoints to use `ScimError` on all 5 error codes (400/401/403/404/409)
+- **Schema:** `ScimError` already had correct RFC 7643 scimType enum values (1-8), just needed attachment to endpoints
+- **Verification:** brrtrouter-gen lint passes, cargo check passes
+
+### LinkSocialAccount 302 → JSON Redirect
+- **Issue:** `POST /users/{user_id}/social/link` returned HTTP 302 redirect without JSON body
+- **Fix:** Replaced with 200 JSON response containing:
+  - `redirect_url` — URI to OAuth provider for linking
+  - `state` — CSRF state token for callback validation
+  - Added 400/401/404 error responses with `ErrorResponse` schema
+- **Benefit:** SPA/mobile clients can handle redirect programmatically instead of browser-only navigation
+
+### Response Code Diversity Fix
+- **Issue:** Success codes were inconsistent across specs
+- **Fixes applied:**
+  - `POST /login`: 202 → 201 (Created)
+  - `POST /register`: removed duplicate 202 (201 already present)
+  - `POST /verify/dual-otp`: 206 → 201 (Created)
+  - `DELETE /users/{user_id}/password`: 200 → 204 (No Content)
+  - `DELETE /{org_id}/pending-invites`: 200 → 204 (No Content)
+  - `DELETE /{org_id}/users/{user_id}`: 200 → 204 (No Content)
+- **Result:** All specs now follow HTTP semantic conventions
+
 ### Audit Doc Status Updates
 - STATUS table: SCIM, LinkSocialAccount, UpdateApiKeyRequest, Response code diversity all marked ✅ Fixed
 - Pending Items: removed 4 items, only Impersonation path parameter remains (no spec fix needed)
