@@ -845,8 +845,30 @@ paths:
             schema:
               $ref: '#/components/schemas/LinkSocialAccountRequest'
       responses:
-        '302':
-          description: Redirect to provider for linking
+        '200':
+          description: OK - Redirect URL generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkSocialAccountResponse'
+        '400':
+          description: Bad Request - Invalid provider or user_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found - User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /users/{user_id}/social/tokens:
     get:
       tags:
@@ -1592,3 +1614,17 @@ components:
       example:
         error: invalid_request
         error_description: Bad request (validation error)
+    LinkSocialAccountResponse:
+      type: object
+      required:
+      - redirect_url
+      - state
+      properties:
+        redirect_url:
+          type: string
+          format: uri
+          description: URL to redirect the user's browser to the OAuth provider for linking
+        state:
+          type: string
+          description: Unique state token for CSRF protection, must be included in the callback
+      description: Response containing OAuth provider redirect URL and CSRF state token

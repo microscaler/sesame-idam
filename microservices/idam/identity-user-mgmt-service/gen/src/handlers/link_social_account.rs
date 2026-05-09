@@ -25,7 +25,13 @@ pub struct Request {
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {}
+pub struct Response {
+    #[serde(rename = "redirect_url")]
+    pub redirect_url: String,
+
+    #[serde(rename = "state")]
+    pub state: String,
+}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;
