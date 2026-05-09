@@ -11,9 +11,11 @@ use crate::handlers::types::ApiKey;
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     Response {
         current_page: Some(42),
+        filters_applied: Some(vec![]),
         has_more_results: Some(true),
         keys: Some(vec![]),
         page_size: Some(42),
+        sort_order: Some("example".to_string()),
         total_keys: Some(42),
     }
 }
