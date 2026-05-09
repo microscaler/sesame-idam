@@ -225,6 +225,9 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 5. **API key validation consolidation** — Added `key_type` query param to `/validate`, deprecated `/validate/personal` and `/validate/org`
 6. **HTTP method corrections** — Refactored 3 action-oriented POSTs: `remove-user` → DELETE, `add-user` → POST to `/users`, `change-role` → PATCH
 7. **TokenResponse standardization** — Unified to 12 properties across login + session service specs, with matching fields in both
+8. **SCIM RFC 7644 compliance** — Added ScimError responses to all 4 SCIM endpoints (list, create, update, delete) with full error code coverage (400/401/403/404/409) and verified schema compliance
+9. **LinkSocialAccount 302** — Replaced 302 redirect with 200 JSON response containing redirect_url and state fields
+10. **Response code diversity** — Standardized success codes: POST creates → 201, DELETE → 204, removed non-standard 202/206 |
 
 ## Retracted Findings
 
@@ -235,8 +238,4 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 
 | Finding | Severity | Effort |
 |---|---|---|
-| SCIM standard compliance | Medium | Update 5 SCIM endpoints with SCIM error schemas |
-| LinkSocialAccount 302 | Medium | Change to JSON redirect response |
-| UpdateApiKeyRequest missing key_id | High | Add key_id to schema or use path param |
-| Tenancy enforcement | Critical | Add tenant_id as required param to all identity/login endpoints |
-| Response code diversity | Medium | Standardize on 200/201/204/400/401/403/404 per operation |
+| Impersonation path parameter security | Low | No spec fix needed — path params are documented in security section |
