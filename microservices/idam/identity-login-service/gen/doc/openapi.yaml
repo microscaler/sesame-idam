@@ -440,9 +440,23 @@ paths:
                   success:
                     type: boolean
                     example: true
+                    description: Whether the request was accepted
                   message:
                     type: string
                     example: If the email is registered, a reset link has been sent
+                    description: Human-readable message for the user
+                  expires_in:
+                    type: integer
+                    description: Token expiry time in minutes (e.g., 15)
+                    example: 15
+                  token_type:
+                    type: string
+                    example: reset
+                    description: Type of token issued (helps clients handle display)
+                required:
+                - success
+                - message
+                description: Password reset request response with token expiry information
         '400':
           description: Bad request
           content:

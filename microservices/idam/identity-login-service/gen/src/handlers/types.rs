@@ -11,9 +11,13 @@ pub struct AuthForgotPasswordRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthForgotPasswordResponse {
+    pub expires_in: i32,
+
     pub message: String,
 
     pub success: bool,
+
+    pub token_type: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

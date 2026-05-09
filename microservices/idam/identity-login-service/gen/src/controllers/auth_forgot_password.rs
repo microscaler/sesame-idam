@@ -7,7 +7,9 @@ use brrtrouter_macros::handler;
 #[handler(AuthForgotPasswordController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     Response {
-        message: Some("example".to_string()),
-        success: Some(true),
+        expires_in: Some(42),
+        message: "example".to_string(),
+        success: true,
+        token_type: Some("example".to_string()),
     }
 }
