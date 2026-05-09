@@ -6,6 +6,30 @@ use brrtrouter_macros::handler;
 
 #[handler(SignupValidateController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+    // Example response:
+    // {
+    //   "allowed": true,
+    //   "email_exists": false,
+    //   "phone_exists": false,
+    //   "reason": null,
+    //   "suggested_username": "alice_new"
+    // }
+    match serde_json::from_str::<Response>(
+        r###"{
+  "allowed": true,
+  "email_exists": false,
+  "phone_exists": false,
+  "reason": null,
+  "suggested_username": "alice_new"
+}"###,
+    ) {
+        Ok(parsed) => return parsed,
+        Err(e) => {
+            eprintln!("Failed to parse mock example JSON into Response: {}", e);
+            // Fallback to empty default structs below
+        }
+    }
+
     Response {
         allowed: true,
         reasons: Some(vec![]),

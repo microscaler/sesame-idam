@@ -40,7 +40,8 @@ paths:
       tags:
       - AuthFlows
       summary: Login with password
-      description: 'Authenticate with email+password. Returns access token and refresh token.
+      description: 'Authenticate with email+password. Returns access token and refresh
+        token.
 
         If MFA is enabled on the account, returns 202 with MFA verification flow.
 
@@ -55,6 +56,13 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
+            examples:
+              default:
+                summary: Example for auth_login
+                value:
+                  email: alice@example.com
+                  password: SecureP@ss123!
+                  organization_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
       responses:
         '200':
           description: Login successful
@@ -62,6 +70,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default:
+                  summary: Example for auth_login 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20iLCJvcmdfaWQiOiIxMTg5YzQ0NCJ9.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid profile email
         '400':
           description: Bad request (validation error)
           content:
@@ -80,6 +104,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MfaRequiredResponse'
+              examples:
+                default:
+                  summary: Example for auth_login 201
+                  value:
+                    mfa_required: true
+                    challenge_type: totp
+                    session_id: 550e8400-e29b-41d4-a716-446655440000
+                    expires_in: 300
       parameters:
       - &id001
         name: X-Tenant-ID
@@ -88,7 +120,8 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
   /login/email-otp:
     post:
       tags:
@@ -109,6 +142,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/EmailOTPRequest'
+            examples:
+              default:
+                summary: Example for login_email_otp
+                value:
+                  email: alice@example.com
       responses:
         '200':
           description: OTP sent successfully
@@ -151,6 +189,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/EmailOTPVerifyRequest'
+            examples:
+              default:
+                summary: Example for verify_email_otp
+                value:
+                  email: alice@example.com
+                  code: '123456'
       responses:
         '200':
           description: Email verified, tokens issued
@@ -158,6 +202,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default:
+                  summary: Example for verify_email_otp 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1vdHA
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
         '400':
           description: Invalid or expired code
           content:
@@ -172,7 +232,8 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Required for resolving the user to the correct tenant context.
+        description: Tenant identifier. Required for resolving the user to the correct
+          tenant context.
   /login/phone-otp:
     post:
       tags:
@@ -193,6 +254,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PhoneOTPRequest'
+            examples:
+              default:
+                summary: Example for login_phone_otp
+                value:
+                  phone: '+1234567890'
       responses:
         '200':
           description: OTP sent successfully
@@ -220,7 +286,8 @@ paths:
       tags:
       - AuthFlows
       summary: Verify phone SMS OTP and complete login
-      description: 'Verifies the 6-digit SMS OTP code. On success, returns access token
+      description: 'Verifies the 6-digit SMS OTP code. On success, returns access
+        token
 
         and refresh token. Sets phone_verified=true on the user''s profile.
 
@@ -237,6 +304,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PhoneOTPVerifyRequest'
+            examples:
+              default:
+                summary: Example for verify_phone_otp
+                value:
+                  phone: '+1234567890'
+                  code: '654321'
       responses:
         '200':
           description: Phone verified, tokens issued
@@ -244,6 +317,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default:
+                  summary: Example for verify_phone_otp 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1waG9uZS1vcHQ
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: true
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
         '400':
           description: Invalid or expired code
           content:
@@ -274,6 +363,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/DualOTPRequest'
+            examples:
+              default:
+                summary: Example for login_dual_otp
+                value:
+                  email: alice@example.com
+                  phone: '+1234567890'
       responses:
         '200':
           description: OTPs sent to both channels
@@ -281,6 +376,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DualOTPResponse'
+              examples:
+                default:
+                  summary: Example for login_dual_otp 200
+                  value:
+                    success: true
+                    email_sent: true
+                    phone_sent: true
+                    email_verified: false
+                    phone_verified: false
+                    both_verified: false
+                    message: Verification codes have been sent to your email and phone
         '400':
           description: Bad request (missing email or phone, user not found)
           content:
@@ -309,6 +415,14 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/DualOTPVerifyRequest'
+            examples:
+              default:
+                summary: Example for verify_dual_otp
+                value:
+                  email: alice@example.com
+                  email_code: '123456'
+                  phone: '+1234567890'
+                  phone_code: '654321'
       responses:
         '200':
           description: Both codes verified, tokens issued
@@ -316,6 +430,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DualOTPCompleteResponse'
+              examples:
+                default:
+                  summary: Example for verify_dual_otp 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1kdWFsLW90cA
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: true
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
         '400':
           description: Invalid or expired codes
           content:
@@ -328,6 +458,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DualOTPPartialResponse'
+              examples:
+                default:
+                  summary: Example for verify_dual_otp 201
+                  value:
+                    success: true
+                    email_verified: true
+                    phone_verified: false
+                    both_verified: false
+                    message: Email verified. Please verify your phone to complete
+                      login.
       parameters:
       - *id002
   /register:
@@ -352,6 +492,16 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              default:
+                summary: Example for auth_register
+                value:
+                  email: newuser@example.com
+                  password: SecureP@ss123!
+                  first_name: New
+                  last_name: User
+                  username: newuser
+                  send_welcome_email: true
       responses:
         '201':
           description: User created and logged in
@@ -359,6 +509,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default:
+                  summary: Example for auth_register 201
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6Im5ld3VzZXJAZXhwLmNvbSJ9.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1yZWdpc3Rlci1uZXc
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: newuser@example.com
+                    email_verified: false
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
         '400':
           description: Validation error (duplicate email, weak password)
           content:
@@ -391,6 +557,13 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/TokenRequest'
+            examples:
+              default:
+                summary: Example for auth_token
+                value:
+                  grant_type: refresh_token
+                  refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
+                  client_id: my-app
       responses:
         '200':
           description: Token issued or refreshed
@@ -398,6 +571,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default:
+                  summary: Example for auth_token 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.nsig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: bmV3LXJlZnJlc2gtdG9rZW4tYWxpY2U
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid profile email
         '400':
           description: Invalid grant type or parameters
           content:
@@ -417,7 +606,8 @@ paths:
       tags:
       - PasswordReset
       summary: Request password reset email
-      description: 'Sends a password reset email with a time-limited token to the given email.
+      description: 'Sends a password reset email with a time-limited token to the
+        given email.
 
 
 
@@ -429,6 +619,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ForgotPasswordRequest'
+            examples:
+              default:
+                summary: Example for auth_forgot_password
+                value:
+                  email: alice@example.com
       responses:
         '200':
           description: Reset email sent (returns success regardless of email existence)
@@ -470,7 +665,8 @@ paths:
       tags:
       - PasswordReset
       summary: Confirm password reset with token
-      description: 'Validates the reset token from the password reset email and sets a new password.
+      description: 'Validates the reset token from the password reset email and sets
+        a new password.
 
 
 
@@ -482,6 +678,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ResetPasswordRequest'
+            examples:
+              default:
+                summary: Example for auth_reset_password
+                value:
+                  token: reset-token-abc123
+                  new_password: NewSecureP@ss456!
       responses:
         '200':
           description: Password reset successful
@@ -522,6 +724,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LogoutRequest'
+            examples:
+              default:
+                summary: Example for auth_logout
+                value:
+                  refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
       responses:
         '204':
           description: Logged out successfully
@@ -582,7 +789,8 @@ paths:
       tags:
       - SocialLogin
       summary: Exchange OAuth provider callback for tokens
-      description: 'Step 2 of social login. Receives the provider''s authorization code
+      description: 'Step 2 of social login. Receives the provider''s authorization
+        code
 
         (from OAuth redirect), exchanges it for tokens, and completes login.
 
@@ -606,6 +814,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SocialCallbackRequest'
+            examples:
+              default:
+                summary: Example for social_callback
+                value:
+                  code: gho_abc123xyz
+                  state: csrf-token-xyz
       responses:
         '200':
           description: OAuth flow complete, tokens issued
@@ -613,6 +827,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SocialLoginResponse'
+              examples:
+                default:
+                  summary: Example for social_callback 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1zb2NpYWwtZ2l0aHVi
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid profile
         '400':
           description: Invalid code, state mismatch, or provider error
           content:
@@ -624,7 +854,8 @@ paths:
       tags:
       - Sessions
       summary: OAuth2 authorization endpoint
-      description: 'Redirects user to the Sesame login page. Compatible with `code` response type.
+      description: 'Redirects user to the Sesame login page. Compatible with `code`
+        response type.
 
         After successful login, redirects to `redirect_uri` with `code` parameter.
 
@@ -690,7 +921,8 @@ paths:
       tags:
       - Signup
       summary: Validate signup eligibility
-      description: 'Check if email/phone is allowed to register before the user starts filling forms.
+      description: 'Check if email/phone is allowed to register before the user starts
+        filling forms.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -719,6 +951,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SignupValidationResponse'
+              examples:
+                default:
+                  summary: Example for signup_validate 200
+                  value:
+                    allowed: true
+                    reason: null
+                    email_exists: false
+                    phone_exists: false
+                    suggested_username: alice_new
         '400':
           description: Bad request (invalid parameters)
           content:
@@ -730,7 +971,8 @@ paths:
       tags:
       - Passwordless
       summary: Send magic link for passwordless login
-      description: 'Sends a time-limited magic link to the user email. The user clicks the link to complete login without a password.
+      description: 'Sends a time-limited magic link to the user email. The user clicks
+        the link to complete login without a password.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -742,6 +984,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/MagicLinkRequest'
+            examples:
+              default:
+                summary: Example for magic_link_send
+                value:
+                  email: alice@example.com
       responses:
         '200':
           description: Magic link sent
@@ -749,6 +996,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MagicLinkResponse'
+              examples:
+                default:
+                  summary: Example for magic_link_send 200
+                  value:
+                    magic_link_sent: true
+                    expires_in: 900
+                    message: A magic link has been sent to your email
         '400':
           description: Bad request
           content:
@@ -762,7 +1016,8 @@ paths:
       tags:
       - Passwordless
       summary: Verify magic link token and complete login
-      description: 'Verifies the magic link token. On success, returns access token and refresh token.
+      description: 'Verifies the magic link token. On success, returns access token
+        and refresh token.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -774,6 +1029,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/MagicLinkVerifyRequest'
+            examples:
+              default:
+                summary: Example for magic_link_verify
+                value:
+                  token: magic-link-token-abc
       responses:
         '200':
           description: Magic link verified, tokens issued
@@ -781,6 +1041,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default:
+                  summary: Example for magic_link_verify 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1tYWdpYy1saW5r
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
         '400':
           description: Invalid or expired token
           content:
@@ -806,6 +1082,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SmsMagicLinkRequest'
+            examples:
+              default:
+                summary: Example for sms_magic_link_send
+                value:
+                  phone: '+1234567890'
       responses:
         '200':
           description: SMS magic link sent
@@ -813,6 +1094,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmsMagicLinkResponse'
+              examples:
+                default:
+                  summary: Example for sms_magic_link_send 200
+                  value:
+                    magic_link_sent: true
+                    expires_in: 900
+                    message: A magic link has been sent to your phone
         '400':
           description: Bad request
           content:
@@ -826,7 +1114,8 @@ paths:
       tags:
       - Passwordless
       summary: Verify SMS magic link token and complete login
-      description: 'Verifies the SMS magic link token. On success, returns access token and refresh token.
+      description: 'Verifies the SMS magic link token. On success, returns access
+        token and refresh token.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -838,6 +1127,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SmsMagicLinkVerifyRequest'
+            examples:
+              default:
+                summary: Example for sms_magic_link_verify
+                value:
+                  token: sms-magic-token-xyz
       responses:
         '200':
           description: SMS magic link verified, tokens issued
@@ -845,6 +1139,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default:
+                  summary: Example for sms_magic_link_verify 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1zbXMtbWFn
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: true
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
         '400':
           description: Invalid or expired token
           content:
@@ -1003,7 +1313,8 @@ components:
           description: Always false — user must confirm via email link
         message:
           type: string
-          example: A confirmation email has been sent. Please verify your email to complete registration.
+          example: A confirmation email has been sent. Please verify your email to
+            complete registration.
     MfaRequiredResponse:
       type: object
       required:
@@ -1298,8 +1609,12 @@ components:
       properties:
         refresh_token:
           type: string
-          description: The refresh token to revoke. Required only if no Authorization header is present. If the session is identified via the Bearer token in the Authorization header, this field is optional.
-      description: Request body for logout operation. Either the refresh_token in the body OR the Bearer token in the Authorization header can be used to identify the session to revoke. If both are provided, the refresh_token is preferred.
+          description: The refresh token to revoke. Required only if no Authorization
+            header is present. If the session is identified via the Bearer token in
+            the Authorization header, this field is optional.
+      description: Request body for logout operation. Either the refresh_token in
+        the body OR the Bearer token in the Authorization header can be used to identify
+        the session to revoke. If both are provided, the refresh_token is preferred.
     SocialCallbackRequest:
       type: object
       required:

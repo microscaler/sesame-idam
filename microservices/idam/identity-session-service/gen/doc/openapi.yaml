@@ -6,7 +6,8 @@ info:
 
     Handles token refresh, user profile lookup, and OIDC/JWKS endpoints.
 
-    EXTREME frequency with LOW per-request cost (indexed DB lookups, cached static data).
+    EXTREME frequency with LOW per-request cost (indexed DB lookups, cached static
+    data).
 
     Must respond in <5ms to avoid blocking client-side navigation.
 
@@ -69,7 +70,8 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
       description: Requires `X-Tenant-ID` header for tenant resolution.
   /api/v1/identity/users/me:
     get:
@@ -149,6 +151,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JWKS'
+              examples:
+                default:
+                  summary: Example for jwks 200
+                  value:
+                    keys:
+                    - kty: RSA
+                      kid: default
+                      use: sig
+                      alg: RS256
+                      n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe
+                      e: AQAB
   /api/v1/identity/users/me/userinfo:
     get:
       tags:
@@ -181,7 +194,8 @@ paths:
       tags:
       - StepUp
       summary: Step-up MFA verification
-      description: 'Re-authenticate for sensitive operations (delete account, change email, etc.). Requires current MFA enrollment.
+      description: 'Re-authenticate for sensitive operations (delete account, change
+        email, etc.). Requires current MFA enrollment.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -214,13 +228,15 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
   /api/v1/identity/users/me/token:
     post:
       tags:
       - TokenIssuance
       summary: Issue access token
-      description: 'Programmatically create tokens for server-side flows and admin scripts. Bypasses standard login flow.
+      description: 'Programmatically create tokens for server-side flows and admin
+        scripts. Bypasses standard login flow.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -467,7 +483,8 @@ paths:
       tags:
       - Impersonation
       summary: Impersonate user
-      description: 'Admin switches to user session for debugging/support. Creates a new session for the target user.
+      description: 'Admin switches to user session for debugging/support. Creates
+        a new session for the target user.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -573,7 +590,8 @@ components:
   schemas:
     CreateUserRequest:
       type: object
-      description: 'Creates a new user. Idempotent: if an existing user with the same email
+      description: 'Creates a new user. Idempotent: if an existing user with the same
+        email
 
         is found, returns the existing user instead of creating a duplicate.
 
@@ -590,7 +608,8 @@ components:
         email_confirmed:
           type: boolean
           default: false
-          description: 'If true, the email is considered pre-verified (no confirmation email sent).
+          description: 'If true, the email is considered pre-verified (no confirmation
+            email sent).
 
             Useful for platform-admin-created users or migrated accounts.
 
@@ -903,7 +922,8 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The target user to impersonate. This replaces the path parameter for security (prevents leaking user_id in access logs/CDN keys)
+          description: The target user to impersonate. This replaces the path parameter
+            for security (prevents leaking user_id in access logs/CDN keys)
     ImpersonateResponse:
       type: object
       required:
@@ -963,7 +983,8 @@ components:
                 description: Key type (e.g. "RSA")
               kid:
                 type: string
-                description: Key ID — unique identifier for this key (used by JWT `kid` header)
+                description: Key ID — unique identifier for this key (used by JWT
+                  `kid` header)
               use:
                 type: string
                 description: Intended use of the public key (sig = signature)
@@ -1034,7 +1055,8 @@ components:
             '
         password:
           type: string
-          description: User's password (only required when logging in with email, not with phone OTP)
+          description: User's password (only required when logging in with email,
+            not with phone OTP)
         organization_id:
           type: string
           format: uuid
@@ -1273,7 +1295,8 @@ components:
           type: string
           nullable: true
           maxLength: 50
-          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator", "Work phone").
+          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator",
+            "Work phone").
 
             Shown in MFA management UI.
 
@@ -1285,7 +1308,8 @@ components:
         name: Google Authenticator
     MfaSetupResponse:
       type: object
-      description: 'Returns the TOTP provisioning URI that can be rendered as a QR code.
+      description: 'Returns the TOTP provisioning URI that can be rendered as a QR
+        code.
 
         The user must scan the QR code and enter the resulting code to complete setup.
 
@@ -1302,7 +1326,8 @@ components:
             '
         secret:
           type: string
-          description: 'Base32-encoded TOTP secret (also available in the provisioning URI).
+          description: 'Base32-encoded TOTP secret (also available in the provisioning
+            URI).
 
             Shown as a fallback if the QR code cannot be scanned.
 
@@ -1335,13 +1360,15 @@ components:
         session_id:
           type: string
           nullable: true
-          description: 'Session ID from MFA_REQUIRED login response. Required for step 2 of login.
+          description: 'Session ID from MFA_REQUIRED login response. Required for
+            step 2 of login.
 
             '
         challenge_id:
           type: string
           nullable: true
-          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn factor type).
+          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn
+            factor type).
 
             '
       example:
@@ -1975,7 +2002,8 @@ components:
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
-          description: Optional human-identifiable username (alphanumeric, underscore, hyphen)
+          description: Optional human-identifiable username (alphanumeric, underscore,
+            hyphen)
         picture_url:
           type: string
           nullable: true
@@ -1986,7 +2014,8 @@ components:
           additionalProperties: true
           description: 'Custom key-value metadata attached to the user.
 
-            Platform admins can set arbitrary properties; SaaS customers limited to org-scoped keys.
+            Platform admins can set arbitrary properties; SaaS customers limited to
+            org-scoped keys.
 
             '
         locked:
@@ -2007,7 +2036,8 @@ components:
           type: boolean
           description: 'Whether the user has a password set.
 
-            Users with has_password=false can only authenticate via MFA, social login, or SSO.
+            Users with has_password=false can only authenticate via MFA, social login,
+            or SSO.
 
             '
         update_password_required:
@@ -2022,7 +2052,8 @@ components:
           description: Whether any 2FA method is currently enabled for this user
         can_create_orgs:
           type: boolean
-          description: Whether this user can create new organisations (platform admin flag)
+          description: Whether this user can create new organisations (platform admin
+            flag)
         created_at:
           type: integer
           format: int64
@@ -2099,7 +2130,8 @@ components:
 
         Combines standard OIDC claims (sub, email_verified, name, preferred_username)
 
-        with identity-specific fields (user_id, first_name, last_name) and session context
+        with identity-specific fields (user_id, first_name, last_name) and session
+        context
 
         (org_id, org_name, user_role, user_permissions).
 
