@@ -48,11 +48,15 @@ pub struct ApiKeyCreateResponse {
 pub struct ApiKeyListResponse {
     pub current_page: i32,
 
+    pub filters_applied: Vec<String>,
+
     pub has_more_results: bool,
 
     pub keys: Vec<ApiKey>,
 
     pub page_size: i32,
+
+    pub sort_order: String,
 
     pub total_keys: i32,
 }
@@ -172,11 +176,15 @@ pub struct ErrorResponse {
 pub struct FetchActiveApiKeysResponse {
     pub current_page: i32,
 
+    pub filters_applied: Vec<String>,
+
     pub has_more_results: bool,
 
     pub keys: Vec<ApiKey>,
 
     pub page_size: i32,
+
+    pub sort_order: String,
 
     pub total_keys: i32,
 }

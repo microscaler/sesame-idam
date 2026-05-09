@@ -42,6 +42,10 @@ pub struct Response {
     pub current_page: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "filters_applied")]
+    pub filters_applied: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "has_more_results")]
     pub has_more_results: Option<bool>,
 
@@ -52,6 +56,10 @@ pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "page_size")]
     pub page_size: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "sort_order")]
+    pub sort_order: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "total_keys")]

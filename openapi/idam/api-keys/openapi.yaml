@@ -685,6 +685,29 @@ components:
         has_more_results:
           type: boolean
           description: Whether additional pages exist
+        sort_order:
+          type: string
+          enum:
+          - created_at_desc
+          - created_at_asc
+          - name_asc
+          - name_desc
+          - last_used_desc
+          - last_used_asc
+          description: The sort order applied to the results
+          default: created_at_desc
+        filters_applied:
+          type: array
+          items:
+            type: string
+            enum:
+            - active
+            - expired
+            - near_expiry
+            - revoked
+          description: List of filters applied to the query results
+          default:
+          - active
     ApiKeyValidationResponse:
       type: object
       required:
