@@ -246,6 +246,27 @@ pub struct UpdateApiKeyRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UpdateApiKeyResponse {
+    pub active: bool,
+
+    pub api_key_id: String,
+
+    pub created_at: i32,
+
+    pub expires_at: i32,
+
+    pub metadata: serde_json::Value,
+
+    pub name: String,
+
+    pub org_id: String,
+
+    pub permissions: Vec<String>,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ValidateApiKeyRequest {
     pub api_key: String,
 }

@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AddUserToOrgRequest {
     pub role: String,
-
-    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -85,8 +83,6 @@ pub struct ChangeUserRoleInOrgRequest {
     pub additional_roles: Vec<String>,
 
     pub primary_role: String,
-
-    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -105,8 +101,6 @@ pub struct ChangeUserRoleRequest {
     pub additional_roles: Vec<String>,
 
     pub primary_role: String,
-
-    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -657,11 +651,6 @@ pub struct QueryOrgsResponse {
     pub page_size: i32,
 
     pub total: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct RemoveUserFromOrgRequest {
-    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

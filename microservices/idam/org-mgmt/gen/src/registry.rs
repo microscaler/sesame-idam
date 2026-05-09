@@ -32,7 +32,7 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "create_application",
         crate::controllers::create_application::CreateApplicationController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -206,7 +206,7 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "scim_create_user",
         crate::controllers::scim_create_user::ScimCreateUserController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -314,7 +314,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "create_application" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::create_application::CreateApplicationController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -546,7 +546,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "scim_create_user" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::scim_create_user::ScimCreateUserController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

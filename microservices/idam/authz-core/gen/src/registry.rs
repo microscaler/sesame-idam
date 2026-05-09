@@ -14,31 +14,31 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "authorize",
         crate::controllers::authorize::AuthorizeController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "principal_effective",
         crate::controllers::principal_effective::PrincipalEffectiveController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "set_principal_attribute",
         crate::controllers::set_principal_attribute::SetPrincipalAttributeController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "assign_principal_role",
         crate::controllers::assign_principal_role::AssignPrincipalRoleController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "revoke_principal_role",
         crate::controllers::revoke_principal_role::RevokePrincipalRoleController,
-        16384,
+        20480,
     );
 }
 
@@ -62,7 +62,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "authorize" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::authorize::AuthorizeController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -70,7 +70,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "principal_effective" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::principal_effective::PrincipalEffectiveController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -78,7 +78,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "set_principal_attribute" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::set_principal_attribute::SetPrincipalAttributeController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -86,7 +86,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "assign_principal_role" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::assign_principal_role::AssignPrincipalRoleController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -94,7 +94,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "revoke_principal_role" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::revoke_principal_role::RevokePrincipalRoleController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

@@ -44,7 +44,9 @@ paths:
 
         If MFA is enabled on the account, returns 202 with MFA verification flow.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_login
       security: []
       requestBody:
@@ -78,6 +80,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - &id001
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
   /login/email-otp:
     post:
       tags:
@@ -87,7 +98,9 @@ paths:
 
         Used for passwordless email login and dual OTP verification.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: login_email_otp
       security: []
       requestBody:
@@ -116,6 +129,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /verify/email-otp:
     post:
       tags:
@@ -125,7 +140,9 @@ paths:
 
         access token and refresh token. This is step 2 of the email-only OTP flow.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_email_otp
       security: []
       requestBody:
@@ -147,6 +164,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - &id002
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Required for resolving the user to the correct tenant context.
   /login/phone-otp:
     post:
       tags:
@@ -156,7 +182,9 @@ paths:
 
         Used for passwordless phone login and dual OTP verification.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: login_phone_otp
       security: []
       requestBody:
@@ -185,6 +213,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /verify/phone-otp:
     post:
       tags:
@@ -196,7 +226,9 @@ paths:
 
         This is step 2 of the phone-only OTP flow.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_phone_otp
       security: []
       requestBody:
@@ -218,6 +250,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id002
   /login/dual-otp:
     post:
       tags:
@@ -229,7 +263,9 @@ paths:
 
         Used when a user is signing up or logging in with both email and phone provided.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: login_dual_otp
       security: []
       requestBody:
@@ -251,6 +287,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /verify/dual-otp:
     post:
       tags:
@@ -260,7 +298,9 @@ paths:
 
         User can verify email and phone in any order. On both verified, returns tokens.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_dual_otp
       security: []
       requestBody:
@@ -288,6 +328,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id002
   /register:
     post:
       tags:
@@ -299,7 +341,9 @@ paths:
 
         pending-verification state requiring email confirmation.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_register
       security: []
       requestBody:
@@ -327,6 +371,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /token:
     post:
       tags:
@@ -340,7 +386,9 @@ paths:
 
         - urn:ietf:params:oauth:grant-type:token-exchange: cross-token exchange
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_token
       security: []
       requestBody:
@@ -368,6 +416,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /forgot-password:
     post:
       tags:
@@ -375,7 +425,9 @@ paths:
       summary: Request password reset email
       description: 'Sends a password reset email with a time-limited token to the given email.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_forgot_password
       security: []
       requestBody:
@@ -403,6 +455,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /reset-password:
     post:
       tags:
@@ -410,7 +464,9 @@ paths:
       summary: Confirm password reset with token
       description: 'Validates the reset token from the password reset email and sets a new password.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_reset_password
       security: []
       requestBody:
@@ -438,6 +494,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /logout:
     post:
       tags:
@@ -447,7 +505,9 @@ paths:
 
         Requires BearerAuth header with a valid access token.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_logout
       requestBody:
         content:
@@ -463,6 +523,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /social/{provider}/login:
     get:
       tags:
@@ -474,9 +536,12 @@ paths:
 
         For GitHub specifically: used by PriceWhisperer platform login flow.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: social_login
       parameters:
+      - *id001
       - name: provider
         in: path
         required: true
@@ -515,9 +580,12 @@ paths:
 
         For GitHub: exchanges the GitHub code for user profile + access tokens.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: social_callback
       parameters:
+      - *id002
       - name: provider
         in: path
         required: true
@@ -554,10 +622,13 @@ paths:
 
         Supports PKCE for public clients.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: oauth_authorize
       security: []
       parameters:
+      - *id001
       - name: client_id
         in: query
         required: true
@@ -611,10 +682,14 @@ paths:
       tags:
       - Signup
       summary: Validate signup eligibility
-      description: Check if email/phone is allowed to register before the user starts filling forms.
+      description: 'Check if email/phone is allowed to register before the user starts filling forms.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: signup_validate
       security: []
       parameters:
+      - *id001
       - name: email
         in: query
         required: false
@@ -647,8 +722,10 @@ paths:
       tags:
       - Passwordless
       summary: Send magic link for passwordless login
-      description: Sends a time-limited magic link to the user email. The user clicks the link to complete login without a
-        password.
+      description: 'Sends a time-limited magic link to the user email. The user clicks the link to complete login without a password.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: magic_link_send
       security: []
       requestBody:
@@ -670,12 +747,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /login/magic-link/verify:
     post:
       tags:
       - Passwordless
       summary: Verify magic link token and complete login
-      description: Verifies the magic link token. On success, returns access token and refresh token.
+      description: 'Verifies the magic link token. On success, returns access token and refresh token.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: magic_link_verify
       security: []
       requestBody:
@@ -697,12 +779,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /login/phone-magic-link:
     post:
       tags:
       - Passwordless
       summary: Send SMS magic link for passwordless login
-      description: Sends a time-limited magic link via SMS to the user phone.
+      description: 'Sends a time-limited magic link via SMS to the user phone.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: sms_magic_link_send
       security: []
       requestBody:
@@ -724,12 +811,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
   /login/phone-magic-link/verify:
     post:
       tags:
       - Passwordless
       summary: Verify SMS magic link token and complete login
-      description: Verifies the SMS magic link token. On success, returns access token and refresh token.
+      description: 'Verifies the SMS magic link token. On success, returns access token and refresh token.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: sms_magic_link_verify
       security: []
       requestBody:
@@ -751,6 +843,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - *id001
 components:
   parameters:
     Page:

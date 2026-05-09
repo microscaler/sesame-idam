@@ -50,13 +50,21 @@ Architectural concepts, workflows, and cross-cutting concerns.
 || [topic-org-personas](./topics/topic-org-personas.md) | Platform, provider, consumer org types |
 || [topic-developer-contract](./topics/topic-developer-contract.md) | 3-layer SDK, Admin API, RLS helpers |
 
+## Audit
+
+OpenAPI spec quality audits and remediation logs.
+
+|| Page | Description |
+||------|-------------|
+|| [security_evaluation_001](../audit/security_evaluation_001.md) | Comprehensive API design failure audit across all 6 specs (2026-05-09). 90 error responses, pagination, SCIM, MCP, TokenResponse standardization. All specs now pass brrtrouter-gen lint. |
+
 ## Reference
 
 External integrations, API surfaces, patterns.
 
-| Page | Description |
-|------|-------------|
-| [ref-api-surface](./reference/ref-api-surface.md) | Complete API surface across 6 services (119 endpoints, 26 tags) |
-| [ref-propelauth-comparison](./reference/ref-propelauth-comparison.md) | PropelAuth vs Supabase vs Sesame benchmark |
-| [ref-frontend-sdk](./reference/ref-frontend-sdk.md) | Frontend SDK integration pattern |
-| [ref-backend-admin-api](./reference/ref-backend-admin-api.md) | Backend Admin API contract |
+|| Page | Description |
+||------|-------------|
+|| [ref-api-surface](./reference/ref-api-surface.md) | Complete API surface across 6 services (119 endpoints, 26 tags) |
+|| [ref-propelauth-comparison](./reference/ref-propelauth-comparison.md) | PropelAuth vs Supabase vs Sesame benchmark |
+|| [ref-frontend-sdk](./reference/ref-frontend-sdk.md) | Frontend SDK integration pattern |
+|| [ref-backend-admin-api](./reference/ref-backend-admin-api.md) | Backend Admin API contract |

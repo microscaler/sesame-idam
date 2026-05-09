@@ -30,7 +30,9 @@ paths:
 
         SaaS customers assign roles within their own org; platform admins assign globally.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: assign_principal_role
       requestBody:
         required: true
@@ -59,6 +61,15 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      parameters:
+      - &id001
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
     delete:
       tags:
       - Principal
@@ -82,6 +93,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      parameters:
+      - *id001
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /principals/attributes:
     post:
       tags:
@@ -106,6 +120,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      parameters:
+      - *id001
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /principal/effective:
     post:
       tags:
@@ -117,7 +134,9 @@ paths:
 
         SaaS customers query for their own principals; platform admins query globally.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: principal_effective
       requestBody:
         required: true
@@ -149,6 +168,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      parameters:
+      - *id001
   /authorize:
     post:
       tags:
@@ -160,7 +181,9 @@ paths:
 
         SaaS customers check within their own org; platform admins check globally.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: authorize
       requestBody:
         required: true
@@ -183,6 +206,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      parameters:
+      - *id001
 components:
   parameters:
     Page:

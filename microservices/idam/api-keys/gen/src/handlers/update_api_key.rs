@@ -9,38 +9,63 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    #[serde(rename = "email")]
-    pub email: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "expires_in_days")]
+    pub expires_in_days: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "email_code")]
-    pub email_code: Option<String>,
-
-    #[serde(rename = "phone")]
-    pub phone: String,
+    #[serde(rename = "metadata")]
+    pub metadata: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "phone_code")]
-    pub phone_code: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "session_id")]
-    pub session_id: Option<String>,
+    #[serde(rename = "name")]
+    pub name: Option<String>,
 
     #[serde(rename = "X-Tenant-ID")]
     pub x_tenant_id: String,
+
+    #[serde(rename = "key_id")]
+    pub key_id: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "newly_verified_email")]
-    pub newly_verified_email: Option<bool>,
+    #[serde(rename = "active")]
+    pub active: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "newly_verified_phone")]
-    pub newly_verified_phone: Option<bool>,
+    #[serde(rename = "api_key_id")]
+    pub api_key_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "created_at")]
+    pub created_at: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "expires_at")]
+    pub expires_at: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "metadata")]
+    pub metadata: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "name")]
+    pub name: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "org_id")]
+    pub org_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "permissions")]
+    pub permissions: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "user_id")]
+    pub user_id: Option<String>,
 }
 
 impl TryFrom<HandlerRequest> for Request {
@@ -65,6 +90,20 @@ impl TryFrom<HandlerRequest> for Request {
             return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
         }
 
+        if let Some(v) = req.get_path_param("key_id") {
+            data_map.insert(
+                "key_id".to_string(),
+                brrtrouter::server::request::decode_param_value(
+                    v,
+                    Some(&serde_json::json!({"format":"uuid","type":"string"})),
+                    None,
+                    None,
+                ),
+            );
+        } else {
+            return Err(anyhow::anyhow!("Missing required parameter 'key_id'"));
+        }
+
         if let Some(body) = req.body {
             match body {
                 Value::Object(map) => {
@@ -84,5 +123,5 @@ impl TryFrom<HandlerRequest> for Request {
 
 #[allow(dead_code)]
 pub fn handler(req: TypedHandlerRequest<Request>) -> Response {
-    crate::controllers::verify_dual_otp::handle(req)
+    crate::controllers::update_api_key::handle(req)
 }

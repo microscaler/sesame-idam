@@ -9,6 +9,9 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
+    #[serde(rename = "X-Tenant-ID")]
+    pub x_tenant_id: String,
+
     #[serde(rename = "app_id")]
     pub app_id: String,
 
@@ -47,6 +50,20 @@ impl TryFrom<HandlerRequest> for Request {
         use serde_json::{Map, Value};
 
         let mut data_map = Map::new();
+
+        if let Some(v) = req.get_header("x-tenant-id") {
+            data_map.insert(
+                "X-Tenant-ID".to_string(),
+                brrtrouter::server::request::decode_param_value(
+                    v,
+                    Some(&serde_json::json!({"format":"uuid","type":"string"})),
+                    None,
+                    None,
+                ),
+            );
+        } else {
+            return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
+        }
 
         if let Some(v) = req.get_path_param("app_id") {
             data_map.insert(

@@ -21,4 +21,6 @@ pub mod validate_org_api_key;
 
 pub mod validate_personal_api_key;
 
+pub mod update_api_key;
+
 pub mod delete_api_key;

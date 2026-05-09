@@ -30,7 +30,9 @@ paths:
 
         SaaS customers can only create keys for their own users/orgs.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: create_api_key
       requestBody:
         required: true
@@ -54,6 +56,15 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      parameters:
+      - &id001
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
   /current:
     get:
       tags:
@@ -63,9 +74,12 @@ paths:
 
         SaaS customers can filter by their own users/orgs.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_active_api_keys
       parameters:
+      - *id001
       - name: user_id
         in: query
         schema:
@@ -105,13 +119,62 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiKeyListResponse'
   /{key_id}:
+    put:
+      tags:
+      - APIKeys
+      summary: Update API key metadata
+      description: 'Update the name, metadata, or expiration of an existing API key.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: update_api_key
+      parameters:
+      - *id001
+      - name: key_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateApiKeyRequest'
+      responses:
+        '200':
+          description: API key updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '404':
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       tags:
       - APIKeys
       summary: Delete API key
-      description: Revokes an API key. All uses after deletion will be rejected.
+      description: 'Revokes an API key. All uses after deletion will be rejected.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_api_key
       parameters:
+      - *id001
       - name: key_id
         in: path
         required: true
@@ -145,10 +208,11 @@ paths:
         If specified and the key doesn''t match the requested type, returns 401.
 
 
-        Endpoints `/validate/personal` and `/validate/org` are deprecated — use `/validate?key_type=personal` or `/validate?key_type=org`
-        instead.
+        Endpoints `/validate/personal` and `/validate/org` are deprecated — use `/validate?key_type=personal` or `/validate?key_type=org` instead.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: validate_api_key
       requestBody:
         required: true
@@ -173,6 +237,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       parameters:
+      - *id001
       - name: key_type
         in: query
         required: false
@@ -191,9 +256,12 @@ paths:
       summary: Fetch API key usage
       description: 'Returns the number of API key validation calls for a given key/user/org on a specific date.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_api_key_usage
       parameters:
+      - *id001
       - name: api_key_id
         in: query
         schema:
@@ -230,7 +298,10 @@ paths:
       tags:
       - APIKeys
       summary: 'DEPRECATED: Validate personal API key'
-      description: DEPRECATED — Use POST /validate?key_type=personal instead. Validates a personal (user-scoped) API key.
+      description: 'DEPRECATED — Use POST /validate?key_type=personal instead. Validates a personal (user-scoped) API key.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: validate_personal_api_key
       requestBody:
         required: true
@@ -255,6 +326,8 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       deprecated: true
+      parameters:
+      - *id001
   /archived:
     get:
       tags:
@@ -264,9 +337,12 @@ paths:
 
         SaaS customers can filter by their own users/orgs.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_archived_api_keys
       parameters:
+      - *id001
       - name: user_id
         in: query
         schema:
@@ -304,9 +380,13 @@ paths:
       tags:
       - APIKeys
       summary: Fetch archived API key details
-      description: Returns metadata for an archived (revoked/expired) API key.
+      description: 'Returns metadata for an archived (revoked/expired) API key.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_archived_api_key
       parameters:
+      - *id001
       - name: key_id
         in: path
         required: true
@@ -338,7 +418,9 @@ paths:
 
         original secret hash, metadata, and expiration. Platform admin only.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: import_api_keys
       requestBody:
         required: true
@@ -362,12 +444,17 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      parameters:
+      - *id001
   /validate/org:
     post:
       tags:
       - APIKeys
       summary: 'DEPRECATED: Validate organisation API key'
-      description: DEPRECATED — Use POST /validate?key_type=org instead. Validates an organisation-scoped API key.
+      description: 'DEPRECATED — Use POST /validate?key_type=org instead. Validates an organisation-scoped API key.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: validate_org_api_key
       requestBody:
         required: true
@@ -392,6 +479,8 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       deprecated: true
+      parameters:
+      - *id001
 components:
   parameters:
     Page:

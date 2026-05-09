@@ -38,73 +38,73 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "users_me_get",
         crate::controllers::users_me_get::UsersMeGetController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "users_me_patch",
         crate::controllers::users_me_patch::UsersMePatchController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "admin_issue_token",
         crate::controllers::admin_issue_token::AdminIssueTokenController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "oauth_userinfo",
         crate::controllers::oauth_userinfo::OauthUserinfoController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "mcp_list_agents",
         crate::controllers::mcp_list_agents::McpListAgentsController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "mcp_create_agent",
         crate::controllers::mcp_create_agent::McpCreateAgentController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "mcp_get_agent",
         crate::controllers::mcp_get_agent::McpGetAgentController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "mcp_delete_agent",
         crate::controllers::mcp_delete_agent::McpDeleteAgentController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "mcp_token",
         crate::controllers::mcp_token::McpTokenController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "mcp_validate",
         crate::controllers::mcp_validate::McpValidateController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "auth_refresh",
         crate::controllers::auth_refresh::AuthRefreshController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "step_up_verify",
         crate::controllers::step_up_verify::StepUpVerifyController,
-        16384,
+        20480,
     );
 }
 
@@ -160,7 +160,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "users_me_get" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::users_me_get::UsersMeGetController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -168,7 +168,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "users_me_patch" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::users_me_patch::UsersMePatchController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -176,7 +176,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "admin_issue_token" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::admin_issue_token::AdminIssueTokenController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -184,7 +184,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "oauth_userinfo" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::oauth_userinfo::OauthUserinfoController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -192,7 +192,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "mcp_list_agents" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::mcp_list_agents::McpListAgentsController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -200,7 +200,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "mcp_create_agent" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::mcp_create_agent::McpCreateAgentController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -208,7 +208,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "mcp_get_agent" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::mcp_get_agent::McpGetAgentController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -216,7 +216,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "mcp_delete_agent" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::mcp_delete_agent::McpDeleteAgentController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -224,7 +224,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "mcp_token" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::mcp_token::McpTokenController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -232,7 +232,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "mcp_validate" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::mcp_validate::McpValidateController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -240,7 +240,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_refresh" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_refresh::AuthRefreshController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -248,7 +248,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "step_up_verify" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::step_up_verify::StepUpVerifyController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

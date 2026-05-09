@@ -21,12 +21,12 @@ brrtrouter_dir := "../BRRTRouter"
 supabase_dir := "../microscaler-supabase"
 
 # OpenAPI spec paths (6 services split by access pattern)
-spec_identity_login     := "openapi/identity-login-service/openapi.yaml"
-spec_identity_session   := "openapi/identity-session-service/openapi.yaml"
-spec_identity_user_mgmt := "openapi/identity-user-mgmt-service/openapi.yaml"
-spec_authz_core         := "openapi/authz-core/openapi.yaml"
-spec_api_keys           := "openapi/api-keys/openapi.yaml"
-spec_org_mgmt           := "openapi/org-mgmt/openapi.yaml"
+spec_identity_login     := "openapi/idam/identity-login-service/openapi.yaml"
+spec_identity_session   := "openapi/idam/identity-session-service/openapi.yaml"
+spec_identity_user_mgmt := "openapi/idam/identity-user-mgmt-service/openapi.yaml"
+spec_authz_core         := "openapi/idam/authz-core/openapi.yaml"
+spec_api_keys           := "openapi/idam/api-keys/openapi.yaml"
+spec_org_mgmt           := "openapi/idam/org-mgmt/openapi.yaml"
 
 # Output dirs for brrtrouter-gen (gen crates live under each microservice)
 out_identity_login      := "microservices/idam/identity-login-service/gen"
@@ -304,7 +304,7 @@ gen-identity-login:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_identity_login}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_identity_login}}" \
-    --package-name sesame_idam_identity_login_service_gen \
+    --package-name identity_login_service_service_api \
     --force
   echo "✅ Generated {{out_identity_login}}"
 
@@ -320,7 +320,7 @@ gen-identity-session:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_identity_session}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_identity_session}}" \
-    --package-name sesame_idam_identity_session_service_gen \
+    --package-name identity_session_service_service_api \
     --force
   echo "✅ Generated {{out_identity_session}}"
 
@@ -336,7 +336,7 @@ gen-identity-user-mgmt:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_identity_user_mgmt}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_identity_user_mgmt}}" \
-    --package-name sesame_idam_identity_user_mgmt_service_gen \
+    --package-name identity_user_mgmt_service_service_api \
     --force
   echo "✅ Generated {{out_identity_user_mgmt}}"
 
@@ -352,7 +352,7 @@ gen-authz-core:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_authz_core}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_authz_core}}" \
-    --package-name sesame_idam_authz_core_gen \
+    --package-name authz_core_service_api \
     --force
   echo "✅ Generated {{out_authz_core}}"
 
@@ -368,7 +368,7 @@ gen-api-keys:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_api_keys}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_api_keys}}" \
-    --package-name sesame_idam_api_keys_gen \
+    --package-name api_keys_service_api \
     --force
   echo "✅ Generated {{out_api_keys}}"
 
@@ -384,7 +384,7 @@ gen-org-mgmt:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_org_mgmt}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_org_mgmt}}" \
-    --package-name sesame_idam_org_mgmt_gen \
+    --package-name org_mgmt_service_api \
     --force
   echo "✅ Generated {{out_org_mgmt}}"
 

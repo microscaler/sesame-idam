@@ -399,6 +399,15 @@ pub struct McpValidateResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactor {
+    pub created_at: i32,
+
+    pub factor_type: String,
+
+    pub is_primary: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MfaRequiredResponse {
     pub mfa_challenge: serde_json::Value,
 
