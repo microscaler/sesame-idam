@@ -6,10 +6,23 @@ export type ErrorResponse = {
     /**
      * Machine-readable error code
      */
-    error: 'invalid_request' | 'not_found' | 'permission_denied' | 'application_not_found' | 'role_not_found' | 'attribute_too_large';
+    error: ErrorResponse.error;
     /**
      * Human-readable error message
      */
     error_description?: string;
 };
+export namespace ErrorResponse {
+    /**
+     * Machine-readable error code
+     */
+    export enum error {
+        INVALID_REQUEST = 'invalid_request',
+        NOT_FOUND = 'not_found',
+        PERMISSION_DENIED = 'permission_denied',
+        APPLICATION_NOT_FOUND = 'application_not_found',
+        ROLE_NOT_FOUND = 'role_not_found',
+        ATTRIBUTE_TOO_LARGE = 'attribute_too_large',
+    }
+}
 

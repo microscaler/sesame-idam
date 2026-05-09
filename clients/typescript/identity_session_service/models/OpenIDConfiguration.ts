@@ -7,52 +7,6 @@
  * Returned by GET /.well-known/openid-configuration
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: OpenIDConfiguration = {
-  "issuer": "https://identity.seasame-idam.microscaler.local",
-  "authorization_endpoint": "https://identity.seasame-idam.microscaler.local/oauth/authorize",
-  "token_endpoint": "https://identity.seasame-idam.microscaler.local/auth/token",
-  "jwks_uri": "https://identity.seasame-idam.microscaler.local/.well-known/jwks.json",
-  "userinfo_endpoint": "https://identity.seasame-idam.microscaler.local/oauth/userinfo",
-  "scopes_supported": [
-    "openid",
-    "email",
-    "profile",
-    "phone"
-  ],
-  "response_types_supported": [
-    "code",
-    "id_token",
-    "id_token token"
-  ],
-  "response_modes_supported": [
-    "query",
-    "fragment",
-    "form_post"
-  ],
-  "grant_types_supported": [
-    "authorization_code",
-    "implicit",
-    "refresh_token",
-    "client_credentials",
-    "urn:ietf:params:oauth:grant-type:token-exchange"
-  ],
-  "subject_types_supported": [
-    "public",
-    "pairwise"
-  ],
-  "id_token_signing_alg_values_supported": [
-    "RS256"
-  ],
-  "code_challenge_methods_supported": [
-    "S256"
-  ]
-};
- * ```
- */
-
 export type OpenIDConfiguration = {
     /**
      * Identity provider issuer identifier

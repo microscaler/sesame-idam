@@ -10,7 +10,7 @@ export type SocialLoginResponse = {
     /**
      * Always "Bearer"
      */
-    token_type: 'Bearer';
+    token_type: SocialLoginResponse.token_type;
     /**
      * Access token lifetime in seconds
      */
@@ -40,4 +40,12 @@ export type SocialLoginResponse = {
      */
     social_provider_user_id?: string;
 };
+export namespace SocialLoginResponse {
+    /**
+     * Always "Bearer"
+     */
+    export enum token_type {
+        BEARER = 'Bearer',
+    }
+}
 

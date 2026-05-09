@@ -2,12 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Property examples:
- *  * - `magic_link_sent`: `true`
- * - `expires_in`: `900`
- */
-
 export type MagicLinkResponse = {
     /**
      * Whether magic link was sent

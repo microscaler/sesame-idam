@@ -24,10 +24,23 @@ export type ApiKeyListResponse = {
     /**
      * The sort order applied to the results
      */
-    sort_order?: 'created_at_desc' | 'created_at_asc' | 'name_asc' | 'name_desc' | 'last_used_desc' | 'last_used_asc';
+    sort_order?: ApiKeyListResponse.sort_order;
     /**
      * List of filters applied to the query results
      */
     filters_applied?: Array<'active' | 'expired' | 'near_expiry' | 'revoked'>;
 };
+export namespace ApiKeyListResponse {
+    /**
+     * The sort order applied to the results
+     */
+    export enum sort_order {
+        CREATED_AT_DESC = 'created_at_desc',
+        CREATED_AT_ASC = 'created_at_asc',
+        NAME_ASC = 'name_asc',
+        NAME_DESC = 'name_desc',
+        LAST_USED_DESC = 'last_used_desc',
+        LAST_USED_ASC = 'last_used_asc',
+    }
+}
 

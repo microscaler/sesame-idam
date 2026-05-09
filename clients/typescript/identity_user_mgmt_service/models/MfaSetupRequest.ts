@@ -7,16 +7,6 @@
  * Requires the user's current password for verification.
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: MfaSetupRequest = {
-  "password": "secret123",
-  "name": "Google Authenticator"
-};
- * ```
- */
-
 export type MfaSetupRequest = {
     /**
      * User's current password for verification

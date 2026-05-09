@@ -5,20 +5,6 @@
 /**
  * SCIM 2.0 Error Response (RFC 7644 Section 3.7)
  */
-/**
- * Example usage:
- * ```typescript
- * const example: ScimError = {
-  "schemas": [
-    "urn:ietf:params:scim:api:messages:2.0:Error"
-  ],
-  "detail": "The requested attribute is not supported",
-  "status": "400",
-  "scimType": "invalidFilter"
-};
- * ```
- */
-
 export type ScimError = {
     schemas: Array<string>;
     /**
@@ -32,6 +18,21 @@ export type ScimError = {
     /**
      * SCIM error type per RFC 7643 Section 3.5.2
      */
-    scimType?: 'invalidFilter' | 'uniqueness' | 'value' | 'mutability' | 'invalidPath' | 'noTarget' | 'sensitive' | 'tooMany';
+    scimType?: ScimError.scimType;
 };
+export namespace ScimError {
+    /**
+     * SCIM error type per RFC 7643 Section 3.5.2
+     */
+    export enum scimType {
+        INVALID_FILTER = 'invalidFilter',
+        UNIQUENESS = 'uniqueness',
+        VALUE = 'value',
+        MUTABILITY = 'mutability',
+        INVALID_PATH = 'invalidPath',
+        NO_TARGET = 'noTarget',
+        SENSITIVE = 'sensitive',
+        TOO_MANY = 'tooMany',
+    }
+}
 

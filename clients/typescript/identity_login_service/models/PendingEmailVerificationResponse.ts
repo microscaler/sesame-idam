@@ -2,11 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Property examples:
- *  * - `message`: `"A confirmation email has been sent. Please verify your emai`
- */
-
 export type PendingEmailVerificationResponse = {
     /**
      * UUID of the newly created user

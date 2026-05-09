@@ -9,14 +9,14 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { ApiKey } from './models/ApiKey';
 export type { ApiKeyCreateResponse } from './models/ApiKeyCreateResponse';
-export type { ApiKeyListResponse } from './models/ApiKeyListResponse';
+export { ApiKeyListResponse } from './models/ApiKeyListResponse';
 export type { ApiKeyUsageResponse } from './models/ApiKeyUsageResponse';
-export type { ApiKeyValidationResponse } from './models/ApiKeyValidationResponse';
+export { ApiKeyValidationResponse } from './models/ApiKeyValidationResponse';
 export type { ArchivedApiKey } from './models/ArchivedApiKey';
 export type { ArchivedApiKeyListResponse } from './models/ArchivedApiKeyListResponse';
 export type { CreateApiKeyRequest } from './models/CreateApiKeyRequest';
 export type { Error } from './models/Error';
-export type { ErrorResponse } from './models/ErrorResponse';
+export { ErrorResponse } from './models/ErrorResponse';
 export type { ImportApiKeysRequest } from './models/ImportApiKeysRequest';
 export type { ImportApiKeysResponse } from './models/ImportApiKeysResponse';
 export type { Limit } from './models/Limit';

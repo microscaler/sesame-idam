@@ -2,17 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Property examples:
- *  * - `token_type`: `"Bearer"`
- */
-
 export type McpTokenResponse = {
     /**
      * MCP access token
      */
     access_token: string;
-    token_type?: 'Bearer';
+    token_type?: McpTokenResponse.token_type;
     /**
      * Token lifetime in seconds
      */
@@ -22,4 +17,9 @@ export type McpTokenResponse = {
      */
     scope?: string;
 };
+export namespace McpTokenResponse {
+    export enum token_type {
+        BEARER = 'Bearer',
+    }
+}
 

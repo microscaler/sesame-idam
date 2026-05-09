@@ -2,17 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Property examples:
- *  * - `mfa_required`: `true`
- */
-
 export type MfaRequiredResponse = {
     mfa_required: boolean;
     /**
      * Type of MFA challenge to complete
      */
-    challenge_type: 'totp' | 'sms' | 'email' | 'webauthn';
+    challenge_type: MfaRequiredResponse.challenge_type;
     /**
      * Session identifier for completing the MFA step
      */
@@ -22,4 +17,15 @@ export type MfaRequiredResponse = {
      */
     expires_in?: number;
 };
+export namespace MfaRequiredResponse {
+    /**
+     * Type of MFA challenge to complete
+     */
+    export enum challenge_type {
+        TOTP = 'totp',
+        SMS = 'sms',
+        EMAIL = 'email',
+        WEBAUTHN = 'webauthn',
+    }
+}
 

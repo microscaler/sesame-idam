@@ -7,17 +7,6 @@
  * SaaS customers can only update users within their own organisation.
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: UpdateUserRequest = {
-  "first_name": "Updated",
-  "last_name": "Name",
-  "locked": false
-};
- * ```
- */
-
 export type UpdateUserRequest = {
     /**
      * User's first name

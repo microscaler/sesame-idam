@@ -2,12 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Property examples:
- *  * - `permissions`: `["accounting:invoices:write", "accounting:invoices:read"]`
- * - `expires_in_days`: `90`
- */
-
 export type CreateApiKeyRequest = {
     /**
      * Human-readable name for this API key (e.g., "Production Service")

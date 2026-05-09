@@ -6,8 +6,13 @@ export type TokenResponse = {
     access_token: string;
     refresh_token?: string | null;
     id_token?: string | null;
-    token_type: 'Bearer';
+    token_type: TokenResponse.token_type;
     expires_in: number;
     scope?: string | null;
 };
+export namespace TokenResponse {
+    export enum token_type {
+        BEARER = 'Bearer',
+    }
+}
 

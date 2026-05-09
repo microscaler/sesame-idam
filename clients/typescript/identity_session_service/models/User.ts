@@ -8,45 +8,6 @@ import type { MfaFactor } from './MfaFactor';
  * Contains identity attributes, account status, and migration metadata.
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: User = {
-  "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d",
-  "email": "test@example.com",
-  "email_confirmed": true,
-  "first_name": "Test",
-  "last_name": "User",
-  "username": "testuser",
-  "picture_url": "https://example.com/avatar.png",
-  "properties": {
-    "favorite_sport": "basketball",
-    "department": "engineering"
-  },
-  "locked": false,
-  "enabled": true,
-  "has_password": true,
-  "update_password_required": false,
-  "mfa_enabled": false,
-  "phone_number": "+14155551234",
-  "phone_verified": true,
-  "mfa_factors": [
-    {
-      "type": "totp",
-      "is_primary": true
-    },
-    {
-      "type": "webauthn",
-      "is_primary": false
-    }
-  ],
-  "can_create_orgs": false,
-  "created_at": 1625476380,
-  "last_active_at": 1625476380
-};
- * ```
- */
-
 export type User = {
     /**
      * Unique opaque identifier for this user (not PII)
