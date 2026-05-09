@@ -1,5 +1,13 @@
 # LLM Wiki — Session Log
 
+### ApiKeyListResponse Sorting/Filtering Metadata Fix
+- **Issue:** ApiKeyListResponse had no way to indicate how results were sorted or what filters were applied
+- **Fix:** Added two fields:
+  - `sort_order` (string, enum) — indicates sort direction (created_at_desc, created_at_asc, name_asc, name_desc, last_used_desc, last_used_asc)
+  - `filters_applied` (array of strings) — indicates active/expired/near_expiry/revoked filters applied
+- **Benefit:** Clients can display sort/filter context to users and understand result ordering
+
+
 ## [2026-05-09] Session Log — Latest Fixes
 
 ### SCIM RFC 7644 Compliance Fix
