@@ -62,12 +62,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
-        '202':
-          description: MFA required — complete step 2 with MFA code
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MfaRequiredResponse'
         '400':
           description: Bad request (validation error)
           content:
@@ -80,6 +74,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaRequiredResponse'
       parameters:
       - &id001
         name: X-Tenant-ID
@@ -316,18 +316,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DualOTPCompleteResponse'
-        '206':
-          description: Partial verification — one code verified, await the other
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DualOTPPartialResponse'
         '400':
           description: Invalid or expired codes
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: Dual OTP verification successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DualOTPPartialResponse'
       parameters:
       - *id002
   /register:
@@ -359,12 +359,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
-        '202':
-          description: User created, email confirmation required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PendingEmailVerificationResponse'
         '400':
           description: Validation error (duplicate email, weak password)
           content:

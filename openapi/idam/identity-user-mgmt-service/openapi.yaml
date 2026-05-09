@@ -461,8 +461,6 @@ paths:
           type: string
           format: uuid
       responses:
-        '200':
-          description: Password cleared
         '404':
           description: Not found
           content:
@@ -481,6 +479,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+        '204':
+          description: Password cleared successfully
   /users/{user_id}/email/verify:
     post:
       tags:
