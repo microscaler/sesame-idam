@@ -23,7 +23,7 @@
 || 10 | SCIM standard compliance | ✅ Fixed — all 4 SCIM endpoints use ScimError on 5 error codes (400/401/403/404/409) |
 || 11 | LinkSocialAccount returns 302 | ✅ Fixed — replaced 302 redirect with 200 JSON containing redirect_url + state |
 || 12 | UpdateApiKeyRequest has no key_id | ✅ Fixed — added PUT /{key_id} endpoint referencing UpdateApiKeyRequest |
-|| 13 | Impersonation path parameter security | ⏳ Pending (info only — no spec fix needed) |
+|| 13 | Impersonation path parameter security | ✅ Fixed — moved user_id from path to request body, removed {user_id} from path |
 
 ---
 
@@ -230,7 +230,8 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 10. **Response code diversity** — Standardized success codes: POST creates → 201, DELETE → 204, removed non-standard 202/206
 11. **Password reset token expiry** — Added expires_in (minutes) and token_type fields to /forgot-password response
 12. **ApiKeyListResponse sorting/filtering** — Added sort_order (enum) and filters_applied (array) metadata to response
-13. **LogoutRequest required fields** — Added clear documentation that refresh_token is optional when Bearer token is in Authorization header |
+13. **LogoutRequest required fields** — Added clear documentation that refresh_token is optional when Bearer token is in Authorization header
+14. **Impersonation path parameter security** — Moved user_id from URL path to request body (ImpersonateRequest), removed {user_id} from path params to prevent access log leakage |
 
 ## Retracted Findings
 
@@ -241,4 +242,4 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 
 | Finding | Severity | Effort |
 |---|---|---|
-| Impersonation path parameter security | Low | No spec fix needed — path params documented in security section |
+| (None — all audit items resolved) |

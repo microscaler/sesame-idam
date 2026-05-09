@@ -13,7 +13,7 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [What Problem Are We Solving?](#2-what-problem-are-we-solving)
-3. [Architecture — Four Independent Services](#3-architecture--four-independent-services)
+3. [Architecture — Six Independent Services](#3-architecture--six-independent-services)
 4. [Service Details](#4-service-details)
 5. [Data Model](#5-data-model)
 6. [Authentication & Authorization](#6-authentication--authorization)
@@ -900,7 +900,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Client as Client
-    participant IA as identity-auth Service
+    participant IA as identity-login-service Service
     participant AC as authz-core Service
     participant PG as PostgreSQL
     Client->>IA: POST /auth/login<br/>{email, password}
@@ -996,7 +996,9 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    subgraph "identity-auth (41 paths, 43 schemas)"
+    subgraph "identity-login-service (60 paths, 29 schemas)
+    identity-session-service (16 paths, 59 schemas)
+    identity-user-mgmt-service (25 paths, 23 schemas)"
         A1[Login, register, refresh,<br/>logout, token exchange]
         A2[User CRUD, MFA,<br/>email/phone, social]
         A3[OIDC discovery, JWKS]
@@ -1028,7 +1030,7 @@ graph LR
 
 | Service | Spec File | Description |
 |---------|-----------|-------------|
-| identity-auth | `openapi/identity-auth/openapi.yaml` | **Canonical spec** — all identity-auth endpoints, feeds BRRTRouter codegen |
+| identity-login-service + identity-session-service + identity-user-mgmt-service | `openapi/idam/identity-login-service/`, `openapi/idam/identity-session-service/`, `openapi/idam/identity-user-mgmt-service/` | **Canonical spec** — all identity service endpoints, feeds BRRTRouter codegen |
 | identity-login-service | `openapi/identity-login-service/openapi.yaml` | Login, register, social, token exchange (self-contained copy) |
 | identity-session-service | `openapi/identity-session-service/openapi.yaml` | Token refresh, OIDC, JWKS (self-contained copy) |
 | identity-user-mgmt-service | `openapi/identity-user-mgmt-service/openapi.yaml` | User CRUD, MFA, email/phone (self-contained copy) |
@@ -1036,7 +1038,7 @@ graph LR
 | api-keys | `openapi/api-keys/openapi.yaml` | API keys CRUD, validation (personal + org variants) |
 | org-mgmt | `openapi/org-mgmt/openapi.yaml` | Orgs CRUD, memberships, SSO, roles, permissions, webhooks |
 
-> The combined spec (`identity-auth/openapi.yaml`) is the single source of truth for BRRTRouter codegen. Sub-specs are independent, self-contained copies for navigation — they do not lint independently.
+> Each service has its own independent spec (no combined spec) is the single source of truth for BRRTRouter codegen. Sub-specs are independent, self-contained copies for navigation — they do not lint independently.
 
 ---
 
@@ -1128,7 +1130,7 @@ sequenceDiagram
 
 | Service | Frequency | Cost | Bottleneck | Strategy |
 |---------|-----------|------|------------|----------|
-| **identity-auth** | HIGH (100-10K req/s per 1K users) | Mixed | Password hashing (CPU-bound) | Horizontal + vertical (Argon2id tuned) |
+| **identity-login-service** | HIGH (100-10K req/s per 1K users) | Mixed | Password hashing (CPU-bound) | Horizontal + vertical (Argon2id tuned) |
 | **authz-core** | EXTREME (>10K req/s per 1K users) | LOW (cached) | Redis latency | Horizontal, sharded by org_id |
 | **api-keys** | HIGH (independently spiky) | LOW (hash lookup) | Trivial CPU | Horizontal, stateless |
 | **org-mgmt** | LOW (<100 req/s) | MEDIUM (SSO) | External IdP calls | Single instance, scale to zero |
@@ -1137,7 +1139,7 @@ sequenceDiagram
 
 | Service | PostgreSQL Tables | Redis Usage |
 |---------|------------------|-------------|
-| identity-auth | users, sessions, mfa_devices, password_reset_tokens | Session cache, refresh token rotation |
+| identity-login-service | users, sessions, mfa_devices, password_reset_tokens | Session cache, refresh token rotation |
 | authz-core | roles, permissions, role_permissions, user_roles | Role/permission cache (30s TTL) |
 | api-keys | api_keys | Validation result cache (short TTL) |
 | org-mgmt | organizations, organization_members, webhook_endpoints, applications | None |
@@ -1151,7 +1153,7 @@ sequenceDiagram
 **Ports:**
 | Service | Port |
 |---------|------|
-| identity-auth | 8101 |
+| identity-login-service | 8101 |
 | authz-core | 8102 |
 | api-keys | 8103 |
 | org-mgmt | 8104 |

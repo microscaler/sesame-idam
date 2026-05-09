@@ -3,7 +3,7 @@
 # Sesame-IDAM
 
 > **Open-source bolt-on identity & access management for B2B SaaS.**  
-> Zero auth logic in your app. Deployed as four independent Rust microservices.  
+> Zero auth logic in your app. Deployed as six independent Rust microservices.  
 > Matches the full PropelAuth API surface with native PostgreSQL RLS security.
 
 [Design Document](docs/design-doc.md) · [Gap Analysis](docs/propelauth-gap-analysis.md) · [Service Topology](docs/service-topology-design.md) · [RLS Integration](docs/rls-design-v2.md)
@@ -227,13 +227,13 @@ All claims are **authoritative in Sesame** — written at token generation, neve
 
 | Service | Specs | Endpoints | Schemas |
 |---------|-------|-----------|---------|
-| identity-login-service | `openapi/identity-login-service/openapi.yaml` | 15 | 12 |
-| identity-session-service | `openapi/identity-session-service/openapi.yaml` | 4 | 5 |
-| identity-user-mgmt-service | `openapi/identity-user-mgmt-service/openapi.yaml` | 25 | 20 |
-| authz-core | `openapi/authz-core/openapi.yaml` | 5 | 8 |
-| api-keys | `openapi/api-keys/openapi.yaml` | 10 | 15 |
-| org-mgmt | `openapi/org-mgmt/openapi.yaml` | 38 | 37 |
-| **Total** | **7 spec files** | **97 endpoints** | **97 schemas** |
+| identity-login-service | `openapi/idam/identity-login-service/openapi.yaml` | 20 | 29 |
+| identity-session-service | `openapi/idam/identity-session-service/openapi.yaml` | 16 | 59 |
+| identity-user-mgmt-service | `openapi/idam/identity-user-mgmt-service/openapi.yaml` | 25 | 23 |
+| authz-core | `openapi/idam/authz-core/openapi.yaml` | 5 | 8 |
+| api-keys | `openapi/idam/api-keys/openapi.yaml` | 11 | 16 |
+| org-mgmt | `openapi/idam/org-mgmt/openapi.yaml` | 43 | 44 |
+| **Total** | **6 spec files** | **120 endpoints** | **179 schemas** |
 
 Each OpenAPI spec is self-contained (schemas duplicated across specs). Each feeds BRRTRouter codegen for its own gen crate.
 

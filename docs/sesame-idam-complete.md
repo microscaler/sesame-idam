@@ -11,7 +11,7 @@
 
 1. [Vision](#1-vision)
 2. [Benchmark: PropelAuth vs Supabase vs Sesame](#2-benchmark-propelauth-vs-supabase-vs-sesame)
-3. [Architecture — Four Independent Services](#3-architecture--four-independent-services)
+3. [Architecture — Six Independent Services](#3-architecture--six-independent-services)
 4. [Data Model](#4-data-model)
 5. [The Developer Contract](#5-the-developer-contract)
 6. [The API Surface](#6-the-api-surface)
@@ -68,9 +68,9 @@ Sesame combines the best of both worlds:
 
 ---
 
-## 3. Architecture — Four Independent Services
+## 3. Architecture — Six Independent Services
 
-Sesame-IDAM is **four independent Rust services**, not a single binary. This split is driven by per-request frequency and per-request cost analysis — the two services in the original design were insufficient because the identity tier alone needs to separate fast reads (token refresh, user lookup) from slow writes (password hashing, registration).
+Sesame-IDAM is **six independent Rust services**, not a single binary. This split is driven by per-request frequency and per-request cost analysis — the two services in the original design were insufficient because the identity tier alone needs to separate fast reads (token refresh, user lookup) from slow writes (password hashing, registration).
 
 ```mermaid
 graph TB
@@ -85,7 +85,7 @@ graph TB
     end
 
     subgraph "Sesame-IDAM Services"
-        IA[identity-auth<br/>Port 8001<br/>HIGH frequency]
+        IA[identity-login-service<br/>Port 8101<br/>HIGH frequency]
         AC[authz-core<br/>Port 8002<br/>EXTREME frequency]
         AK[api-keys<br/>Port 8003<br/>HIGH frequency]
         OM[org-mgmt<br/>Port 8004<br/>LOW frequency]
@@ -119,12 +119,12 @@ graph TB
 
 | Service | OpenAPI Specs | Base Path | Frequency | Cost | Responsibility |
 |---------|--------------|-----------|-----------|------|----------------|
-| **identity-auth** | `openapi/identity-auth/` (4 sub-specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/api/v1/identity/*`, `/.well-known/*` | HIGH | Mixed (DB lookups + JWT signing) | Login, register, refresh, logout, MFA, password reset, OIDC discovery, JWKS, user CRUD, sessions, token exchange (RFC 8693) |
+| **identity-login-service** | `openapi/identity-login-service/` (3 separate specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/api/v1/identity/*`, `/.well-known/*` | HIGH | Mixed (DB lookups + JWT signing) | Login, register, refresh, logout, MFA, password reset, OIDC discovery, JWKS, user CRUD, sessions, token exchange (RFC 8693) |
 | **authz-core** | `openapi/authz-core/openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | EXTREME (every consumer API request) | LOW (cached) | Real-time authorization checks, principal/effective resolution, role/permission evaluation |
 | **api-keys** | `openapi/api-keys/openapi.yaml` | `/api/v1/am/api-keys/*` | HIGH (independently spiky) | LOW (hash lookup) | API key lifecycle, validation (personal + org variants), rotation, revocation |
 | **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | LOW (admin-heavy) | MEDIUM (CRUD + external SSO) | Org/tenant CRUD, memberships, invitations, SSO/SAML/SCIM, roles, permissions, applications, webhooks |
 
-**Why four services?**
+**Why six services?**
 
 1. **Per-request cost differs by orders of magnitude.** User lookup (`users/me`) takes microseconds. Login (`/auth/login`) takes milliseconds (bcrypt/hash + DB write + JWT sign). SSO setup takes seconds (external IdP communication).
 2. **Traffic patterns diverge completely.** M2M API key validation traffic can spike independently from user-facing traffic. CI/CD pipelines hammering the key service while mobile users are offline.
@@ -135,7 +135,7 @@ graph TB
 
 ```mermaid
 graph LR
-    IA[identity-auth] -->|principal/effective at login| AC[authz-core]
+    IA[identity-login-service] -->|principal/effective at login| AC[authz-core]
     AK[api-keys] -. independent .-. AC
     OM[org-mgmt] -. independent .-. AC
 
@@ -145,7 +145,7 @@ graph LR
     style OM fill:#27AE60
 ```
 
-The **only** cross-service dependency is identity-auth calling authz-core's `/principal/effective` endpoint at login time to populate JWT claims. After the JWT is issued, it is self-contained. `api-keys` and `org-mgmt` are fully independent.
+The **only** cross-service dependency is identity-login-service calling authz-core's `/principal/effective` endpoint at login time to populate JWT claims. After the JWT is issued, it is self-contained. `api-keys` and `org-mgmt` are fully independent.
 
 ---
 
@@ -488,13 +488,13 @@ const impersonationToken = await sesame.users.impersonate('user_abc123');
 
 ## 6. The API Surface
 
-All endpoints are under `/api/v1`. The API is split across four services.
+All endpoints are under `/api/v1`. The API is split across six services.
 
-### 6.1 Service: identity-auth
+### 6.1 Service: identity-login-service
 
 Base path: `/auth/*`, `/api/v1/identity/*`, `/.well-known/*`
 
-Split into 4 sub-specs for independent implementation:
+Split into 3 separate specs for independent implementation:
 
 #### Sub-service: login-service (HIGH freq / HIGH cost)
 
@@ -530,7 +530,7 @@ Split into 4 sub-specs for independent implementation:
 
 #### Sub-service: openapi.yaml (combined auth flows)
 
-Contains the full identity-auth API surface as a single spec for reference/codegen, combining all sub-services.
+Contains the full identity-login-service API surface as a single spec for reference/codegen, combining all sub-services.
 
 ### 6.2 Service: authz-core
 
@@ -913,7 +913,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Client as Client
-    participant IA as identity-auth Service
+    participant IA as identity-login-service Service
     participant AC as authz-core Service
     participant PG as PostgreSQL
     participant User as User
@@ -983,7 +983,7 @@ If a consuming application independently adds PostgREST, RLS policies will still
 
 | Service | Scaling Profile | Bottleneck | Strategy |
 |---------|----------------|------------|----------|
-| **identity-auth** | HIGH (100-10K req/s per 1K users) | Password hashing (CPU-bound) | Horizontal + vertical (Argon2id tuned) |
+| **identity-login-service** | HIGH (100-10K req/s per 1K users) | Password hashing (CPU-bound) | Horizontal + vertical (Argon2id tuned) |
 | **authz-core** | EXTREME (>10K req/s per 1K users) | Redis latency | Horizontal, sharded by org_id |
 | **api-keys** | HIGH (independently spiky) | Hash lookup (trivial CPU) | Horizontal, stateless |
 | **org-mgmt** | LOW (<100 req/s) | External SSO calls (rare) | Single instance, scale to zero |

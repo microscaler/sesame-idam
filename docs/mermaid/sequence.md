@@ -5,7 +5,7 @@
 
 ---
 
-## 1. Token Refresh Flow (identity-auth: session-service)
+## 1. Token Refresh Flow (identity-session-service)
 
 ```mermaid
 sequenceDiagram
@@ -46,12 +46,12 @@ sequenceDiagram
     Sesame->>Otel: Export refresh span
 ```
 
-## 2. User Login Flow (identity-auth + calls authz-core)
+## 2. User Login Flow (identity-login-service + calls authz-core)
 
 ```mermaid
 sequenceDiagram
     participant Client as Client
-    participant IA as identity-auth
+    participant IL as identity-login-service
     participant AC as authz-core
     participant PG as PostgreSQL
 

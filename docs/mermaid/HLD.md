@@ -15,7 +15,7 @@ graph TB
     end
 
     subgraph "Sesame-IDAM"
-        subgraph "identity-auth :8001"
+        subgraph "identity-login-service / identity-session-service / identity-user-mgmt-service :8101"
             LS[Login Service<br/>login, register, social, token exchange]
             SS[Session Service<br/>refresh, logout, OIDC, JWKS]
             UM[User Mgmt Service<br/>user CRUD, MFA, email/phone]
@@ -56,16 +56,16 @@ graph TB
 
 ## Service Details
 
-### identity-auth (4 sub-services)
+### Identity Services (3 separate microservices)
 
-The identity-auth service is split into 4 independent OpenAPI sub-specs:
+The identity tier is split into 3 independent microservices, each with its own OpenAPI spec:
 
 | Sub-service | Spec File | Base Path | Freq | Cost |
 |-------------|-----------|-----------|------|------|
-| **login-service** | `openapi/identity-auth/login-service.yaml` | `/auth/*` | HIGH | HIGH (bcrypt + JWT sign) |
-| **session-service** | `openapi/identity-auth/session-service.yaml` | `/auth/refresh`, `/.well-known/*` | EXTREME | LOW (cached lookups) |
-| **user-mgmt-service** | `openapi/identity-auth/user-mgmt-service.yaml` | `/api/v1/identity/users/*` | LOW | MEDIUM (write-heavy) |
-| **combined** | `openapi/identity-auth/openapi.yaml` | (all above) | — | — |
+| **identity-login-service** | `openapi/idam/identity-login-service/openapi.yaml` | `/auth/*` | HIGH | HIGH (bcrypt + JWT sign) |
+| **identity-session-service** | `openapi/idam/identity-session-service/openapi.yaml` | `/auth/refresh`, `/.well-known/*` | EXTREME | LOW (cached lookups) |
+| **identity-user-mgmt-service** | `openapi/idam/identity-user-mgmt-service/openapi.yaml` | `/api/v1/identity/users/*` | LOW | MEDIUM (write-heavy) |
+(No combined spec — each service has its own independent OpenAPI spec for BRRTRouter codegen)
 
 ### authz-core
 
@@ -89,7 +89,7 @@ The identity-auth service is split into 4 independent OpenAPI sub-specs:
 
 ```mermaid
 graph LR
-    LS[identity-auth] -->|principal/effective at login| AC[authz-core]
+    IL[identity-login-service] -->|principal/effective at login| AC[authz-core]
     AK[api-keys] -. independent .-. AC
     OM[org-mgmt] -. independent .-. AC
 
@@ -99,13 +99,15 @@ graph LR
     style OM fill:#27AE60
 ```
 
-The only cross-service dependency is identity-auth → authz-core at login time for JWT claim enrichment. After the JWT is issued, it is self-contained.
+The only cross-service dependency is identity-login-service → authz-core at login time for JWT claim enrichment. After the JWT is issued, it is self-contained.
 
 ## Storage Layer
 
 | Service | PostgreSQL Tables | Redis Usage |
 |---------|------------------|-------------|
-| identity-auth | users, sessions, mfa_devices, password_reset_tokens | session cache, refresh token rotation |
+| identity-login-service | users, sessions, mfa_devices, password_reset_tokens | session cache, refresh token rotation |
+| identity-session-service | sessions, tokens | session cache, refresh token rotation |
+| identity-user-mgmt-service | users, accounts, mfa, email/phone, social | user cache |
 | authz-core | roles, permissions, role_permissions, user_roles | role/permission cache (30s TTL) |
 | api-keys | api_keys | validation result cache (short TTL) |
 | org-mgmt | organizations, organization_members, webhook_endpoints | none |

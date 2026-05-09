@@ -32,7 +32,9 @@ insufficient because:
 
 | Service | OpenAPI Spec | Base Path | Ports | Scaling Profile |
 |---------|-------------|-----------|-------|----------------|
-| **identity-auth** | `openapi/identity-auth/` (4 sub-specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/api/v1/identity/*`, `/.well-known/*` | 8101 | HIGH: refresh + users/me = read-heavy, fast DB |
+| **identity-login-service / identity-session-service / identity-user-mgmt-service** | `openapi/identity-login-service/
+identity-session-service/
+identity-user-mgmt-service/` (3 separate specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/api/v1/identity/*`, `/.well-known/*` | 8101 | HIGH: refresh + users/me = read-heavy, fast DB |
 | **authz-core** | `openapi/authz-core/openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | 8102 | EXTREME: called on EVERY consumer API request |
 | **api-keys** | `openapi/api-keys/openapi.yaml` | `/api/v1/am/api-keys/*` | 8103 | HIGH: M2M validation = hash lookup, independently spiky |
 | **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | 8104 | LOW: admin-heavy, near-zero scaling pressure |
@@ -52,7 +54,7 @@ graph TB
     end
 
     subgraph "Sesame-IDAM Services"
-        IA[identity-auth<br/>Port 8101<br/>HIGH frequency]
+        IA[identity-login-service / identity-session-service / identity-user-mgmt-service<br/>Port 8101<br/>HIGH frequency]
         AC[authz-core<br/>Port 8102<br/>EXTREME frequency]
         AK[api-keys<br/>Port 8103<br/>HIGH frequency]
         OM[org-mgmt<br/>Port 8104<br/>LOW frequency]
@@ -84,12 +86,12 @@ graph TB
 
 ## Call Sequence Diagrams
 
-### 1. User Login Flow (identity-auth + calls authz-core)
+### 1. User Login Flow (identity-login-service / identity-session-service / identity-user-mgmt-service + calls authz-core)
 
 ```mermaid
 sequenceDiagram
     participant Client as Client
-    participant IA as identity-auth
+    participant IA as identity-login-service / identity-session-service / identity-user-mgmt-service
     participant AC as authz-core
     participant PG as PostgreSQL
 
@@ -181,20 +183,20 @@ sequenceDiagram
 
 | Path | Service | Per-Request Cost | Cache Strategy |
 |------|---------|-----------------|----------------|
-| `POST /auth/refresh` | identity-auth | MEDIUM (DB lookup + JWT sign) | Redis session cache |
-| `GET /api/v1/identity/users/me` | identity-auth | LOW (indexed lookup) | Redis (5s TTL) |
+| `POST /auth/refresh` | identity-login-service / identity-session-service / identity-user-mgmt-service | MEDIUM (DB lookup + JWT sign) | Redis session cache |
+| `GET /api/v1/identity/users/me` | identity-login-service / identity-session-service / identity-user-mgmt-service | LOW (indexed lookup) | Redis (5s TTL) |
 | `POST /api/v1/am/authorize` | authz-core | MEDIUM (role evaluation) | Redis (30s TTL) |
 | `POST /api/v1/am/api-keys/validate/personal` | api-keys | LOW (hash lookup) | Redis (no need — hash lookup is fast) |
 | `POST /api/v1/am/api-keys/validate/org` | api-keys | LOW-MEDIUM (hash + org lookup) | Redis (5s TTL) |
-| `GET /.well-known/openid-configuration` | identity-auth | NEGLIGIBLE | Static (never expires) |
-| `GET /.well-known/jwks.json` | identity-auth | NEGLIGIBLE | Static (rotate on key rotation) |
+| `GET /.well-known/openid-configuration` | identity-login-service / identity-session-service / identity-user-mgmt-service | NEGLIGIBLE | Static (never expires) |
+| `GET /.well-known/jwks.json` | identity-login-service / identity-session-service / identity-user-mgmt-service | NEGLIGIBLE | Static (rotate on key rotation) |
 
 ### HIGH Frequency (100-10K req/s per 1K users)
 
 | Path | Service | Per-Request Cost |
 |------|---------|-----------------|
-| `POST /auth/login` | identity-auth | HIGH (password hash + email) |
-| `GET /oauth/userinfo` | identity-auth | LOW (JWT verify) |
+| `POST /auth/login` | identity-login-service / identity-session-service / identity-user-mgmt-service | HIGH (password hash + email) |
+| `GET /oauth/userinfo` | identity-login-service / identity-session-service / identity-user-mgmt-service | LOW (JWT verify) |
 | `POST /api/v1/am/principal/effective` | authz-core | HIGH (resolves hierarchy) |
 | `GET /api/v1/am/principals/roles` | authz-core | LOW |
 | `GET /api/v1/am/principals/attributes` | authz-core | LOW |
@@ -207,17 +209,17 @@ sequenceDiagram
 | All `POST/PUT/DELETE /orgs/{org_id}/users` | org-mgmt |
 | All SSO/SAML/SCIM endpoints | org-mgmt |
 | All `POST/PUT/DELETE /api/v1/am/applications/*` | org-mgmt |
-| User CRUD (PATCH/DELETE) | identity-auth |
-| MFA setup/verify | identity-auth |
-| Phone setup/verify | identity-auth |
-| Social login | identity-auth |
-| Password reset flows | identity-auth |
+| User CRUD (PATCH/DELETE) | identity-login-service / identity-session-service / identity-user-mgmt-service |
+| MFA setup/verify | identity-login-service / identity-session-service / identity-user-mgmt-service |
+| Phone setup/verify | identity-login-service / identity-session-service / identity-user-mgmt-service |
+| Social login | identity-login-service / identity-session-service / identity-user-mgmt-service |
+| Password reset flows | identity-login-service / identity-session-service / identity-user-mgmt-service |
 
 ## Inter-Service Dependencies
 
 ```mermaid
 graph LR
-    IA[identity-auth]
+    IA[identity-login-service / identity-session-service / identity-user-mgmt-service]
     AC[authz-core]
     AK[api-keys]
     OM[org-mgmt]
@@ -227,12 +229,12 @@ graph LR
     OM -. "independent" .- OM
 ```
 
-The **only** cross-service dependency is identity-auth calling authz-core's
+The **only** cross-service dependency is identity-login-service / identity-session-service / identity-user-mgmt-service calling authz-core's
 `/principal/effective` endpoint at login time to populate JWT claims. This is a
 fire-and-forget call during session creation — not on the hot path of subsequent
 requests. After the JWT is issued, it is self-contained.
 
-### JWT Schema (issued by identity-auth, claims sourced from authz-core)
+### JWT Schema (issued by identity-login-service / identity-session-service / identity-user-mgmt-service, claims sourced from authz-core)
 
 ```json
 {
@@ -263,7 +265,7 @@ user delete invoice #123?") require a call to `authz-core` at request time.
 
 ## Scaling Considerations Per Service
 
-### identity-auth
+### identity-login-service / identity-session-service / identity-user-mgmt-service
 
 - **Compute:** Password hashing is the bottleneck (CPU-bound). Needs to scale vertically
   or use GPU for bcrypt. Everything else is I/O bound (DB lookups).
@@ -303,12 +305,14 @@ user delete invoice #123?") require a call to `authz-core` at request time.
 
 ## OpenAPI Spec Layout
 
-The four services each have their own OpenAPI spec(s):
+The six services each have their own OpenAPI spec(s):
 
 ```
 openapi/
-├── identity-auth/
-│   ├── openapi.yaml              # Combined spec (all identity-auth endpoints)
+├── identity-login-service/
+identity-session-service/
+identity-user-mgmt-service/
+│   ├── openapi.yaml              # Combined spec (all identity-login-service / identity-session-service / identity-user-mgmt-service endpoints)
 │   ├── login-service.yaml        # Login, register, token exchange, social login
 │   ├── session-service.yaml      # Token refresh, OIDC discovery, JWKS
 │   └── user-mgmt-service.yaml    # User CRUD, account security, email/phone verify
