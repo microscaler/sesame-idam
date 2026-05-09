@@ -229,7 +229,8 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 9. **LinkSocialAccount 302** — Replaced 302 redirect with 200 JSON response containing redirect_url and state fields
 10. **Response code diversity** — Standardized success codes: POST creates → 201, DELETE → 204, removed non-standard 202/206
 11. **Password reset token expiry** — Added expires_in (minutes) and token_type fields to /forgot-password response
-12. **ApiKeyListResponse sorting/filtering** — Added sort_order (enum) and filters_applied (array) metadata to response |
+12. **ApiKeyListResponse sorting/filtering** — Added sort_order (enum) and filters_applied (array) metadata to response
+13. **LogoutRequest required fields** — Added clear documentation that refresh_token is optional when Bearer token is in Authorization header |
 
 ## Retracted Findings
 
@@ -240,5 +241,4 @@ The logout operation requires BearerAuth but the request body `LogoutRequest` ha
 
 | Finding | Severity | Effort |
 |---|---|---|
-| LogoutRequest required fields documentation | Low | Document whether refresh_token in body is needed |
 | Impersonation path parameter security | Low | No spec fix needed — path params documented in security section |

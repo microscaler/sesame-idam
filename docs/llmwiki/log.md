@@ -8,6 +8,14 @@
 - **Benefit:** Clients can display sort/filter context to users and understand result ordering
 
 
+### LogoutRequest Documentation Fix
+- **Issue:** `POST /logout` had LogoutRequest schema with no required fields, leaving clients unsure if refresh_token in body was needed
+- **Fix:** Added comprehensive description to LogoutRequest:
+  - `description`: "Either the refresh_token in the body OR the Bearer token in the Authorization header can be used to identify the session to revoke. If both are provided, the refresh_token is preferred."
+  - `refresh_token.description`: "Required only if no Authorization header is present. If the session is identified via the Bearer token in the Authorization header, this field is optional."
+- **Benefit:** Clear contract for clients on how to use the endpoint
+
+
 ## [2026-05-09] Session Log — Latest Fixes
 
 ### SCIM RFC 7644 Compliance Fix
