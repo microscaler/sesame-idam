@@ -41,6 +41,16 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateApiKeyRequest'
+            examples:
+              default:
+                summary: Example request for create_api_key
+                value:
+                  name: Production API Key
+                  permissions:
+                  - read
+                  - write
+                  - delete
+                  expires_in: 365
       responses:
         '201':
           description: API key created
@@ -48,6 +58,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiKeyCreateResponse'
+              examples:
+                default:
+                  summary: Example response 201 for create_api_key
+                  value:
+                    key_id: 550e8400-e29b-41d4-a716-446655440003
+                    name: Production API Key
+                    key: sk_live_abc123def456ghi789
+                    permissions:
+                    - read
+                    - write
+                    - delete
+                    created_at: '2024-01-15T10:30:00Z'
+                    expires_at: '2025-01-15T10:30:00Z'
+                    last_used_at: null
         '400':
           description: Invalid request
           content:
@@ -120,6 +144,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiKeyListResponse'
+              examples:
+                default:
+                  summary: Example response 200 for fetch_active_api_keys
+                  value:
+                    api_keys:
+                    - key_id: 550e8400-e29b-41d4-a716-446655440003
+                      name: Production API Key
+                      key: sk_live_abc***
+                      permissions:
+                      - read
+                      - write
+                      - delete
+                      created_at: '2024-01-15T10:30:00Z'
+                      expires_at: '2025-01-15T10:30:00Z'
+                      last_used_at: '2024-01-16T08:00:00Z'
+                    - key_id: 550e8400-e29b-41d4-a716-446655440004
+                      name: Development Key
+                      key: sk_dev_xyz***
+                      permissions:
+                      - read
+                      created_at: '2024-01-10T00:00:00Z'
+                      expires_at: '2024-07-10T00:00:00Z'
+                      last_used_at: '2024-01-14T12:00:00Z'
+                    total: 2
+                    page: 1
+                    limit: 20
   /{key_id}:
     put:
       tags:
@@ -144,6 +194,14 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateApiKeyRequest'
+            examples:
+              default:
+                summary: Example request for update_api_key
+                value:
+                  name: Updated Production Key
+                  permissions:
+                  - read
+                  - write
       responses:
         '200':
           description: API key updated
@@ -151,6 +209,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiKey'
+              examples:
+                default:
+                  summary: Example response 200 for update_api_key
+                  value:
+                    key_id: 550e8400-e29b-41d4-a716-446655440003
+                    name: Updated Production Key
+                    key: sk_live_abc***
+                    permissions:
+                    - read
+                    - write
+                    created_at: '2024-01-15T10:30:00Z'
+                    expires_at: '2025-01-15T10:30:00Z'
+                    last_used_at: '2024-01-16T08:00:00Z'
+                    updated_at: '2024-01-17T10:00:00Z'
         '404':
           description: API key not found
           content:
@@ -231,6 +303,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiKeyValidationResponse'
+              examples:
+                default:
+                  summary: Example response 200 for validate_api_key
+                  value:
+                    valid: true
+                    key_id: 550e8400-e29b-41d4-a716-446655440003
+                    name: Production API Key
+                    permissions:
+                    - read
+                    - write
+                    - delete
+                    expires_at: '2025-01-15T10:30:00Z'
+                    tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
         '401':
           description: Invalid or expired API key
           content:
@@ -299,6 +384,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiKeyUsageResponse'
+              examples:
+                default:
+                  summary: Example response 200 for fetch_api_key_usage
+                  value:
+                    key_id: 550e8400-e29b-41d4-a716-446655440003
+                    total_requests: 15234
+                    requests_last_24h: 342
+                    requests_last_7d: 2891
+                    requests_last_30d: 11456
   /validate/personal:
     post:
       tags:
@@ -323,6 +417,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PersonalApiKeyValidationResponse'
+              examples:
+                default:
+                  summary: Example response 200 for validate_personal_api_key
+                  value:
+                    valid: true
+                    key_id: 550e8400-e29b-41d4-a716-446655440003
+                    name: Personal API Key
+                    permissions:
+                    - read
+                    - write
+                    expires_at: '2025-01-15T10:30:00Z'
+                    tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
         '401':
           description: Invalid or not a personal API key
           content:
@@ -382,6 +488,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ArchivedApiKeyListResponse'
+              examples:
+                default:
+                  summary: Example response 200 for fetch_archived_api_keys
+                  value:
+                    api_keys:
+                    - key_id: 550e8400-e29b-41d4-a716-446655440005
+                      name: Archived Key
+                      archived_at: '2024-01-10T00:00:00Z'
+                      archived_by: admin@example.com
+                    total: 1
+                    page: 1
+                    limit: 20
   /archived/{key_id}:
     get:
       tags:
@@ -407,6 +525,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ArchivedApiKey'
+              examples:
+                default:
+                  summary: Example response 200 for fetch_archived_api_key
+                  value:
+                    key_id: 550e8400-e29b-41d4-a716-446655440005
+                    name: Archived Key
+                    key: sk_arc_old***
+                    archived_at: '2024-01-10T00:00:00Z'
+                    archived_by: admin@example.com
         '404':
           description: Not found
           content:
@@ -436,6 +563,15 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ImportApiKeysRequest'
+            examples:
+              default:
+                summary: Example request for import_api_keys
+                value:
+                  api_keys:
+                  - name: Key 1
+                    key: sk_import_abc123
+                    permissions:
+                    - read
       responses:
         '201':
           description: API keys imported
@@ -443,6 +579,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ImportApiKeysResponse'
+              examples:
+                default:
+                  summary: Example response 201 for import_api_keys
+                  value:
+                    imported: 1
+                    failed: 0
+                    keys:
+                    - key_id: 550e8400-e29b-41d4-a716-446655440006
+                      name: Key 1
+                      imported_at: '2024-01-17T10:00:00Z'
         '400':
           description: Invalid import data
           content:
@@ -478,6 +624,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrgApiKeyValidationResponse'
+              examples:
+                default:
+                  summary: Example response 200 for validate_org_api_key
+                  value:
+                    valid: true
+                    key_id: 550e8400-e29b-41d4-a716-446655440003
+                    name: Organization API Key
+                    permissions:
+                    - read
+                    expires_at: '2025-01-15T10:30:00Z'
+                    tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
         '401':
           description: Invalid or not an organisation API key
           content:

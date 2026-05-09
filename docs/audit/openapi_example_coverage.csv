@@ -19,13 +19,13 @@ identity-login-service,/login/magic-link,POST,magic_link_send,Yes,200,full,"requ
 identity-login-service,/login/magic-link/verify,POST,magic_link_verify,Yes,200,full,"request:application/json, response_200:application/json"
 identity-login-service,/login/phone-magic-link,POST,sms_magic_link_send,Yes,200,full,"request:application/json, response_200:application/json"
 identity-login-service,/login/phone-magic-link/verify,POST,sms_magic_link_verify,Yes,200,full,"request:application/json, response_200:application/json"
-identity-session-service,/refresh,POST,auth_refresh,No,No,none,
-identity-session-service,/api/v1/identity/users/me,GET,users_me_get,No,No,none,
-identity-session-service,/api/v1/identity/users/me,PATCH,users_me_patch,No,No,none,
+identity-session-service,/refresh,POST,auth_refresh,Yes,200,full,"request:application/json, response_200:application/json"
+identity-session-service,/api/v1/identity/users/me,GET,users_me_get,No,200,partial,response_200:application/json
+identity-session-service,/api/v1/identity/users/me,PATCH,users_me_patch,Yes,200,full,"request:application/json, response_200:application/json"
 identity-session-service,/.well-known/openid-configuration,GET,openid_configuration,No,No,none,
 identity-session-service,/.well-known/jwks.json,GET,jwks,No,200,partial,response_200:application/json
 identity-session-service,/api/v1/identity/users/me/userinfo,GET,oauth_userinfo,No,No,none,
-identity-session-service,/verify/step-up,POST,step_up_verify,No,No,none,
+identity-session-service,/verify/step-up,POST,step_up_verify,Yes,200,full,"request:application/json, response_200:application/json"
 identity-session-service,/api/v1/identity/users/me/token,POST,admin_issue_token,No,No,none,
 identity-session-service,/mcp/token,POST,mcp_token,No,No,none,
 identity-session-service,/mcp/token/validate,POST,mcp_validate,No,No,none,
@@ -37,10 +37,10 @@ identity-session-service,/admin/impersonate,POST,admin_impersonate,No,No,none,
 identity-session-service,/admin/impersonate/restore,POST,admin_restore_impersonation,No,No,none,
 identity-user-mgmt-service,/users,POST,create_user,Yes,201,full,"request:application/json, response_201:application/json"
 identity-user-mgmt-service,/users/{user_id},DELETE,delete_user,No,No,none,
-identity-user-mgmt-service,/users/query,GET,query_users,No,No,none,
-identity-user-mgmt-service,/users/email,GET,fetch_user_by_email,No,No,none,
-identity-user-mgmt-service,/users/username,GET,fetch_user_by_username,No,No,none,
-identity-user-mgmt-service,/users/{user_id}/employee,GET,fetch_employee,No,No,none,
+identity-user-mgmt-service,/users/query,GET,query_users,No,200,partial,response_200:application/json
+identity-user-mgmt-service,/users/email,GET,fetch_user_by_email,No,200,partial,response_200:application/json
+identity-user-mgmt-service,/users/username,GET,fetch_user_by_username,No,200,partial,response_200:application/json
+identity-user-mgmt-service,/users/{user_id}/employee,GET,fetch_employee,No,200,partial,response_200:application/json
 identity-user-mgmt-service,/users/{user_id}/disable,POST,disable_user,No,No,none,
 identity-user-mgmt-service,/users/{user_id}/enable,POST,enable_user,No,No,none,
 identity-user-mgmt-service,/users/{user_id}/logout-all-sessions,POST,logout_all_sessions,No,No,none,
@@ -49,15 +49,15 @@ identity-user-mgmt-service,/users/{user_id}/password,DELETE,clear_user_password,
 identity-user-mgmt-service,/users/{user_id}/email/verify,POST,verify_user_email,No,No,none,
 identity-user-mgmt-service,/users/{user_id}/resend-email-confirmation,POST,resend_email_confirmation,No,No,none,
 identity-user-mgmt-service,/users/{user_id}/mfa/disable,POST,disable_user_mfa,No,No,none,
-identity-user-mgmt-service,/users/{user_id}/mfa/setup,POST,setup_user_mfa_totp,No,No,none,
-identity-user-mgmt-service,/users/{user_id}/mfa/verify,POST,verify_user_mfa,No,No,none,
-identity-user-mgmt-service,/users/{user_id}/phone,POST,setup_user_phone,No,No,none,
-identity-user-mgmt-service,/users/{user_id}/phone/verify,POST,verify_user_phone,No,No,none,
-identity-user-mgmt-service,/users/{user_id}/email,PUT,update_user_email,No,No,none,
+identity-user-mgmt-service,/users/{user_id}/mfa/setup,POST,setup_user_mfa_totp,Yes,200,full,"request:application/json, response_200:application/json"
+identity-user-mgmt-service,/users/{user_id}/mfa/verify,POST,verify_user_mfa,Yes,200,full,"request:application/json, response_200:application/json"
+identity-user-mgmt-service,/users/{user_id}/phone,POST,setup_user_phone,Yes,No,partial,request:application/json
+identity-user-mgmt-service,/users/{user_id}/phone/verify,POST,verify_user_phone,Yes,No,partial,request:application/json
+identity-user-mgmt-service,/users/{user_id}/email,PUT,update_user_email,Yes,No,partial,request:application/json
 identity-user-mgmt-service,/users/{user_id}/social/link,POST,link_social_account,No,200,partial,response_200:application/json
-identity-user-mgmt-service,/users/{user_id}/social/tokens,GET,fetch_user_oauth_tokens,No,No,none,
-identity-user-mgmt-service,/users/{user_id}/social/tokens/{provider}/refresh,GET,fetch_fresh_oauth_token,No,No,none,
-identity-user-mgmt-service,/users/migrate,POST,migrate_user,No,No,none,
+identity-user-mgmt-service,/users/{user_id}/social/tokens,GET,fetch_user_oauth_tokens,No,200,partial,response_200:application/json
+identity-user-mgmt-service,/users/{user_id}/social/tokens/{provider}/refresh,GET,fetch_fresh_oauth_token,No,200,partial,response_200:application/json
+identity-user-mgmt-service,/users/migrate,POST,migrate_user,Yes,201,full,"request:application/json, response_201:application/json"
 identity-user-mgmt-service,/users/migrate-password,POST,migrate_user_passwords,No,No,none,
 identity-user-mgmt-service,/oauth/logout,POST,oauth_logout,No,No,none,
 authz-core,/principals/roles,POST,assign_principal_role,Yes,No,partial,request:application/json
@@ -65,17 +65,17 @@ authz-core,/principals/roles,DELETE,revoke_principal_role,No,No,none,
 authz-core,/principals/attributes,POST,set_principal_attribute,No,No,none,
 authz-core,/principal/effective,POST,principal_effective,No,No,none,
 authz-core,/authorize,POST,authorize,Yes,200,full,"request:application/json, response_200:application/json"
-api-keys,/,POST,create_api_key,No,No,none,
-api-keys,/current,GET,fetch_active_api_keys,No,No,none,
-api-keys,/{key_id},PUT,update_api_key,No,No,none,
+api-keys,/,POST,create_api_key,Yes,201,full,"request:application/json, response_201:application/json"
+api-keys,/current,GET,fetch_active_api_keys,No,200,partial,response_200:application/json
+api-keys,/{key_id},PUT,update_api_key,Yes,200,full,"request:application/json, response_200:application/json"
 api-keys,/{key_id},DELETE,delete_api_key,No,No,none,
-api-keys,/validate,POST,validate_api_key,No,No,none,
-api-keys,/usage,GET,fetch_api_key_usage,No,No,none,
-api-keys,/validate/personal,POST,validate_personal_api_key,No,No,none,
-api-keys,/archived,GET,fetch_archived_api_keys,No,No,none,
-api-keys,/archived/{key_id},GET,fetch_archived_api_key,No,No,none,
-api-keys,/import,POST,import_api_keys,No,No,none,
-api-keys,/validate/org,POST,validate_org_api_key,No,No,none,
+api-keys,/validate,POST,validate_api_key,No,200,partial,response_200:application/json
+api-keys,/usage,GET,fetch_api_key_usage,No,200,partial,response_200:application/json
+api-keys,/validate/personal,POST,validate_personal_api_key,No,200,partial,response_200:application/json
+api-keys,/archived,GET,fetch_archived_api_keys,No,200,partial,response_200:application/json
+api-keys,/archived/{key_id},GET,fetch_archived_api_key,No,200,partial,response_200:application/json
+api-keys,/import,POST,import_api_keys,Yes,201,full,"request:application/json, response_201:application/json"
+api-keys,/validate/org,POST,validate_org_api_key,No,200,partial,response_200:application/json
 org-mgmt,/,GET,query_orgs,No,No,none,
 org-mgmt,/{org_id},GET,fetch_org,No,No,none,
 org-mgmt,/{org_id},PUT,update_org,Yes,No,partial,request:application/json
