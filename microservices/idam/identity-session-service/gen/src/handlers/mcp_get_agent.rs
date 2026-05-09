@@ -12,7 +12,26 @@ pub struct Request {}
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {}
+pub struct Response {
+    #[serde(rename = "active")]
+    pub active: bool,
+
+    #[serde(rename = "agent_id")]
+    pub agent_id: String,
+
+    #[serde(rename = "created_at")]
+    pub created_at: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "description")]
+    pub description: Option<String>,
+
+    #[serde(rename = "name")]
+    pub name: String,
+
+    #[serde(rename = "updated_at")]
+    pub updated_at: String,
+}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;

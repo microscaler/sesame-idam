@@ -6,5 +6,10 @@ use brrtrouter_macros::handler;
 
 #[handler(ScimDeleteUserController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {}
+    Response {
+        detail: "example".to_string(),
+        schemas: vec![],
+        scim_type: Some("example".to_string()),
+        status: "example".to_string(),
+    }
 }

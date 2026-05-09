@@ -20,9 +20,8 @@ pub struct Request {
     #[serde(rename = "org_id")]
     pub org_id: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "tenant_id")]
-    pub tenant_id: Option<String>,
+    pub tenant_id: String,
 
     #[serde(rename = "user_id")]
     pub user_id: String,

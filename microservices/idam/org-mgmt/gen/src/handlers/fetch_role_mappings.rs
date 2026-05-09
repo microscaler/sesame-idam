@@ -11,6 +11,14 @@ use std::convert::TryFrom;
 pub struct Request {
     #[serde(rename = "org_id")]
     pub org_id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "page")]
+    pub page: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "limit")]
+    pub limit: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -53,6 +61,33 @@ impl TryFrom<HandlerRequest> for Request {
             );
         } else {
             return Err(anyhow::anyhow!("Missing required parameter 'org_id'"));
+        }
+
+        if let Some(v) = req.get_query_param("page") {
+            data_map.insert(
+                "page".to_string(),
+                brrtrouter::server::request::decode_param_value(
+                    v,
+                    Some(&serde_json::json!({"default":1,"minimum":1,"type":"integer"})),
+                    None,
+                    None,
+                ),
+            );
+        } else {
+
+            // optional parameter
+        }
+
+        if let Some(v) = req.get_query_param("limit") {
+            data_map.insert(
+                "limit".to_string(),
+                brrtrouter::server::request::decode_param_value(
+                    v,Some(&serde_json::json!({"default":20,"maximum":100,"minimum":1,"type":"integer"})),None,None,
+                ),
+            );
+        } else {
+
+            // optional parameter
         }
 
         if let Some(body) = req.body {

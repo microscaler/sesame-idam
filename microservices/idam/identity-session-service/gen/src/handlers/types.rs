@@ -35,15 +35,27 @@ pub struct AdminIssueTokenRequest {
 pub struct AdminIssueTokenResponse {
     pub access_token: String,
 
+    pub email: String,
+
+    pub email_verified: bool,
+
     pub expires_in: i32,
 
     pub id_token: String,
 
+    pub mfa_required: bool,
+
+    pub phone_verified: bool,
+
     pub refresh_token: String,
+
+    pub refresh_token_expires_in: i32,
 
     pub scope: String,
 
     pub token_type: String,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -71,15 +83,27 @@ pub struct AuthRefreshRequest {
 pub struct AuthRefreshResponse {
     pub access_token: String,
 
+    pub email: String,
+
+    pub email_verified: bool,
+
     pub expires_in: i32,
 
     pub id_token: String,
 
+    pub mfa_required: bool,
+
+    pub phone_verified: bool,
+
     pub refresh_token: String,
+
+    pub refresh_token_expires_in: i32,
 
     pub scope: String,
 
     pub token_type: String,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -280,17 +304,64 @@ pub struct LogoutRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct McpAgent {
+    pub active: bool,
+
+    pub agent_id: String,
+
     pub created_at: String,
 
-    pub enabled: bool,
-
-    pub id: String,
+    pub description: String,
 
     pub name: String,
 
-    pub org_id: String,
+    pub updated_at: String,
+}
 
-    pub permissions: Vec<String>,
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpAgentListResponse {
+    pub agents: Vec<McpAgent>,
+
+    pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpCreateAgentRequest {
+    pub description: String,
+
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpDeleteAgentResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpGetAgentResponse {
+    pub active: bool,
+
+    pub agent_id: String,
+
+    pub created_at: String,
+
+    pub description: String,
+
+    pub name: String,
+
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpListAgentsResponse {
+    pub agents: Vec<McpAgent>,
+
+    pub total: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -678,15 +749,27 @@ pub struct TokenRequest {
 pub struct TokenResponse {
     pub access_token: String,
 
+    pub email: String,
+
+    pub email_verified: bool,
+
     pub expires_in: i32,
 
     pub id_token: String,
 
+    pub mfa_required: bool,
+
+    pub phone_verified: bool,
+
     pub refresh_token: String,
+
+    pub refresh_token_expires_in: i32,
 
     pub scope: String,
 
     pub token_type: String,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -734,25 +817,6 @@ pub struct UpdateUserRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct MfaFactor {
-    pub id: String,
-
-    pub user_id: String,
-
-    #[serde(rename = "type")]
-    pub r#type: String,
-
-    pub secret: String,
-
-    pub is_active: bool,
-
-    pub label: String,
-
-    pub created_at: i32,
-
-    pub last_used_at: i32,
-}
-
 pub struct User {
     pub can_create_orgs: bool,
 

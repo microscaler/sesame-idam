@@ -37,11 +37,7 @@ pub mod update_org;
 
 pub mod delete_org;
 
-pub mod add_user_to_org;
-
 pub mod allow_org_saml;
-
-pub mod change_user_role_in_org;
 
 pub mod create_saml_link;
 
@@ -60,8 +56,6 @@ pub mod migrate_org_isolated;
 pub mod set_oidc_idp_metadata;
 
 pub mod revoke_pending_invite;
-
-pub mod remove_user_from_org;
 
 pub mod fetch_role_mappings;
 
@@ -84,6 +78,12 @@ pub mod scim_delete_user;
 pub mod subscribe_org_to_role_mapping;
 
 pub mod fetch_users_in_org;
+
+pub mod add_user_to_org;
+
+pub mod remove_user_from_org;
+
+pub mod change_user_role_in_org;
 
 pub mod fetch_webhook_subscriptions;
 

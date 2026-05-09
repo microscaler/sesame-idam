@@ -26,6 +26,14 @@ pub struct Response {
     #[serde(rename = "access_token")]
     pub access_token: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "email")]
+    pub email: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "email_verified")]
+    pub email_verified: Option<bool>,
+
     #[serde(rename = "expires_in")]
     pub expires_in: i32,
 
@@ -34,8 +42,19 @@ pub struct Response {
     pub id_token: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "mfa_required")]
+    pub mfa_required: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "phone_verified")]
+    pub phone_verified: Option<bool>,
+
     #[serde(rename = "refresh_token")]
-    pub refresh_token: Option<String>,
+    pub refresh_token: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "refresh_token_expires_in")]
+    pub refresh_token_expires_in: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "scope")]
@@ -43,6 +62,9 @@ pub struct Response {
 
     #[serde(rename = "token_type")]
     pub token_type: String,
+
+    #[serde(rename = "user_id")]
+    pub user_id: String,
 }
 
 impl TryFrom<HandlerRequest> for Request {

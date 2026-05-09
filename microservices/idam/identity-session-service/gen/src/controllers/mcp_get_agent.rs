@@ -6,5 +6,12 @@ use brrtrouter_macros::handler;
 
 #[handler(McpGetAgentController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {}
+    Response {
+        active: true,
+        agent_id: "example".to_string(),
+        created_at: "example".to_string(),
+        description: Some("example".to_string()),
+        name: "example".to_string(),
+        updated_at: "example".to_string(),
+    }
 }

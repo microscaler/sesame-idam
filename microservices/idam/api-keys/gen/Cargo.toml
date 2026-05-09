@@ -3,11 +3,6 @@ name = "api_keys_service_api"
 version = "0.1.0"
 edition = "2021"
 
-
-[lib]
-name = "api_keys_service_api"
-path = "src/lib.rs"
-
 [features]
 default = []
 # jemalloc is opt-in (--features jemalloc). On armv7-unknown-linux-musleabihf and other musl

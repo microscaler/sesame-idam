@@ -11,6 +11,10 @@ use std::convert::TryFrom;
 pub struct Request {
     #[serde(rename = "api_key")]
     pub api_key: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key_type")]
+    pub key_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -55,6 +59,18 @@ impl TryFrom<HandlerRequest> for Request {
         use serde_json::{Map, Value};
 
         let mut data_map = Map::new();
+
+        if let Some(v) = req.get_query_param("key_type") {
+            data_map.insert(
+                "key_type".to_string(),
+                brrtrouter::server::request::decode_param_value(
+                    v,Some(&serde_json::json!({"default":"any","enum":["any","personal","org"],"type":"string"})),None,None,
+                ),
+            );
+        } else {
+
+            // optional parameter
+        }
 
         if let Some(body) = req.body {
             match body {

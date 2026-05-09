@@ -108,20 +108,8 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
-        "add_user_to_org",
-        crate::controllers::add_user_to_org::AddUserToOrgController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
         "allow_org_saml",
         crate::controllers::allow_org_saml::AllowOrgSamlController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "change_user_role_in_org",
-        crate::controllers::change_user_role_in_org::ChangeUserRoleInOrgController,
         20480,
     );
 
@@ -176,12 +164,6 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "revoke_pending_invite",
         crate::controllers::revoke_pending_invite::RevokePendingInviteController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "remove_user_from_org",
-        crate::controllers::remove_user_from_org::RemoveUserFromOrgController,
         20480,
     );
 
@@ -248,6 +230,24 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "fetch_users_in_org",
         crate::controllers::fetch_users_in_org::FetchUsersInOrgController,
+        24576,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "add_user_to_org",
+        crate::controllers::add_user_to_org::AddUserToOrgController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "remove_user_from_org",
+        crate::controllers::remove_user_from_org::RemoveUserFromOrgController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "change_user_role_in_org",
+        crate::controllers::change_user_role_in_org::ChangeUserRoleInOrgController,
         20480,
     );
 
@@ -415,25 +415,9 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
-            "add_user_to_org" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::add_user_to_org::AddUserToOrgController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
             "allow_org_saml" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::allow_org_saml::AllowOrgSamlController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "change_user_role_in_org" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::change_user_role_in_org::ChangeUserRoleInOrgController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -506,14 +490,6 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "revoke_pending_invite" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::revoke_pending_invite::RevokePendingInviteController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "remove_user_from_org" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::remove_user_from_org::RemoveUserFromOrgController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -602,6 +578,30 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "fetch_users_in_org" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::fetch_users_in_org::FetchUsersInOrgController,
+                    24576,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "add_user_to_org" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::add_user_to_org::AddUserToOrgController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "remove_user_from_org" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::remove_user_from_org::RemoveUserFromOrgController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "change_user_role_in_org" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::change_user_role_in_org::ChangeUserRoleInOrgController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

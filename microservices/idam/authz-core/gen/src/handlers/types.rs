@@ -20,6 +20,13 @@ pub struct AssignPrincipalRoleRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AssignPrincipalRoleResponse {
+    pub error: String,
+
+    pub error_description: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthorizeRequest {
     pub action: String,
 
@@ -112,6 +119,13 @@ pub struct RevokePrincipalRoleRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RevokePrincipalRoleResponse {
+    pub error: String,
+
+    pub error_description: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SetPrincipalAttributeRequest {
     pub key: String,
 
@@ -122,4 +136,11 @@ pub struct SetPrincipalAttributeRequest {
     pub user_id: String,
 
     pub value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SetPrincipalAttributeResponse {
+    pub error: String,
+
+    pub error_description: String,
 }
