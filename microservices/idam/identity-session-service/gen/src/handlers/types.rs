@@ -9,6 +9,8 @@ pub struct AdminImpersonateRequest {
     pub actor_user_id: String,
 
     pub reason: String,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -247,6 +249,8 @@ pub struct ImpersonateRequest {
     pub actor_user_id: String,
 
     pub reason: String,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
