@@ -2,8 +2,7 @@ openapi: 3.1.0
 info:
   title: Organization Management Service
   version: 1.0.0
-  description: 'Organization lifecycle, membership management, invitations, SSO/SAML/SCIM configuration, and application/role/permission
-    definitions. Admin-heavy operations with low access frequency.
+  description: 'Organization lifecycle, membership management, invitations, SSO/SAML/SCIM configuration, and application/role/permission definitions. Admin-heavy operations with low access frequency.
 
     '
   contact:
@@ -43,9 +42,19 @@ paths:
 
         Platform admins see all orgs.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: query_orgs
       parameters:
+      - &id001
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: page_size
         in: query
         schema:
@@ -82,24 +91,6 @@ paths:
         schema:
           type: string
         description: Filter by legacy ID from previous auth system
-      - $ref: '#/components/parameters/Limit'
-      - name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-        description: Page number for pagination
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 100
-          default: 20
-        description: Number of items per page (max 100)
       responses:
         '200':
           description: Organisation list
@@ -112,9 +103,13 @@ paths:
       tags:
       - Organizations
       summary: Fetch organisation by ID
-      description: Returns organisation details including SAML config, domain, metadata.
+      description: 'Returns organisation details including SAML config, domain, metadata.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_org
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -143,9 +138,12 @@ paths:
       summary: Update organisation
       description: 'Updates organisation fields. SaaS customers can only update their own orgs.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: update_org
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -183,9 +181,13 @@ paths:
       tags:
       - Organizations
       summary: Delete organisation
-      description: Irreversible deletion of organisation.
+      description: 'Irreversible deletion of organisation.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_org
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -213,9 +215,12 @@ paths:
 
         SaaS customers see only users in their own orgs.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_users_in_org
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -245,23 +250,6 @@ paths:
           type: integer
           minimum: 0
           default: 0
-      - name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-        description: Page number for pagination
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 100
-          default: 20
-        description: Number of items per page (max 100)
       responses:
         '200':
           description: Users in organisation
@@ -277,9 +265,12 @@ paths:
 
         SaaS customers can only add users to their own orgs.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: add_user_to_org
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -328,9 +319,12 @@ paths:
 
         The invitee does not need to exist as a user yet.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: invite_user_to_org
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -364,9 +358,12 @@ paths:
 
         Sends an email notification.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: invite_user_to_org_by_id
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -398,9 +395,12 @@ paths:
       summary: Revoke pending organisation invite
       description: 'Cancels a pending invite. The invitee will no longer be able to accept.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: revoke_pending_invite
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -434,9 +434,12 @@ paths:
 
         Plan-based roles automatically assign roles/permissions to all org members.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_role_mappings
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -476,9 +479,12 @@ paths:
 
         E.g., "Paid Plan" → all members get Admin + Member roles.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: subscribe_org_to_role_mapping
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -519,9 +525,12 @@ paths:
       summary: Update organisation domain settings
       description: 'Configures domain-based auto-join, restrictions, and extra domains for the organisation.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: update_org_domains
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -562,9 +571,12 @@ paths:
       summary: Allow organisation to set up SAML SSO
       description: 'Enables SAML self-setup for this organisation. Users can configure their own SAML IdP.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: allow_org_saml
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -590,9 +602,12 @@ paths:
       summary: Disallow organisation from using SAML SSO
       description: 'Prevents this organisation from using SAML SSO. If SAML is already configured, it will be disabled.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: disallow_org_saml
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -620,9 +635,12 @@ paths:
 
         Useful for onboarding emails with self-serve SAML configuration.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: create_saml_link
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -649,9 +667,12 @@ paths:
       summary: Set SAML IdP metadata for organisation
       description: 'Imports SAML Identity Provider metadata XML to configure SSO for this organisation.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: set_saml_idp_metadata
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -683,9 +704,12 @@ paths:
       summary: Set OIDC IdP metadata for organisation
       description: 'Configures OIDC Identity Provider metadata for this organisation.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: set_oidc_idp_metadata
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -717,9 +741,12 @@ paths:
       summary: Enable SAML connection for organisation
       description: 'Activates the SAML connection so users can authenticate via SSO.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: enable_saml
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -743,9 +770,13 @@ paths:
       tags:
       - SSO
       summary: Delete SAML connection
-      description: Removes the SAML configuration from this organisation.
+      description: 'Removes the SAML configuration from this organisation.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_saml
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -773,9 +804,12 @@ paths:
 
         Platform admin only.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: migrate_org_isolated
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -812,9 +846,12 @@ paths:
 
         Used for SCIM provisioning integrations.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_scim_groups
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -834,23 +871,6 @@ paths:
           type: integer
           minimum: 0
           default: 0
-      - name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-        description: Page number for pagination
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 100
-          default: 20
-        description: Number of items per page (max 100)
       responses:
         '200':
           description: SCIM groups
@@ -869,9 +889,13 @@ paths:
       tags:
       - SSO
       summary: Fetch a specific SCIM group
-      description: Returns a specific SCIM group by ID with member details.
+      description: 'Returns a specific SCIM group by ID with member details.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_scim_group
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -930,8 +954,7 @@ paths:
       summary: List applications
       operationId: list_applications
       parameters:
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/Limit'
+      - *id001
       - name: page
         in: query
         required: false
@@ -955,6 +978,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApplicationListResponse'
+      description: Requires `X-Tenant-ID` header for tenant resolution.
     post:
       tags:
       - Applications
@@ -981,6 +1005,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      parameters:
+      - *id001
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /api/v1/am/applications/{app_id}:
     get:
       tags:
@@ -988,6 +1015,7 @@ paths:
       summary: Get application by id
       operationId: get_application
       parameters:
+      - *id001
       - name: app_id
         in: path
         required: true
@@ -1009,6 +1037,7 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /api/v1/am/applications/{app_id}/roles:
     get:
       tags:
@@ -1016,14 +1045,13 @@ paths:
       summary: List roles for application
       operationId: list_roles
       parameters:
+      - *id001
       - name: app_id
         in: path
         required: true
         schema:
           type: string
           format: uuid
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/Limit'
       - name: page
         in: query
         required: false
@@ -1047,12 +1075,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RoleListResponse'
+      description: Requires `X-Tenant-ID` header for tenant resolution.
     post:
       tags:
       - Roles
       summary: Create role for application
       operationId: create_role
       parameters:
+      - *id001
       - name: app_id
         in: path
         required: true
@@ -1080,6 +1110,7 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /api/v1/am/applications/{app_id}/roles/{role_id}:
     get:
       tags:
@@ -1087,6 +1118,7 @@ paths:
       summary: Get role by id
       operationId: get_role
       parameters:
+      - *id001
       - name: app_id
         in: path
         required: true
@@ -1114,6 +1146,7 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /api/v1/am/applications/{app_id}/permissions:
     get:
       tags:
@@ -1121,14 +1154,13 @@ paths:
       summary: List permissions for application
       operationId: list_permissions
       parameters:
+      - *id001
       - name: app_id
         in: path
         required: true
         schema:
           type: string
           format: uuid
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/Limit'
       - name: page
         in: query
         required: false
@@ -1152,12 +1184,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PermissionListResponse'
+      description: Requires `X-Tenant-ID` header for tenant resolution.
     post:
       tags:
       - Permissions
       summary: Create permission for application
       operationId: create_permission
       parameters:
+      - *id001
       - name: app_id
         in: path
         required: true
@@ -1185,6 +1219,7 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /api/v1/am/applications/{app_id}/roles/{role_id}/permissions:
     get:
       tags:
@@ -1192,6 +1227,7 @@ paths:
       summary: Get permissions for role
       operationId: get_role_permissions
       parameters:
+      - *id001
       - name: app_id
         in: path
         required: true
@@ -1236,12 +1272,14 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      description: Requires `X-Tenant-ID` header for tenant resolution.
     post:
       tags:
       - Roles
       summary: Assign permission to role
       operationId: assign_permission_to_role
       parameters:
+      - *id001
       - name: app_id
         in: path
         required: true
@@ -1281,12 +1319,14 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      description: Requires `X-Tenant-ID` header for tenant resolution.
     delete:
       tags:
       - Roles
       summary: Revoke permission from role
       operationId: revoke_permission_from_role
       parameters:
+      - *id001
       - name: app_id
         in: path
         required: true
@@ -1317,14 +1357,19 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /{org_id}/webhooks:
     get:
       tags:
       - Webhooks
       summary: Fetch organisation webhook subscriptions
-      description: Returns all active webhook subscriptions for this organisation.
+      description: 'Returns all active webhook subscriptions for this organisation.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_webhook_subscriptions
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -1364,9 +1409,12 @@ paths:
 
         Irreversible - use disable to temporarily stop deliveries.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_webhook_subscription
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -1400,9 +1448,12 @@ paths:
 
         and payload format. Useful for debugging webhook configuration.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: test_webhook_delivery
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -1436,12 +1487,15 @@ paths:
       tags:
       - AccountSecurity
       summary: Invalidate all API keys for user
-      description: Called when user is blocked or deleted. Archives all API keys belonging to this user across personal and
-        org scopes.
+      description: 'Called when user is blocked or deleted. Archives all API keys belonging to this user across personal and org scopes.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: invalidate_user_api_keys
       security:
       - BearerAuth: []
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -1469,11 +1523,15 @@ paths:
       tags:
       - SCIM
       summary: List SCIM users in org
-      description: List all provisioned users in the organization via SCIM 2.0.
+      description: 'List all provisioned users in the organization via SCIM 2.0.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: scim_list_users
       security:
       - BearerAuth: []
       parameters:
+      - *id001
       - name: filter
         in: query
         required: false
@@ -1515,7 +1573,10 @@ paths:
       tags:
       - SCIM
       summary: Create SCIM user in org
-      description: Create a new user in the organization via SCIM 2.0.
+      description: 'Create a new user in the organization via SCIM 2.0.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: scim_create_user
       security:
       - BearerAuth: []
@@ -1550,16 +1611,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScimError'
+      parameters:
+      - *id001
   /{org_id}/scim/users/{user_id}:
     put:
       tags:
       - SCIM
       summary: Update SCIM user in org
-      description: Update an existing user in the organization via SCIM 2.0.
+      description: 'Update an existing user in the organization via SCIM 2.0.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: scim_update_user
       security:
       - BearerAuth: []
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -1601,11 +1668,15 @@ paths:
       tags:
       - SCIM
       summary: Delete SCIM user from org
-      description: Remove a user from the organization via SCIM 2.0.
+      description: 'Remove a user from the organization via SCIM 2.0.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: scim_delete_user
       security:
       - BearerAuth: []
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -1628,9 +1699,12 @@ paths:
       summary: Remove user from organisation
       description: 'Removes a user from this organisation. The user retains their account and may belong to other orgs.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: remove_user_from_org
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -1670,9 +1744,12 @@ paths:
 
         Multi-role support allows a user to hold multiple roles in a single org.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: change_user_role_in_org
       parameters:
+      - *id001
       - name: org_id
         in: path
         required: true
@@ -2022,13 +2099,8 @@ components:
     AddUserToOrgRequest:
       type: object
       required:
-      - user_id
       - role
       properties:
-        user_id:
-          type: string
-          format: uuid
-          description: User to add
         role:
           type: string
           description: Role to assign
@@ -2059,13 +2131,8 @@ components:
           description: Role to assign
     ChangeUserRoleRequest:
       type: object
-      required:
-      - user_id
+      required: []
       properties:
-        user_id:
-          type: string
-          format: uuid
-          description: User to update
         primary_role:
           type: string
           description: Primary role
@@ -2076,13 +2143,8 @@ components:
           description: Additional roles
     RemoveUserFromOrgRequest:
       type: object
-      required:
-      - user_id
-      properties:
-        user_id:
-          type: string
-          format: uuid
-          description: User to remove
+      required: []
+      properties: {}
     PendingInvitesResponse:
       type: object
       required:

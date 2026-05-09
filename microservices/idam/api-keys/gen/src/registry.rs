@@ -14,7 +14,7 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "create_api_key",
         crate::controllers::create_api_key::CreateApiKeyController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -32,13 +32,13 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "fetch_active_api_keys",
         crate::controllers::fetch_active_api_keys::FetchActiveApiKeysController,
-        20480,
+        24576,
     );
 
     dispatcher.register_typed_with_stack_size(
         "import_api_keys",
         crate::controllers::import_api_keys::ImportApiKeysController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -56,13 +56,19 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "validate_org_api_key",
         crate::controllers::validate_org_api_key::ValidateOrgApiKeyController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "validate_personal_api_key",
         crate::controllers::validate_personal_api_key::ValidatePersonalApiKeyController,
-        16384,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "update_api_key",
+        crate::controllers::update_api_key::UpdateApiKeyController,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -92,7 +98,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "create_api_key" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::create_api_key::CreateApiKeyController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -116,7 +122,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "fetch_active_api_keys" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::fetch_active_api_keys::FetchActiveApiKeysController,
-                    20480,
+                    24576,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -124,7 +130,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "import_api_keys" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::import_api_keys::ImportApiKeysController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -148,7 +154,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "validate_org_api_key" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::validate_org_api_key::ValidateOrgApiKeyController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -156,7 +162,15 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "validate_personal_api_key" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::validate_personal_api_key::ValidatePersonalApiKeyController,
-                    16384,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "update_api_key" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::update_api_key::UpdateApiKeyController,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

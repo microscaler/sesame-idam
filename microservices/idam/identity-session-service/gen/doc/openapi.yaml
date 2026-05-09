@@ -61,6 +61,16 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+      parameters:
+      - &id001
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /api/v1/identity/users/me:
     get:
       tags:
@@ -82,6 +92,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+      parameters:
+      - *id001
+      description: Requires `X-Tenant-ID` header for tenant resolution.
     patch:
       tags:
       - Identity
@@ -107,6 +120,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+      parameters:
+      - *id001
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /.well-known/openid-configuration:
     get:
       tags:
@@ -138,7 +154,10 @@ paths:
       tags:
       - Sessions
       summary: User Info endpoint
-      description: Returns user profile claims. Requires Bearer token.
+      description: 'Returns user profile claims. Requires Bearer token.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: oauth_userinfo
       responses:
         '200':
@@ -155,12 +174,17 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+      parameters:
+      - *id001
   /verify/step-up:
     post:
       tags:
       - StepUp
       summary: Step-up MFA verification
-      description: Re-authenticate for sensitive operations (delete account, change email, etc.). Requires current MFA enrollment.
+      description: 'Re-authenticate for sensitive operations (delete account, change email, etc.). Requires current MFA enrollment.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: step_up_verify
       security:
       - BearerAuth: []
@@ -183,16 +207,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
   /admin/users/{user_id}/impersonate:
     post:
       tags:
       - Impersonation
       summary: Impersonate user
-      description: Admin switches to user session for debugging/support. Creates a new session for the target user.
+      description: 'Admin switches to user session for debugging/support. Creates a new session for the target user.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: admin_impersonate
       security:
       - BearerAuth: []
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -235,11 +271,15 @@ paths:
       tags:
       - Impersonation
       summary: Restore admin session
-      description: Switch back from impersonated user session to admin session.
+      description: 'Switch back from impersonated user session to admin session.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: admin_restore_impersonation
       security:
       - BearerAuth: []
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -273,7 +313,10 @@ paths:
       tags:
       - TokenIssuance
       summary: Issue access token
-      description: Programmatically create tokens for server-side flows and admin scripts. Bypasses standard login flow.
+      description: 'Programmatically create tokens for server-side flows and admin scripts. Bypasses standard login flow.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: admin_issue_token
       security:
       - BearerAuth: []
@@ -308,12 +351,17 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      parameters:
+      - *id001
   /mcp/token:
     post:
       tags:
       - MCP
       summary: Issue MCP auth token
-      description: Authenticate an MCP agent and issue a token for tool access.
+      description: 'Authenticate an MCP agent and issue a token for tool access.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: mcp_token
       security: []
       requestBody:
@@ -338,12 +386,17 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+      parameters:
+      - *id001
   /mcp/token/validate:
     post:
       tags:
       - MCP
       summary: Validate MCP token
-      description: Validate an MCP token and return its claims.
+      description: 'Validate an MCP token and return its claims.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: mcp_validate
       requestBody:
         required: true
@@ -367,12 +420,17 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+      parameters:
+      - *id001
   /api/v1/platform/mcp/agents:
     get:
       tags:
       - MCP
       summary: List agents
-      description: List all MCP agents for the authenticated org.
+      description: 'List all MCP agents for the authenticated org.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: mcp_list_agents
       security:
       - BearerAuth: []
@@ -392,11 +450,16 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized
+      parameters:
+      - *id001
     post:
       tags:
       - MCP
       summary: Create agent
-      description: Register a new MCP agent.
+      description: 'Register a new MCP agent.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: mcp_create_agent
       security:
       - BearerAuth: []
@@ -441,6 +504,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized
+      parameters:
+      - *id001
   /api/v1/platform/mcp/agents/{agent_id}:
     get:
       tags:
@@ -465,6 +530,9 @@ paths:
               example:
                 error: not_found
                 error_description: Agent not found
+      parameters:
+      - *id001
+      description: Requires `X-Tenant-ID` header for tenant resolution.
     delete:
       tags:
       - MCP
@@ -484,6 +552,9 @@ paths:
               example:
                 error: not_found
                 error_description: Agent not found
+      parameters:
+      - *id001
+      description: Requires `X-Tenant-ID` header for tenant resolution.
 components:
   parameters:
     Page:
@@ -512,401 +583,6 @@ components:
       in: header
       name: X-API-KEY
   schemas:
-    Error:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Error message
-    JWKS:
-      type: object
-      required:
-      - keys
-      properties:
-        keys:
-          type: array
-          description: 'JSON Web Key Set containing the signing keys for JWT verification.
-
-            Keys may be rotated; consumers should cache but periodically re-fetch.
-
-            '
-          items:
-            type: object
-            required:
-            - kty
-            - kid
-            - use
-            - alg
-            - n
-            - e
-            - x5c
-            properties:
-              kty:
-                type: string
-                description: Key type (e.g. "RSA")
-              kid:
-                type: string
-                description: Key ID — unique identifier for this key (used by JWT `kid` header)
-              use:
-                type: string
-                description: Intended use of the public key (sig = signature)
-              alg:
-                type: string
-                description: Intended algorithm for using the key (e.g. "RS256")
-              n:
-                type: string
-                description: RSA modulus (base64url-encoded)
-              e:
-                type: string
-                description: RSA exponent (base64url-encoded)
-              x5c:
-                type: array
-                items:
-                  type: string
-                description: 'X.509 certificate chain (base64url-encoded DER).
-
-                  Enables certificate pinning and trust anchor validation.
-
-                  '
-              x5t:
-                type: string
-                nullable: true
-                description: X.509 certificate thumbprint (base64url-encoded SHA-1)
-            example:
-              kty: RSA
-              kid: sesame-prod-2025-01
-              use: sig
-              alg: RS256
-              n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2in...
-              e: AQAB
-              x5c:
-              - MIIDdTCCAl2gAwIBAgITBn+USII9N7z2GPaVWCQDIQ...
-    OpenIDConfiguration:
-      type: object
-      description: 'OpenID Connect Discovery document (RFC 8414).
-
-        Returned by GET /.well-known/openid-configuration
-
-        '
-      properties:
-        issuer:
-          type: string
-          description: Identity provider issuer identifier
-        authorization_endpoint:
-          type: string
-          description: OAuth2 authorization endpoint
-        token_endpoint:
-          type: string
-          description: OAuth2 token endpoint
-        jwks_uri:
-          type: string
-          description: JWKS endpoint for JWT verification
-        userinfo_endpoint:
-          type: string
-          nullable: true
-          description: OIDC userinfo endpoint
-        registration_endpoint:
-          type: string
-          nullable: true
-          description: OAuth2 Dynamic Client Registration endpoint
-        scopes_supported:
-          type: array
-          items:
-            type: string
-          description: Supported OAuth2 scopes
-        response_types_supported:
-          type: array
-          items:
-            type: string
-          description: Supported OAuth2 response types
-        response_modes_supported:
-          type: array
-          items:
-            type: string
-          description: Supported OAuth2 response modes
-        grant_types_supported:
-          type: array
-          items:
-            type: string
-          description: Supported OAuth2 grant types
-        subject_types_supported:
-          type: array
-          items:
-            type: string
-          description: Supported subject types
-        id_token_signing_alg_values_supported:
-          type: array
-          items:
-            type: string
-          description: Supported JWT signing algorithms (e.g. RS256)
-        userinfo_signing_alg_values_supported:
-          type: array
-          items:
-            type: string
-          description: Supported userinfo signing algorithms
-        userinfo_encryption_alg_values_supported:
-          type: array
-          items:
-            type: string
-          description: Supported userinfo encryption algorithms
-        userinfo_encryption_enc_values_supported:
-          type: array
-          items:
-            type: string
-          description: Supported userinfo encryption encodings
-        code_challenge_methods_supported:
-          type: array
-          items:
-            type: string
-            enum:
-            - S256
-            - plain
-          description: Supported PKCE challenge methods
-      example:
-        issuer: https://identity.seasame-idam.microscaler.local
-        authorization_endpoint: https://identity.seasame-idam.microscaler.local/oauth/authorize
-        token_endpoint: https://identity.seasame-idam.microscaler.local/auth/token
-        jwks_uri: https://identity.seasame-idam.microscaler.local/.well-known/jwks.json
-        userinfo_endpoint: https://identity.seasame-idam.microscaler.local/oauth/userinfo
-        scopes_supported:
-        - openid
-        - email
-        - profile
-        - phone
-        response_types_supported:
-        - code
-        - id_token
-        - id_token token
-        response_modes_supported:
-        - query
-        - fragment
-        - form_post
-        grant_types_supported:
-        - authorization_code
-        - implicit
-        - refresh_token
-        - client_credentials
-        - urn:ietf:params:oauth:grant-type:token-exchange
-        subject_types_supported:
-        - public
-        - pairwise
-        id_token_signing_alg_values_supported:
-        - RS256
-        code_challenge_methods_supported:
-        - S256
-    RefreshRequest:
-      type: object
-      required:
-      - refresh_token
-      properties:
-        refresh_token:
-          type: string
-    TokenResponse:
-      type: object
-      required:
-      - access_token
-      - token_type
-      - expires_in
-      - refresh_token
-      - user_id
-      properties:
-        access_token:
-          type: string
-          description: JWT access token (valid for 15 minutes by default)
-        token_type:
-          type: string
-          enum:
-          - Bearer
-          description: Always "Bearer"
-        expires_in:
-          type: integer
-          description: 'Access token lifetime in seconds (default: 900)'
-        refresh_token:
-          type: string
-          description: Refresh token for obtaining new access tokens
-        refresh_token_expires_in:
-          type: integer
-          description: 'Refresh token lifetime in seconds (default: 2592000 = 30 days)'
-        user_id:
-          type: string
-          format: uuid
-          description: UUID of the authenticated user
-        email:
-          type: string
-          format: email
-          nullable: true
-          description: User's email address
-        email_verified:
-          type: boolean
-          description: Whether the email has been verified
-        phone_verified:
-          type: boolean
-          description: Whether the phone has been verified
-        mfa_required:
-          type: boolean
-          description: Whether MFA is required for this user
-        id_token:
-          type: string
-          nullable: true
-          description: OpenID Connect ID token (present in OIDC flows)
-        scope:
-          type: string
-          nullable: true
-          description: Granted OAuth scopes
-    UpdateUserProfileRequest:
-      type: object
-      description: 'Partial update of the current user''s profile.
-
-        Only provided fields are modified.
-
-        '
-      properties:
-        name:
-          type: string
-          maxLength: 200
-          description: Full display name
-        preferred_username:
-          type: string
-          minLength: 3
-          maxLength: 50
-          pattern: ^[a-zA-Z0-9_-]+$
-          description: Human-identifiable username
-        first_name:
-          type: string
-          maxLength: 100
-          description: User's first name
-        last_name:
-          type: string
-          maxLength: 100
-          description: User's last name
-        picture_url:
-          type: string
-          format: uri
-          description: Profile picture URL
-      example:
-        first_name: Updated
-        last_name: Name
-    UserProfile:
-      type: object
-      description: 'OIDC-compliant user profile. This is the shape returned by:
-
-        - GET /api/v1/identity/users/me (current user profile)
-
-        - GET /oauth/userinfo (OIDC userinfo endpoint)
-
-        - LoginResponse.user (enriched with active org context)
-
-
-        Combines standard OIDC claims (sub, email_verified, name, preferred_username)
-
-        with identity-specific fields (user_id, first_name, last_name) and session context
-
-        (org_id, org_name, user_role, user_permissions).
-
-        '
-      properties:
-        sub:
-          type: string
-          format: uuid
-          description: Subject — the user's opaque identifier (not PII)
-        email:
-          type: string
-          format: email
-          nullable: true
-          description: Primary email address
-        email_verified:
-          type: boolean
-          description: Whether the email address has been verified
-        name:
-          type: string
-          nullable: true
-          description: Full display name (first_name + " " + last_name)
-        preferred_username:
-          type: string
-          nullable: true
-          description: Human-identifiable username (alias for username)
-        user_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: Opaque user identifier (alias for sub)
-        first_name:
-          type: string
-          nullable: true
-          maxLength: 100
-          description: User's first name
-        last_name:
-          type: string
-          nullable: true
-          maxLength: 100
-          description: User's last name
-        username:
-          type: string
-          nullable: true
-          description: Alias for preferred_username
-        picture_url:
-          type: string
-          nullable: true
-          format: uri
-          description: Profile picture URL
-        properties:
-          type: object
-          additionalProperties: true
-          description: Custom key-value metadata (user-level, not org-scoped)
-        phone_number:
-          type: string
-          nullable: true
-          description: Primary phone number in E.164 format (e.g. +14155551234)
-        phone_verified:
-          type: boolean
-          description: Whether the phone number has been verified (via SMS OTP)
-        org_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: Active organisation context (set by JWT enrichment)
-        org_name:
-          type: string
-          nullable: true
-          description: Name of the active organisation
-        user_role:
-          type: string
-          nullable: true
-          description: Primary role in the active organisation
-        user_permissions:
-          type: array
-          items:
-            type: string
-          nullable: true
-          description: 'Permission codes for the active organisation.
-
-            Uses dot-notation format (e.g. "accounting:invoices:read")
-
-            '
-        updated_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: Last profile update timestamp
-      example:
-        sub: 31c41c16-c281-44ae-9602-8a047e3bf33d
-        email: test@example.com
-        email_verified: true
-        name: Test User
-        preferred_username: testuser
-        first_name: Test
-        last_name: User
-        username: testuser
-        picture_url: https://example.com/avatar.png
-        phone_number: '+14155551234'
-        phone_verified: true
-        org_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
-        org_name: Acme Inc
-        user_role: Admin
-        user_permissions:
-        - accounting:invoices:write
-        - accounting:invoices:read
-        updated_at: '2025-01-15T10:30:00Z'
     CreateUserRequest:
       type: object
       description: 'Creates a new user. Idempotent: if an existing user with the same email
@@ -1175,6 +851,12 @@ components:
                 type: array
                 items:
                   type: string
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
     ErrorResponse:
       type: object
       required:
@@ -1214,6 +896,115 @@ components:
         email:
           type: string
           format: email
+    ImpersonateRequest:
+      type: object
+      required:
+      - actor_user_id
+      properties:
+        actor_user_id:
+          type: string
+          format: uuid
+          description: Admin user performing the impersonation
+        reason:
+          type: string
+          enum:
+          - debug
+          - support
+          description: Audit reason for impersonation
+    ImpersonateResponse:
+      type: object
+      required:
+      - impersonated_user_id
+      - access_token
+      - refresh_token
+      - original_user_id
+      properties:
+        impersonated_user_id:
+          type: string
+          format: uuid
+          description: ID of the user being impersonated
+        access_token:
+          type: string
+          description: Access token for impersonated user
+        refresh_token:
+          type: string
+          description: Refresh token for impersonated user
+        original_user_id:
+          type: string
+          format: uuid
+          description: Admin user ID (for restore)
+    ImpersonateRestoreRequest:
+      type: object
+      required:
+      - admin_user_id
+      properties:
+        admin_user_id:
+          type: string
+          format: uuid
+          description: Original admin user ID
+    JWKS:
+      type: object
+      required:
+      - keys
+      properties:
+        keys:
+          type: array
+          description: 'JSON Web Key Set containing the signing keys for JWT verification.
+
+            Keys may be rotated; consumers should cache but periodically re-fetch.
+
+            '
+          items:
+            type: object
+            required:
+            - kty
+            - kid
+            - use
+            - alg
+            - n
+            - e
+            - x5c
+            properties:
+              kty:
+                type: string
+                description: Key type (e.g. "RSA")
+              kid:
+                type: string
+                description: Key ID — unique identifier for this key (used by JWT `kid` header)
+              use:
+                type: string
+                description: Intended use of the public key (sig = signature)
+              alg:
+                type: string
+                description: Intended algorithm for using the key (e.g. "RS256")
+              n:
+                type: string
+                description: RSA modulus (base64url-encoded)
+              e:
+                type: string
+                description: RSA exponent (base64url-encoded)
+              x5c:
+                type: array
+                items:
+                  type: string
+                description: 'X.509 certificate chain (base64url-encoded DER).
+
+                  Enables certificate pinning and trust anchor validation.
+
+                  '
+              x5t:
+                type: string
+                nullable: true
+                description: X.509 certificate thumbprint (base64url-encoded SHA-1)
+            example:
+              kty: RSA
+              kid: sesame-prod-2025-01
+              use: sig
+              alg: RS256
+              n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2in...
+              e: AQAB
+              x5c:
+              - MIIDdTCCAl2gAwIBAgITBn+USII9N7z2GPaVWCQDIQ...
     LinkSocialAccountRequest:
       type: object
       required:
@@ -1284,6 +1075,142 @@ components:
           type: string
         session_id:
           type: string
+    McpAgent:
+      type: object
+      description: An MCP agent registered for use with Sesame-IDAM
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+          description: Unique agent identifier
+        name:
+          type: string
+          description: Human-readable agent name
+        description:
+          type: string
+          nullable: true
+          description: Agent description
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        active:
+          type: boolean
+          description: Whether the agent is active
+      required:
+      - agent_id
+      - name
+      - created_at
+      - updated_at
+      - active
+    McpAgentCreateResponse:
+      type: object
+      description: Response after creating an MCP agent
+      allOf:
+      - $ref: '#/components/schemas/McpAgent'
+      required:
+      - agent_id
+      - name
+      - created_at
+      - updated_at
+      - active
+    McpAgentListResponse:
+      type: object
+      description: List of MCP agents
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpAgent'
+        total:
+          type: integer
+          description: Total number of agents
+      required:
+      - agents
+      - total
+    McpTokenRequest:
+      type: object
+      required:
+      - agent_id
+      - credential
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+          description: MCP agent identifier
+        credential:
+          type: string
+          description: Agent credential/secret
+    McpTokenResponse:
+      type: object
+      required:
+      - access_token
+      properties:
+        access_token:
+          type: string
+          description: MCP access token
+        token_type:
+          type: string
+          enum:
+          - Bearer
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+        scope:
+          type: string
+          description: Granted scopes
+    McpValidateRequest:
+      type: object
+      required:
+      - token
+      properties:
+        token:
+          type: string
+          description: MCP token to validate
+    McpValidateResponse:
+      type: object
+      required:
+      - valid
+      properties:
+        valid:
+          type: boolean
+        agent_id:
+          type: string
+          format: uuid
+          nullable: true
+        permissions:
+          type: array
+          items:
+            type: string
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+    MfaFactor:
+      type: object
+      description: An enabled MFA factor for the user
+      properties:
+        factor_type:
+          type: string
+          description: The type of MFA factor (totp, sms, email, hardware_key)
+          enum:
+          - totp
+          - sms
+          - email
+          - hardware_key
+        is_primary:
+          type: boolean
+          description: Whether this is the primary MFA factor
+        created_at:
+          type: integer
+          format: int64
+          description: Unix timestamp of creation
     MfaRequiredResponse:
       type: object
       description: 'Returned when the login attempt requires a second factor.
@@ -1503,6 +1430,119 @@ components:
           type: string
         scope:
           type: string
+    OpenIDConfiguration:
+      type: object
+      description: 'OpenID Connect Discovery document (RFC 8414).
+
+        Returned by GET /.well-known/openid-configuration
+
+        '
+      properties:
+        issuer:
+          type: string
+          description: Identity provider issuer identifier
+        authorization_endpoint:
+          type: string
+          description: OAuth2 authorization endpoint
+        token_endpoint:
+          type: string
+          description: OAuth2 token endpoint
+        jwks_uri:
+          type: string
+          description: JWKS endpoint for JWT verification
+        userinfo_endpoint:
+          type: string
+          nullable: true
+          description: OIDC userinfo endpoint
+        registration_endpoint:
+          type: string
+          nullable: true
+          description: OAuth2 Dynamic Client Registration endpoint
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 scopes
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 response types
+        response_modes_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 response modes
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported OAuth2 grant types
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+          description: Supported subject types
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported JWT signing algorithms (e.g. RS256)
+        userinfo_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported userinfo signing algorithms
+        userinfo_encryption_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported userinfo encryption algorithms
+        userinfo_encryption_enc_values_supported:
+          type: array
+          items:
+            type: string
+          description: Supported userinfo encryption encodings
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+            enum:
+            - S256
+            - plain
+          description: Supported PKCE challenge methods
+      example:
+        issuer: https://identity.seasame-idam.microscaler.local
+        authorization_endpoint: https://identity.seasame-idam.microscaler.local/oauth/authorize
+        token_endpoint: https://identity.seasame-idam.microscaler.local/auth/token
+        jwks_uri: https://identity.seasame-idam.microscaler.local/.well-known/jwks.json
+        userinfo_endpoint: https://identity.seasame-idam.microscaler.local/oauth/userinfo
+        scopes_supported:
+        - openid
+        - email
+        - profile
+        - phone
+        response_types_supported:
+        - code
+        - id_token
+        - id_token token
+        response_modes_supported:
+        - query
+        - fragment
+        - form_post
+        grant_types_supported:
+        - authorization_code
+        - implicit
+        - refresh_token
+        - client_credentials
+        - urn:ietf:params:oauth:grant-type:token-exchange
+        subject_types_supported:
+        - public
+        - pairwise
+        id_token_signing_alg_values_supported:
+        - RS256
+        code_challenge_methods_supported:
+        - S256
     PhoneNumberRequest:
       type: object
       properties:
@@ -1552,6 +1592,13 @@ components:
       example:
         phone_number: '+14155551234'
         code: '123456'
+    RefreshRequest:
+      type: object
+      required:
+      - refresh_token
+      properties:
+        refresh_token:
+          type: string
     RegisterRequest:
       type: object
       required:
@@ -1642,6 +1689,72 @@ components:
         social_provider_user_id:
           type: string
           description: User ID from the social provider
+    StepUpRequest:
+      type: object
+      required:
+      - user_id
+      - action
+      - session_id
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: User ID performing the sensitive action
+        action:
+          type: string
+          enum:
+          - delete_account
+          - change_email
+          - change_password
+          - delete_org
+          description: The sensitive action requiring re-authentication
+        session_id:
+          type: string
+          format: uuid
+          description: Current session identifier
+        mfa_method:
+          type: string
+          enum:
+          - totp
+          - email
+          - phone
+          description: Preferred MFA method for re-authentication
+    StepUpResponse:
+      type: object
+      required:
+      - verified
+      properties:
+        verified:
+          type: boolean
+          description: Whether step-up verification succeeded
+        mfa_method:
+          type: string
+          description: MFA method used for verification
+        session_id:
+          type: string
+          format: uuid
+          description: Session with elevated trust level
+    TokenIssuanceRequest:
+      type: object
+      required:
+      - user_id
+      - scope
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Target user for token issuance
+        scope:
+          type: string
+          enum:
+          - full
+          - read
+          - write
+          description: Token scope level
+        expires_in:
+          type: integer
+          default: 3600
+          description: 'Token lifetime in seconds (default: 1 hour)'
     TokenListResponse:
       type: object
       properties:
@@ -1689,6 +1802,58 @@ components:
           type: string
         scope:
           type: string
+    TokenResponse:
+      type: object
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      - refresh_token
+      - user_id
+      properties:
+        access_token:
+          type: string
+          description: JWT access token (valid for 15 minutes by default)
+        token_type:
+          type: string
+          enum:
+          - Bearer
+          description: Always "Bearer"
+        expires_in:
+          type: integer
+          description: 'Access token lifetime in seconds (default: 900)'
+        refresh_token:
+          type: string
+          description: Refresh token for obtaining new access tokens
+        refresh_token_expires_in:
+          type: integer
+          description: 'Refresh token lifetime in seconds (default: 2592000 = 30 days)'
+        user_id:
+          type: string
+          format: uuid
+          description: UUID of the authenticated user
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: User's email address
+        email_verified:
+          type: boolean
+          description: Whether the email has been verified
+        phone_verified:
+          type: boolean
+          description: Whether the phone has been verified
+        mfa_required:
+          type: boolean
+          description: Whether MFA is required for this user
+        id_token:
+          type: string
+          nullable: true
+          description: OpenID Connect ID token (present in OIDC flows)
+        scope:
+          type: string
+          nullable: true
+          description: Granted OAuth scopes
     UpdateEmailRequest:
       type: object
       required:
@@ -1704,6 +1869,39 @@ components:
       properties:
         password:
           type: string
+    UpdateUserProfileRequest:
+      type: object
+      description: 'Partial update of the current user''s profile.
+
+        Only provided fields are modified.
+
+        '
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Full display name
+        preferred_username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: ^[a-zA-Z0-9_-]+$
+          description: Human-identifiable username
+        first_name:
+          type: string
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          maxLength: 100
+          description: User's last name
+        picture_url:
+          type: string
+          format: uri
+          description: Profile picture URL
+      example:
+        first_name: Updated
+        last_name: Name
     UpdateUserRequest:
       type: object
       description: 'Partial update of user attributes. Only provided fields are modified.
@@ -1895,6 +2093,127 @@ components:
         can_create_orgs: false
         created_at: 1625476380
         last_active_at: 1625476380
+    UserProfile:
+      type: object
+      description: 'OIDC-compliant user profile. This is the shape returned by:
+
+        - GET /api/v1/identity/users/me (current user profile)
+
+        - GET /oauth/userinfo (OIDC userinfo endpoint)
+
+        - LoginResponse.user (enriched with active org context)
+
+
+        Combines standard OIDC claims (sub, email_verified, name, preferred_username)
+
+        with identity-specific fields (user_id, first_name, last_name) and session context
+
+        (org_id, org_name, user_role, user_permissions).
+
+        '
+      properties:
+        sub:
+          type: string
+          format: uuid
+          description: Subject — the user's opaque identifier (not PII)
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Primary email address
+        email_verified:
+          type: boolean
+          description: Whether the email address has been verified
+        name:
+          type: string
+          nullable: true
+          description: Full display name (first_name + " " + last_name)
+        preferred_username:
+          type: string
+          nullable: true
+          description: Human-identifiable username (alias for username)
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Opaque user identifier (alias for sub)
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: User's last name
+        username:
+          type: string
+          nullable: true
+          description: Alias for preferred_username
+        picture_url:
+          type: string
+          nullable: true
+          format: uri
+          description: Profile picture URL
+        properties:
+          type: object
+          additionalProperties: true
+          description: Custom key-value metadata (user-level, not org-scoped)
+        phone_number:
+          type: string
+          nullable: true
+          description: Primary phone number in E.164 format (e.g. +14155551234)
+        phone_verified:
+          type: boolean
+          description: Whether the phone number has been verified (via SMS OTP)
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Active organisation context (set by JWT enrichment)
+        org_name:
+          type: string
+          nullable: true
+          description: Name of the active organisation
+        user_role:
+          type: string
+          nullable: true
+          description: Primary role in the active organisation
+        user_permissions:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: 'Permission codes for the active organisation.
+
+            Uses dot-notation format (e.g. "accounting:invoices:read")
+
+            '
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last profile update timestamp
+      example:
+        sub: 31c41c16-c281-44ae-9602-8a047e3bf33d
+        email: test@example.com
+        email_verified: true
+        name: Test User
+        preferred_username: testuser
+        first_name: Test
+        last_name: User
+        username: testuser
+        picture_url: https://example.com/avatar.png
+        phone_number: '+14155551234'
+        phone_verified: true
+        org_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+        org_name: Acme Inc
+        user_role: Admin
+        user_permissions:
+        - accounting:invoices:write
+        - accounting:invoices:read
+        updated_at: '2025-01-15T10:30:00Z'
     UserQueryItem:
       type: object
       properties:
@@ -1942,232 +2261,3 @@ components:
           type: integer
         has_more:
           type: boolean
-    StepUpRequest:
-      type: object
-      required:
-      - user_id
-      - action
-      - session_id
-      properties:
-        user_id:
-          type: string
-          format: uuid
-          description: User ID performing the sensitive action
-        action:
-          type: string
-          enum:
-          - delete_account
-          - change_email
-          - change_password
-          - delete_org
-          description: The sensitive action requiring re-authentication
-        session_id:
-          type: string
-          format: uuid
-          description: Current session identifier
-        mfa_method:
-          type: string
-          enum:
-          - totp
-          - email
-          - phone
-          description: Preferred MFA method for re-authentication
-    StepUpResponse:
-      type: object
-      required:
-      - verified
-      properties:
-        verified:
-          type: boolean
-          description: Whether step-up verification succeeded
-        mfa_method:
-          type: string
-          description: MFA method used for verification
-        session_id:
-          type: string
-          format: uuid
-          description: Session with elevated trust level
-    ImpersonateRequest:
-      type: object
-      required:
-      - actor_user_id
-      properties:
-        actor_user_id:
-          type: string
-          format: uuid
-          description: Admin user performing the impersonation
-        reason:
-          type: string
-          enum:
-          - debug
-          - support
-          description: Audit reason for impersonation
-    ImpersonateResponse:
-      type: object
-      required:
-      - impersonated_user_id
-      - access_token
-      - refresh_token
-      - original_user_id
-      properties:
-        impersonated_user_id:
-          type: string
-          format: uuid
-          description: ID of the user being impersonated
-        access_token:
-          type: string
-          description: Access token for impersonated user
-        refresh_token:
-          type: string
-          description: Refresh token for impersonated user
-        original_user_id:
-          type: string
-          format: uuid
-          description: Admin user ID (for restore)
-    ImpersonateRestoreRequest:
-      type: object
-      required:
-      - admin_user_id
-      properties:
-        admin_user_id:
-          type: string
-          format: uuid
-          description: Original admin user ID
-    TokenIssuanceRequest:
-      type: object
-      required:
-      - user_id
-      - scope
-      properties:
-        user_id:
-          type: string
-          format: uuid
-          description: Target user for token issuance
-        scope:
-          type: string
-          enum:
-          - full
-          - read
-          - write
-          description: Token scope level
-        expires_in:
-          type: integer
-          default: 3600
-          description: 'Token lifetime in seconds (default: 1 hour)'
-    McpTokenRequest:
-      type: object
-      required:
-      - agent_id
-      - credential
-      properties:
-        agent_id:
-          type: string
-          format: uuid
-          description: MCP agent identifier
-        credential:
-          type: string
-          description: Agent credential/secret
-    McpTokenResponse:
-      type: object
-      required:
-      - access_token
-      properties:
-        access_token:
-          type: string
-          description: MCP access token
-        token_type:
-          type: string
-          enum:
-          - Bearer
-          example: Bearer
-        expires_in:
-          type: integer
-          description: Token lifetime in seconds
-        scope:
-          type: string
-          description: Granted scopes
-    McpValidateRequest:
-      type: object
-      required:
-      - token
-      properties:
-        token:
-          type: string
-          description: MCP token to validate
-    McpValidateResponse:
-      type: object
-      required:
-      - valid
-      properties:
-        valid:
-          type: boolean
-        agent_id:
-          type: string
-          format: uuid
-          nullable: true
-        permissions:
-          type: array
-          items:
-            type: string
-          nullable: true
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-    McpAgent:
-      type: object
-      description: An MCP agent registered for use with Sesame-IDAM
-      properties:
-        agent_id:
-          type: string
-          format: uuid
-          description: Unique agent identifier
-        name:
-          type: string
-          description: Human-readable agent name
-        description:
-          type: string
-          nullable: true
-          description: Agent description
-        created_at:
-          type: string
-          format: date-time
-          description: Creation timestamp
-        updated_at:
-          type: string
-          format: date-time
-          description: Last update timestamp
-        active:
-          type: boolean
-          description: Whether the agent is active
-      required:
-      - agent_id
-      - name
-      - created_at
-      - updated_at
-      - active
-    McpAgentListResponse:
-      type: object
-      description: List of MCP agents
-      properties:
-        agents:
-          type: array
-          items:
-            $ref: '#/components/schemas/McpAgent'
-        total:
-          type: integer
-          description: Total number of agents
-      required:
-      - agents
-      - total
-    McpAgentCreateResponse:
-      type: object
-      description: Response after creating an MCP agent
-      allOf:
-      - $ref: '#/components/schemas/McpAgent'
-      required:
-      - agent_id
-      - name
-      - created_at
-      - updated_at
-      - active

@@ -14,13 +14,13 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "oauth_logout",
         crate::controllers::oauth_logout::OauthLogoutController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "create_user",
         crate::controllers::create_user::CreateUserController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -32,19 +32,19 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "migrate_user",
         crate::controllers::migrate_user::MigrateUserController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "migrate_user_passwords",
         crate::controllers::migrate_user_passwords::MigrateUserPasswordsController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "query_users",
         crate::controllers::query_users::QueryUsersController,
-        24576,
+        28672,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -182,7 +182,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "oauth_logout" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::oauth_logout::OauthLogoutController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -190,7 +190,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "create_user" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::create_user::CreateUserController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -206,7 +206,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "migrate_user" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::migrate_user::MigrateUserController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -214,7 +214,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "migrate_user_passwords" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::migrate_user_passwords::MigrateUserPasswordsController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -222,7 +222,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "query_users" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::query_users::QueryUsersController,
-                    24576,
+                    28672,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

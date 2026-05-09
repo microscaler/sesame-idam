@@ -14,61 +14,61 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "auth_forgot_password",
         crate::controllers::auth_forgot_password::AuthForgotPasswordController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "auth_login",
         crate::controllers::auth_login::AuthLoginController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "login_dual_otp",
         crate::controllers::login_dual_otp::LoginDualOtpController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "login_email_otp",
         crate::controllers::login_email_otp::LoginEmailOtpController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "magic_link_send",
         crate::controllers::magic_link_send::MagicLinkSendController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "magic_link_verify",
         crate::controllers::magic_link_verify::MagicLinkVerifyController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "sms_magic_link_send",
         crate::controllers::sms_magic_link_send::SmsMagicLinkSendController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "sms_magic_link_verify",
         crate::controllers::sms_magic_link_verify::SmsMagicLinkVerifyController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "login_phone_otp",
         crate::controllers::login_phone_otp::LoginPhoneOtpController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "auth_logout",
         crate::controllers::auth_logout::AuthLogoutController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -80,13 +80,13 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "auth_register",
         crate::controllers::auth_register::AuthRegisterController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "auth_reset_password",
         crate::controllers::auth_reset_password::AuthResetPasswordController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -110,25 +110,25 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "auth_token",
         crate::controllers::auth_token::AuthTokenController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "verify_dual_otp",
         crate::controllers::verify_dual_otp::VerifyDualOtpController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "verify_email_otp",
         crate::controllers::verify_email_otp::VerifyEmailOtpController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "verify_phone_otp",
         crate::controllers::verify_phone_otp::VerifyPhoneOtpController,
-        16384,
+        20480,
     );
 }
 
@@ -152,7 +152,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_forgot_password" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_forgot_password::AuthForgotPasswordController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -160,7 +160,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_login" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_login::AuthLoginController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -168,7 +168,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "login_dual_otp" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::login_dual_otp::LoginDualOtpController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -176,7 +176,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "login_email_otp" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::login_email_otp::LoginEmailOtpController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -184,7 +184,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "magic_link_send" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::magic_link_send::MagicLinkSendController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -192,7 +192,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "magic_link_verify" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::magic_link_verify::MagicLinkVerifyController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -200,7 +200,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "sms_magic_link_send" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::sms_magic_link_send::SmsMagicLinkSendController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -208,7 +208,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "sms_magic_link_verify" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::sms_magic_link_verify::SmsMagicLinkVerifyController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -216,7 +216,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "login_phone_otp" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::login_phone_otp::LoginPhoneOtpController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -224,7 +224,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_logout" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_logout::AuthLogoutController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -240,7 +240,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_register" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_register::AuthRegisterController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -248,7 +248,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_reset_password" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_reset_password::AuthResetPasswordController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -280,7 +280,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_token" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_token::AuthTokenController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -288,7 +288,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "verify_dual_otp" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::verify_dual_otp::VerifyDualOtpController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -296,7 +296,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "verify_email_otp" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::verify_email_otp::VerifyEmailOtpController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -304,7 +304,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "verify_phone_otp" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::verify_phone_otp::VerifyPhoneOtpController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

@@ -42,7 +42,9 @@ paths:
 
         SaaS customers must provide their own `org_id`; platform admins may omit it.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: create_user
       requestBody:
         required: true
@@ -72,6 +74,15 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      parameters:
+      - &id001
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
   /users/{user_id}:
     delete:
       tags:
@@ -81,9 +92,12 @@ paths:
 
         Platform admin only. Users in an org can only delete themselves.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_user
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -111,9 +125,12 @@ paths:
 
         Platform admins can search across all users; SaaS customers can only search their own org.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: query_users
       parameters:
+      - *id001
       - name: page
         in: query
         schema:
@@ -206,9 +223,12 @@ paths:
       summary: Fetch user by email
       description: 'Returns the user associated with the given email. No PII in URI.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_user_by_email
       parameters:
+      - *id001
       - name: email
         in: query
         required: true
@@ -237,6 +257,7 @@ paths:
       summary: Fetch user by username
       operationId: fetch_user_by_username
       parameters:
+      - *id001
       - name: username
         in: query
         required: true
@@ -257,6 +278,7 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /users/{user_id}/employee:
     get:
       tags:
@@ -268,9 +290,12 @@ paths:
 
         Requires BearerAuth with org context.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_employee
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -297,9 +322,13 @@ paths:
       tags:
       - PasswordSecurity
       summary: Disable/block user
-      description: Prevents user from logging in. Platform admin or SaaS with org context.
+      description: 'Prevents user from logging in. Platform admin or SaaS with org context.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: disable_user
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -323,9 +352,13 @@ paths:
       tags:
       - PasswordSecurity
       summary: Enable/unblock user
-      description: Re-enables a previously disabled user.
+      description: 'Re-enables a previously disabled user.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: enable_user
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -349,9 +382,13 @@ paths:
       tags:
       - Sessions
       summary: Logout all user sessions
-      description: Invalidates all active sessions for this user. Platform admin or user themselves.
+      description: 'Invalidates all active sessions for this user. Platform admin or user themselves.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: logout_all_sessions
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -375,9 +412,13 @@ paths:
       tags:
       - AuthFlows
       summary: Send magic link for login
-      description: Sends an email with a magic link for passwordless login.
+      description: 'Sends an email with a magic link for passwordless login.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: create_magic_link
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -407,9 +448,12 @@ paths:
 
         Platform admin only.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: clear_user_password
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -444,6 +488,7 @@ paths:
       summary: Verify user email
       operationId: verify_user_email
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -471,6 +516,7 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /users/{user_id}/resend-email-confirmation:
     post:
       tags:
@@ -478,6 +524,7 @@ paths:
       summary: Resend email confirmation
       operationId: resend_email_confirmation
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -496,14 +543,19 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /users/{user_id}/mfa/disable:
     post:
       tags:
       - PasswordSecurity
       summary: Disable user 2FA
-      description: Disables all 2FA methods for a user. Platform admin or user themselves.
+      description: 'Disables all 2FA methods for a user. Platform admin or user themselves.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: disable_user_mfa
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -533,9 +585,12 @@ paths:
 
         Returns a provisioning URI that can be rendered as a QR code.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: setup_user_mfa_totp
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -584,9 +639,12 @@ paths:
 
         2. Completing login (step 2 of password login when MFA is required)
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_user_mfa
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -633,9 +691,12 @@ paths:
 
         Phone must be verified before it can be used for authentication.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: setup_user_phone
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -674,9 +735,13 @@ paths:
       tags:
       - PasswordSecurity
       summary: Verify phone number
-      description: Verifies the phone number using the SMS OTP code.
+      description: 'Verifies the phone number using the SMS OTP code.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_user_phone
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -717,6 +782,7 @@ paths:
       summary: Change user email
       operationId: update_user_email
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -750,6 +816,7 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /users/{user_id}/social/link:
     post:
       tags:
@@ -759,9 +826,12 @@ paths:
 
         Requires authentication (user must be logged in).
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: link_social_account
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -784,6 +854,7 @@ paths:
       summary: Fetch user's OAuth tokens from providers
       operationId: fetch_user_oauth_tokens
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -796,14 +867,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenListResponse'
+      description: Requires `X-Tenant-ID` header for tenant resolution.
   /users/{user_id}/social/tokens/{provider}/refresh:
     get:
       tags:
       - SocialLogin
       summary: Fetch fresh token from provider
-      description: Refreshes an expired OAuth token for the given provider.
+      description: 'Refreshes an expired OAuth token for the given provider.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_fresh_oauth_token
       parameters:
+      - *id001
       - name: user_id
         in: path
         required: true
@@ -830,7 +906,9 @@ paths:
 
         extra properties, legacy user ID mapping. Platform admin only.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: migrate_user
       requestBody:
         required: true
@@ -854,6 +932,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      parameters:
+      - *id001
   /users/migrate-password:
     post:
       tags:
@@ -863,7 +943,9 @@ paths:
 
         Platform admin only.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: migrate_user_passwords
       requestBody:
         required: true
@@ -883,6 +965,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      parameters:
+      - *id001
   /oauth/logout:
     post:
       tags:
@@ -890,7 +974,9 @@ paths:
       summary: OAuth2 logout endpoint
       description: 'Invalidates the user''s session and optionally triggers post-logout redirect.
 
-        '
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: oauth_logout
       requestBody:
         content:
@@ -900,6 +986,8 @@ paths:
       responses:
         '200':
           description: Logout successful
+      parameters:
+      - *id001
 components:
   parameters:
     Page:

@@ -1,4 +1,40 @@
+# LLM Wiki — Session Log
 
+## [2026-05-09] OpenAPI Spec Audit — Tenant Header Enforcement + Compilation Fix
+
+### Summary
+
+Completed a comprehensive API design failure audit across all 6 Sesame-IDAM OpenAPI specs. Fixed 14 critical design gaps including missing X-Tenant-ID headers on all 146 operations, standardized error responses, pagination, MCP coverage, API key validation, and HTTP method conventions. Also fixed the justfile codegen recipe which had wrong package-name values causing compilation failures.
+
+### Key Changes
+
+**1. X-Tenant-ID Header Added to All 146 Operations**
+- All 6 specs now declare `X-Tenant-ID` as a required header parameter
+- 118/121 endpoints updated (3 well-known discovery endpoints correctly excluded)
+- Fixes the single biggest security gap: the entire tenancy model was absent from API contracts
+
+**2. Codegen Recipe Fix**
+- `justfile` had hardcoded `--package-name sesame_idam_*_gen` values
+- All 6 recipes now use correct names matching impl crate dependencies (`*_service_api`)
+- Without this fix, `just gen` would regenerate broken Cargo.toml files
+
+**3. Path/Body Parameter Conflict Resolution**
+- `AddUserToOrgRequest`, `RemoveUserFromOrgRequest`, `ChangeUserRoleRequest` had `user_id` in both path and body — removed from body schemas
+- org-mgmt list endpoints already had `page_size`/`page_number` — removed duplicate `page`/`limit`
+
+**4. MfaFactor Schema Missing**
+- `identity-session-service` referenced `MfaFactor` in User schema but never defined it
+- Added MfaFactor schema with factor_type enum, is_primary, and created_at
+
+### Verification
+- ✅ All 6 specs pass `brrtrouter-gen lint --fail-on-error` (0 errors, 0 warnings)
+- ✅ `cargo check --workspace` succeeds across all 6 services
+- ✅ 182 handler/controller files regenerated
+
+### Audit Doc
+Full findings documented in `docs/audit/security_evaluation_001.md`
+
+---
 
 ## [2026-01-22] Hard-Segment Tenancy Model Adopted
 
