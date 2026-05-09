@@ -20,12 +20,18 @@ pub struct Request {
 
 pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "expires_in")]
+    pub expires_in: Option<i32>,
+
     #[serde(rename = "message")]
-    pub message: Option<String>,
+    pub message: String,
+
+    #[serde(rename = "success")]
+    pub success: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "success")]
-    pub success: Option<bool>,
+    #[serde(rename = "token_type")]
+    pub token_type: Option<String>,
 }
 
 impl TryFrom<HandlerRequest> for Request {
