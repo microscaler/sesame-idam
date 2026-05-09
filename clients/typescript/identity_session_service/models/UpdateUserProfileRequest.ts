@@ -7,16 +7,6 @@
  * Only provided fields are modified.
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: UpdateUserProfileRequest = {
-  "first_name": "Updated",
-  "last_name": "Name"
-};
- * ```
- */
-
 export type UpdateUserProfileRequest = {
     /**
      * Full display name

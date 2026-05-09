@@ -2,15 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Property examples:
- *  * - `success`: `true`
- * - `email_verified`: `false`
- * - `phone_verified`: `false`
- * - `both_verified`: `false`
- * - `message`: `"Verification codes have been sent to your email and phone"`
- */
-
 export type DualOTPResponse = {
     success: boolean;
     /**

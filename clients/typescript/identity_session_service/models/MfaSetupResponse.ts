@@ -7,17 +7,6 @@
  * The user must scan the QR code and enter the resulting code to complete setup.
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: MfaSetupResponse = {
-  "provisioning_uri": "otpauth://totp/Sesame:test@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Sesame",
-  "secret": "JBSWY3DPEHPK3PXP",
-  "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
-};
- * ```
- */
-
 export type MfaSetupResponse = {
     /**
      * TOTP provisioning URI in the format:

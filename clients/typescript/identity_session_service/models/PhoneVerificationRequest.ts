@@ -6,16 +6,6 @@
  * Verify a phone number via SMS OTP code.
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: PhoneVerificationRequest = {
-  "phone_number": "+14155551234",
-  "code": "123456"
-};
- * ```
- */
-
 export type PhoneVerificationRequest = {
     /**
      * OTP code received via SMS

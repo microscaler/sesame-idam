@@ -22,7 +22,7 @@ export type ApiKeyValidationResponse = {
     /**
      * Whether this key is user-scoped or org-scoped
      */
-    scope_type?: 'user' | 'org' | null;
+    scope_type?: ApiKeyValidationResponse.scope_type | null;
     /**
      * Permission codes granted by this key
      */
@@ -36,4 +36,13 @@ export type ApiKeyValidationResponse = {
      */
     is_expired?: boolean;
 };
+export namespace ApiKeyValidationResponse {
+    /**
+     * Whether this key is user-scoped or org-scoped
+     */
+    export enum scope_type {
+        USER = 'user',
+        ORG = 'org',
+    }
+}
 

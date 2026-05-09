@@ -13,33 +13,6 @@
  * (org_id, org_name, user_role, user_permissions).
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: UserProfile = {
-  "sub": "31c41c16-c281-44ae-9602-8a047e3bf33d",
-  "email": "test@example.com",
-  "email_verified": true,
-  "name": "Test User",
-  "preferred_username": "testuser",
-  "first_name": "Test",
-  "last_name": "User",
-  "username": "testuser",
-  "picture_url": "https://example.com/avatar.png",
-  "phone_number": "+14155551234",
-  "phone_verified": true,
-  "org_id": "1189c444-8a2d-4c41-8b4b-ae43ce79a492",
-  "org_name": "Acme Inc",
-  "user_role": "Admin",
-  "user_permissions": [
-    "accounting:invoices:write",
-    "accounting:invoices:read"
-  ],
-  "updated_at": "2025-01-15T10:30:00Z"
-};
- * ```
- */
-
 export type UserProfile = {
     /**
      * Subject — the user's opaque identifier (not PII)

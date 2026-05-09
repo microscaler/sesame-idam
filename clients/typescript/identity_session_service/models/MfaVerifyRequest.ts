@@ -8,16 +8,6 @@
  * 2. MFA setup step 2 (after MFA setup generated QR code)
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: MfaVerifyRequest = {
-  "code": "123456",
-  "session_id": "sess_abc123"
-};
- * ```
- */
-
 export type MfaVerifyRequest = {
     /**
      * The MFA verification code (6-digit TOTP, 4-6 digit SMS, etc.)

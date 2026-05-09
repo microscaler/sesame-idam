@@ -10,7 +10,7 @@ export type StepUpRequest = {
     /**
      * The sensitive action requiring re-authentication
      */
-    action: 'delete_account' | 'change_email' | 'change_password' | 'delete_org';
+    action: StepUpRequest.action;
     /**
      * Current session identifier
      */
@@ -18,6 +18,25 @@ export type StepUpRequest = {
     /**
      * Preferred MFA method for re-authentication
      */
-    mfa_method?: 'totp' | 'email' | 'phone';
+    mfa_method?: StepUpRequest.mfa_method;
 };
+export namespace StepUpRequest {
+    /**
+     * The sensitive action requiring re-authentication
+     */
+    export enum action {
+        DELETE_ACCOUNT = 'delete_account',
+        CHANGE_EMAIL = 'change_email',
+        CHANGE_PASSWORD = 'change_password',
+        DELETE_ORG = 'delete_org',
+    }
+    /**
+     * Preferred MFA method for re-authentication
+     */
+    export enum mfa_method {
+        TOTP = 'totp',
+        EMAIL = 'email',
+        PHONE = 'phone',
+    }
+}
 

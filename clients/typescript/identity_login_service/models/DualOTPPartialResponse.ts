@@ -2,12 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Property examples:
- *  * - `success`: `true`
- * - `message`: `"Email verified. Please verify your phone to complete login.`
- */
-
 export type DualOTPPartialResponse = {
     success: boolean;
     /**

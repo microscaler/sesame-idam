@@ -9,7 +9,7 @@ export type MfaFactor = {
     /**
      * The type of MFA factor (totp, sms, email, hardware_key)
      */
-    factor_type?: 'totp' | 'sms' | 'email' | 'hardware_key';
+    factor_type?: MfaFactor.factor_type;
     /**
      * Whether this is the primary MFA factor
      */
@@ -19,4 +19,15 @@ export type MfaFactor = {
      */
     created_at?: number;
 };
+export namespace MfaFactor {
+    /**
+     * The type of MFA factor (totp, sms, email, hardware_key)
+     */
+    export enum factor_type {
+        TOTP = 'totp',
+        SMS = 'sms',
+        EMAIL = 'email',
+        HARDWARE_KEY = 'hardware_key',
+    }
+}
 

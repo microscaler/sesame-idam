@@ -10,10 +10,20 @@ export type TokenIssuanceRequest = {
     /**
      * Token scope level
      */
-    scope: 'full' | 'read' | 'write';
+    scope: TokenIssuanceRequest.scope;
     /**
      * Token lifetime in seconds (default: 1 hour)
      */
     expires_in?: number;
 };
+export namespace TokenIssuanceRequest {
+    /**
+     * Token scope level
+     */
+    export enum scope {
+        FULL = 'full',
+        READ = 'read',
+        WRITE = 'write',
+    }
+}
 

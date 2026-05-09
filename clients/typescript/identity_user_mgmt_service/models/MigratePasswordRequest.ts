@@ -6,7 +6,7 @@ export type MigratePasswordRequest = {
     users: Array<{
         email: string;
         /**
-         * bcrypt hash ($2a4$...)
+         * bcrypt hash ($2a$14$...)
          */
         hash: string;
         /**

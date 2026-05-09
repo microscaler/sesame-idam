@@ -7,17 +7,6 @@
  * Platform admins can optionally specify organization_id to scope the login.
  *
  */
-/**
- * Example usage:
- * ```typescript
- * const example: LoginRequest = {
-  "email": "test@example.com",
-  "password": "secret123",
-  "organization_id": "1189c444-8a2d-4c41-8b4b-ae43ce79a492"
-};
- * ```
- */
-
 export type LoginRequest = {
     /**
      * Primary email address

@@ -10,7 +10,7 @@ export type TokenResponse = {
     /**
      * Always "Bearer"
      */
-    token_type: 'Bearer';
+    token_type: TokenResponse.token_type;
     /**
      * Access token lifetime in seconds (default: 900)
      */
@@ -52,4 +52,12 @@ export type TokenResponse = {
      */
     scope?: string | null;
 };
+export namespace TokenResponse {
+    /**
+     * Always "Bearer"
+     */
+    export enum token_type {
+        BEARER = 'Bearer',
+    }
+}
 

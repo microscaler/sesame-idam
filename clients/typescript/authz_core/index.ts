@@ -12,7 +12,7 @@ export type { AuthorizeRequest } from './models/AuthorizeRequest';
 export type { AuthorizeResponse } from './models/AuthorizeResponse';
 export type { EffectiveRequest } from './models/EffectiveRequest';
 export type { EffectiveResponse } from './models/EffectiveResponse';
-export type { ErrorResponse } from './models/ErrorResponse';
+export { ErrorResponse } from './models/ErrorResponse';
 export type { Limit } from './models/Limit';
 export type { Page } from './models/Page';
 export type { RevokePrincipalRoleRequest } from './models/RevokePrincipalRoleRequest';
