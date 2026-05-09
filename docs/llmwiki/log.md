@@ -16,6 +16,18 @@
 - **Benefit:** Clear contract for clients on how to use the endpoint
 
 
+### Impersonation Path Parameter Security Fix
+- **Issue:** `POST /admin/users/{user_id}/impersonate` put the impersonated user's ID in the URL path
+- **Risk:** Path parameters are logged in access logs, CDN cache keys, and reverse proxy headers
+- **Fix:** 
+  - Changed path from `/admin/users/{user_id}/impersonate` to `/admin/impersonate`
+  - Added `user_id` as a required field in `ImpersonateRequest` schema
+  - Added clear description: "This replaces the path parameter for security (prevents leaking user_id in access logs/CDN keys)"
+  - Added `admin_user_id` to `ImpersonateRestoreRequest` with proper required field
+- **Note:** The `actor_user_id` in the body should be validated against JWT claims context at implementation level
+- **Benefit:** User ID no longer leaks through network infrastructure logging
+
+
 ## [2026-05-09] Session Log — Latest Fixes
 
 ### SCIM RFC 7644 Compliance Fix
