@@ -414,8 +414,6 @@ paths:
             schema:
               $ref: '#/components/schemas/RevokeInviteRequest'
       responses:
-        '200':
-          description: Invite revoked
         '404':
           description: Not found
           content:
@@ -425,6 +423,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+        '204':
+          description: Pending invite revoked
   /{org_id}/role-mappings:
     get:
       tags:
@@ -1745,8 +1745,6 @@ paths:
             schema:
               $ref: '#/components/schemas/RemoveUserFromOrgRequest'
       responses:
-        '200':
-          description: User removed
         '404':
           description: Not found
           content:
@@ -1756,6 +1754,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+        '204':
+          description: User removed from organization
   /{org_id}/users/{user_id}/role:
     patch:
       tags:
