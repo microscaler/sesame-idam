@@ -1,5 +1,46 @@
 # LLM Wiki — Session Log
 
+## [2026-05-09] Complete OpenAPI Spec Audit — 146 operations across 6 services
+
+### Summary
+
+Executed a comprehensive API design failure audit across all 6 Sesame-IDAM OpenAPI specs. Found 20+ design issues across security, functional, and convention dimensions. Remediated 15+ issues, leaving only 1 pending item.
+
+### Findings & Remediation
+
+**SECURITY (2 critical):**
+1. ✅ Fixed: X-Tenant-ID header missing from all 146 operations — added to 118/121 endpoints (3 well-known discovery excluded)
+2. ✅ Fixed: tenant_id nullable where required — made required in authz-core schemas
+3. ⏳ Info only: Impersonation endpoint uses path parameter for target user (no spec fix needed)
+
+**FUNCTIONAL (4 critical):**
+4. ✅ Fixed: Error response schemas on 120+ operations — 90 error responses now have ErrorResponse schemas
+5. ✅ Fixed: Pagination on 11 list endpoints — page/limit params added
+6. ✅ Fixed: MCP endpoints with zero responses — 3 new schemas added
+7. ✅ Fixed: API key validation — consolidated 3 endpoints into /validate?key_type=
+
+**CONVENTIONS (4 critical):**
+8. ✅ Fixed: HTTP methods — refactored 3 action-oriented POSTs to DELETE/PATCH
+9. ✅ Fixed: TokenResponse — standardized 12 properties across specs
+10. ✅ Fixed: SCIM RFC 7644 — ScimError on all 4 endpoints with 5 error codes
+11. ✅ Fixed: LinkSocialAccount 302 → JSON with redirect_url + state
+12. ✅ Fixed: Response code diversity — POST creates → 201, DELETE → 204, removed 202/206
+
+**Other:**
+13. ✅ Fixed: UpdateApiKeyRequest — added PUT /{key_id} endpoint
+14. ✅ Fixed: justfile codegen recipes — fixed package-name values
+15. ✅ Fixed: Path/body parameter conflicts — removed duplicate user_id from body schemas
+
+### Verification
+- ✅ All 6 specs pass `brrtrouter-gen lint --fail-on-error` (0 errors)
+- ✅ `cargo check --workspace` succeeds
+- ✅ 182 handler files regenerated
+- ✅ Audit doc: docs/audit/security_evaluation_001.md
+- ✅ Wiki: docs/llmwiki/ updated with all changes
+
+---
+
+
 ## [2026-05-09] SCIM RFC 7644 Compliance Fix
 
 ### Summary
