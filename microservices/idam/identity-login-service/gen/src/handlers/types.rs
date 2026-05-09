@@ -35,6 +35,8 @@ pub struct AuthLoginResponse {
 
     pub expires_in: i32,
 
+    pub id_token: String,
+
     pub mfa_required: bool,
 
     pub phone_verified: bool,
@@ -42,6 +44,8 @@ pub struct AuthLoginResponse {
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub scope: String,
 
     pub token_type: String,
 
@@ -89,6 +93,8 @@ pub struct AuthRegisterResponse {
 
     pub expires_in: i32,
 
+    pub id_token: String,
+
     pub mfa_required: bool,
 
     pub phone_verified: bool,
@@ -96,6 +102,8 @@ pub struct AuthRegisterResponse {
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub scope: String,
 
     pub token_type: String,
 
@@ -145,6 +153,8 @@ pub struct AuthTokenResponse {
 
     pub expires_in: i32,
 
+    pub id_token: String,
+
     pub mfa_required: bool,
 
     pub phone_verified: bool,
@@ -153,6 +163,8 @@ pub struct AuthTokenResponse {
 
     pub refresh_token_expires_in: i32,
 
+    pub scope: String,
+
     pub token_type: String,
 
     pub user_id: String,
@@ -160,13 +172,9 @@ pub struct AuthTokenResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct DualOTPCompleteResponse {
-    pub email_verified: bool,
-
     pub newly_verified_email: bool,
 
     pub newly_verified_phone: bool,
-
-    pub phone_verified: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -352,6 +360,8 @@ pub struct MagicLinkVerifyResponse {
 
     pub expires_in: i32,
 
+    pub id_token: String,
+
     pub mfa_required: bool,
 
     pub phone_verified: bool,
@@ -359,6 +369,8 @@ pub struct MagicLinkVerifyResponse {
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub scope: String,
 
     pub token_type: String,
 
@@ -487,6 +499,8 @@ pub struct SmsMagicLinkVerifyResponse {
 
     pub expires_in: i32,
 
+    pub id_token: String,
+
     pub mfa_required: bool,
 
     pub phone_verified: bool,
@@ -494,6 +508,8 @@ pub struct SmsMagicLinkVerifyResponse {
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub scope: String,
 
     pub token_type: String,
 
@@ -580,6 +596,8 @@ pub struct TokenResponse {
 
     pub expires_in: i32,
 
+    pub id_token: String,
+
     pub mfa_required: bool,
 
     pub phone_verified: bool,
@@ -587,6 +605,8 @@ pub struct TokenResponse {
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub scope: String,
 
     pub token_type: String,
 
@@ -608,13 +628,9 @@ pub struct VerifyDualOtpRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct VerifyDualOtpResponse {
-    pub email_verified: bool,
-
     pub newly_verified_email: bool,
 
     pub newly_verified_phone: bool,
-
-    pub phone_verified: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -634,6 +650,8 @@ pub struct VerifyEmailOtpResponse {
 
     pub expires_in: i32,
 
+    pub id_token: String,
+
     pub mfa_required: bool,
 
     pub phone_verified: bool,
@@ -641,6 +659,8 @@ pub struct VerifyEmailOtpResponse {
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub scope: String,
 
     pub token_type: String,
 
@@ -664,6 +684,8 @@ pub struct VerifyPhoneOtpResponse {
 
     pub expires_in: i32,
 
+    pub id_token: String,
+
     pub mfa_required: bool,
 
     pub phone_verified: bool,
@@ -671,6 +693,8 @@ pub struct VerifyPhoneOtpResponse {
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub scope: String,
 
     pub token_type: String,
 

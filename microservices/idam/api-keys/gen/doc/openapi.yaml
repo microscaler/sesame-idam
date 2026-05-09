@@ -47,6 +47,13 @@ paths:
                 $ref: '#/components/schemas/ApiKeyCreateResponse'
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /current:
     get:
       tags:
@@ -116,6 +123,13 @@ paths:
           description: API key deleted
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /validate:
     post:
       tags:
@@ -124,6 +138,15 @@ paths:
       description: 'Validates an API key and returns the associated user, organisation, and permissions.
 
         Used by consuming services to authenticate incoming API key requests.
+
+
+        Optional `key_type` query parameter: "any" (default), "personal", or "org".
+
+        If specified and the key doesn''t match the requested type, returns 401.
+
+
+        Endpoints `/validate/personal` and `/validate/org` are deprecated — use `/validate?key_type=personal` or `/validate?key_type=org`
+        instead.
 
         '
       operationId: validate_api_key
@@ -142,6 +165,25 @@ paths:
                 $ref: '#/components/schemas/ApiKeyValidationResponse'
         '401':
           description: Invalid or expired API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
+      parameters:
+      - name: key_type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - any
+          - personal
+          - org
+          default: any
+        description: Filter validation to a specific key type. "any" validates all key types.
   /usage:
     get:
       tags:
@@ -187,10 +229,8 @@ paths:
     post:
       tags:
       - APIKeys
-      summary: Validate personal API key
-      description: 'Convenience endpoint that validates an API key and confirms it is user-scoped (not org-scoped).
-
-        '
+      summary: 'DEPRECATED: Validate personal API key'
+      description: DEPRECATED — Use POST /validate?key_type=personal instead. Validates a personal (user-scoped) API key.
       operationId: validate_personal_api_key
       requestBody:
         required: true
@@ -207,6 +247,14 @@ paths:
                 $ref: '#/components/schemas/PersonalApiKeyValidationResponse'
         '401':
           description: Invalid or not a personal API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
+      deprecated: true
   /archived:
     get:
       tags:
@@ -274,6 +322,13 @@ paths:
                 $ref: '#/components/schemas/ArchivedApiKey'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /import:
     post:
       tags:
@@ -300,14 +355,19 @@ paths:
                 $ref: '#/components/schemas/ImportApiKeysResponse'
         '400':
           description: Invalid import data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /validate/org:
     post:
       tags:
       - APIKeys
-      summary: Validate organisation API key
-      description: 'Convenience endpoint that validates an API key and confirms it is org-scoped (not user-scoped).
-
-        '
+      summary: 'DEPRECATED: Validate organisation API key'
+      description: DEPRECATED — Use POST /validate?key_type=org instead. Validates an organisation-scoped API key.
       operationId: validate_org_api_key
       requestBody:
         required: true
@@ -324,6 +384,14 @@ paths:
                 $ref: '#/components/schemas/OrgApiKeyValidationResponse'
         '401':
           description: Invalid or not an organisation API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
+      deprecated: true
 components:
   parameters:
     Page:
@@ -435,8 +503,11 @@ components:
           description: Unique ID of the created API key
         api_key:
           type: string
-          description: "The raw API key (secret). This is the ONLY time the secret is returned.\nStore it securely \u2014\
-            \ it cannot be retrieved again.\n"
+          description: 'The raw API key (secret). This is the ONLY time the secret is returned.
+
+            Store it securely — it cannot be retrieved again.
+
+            '
         name:
           type: string
           description: Human-readable name
@@ -579,7 +650,7 @@ components:
       properties:
         is_personal:
           type: boolean
-          description: "Always true \u2014 confirms this is a personal (user-scoped) key"
+          description: Always true — confirms this is a personal (user-scoped) key
     OrgApiKeyValidationResponse:
       type: object
       required:
@@ -590,7 +661,7 @@ components:
       properties:
         is_org_scoped:
           type: boolean
-          description: "Always true \u2014 confirms this is an organisation-scoped key"
+          description: Always true — confirms this is an organisation-scoped key
     ApiKeyUsageResponse:
       type: object
       properties:
@@ -706,6 +777,44 @@ components:
                 type: integer
               error:
                 type: string
+    ErrorResponse:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: string
+          enum:
+          - invalid_request
+          - invalid_credentials
+          - invalid_grant
+          - invalid_code
+          - account_locked
+          - mfa_required
+          - email_not_confirmed
+          - phone_not_verified
+          - duplicate_email
+          - weak_password
+          - rate_limited
+          - invalid_token
+          - not_found
+          - permission_denied
+          - application_not_found
+          - role_not_found
+          - attribute_too_large
+          description: Machine-readable error code
+        error_description:
+          type: string
+          description: Human-readable error message
+        hint:
+          type: string
+          description: Additional guidance for resolving the error
+        retry_after:
+          type: integer
+          description: Retry-After seconds (only for rate_limited)
+      example:
+        error: invalid_request
+        error_description: Bad request (validation error)
   examples:
     ApiKeyCreated:
       value:

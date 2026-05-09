@@ -43,8 +43,22 @@ paths:
           description: Assigned
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Application or role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
     delete:
       tags:
       - Principal
@@ -61,6 +75,13 @@ paths:
           description: Revoked
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /principals/attributes:
     post:
       tags:
@@ -78,6 +99,13 @@ paths:
           description: Set
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /principal/effective:
     post:
       tags:
@@ -105,8 +133,22 @@ paths:
                 $ref: '#/components/schemas/EffectiveResponse'
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /authorize:
     post:
       tags:
@@ -134,6 +176,13 @@ paths:
                 $ref: '#/components/schemas/AuthorizeResponse'
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
 components:
   parameters:
     Page:
@@ -186,6 +235,7 @@ components:
       - user_id
       - role
       - app_id
+      - tenant_id
       properties:
         user_id:
           type: string
@@ -206,7 +256,7 @@ components:
         tenant_id:
           type: string
           format: uuid
-          nullable: true
+          nullable: false
           description: Tenant scope (for multi-tenant orgs)
         expires_at:
           type: string
@@ -237,6 +287,7 @@ components:
       - user_id
       - key
       - value
+      - tenant_id
       properties:
         user_id:
           type: string
@@ -254,17 +305,18 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: "Organisation scope (optional \u2014 unset for user-level attributes)"
+          description: Organisation scope (optional — unset for user-level attributes)
         tenant_id:
           type: string
           format: uuid
-          nullable: true
+          nullable: false
           description: Tenant scope
     EffectiveRequest:
       type: object
       required:
       - user_id
       - app_id
+      - tenant_id
       properties:
         user_id:
           type: string
@@ -282,7 +334,7 @@ components:
         tenant_id:
           type: string
           format: uuid
-          nullable: true
+          nullable: false
           description: Tenant scope
         include_inherited:
           type: boolean

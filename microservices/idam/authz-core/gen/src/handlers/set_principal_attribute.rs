@@ -16,9 +16,8 @@ pub struct Request {
     #[serde(rename = "org_id")]
     pub org_id: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "tenant_id")]
-    pub tenant_id: Option<String>,
+    pub tenant_id: String,
 
     #[serde(rename = "user_id")]
     pub user_id: String,
@@ -29,7 +28,14 @@ pub struct Request {
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {}
+pub struct Response {
+    #[serde(rename = "error")]
+    pub error: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "error_description")]
+    pub error_description: Option<String>,
+}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;

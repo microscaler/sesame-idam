@@ -38,8 +38,11 @@ paths:
       tags:
       - Users
       summary: Create user (idempotent by email)
-      description: "Creates a new user. Idempotent if email matches existing user \u2014 returns existing user.\nSaaS customers\
-        \ must provide their own `org_id`; platform admins may omit it.\n"
+      description: 'Creates a new user. Idempotent if email matches existing user — returns existing user.
+
+        SaaS customers must provide their own `org_id`; platform admins may omit it.
+
+        '
       operationId: create_user
       requestBody:
         required: true
@@ -62,6 +65,13 @@ paths:
                 $ref: '#/components/schemas/User'
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /users/{user_id}:
     delete:
       tags:
@@ -85,6 +95,13 @@ paths:
           description: User deleted
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/query:
     get:
       tags:
@@ -175,6 +192,13 @@ paths:
                 $ref: '#/components/schemas/UserQueryResponse'
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /users/email:
     get:
       tags:
@@ -199,6 +223,13 @@ paths:
                 $ref: '#/components/schemas/User'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/username:
     get:
       tags:
@@ -219,13 +250,25 @@ paths:
                 $ref: '#/components/schemas/User'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/employee:
     get:
       tags:
       - Users
       summary: Fetch user in employee mode
-      description: "Returns user info filtered to the caller's organisation context only.\nUsed for B2B directory lookup \u2014\
-        \ omits orgs the user is not part of.\nRequires BearerAuth with org context.\n"
+      description: 'Returns user info filtered to the caller''s organisation context only.
+
+        Used for B2B directory lookup — omits orgs the user is not part of.
+
+        Requires BearerAuth with org context.
+
+        '
       operationId: fetch_employee
       parameters:
       - name: user_id
@@ -242,6 +285,13 @@ paths:
                 $ref: '#/components/schemas/EmployeeResponse'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/disable:
     post:
       tags:
@@ -261,6 +311,13 @@ paths:
           description: User disabled
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/enable:
     post:
       tags:
@@ -280,6 +337,13 @@ paths:
           description: User enabled
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/logout-all-sessions:
     post:
       tags:
@@ -299,6 +363,13 @@ paths:
           description: All sessions invalidated
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/magiclink:
     post:
       tags:
@@ -318,6 +389,13 @@ paths:
           description: Magic link sent
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/password:
     delete:
       tags:
@@ -343,8 +421,22 @@ paths:
           description: Password cleared
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
         '400':
           description: User has no password to clear
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /users/{user_id}/email/verify:
     post:
       tags:
@@ -363,8 +455,22 @@ paths:
           description: Email verified
         '400':
           description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/resend-email-confirmation:
     post:
       tags:
@@ -383,6 +489,13 @@ paths:
           description: Email sent
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/mfa/disable:
     post:
       tags:
@@ -402,6 +515,13 @@ paths:
           description: 2FA disabled
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/mfa/setup:
     post:
       tags:
@@ -437,8 +557,22 @@ paths:
                 $ref: '#/components/schemas/MfaSetupResponse'
         '400':
           description: Invalid password or MFA already configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/mfa/verify:
     post:
       tags:
@@ -474,8 +608,22 @@ paths:
                 $ref: '#/components/schemas/TokenResponse'
         '400':
           description: Invalid code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/phone:
     post:
       tags:
@@ -505,8 +653,22 @@ paths:
           description: Phone number added, SMS code sent
         '400':
           description: Invalid phone number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/phone/verify:
     post:
       tags:
@@ -532,8 +694,22 @@ paths:
           description: Phone number verified
         '400':
           description: Invalid code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/email:
     put:
       tags:
@@ -558,8 +734,22 @@ paths:
           description: Email updated
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /users/{user_id}/social/link:
     post:
       tags:
@@ -657,6 +847,13 @@ paths:
                 $ref: '#/components/schemas/User'
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /users/migrate-password:
     post:
       tags:
@@ -679,6 +876,13 @@ paths:
           description: Passwords migrated
         '400':
           description: Invalid hash format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /oauth/logout:
     post:
       tags:
@@ -792,8 +996,13 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: "For SaaS customers: required, must be their own organisation.\nFor platform admins: optional \u2014\
-            \ if omitted, creates a platform-level user.\nWhen present, the user is automatically added to this organisation.\n"
+          description: 'For SaaS customers: required, must be their own organisation.
+
+            For platform admins: optional — if omitted, creates a platform-level user.
+
+            When present, the user is automatically added to this organisation.
+
+            '
       example:
         email: newuser@example.com
         email_confirmed: false
@@ -1257,3 +1466,41 @@ components:
           description: 'Whether the user has a password set.
 
             '
+    ErrorResponse:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: string
+          enum:
+          - invalid_request
+          - invalid_credentials
+          - invalid_grant
+          - invalid_code
+          - account_locked
+          - mfa_required
+          - email_not_confirmed
+          - phone_not_verified
+          - duplicate_email
+          - weak_password
+          - rate_limited
+          - invalid_token
+          - not_found
+          - permission_denied
+          - application_not_found
+          - role_not_found
+          - attribute_too_large
+          description: Machine-readable error code
+        error_description:
+          type: string
+          description: Human-readable error message
+        hint:
+          type: string
+          description: Additional guidance for resolving the error
+        retry_after:
+          type: integer
+          description: Retry-After seconds (only for rate_limited)
+      example:
+        error: invalid_request
+        error_description: Bad request (validation error)

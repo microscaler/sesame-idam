@@ -142,8 +142,30 @@ pub struct CreateApiKeyResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeleteApiKeyResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Error {
     pub error: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ErrorResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

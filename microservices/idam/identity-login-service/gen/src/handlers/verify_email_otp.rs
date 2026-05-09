@@ -34,6 +34,10 @@ pub struct Response {
     pub expires_in: i32,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id_token")]
+    pub id_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "mfa_required")]
     pub mfa_required: Option<bool>,
 
@@ -47,6 +51,10 @@ pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "refresh_token_expires_in")]
     pub refresh_token_expires_in: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "scope")]
+    pub scope: Option<String>,
 
     #[serde(rename = "token_type")]
     pub token_type: String,

@@ -8,7 +8,14 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Request {}
+pub struct Request {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "description")]
+    pub description: Option<String>,
+
+    #[serde(rename = "name")]
+    pub name: String,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 

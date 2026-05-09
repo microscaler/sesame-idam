@@ -2,6 +2,7 @@
 // ⚠️ DO NOT MODIFY - Changes will be overwritten on next generation
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
+use crate::handlers::types::McpAgent;
 use brrtrouter::dispatcher::HandlerRequest;
 use brrtrouter::typed::TypedHandlerRequest;
 use serde::{Deserialize, Serialize};
@@ -12,7 +13,13 @@ pub struct Request {}
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {}
+pub struct Response {
+    #[serde(rename = "agents")]
+    pub agents: Vec<McpAgent>,
+
+    #[serde(rename = "total")]
+    pub total: i32,
+}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;

@@ -32,20 +32,12 @@ pub struct Request {
 
 pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "email_verified")]
-    pub email_verified: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "newly_verified_email")]
     pub newly_verified_email: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "newly_verified_phone")]
     pub newly_verified_phone: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "phone_verified")]
-    pub phone_verified: Option<bool>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

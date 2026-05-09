@@ -5,6 +5,28 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ClearUserPasswordResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CreateMagicLinkResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CreateUserRequest {
     pub email: String,
 
@@ -53,6 +75,39 @@ pub struct CreateUserResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeleteUserResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DisableUserMfaResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DisableUserResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct EmployeeResponse {
     pub email: String,
 
@@ -70,8 +125,30 @@ pub struct EmployeeResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct EnableUserResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Error {
     pub error: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ErrorResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -167,6 +244,17 @@ pub struct LinkSocialAccountRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct LogoutAllSessionsResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MfaSetupRequest {
     pub name: String,
 
@@ -199,6 +287,17 @@ pub struct MigratePasswordRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MigrateUserPasswordsRequest {
     pub users: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MigrateUserPasswordsResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -304,6 +403,17 @@ pub struct QueryUsersResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ResendEmailConfirmationResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SetupUserMfaTotpRequest {
     pub name: String,
 
@@ -322,6 +432,17 @@ pub struct SetupUserMfaTotpResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SetupUserPhoneRequest {
     pub phone_number: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SetupUserPhoneResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -357,6 +478,17 @@ pub struct UpdatePasswordRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateUserEmailRequest {
     pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UpdateUserEmailResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -444,6 +576,17 @@ pub struct UserQueryResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct VerifyUserEmailResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct VerifyUserMfaRequest {
     pub challenge_id: String,
 
@@ -472,4 +615,15 @@ pub struct VerifyUserPhoneRequest {
     pub code: String,
 
     pub phone_number: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct VerifyUserPhoneResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }

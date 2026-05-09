@@ -2,9 +2,8 @@ openapi: 3.1.0
 info:
   title: Organization Management Service
   version: 1.0.0
-  description: 'Organization lifecycle, membership management, invitations, SSO/SAML/SCIM
-    configuration, and application/role/permission definitions. Admin-heavy operations
-    with low access frequency.
+  description: 'Organization lifecycle, membership management, invitations, SSO/SAML/SCIM configuration, and application/role/permission
+    definitions. Admin-heavy operations with low access frequency.
 
     '
   contact:
@@ -40,8 +39,7 @@ paths:
       tags:
       - Organizations
       summary: Query for organisations
-      description: 'Paginated search for organisations. SaaS customers see only their
-        own orgs.
+      description: 'Paginated search for organisations. SaaS customers see only their own orgs.
 
         Platform admins see all orgs.
 
@@ -85,6 +83,23 @@ paths:
           type: string
         description: Filter by legacy ID from previous auth system
       - $ref: '#/components/parameters/Limit'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           description: Organisation list
@@ -115,12 +130,18 @@ paths:
                 $ref: '#/components/schemas/Org'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
     put:
       tags:
       - Organizations
       summary: Update organisation
-      description: 'Updates organisation fields. SaaS customers can only update their
-        own orgs.
+      description: 'Updates organisation fields. SaaS customers can only update their own orgs.
 
         '
       operationId: update_org
@@ -142,8 +163,22 @@ paths:
           description: Organisation updated
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
     delete:
       tags:
       - Organizations
@@ -162,6 +197,13 @@ paths:
           description: Organisation deleted
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/users:
     get:
       tags:
@@ -203,6 +245,23 @@ paths:
           type: integer
           minimum: 0
           default: 0
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           description: Users in organisation
@@ -210,7 +269,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UsersInOrgResponse'
-  /{org_id}/add-user:
     post:
       tags:
       - Membership
@@ -228,6 +286,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
@@ -239,15 +303,28 @@ paths:
           description: User added
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/invite-user:
     post:
       tags:
       - Membership
       summary: Invite user to organisation by email
-      description: 'Sends an email invitation to join this organisation with a specified
-        role.
+      description: 'Sends an email invitation to join this organisation with a specified role.
 
         The invitee does not need to exist as a user yet.
 
@@ -271,6 +348,13 @@ paths:
           description: Invite sent
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /{org_id}/invite-user-by-id:
     post:
       tags:
@@ -300,73 +384,19 @@ paths:
           description: Invite sent
         '400':
           description: Invalid request
-  /{org_id}/change-role:
-    post:
-      tags:
-      - Membership
-      summary: Change user role in organisation
-      description: 'Changes a user''s primary role and/or additional roles within
-        this organisation.
-
-        Multi-role support allows a user to hold multiple roles in a single org.
-
-        '
-      operationId: change_user_role_in_org
-      parameters:
-      - name: org_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChangeUserRoleRequest'
-      responses:
-        '200':
-          description: Role changed
-        '400':
-          description: Invalid request
-        '404':
-          description: Not found
-  /{org_id}/remove-user:
-    post:
-      tags:
-      - Membership
-      summary: Remove user from organisation
-      description: 'Removes a user from this organisation. The user retains their
-        account and may belong to other orgs.
-
-        '
-      operationId: remove_user_from_org
-      parameters:
-      - name: org_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RemoveUserFromOrgRequest'
-      responses:
-        '200':
-          description: User removed
-        '404':
-          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /{org_id}/pending-invites:
     delete:
       tags:
       - Membership
       summary: Revoke pending organisation invite
-      description: 'Cancels a pending invite. The invitee will no longer be able to
-        accept.
+      description: 'Cancels a pending invite. The invitee will no longer be able to accept.
 
         '
       operationId: revoke_pending_invite
@@ -388,13 +418,19 @@ paths:
           description: Invite revoked
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/role-mappings:
     get:
       tags:
       - Membership
       summary: Fetch custom role mappings for organisation
-      description: 'Returns the role configuration (e.g. "Free Plan", "Paid Plan")
-        subscribed to this organisation.
+      description: 'Returns the role configuration (e.g. "Free Plan", "Paid Plan") subscribed to this organisation.
 
         Plan-based roles automatically assign roles/permissions to all org members.
 
@@ -407,6 +443,23 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           description: Role mappings
@@ -443,15 +496,28 @@ paths:
           description: Subscription updated
         '400':
           description: Invalid mapping name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/domains:
     put:
       tags:
       - Organizations
       summary: Update organisation domain settings
-      description: 'Configures domain-based auto-join, restrictions, and extra domains
-        for the organisation.
+      description: 'Configures domain-based auto-join, restrictions, and extra domains for the organisation.
 
         '
       operationId: update_org_domains
@@ -473,15 +539,28 @@ paths:
           description: Domains updated
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/allow-saml:
     post:
       tags:
       - SSO
       summary: Allow organisation to set up SAML SSO
-      description: 'Enables SAML self-setup for this organisation. Users can configure
-        their own SAML IdP.
+      description: 'Enables SAML self-setup for this organisation. Users can configure their own SAML IdP.
 
         '
       operationId: allow_org_saml
@@ -497,13 +576,19 @@ paths:
           description: SAML setup allowed
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/disallow-saml:
     post:
       tags:
       - SSO
       summary: Disallow organisation from using SAML SSO
-      description: 'Prevents this organisation from using SAML SSO. If SAML is already
-        configured, it will be disabled.
+      description: 'Prevents this organisation from using SAML SSO. If SAML is already configured, it will be disabled.
 
         '
       operationId: disallow_org_saml
@@ -519,13 +604,19 @@ paths:
           description: SAML disabled
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/create-saml-link:
     post:
       tags:
       - SSO
       summary: Create SAML connection setup link
-      description: 'Creates a link that allows SAML setup without requiring login
-        or account creation.
+      description: 'Creates a link that allows SAML setup without requiring login or account creation.
 
         Useful for onboarding emails with self-serve SAML configuration.
 
@@ -556,8 +647,7 @@ paths:
       tags:
       - SSO
       summary: Set SAML IdP metadata for organisation
-      description: 'Imports SAML Identity Provider metadata XML to configure SSO for
-        this organisation.
+      description: 'Imports SAML Identity Provider metadata XML to configure SSO for this organisation.
 
         '
       operationId: set_saml_idp_metadata
@@ -579,6 +669,13 @@ paths:
           description: SAML IdP metadata set
         '400':
           description: Invalid XML
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /{org_id}/oidc-metadata:
     post:
       tags:
@@ -606,6 +703,13 @@ paths:
           description: OIDC metadata set
         '400':
           description: Invalid metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /{org_id}/enable-saml:
     post:
       tags:
@@ -627,6 +731,13 @@ paths:
           description: SAML enabled
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/saml:
     delete:
       tags:
@@ -646,13 +757,19 @@ paths:
           description: SAML connection deleted
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/migrate-to-isolated:
     post:
       tags:
       - SSO
       summary: Migrate organisation to isolated SAML mode
-      description: 'Moves the organisation to an isolated identity pool, separating
-        SAML users from the main user database.
+      description: 'Moves the organisation to an isolated identity pool, separating SAML users from the main user database.
 
         Platform admin only.
 
@@ -670,8 +787,22 @@ paths:
           description: Organisation migrated to isolated mode
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/scim/groups:
     get:
       tags:
@@ -703,6 +834,23 @@ paths:
           type: integer
           minimum: 0
           default: 0
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           description: SCIM groups
@@ -710,6 +858,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScimGroupsResponse'
+        '400':
+          description: Invalid SCIM filter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
   /{org_id}/scim/groups/{group_id}:
     get:
       tags:
@@ -730,6 +884,23 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           description: SCIM group
@@ -739,6 +910,19 @@ paths:
                 $ref: '#/components/schemas/ScimGroup'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '400':
+          description: Invalid SCIM filter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
   /api/v1/am/applications:
     get:
       tags:
@@ -748,6 +932,23 @@ paths:
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Limit'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           content:
@@ -773,6 +974,13 @@ paths:
                 $ref: '#/components/schemas/Application'
         '400':
           description: Invalid request (e.g. slug already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /api/v1/am/applications/{app_id}:
     get:
       tags:
@@ -794,6 +1002,13 @@ paths:
                 $ref: '#/components/schemas/Application'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /api/v1/am/applications/{app_id}/roles:
     get:
       tags:
@@ -809,6 +1024,23 @@ paths:
           format: uuid
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Limit'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           content:
@@ -841,6 +1073,13 @@ paths:
                 $ref: '#/components/schemas/Role'
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /api/v1/am/applications/{app_id}/roles/{role_id}:
     get:
       tags:
@@ -868,6 +1107,13 @@ paths:
                 $ref: '#/components/schemas/Role'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /api/v1/am/applications/{app_id}/permissions:
     get:
       tags:
@@ -883,6 +1129,23 @@ paths:
           format: uuid
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Limit'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           content:
@@ -915,6 +1178,13 @@ paths:
                 $ref: '#/components/schemas/Permission'
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
   /api/v1/am/applications/{app_id}/roles/{role_id}/permissions:
     get:
       tags:
@@ -934,6 +1204,23 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           content:
@@ -942,6 +1229,13 @@ paths:
                 $ref: '#/components/schemas/PermissionListResponse'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
     post:
       tags:
       - Roles
@@ -971,8 +1265,22 @@ paths:
           description: Assigned
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
     delete:
       tags:
       - Roles
@@ -1002,6 +1310,13 @@ paths:
           description: Revoked
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/webhooks:
     get:
       tags:
@@ -1016,6 +1331,23 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           description: Webhook subscriptions
@@ -1028,8 +1360,7 @@ paths:
       tags:
       - Webhooks
       summary: Delete webhook subscription
-      description: 'Deletes a webhook subscription. No more events will be sent to
-        this endpoint.
+      description: 'Deletes a webhook subscription. No more events will be sent to this endpoint.
 
         Irreversible - use disable to temporarily stop deliveries.
 
@@ -1053,6 +1384,13 @@ paths:
           description: Webhook subscription deleted
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /{org_id}/webhooks/{subscription_id}/test:
     post:
       tags:
@@ -1086,13 +1424,20 @@ paths:
                 $ref: '#/components/schemas/WebhookTestResponse'
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /admin/users/{user_id}/invalidate-all-keys:
     post:
       tags:
       - AccountSecurity
       summary: Invalidate all API keys for user
-      description: Called when user is blocked or deleted. Archives all API keys belonging
-        to this user across personal and org scopes.
+      description: Called when user is blocked or deleted. Archives all API keys belonging to this user across personal and
+        org scopes.
       operationId: invalidate_user_api_keys
       security:
       - BearerAuth: []
@@ -1112,6 +1457,13 @@ paths:
                 $ref: '#/components/schemas/InvalidateKeysResponse'
         '403':
           description: Forbidden (not an admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Forbidden (insufficient permissions)
   /{org_id}/scim/users:
     get:
       tags:
@@ -1135,6 +1487,23 @@ paths:
           type: integer
           default: 20
         description: Number of results per page
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
       responses:
         '200':
           description: List of SCIM users
@@ -1163,6 +1532,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScimUser'
+        '400':
+          description: Invalid SCIM request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate (user already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
   /{org_id}/scim/users/{user_id}:
     put:
       tags:
@@ -1192,6 +1579,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScimUser'
+        '400':
+          description: Invalid SCIM request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
+        '409':
+          description: Conflict (attribute uniqueness violation)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
     delete:
       tags:
       - SCIM
@@ -1210,6 +1615,103 @@ paths:
       responses:
         '204':
           description: User deleted
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
+  /{org_id}/users/{user_id}:
+    delete:
+      tags:
+      - Membership
+      summary: Remove user from organisation
+      description: 'Removes a user from this organisation. The user retains their account and may belong to other orgs.
+
+        '
+      operationId: remove_user_from_org
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveUserFromOrgRequest'
+      responses:
+        '200':
+          description: User removed
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+  /{org_id}/users/{user_id}/role:
+    patch:
+      tags:
+      - Membership
+      summary: Change user role in organisation
+      description: 'Changes a user''s primary role and/or additional roles within this organisation.
+
+        Multi-role support allows a user to hold multiple roles in a single org.
+
+        '
+      operationId: change_user_role_in_org
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeUserRoleRequest'
+      responses:
+        '200':
+          description: Role changed
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
 components:
   parameters:
     Page:
@@ -1294,8 +1796,7 @@ components:
           type: integer
           minimum: 1
           nullable: true
-          description: Maximum number of users allowed in the organisation (seat limit).
-            null means unlimited.
+          description: Maximum number of users allowed in the organisation (seat limit). null means unlimited.
         legacy_org_id:
           type: string
           nullable: true
@@ -1343,8 +1844,7 @@ components:
         domain_restrict:
           type: boolean
           default: false
-          description: Whether signups are restricted to the organisation's domain(s)
-            only
+          description: Whether signups are restricted to the organisation's domain(s) only
         password_rotation_enabled:
           type: boolean
           default: false
@@ -2028,8 +2528,7 @@ components:
           description: List of subscribed events
         secret_present:
           type: boolean
-          description: Whether a signing secret is configured (never returns the actual
-            secret)
+          description: Whether a signing secret is configured (never returns the actual secret)
         enabled:
           type: boolean
           description: Whether this webhook is currently active
@@ -2291,3 +2790,79 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScimUser'
+    ErrorResponse:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: string
+          enum:
+          - invalid_request
+          - invalid_credentials
+          - invalid_grant
+          - invalid_code
+          - account_locked
+          - mfa_required
+          - email_not_confirmed
+          - phone_not_verified
+          - duplicate_email
+          - weak_password
+          - rate_limited
+          - invalid_token
+          - not_found
+          - permission_denied
+          - application_not_found
+          - role_not_found
+          - attribute_too_large
+          description: Machine-readable error code
+        error_description:
+          type: string
+          description: Human-readable error message
+        hint:
+          type: string
+          description: Additional guidance for resolving the error
+        retry_after:
+          type: integer
+          description: Retry-After seconds (only for rate_limited)
+      example:
+        error: invalid_request
+        error_description: Bad request (validation error)
+    ScimError:
+      type: object
+      description: SCIM 2.0 Error Response (RFC 7644 Section 3.7)
+      required:
+      - schemas
+      - detail
+      - status
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example:
+          - urn:ietf:params:scim:api:messages:2.0:Error
+        detail:
+          type: string
+          description: Human-readable error message
+        status:
+          type: string
+          description: HTTP status code as string (e.g., '400')
+        scimType:
+          type: string
+          enum:
+          - invalidFilter
+          - uniqueness
+          - value
+          - mutability
+          - invalidPath
+          - noTarget
+          - sensitive
+          - tooMany
+          description: SCIM error type per RFC 7643 Section 3.5.2
+      example:
+        schemas:
+        - urn:ietf:params:scim:api:messages:2.0:Error
+        detail: The requested attribute is not supported
+        status: '400'
+        scimType: invalidFilter

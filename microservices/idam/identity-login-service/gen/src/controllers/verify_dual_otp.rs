@@ -7,9 +7,7 @@ use brrtrouter_macros::handler;
 #[handler(VerifyDualOtpController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     Response {
-        email_verified: Some(true),
         newly_verified_email: Some(true),
         newly_verified_phone: Some(true),
-        phone_verified: Some(true),
     }
 }

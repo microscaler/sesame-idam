@@ -40,8 +40,7 @@ paths:
       tags:
       - AuthFlows
       summary: Login with password
-      description: 'Authenticate with email+password. Returns access token and refresh
-        token.
+      description: 'Authenticate with email+password. Returns access token and refresh token.
 
         If MFA is enabled on the account, returns 202 with MFA verification flow.
 
@@ -191,8 +190,7 @@ paths:
       tags:
       - AuthFlows
       summary: Verify phone SMS OTP and complete login
-      description: 'Verifies the 6-digit SMS OTP code. On success, returns access
-        token
+      description: 'Verifies the 6-digit SMS OTP code. On success, returns access token
 
         and refresh token. Sets phone_verified=true on the user''s profile.
 
@@ -375,8 +373,7 @@ paths:
       tags:
       - PasswordReset
       summary: Request password reset email
-      description: 'Sends a password reset email with a time-limited token to the
-        given email.
+      description: 'Sends a password reset email with a time-limited token to the given email.
 
         '
       operationId: auth_forgot_password
@@ -411,8 +408,7 @@ paths:
       tags:
       - PasswordReset
       summary: Confirm password reset with token
-      description: 'Validates the reset token from the password reset email and sets
-        a new password.
+      description: 'Validates the reset token from the password reset email and sets a new password.
 
         '
       operationId: auth_reset_password
@@ -513,8 +509,7 @@ paths:
       tags:
       - SocialLogin
       summary: Exchange OAuth provider callback for tokens
-      description: 'Step 2 of social login. Receives the provider''s authorization
-        code
+      description: 'Step 2 of social login. Receives the provider''s authorization code
 
         (from OAuth redirect), exchanges it for tokens, and completes login.
 
@@ -553,8 +548,7 @@ paths:
       tags:
       - Sessions
       summary: OAuth2 authorization endpoint
-      description: 'Redirects user to the Sesame login page. Compatible with `code`
-        response type.
+      description: 'Redirects user to the Sesame login page. Compatible with `code` response type.
 
         After successful login, redirects to `redirect_uri` with `code` parameter.
 
@@ -617,8 +611,7 @@ paths:
       tags:
       - Signup
       summary: Validate signup eligibility
-      description: Check if email/phone is allowed to register before the user starts
-        filling forms.
+      description: Check if email/phone is allowed to register before the user starts filling forms.
       operationId: signup_validate
       security: []
       parameters:
@@ -654,8 +647,8 @@ paths:
       tags:
       - Passwordless
       summary: Send magic link for passwordless login
-      description: Sends a time-limited magic link to the user email. The user clicks
-        the link to complete login without a password.
+      description: Sends a time-limited magic link to the user email. The user clicks the link to complete login without a
+        password.
       operationId: magic_link_send
       security: []
       requestBody:
@@ -682,8 +675,7 @@ paths:
       tags:
       - Passwordless
       summary: Verify magic link token and complete login
-      description: Verifies the magic link token. On success, returns access token
-        and refresh token.
+      description: Verifies the magic link token. On success, returns access token and refresh token.
       operationId: magic_link_verify
       security: []
       requestBody:
@@ -737,8 +729,7 @@ paths:
       tags:
       - Passwordless
       summary: Verify SMS magic link token and complete login
-      description: Verifies the SMS magic link token. On success, returns access token
-        and refresh token.
+      description: Verifies the SMS magic link token. On success, returns access token and refresh token.
       operationId: sms_magic_link_verify
       security: []
       requestBody:
@@ -871,6 +862,7 @@ components:
         email:
           type: string
           format: email
+          nullable: true
           description: User's email address
         email_verified:
           type: boolean
@@ -880,7 +872,15 @@ components:
           description: Whether the phone has been verified
         mfa_required:
           type: boolean
-          description: Whether MFA is required for this user (false means login complete)
+          description: Whether MFA is required for this user
+        id_token:
+          type: string
+          nullable: true
+          description: OpenID Connect ID token (present in OIDC flows)
+        scope:
+          type: string
+          nullable: true
+          description: Granted OAuth scopes
     PendingEmailVerificationResponse:
       type: object
       required:
@@ -901,8 +901,7 @@ components:
           description: Always false — user must confirm via email link
         message:
           type: string
-          example: A confirmation email has been sent. Please verify your email to
-            complete registration.
+          example: A confirmation email has been sent. Please verify your email to complete registration.
     MfaRequiredResponse:
       type: object
       required:
@@ -1057,7 +1056,6 @@ components:
     DualOTPCompleteResponse:
       type: object
       required:
-      - success
       - access_token
       - token_type
       - expires_in
@@ -1066,12 +1064,6 @@ components:
       allOf:
       - $ref: '#/components/schemas/TokenResponse'
       properties:
-        email_verified:
-          type: boolean
-          description: Email verification status after this operation
-        phone_verified:
-          type: boolean
-          description: Phone verification status after this operation
         newly_verified_email:
           type: boolean
           description: Whether email was just verified in this operation

@@ -15,7 +15,20 @@ pub struct Request {
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {}
+pub struct Response {
+    #[serde(rename = "detail")]
+    pub detail: String,
+
+    #[serde(rename = "schemas")]
+    pub schemas: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "scimType")]
+    pub scim_type: Option<String>,
+
+    #[serde(rename = "status")]
+    pub status: String,
+}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;

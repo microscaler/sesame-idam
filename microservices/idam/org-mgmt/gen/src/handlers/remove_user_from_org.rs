@@ -14,11 +14,29 @@ pub struct Request {
 
     #[serde(rename = "org_id")]
     pub org_id: String,
+
+    #[serde(rename = "user_id")]
+    pub user_id: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {}
+pub struct Response {
+    #[serde(rename = "error")]
+    pub error: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "error_description")]
+    pub error_description: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "hint")]
+    pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "retry_after")]
+    pub retry_after: Option<i32>,
+}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;
@@ -40,6 +58,20 @@ impl TryFrom<HandlerRequest> for Request {
             );
         } else {
             return Err(anyhow::anyhow!("Missing required parameter 'org_id'"));
+        }
+
+        if let Some(v) = req.get_path_param("user_id") {
+            data_map.insert(
+                "user_id".to_string(),
+                brrtrouter::server::request::decode_param_value(
+                    v,
+                    Some(&serde_json::json!({"format":"uuid","type":"string"})),
+                    None,
+                    None,
+                ),
+            );
+        } else {
+            return Err(anyhow::anyhow!("Missing required parameter 'user_id'"));
         }
 
         if let Some(body) = req.body {

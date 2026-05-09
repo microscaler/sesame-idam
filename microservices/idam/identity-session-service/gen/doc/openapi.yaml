@@ -6,8 +6,7 @@ info:
 
     Handles token refresh, user profile lookup, and OIDC/JWKS endpoints.
 
-    EXTREME frequency with LOW per-request cost (indexed DB lookups, cached static
-    data).
+    EXTREME frequency with LOW per-request cost (indexed DB lookups, cached static data).
 
     Must respond in <5ms to avoid blocking client-side navigation.
 
@@ -55,6 +54,13 @@ paths:
                 $ref: '#/components/schemas/TokenResponse'
         '401':
           description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
   /api/v1/identity/users/me:
     get:
       tags:
@@ -69,6 +75,13 @@ paths:
                 $ref: '#/components/schemas/UserProfile'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
     patch:
       tags:
       - Identity
@@ -87,6 +100,13 @@ paths:
                 $ref: '#/components/schemas/UserProfile'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
   /.well-known/openid-configuration:
     get:
       tags:
@@ -128,13 +148,19 @@ paths:
                 $ref: '#/components/schemas/UserProfile'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
   /verify/step-up:
     post:
       tags:
       - StepUp
       summary: Step-up MFA verification
-      description: Re-authenticate for sensitive operations (delete account, change
-        email, etc.). Requires current MFA enrollment.
+      description: Re-authenticate for sensitive operations (delete account, change email, etc.). Requires current MFA enrollment.
       operationId: step_up_verify
       security:
       - BearerAuth: []
@@ -162,8 +188,7 @@ paths:
       tags:
       - Impersonation
       summary: Impersonate user
-      description: Admin switches to user session for debugging/support. Creates a
-        new session for the target user.
+      description: Admin switches to user session for debugging/support. Creates a new session for the target user.
       operationId: admin_impersonate
       security:
       - BearerAuth: []
@@ -189,8 +214,22 @@ paths:
                 $ref: '#/components/schemas/ImpersonateResponse'
         '403':
           description: Forbidden (not an admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Forbidden (insufficient permissions)
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /admin/users/{user_id}/impersonate/restore:
     post:
       tags:
@@ -222,13 +261,19 @@ paths:
                 $ref: '#/components/schemas/ImpersonateResponse'
         '403':
           description: Forbidden (not impersonating or not admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Forbidden (insufficient permissions)
   /api/v1/identity/users/me/token:
     post:
       tags:
       - TokenIssuance
       summary: Issue access token
-      description: Programmatically create tokens for server-side flows and admin
-        scripts. Bypasses standard login flow.
+      description: Programmatically create tokens for server-side flows and admin scripts. Bypasses standard login flow.
       operationId: admin_issue_token
       security:
       - BearerAuth: []
@@ -247,8 +292,22 @@ paths:
                 $ref: '#/components/schemas/TokenResponse'
         '403':
           description: Forbidden (not an admin or invalid scope)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Forbidden (insufficient permissions)
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
   /mcp/token:
     post:
       tags:
@@ -272,6 +331,13 @@ paths:
                 $ref: '#/components/schemas/McpTokenResponse'
         '401':
           description: Invalid agent credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
   /mcp/token/validate:
     post:
       tags:
@@ -294,6 +360,13 @@ paths:
                 $ref: '#/components/schemas/McpValidateResponse'
         '401':
           description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
   /api/v1/platform/mcp/agents:
     get:
       tags:
@@ -303,6 +376,22 @@ paths:
       operationId: mcp_list_agents
       security:
       - BearerAuth: []
+      responses:
+        '200':
+          description: List of MCP agents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpAgentListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized
     post:
       tags:
       - MCP
@@ -311,6 +400,47 @@ paths:
       operationId: mcp_create_agent
       security:
       - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - name
+              properties:
+                name:
+                  type: string
+                  description: Human-readable agent name
+                description:
+                  type: string
+                  nullable: true
+                  description: Agent description
+      responses:
+        '201':
+          description: Agent created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpAgentCreateResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Invalid request
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized
   /api/v1/platform/mcp/agents/{agent_id}:
     get:
       tags:
@@ -319,6 +449,22 @@ paths:
       operationId: mcp_get_agent
       security:
       - BearerAuth: []
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpAgent'
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: not_found
+                error_description: Agent not found
     delete:
       tags:
       - MCP
@@ -326,6 +472,18 @@ paths:
       operationId: mcp_delete_agent
       security:
       - BearerAuth: []
+      responses:
+        '204':
+          description: Agent deleted successfully
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: not_found
+                error_description: Agent not found
 components:
   parameters:
     Page:
@@ -388,8 +546,7 @@ components:
                 description: Key type (e.g. "RSA")
               kid:
                 type: string
-                description: Key ID — unique identifier for this key (used by JWT
-                  `kid` header)
+                description: Key ID — unique identifier for this key (used by JWT `kid` header)
               use:
                 type: string
                 description: Intended use of the public key (sig = signature)
@@ -550,24 +707,52 @@ components:
       - access_token
       - token_type
       - expires_in
+      - refresh_token
+      - user_id
       properties:
         access_token:
           type: string
-        refresh_token:
-          type: string
-          nullable: true
-        id_token:
-          type: string
-          nullable: true
+          description: JWT access token (valid for 15 minutes by default)
         token_type:
           type: string
           enum:
           - Bearer
+          description: Always "Bearer"
         expires_in:
           type: integer
+          description: 'Access token lifetime in seconds (default: 900)'
+        refresh_token:
+          type: string
+          description: Refresh token for obtaining new access tokens
+        refresh_token_expires_in:
+          type: integer
+          description: 'Refresh token lifetime in seconds (default: 2592000 = 30 days)'
+        user_id:
+          type: string
+          format: uuid
+          description: UUID of the authenticated user
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: User's email address
+        email_verified:
+          type: boolean
+          description: Whether the email has been verified
+        phone_verified:
+          type: boolean
+          description: Whether the phone has been verified
+        mfa_required:
+          type: boolean
+          description: Whether MFA is required for this user
+        id_token:
+          type: string
+          nullable: true
+          description: OpenID Connect ID token (present in OIDC flows)
         scope:
           type: string
           nullable: true
+          description: Granted OAuth scopes
     UpdateUserProfileRequest:
       type: object
       description: 'Partial update of the current user''s profile.
@@ -614,8 +799,7 @@ components:
 
         Combines standard OIDC claims (sub, email_verified, name, preferred_username)
 
-        with identity-specific fields (user_id, first_name, last_name) and session
-        context
+        with identity-specific fields (user_id, first_name, last_name) and session context
 
         (org_id, org_name, user_role, user_permissions).
 
@@ -725,8 +909,7 @@ components:
         updated_at: '2025-01-15T10:30:00Z'
     CreateUserRequest:
       type: object
-      description: 'Creates a new user. Idempotent: if an existing user with the same
-        email
+      description: 'Creates a new user. Idempotent: if an existing user with the same email
 
         is found, returns the existing user instead of creating a duplicate.
 
@@ -743,8 +926,7 @@ components:
         email_confirmed:
           type: boolean
           default: false
-          description: 'If true, the email is considered pre-verified (no confirmation
-            email sent).
+          description: 'If true, the email is considered pre-verified (no confirmation email sent).
 
             Useful for platform-admin-created users or migrated accounts.
 
@@ -1068,8 +1250,7 @@ components:
             '
         password:
           type: string
-          description: User's password (only required when logging in with email,
-            not with phone OTP)
+          description: User's password (only required when logging in with email, not with phone OTP)
         organization_id:
           type: string
           format: uuid
@@ -1172,8 +1353,7 @@ components:
           type: string
           nullable: true
           maxLength: 50
-          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator",
-            "Work phone").
+          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator", "Work phone").
 
             Shown in MFA management UI.
 
@@ -1185,8 +1365,7 @@ components:
         name: Google Authenticator
     MfaSetupResponse:
       type: object
-      description: 'Returns the TOTP provisioning URI that can be rendered as a QR
-        code.
+      description: 'Returns the TOTP provisioning URI that can be rendered as a QR code.
 
         The user must scan the QR code and enter the resulting code to complete setup.
 
@@ -1203,8 +1382,7 @@ components:
             '
         secret:
           type: string
-          description: 'Base32-encoded TOTP secret (also available in the provisioning
-            URI).
+          description: 'Base32-encoded TOTP secret (also available in the provisioning URI).
 
             Shown as a fallback if the QR code cannot be scanned.
 
@@ -1237,15 +1415,13 @@ components:
         session_id:
           type: string
           nullable: true
-          description: 'Session ID from MFA_REQUIRED login response. Required for
-            step 2 of login.
+          description: 'Session ID from MFA_REQUIRED login response. Required for step 2 of login.
 
             '
         challenge_id:
           type: string
           nullable: true
-          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn
-            factor type).
+          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn factor type).
 
             '
       example:
@@ -1608,8 +1784,7 @@ components:
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
-          description: Optional human-identifiable username (alphanumeric, underscore,
-            hyphen)
+          description: Optional human-identifiable username (alphanumeric, underscore, hyphen)
         picture_url:
           type: string
           nullable: true
@@ -1620,8 +1795,7 @@ components:
           additionalProperties: true
           description: 'Custom key-value metadata attached to the user.
 
-            Platform admins can set arbitrary properties; SaaS customers limited to
-            org-scoped keys.
+            Platform admins can set arbitrary properties; SaaS customers limited to org-scoped keys.
 
             '
         locked:
@@ -1642,8 +1816,7 @@ components:
           type: boolean
           description: 'Whether the user has a password set.
 
-            Users with has_password=false can only authenticate via MFA, social login,
-            or SSO.
+            Users with has_password=false can only authenticate via MFA, social login, or SSO.
 
             '
         update_password_required:
@@ -1658,8 +1831,7 @@ components:
           description: Whether any 2FA method is currently enabled for this user
         can_create_orgs:
           type: boolean
-          description: Whether this user can create new organisations (platform admin
-            flag)
+          description: Whether this user can create new organisations (platform admin flag)
         created_at:
           type: integer
           format: int64
@@ -1944,31 +2116,58 @@ components:
           nullable: true
     McpAgent:
       type: object
-      required:
-      - id
-      - name
-      - org_id
+      description: An MCP agent registered for use with Sesame-IDAM
       properties:
-        id:
+        agent_id:
           type: string
           format: uuid
-          description: Agent unique identifier
+          description: Unique agent identifier
         name:
           type: string
           description: Human-readable agent name
-        org_id:
+        description:
           type: string
-          format: uuid
-          description: Organization the agent belongs to
+          nullable: true
+          description: Agent description
         created_at:
           type: string
           format: date-time
           description: Creation timestamp
-        enabled:
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        active:
           type: boolean
-          description: Whether agent is active
-        permissions:
+          description: Whether the agent is active
+      required:
+      - agent_id
+      - name
+      - created_at
+      - updated_at
+      - active
+    McpAgentListResponse:
+      type: object
+      description: List of MCP agents
+      properties:
+        agents:
           type: array
           items:
-            type: string
-          description: Granted MCP permissions
+            $ref: '#/components/schemas/McpAgent'
+        total:
+          type: integer
+          description: Total number of agents
+      required:
+      - agents
+      - total
+    McpAgentCreateResponse:
+      type: object
+      description: Response after creating an MCP agent
+      allOf:
+      - $ref: '#/components/schemas/McpAgent'
+      required:
+      - agent_id
+      - name
+      - created_at
+      - updated_at
+      - active

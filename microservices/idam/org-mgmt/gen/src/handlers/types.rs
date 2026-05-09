@@ -12,6 +12,28 @@ pub struct AddUserToOrgRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AddUserToOrgResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AllowOrgSamlResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Application {
     pub created_at: String,
 
@@ -48,12 +70,34 @@ pub struct AssignPermissionToRoleRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AssignPermissionToRoleResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ChangeUserRoleInOrgRequest {
     pub additional_roles: Vec<String>,
 
     pub primary_role: String,
 
     pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ChangeUserRoleInOrgResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -186,8 +230,74 @@ pub struct CreateWebhookSubscriptionRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeleteOrgResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeleteSamlResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeleteWebhookSubscriptionResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DisallowOrgSamlResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct EnableSamlResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Error {
     pub error: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ErrorResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -353,10 +463,32 @@ pub struct InviteUserToOrgByIdRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct InviteUserToOrgByIdResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct InviteUserToOrgRequest {
     pub email: String,
 
     pub role: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct InviteUserToOrgResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -390,6 +522,17 @@ pub struct ListRolesResponse {
     pub page_size: i32,
 
     pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MigrateOrgIsolatedResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -522,6 +665,17 @@ pub struct RemoveUserFromOrgRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RemoveUserFromOrgResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct RevokeInviteRequest {
     pub invite_id: String,
 }
@@ -529,6 +683,28 @@ pub struct RevokeInviteRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct RevokePendingInviteRequest {
     pub invite_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RevokePendingInviteResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RevokePermissionFromRoleResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -612,6 +788,30 @@ pub struct ScimCreateUserResponse {
 
     #[serde(rename = "userName")]
     pub user_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimDeleteUserResponse {
+    pub detail: String,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "scimType")]
+    pub scim_type: String,
+
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ScimError {
+    pub detail: String,
+
+    pub schemas: Vec<String>,
+
+    #[serde(rename = "scimType")]
+    pub scim_type: String,
+
+    pub status: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -770,8 +970,41 @@ pub struct SetOidcIdpMetadataRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SetOidcIdpMetadataResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SetSamlIdpMetadataResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SubscribeOrgToRoleMappingRequest {
     pub mapping_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SubscribeOrgToRoleMappingResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -797,6 +1030,17 @@ pub struct UpdateOrgDomainsRequest {
     pub extra_domains: Vec<String>,
 
     pub primary_domain: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UpdateOrgDomainsResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -830,6 +1074,17 @@ pub struct UpdateOrgRequest {
     pub password_rotation_period: i32,
 
     pub slug: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UpdateOrgResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
