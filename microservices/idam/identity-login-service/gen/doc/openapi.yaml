@@ -122,6 +122,8 @@ paths:
           format: uuid
         description: Tenant identifier. Routes the request to the correct tenant context
           for user lookup and authentication.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call for user login
   /login/email-otp:
     post:
       tags:
@@ -169,6 +171,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to send OTP
   /verify/email-otp:
     post:
       tags:
@@ -234,6 +238,8 @@ paths:
           format: uuid
         description: Tenant identifier. Required for resolving the user to the correct
           tenant context.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify OTP
   /login/phone-otp:
     post:
       tags:
@@ -281,6 +287,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to send OTP to phone
   /verify/phone-otp:
     post:
       tags:
@@ -341,6 +349,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id002
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify phone OTP
   /login/dual-otp:
     post:
       tags:
@@ -395,6 +405,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to send OTP to email+phone
   /verify/dual-otp:
     post:
       tags:
@@ -470,6 +482,8 @@ paths:
                       login.
       parameters:
       - *id002
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify dual OTP
   /register:
     post:
       tags:
@@ -533,6 +547,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call for new user registration
   /token:
     post:
       tags:
@@ -601,6 +617,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to refresh token or exchange OAuth code
   /forgot-password:
     post:
       tags:
@@ -660,6 +678,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to request password reset
   /reset-password:
     post:
       tags:
@@ -706,6 +726,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to reset password with token
   /logout:
     post:
       tags:
@@ -740,6 +762,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to logout current session
   /social/{provider}/login:
     get:
       tags:
@@ -784,6 +808,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to initiate OAuth login flow
   /social/{provider}/callback:
     post:
       tags:
@@ -849,6 +875,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: external-provider
+      x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not
+        frontend
   /oauth/authorize:
     get:
       tags:
@@ -916,6 +945,8 @@ paths:
       responses:
         '302':
           description: Redirect to login page or back with authorization code
+      x-consumer: frontend
+      x-consumer-note: OAuth authorization endpoint called by frontend browser
   /signup/validate:
     get:
       tags:
@@ -966,6 +997,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to validate signup data (email/username
+        availability)
   /login/magic-link:
     post:
       tags:
@@ -1011,6 +1045,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to send magic link to email
   /login/magic-link/verify:
     post:
       tags:
@@ -1065,6 +1101,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify magic link token
   /login/phone-magic-link:
     post:
       tags:
@@ -1109,6 +1147,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to send magic link to phone
   /login/phone-magic-link/verify:
     post:
       tags:
@@ -1163,6 +1203,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify SMS magic link token
 components:
   parameters:
     Page:

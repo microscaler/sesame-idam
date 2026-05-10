@@ -96,6 +96,8 @@ paths:
         description: Tenant identifier. Routes the request to the correct tenant context
           for user lookup and authentication.
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to refresh access token
   /api/v1/identity/users/me:
     get:
       tags:
@@ -137,6 +139,8 @@ paths:
       parameters:
       - *id001
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to get current user profile
     patch:
       tags:
       - Identity
@@ -189,6 +193,8 @@ paths:
       parameters:
       - *id001
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to update current user profile
   /.well-known/openid-configuration:
     get:
       tags:
@@ -202,6 +208,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OpenIDConfiguration'
+      x-consumer: frontend
+      x-consumer-note: Public OpenID Connect discovery endpoint, no auth required
   /.well-known/jwks.json:
     get:
       tags:
@@ -226,6 +234,8 @@ paths:
                       alg: RS256
                       n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe
                       e: AQAB
+      x-consumer: frontend
+      x-consumer-note: Public JWKS endpoint for token verification, no auth required
   /api/v1/identity/users/me/userinfo:
     get:
       tags:
@@ -253,6 +263,8 @@ paths:
                 error_description: Unauthorized (invalid or missing token)
       parameters:
       - *id001
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to get user info from OAuth token
   /verify/step-up:
     post:
       tags:
@@ -316,6 +328,8 @@ paths:
           format: uuid
         description: Tenant identifier. Routes the request to the correct tenant context
           for user lookup and authentication.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify step-up authentication
   /api/v1/identity/users/me/token:
     post:
       tags:
@@ -362,6 +376,8 @@ paths:
                 error_description: Not found
       parameters:
       - *id001
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Admin issues tokens on behalf of user'
   /mcp/token:
     post:
       tags:
@@ -397,6 +413,8 @@ paths:
                 error_description: Unauthorized (invalid or missing token)
       parameters:
       - *id001
+      x-consumer: agent
+      x-consumer-note: 'Agent-only: Generate token for MCP agent, never from browser'
   /mcp/token/validate:
     post:
       tags:
@@ -431,6 +449,8 @@ paths:
                 error_description: Unauthorized (invalid or missing token)
       parameters:
       - *id001
+      x-consumer: agent
+      x-consumer-note: 'Agent-only: Validate MCP agent token, never from browser'
   /api/v1/platform/mcp/agents:
     get:
       tags:
@@ -461,6 +481,8 @@ paths:
                 error_description: Unauthorized
       parameters:
       - *id001
+      x-consumer: agent
+      x-consumer-note: 'Agent-only: List MCP agents for user, never from browser'
     post:
       tags:
       - MCP
@@ -515,6 +537,8 @@ paths:
                 error_description: Unauthorized
       parameters:
       - *id001
+      x-consumer: agent
+      x-consumer-note: 'Agent-only: Create MCP agent for user, never from browser'
   /api/v1/platform/mcp/agents/{agent_id}:
     get:
       tags:
@@ -542,6 +566,8 @@ paths:
       parameters:
       - *id001
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: agent
+      x-consumer-note: 'Agent-only: Get MCP agent details, never from browser'
     delete:
       tags:
       - MCP
@@ -564,6 +590,8 @@ paths:
       parameters:
       - *id001
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: agent
+      x-consumer-note: 'Agent-only: Delete MCP agent, never from browser'
   /admin/impersonate:
     post:
       tags:
@@ -610,6 +638,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Admin impersonate user session'
   /admin/impersonate/restore:
     post:
       tags:
@@ -646,6 +676,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Forbidden (insufficient permissions)
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Restore original session after impersonation'
 components:
   parameters:
     Page:
