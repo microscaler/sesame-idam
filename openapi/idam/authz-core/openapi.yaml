@@ -44,12 +44,13 @@ paths:
             schema:
               $ref: '#/components/schemas/AssignPrincipalRoleRequest'
             examples:
-              default:
+              default: &id001
                 summary: Example for assign_principal_role
                 value:
                   principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                   role_id: 550e8400-e29b-41d4-a716-446655440010
                   tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+            example: *id001
       responses:
         '204':
           description: Assigned
@@ -72,7 +73,7 @@ paths:
                 error: invalid_request
                 error_description: Not found
       parameters:
-      - &id001
+      - &id002
         name: X-Tenant-ID
         in: header
         required: true
@@ -107,7 +108,7 @@ paths:
                 error: invalid_request
                 error_description: Not found
       parameters:
-      - *id001
+      - *id002
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Revoke role from principal, never from browser'
@@ -136,7 +137,7 @@ paths:
                 error: invalid_request
                 error_description: Bad request (validation error)
       parameters:
-      - *id001
+      - *id002
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Set attribute on principal, never from browser'
@@ -187,7 +188,7 @@ paths:
                 error: invalid_request
                 error_description: Not found
       parameters:
-      - *id001
+      - *id002
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Get effective permissions for principal, used
         by authz middleware'
@@ -214,13 +215,14 @@ paths:
             schema:
               $ref: '#/components/schemas/AuthorizeRequest'
             examples:
-              default:
+              default: &id003
                 summary: Example for authorize
                 value:
                   principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                   resource: user:123
                   action: read
                   tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+            example: *id003
       responses:
         '200':
           content:
@@ -228,11 +230,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthorizeResponse'
               examples:
-                default:
+                default: &id004
                   summary: Example for authorize 200
                   value:
                     allowed: true
                     reason: explicit_role_assignment
+              example: *id004
         '400':
           description: Invalid request
           content:
@@ -243,7 +246,7 @@ paths:
                 error: invalid_request
                 error_description: Bad request (validation error)
       parameters:
-      - *id001
+      - *id002
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Check if principal is authorized, used by all
         backend services'
@@ -369,7 +372,7 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: Organisation scope (optional — unset for user-level attributes)
+          description: "Organisation scope (optional \u2014 unset for user-level attributes)"
         tenant_id:
           type: string
           format: uuid

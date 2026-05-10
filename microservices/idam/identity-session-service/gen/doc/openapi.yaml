@@ -48,12 +48,13 @@ paths:
             schema:
               $ref: '#/components/schemas/RefreshRequest'
             examples:
-              default:
+              default: &id001
                 summary: Example request for auth_refresh
-                value:
+                value: &id011
                   grant_type: refresh_token
                   refresh_token: cmVmcmVzaC10b2tlbi1zZXNzaW9u
                   client_id: my-app
+            example: *id001
       responses:
         '200':
           content:
@@ -61,7 +62,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default:
+                default: &id002
                   summary: Example response 200 for auth_refresh
                   value:
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.nsig
@@ -76,6 +77,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid
+              example: *id002
         '401':
           description: Invalid or expired refresh token
           content:
@@ -86,7 +88,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       parameters:
-      - &id001
+      - &id004
         name: X-Tenant-ID
         in: header
         required: true
@@ -111,9 +113,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserProfile'
               examples:
-                default:
+                default: &id003
                   summary: Example response 200 for users_me_get
-                  value:
+                  value: &id015
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                     email: alice@example.com
                     email_verified: true
@@ -127,6 +129,7 @@ paths:
                     is_active: true
                     created_at: '2024-01-01T00:00:00Z'
                     updated_at: '2024-01-15T10:30:00Z'
+              example: *id003
         '401':
           description: Unauthorized
           content:
@@ -137,7 +140,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       parameters:
-      - *id001
+      - *id004
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get current user profile
@@ -152,12 +155,13 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateUserProfileRequest'
             examples:
-              default:
+              default: &id005
                 summary: Example request for users_me_patch
-                value:
+                value: &id014
                   first_name: Alice
                   last_name: Johnson
                   avatar_url: https://example.com/avatars/alice_v2.png
+            example: *id005
       responses:
         '200':
           content:
@@ -165,7 +169,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserProfile'
               examples:
-                default:
+                default: &id006
                   summary: Example response 200 for users_me_patch
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
@@ -181,6 +185,7 @@ paths:
                     is_active: true
                     created_at: '2024-01-01T00:00:00Z'
                     updated_at: '2024-01-16T12:00:00Z'
+              example: *id006
         '401':
           description: Unauthorized
           content:
@@ -191,7 +196,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       parameters:
-      - *id001
+      - *id004
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to update current user profile
@@ -224,9 +229,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/JWKS'
               examples:
-                default:
+                default: &id007
                   summary: Example for jwks 200
-                  value:
+                  value: &id010
                     keys:
                     - kty: RSA
                       kid: default
@@ -234,6 +239,7 @@ paths:
                       alg: RS256
                       n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe
                       e: AQAB
+              example: *id007
       x-consumer: frontend
       x-consumer-note: Public JWKS endpoint for token verification, no auth required
   /api/v1/identity/users/me/userinfo:
@@ -262,7 +268,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       parameters:
-      - *id001
+      - *id004
       x-consumer: frontend
       x-consumer-note: Direct browser call to get user info from OAuth token
   /verify/step-up:
@@ -285,11 +291,12 @@ paths:
             schema:
               $ref: '#/components/schemas/StepUpRequest'
             examples:
-              default:
+              default: &id008
                 summary: Example request for step_up_verify
-                value:
+                value: &id012
                   challenge_id: 550e8400-e29b-41d4-a716-446655440000
                   answer: '123456'
+            example: *id008
       responses:
         '200':
           description: Step-up verification successful, session elevated
@@ -298,9 +305,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/StepUpResponse'
               examples:
-                default:
+                default: &id009
                   summary: Example response 200 for step_up_verify
-                  value:
+                  value: &id013
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJsZXZlbCI6ImhpZ2gifQ.sig
                     token_type: Bearer
                     expires_in: 300
@@ -313,6 +320,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid profile
+              example: *id009
         '401':
           description: Unauthorized or MFA verification failed
           content:
@@ -375,7 +383,7 @@ paths:
                 error: invalid_request
                 error_description: Not found
       parameters:
-      - *id001
+      - *id004
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin issues tokens on behalf of user'
   /mcp/token:
@@ -412,7 +420,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       parameters:
-      - *id001
+      - *id004
       x-consumer: agent
       x-consumer-note: 'Agent-only: Generate token for MCP agent, never from browser'
   /mcp/token/validate:
@@ -448,7 +456,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       parameters:
-      - *id001
+      - *id004
       x-consumer: agent
       x-consumer-note: 'Agent-only: Validate MCP agent token, never from browser'
   /api/v1/platform/mcp/agents:
@@ -480,7 +488,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized
       parameters:
-      - *id001
+      - *id004
       x-consumer: agent
       x-consumer-note: 'Agent-only: List MCP agents for user, never from browser'
     post:
@@ -536,7 +544,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized
       parameters:
-      - *id001
+      - *id004
       x-consumer: agent
       x-consumer-note: 'Agent-only: Create MCP agent for user, never from browser'
   /api/v1/platform/mcp/agents/{agent_id}:
@@ -564,7 +572,7 @@ paths:
                 error: not_found
                 error_description: Agent not found
       parameters:
-      - *id001
+      - *id004
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: agent
       x-consumer-note: 'Agent-only: Get MCP agent details, never from browser'
@@ -588,7 +596,7 @@ paths:
                 error: not_found
                 error_description: Agent not found
       parameters:
-      - *id001
+      - *id004
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: agent
       x-consumer-note: 'Agent-only: Delete MCP agent, never from browser'
@@ -606,7 +614,7 @@ paths:
       security:
       - BearerAuth: []
       parameters:
-      - *id001
+      - *id004
       requestBody:
         required: true
         content:
@@ -653,7 +661,7 @@ paths:
       security:
       - BearerAuth: []
       parameters:
-      - *id001
+      - *id004
       requestBody:
         required: true
         content:
@@ -770,13 +778,9 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: 'For SaaS customers: required, must be their own organisation.
-
-            For platform admins: optional — if omitted, creates a platform-level user.
-
-            When present, the user is automatically added to this organisation.
-
-            '
+          description: "For SaaS customers: required, must be their own organisation.\n\
+            For platform admins: optional \u2014 if omitted, creates a platform-level\
+            \ user.\nWhen present, the user is automatically added to this organisation.\n"
       example:
         email: newuser@example.com
         email_confirmed: false
@@ -832,7 +836,7 @@ components:
           description: Current phone verification status
         both_verified:
           type: boolean
-          description: Always false — both codes still needed
+          description: "Always false \u2014 both codes still needed"
         message:
           type: string
           example: Email verified. Please verify your phone to complete login.
@@ -1101,8 +1105,8 @@ components:
                 description: Key type (e.g. "RSA")
               kid:
                 type: string
-                description: Key ID — unique identifier for this key (used by JWT
-                  `kid` header)
+                description: "Key ID \u2014 unique identifier for this key (used by\
+                  \ JWT `kid` header)"
               use:
                 type: string
                 description: Intended use of the public key (sig = signature)
@@ -1137,6 +1141,7 @@ components:
               e: AQAB
               x5c:
               - MIIDdTCCAl2gAwIBAgITBn+USII9N7z2GPaVWCQDIQ...
+      example: *id010
     LinkSocialAccountRequest:
       type: object
       required:
@@ -1422,8 +1427,7 @@ components:
       required:
       - password
       example:
-        password: secret123
-        name: Google Authenticator
+        password: SecureP@ss123!
     MfaSetupResponse:
       type: object
       description: 'Returns the TOTP provisioning URI that can be rendered as a QR
@@ -1455,9 +1459,15 @@ components:
           format: uuid
           description: The user ID for whom MFA is being set up
       example:
-        provisioning_uri: otpauth://totp/Sesame:test@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Sesame
+        mfa_required: true
         secret: JBSWY3DPEHPK3PXP
-        user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+        qr_code: data:image/png;base64,example
+        backup_codes:
+        - '12345678'
+        - '87654321'
+        - '11111111'
+        - '22222222'
+        - '33333333'
     MfaVerifyRequest:
       type: object
       description: 'Verifies an MFA code. Can be used for:
@@ -1490,8 +1500,8 @@ components:
 
             '
       example:
+        password: SecureP@ss123!
         code: '123456'
-        session_id: sess_abc123
     MigratePasswordRequest:
       type: object
       required:
@@ -1568,6 +1578,10 @@ components:
           type: string
         scope:
           type: string
+      example:
+        token: gho_new123abc456
+        provider: github
+        expires_in: 3600
     OpenIDConfiguration:
       type: object
       description: 'OpenID Connect Discovery document (RFC 8414).
@@ -1688,6 +1702,8 @@ components:
           type: string
           pattern: ^\\+[1-9]\\d{1,14}$
           description: Phone number in E.164 format (e.g. +14155551234)
+      example:
+        phone: '+1234567890'
     PhoneOTPRequest:
       type: object
       required:
@@ -1728,8 +1744,8 @@ components:
 
         '
       example:
-        phone_number: '+14155551234'
-        code: '123456'
+        phone: '+1234567890'
+        code: '654321'
     RefreshRequest:
       type: object
       required:
@@ -1737,6 +1753,7 @@ components:
       properties:
         refresh_token:
           type: string
+      example: *id011
     RegisterRequest:
       type: object
       required:
@@ -1857,6 +1874,7 @@ components:
           - email
           - phone
           description: Preferred MFA method for re-authentication
+      example: *id012
     StepUpResponse:
       type: object
       required:
@@ -1872,6 +1890,7 @@ components:
           type: string
           format: uuid
           description: Session with elevated trust level
+      example: *id013
     TokenIssuanceRequest:
       type: object
       required:
@@ -1914,6 +1933,20 @@ components:
                 type: array
                 items:
                   type: string
+      example:
+        oauth_tokens:
+        - id: 550e8400-e29b-41d4-a716-446655440001
+          provider: github
+          provider_user_id: '12345'
+          scope: repo,user
+          created_at: '2024-01-10T00:00:00Z'
+          expires_at: null
+        - id: 550e8400-e29b-41d4-a716-446655440002
+          provider: google
+          provider_user_id: '67890'
+          scope: email,profile
+          created_at: '2024-01-12T00:00:00Z'
+          expires_at: '2024-07-12T00:00:00Z'
     TokenRequest:
       type: object
       required:
@@ -2000,6 +2033,8 @@ components:
         email:
           type: string
           format: email
+      example:
+        email: alice.j@example.com
     UpdatePasswordRequest:
       type: object
       required:
@@ -2037,9 +2072,7 @@ components:
           type: string
           format: uri
           description: Profile picture URL
-      example:
-        first_name: Updated
-        last_name: Name
+      example: *id014
     UpdateUserRequest:
       type: object
       description: 'Partial update of user attributes. Only provided fields are modified.
@@ -2258,7 +2291,7 @@ components:
         sub:
           type: string
           format: uuid
-          description: Subject — the user's opaque identifier (not PII)
+          description: "Subject \u2014 the user's opaque identifier (not PII)"
         email:
           type: string
           format: email
@@ -2338,25 +2371,7 @@ components:
           format: date-time
           nullable: true
           description: Last profile update timestamp
-      example:
-        sub: 31c41c16-c281-44ae-9602-8a047e3bf33d
-        email: test@example.com
-        email_verified: true
-        name: Test User
-        preferred_username: testuser
-        first_name: Test
-        last_name: User
-        username: testuser
-        picture_url: https://example.com/avatar.png
-        phone_number: '+14155551234'
-        phone_verified: true
-        org_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
-        org_name: Acme Inc
-        user_role: Admin
-        user_permissions:
-        - accounting:invoices:write
-        - accounting:invoices:read
-        updated_at: '2025-01-15T10:30:00Z'
+      example: *id015
     UserQueryItem:
       type: object
       properties:

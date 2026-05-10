@@ -2,17 +2,11 @@ openapi: 3.1.0
 info:
   title: Login Service
   version: 1.0.0
-  description: 'Slow-path service for authentication flows.
-
-    Handles password login, registration, token exchange, password reset,
-
-    social login redirects, and OAuth2 authorization.
-
-    HIGH frequency with HIGH per-request cost (bcrypt/scrypt hashing, token signing).
-
-    CPU-bound operations limit throughput — requires vertical scaling.
-
-    '
+  description: "Slow-path service for authentication flows.\nHandles password login,\
+    \ registration, token exchange, password reset,\nsocial login redirects, and OAuth2\
+    \ authorization.\nHIGH frequency with HIGH per-request cost (bcrypt/scrypt hashing,\
+    \ token signing).\nCPU-bound operations limit throughput \u2014 requires vertical\
+    \ scaling.\n"
   contact:
     name: Platform / Security
 servers:
@@ -57,12 +51,13 @@ paths:
             schema:
               $ref: '#/components/schemas/LoginRequest'
             examples:
-              default:
+              default: &id001
                 summary: Example for auth_login
-                value:
+                value: &id035
                   email: alice@example.com
                   password: SecureP@ss123!
                   organization_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+            example: *id001
       responses:
         '200':
           description: Login successful
@@ -71,9 +66,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default:
+                default: &id002
                   summary: Example for auth_login 200
-                  value:
+                  value: &id036
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20iLCJvcmdfaWQiOiIxMTg5YzQ0NCJ9.sig
                     token_type: Bearer
                     expires_in: 900
@@ -86,6 +81,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid profile email
+              example: *id002
         '400':
           description: Bad request (validation error)
           content:
@@ -105,15 +101,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/MfaRequiredResponse'
               examples:
-                default:
+                default: &id003
                   summary: Example for auth_login 201
-                  value:
+                  value: &id037
                     mfa_required: true
                     challenge_type: totp
                     session_id: 550e8400-e29b-41d4-a716-446655440000
                     expires_in: 300
+              example: *id003
       parameters:
-      - &id001
+      - &id005
         name: X-Tenant-ID
         in: header
         required: true
@@ -145,10 +142,11 @@ paths:
             schema:
               $ref: '#/components/schemas/EmailOTPRequest'
             examples:
-              default:
+              default: &id004
                 summary: Example for login_email_otp
-                value:
+                value: &id038
                   email: alice@example.com
+            example: *id004
       responses:
         '200':
           description: OTP sent successfully
@@ -170,7 +168,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP
   /verify/email-otp:
@@ -194,11 +192,12 @@ paths:
             schema:
               $ref: '#/components/schemas/EmailOTPVerifyRequest'
             examples:
-              default:
+              default: &id006
                 summary: Example for verify_email_otp
-                value:
+                value: &id039
                   email: alice@example.com
                   code: '123456'
+            example: *id006
       responses:
         '200':
           description: Email verified, tokens issued
@@ -207,7 +206,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default:
+                default: &id007
                   summary: Example for verify_email_otp 200
                   value:
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
@@ -222,6 +221,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid
+              example: *id007
         '400':
           description: Invalid or expired code
           content:
@@ -229,7 +229,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - &id002
+      - &id011
         name: X-Tenant-ID
         in: header
         required: true
@@ -261,10 +261,11 @@ paths:
             schema:
               $ref: '#/components/schemas/PhoneOTPRequest'
             examples:
-              default:
+              default: &id008
                 summary: Example for login_phone_otp
-                value:
+                value: &id040
                   phone: '+1234567890'
+            example: *id008
       responses:
         '200':
           description: OTP sent successfully
@@ -286,7 +287,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to phone
   /verify/phone-otp:
@@ -313,11 +314,12 @@ paths:
             schema:
               $ref: '#/components/schemas/PhoneOTPVerifyRequest'
             examples:
-              default:
+              default: &id009
                 summary: Example for verify_phone_otp
-                value:
+                value: &id041
                   phone: '+1234567890'
                   code: '654321'
+            example: *id009
       responses:
         '200':
           description: Phone verified, tokens issued
@@ -326,7 +328,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default:
+                default: &id010
                   summary: Example for verify_phone_otp 200
                   value:
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
@@ -341,6 +343,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid
+              example: *id010
         '400':
           description: Invalid or expired code
           content:
@@ -348,7 +351,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id002
+      - *id011
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify phone OTP
   /login/dual-otp:
@@ -374,11 +377,12 @@ paths:
             schema:
               $ref: '#/components/schemas/DualOTPRequest'
             examples:
-              default:
+              default: &id012
                 summary: Example for login_dual_otp
-                value:
+                value: &id042
                   email: alice@example.com
                   phone: '+1234567890'
+            example: *id012
       responses:
         '200':
           description: OTPs sent to both channels
@@ -387,9 +391,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/DualOTPResponse'
               examples:
-                default:
+                default: &id013
                   summary: Example for login_dual_otp 200
-                  value:
+                  value: &id043
                     success: true
                     email_sent: true
                     phone_sent: true
@@ -397,6 +401,7 @@ paths:
                     phone_verified: false
                     both_verified: false
                     message: Verification codes have been sent to your email and phone
+              example: *id013
         '400':
           description: Bad request (missing email or phone, user not found)
           content:
@@ -404,7 +409,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to email+phone
   /verify/dual-otp:
@@ -428,13 +433,14 @@ paths:
             schema:
               $ref: '#/components/schemas/DualOTPVerifyRequest'
             examples:
-              default:
+              default: &id014
                 summary: Example for verify_dual_otp
-                value:
+                value: &id044
                   email: alice@example.com
                   email_code: '123456'
                   phone: '+1234567890'
                   phone_code: '654321'
+            example: *id014
       responses:
         '200':
           description: Both codes verified, tokens issued
@@ -443,9 +449,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/DualOTPCompleteResponse'
               examples:
-                default:
+                default: &id015
                   summary: Example for verify_dual_otp 200
-                  value:
+                  value: &id045
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
                     token_type: Bearer
                     expires_in: 900
@@ -458,6 +464,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid
+              example: *id015
         '400':
           description: Invalid or expired codes
           content:
@@ -471,17 +478,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/DualOTPPartialResponse'
               examples:
-                default:
+                default: &id016
                   summary: Example for verify_dual_otp 201
-                  value:
+                  value: &id046
                     success: true
                     email_verified: true
                     phone_verified: false
                     both_verified: false
                     message: Email verified. Please verify your phone to complete
                       login.
+              example: *id016
       parameters:
-      - *id002
+      - *id011
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify dual OTP
   /register:
@@ -507,15 +515,16 @@ paths:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
             examples:
-              default:
+              default: &id017
                 summary: Example for auth_register
-                value:
+                value: &id047
                   email: newuser@example.com
                   password: SecureP@ss123!
                   first_name: New
                   last_name: User
                   username: newuser
                   send_welcome_email: true
+            example: *id017
       responses:
         '201':
           description: User created and logged in
@@ -524,7 +533,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default:
+                default: &id018
                   summary: Example for auth_register 201
                   value:
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6Im5ld3VzZXJAZXhwLmNvbSJ9.sig
@@ -539,6 +548,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid
+              example: *id018
         '400':
           description: Validation error (duplicate email, weak password)
           content:
@@ -546,7 +556,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call for new user registration
   /token:
@@ -574,12 +584,13 @@ paths:
             schema:
               $ref: '#/components/schemas/TokenRequest'
             examples:
-              default:
+              default: &id019
                 summary: Example for auth_token
-                value:
+                value: &id048
                   grant_type: refresh_token
                   refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
                   client_id: my-app
+            example: *id019
       responses:
         '200':
           description: Token issued or refreshed
@@ -588,7 +599,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default:
+                default: &id020
                   summary: Example for auth_token 200
                   value:
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.nsig
@@ -603,6 +614,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid profile email
+              example: *id020
         '400':
           description: Invalid grant type or parameters
           content:
@@ -616,7 +628,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to refresh token or exchange OAuth code
   /forgot-password:
@@ -638,10 +650,11 @@ paths:
             schema:
               $ref: '#/components/schemas/ForgotPasswordRequest'
             examples:
-              default:
+              default: &id021
                 summary: Example for auth_forgot_password
-                value:
+                value: &id049
                   email: alice@example.com
+            example: *id021
       responses:
         '200':
           description: Reset email sent (returns success regardless of email existence)
@@ -677,7 +690,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to request password reset
   /reset-password:
@@ -699,11 +712,12 @@ paths:
             schema:
               $ref: '#/components/schemas/ResetPasswordRequest'
             examples:
-              default:
+              default: &id022
                 summary: Example for auth_reset_password
-                value:
+                value: &id050
                   token: reset-token-abc123
                   new_password: NewSecureP@ss456!
+            example: *id022
       responses:
         '200':
           description: Password reset successful
@@ -725,7 +739,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to reset password with token
   /logout:
@@ -747,10 +761,11 @@ paths:
             schema:
               $ref: '#/components/schemas/LogoutRequest'
             examples:
-              default:
+              default: &id023
                 summary: Example for auth_logout
-                value:
+                value: &id051
                   refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
+            example: *id023
       responses:
         '204':
           description: Logged out successfully
@@ -761,7 +776,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to logout current session
   /social/{provider}/login:
@@ -780,7 +795,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: social_login
       parameters:
-      - *id001
+      - *id005
       - name: provider
         in: path
         required: true
@@ -827,7 +842,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: social_callback
       parameters:
-      - *id002
+      - *id011
       - name: provider
         in: path
         required: true
@@ -841,11 +856,12 @@ paths:
             schema:
               $ref: '#/components/schemas/SocialCallbackRequest'
             examples:
-              default:
+              default: &id024
                 summary: Example for social_callback
                 value:
                   code: gho_abc123xyz
                   state: csrf-token-xyz
+            example: *id024
       responses:
         '200':
           description: OAuth flow complete, tokens issued
@@ -854,7 +870,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SocialLoginResponse'
               examples:
-                default:
+                default: &id025
                   summary: Example for social_callback 200
                   value:
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
@@ -869,6 +885,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid profile
+              example: *id025
         '400':
           description: Invalid code, state mismatch, or provider error
           content:
@@ -896,7 +913,7 @@ paths:
       operationId: oauth_authorize
       security: []
       parameters:
-      - *id001
+      - *id005
       - name: client_id
         in: query
         required: true
@@ -960,7 +977,7 @@ paths:
       operationId: signup_validate
       security: []
       parameters:
-      - *id001
+      - *id005
       - name: email
         in: query
         required: false
@@ -983,14 +1000,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/SignupValidationResponse'
               examples:
-                default:
+                default: &id026
                   summary: Example for signup_validate 200
-                  value:
+                  value: &id052
                     allowed: true
                     reason: null
                     email_exists: false
                     phone_exists: false
                     suggested_username: alice_new
+              example: *id026
         '400':
           description: Bad request (invalid parameters)
           content:
@@ -1019,10 +1037,11 @@ paths:
             schema:
               $ref: '#/components/schemas/MagicLinkRequest'
             examples:
-              default:
+              default: &id027
                 summary: Example for magic_link_send
-                value:
+                value: &id053
                   email: alice@example.com
+            example: *id027
       responses:
         '200':
           description: Magic link sent
@@ -1031,12 +1050,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/MagicLinkResponse'
               examples:
-                default:
+                default: &id028
                   summary: Example for magic_link_send 200
-                  value:
+                  value: &id054
                     magic_link_sent: true
                     expires_in: 900
                     message: A magic link has been sent to your email
+              example: *id028
         '400':
           description: Bad request
           content:
@@ -1044,7 +1064,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send magic link to email
   /login/magic-link/verify:
@@ -1066,10 +1086,11 @@ paths:
             schema:
               $ref: '#/components/schemas/MagicLinkVerifyRequest'
             examples:
-              default:
+              default: &id029
                 summary: Example for magic_link_verify
-                value:
+                value: &id055
                   token: magic-link-token-abc
+            example: *id029
       responses:
         '200':
           description: Magic link verified, tokens issued
@@ -1078,7 +1099,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default:
+                default: &id030
                   summary: Example for magic_link_verify 200
                   value:
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
@@ -1093,6 +1114,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid
+              example: *id030
         '400':
           description: Invalid or expired token
           content:
@@ -1100,7 +1122,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify magic link token
   /login/phone-magic-link:
@@ -1121,10 +1143,11 @@ paths:
             schema:
               $ref: '#/components/schemas/SmsMagicLinkRequest'
             examples:
-              default:
+              default: &id031
                 summary: Example for sms_magic_link_send
-                value:
+                value: &id056
                   phone: '+1234567890'
+            example: *id031
       responses:
         '200':
           description: SMS magic link sent
@@ -1133,12 +1156,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/SmsMagicLinkResponse'
               examples:
-                default:
+                default: &id032
                   summary: Example for sms_magic_link_send 200
-                  value:
+                  value: &id057
                     magic_link_sent: true
                     expires_in: 900
                     message: A magic link has been sent to your phone
+              example: *id032
         '400':
           description: Bad request
           content:
@@ -1146,7 +1170,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send magic link to phone
   /login/phone-magic-link/verify:
@@ -1168,10 +1192,11 @@ paths:
             schema:
               $ref: '#/components/schemas/SmsMagicLinkVerifyRequest'
             examples:
-              default:
+              default: &id033
                 summary: Example for sms_magic_link_verify
-                value:
+                value: &id058
                   token: sms-magic-token-xyz
+            example: *id033
       responses:
         '200':
           description: SMS magic link verified, tokens issued
@@ -1180,7 +1205,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default:
+                default: &id034
                   summary: Example for sms_magic_link_verify 200
                   value:
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
@@ -1195,6 +1220,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid
+              example: *id034
         '400':
           description: Invalid or expired token
           content:
@@ -1202,7 +1228,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       parameters:
-      - *id001
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify SMS magic link token
 components:
@@ -1264,6 +1290,9 @@ components:
         hint:
           type: string
           description: Additional guidance for resolving the error
+      example:
+        error: invalid_request
+        error_description: Unauthorized (invalid or missing token)
     LoginRequest:
       type: object
       required:
@@ -1283,6 +1312,7 @@ components:
           format: uuid
           nullable: true
           description: Optional org hint for multi-tenant login
+      example: *id035
     TokenResponse:
       type: object
       required:
@@ -1335,6 +1365,7 @@ components:
           type: string
           nullable: true
           description: Granted OAuth scopes
+      example: *id036
     PendingEmailVerificationResponse:
       type: object
       required:
@@ -1352,7 +1383,7 @@ components:
           description: Email address (unverified)
         email_verified:
           type: boolean
-          description: Always false — user must confirm via email link
+          description: "Always false \u2014 user must confirm via email link"
         message:
           type: string
           example: A confirmation email has been sent. Please verify your email to
@@ -1381,6 +1412,7 @@ components:
         expires_in:
           type: integer
           description: Seconds until the MFA challenge expires
+      example: *id037
     EmailOTPRequest:
       type: object
       required:
@@ -1390,6 +1422,7 @@ components:
           type: string
           format: email
           description: Email address to send OTP to
+      example: *id038
     EmailOTPVerifyRequest:
       type: object
       required:
@@ -1405,6 +1438,7 @@ components:
           minLength: 6
           maxLength: 6
           description: 6-digit OTP code sent to email
+      example: *id039
     PhoneOTPRequest:
       type: object
       required:
@@ -1414,6 +1448,7 @@ components:
           type: string
           pattern: ^\\+[1-9]\\d{1,14}$
           description: Phone number in E.164 format (e.g. +14155551234)
+      example: *id040
     PhoneOTPVerifyRequest:
       type: object
       required:
@@ -1429,6 +1464,7 @@ components:
           minLength: 6
           maxLength: 6
           description: 6-digit SMS OTP code
+      example: *id041
     DualOTPRequest:
       type: object
       required:
@@ -1447,6 +1483,7 @@ components:
           type: boolean
           default: false
           description: Send welcome email after successful verification
+      example: *id042
     DualOTPResponse:
       type: object
       required:
@@ -1478,6 +1515,7 @@ components:
         message:
           type: string
           example: Verification codes have been sent to your email and phone
+      example: *id043
     DualOTPVerifyRequest:
       type: object
       required:
@@ -1508,6 +1546,7 @@ components:
           type: string
           format: uuid
           description: Session ID from the dual-otp send step
+      example: *id044
     DualOTPCompleteResponse:
       type: object
       required:
@@ -1525,6 +1564,7 @@ components:
         newly_verified_phone:
           type: boolean
           description: Whether phone was just verified in this operation
+      example: *id045
     DualOTPPartialResponse:
       type: object
       required:
@@ -1544,10 +1584,11 @@ components:
           description: Current phone verification status
         both_verified:
           type: boolean
-          description: Always false — both codes still needed
+          description: "Always false \u2014 both codes still needed"
         message:
           type: string
           example: Email verified. Please verify your phone to complete login.
+      example: *id046
     RegisterRequest:
       type: object
       required:
@@ -1585,6 +1626,7 @@ components:
           pattern: ^\\+[1-9]\\d{1,14}$
           nullable: true
           description: Phone number in E.164 format (for dual verification flow)
+      example: *id047
     TokenRequest:
       type: object
       required:
@@ -1624,6 +1666,7 @@ components:
           - urn:ietf:params:oauth:token-type:access_token
           - urn:ietf:params:oauth:token-type:refresh_token
           description: Type of token being requested
+      example: *id048
     ForgotPasswordRequest:
       type: object
       required:
@@ -1633,6 +1676,7 @@ components:
           type: string
           format: email
           description: Email address to send reset link to
+      example: *id049
     ResetPasswordRequest:
       type: object
       required:
@@ -1646,6 +1690,7 @@ components:
           type: string
           minLength: 8
           description: New password (minimum 8 characters)
+      example: *id050
     LogoutRequest:
       type: object
       properties:
@@ -1657,6 +1702,7 @@ components:
       description: Request body for logout operation. Either the refresh_token in
         the body OR the Bearer token in the Authorization header can be used to identify
         the session to revoke. If both are provided, the refresh_token is preferred.
+      example: *id051
     SocialCallbackRequest:
       type: object
       required:
@@ -1741,6 +1787,7 @@ components:
         requires_mfa:
           type: boolean
           description: Whether the user will need MFA after registration
+      example: *id052
     MagicLinkRequest:
       type: object
       required:
@@ -1750,6 +1797,7 @@ components:
           type: string
           format: email
           description: Email address to send magic link to
+      example: *id053
     MagicLinkResponse:
       type: object
       required:
@@ -1763,6 +1811,7 @@ components:
           type: integer
           example: 900
           description: Seconds until expiration
+      example: *id054
     MagicLinkVerifyRequest:
       type: object
       required:
@@ -1771,6 +1820,7 @@ components:
         token:
           type: string
           description: Magic link token from the URL
+      example: *id055
     SmsMagicLinkRequest:
       type: object
       required:
@@ -1780,6 +1830,7 @@ components:
           type: string
           pattern: ^\+[1-9]\d{1,14}$
           description: Phone number in E.164 format
+      example: *id056
     SmsMagicLinkResponse:
       type: object
       required:
@@ -1793,6 +1844,7 @@ components:
           type: integer
           example: 900
           description: Seconds until expiration
+      example: *id057
     SmsMagicLinkVerifyRequest:
       type: object
       required:
@@ -1806,6 +1858,7 @@ components:
         token:
           type: string
           description: Magic link token from the SMS URL
+      example: *id058
   examples:
     LoginSuccessful:
       value:

@@ -42,15 +42,16 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateApiKeyRequest'
             examples:
-              default:
+              default: &id001
                 summary: Example request for create_api_key
-                value:
+                value: &id015
                   name: Production API Key
                   permissions:
                   - read
                   - write
                   - delete
                   expires_in: 365
+            example: *id001
       responses:
         '201':
           description: API key created
@@ -59,9 +60,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiKeyCreateResponse'
               examples:
-                default:
+                default: &id002
                   summary: Example response 201 for create_api_key
-                  value:
+                  value: &id017
                     key_id: 550e8400-e29b-41d4-a716-446655440003
                     name: Production API Key
                     key: sk_live_abc123def456ghi789
@@ -72,6 +73,7 @@ paths:
                     created_at: '2024-01-15T10:30:00Z'
                     expires_at: '2025-01-15T10:30:00Z'
                     last_used_at: null
+              example: *id002
         '400':
           description: Invalid request
           content:
@@ -82,7 +84,7 @@ paths:
                 error: invalid_request
                 error_description: Bad request (validation error)
       parameters:
-      - &id001
+      - &id003
         name: X-Tenant-ID
         in: header
         required: true
@@ -107,7 +109,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_active_api_keys
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: query
         schema:
@@ -147,9 +149,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiKeyListResponse'
               examples:
-                default:
+                default: &id004
                   summary: Example response 200 for fetch_active_api_keys
-                  value:
+                  value: &id019
                     api_keys:
                     - key_id: 550e8400-e29b-41d4-a716-446655440003
                       name: Production API Key
@@ -172,6 +174,7 @@ paths:
                     total: 2
                     page: 1
                     limit: 20
+              example: *id004
       x-consumer: frontend
       x-consumer-note: Direct browser call to list active API keys for current user/org
   /{key_id}:
@@ -185,7 +188,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: update_api_key
       parameters:
-      - *id001
+      - *id003
       - name: key_id
         in: path
         required: true
@@ -199,13 +202,14 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateApiKeyRequest'
             examples:
-              default:
+              default: &id005
                 summary: Example request for update_api_key
-                value:
+                value: &id016
                   name: Updated Production Key
                   permissions:
                   - read
                   - write
+            example: *id005
       responses:
         '200':
           description: API key updated
@@ -214,9 +218,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiKey'
               examples:
-                default:
+                default: &id006
                   summary: Example response 200 for update_api_key
-                  value:
+                  value: &id018
                     key_id: 550e8400-e29b-41d4-a716-446655440003
                     name: Updated Production Key
                     key: sk_live_abc***
@@ -227,6 +231,7 @@ paths:
                     expires_at: '2025-01-15T10:30:00Z'
                     last_used_at: '2024-01-16T08:00:00Z'
                     updated_at: '2024-01-17T10:00:00Z'
+              example: *id006
         '404':
           description: API key not found
           content:
@@ -254,7 +259,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_api_key
       parameters:
-      - *id001
+      - *id003
       - name: key_id
         in: path
         required: true
@@ -280,23 +285,13 @@ paths:
       tags:
       - APIKeys
       summary: Validate API key
-      description: 'Validates an API key and returns the associated user, organisation,
-        and permissions.
-
-        Used by consuming services to authenticate incoming API key requests.
-
-
-        Optional `key_type` query parameter: "any" (default), "personal", or "org".
-
-        If specified and the key doesn''t match the requested type, returns 401.
-
-
-        Endpoints `/validate/personal` and `/validate/org` are deprecated — use `/validate?key_type=personal`
-        or `/validate?key_type=org` instead.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+      description: "Validates an API key and returns the associated user, organisation,\
+        \ and permissions.\nUsed by consuming services to authenticate incoming API\
+        \ key requests.\n\nOptional `key_type` query parameter: \"any\" (default),\
+        \ \"personal\", or \"org\".\nIf specified and the key doesn't match the requested\
+        \ type, returns 401.\n\nEndpoints `/validate/personal` and `/validate/org`\
+        \ are deprecated \u2014 use `/validate?key_type=personal` or `/validate?key_type=org`\
+        \ instead.\n\n\nRequires `X-Tenant-ID` header for tenant resolution."
       operationId: validate_api_key
       requestBody:
         required: true
@@ -312,7 +307,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiKeyValidationResponse'
               examples:
-                default:
+                default: &id007
                   summary: Example response 200 for validate_api_key
                   value:
                     valid: true
@@ -324,6 +319,7 @@ paths:
                     - delete
                     expires_at: '2025-01-15T10:30:00Z'
                     tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+              example: *id007
         '401':
           description: Invalid or expired API key
           content:
@@ -334,7 +330,7 @@ paths:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
       parameters:
-      - *id001
+      - *id003
       - name: key_type
         in: query
         required: false
@@ -363,7 +359,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_api_key_usage
       parameters:
-      - *id001
+      - *id003
       - name: api_key_id
         in: query
         schema:
@@ -396,14 +392,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiKeyUsageResponse'
               examples:
-                default:
+                default: &id008
                   summary: Example response 200 for fetch_api_key_usage
-                  value:
+                  value: &id020
                     key_id: 550e8400-e29b-41d4-a716-446655440003
                     total_requests: 15234
                     requests_last_24h: 342
                     requests_last_7d: 2891
                     requests_last_30d: 11456
+              example: *id008
       x-consumer: frontend
       x-consumer-note: Direct browser call to check usage stats for own API keys
   /validate/personal:
@@ -411,11 +408,9 @@ paths:
       tags:
       - APIKeys
       summary: 'DEPRECATED: Validate personal API key'
-      description: 'DEPRECATED — Use POST /validate?key_type=personal instead. Validates
-        a personal (user-scoped) API key.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+      description: "DEPRECATED \u2014 Use POST /validate?key_type=personal instead.\
+        \ Validates a personal (user-scoped) API key.\n\nRequires `X-Tenant-ID` header\
+        \ for tenant resolution."
       operationId: validate_personal_api_key
       requestBody:
         required: true
@@ -431,7 +426,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PersonalApiKeyValidationResponse'
               examples:
-                default:
+                default: &id009
                   summary: Example response 200 for validate_personal_api_key
                   value:
                     valid: true
@@ -442,6 +437,7 @@ paths:
                     - write
                     expires_at: '2025-01-15T10:30:00Z'
                     tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+              example: *id009
         '401':
           description: Invalid or not a personal API key
           content:
@@ -453,7 +449,7 @@ paths:
                 error_description: Unauthorized (invalid or missing token)
       deprecated: true
       parameters:
-      - *id001
+      - *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Validate personal API key, never from browser'
   /archived:
@@ -470,7 +466,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_archived_api_keys
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: query
         schema:
@@ -504,9 +500,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArchivedApiKeyListResponse'
               examples:
-                default:
+                default: &id010
                   summary: Example response 200 for fetch_archived_api_keys
-                  value:
+                  value: &id022
                     api_keys:
                     - key_id: 550e8400-e29b-41d4-a716-446655440005
                       name: Archived Key
@@ -515,6 +511,7 @@ paths:
                     total: 1
                     page: 1
                     limit: 20
+              example: *id010
       x-consumer: frontend
       x-consumer-note: Direct browser call to list archived API keys for current user/org
   /archived/{key_id}:
@@ -528,7 +525,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_archived_api_key
       parameters:
-      - *id001
+      - *id003
       - name: key_id
         in: path
         required: true
@@ -543,14 +540,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArchivedApiKey'
               examples:
-                default:
+                default: &id011
                   summary: Example response 200 for fetch_archived_api_key
-                  value:
+                  value: &id021
                     key_id: 550e8400-e29b-41d4-a716-446655440005
                     name: Archived Key
                     key: sk_arc_old***
                     archived_at: '2024-01-10T00:00:00Z'
                     archived_by: admin@example.com
+              example: *id011
         '404':
           description: Not found
           content:
@@ -583,7 +581,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ImportApiKeysRequest'
             examples:
-              default:
+              default: &id012
                 summary: Example request for import_api_keys
                 value:
                   api_keys:
@@ -591,6 +589,7 @@ paths:
                     key: sk_import_abc123
                     permissions:
                     - read
+            example: *id012
       responses:
         '201':
           description: API keys imported
@@ -599,7 +598,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ImportApiKeysResponse'
               examples:
-                default:
+                default: &id013
                   summary: Example response 201 for import_api_keys
                   value:
                     imported: 1
@@ -608,6 +607,7 @@ paths:
                     - key_id: 550e8400-e29b-41d4-a716-446655440006
                       name: Key 1
                       imported_at: '2024-01-17T10:00:00Z'
+              example: *id013
         '400':
           description: Invalid import data
           content:
@@ -618,7 +618,7 @@ paths:
                 error: invalid_request
                 error_description: Bad request (validation error)
       parameters:
-      - *id001
+      - *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Bulk import API keys, not direct frontend'
   /validate/org:
@@ -626,11 +626,9 @@ paths:
       tags:
       - APIKeys
       summary: 'DEPRECATED: Validate organisation API key'
-      description: 'DEPRECATED — Use POST /validate?key_type=org instead. Validates
-        an organisation-scoped API key.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+      description: "DEPRECATED \u2014 Use POST /validate?key_type=org instead. Validates\
+        \ an organisation-scoped API key.\n\nRequires `X-Tenant-ID` header for tenant\
+        \ resolution."
       operationId: validate_org_api_key
       requestBody:
         required: true
@@ -646,7 +644,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OrgApiKeyValidationResponse'
               examples:
-                default:
+                default: &id014
                   summary: Example response 200 for validate_org_api_key
                   value:
                     valid: true
@@ -656,6 +654,7 @@ paths:
                     - read
                     expires_at: '2025-01-15T10:30:00Z'
                     tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+              example: *id014
         '401':
           description: Invalid or not an organisation API key
           content:
@@ -667,7 +666,7 @@ paths:
                 error_description: Unauthorized (invalid or missing token)
       deprecated: true
       parameters:
-      - *id001
+      - *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Validate org API key, never from browser'
 components:
@@ -746,6 +745,7 @@ components:
           additionalProperties: true
           nullable: true
           description: Custom key-value metadata attached to this key
+      example: *id015
     UpdateApiKeyRequest:
       type: object
       properties:
@@ -762,6 +762,7 @@ components:
           additionalProperties: true
           nullable: true
           description: Updated metadata
+      example: *id016
     ValidateApiKeyRequest:
       type: object
       required:
@@ -782,12 +783,8 @@ components:
           description: Unique ID of the created API key
         api_key:
           type: string
-          description: 'The raw API key (secret). This is the ONLY time the secret
-            is returned.
-
-            Store it securely — it cannot be retrieved again.
-
-            '
+          description: "The raw API key (secret). This is the ONLY time the secret\
+            \ is returned.\nStore it securely \u2014 it cannot be retrieved again.\n"
         name:
           type: string
           description: Human-readable name
@@ -815,6 +812,7 @@ components:
           items:
             type: string
           description: Permission codes granted by this key
+      example: *id017
     ApiKey:
       type: object
       properties:
@@ -857,6 +855,7 @@ components:
           additionalProperties: true
           nullable: true
           description: Custom metadata attached to this key
+      example: *id018
     ApiKeyListResponse:
       type: object
       properties:
@@ -899,6 +898,7 @@ components:
           description: List of filters applied to the query results
           default:
           - active
+      example: *id019
     ApiKeyValidationResponse:
       type: object
       required:
@@ -953,7 +953,8 @@ components:
       properties:
         is_personal:
           type: boolean
-          description: Always true — confirms this is a personal (user-scoped) key
+          description: "Always true \u2014 confirms this is a personal (user-scoped)\
+            \ key"
     OrgApiKeyValidationResponse:
       type: object
       required:
@@ -964,7 +965,8 @@ components:
       properties:
         is_org_scoped:
           type: boolean
-          description: Always true — confirms this is an organisation-scoped key
+          description: "Always true \u2014 confirms this is an organisation-scoped\
+            \ key"
     ApiKeyUsageResponse:
       type: object
       properties:
@@ -975,6 +977,7 @@ components:
         total_validations:
           type: integer
           description: Total number of API key validation calls on this date
+      example: *id020
     ArchivedApiKey:
       allOf:
       - $ref: '#/components/schemas/ApiKey'
@@ -997,6 +1000,7 @@ components:
           type: string
           nullable: true
           description: Why the key is archived (expired, revoked, etc.)
+      example: *id021
     ArchivedApiKeyListResponse:
       type: object
       properties:
@@ -1016,6 +1020,7 @@ components:
         has_more_results:
           type: boolean
           description: Whether additional pages exist
+      example: *id022
     ImportApiKeysRequest:
       type: object
       required:
