@@ -7,6 +7,10 @@
  * 1. Login step 2 (after MFA_REQUIRED response, includes session_id)
  * 2. MFA setup step 2 (after MFA setup generated QR code)
  *
+ * @example {
+    "password": "SecureP@ss123!",
+    "code": "123456"
+}
  */
 export type MfaVerifyRequest = {
     /**

@@ -12,6 +12,21 @@
  * with identity-specific fields (user_id, first_name, last_name) and session context
  * (org_id, org_name, user_role, user_permissions).
  *
+ * @example {
+    "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d",
+    "email": "alice@example.com",
+    "email_verified": true,
+    "phone_verified": false,
+    "phone": "+1234567890",
+    "username": "alice",
+    "first_name": "Alice",
+    "last_name": "Smith",
+    "avatar_url": "https://example.com/avatars/alice.png",
+    "role": "user",
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-15T10:30:00Z"
+}
  */
 export type UserProfile = {
     /**

@@ -2,6 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "email": "alice@example.com",
+    "phone": "+1234567890"
+}
+ */
 export type DualOTPRequest = {
     /**
      * Email address to send OTP to

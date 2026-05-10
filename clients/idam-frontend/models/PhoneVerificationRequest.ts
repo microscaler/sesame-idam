@@ -5,6 +5,10 @@
 /**
  * Verify a phone number via SMS OTP code.
  *
+ * @example {
+    "phone": "+1234567890",
+    "code": "654321"
+}
  */
 export type PhoneVerificationRequest = {
     /**

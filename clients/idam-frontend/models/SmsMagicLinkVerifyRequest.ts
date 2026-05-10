@@ -2,6 +2,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "token": "sms-magic-token-xyz"
+}
+ */
 export type SmsMagicLinkVerifyRequest = {
     /**
      * Phone number that received the SMS

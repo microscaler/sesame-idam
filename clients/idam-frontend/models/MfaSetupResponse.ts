@@ -6,6 +6,18 @@
  * Returns the TOTP provisioning URI that can be rendered as a QR code.
  * The user must scan the QR code and enter the resulting code to complete setup.
  *
+ * @example {
+    "mfa_required": true,
+    "secret": "JBSWY3DPEHPK3PXP",
+    "qr_code": "data:image/png;base64,example",
+    "backup_codes": [
+        "12345678",
+        "87654321",
+        "11111111",
+        "22222222",
+        "33333333"
+    ]
+}
  */
 export type MfaSetupResponse = {
     /**

@@ -2,6 +2,15 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "name": "Updated Production Key",
+    "permissions": [
+        "read",
+        "write"
+    ]
+}
+ */
 export type UpdateApiKeyRequest = {
     /**
      * Updated name for this API key

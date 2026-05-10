@@ -2,6 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "error": "invalid_request",
+    "error_description": "Unauthorized (invalid or missing token)"
+}
+ */
 export type ErrorResponse = {
     /**
      * Machine-readable error code

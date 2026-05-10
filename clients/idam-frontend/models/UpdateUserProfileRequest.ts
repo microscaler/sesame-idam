@@ -6,6 +6,11 @@
  * Partial update of the current user's profile.
  * Only provided fields are modified.
  *
+ * @example {
+    "first_name": "Alice",
+    "last_name": "Johnson",
+    "avatar_url": "https://example.com/avatars/alice_v2.png"
+}
  */
 export type UpdateUserProfileRequest = {
     /**

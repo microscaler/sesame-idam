@@ -2,6 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "email": "alice@example.com",
+    "code": "123456"
+}
+ */
 export type EmailOTPVerifyRequest = {
     /**
      * Email address that received the OTP

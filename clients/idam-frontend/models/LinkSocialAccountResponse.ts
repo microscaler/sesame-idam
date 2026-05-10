@@ -4,6 +4,10 @@
 /* eslint-disable */
 /**
  * Response containing OAuth provider redirect URL and CSRF state token
+ * @example {
+    "redirect_url": "https://github.com/login/oauth/authorize?client_id=abc",
+    "state": "csrf-token-xyz"
+}
  */
 export type LinkSocialAccountResponse = {
     /**

@@ -66,7 +66,13 @@ export class AuthFlowsService {
         xTenantId: string,
         requestBody: EmailOTPRequest,
     ): CancelablePromise<{
+        /**
+         * @example true
+         */
         success?: boolean;
+        /**
+         * @example Verification code sent to your email
+         */
         message?: string;
     }> {
         return __request(OpenAPI, {
@@ -127,7 +133,13 @@ export class AuthFlowsService {
         xTenantId: string,
         requestBody: PhoneOTPRequest,
     ): CancelablePromise<{
+        /**
+         * @example true
+         */
         success?: boolean;
+        /**
+         * @example Verification code sent to your phone
+         */
         message?: string;
     }> {
         return __request(OpenAPI, {

@@ -2,6 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "phone": "+1234567890",
+    "code": "654321"
+}
+ */
 export type PhoneOTPVerifyRequest = {
     /**
      * Phone number that received the OTP (E.164 format)
