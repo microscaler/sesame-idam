@@ -38,14 +38,10 @@ paths:
       tags:
       - Users
       summary: Create user (idempotent by email)
-      description: 'Creates a new user. Idempotent if email matches existing user
-        — returns existing user.
-
-        SaaS customers must provide their own `org_id`; platform admins may omit it.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+      description: "Creates a new user. Idempotent if email matches existing user\
+        \ \u2014 returns existing user.\nSaaS customers must provide their own `org_id`;\
+        \ platform admins may omit it.\n\n\nRequires `X-Tenant-ID` header for tenant\
+        \ resolution."
       operationId: create_user
       requestBody:
         required: true
@@ -54,7 +50,7 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateUserRequest'
             examples:
-              default:
+              default: &id001
                 summary: Example for create_user
                 value:
                   email: newuser@example.com
@@ -63,6 +59,7 @@ paths:
                   phone: '+1234567890'
                   username: newuser
                   send_welcome_email: true
+            example: *id001
       responses:
         '201':
           description: User created
@@ -71,7 +68,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
               examples:
-                default:
+                default: &id002
                   summary: Example for create_user 201
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
@@ -86,6 +83,7 @@ paths:
                     role: user
                     is_active: true
                     created_at: '2024-01-15T10:30:00Z'
+              example: *id002
         '200':
           description: User already exists (idempotent)
           content:
@@ -102,7 +100,7 @@ paths:
                 error: invalid_request
                 error_description: Bad request (validation error)
       parameters:
-      - &id001
+      - &id003
         name: X-Tenant-ID
         in: header
         required: true
@@ -127,7 +125,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_user
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -163,7 +161,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: query_users
       parameters:
-      - *id001
+      - *id003
       - name: page
         in: query
         schema:
@@ -241,7 +239,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserQueryResponse'
               examples:
-                default:
+                default: &id004
                   summary: Example response 200 for query_users
                   value:
                     users:
@@ -272,6 +270,7 @@ paths:
                     total: 2
                     page: 1
                     limit: 20
+              example: *id004
         '400':
           description: Invalid request
           content:
@@ -295,7 +294,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_user_by_email
       parameters:
-      - *id001
+      - *id003
       - name: email
         in: query
         required: true
@@ -309,7 +308,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
               examples:
-                default:
+                default: &id005
                   summary: Example response 200 for fetch_user_by_email
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
@@ -325,6 +324,7 @@ paths:
                     is_active: true
                     created_at: '2024-01-01T00:00:00Z'
                     updated_at: '2024-01-15T10:30:00Z'
+              example: *id005
         '404':
           description: Not found
           content:
@@ -343,7 +343,7 @@ paths:
       summary: Fetch user by username
       operationId: fetch_user_by_username
       parameters:
-      - *id001
+      - *id003
       - name: username
         in: query
         required: true
@@ -356,7 +356,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
               examples:
-                default:
+                default: &id006
                   summary: Example response 200 for fetch_user_by_username
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
@@ -372,6 +372,7 @@ paths:
                     is_active: true
                     created_at: '2024-01-01T00:00:00Z'
                     updated_at: '2024-01-15T10:30:00Z'
+              example: *id006
         '404':
           description: Not found
           content:
@@ -389,19 +390,13 @@ paths:
       tags:
       - Users
       summary: Fetch user in employee mode
-      description: 'Returns user info filtered to the caller''s organisation context
-        only.
-
-        Used for B2B directory lookup — omits orgs the user is not part of.
-
-        Requires BearerAuth with org context.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+      description: "Returns user info filtered to the caller's organisation context\
+        \ only.\nUsed for B2B directory lookup \u2014 omits orgs the user is not part\
+        \ of.\nRequires BearerAuth with org context.\n\n\nRequires `X-Tenant-ID` header\
+        \ for tenant resolution."
       operationId: fetch_employee
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -415,7 +410,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/EmployeeResponse'
               examples:
-                default:
+                default: &id007
                   summary: Example response 200 for fetch_employee
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
@@ -425,6 +420,7 @@ paths:
                     last_name: Smith
                     department: Engineering
                     title: Senior Developer
+              example: *id007
         '404':
           description: Not found
           content:
@@ -449,7 +445,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: disable_user
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -482,7 +478,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: enable_user
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -516,7 +512,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: logout_all_sessions
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -548,7 +544,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: create_magic_link
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -587,7 +583,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: clear_user_password
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -625,7 +621,7 @@ paths:
       summary: Verify user email
       operationId: verify_user_email
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -663,7 +659,7 @@ paths:
       summary: Resend email confirmation
       operationId: resend_email_confirmation
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -696,7 +692,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: disable_user_mfa
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -734,7 +730,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: setup_user_mfa_totp
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -748,10 +744,11 @@ paths:
             schema:
               $ref: '#/components/schemas/MfaSetupRequest'
             examples:
-              default:
+              default: &id008
                 summary: Example request for setup_user_mfa_totp
                 value:
                   password: SecureP@ss123!
+            example: *id008
       responses:
         '200':
           description: TOTP secret generated
@@ -760,7 +757,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/MfaSetupResponse'
               examples:
-                default:
+                default: &id009
                   summary: Example response 200 for setup_user_mfa_totp
                   value:
                     mfa_required: true
@@ -772,6 +769,7 @@ paths:
                     - '11111111'
                     - '22222222'
                     - '33333333'
+              example: *id009
         '400':
           description: Invalid password or MFA already configured
           content:
@@ -808,7 +806,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_user_mfa
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -822,11 +820,12 @@ paths:
             schema:
               $ref: '#/components/schemas/MfaVerifyRequest'
             examples:
-              default:
+              default: &id010
                 summary: Example request for verify_user_mfa
                 value:
                   password: SecureP@ss123!
                   code: '123456'
+            example: *id010
       responses:
         '200':
           description: MFA verified
@@ -835,12 +834,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default:
+                default: &id011
                   summary: Example response 200 for verify_user_mfa
                   value:
                     mfa_required: false
                     success: true
                     message: MFA verified successfully
+              example: *id011
         '400':
           description: Invalid code
           content:
@@ -876,7 +876,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: setup_user_phone
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -890,10 +890,11 @@ paths:
             schema:
               $ref: '#/components/schemas/PhoneNumberRequest'
             examples:
-              default:
+              default: &id012
                 summary: Example request for setup_user_phone
                 value:
                   phone: '+1234567890'
+            example: *id012
       responses:
         '200':
           description: Phone number added, SMS code sent
@@ -928,7 +929,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_user_phone
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -942,11 +943,12 @@ paths:
             schema:
               $ref: '#/components/schemas/PhoneVerificationRequest'
             examples:
-              default:
+              default: &id013
                 summary: Example request for verify_user_phone
                 value:
                   phone: '+1234567890'
                   code: '654321'
+            example: *id013
       responses:
         '200':
           description: Phone number verified
@@ -977,7 +979,7 @@ paths:
       summary: Change user email
       operationId: update_user_email
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -991,10 +993,11 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateEmailRequest'
             examples:
-              default:
+              default: &id014
                 summary: Example request for update_user_email
                 value:
                   email: alice.j@example.com
+            example: *id014
       responses:
         '200':
           description: Email updated
@@ -1034,7 +1037,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: link_social_account
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -1055,11 +1058,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/LinkSocialAccountResponse'
               examples:
-                default:
+                default: &id015
                   summary: Example for link_social_account 200
-                  value:
+                  value: &id020
                     redirect_url: https://github.com/login/oauth/authorize?client_id=abc
                     state: csrf-token-xyz
+              example: *id015
         '400':
           description: Bad Request - Invalid provider or user_id
           content:
@@ -1087,7 +1091,7 @@ paths:
       summary: Fetch user's OAuth tokens from providers
       operationId: fetch_user_oauth_tokens
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -1101,7 +1105,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenListResponse'
               examples:
-                default:
+                default: &id016
                   summary: Example response 200 for fetch_user_oauth_tokens
                   value:
                     oauth_tokens:
@@ -1117,6 +1121,7 @@ paths:
                       scope: email,profile
                       created_at: '2024-01-12T00:00:00Z'
                       expires_at: '2024-07-12T00:00:00Z'
+              example: *id016
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to fetch OAuth tokens for current user
@@ -1131,7 +1136,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_fresh_oauth_token
       parameters:
-      - *id001
+      - *id003
       - name: user_id
         in: path
         required: true
@@ -1150,12 +1155,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthTokenResponse'
               examples:
-                default:
+                default: &id017
                   summary: Example response 200 for fetch_fresh_oauth_token
                   value:
                     token: gho_new123abc456
                     provider: github
                     expires_in: 3600
+              example: *id017
       x-consumer: frontend
       x-consumer-note: Direct browser call to fetch fresh OAuth token for current
         user
@@ -1180,11 +1186,12 @@ paths:
             schema:
               $ref: '#/components/schemas/MigrateUserRequest'
             examples:
-              default:
+              default: &id018
                 summary: Example request for migrate_user
                 value:
                   source_provider: legacy
                   source_user_id: LEG-001
+            example: *id018
       responses:
         '201':
           description: User migrated
@@ -1193,13 +1200,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
               examples:
-                default:
+                default: &id019
                   summary: Example response 201 for migrate_user
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                     migrated: true
                     email: alice@example.com
                     migrated_at: '2024-01-15T10:30:00Z'
+              example: *id019
         '400':
           description: Invalid request
           content:
@@ -1210,7 +1218,7 @@ paths:
                 error: invalid_request
                 error_description: Bad request (validation error)
       parameters:
-      - *id001
+      - *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Migrate user from external system, never from
         browser'
@@ -1247,7 +1255,7 @@ paths:
                 error: invalid_request
                 error_description: Bad request (validation error)
       parameters:
-      - *id001
+      - *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Batch migrate user passwords, never from browser'
   /oauth/logout:
@@ -1271,7 +1279,7 @@ paths:
         '200':
           description: Logout successful
       parameters:
-      - *id001
+      - *id003
       x-consumer: frontend
       x-consumer-note: Direct browser call to logout OAuth session for current user
 components:
@@ -1372,13 +1380,9 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: 'For SaaS customers: required, must be their own organisation.
-
-            For platform admins: optional — if omitted, creates a platform-level user.
-
-            When present, the user is automatically added to this organisation.
-
-            '
+          description: "For SaaS customers: required, must be their own organisation.\n\
+            For platform admins: optional \u2014 if omitted, creates a platform-level\
+            \ user.\nWhen present, the user is automatically added to this organisation.\n"
       example:
         email: newuser@example.com
         email_confirmed: false
@@ -1904,3 +1908,4 @@ components:
             the callback
       description: Response containing OAuth provider redirect URL and CSRF state
         token
+      example: *id020
