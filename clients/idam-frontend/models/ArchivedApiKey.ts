@@ -3,6 +3,15 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ApiKey } from './ApiKey';
+/**
+ * @example {
+    "key_id": "550e8400-e29b-41d4-a716-446655440005",
+    "name": "Archived Key",
+    "key": "sk_arc_old***",
+    "archived_at": "2024-01-10T00:00:00Z",
+    "archived_by": "admin@example.com"
+}
+ */
 export type ArchivedApiKey = (ApiKey & {
     /**
      * Unix timestamp when the key was revoked

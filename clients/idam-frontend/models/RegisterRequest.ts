@@ -2,6 +2,16 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "email": "newuser@example.com",
+    "password": "SecureP@ss123!",
+    "first_name": "New",
+    "last_name": "User",
+    "username": "newuser",
+    "send_welcome_email": true
+}
+ */
 export type RegisterRequest = {
     /**
      * Primary email address (must be unique)

@@ -2,6 +2,13 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "grant_type": "refresh_token",
+    "refresh_token": "cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u",
+    "client_id": "my-app"
+}
+ */
 export type TokenRequest = {
     /**
      * OAuth2 grant type

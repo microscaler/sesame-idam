@@ -2,7 +2,21 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "success": true,
+    "email_sent": true,
+    "phone_sent": true,
+    "email_verified": false,
+    "phone_verified": false,
+    "both_verified": false,
+    "message": "Verification codes have been sent to your email and phone"
+}
+ */
 export type DualOTPResponse = {
+    /**
+     * @example true
+     */
     success: boolean;
     /**
      * Whether OTP was sent to email
@@ -24,6 +38,9 @@ export type DualOTPResponse = {
      * Whether both were already verified (auto-complete login)
      */
     both_verified?: boolean;
+    /**
+     * @example Verification codes have been sent to your email and phone
+     */
     message?: string;
 };
 

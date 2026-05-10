@@ -2,6 +2,22 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "access_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20iLCJvcmdfaWQiOiIxMTg5YzQ0NCJ9.sig",
+    "token_type": "Bearer",
+    "expires_in": 900,
+    "refresh_token": "cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u",
+    "refresh_token_expires_in": 2592000,
+    "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d",
+    "email": "alice@example.com",
+    "email_verified": true,
+    "phone_verified": false,
+    "mfa_required": false,
+    "id_token": null,
+    "scope": "openid profile email"
+}
+ */
 export type TokenResponse = {
     /**
      * JWT access token (valid for 15 minutes by default)

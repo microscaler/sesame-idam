@@ -6,6 +6,9 @@
  * Request to set up TOTP MFA for a user.
  * Requires the user's current password for verification.
  *
+ * @example {
+    "password": "SecureP@ss123!"
+}
  */
 export type MfaSetupRequest = {
     /**

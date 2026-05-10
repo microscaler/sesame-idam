@@ -3,6 +3,39 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ApiKey } from './ApiKey';
+/**
+ * @example {
+    "api_keys": [
+        {
+            "key_id": "550e8400-e29b-41d4-a716-446655440003",
+            "name": "Production API Key",
+            "key": "sk_live_abc***",
+            "permissions": [
+                "read",
+                "write",
+                "delete"
+            ],
+            "created_at": "2024-01-15T10:30:00Z",
+            "expires_at": "2025-01-15T10:30:00Z",
+            "last_used_at": "2024-01-16T08:00:00Z"
+        },
+        {
+            "key_id": "550e8400-e29b-41d4-a716-446655440004",
+            "name": "Development Key",
+            "key": "sk_dev_xyz***",
+            "permissions": [
+                "read"
+            ],
+            "created_at": "2024-01-10T00:00:00Z",
+            "expires_at": "2024-07-10T00:00:00Z",
+            "last_used_at": "2024-01-14T12:00:00Z"
+        }
+    ],
+    "total": 2,
+    "page": 1,
+    "limit": 20
+}
+ */
 export type ApiKeyListResponse = {
     keys?: Array<ApiKey>;
     /**

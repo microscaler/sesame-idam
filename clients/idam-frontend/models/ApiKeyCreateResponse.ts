@@ -2,6 +2,21 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "key_id": "550e8400-e29b-41d4-a716-446655440003",
+    "name": "Production API Key",
+    "key": "sk_live_abc123def456ghi789",
+    "permissions": [
+        "read",
+        "write",
+        "delete"
+    ],
+    "created_at": "2024-01-15T10:30:00Z",
+    "expires_at": "2025-01-15T10:30:00Z",
+    "last_used_at": null
+}
+ */
 export type ApiKeyCreateResponse = {
     /**
      * Unique ID of the created API key

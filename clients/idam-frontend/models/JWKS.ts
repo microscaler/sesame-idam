@@ -2,6 +2,20 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "keys": [
+        {
+            "kty": "RSA",
+            "kid": "default",
+            "use": "sig",
+            "alg": "RS256",
+            "n": "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe",
+            "e": "AQAB"
+        }
+    ]
+}
+ */
 export type JWKS = {
     /**
      * JSON Web Key Set containing the signing keys for JWT verification.

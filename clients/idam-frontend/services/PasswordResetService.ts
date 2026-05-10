@@ -25,18 +25,22 @@ export class PasswordResetService {
     ): CancelablePromise<{
         /**
          * Whether the request was accepted
+         * @example true
          */
         success: boolean;
         /**
          * Human-readable message for the user
+         * @example If the email is registered, a reset link has been sent
          */
         message: string;
         /**
          * Token expiry time in minutes (e.g., 15)
+         * @example 15
          */
         expires_in?: number;
         /**
          * Type of token issued (helps clients handle display)
+         * @example reset
          */
         token_type?: string;
     }> {
@@ -68,7 +72,13 @@ export class PasswordResetService {
         xTenantId: string,
         requestBody?: ResetPasswordRequest,
     ): CancelablePromise<{
+        /**
+         * @example true
+         */
         success?: boolean;
+        /**
+         * @example Password has been reset successfully
+         */
         message?: string;
     }> {
         return __request(OpenAPI, {

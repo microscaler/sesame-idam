@@ -2,6 +2,17 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "name": "Production API Key",
+    "permissions": [
+        "read",
+        "write",
+        "delete"
+    ],
+    "expires_in": 365
+}
+ */
 export type CreateApiKeyRequest = {
     /**
      * Human-readable name for this API key (e.g., "Production Service")
@@ -19,10 +30,15 @@ export type CreateApiKeyRequest = {
      * Permission codes to include in the key. If omitted, includes all permissions
      * for the user/org scope.
      *
+     * @example [
+        "accounting:invoices:write",
+        "accounting:invoices:read"
+    ]
      */
     permissions?: Array<string>;
     /**
      * Number of days until the key expires (omit for no expiry)
+     * @example 90
      */
     expires_in_days?: number | null;
     /**

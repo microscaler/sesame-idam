@@ -4,6 +4,9 @@
 /* eslint-disable */
 /**
  * Request body for logout operation. Either the refresh_token in the body OR the Bearer token in the Authorization header can be used to identify the session to revoke. If both are provided, the refresh_token is preferred.
+ * @example {
+    "refresh_token": "cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u"
+}
  */
 export type LogoutRequest = {
     /**

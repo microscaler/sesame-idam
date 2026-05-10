@@ -2,6 +2,15 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "allowed": true,
+    "reason": null,
+    "email_exists": false,
+    "phone_exists": false,
+    "suggested_username": "alice_new"
+}
+ */
 export type SignupValidationResponse = {
     /**
      * Whether the email/phone is allowed to register
