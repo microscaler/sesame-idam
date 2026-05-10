@@ -2,6 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "provider": "google",
+    "scope": "email,profile"
+}
+ */
 export type LinkSocialAccountRequest = {
     /**
      * OAuth provider name

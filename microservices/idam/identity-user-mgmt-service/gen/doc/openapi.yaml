@@ -1443,6 +1443,9 @@ components:
         scope:
           type: string
           description: Additional OAuth scopes
+      example:
+        provider: github
+        scope: user:email
     MfaSetupRequest:
       type: object
       description: 'Request to set up TOTP MFA for a user.
@@ -1601,6 +1604,9 @@ components:
           type: string
         id_token_hint:
           type: string
+      example:
+        post_logout_redirect_uri: https://admin.hauliage.com/dashboard
+        id_token_hint: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
     OAuthTokenResponse:
       type: object
       properties:
