@@ -91,6 +91,8 @@ paths:
           format: uuid
         description: Tenant identifier. Routes the request to the correct tenant context
           for user lookup and authentication.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to create API key for current user/org
   /current:
     get:
       tags:
@@ -170,6 +172,8 @@ paths:
                     total: 2
                     page: 1
                     limit: 20
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to list active API keys for current user/org
   /{key_id}:
     put:
       tags:
@@ -238,6 +242,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to update own API key
     delete:
       tags:
       - APIKeys
@@ -267,6 +273,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to delete own API key
   /validate:
     post:
       tags:
@@ -339,6 +347,9 @@ paths:
           default: any
         description: Filter validation to a specific key type. "any" validates all
           key types.
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Validate API key (used by backend services),
+        never from browser'
   /usage:
     get:
       tags:
@@ -393,6 +404,8 @@ paths:
                     requests_last_24h: 342
                     requests_last_7d: 2891
                     requests_last_30d: 11456
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to check usage stats for own API keys
   /validate/personal:
     post:
       tags:
@@ -441,6 +454,8 @@ paths:
       deprecated: true
       parameters:
       - *id001
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Validate personal API key, never from browser'
   /archived:
     get:
       tags:
@@ -500,6 +515,8 @@ paths:
                     total: 1
                     page: 1
                     limit: 20
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to list archived API keys for current user/org
   /archived/{key_id}:
     get:
       tags:
@@ -543,6 +560,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to get details of archived API key
   /import:
     post:
       tags:
@@ -600,6 +619,8 @@ paths:
                 error_description: Bad request (validation error)
       parameters:
       - *id001
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Bulk import API keys, not direct frontend'
   /validate/org:
     post:
       tags:
@@ -647,6 +668,8 @@ paths:
       deprecated: true
       parameters:
       - *id001
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Validate org API key, never from browser'
 components:
   parameters:
     Page:

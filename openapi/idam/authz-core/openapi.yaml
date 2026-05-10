@@ -81,6 +81,8 @@ paths:
           format: uuid
         description: Tenant identifier. Routes the request to the correct tenant context
           for user lookup and authentication.
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Assign role to principal, never from browser'
     delete:
       tags:
       - Principal
@@ -107,6 +109,8 @@ paths:
       parameters:
       - *id001
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Revoke role from principal, never from browser'
   /principals/attributes:
     post:
       tags:
@@ -134,6 +138,8 @@ paths:
       parameters:
       - *id001
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Set attribute on principal, never from browser'
   /principal/effective:
     post:
       tags:
@@ -182,6 +188,9 @@ paths:
                 error_description: Not found
       parameters:
       - *id001
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Get effective permissions for principal, used
+        by authz middleware'
   /authorize:
     post:
       tags:
@@ -235,6 +244,9 @@ paths:
                 error_description: Bad request (validation error)
       parameters:
       - *id001
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Check if principal is authorized, used by all
+        backend services'
 components:
   parameters:
     Page:

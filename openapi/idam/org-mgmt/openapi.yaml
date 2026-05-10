@@ -102,6 +102,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrgListResponse'
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Query/list organizations, not direct frontend'
   /{org_id}:
     get:
       tags:
@@ -136,6 +138,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to get org details
     put:
       tags:
       - Organizations
@@ -188,6 +192,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Update organization details, not direct
+        frontend'
     delete:
       tags:
       - Organizations
@@ -217,6 +224,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Delete organization, not direct frontend'
   /{org_id}/users:
     get:
       tags:
@@ -268,6 +277,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UsersInOrgResponse'
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: List users in organization, not direct
+        frontend'
     post:
       tags:
       - Membership
@@ -327,6 +339,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Add user to organization, not direct frontend'
   /{org_id}/invite-user:
     post:
       tags:
@@ -367,6 +381,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Invite user to organization by email,
+        not direct frontend'
   /{org_id}/invite-user-by-id:
     post:
       tags:
@@ -406,6 +423,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Invite existing user to organization,
+        not direct frontend'
   /{org_id}/pending-invites:
     delete:
       tags:
@@ -444,6 +464,9 @@ paths:
                 error_description: Not found
         '204':
           description: Pending invite revoked
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Revoke pending org invite, not direct
+        frontend'
   /{org_id}/role-mappings:
     get:
       tags:
@@ -490,6 +513,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RoleMappingResponse'
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Fetch role mappings for organization,
+        not direct frontend'
   /{org_id}/subscribe-role-mapping:
     put:
       tags:
@@ -538,6 +564,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Subscribe org to role mapping, not direct
+        frontend'
   /{org_id}/domains:
     put:
       tags:
@@ -585,6 +614,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Update org domain settings, not direct
+        frontend'
   /{org_id}/allow-saml:
     post:
       tags:
@@ -617,6 +649,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Enable SAML SSO for org, not direct frontend'
   /{org_id}/disallow-saml:
     post:
       tags:
@@ -649,6 +683,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Disable SAML SSO for org, not direct frontend'
   /{org_id}/create-saml-link:
     post:
       tags:
@@ -684,6 +720,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SamlConnectionLinkResponse'
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Create SAML setup link for org, not direct
+        frontend'
   /{org_id}/saml-metadata:
     put:
       tags:
@@ -722,6 +761,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Set SAML IdP metadata for org, not direct
+        frontend'
   /{org_id}/oidc-metadata:
     post:
       tags:
@@ -759,6 +801,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Set OIDC IdP metadata for org, not direct
+        frontend'
   /{org_id}/enable-saml:
     post:
       tags:
@@ -790,6 +835,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Enable SAML connection for org, not direct
+        frontend'
   /{org_id}/saml:
     delete:
       tags:
@@ -820,6 +868,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Delete SAML connection for org, not direct
+        frontend'
   /{org_id}/migrate-to-isolated:
     post:
       tags:
@@ -863,6 +914,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Migrate org to isolated SAML mode, not
+        direct frontend'
   /{org_id}/scim/groups:
     get:
       tags:
@@ -910,6 +964,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScimError'
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Fetch SCIM groups for org, SCIM provisioner
+        only'
   /{org_id}/scim/groups/{group_id}:
     get:
       tags:
@@ -973,6 +1030,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScimError'
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Fetch specific SCIM group, SCIM provisioner
+        only'
   /api/v1/am/applications:
     get:
       tags:
@@ -1005,6 +1065,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApplicationListResponse'
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to list applications for org
     post:
       tags:
       - Applications
@@ -1034,6 +1096,9 @@ paths:
       parameters:
       - *id001
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Register new application for org, not
+        direct frontend'
   /api/v1/am/applications/{app_id}:
     get:
       tags:
@@ -1064,6 +1129,8 @@ paths:
                 error: invalid_request
                 error_description: Not found
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to get app details
   /api/v1/am/applications/{app_id}/roles:
     get:
       tags:
@@ -1124,6 +1191,8 @@ paths:
                     page: 1
                     limit: 20
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to list roles available
     post:
       tags:
       - Roles
@@ -1181,6 +1250,9 @@ paths:
                 error: invalid_request
                 error_description: Bad request (validation error)
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Create role for application, not direct
+        frontend'
   /api/v1/am/applications/{app_id}/roles/{role_id}:
     get:
       tags:
@@ -1229,6 +1301,8 @@ paths:
                 error: invalid_request
                 error_description: Not found
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to get role details
   /api/v1/am/applications/{app_id}/permissions:
     get:
       tags:
@@ -1267,6 +1341,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PermissionListResponse'
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to list available permissions
     post:
       tags:
       - Permissions
@@ -1302,6 +1378,9 @@ paths:
                 error: invalid_request
                 error_description: Bad request (validation error)
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Create permission for application, not
+        direct frontend'
   /api/v1/am/applications/{app_id}/roles/{role_id}/permissions:
     get:
       tags:
@@ -1355,6 +1434,8 @@ paths:
                 error: invalid_request
                 error_description: Not found
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to get permissions for a role
     post:
       tags:
       - Roles
@@ -1402,6 +1483,9 @@ paths:
                 error: invalid_request
                 error_description: Not found
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Assign permission to role, not direct
+        frontend'
     delete:
       tags:
       - Roles
@@ -1440,6 +1524,9 @@ paths:
                 error: invalid_request
                 error_description: Not found
       description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Revoke permission from role, not direct
+        frontend'
   /{org_id}/webhooks:
     get:
       tags:
@@ -1482,6 +1569,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WebhookSubscriptionListResponse'
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: List webhooks for org, not direct frontend'
   /{org_id}/webhooks/{subscription_id}:
     delete:
       tags:
@@ -1522,6 +1611,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Delete webhook subscription, not direct
+        frontend'
   /{org_id}/webhooks/{subscription_id}/test:
     post:
       tags:
@@ -1565,6 +1657,8 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Test webhook delivery, not direct frontend'
   /admin/users/{user_id}/invalidate-all-keys:
     post:
       tags:
@@ -1602,6 +1696,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Forbidden (insufficient permissions)
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Invalidate all API keys for user, not
+        direct frontend'
   /{org_id}/scim/users:
     get:
       tags:
@@ -1672,6 +1769,8 @@ paths:
         '409':
           description: Conflict — unsupported filter combination
           content: *id002
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: List SCIM users in org, SCIM provisioner only'
     post:
       tags:
       - SCIM
@@ -1714,6 +1813,8 @@ paths:
           content: *id002
       parameters:
       - *id001
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Create user via SCIM, SCIM provisioner only'
   /{org_id}/scim/users/{user_id}:
     put:
       tags:
@@ -1763,6 +1864,8 @@ paths:
         '403':
           description: Forbidden — insufficient permissions to update user
           content: *id002
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Update user via SCIM, SCIM provisioner only'
     delete:
       tags:
       - SCIM
@@ -1800,6 +1903,8 @@ paths:
         '409':
           description: Conflict — user has active dependencies preventing deletion
           content: *id002
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Delete user via SCIM, SCIM provisioner only'
   /{org_id}/users/{user_id}:
     delete:
       tags:
@@ -1844,6 +1949,9 @@ paths:
                 error_description: Not found
         '204':
           description: User removed from organization
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Remove user from organization, not direct
+        frontend'
   /{org_id}/users/{user_id}/role:
     patch:
       tags:
@@ -1899,6 +2007,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Change user role in organization, not
+        direct frontend'
 components:
   parameters:
     Page:
