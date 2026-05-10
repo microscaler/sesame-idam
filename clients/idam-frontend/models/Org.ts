@@ -2,6 +2,20 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * @example {
+    "id": "31c41c16-c281-44ae-9602-8a047e3bf33d",
+    "name": "Acme Logistics",
+    "slug": "acme-logistics",
+    "logo_url": "https://cdn.example.com/logos/acme.png",
+    "domain": "acme-logistics.com",
+    "domains": [
+        "acme-logistics.com"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-06-15T12:00:00Z"
+}
+ */
 export type Org = {
     /**
      * Organisation ID
