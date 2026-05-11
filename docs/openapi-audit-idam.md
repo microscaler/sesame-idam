@@ -145,16 +145,6 @@
 - [✓] identity-user-mgmt-service (all 25 ops)
 - [✓] org-mgmt (all 43 ops)
 
-### [ ] GAP 6: Convert `nullable: true` to OAS 3.1 `type: [string, "null"]`
-**Count:** 156 occurrences across 6 specs
-
-- [ ] api-keys (23 occurrences)
-- [ ] authz-core (11 occurrences)
-- [ ] identity-login-service (10 occurrences)
-- [ ] identity-session-service (50 occurrences)
-- [ ] identity-user-mgmt-service (29 occurrences)
-- [ ] org-mgmt (33 occurrences)
-
 ### [✓] GAP 7: Add `required` arrays to low-coverage schemas
 **Fixed:** 100% coverage on api-keys and identity-user-mgmt-service
 
@@ -190,15 +180,17 @@
 - [ ] identity-user-mgmt-service (29 occurrences)
 - [ ] org-mgmt (33 occurrences)
 
-### [ ] GAP 10: Add `500` internal server error response to all operations
-**Count:** 0/120 operations currently have it
+**Note:** Previous attempt failed — BRRTRouter codegen produces broken stubs when nullable fields become union types `[type, "null"]` because the stub code directly references example values and type inference breaks. May require BRRTRouter codegen fix first.
 
-- [ ] api-keys (11 ops)
-- [ ] authz-core (5 ops)
-- [ ] identity-login-service (20 ops)
-- [ ] identity-session-service (16 ops)
-- [ ] identity-user-mgmt-service (25 ops)
-- [ ] org-mgmt (43 ops)
+### [✓] GAP 10: Add `500` internal server error response to all operations
+**Fixed:** 120/120 operations now have 500 responses
+
+- [✓] api-keys (11 ops)
+- [✓] authz-core (5 ops)
+- [✓] identity-login-service (20 ops)
+- [✓] identity-session-service (16 ops)
+- [✓] identity-user-mgmt-service (25 ops)
+- [✓] org-mgmt (43 ops)
 
 ---
 
