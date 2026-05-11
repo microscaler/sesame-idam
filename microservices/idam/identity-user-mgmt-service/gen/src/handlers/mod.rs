@@ -5,6 +5,12 @@
 
 pub mod types;
 
+pub mod getUserAuditEvents;
+
+pub mod exportUserAuditEvents;
+
+pub mod getUserEventCount;
+
 pub mod oauth_logout;
 
 pub mod create_user;

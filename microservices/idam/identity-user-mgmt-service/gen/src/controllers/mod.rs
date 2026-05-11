@@ -3,6 +3,12 @@
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
 
+pub mod getUserAuditEvents;
+
+pub mod exportUserAuditEvents;
+
+pub mod getUserEventCount;
+
 pub mod oauth_logout;
 
 pub mod create_user;

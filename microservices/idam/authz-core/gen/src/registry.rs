@@ -12,6 +12,66 @@ use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 #[allow(dead_code)]
 pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
+        "listAuditEvents",
+        crate::controllers::listAuditEvents::ListAuditEventsController,
+        24576,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "searchAuditEvents",
+        crate::controllers::searchAuditEvents::SearchAuditEventsController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "getAuditStats",
+        crate::controllers::getAuditStats::GetAuditStatsController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "getAuditEvent",
+        crate::controllers::getAuditEvent::GetAuditEventController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "exportAuditEvents",
+        crate::controllers::exportAuditEvents::ExportAuditEventsController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "checkExportStatus",
+        crate::controllers::checkExportStatus::CheckExportStatusController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "listRetentionPolicies",
+        crate::controllers::listRetentionPolicies::ListRetentionPoliciesController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "createRetentionPolicy",
+        crate::controllers::createRetentionPolicy::CreateRetentionPolicyController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "deleteRetentionPolicy",
+        crate::controllers::deleteRetentionPolicy::DeleteRetentionPolicyController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "updateRetentionPolicy",
+        crate::controllers::updateRetentionPolicy::UpdateRetentionPolicyController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "authorize",
         crate::controllers::authorize::AuthorizeController,
         20480,
@@ -59,6 +119,86 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
     for route in routes {
         // JSF P0-2: Use as_ref() for Arc<str> -> &str conversion
         match route.handler_name.as_ref() {
+            "listAuditEvents" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::listAuditEvents::ListAuditEventsController,
+                    24576,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "searchAuditEvents" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::searchAuditEvents::SearchAuditEventsController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "getAuditStats" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::getAuditStats::GetAuditStatsController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "getAuditEvent" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::getAuditEvent::GetAuditEventController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "exportAuditEvents" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::exportAuditEvents::ExportAuditEventsController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "checkExportStatus" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::checkExportStatus::CheckExportStatusController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "listRetentionPolicies" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::listRetentionPolicies::ListRetentionPoliciesController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "createRetentionPolicy" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::createRetentionPolicy::CreateRetentionPolicyController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "deleteRetentionPolicy" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::deleteRetentionPolicy::DeleteRetentionPolicyController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "updateRetentionPolicy" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::updateRetentionPolicy::UpdateRetentionPolicyController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "authorize" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::authorize::AuthorizeController,
