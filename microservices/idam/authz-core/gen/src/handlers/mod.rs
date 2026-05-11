@@ -5,6 +5,26 @@
 
 pub mod types;
 
+pub mod listAuditEvents;
+
+pub mod searchAuditEvents;
+
+pub mod getAuditStats;
+
+pub mod getAuditEvent;
+
+pub mod exportAuditEvents;
+
+pub mod checkExportStatus;
+
+pub mod listRetentionPolicies;
+
+pub mod createRetentionPolicy;
+
+pub mod deleteRetentionPolicy;
+
+pub mod updateRetentionPolicy;
+
 pub mod authorize;
 
 pub mod principal_effective;

@@ -12,6 +12,24 @@ use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 #[allow(dead_code)]
 pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
+        "getUserAuditEvents",
+        crate::controllers::getUserAuditEvents::GetUserAuditEventsController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "exportUserAuditEvents",
+        crate::controllers::exportUserAuditEvents::ExportUserAuditEventsController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "getUserEventCount",
+        crate::controllers::getUserEventCount::GetUserEventCountController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "oauth_logout",
         crate::controllers::oauth_logout::OauthLogoutController,
         20480,
@@ -179,6 +197,30 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
     for route in routes {
         // JSF P0-2: Use as_ref() for Arc<str> -> &str conversion
         match route.handler_name.as_ref() {
+            "getUserAuditEvents" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::getUserAuditEvents::GetUserAuditEventsController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "exportUserAuditEvents" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::exportUserAuditEvents::ExportUserAuditEventsController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "getUserEventCount" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::getUserEventCount::GetUserEventCountController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "oauth_logout" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::oauth_logout::OauthLogoutController,

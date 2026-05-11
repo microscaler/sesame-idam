@@ -5,6 +5,41 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuditEvent {
+    pub actor: String,
+
+    pub event_action: String,
+
+    pub event_type: String,
+
+    pub hmac_signature: String,
+
+    pub id: String,
+
+    pub ip_address: String,
+
+    pub metadata: serde_json::Value,
+
+    pub org_id: String,
+
+    pub session_id: String,
+
+    pub severity: String,
+
+    pub target_id: String,
+
+    pub target_type: String,
+
+    pub tenant_id: String,
+
+    pub timestamp: String,
+
+    pub user_agent: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ClearUserPasswordResponse {
     pub error: String,
 
@@ -152,6 +187,17 @@ pub struct ErrorResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ExportUserAuditEventsResponse {
+    pub download_url: String,
+
+    pub estimated_completion: String,
+
+    pub export_id: String,
+
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct FetchEmployeeResponse {
     pub email: String,
 
@@ -229,6 +275,47 @@ pub struct FetchUserByUsernameResponse {
     pub user_id: String,
 
     pub username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct GetUserAuditEventsRequest {
+    pub end_time: String,
+
+    pub event_types: Vec<String>,
+
+    pub limit: i32,
+
+    pub offset: i32,
+
+    pub start_time: String,
+
+    pub tenant_id: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct GetUserAuditEventsResponse {
+    pub events: Vec<serde_json::Value>,
+
+    pub has_more: bool,
+
+    pub page: i32,
+
+    pub page_size: i32,
+
+    pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct GetUserEventCountResponse {
+    pub by_type: serde_json::Value,
+
+    pub time_range: serde_json::Value,
+
+    pub total_count: i32,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

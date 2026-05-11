@@ -27,6 +27,129 @@ pub struct AssignPrincipalRoleResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuditEvent {
+    pub actor: String,
+
+    pub event_action: String,
+
+    pub event_type: String,
+
+    pub hmac_signature: String,
+
+    pub id: String,
+
+    pub ip_address: String,
+
+    pub metadata: serde_json::Value,
+
+    pub org_id: String,
+
+    pub session_id: String,
+
+    pub severity: String,
+
+    pub target_id: String,
+
+    pub target_type: String,
+
+    pub tenant_id: String,
+
+    pub timestamp: String,
+
+    pub user_agent: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuditEventExportRequest {
+    pub filters: AuditEventFilter,
+
+    pub format: String,
+
+    pub include_metadata: bool,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuditEventExportResponse {
+    pub download_url: String,
+
+    pub estimated_completion: String,
+
+    pub export_id: String,
+
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuditEventFilter {
+    pub actor: String,
+
+    pub end_time: String,
+
+    pub event_action: String,
+
+    pub event_type: String,
+
+    pub limit: i32,
+
+    pub offset: i32,
+
+    pub org_id: String,
+
+    pub severity: String,
+
+    pub start_time: String,
+
+    pub tenant_id: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuditEventSearchRequest {
+    pub filters: AuditEventFilter,
+
+    pub sort_by: String,
+
+    pub sort_order: String,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuditEventStats {
+    pub by_actor: serde_json::Value,
+
+    pub by_severity: serde_json::Value,
+
+    pub by_type: serde_json::Value,
+
+    pub time_range: serde_json::Value,
+
+    pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuditRetentionPolicy {
+    pub archive_after_days: i32,
+
+    pub created_at: String,
+
+    pub delete_after_days: i32,
+
+    pub event_type: String,
+
+    pub id: String,
+
+    pub retention_days: i32,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthorizeRequest {
     pub action: String,
 
@@ -52,6 +175,52 @@ pub struct AuthorizeResponse {
     pub reason: String,
 
     pub roles_matched: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CheckExportStatusResponse {
+    pub download_url: String,
+
+    pub estimated_completion: String,
+
+    pub export_id: String,
+
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CreateRetentionPolicyRequest {
+    pub archive_after_days: i32,
+
+    pub delete_after_days: i32,
+
+    pub event_type: String,
+
+    pub retention_days: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CreateRetentionPolicyResponse {
+    pub archive_after_days: i32,
+
+    pub created_at: String,
+
+    pub delete_after_days: i32,
+
+    pub event_type: String,
+
+    pub id: String,
+
+    pub retention_days: i32,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeleteRetentionPolicyResponse {
+    pub error: String,
+
+    pub error_description: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -83,6 +252,92 @@ pub struct ErrorResponse {
     pub error: String,
 
     pub error_description: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ExportAuditEventsRequest {
+    pub filters: AuditEventFilter,
+
+    pub format: String,
+
+    pub include_metadata: bool,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ExportAuditEventsResponse {
+    pub download_url: String,
+
+    pub estimated_completion: String,
+
+    pub export_id: String,
+
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct GetAuditEventResponse {
+    pub actor: String,
+
+    pub event_action: String,
+
+    pub event_type: String,
+
+    pub hmac_signature: String,
+
+    pub id: String,
+
+    pub ip_address: String,
+
+    pub metadata: serde_json::Value,
+
+    pub org_id: String,
+
+    pub session_id: String,
+
+    pub severity: String,
+
+    pub target_id: String,
+
+    pub target_type: String,
+
+    pub tenant_id: String,
+
+    pub timestamp: String,
+
+    pub user_agent: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct GetAuditStatsRequest {
+    pub filters: AuditEventFilter,
+
+    pub sort_by: String,
+
+    pub sort_order: String,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct GetAuditStatsResponse {
+    pub by_actor: serde_json::Value,
+
+    pub by_severity: serde_json::Value,
+
+    pub by_type: serde_json::Value,
+
+    pub time_range: serde_json::Value,
+
+    pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ListRetentionPoliciesResponse {
+    pub items: Vec<AuditRetentionPolicy>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -126,6 +381,17 @@ pub struct RevokePrincipalRoleResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SearchAuditEventsRequest {
+    pub filters: AuditEventFilter,
+
+    pub sort_by: String,
+
+    pub sort_order: String,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SetPrincipalAttributeRequest {
     pub key: String,
 
@@ -143,4 +409,30 @@ pub struct SetPrincipalAttributeResponse {
     pub error: String,
 
     pub error_description: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UpdateRetentionPolicyRequest {
+    pub archive_after_days: i32,
+
+    pub delete_after_days: i32,
+
+    pub retention_days: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UpdateRetentionPolicyResponse {
+    pub archive_after_days: i32,
+
+    pub created_at: String,
+
+    pub delete_after_days: i32,
+
+    pub event_type: String,
+
+    pub id: String,
+
+    pub retention_days: i32,
+
+    pub tenant_id: String,
 }

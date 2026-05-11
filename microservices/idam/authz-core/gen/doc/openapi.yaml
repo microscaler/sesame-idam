@@ -2,7 +2,8 @@ openapi: 3.1.0
 info:
   title: Authorization Core Service (AuthZ Core)
   version: 1.0.0
-  description: 'Real-time authorization checks and principal rights resolution. Called on every
+  description: 'Real-time authorization checks and principal rights resolution. Called
+    on every
 
     API request from consuming applications for both coarse-grained (JWT claim) and
 
@@ -18,7 +19,8 @@ servers:
   description: Authz Core API
 tags:
 - name: Principal
-  description: Principal role assignment, attributes, effective rights, and authorization checks
+  description: Principal role assignment, attributes, effective rights, and authorization
+    checks
 security:
 - BearerAuth: []
 - ApiKeyHeader: []
@@ -28,7 +30,8 @@ paths:
       tags:
       - Principal
       summary: Assign role to principal
-      description: 'Assigns a role to a principal (sub) within an application, organisation, and tenant scope.
+      description: 'Assigns a role to a principal (sub) within an application, organisation,
+        and tenant scope.
 
         SaaS customers assign roles within their own org; platform admins assign globally.
 
@@ -97,7 +100,8 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Assign role to principal, never from browser'
       x-brrtrouter-impl: true
@@ -185,7 +189,8 @@ paths:
       tags:
       - Principal
       summary: Get effective roles and permissions for principal
-      description: 'Returns the effective roles and permissions for a principal within an application,
+      description: 'Returns the effective roles and permissions for a principal within
+        an application,
 
         organisation, and tenant scope. Used by Identity service for JWT enrichment.
 
@@ -234,14 +239,16 @@ paths:
       parameters:
       - *id004
       x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Get effective permissions for principal, used by authz middleware'
+      x-consumer-note: 'Backend-only: Get effective permissions for principal, used
+        by authz middleware'
       x-brrtrouter-impl: true
   /authorize:
     post:
       tags:
       - Principal
       summary: Check if principal is allowed to perform action on resource
-      description: 'Real-time authorization check. Consuming microservices call this to verify
+      description: 'Real-time authorization check. Consuming microservices call this
+        to verify
 
         a user has permission for a specific action on a resource.
 
@@ -297,8 +304,624 @@ paths:
       parameters:
       - *id004
       x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Check if principal is authorized, used by all backend services'
+      x-consumer-note: 'Backend-only: Check if principal is authorized, used by all
+        backend services'
       x-brrtrouter-impl: true
+  /audit/events:
+    post:
+      tags:
+      - Audit
+      summary: Search audit events
+      description: 'Search audit events with filtering by type, user, time range,
+        severity, and actor.
+
+        Returns paginated results sorted by timestamp descending by default.'
+      operationId: searchAuditEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditEventSearchRequest'
+            example:
+              tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+              filters:
+                event_type: authentication
+                severity: critical
+                start_time: '2026-05-01T00:00:00Z'
+                end_time: '2026-05-11T23:59:59Z'
+                limit: 100
+              sort_by: timestamp
+              sort_order: desc
+      responses:
+        '200':
+          description: Paginated audit events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventListResponse'
+              example:
+                total: 142
+                page: 1
+                page_size: 50
+                has_more: true
+                events:
+                - id: 550e8400-e29b-41d4-a716-446655440000
+                  event_type: authentication
+                  event_action: login_failure
+                  tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                  actor: user
+                  target_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+                  target_type: user
+                  severity: warning
+                  ip_address: 203.0.113.42
+                  user_agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
+                  timestamp: '2026-05-11T14:30:00Z'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+    get:
+      tags:
+      - Audit
+      summary: List audit events (simple query)
+      description: List recent audit events with basic query parameters. Simpler alternative
+        to POST /audit/events for straightforward queries.
+      operationId: listAuditEvents
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - name: event_type
+        in: query
+        schema:
+          type: string
+        description: Filter by event type
+      - name: user_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+        description: Filter by user ID
+      - name: severity
+        in: query
+        schema:
+          type: string
+          enum:
+          - info
+          - warning
+          - error
+          - critical
+        description: Filter by severity
+      - name: start_time
+        in: query
+        schema:
+          type: string
+          format: date-time
+        description: Start time filter (ISO 8601)
+      - name: end_time
+        in: query
+        schema:
+          type: string
+          format: date-time
+        description: End time filter (ISO 8601)
+      responses:
+        '200':
+          description: Paginated audit events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventListResponse'
+              example:
+                total: 142
+                page: 1
+                page_size: 50
+                has_more: true
+                events:
+                - id: 550e8400-e29b-41d4-a716-446655440000
+                  event_type: authentication
+                  event_action: login_success
+                  tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                  actor: user
+                  severity: info
+                  ip_address: 203.0.113.42
+                  timestamp: '2026-05-11T14:30:00Z'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+  /audit/events/{id}:
+    get:
+      tags:
+      - Audit
+      summary: Get single audit event
+      description: Retrieve a specific audit event by its ID. Returns full event details
+        including metadata.
+      operationId: getAuditEvent
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Event identifier
+      responses:
+        '200':
+          description: Audit event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEvent'
+              example:
+                id: 550e8400-e29b-41d4-a716-446655440000
+                event_type: authentication
+                event_action: login_success
+                tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+                actor: user
+                target_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+                target_type: user
+                severity: info
+                ip_address: 203.0.113.42
+                user_agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
+                session_id: 6ba7b810-9dad-11d1-80b4-00c04fd430ca
+                timestamp: '2026-05-11T14:30:00Z'
+        '400':
+          description: Invalid event ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+  /audit/events/stats:
+    post:
+      tags:
+      - Audit
+      summary: Get audit event statistics
+      description: Get aggregate statistics for audit events — counts by type, severity,
+        actor, and time range.
+      operationId: getAuditStats
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditEventSearchRequest'
+            example:
+              tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+              filters:
+                start_time: '2026-05-01T00:00:00Z'
+                end_time: '2026-05-11T23:59:59Z'
+      responses:
+        '200':
+          description: Aggregate event statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventStats'
+              example:
+                total: 142
+                by_type:
+                  authentication: 85
+                  authorization: 30
+                  user_management: 15
+                  session_management: 12
+                by_severity:
+                  info: 120
+                  warning: 18
+                  error: 4
+                  critical: 0
+                by_actor:
+                  user: 100
+                  admin: 30
+                  system: 12
+                time_range:
+                  earliest: '2026-05-01T00:00:00Z'
+                  latest: '2026-05-11T14:30:00Z'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+  /audit/export:
+    post:
+      tags:
+      - Audit
+      summary: Request audit event export
+      description: Request an export of audit events in a specified format (JSON,
+        CSV, PDF). Export is processed asynchronously; use the export_id to check
+        status.
+      operationId: exportAuditEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditEventExportRequest'
+            example:
+              tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+              format: json
+              filters:
+                start_time: '2026-01-01T00:00:00Z'
+                end_time: '2026-05-11T23:59:59Z'
+                event_type: authentication
+              include_metadata: true
+      responses:
+        '200':
+          description: Export job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventExportResponse'
+              example:
+                export_id: 6ba7b810-9dad-11d1-80b4-00c04fd430cb
+                status: pending
+                estimated_completion: '2026-05-11T14:35:00Z'
+                download_url: null
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+  /audit/export/{export_id}:
+    get:
+      tags:
+      - Audit
+      summary: Check export status
+      description: Check the status of an audit event export job and get download
+        URL when complete.
+      operationId: checkExportStatus
+      parameters:
+      - name: export_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Export job identifier
+      responses:
+        '200':
+          description: Export status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventExportResponse'
+              example:
+                export_id: 6ba7b810-9dad-11d1-80b4-00c04fd430cb
+                status: complete
+                estimated_completion: null
+                download_url: https://storage.example.com/exports/audit-6ba7b810.json
+        '400':
+          description: Invalid export ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Export not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+  /audit/retention:
+    get:
+      tags:
+      - Audit
+      summary: List retention policies
+      description: List all audit event retention policies for the current tenant.
+      operationId: listRetentionPolicies
+      responses:
+        '200':
+          description: Retention policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditRetentionPolicy'
+              example:
+              - id: 6ba7b810-9dad-11d1-80b4-00c04fd430cc
+                tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                event_type: authentication
+                retention_days: 365
+                archive_after_days: 90
+                delete_after_days: 730
+                created_at: '2026-01-01T00:00:00Z'
+              - id: 6ba7b810-9dad-11d1-80b4-00c04fd430cd
+                tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                event_type: authorization
+                retention_days: 730
+                archive_after_days: 180
+                delete_after_days: 1095
+                created_at: '2026-01-01T00:00:00Z'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+    post:
+      tags:
+      - Audit
+      summary: Create retention policy
+      description: Create a new audit event retention policy specifying how long events
+        of a given type should be kept before archival and deletion.
+      operationId: createRetentionPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - event_type
+              - retention_days
+              properties:
+                event_type:
+                  description: Event type this policy applies to
+                  type: string
+                retention_days:
+                  description: Days to retain events (0 = indefinite)
+                  type: integer
+                archive_after_days:
+                  description: Days before archival to cold storage
+                  type: integer
+                delete_after_days:
+                  description: Days before permanent deletion (must be >= retention_days)
+                  type: integer
+              example:
+                event_type: user_management
+                retention_days: 180
+                archive_after_days: 60
+                delete_after_days: 365
+      responses:
+        '201':
+          description: Policy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditRetentionPolicy'
+              example:
+                id: 6ba7b810-9dad-11d1-80b4-00c04fd430ce
+                tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                event_type: user_management
+                retention_days: 180
+                archive_after_days: 60
+                delete_after_days: 365
+                created_at: '2026-05-11T14:30:00Z'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Policy for this event_type already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+  /audit/retention/{id}:
+    patch:
+      tags:
+      - Audit
+      summary: Update retention policy
+      description: Update an existing retention policy.
+      operationId: updateRetentionPolicy
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Policy identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                retention_days:
+                  type: integer
+                archive_after_days:
+                  type: integer
+                delete_after_days:
+                  type: integer
+            example:
+              retention_days: 365
+              archive_after_days: 90
+              delete_after_days: 730
+      responses:
+        '200':
+          description: Policy updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditRetentionPolicy'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Policy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+    delete:
+      tags:
+      - Audit
+      summary: Delete retention policy
+      description: Delete a retention policy (will be replaced by system defaults
+        if applicable).
+      operationId: deleteRetentionPolicy
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Policy identifier
+      responses:
+        '204':
+          description: Policy deleted
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Policy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
 components:
   parameters:
     Page:
@@ -579,3 +1202,359 @@ components:
           items:
             type: string
           description: Permission codes that granted access
+    AuditEventType:
+      description: Classification of audit event categories
+      type: string
+      enum:
+      - authentication
+      - authorization
+      - user_management
+      - session_management
+      - organization
+      - api_key
+      - system
+      - compliance
+      example: authentication
+      title: AuditEventType
+    AuditSeverity:
+      description: Severity level of the audit event
+      type: string
+      enum:
+      - info
+      - warning
+      - error
+      - critical
+      example: warning
+      title: AuditSeverity
+    AuditActor:
+      description: Who performed the action
+      type: string
+      enum:
+      - user
+      - system
+      - admin
+      - service_account
+      - api_key
+      example: user
+      title: AuditActor
+    AuditEvent:
+      description: A single audit event capturing security-critical actions across
+        the platform
+      type: object
+      required:
+      - id
+      - event_type
+      - event_action
+      - tenant_id
+      - timestamp
+      - actor
+      - ip_address
+      properties:
+        id:
+          description: Unique event identifier
+          format: uuid
+          type: string
+        event_type:
+          type: string
+          enum:
+          - authentication
+          - authorization
+          - user_management
+          - session_management
+          - organization
+          - api_key
+          - system
+          - compliance
+          description: Classification of audit event categories
+          example: authentication
+        event_action:
+          description: Specific action performed (e.g., login_success, token_rotate,
+            user_delete)
+          type: string
+        tenant_id:
+          description: Tenant scope for multi-tenant isolation
+          format: uuid
+          type: string
+        org_id:
+          description: Organization scope (optional)
+          format: uuid
+          type: string
+        user_id:
+          description: Associated user ID (if applicable)
+          format: uuid
+          type: string
+        actor:
+          type: string
+          enum:
+          - user
+          - system
+          - admin
+          - service_account
+          - api_key
+          description: Who performed the action
+          example: user
+        target_id:
+          description: Target entity ID being acted upon
+          format: uuid
+          type: string
+        target_type:
+          description: Target entity type (e.g., user, role, api_key)
+          type: string
+        severity:
+          type: string
+          enum:
+          - info
+          - warning
+          - error
+          - critical
+          description: Severity level of the audit event
+          example: warning
+        metadata:
+          description: Event-specific structured details (IP, user agent, diff, etc.)
+          type: object
+          additionalProperties: true
+        ip_address:
+          description: Client IP address
+          type: string
+        user_agent:
+          description: Client user agent string
+          type: string
+        session_id:
+          description: Associated session identifier
+          format: uuid
+          type: string
+        hmac_signature:
+          description: HMAC for tamper-evident logging
+          type: string
+        timestamp:
+          description: UTC timestamp of the event
+          format: date-time
+          type: string
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        event_type: authentication
+        event_action: login_success
+        tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+        user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+        actor: user
+        severity: info
+        ip_address: 203.0.113.42
+        timestamp: '2026-05-11T14:30:00Z'
+    AuditEventFilter:
+      description: Filter parameters for querying audit events
+      type: object
+      properties:
+        event_type:
+          description: Filter by event type
+          type: string
+          enum:
+          - authentication
+          - authorization
+          - user_management
+          - session_management
+          - organization
+          - api_key
+          - system
+          - compliance
+        event_action:
+          description: Filter by specific action
+          type: string
+        user_id:
+          description: Filter by user ID
+          format: uuid
+          type: string
+        tenant_id:
+          description: Filter by tenant ID
+          format: uuid
+          type: string
+        org_id:
+          description: Filter by organization ID
+          format: uuid
+          type: string
+        severity:
+          description: Filter by severity level
+          type: string
+          enum:
+          - info
+          - warning
+          - error
+          - critical
+        actor:
+          description: Filter by actor type
+          type: string
+          enum:
+          - user
+          - system
+          - admin
+          - service_account
+          - api_key
+        start_time:
+          description: Start time filter (ISO 8601)
+          format: date-time
+          type: string
+        end_time:
+          description: End time filter (ISO 8601)
+          format: date-time
+          type: string
+        limit:
+          description: 'Max results (default: 50, max: 1000)'
+          type: integer
+        offset:
+          description: Pagination offset
+          type: integer
+    AuditEventListResponse:
+      description: Paginated list of audit events
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
+          events:
+            description: List of audit events
+            type: array
+            items:
+              $ref: '#/components/schemas/AuditEvent'
+        required:
+        - events
+    AuditEventSearchRequest:
+      description: Advanced search request for audit events
+      type: object
+      required:
+      - tenant_id
+      properties:
+        tenant_id:
+          description: Tenant scope (required)
+          format: uuid
+          type: string
+        filters:
+          $ref: '#/components/schemas/AuditEventFilter'
+        sort_by:
+          description: 'Field to sort by (default: timestamp)'
+          type: string
+          enum:
+          - timestamp
+          - severity
+          - event_type
+        sort_order:
+          description: Sort direction
+          type: string
+          enum:
+          - asc
+          - desc
+          default: desc
+    AuditEventStats:
+      description: Aggregate statistics for audit events
+      type: object
+      required:
+      - total
+      - by_type
+      - by_severity
+      properties:
+        total:
+          description: Total event count matching filters
+          type: integer
+        by_type:
+          description: Event count grouped by event_type
+          type: object
+          additionalProperties:
+            type: integer
+        by_severity:
+          description: Event count grouped by severity
+          type: object
+          additionalProperties:
+            type: integer
+        by_actor:
+          description: Event count grouped by actor
+          type: object
+          additionalProperties:
+            type: integer
+        time_range:
+          description: Time range of events
+          type: object
+          properties:
+            earliest:
+              type: string
+              format: date-time
+            latest:
+              type: string
+              format: date-time
+    AuditEventExportRequest:
+      description: Request to export audit events (for compliance)
+      type: object
+      required:
+      - tenant_id
+      - format
+      properties:
+        tenant_id:
+          description: Tenant scope (required)
+          format: uuid
+          type: string
+        format:
+          description: Export format
+          type: string
+          enum:
+          - json
+          - csv
+          - pdf
+        filters:
+          $ref: '#/components/schemas/AuditEventFilter'
+        include_metadata:
+          description: Include full metadata in export
+          type: boolean
+    AuditEventExportResponse:
+      description: Response for audit event export request
+      type: object
+      required:
+      - export_id
+      - status
+      properties:
+        export_id:
+          description: Export job identifier
+          format: uuid
+          type: string
+        status:
+          description: Export status
+          type: string
+          enum:
+          - pending
+          - processing
+          - complete
+          - failed
+        estimated_completion:
+          description: Estimated completion time
+          format: date-time
+          type: string
+        download_url:
+          description: Download URL (when complete)
+          type: string
+    AuditRetentionPolicy:
+      description: Retention policy for audit events
+      type: object
+      required:
+      - tenant_id
+      - event_type
+      - retention_days
+      properties:
+        id:
+          description: Policy identifier
+          format: uuid
+          type: string
+        tenant_id:
+          description: Tenant scope
+          format: uuid
+          type: string
+        event_type:
+          description: Event type this policy applies to
+          type: string
+        retention_days:
+          description: Days to retain events (0 = indefinite)
+          type: integer
+        archive_after_days:
+          description: Days before archival to cold storage
+          type: integer
+        delete_after_days:
+          description: Days before permanent deletion
+          type: integer
+        created_at:
+          description: Policy creation time
+          format: date-time
+          type: string

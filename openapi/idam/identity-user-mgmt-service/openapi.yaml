@@ -40,7 +40,8 @@ paths:
       tags:
       - Users
       summary: Create user (idempotent by email)
-      description: 'Creates a new user. Idempotent if email matches existing user — returns existing user.
+      description: 'Creates a new user. Idempotent if email matches existing user
+        — returns existing user.
 
         SaaS customers must provide their own `org_id`; platform admins may omit it.
 
@@ -130,7 +131,8 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Create user account, not direct frontend'
       x-brrtrouter-impl: true
@@ -191,7 +193,8 @@ paths:
       summary: Paginated query for users with filters
       description: 'Returns paginated list of users matching the given filters.
 
-        Platform admins can search across all users; SaaS customers can only search their own org.
+        Platform admins can search across all users; SaaS customers can only search
+        their own org.
 
 
 
@@ -463,7 +466,8 @@ paths:
       tags:
       - Users
       summary: Fetch user in employee mode
-      description: 'Returns user info filtered to the caller''s organisation context only.
+      description: 'Returns user info filtered to the caller''s organisation context
+        only.
 
         Used for B2B directory lookup — omits orgs the user is not part of.
 
@@ -524,13 +528,15 @@ paths:
           description: Internal server error
           content: *id005
       x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Fetch user in employee context, not direct frontend'
+      x-consumer-note: 'Admin console only: Fetch user in employee context, not direct
+        frontend'
   /users/{user_id}/disable:
     post:
       tags:
       - PasswordSecurity
       summary: Disable/block user
-      description: 'Prevents user from logging in. Platform admin or SaaS with org context.
+      description: 'Prevents user from logging in. Platform admin or SaaS with org
+        context.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -571,7 +577,8 @@ paths:
           description: Internal server error
           content: *id005
       x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Disable/block user account, not direct frontend'
+      x-consumer-note: 'Admin console only: Disable/block user account, not direct
+        frontend'
       x-brrtrouter-impl: true
   /users/{user_id}/enable:
     post:
@@ -619,14 +626,16 @@ paths:
           description: Internal server error
           content: *id005
       x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Enable/unblock user account, not direct frontend'
+      x-consumer-note: 'Admin console only: Enable/unblock user account, not direct
+        frontend'
       x-brrtrouter-impl: true
   /users/{user_id}/logout-all-sessions:
     post:
       tags:
       - Sessions
       summary: Logout all user sessions
-      description: 'Invalidates all active sessions for this user. Platform admin or user themselves.
+      description: 'Invalidates all active sessions for this user. Platform admin
+        or user themselves.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -715,7 +724,8 @@ paths:
           description: Internal server error
           content: *id005
       x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Generate magic link for another user, not direct frontend'
+      x-consumer-note: 'Admin console only: Generate magic link for another user,
+        not direct frontend'
       x-brrtrouter-impl: true
   /users/{user_id}/password:
     delete:
@@ -724,7 +734,8 @@ paths:
       summary: Clear password (convert to SSO-only)
       description: 'Removes the user''s password, converting them to SSO-only authentication.
 
-        Useful when an organisation enforces SAML SSO and users should no longer use email/password.
+        Useful when an organisation enforces SAML SSO and users should no longer use
+        email/password.
 
         Platform admin only.
 
@@ -768,7 +779,8 @@ paths:
           description: Internal server error
           content: *id005
       x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Clear user password (force SSO), not direct frontend'
+      x-consumer-note: 'Admin console only: Clear user password (force SSO), not direct
+        frontend'
   /users/{user_id}/email/verify:
     post:
       tags:
@@ -912,7 +924,8 @@ paths:
       tags:
       - PasswordSecurity
       summary: Set up TOTP MFA
-      description: 'Generates a TOTP secret QR code for the user to scan with an authenticator app.
+      description: 'Generates a TOTP secret QR code for the user to scan with an authenticator
+        app.
 
         Requires the user''s current password for verification.
 
@@ -1073,7 +1086,8 @@ paths:
       tags:
       - PasswordSecurity
       summary: Add phone number for user
-      description: 'Adds a phone number to the user''s profile and sends an SMS verification code.
+      description: 'Adds a phone number to the user''s profile and sends an SMS verification
+        code.
 
         Phone must be verified before it can be used for authentication.
 
@@ -1254,7 +1268,8 @@ paths:
       tags:
       - SocialLogin
       summary: Link social account to user
-      description: 'Redirects user to OAuth provider to link an additional social account.
+      description: 'Redirects user to OAuth provider to link an additional social
+        account.
 
         Requires authentication (user must be logged in).
 
@@ -1423,13 +1438,15 @@ paths:
           description: Internal server error
           content: *id005
       x-consumer: frontend
-      x-consumer-note: Direct browser call to fetch fresh OAuth token for current user
+      x-consumer-note: Direct browser call to fetch fresh OAuth token for current
+        user
   /users/migrate:
     post:
       tags:
       - UserMigration
       summary: Migrate user from external auth system
-      description: 'Imports a user from another authentication system. Includes hash+salt password import,
+      description: 'Imports a user from another authentication system. Includes hash+salt
+        password import,
 
         extra properties, legacy user ID mapping. Platform admin only.
 
@@ -1484,14 +1501,16 @@ paths:
       parameters:
       - *id003
       x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Migrate user from external system, never from browser'
+      x-consumer-note: 'Backend-only: Migrate user from external system, never from
+        browser'
       x-brrtrouter-impl: true
   /users/migrate-password:
     post:
       tags:
       - UserMigration
       summary: Bulk migrate passwords (hash+salt)
-      description: 'Imports passwords from another system. Password hash format: $2a$14$... (bcrypt).
+      description: 'Imports passwords from another system. Password hash format: $2a$14$...
+        (bcrypt).
 
         Platform admin only.
 
@@ -1533,7 +1552,8 @@ paths:
       tags:
       - Sessions
       summary: OAuth2 logout endpoint
-      description: 'Invalidates the user''s session and optionally triggers post-logout redirect.
+      description: 'Invalidates the user''s session and optionally triggers post-logout
+        redirect.
 
 
 
@@ -1567,6 +1587,304 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to logout OAuth session for current user
       x-brrtrouter-impl: true
+  /audit/user/events:
+    post:
+      tags:
+      - UserAudit
+      summary: Get user-specific audit events
+      description: Query audit events for a specific user — login attempts, profile
+        changes, MFA enrollment, password resets, session activity. Returns paginated
+        results sorted by timestamp descending.
+      operationId: getUserAuditEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - user_id
+              - tenant_id
+              properties:
+                user_id:
+                  description: User ID to query events for
+                  format: uuid
+                  type: string
+                tenant_id:
+                  description: Tenant scope
+                  format: uuid
+                  type: string
+                event_types:
+                  description: Filter by event types (e.g., ['authentication', 'user_management'])
+                  type: array
+                  items:
+                    type: string
+                start_time:
+                  description: Start time (ISO 8601)
+                  format: date-time
+                  type: string
+                end_time:
+                  description: End time (ISO 8601)
+                  format: date-time
+                  type: string
+                limit:
+                  description: 'Max results (default: 50)'
+                  type: integer
+                offset:
+                  description: Pagination offset
+                  type: integer
+              example:
+                user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+                tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                event_types:
+                - authentication
+                - user_management
+                start_time: '2026-05-01T00:00:00Z'
+                end_time: '2026-05-11T23:59:59Z'
+                limit: 50
+      responses:
+        '200':
+          description: Paginated user audit events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  has_more:
+                    type: boolean
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        event_type:
+                          type: string
+                        event_action:
+                          type: string
+                        user_id:
+                          type: string
+                          format: uuid
+                        actor:
+                          type: string
+                        severity:
+                          type: string
+                        ip_address:
+                          type: string
+                        timestamp:
+                          type: string
+                          format: date-time
+              example:
+                total: 25
+                page: 1
+                page_size: 50
+                has_more: false
+                events:
+                - id: 550e8400-e29b-41d4-a716-446655440000
+                  event_type: authentication
+                  event_action: login_success
+                  user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+                  actor: user
+                  severity: info
+                  ip_address: 203.0.113.42
+                  timestamp: '2026-05-11T14:30:00Z'
+                - id: 550e8400-e29b-41d4-a716-446655440001
+                  event_type: user_management
+                  event_action: mfa_enrolled
+                  user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+                  actor: user
+                  severity: info
+                  ip_address: 203.0.113.42
+                  timestamp: '2026-05-11T14:25:00Z'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+  /audit/user/{user_id}/events/count:
+    get:
+      tags:
+      - UserAudit
+      summary: Get user event count
+      description: Get a count of audit events for a specific user within the given
+        time range. Useful for dashboards and monitoring.
+      operationId: getUserEventCount
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User ID to count events for
+      - name: start_time
+        in: query
+        schema:
+          type: string
+          format: date-time
+        description: Start time (ISO 8601)
+      - name: end_time
+        in: query
+        schema:
+          type: string
+          format: date-time
+        description: End time (ISO 8601)
+      responses:
+        '200':
+          description: Event count for user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                  total_count:
+                    type: integer
+                  by_type:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  time_range:
+                    type: object
+                    properties:
+                      start:
+                        type: string
+                        format: date-time
+                      end:
+                        type: string
+                        format: date-time
+              example:
+                user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+                total_count: 127
+                by_type:
+                  authentication: 85
+                  user_management: 20
+                  session_management: 22
+                time_range:
+                  start: '2026-05-01T00:00:00Z'
+                  end: '2026-05-11T23:59:59Z'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
+  /audit/user/{user_id}/events/compliance-export:
+    post:
+      tags:
+      - UserAudit
+      summary: Export user's audit events (GDPR)
+      description: Export all audit events for a specific user — required for GDPR
+        Data Subject Access Requests. Returns a download URL when the export is ready.
+      operationId: exportUserAuditEvents
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User ID to export events for
+      responses:
+        '200':
+          description: Export job created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  export_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  estimated_completion:
+                    type: string
+                    format: date-time
+                  download_url:
+                    type: string
+              example:
+                export_id: 6ba7b810-9dad-11d1-80b4-00c04fd430cb
+                status: pending
+                estimated_completion: '2026-05-11T14:35:00Z'
+                download_url: null
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid X-Tenant-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
 components:
   parameters:
     Page:
@@ -1613,7 +1931,8 @@ components:
       - error
     CreateUserRequest:
       type: object
-      description: 'Creates a new user. Idempotent: if an existing user with the same email
+      description: 'Creates a new user. Idempotent: if an existing user with the same
+        email
 
         is found, returns the existing user instead of creating a duplicate.
 
@@ -1630,7 +1949,8 @@ components:
         email_confirmed:
           type: boolean
           default: false
-          description: 'If true, the email is considered pre-verified (no confirmation email sent).
+          description: 'If true, the email is considered pre-verified (no confirmation
+            email sent).
 
             Useful for platform-admin-created users or migrated accounts.
 
@@ -1765,7 +2085,8 @@ components:
           type: string
           nullable: true
           maxLength: 50
-          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator", "Work phone").
+          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator",
+            "Work phone").
 
             Shown in MFA management UI.
 
@@ -1777,7 +2098,8 @@ components:
         name: Google Authenticator
     MfaSetupResponse:
       type: object
-      description: 'Returns the TOTP provisioning URI that can be rendered as a QR code.
+      description: 'Returns the TOTP provisioning URI that can be rendered as a QR
+        code.
 
         The user must scan the QR code and enter the resulting code to complete setup.
 
@@ -1794,7 +2116,8 @@ components:
             '
         secret:
           type: string
-          description: 'Base32-encoded TOTP secret (also available in the provisioning URI).
+          description: 'Base32-encoded TOTP secret (also available in the provisioning
+            URI).
 
             Shown as a fallback if the QR code cannot be scanned.
 
@@ -1831,14 +2154,16 @@ components:
         session_id:
           type: string
           nullable: true
-          description: 'Session ID from MFA_REQUIRED login response. Required for step 2 of login.
+          description: 'Session ID from MFA_REQUIRED login response. Required for
+            step 2 of login.
 
             '
         challenge_id:
           type:
           - string
           - 'null'
-          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn factor type).
+          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn
+            factor type).
 
             '
       example:
@@ -2169,7 +2494,8 @@ components:
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
-          description: Optional human-identifiable username (alphanumeric, underscore, hyphen)
+          description: Optional human-identifiable username (alphanumeric, underscore,
+            hyphen)
         picture_url:
           type:
           - string
@@ -2181,7 +2507,8 @@ components:
           additionalProperties: true
           description: 'Custom key-value metadata attached to the user.
 
-            Platform admins can set arbitrary properties; SaaS customers limited to org-scoped keys.
+            Platform admins can set arbitrary properties; SaaS customers limited to
+            org-scoped keys.
 
             '
         locked:
@@ -2257,29 +2584,141 @@ components:
         redirect_url:
           type: string
           format: uri
-          description: URL to redirect the user's browser to the OAuth provider for linking
+          description: URL to redirect the user's browser to the OAuth provider for
+            linking
         state:
           type: string
-          description: Unique state token for CSRF protection, must be included in the callback
-      description: Response containing OAuth provider redirect URL and CSRF state token
+          description: Unique state token for CSRF protection, must be included in
+            the callback
+      description: Response containing OAuth provider redirect URL and CSRF state
+        token
       example: *id022
     PaginatedResponse:
       type: object
       properties:
         total:
-          type: integer
           description: Total number of items
+          type: integer
         page:
+          description: Current page number
           type: integer
-          description: Current page number (1-indexed)
         page_size:
+          description: Items per page
           type: integer
-          description: Number of items per page
         has_more:
+          description: Whether more results exist
           type: boolean
-          description: Whether more pages are available
       required:
       - total
       - page
       - page_size
       - has_more
+    AuditEventType:
+      description: Classification of audit event categories
+      type: string
+      enum: &id023
+      - authentication
+      - authorization
+      - user_management
+      - session_management
+      - organization
+      - api_key
+      - system
+      - compliance
+      example: authentication
+      title: AuditEventType
+    AuditSeverity:
+      description: Severity level of the audit event
+      type: string
+      enum: &id025
+      - info
+      - warning
+      - error
+      - critical
+      example: warning
+      title: AuditSeverity
+    AuditActor:
+      description: Who performed the action
+      type: string
+      enum: &id024
+      - user
+      - system
+      - admin
+      - service_account
+      - api_key
+      example: user
+      title: AuditActor
+    AuditEvent:
+      description: A single audit event capturing security-critical actions
+      type: object
+      required:
+      - id
+      - event_type
+      - event_action
+      - tenant_id
+      - timestamp
+      - actor
+      - ip_address
+      properties:
+        id:
+          description: Unique event identifier
+          format: uuid
+          type: string
+        event_type:
+          type: string
+          enum: *id023
+          description: Classification of audit event categories
+          example: authentication
+        event_action:
+          description: Specific action performed
+          type: string
+        tenant_id:
+          description: Tenant scope
+          format: uuid
+          type: string
+        org_id:
+          description: Organization scope (optional)
+          format: uuid
+          type: string
+        user_id:
+          description: Associated user ID
+          format: uuid
+          type: string
+        actor:
+          type: string
+          enum: *id024
+          description: Who performed the action
+          example: user
+        target_id:
+          description: Target entity ID
+          format: uuid
+          type: string
+        target_type:
+          description: Target entity type
+          type: string
+        severity:
+          type: string
+          enum: *id025
+          description: Severity level of the audit event
+          example: warning
+        metadata:
+          description: Event-specific details
+          type: object
+          additionalProperties: true
+        ip_address:
+          description: Client IP address
+          type: string
+        user_agent:
+          description: Client user agent string
+          type: string
+        session_id:
+          description: Associated session identifier
+          format: uuid
+          type: string
+        hmac_signature:
+          description: HMAC for tamper-evident logging
+          type: string
+        timestamp:
+          description: UTC timestamp
+          format: date-time
+          type: string
