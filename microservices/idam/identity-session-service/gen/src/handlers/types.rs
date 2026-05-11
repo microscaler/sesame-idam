@@ -185,11 +185,11 @@ pub struct DualOTPResponse {
 pub struct DualOTPVerifyRequest {
     pub email: String,
 
-    pub email_code: String,
+    pub email_code: serde_json::Value,
 
     pub phone: String,
 
-    pub phone_code: String,
+    pub phone_code: serde_json::Value,
 
     pub session_id: String,
 }
@@ -216,7 +216,7 @@ pub struct EmployeeResponse {
 
     pub org_id_to_org_info: serde_json::Value,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
     pub user_id: String,
 
@@ -296,7 +296,7 @@ pub struct LoginRequest {
 
     pub phone_number: String,
 
-    pub tenant_id: String,
+    pub tenant_id: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -314,7 +314,7 @@ pub struct McpAgent {
 
     pub created_at: String,
 
-    pub description: String,
+    pub description: serde_json::Value,
 
     pub name: String,
 
@@ -354,7 +354,7 @@ pub struct McpGetAgentResponse {
 
     pub created_at: String,
 
-    pub description: String,
+    pub description: serde_json::Value,
 
     pub name: String,
 
@@ -393,11 +393,11 @@ pub struct McpValidateRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct McpValidateResponse {
-    pub agent_id: String,
+    pub agent_id: serde_json::Value,
 
-    pub expires_at: String,
+    pub expires_at: serde_json::Value,
 
-    pub permissions: Vec<String>,
+    pub permissions: serde_json::Value,
 
     pub valid: bool,
 }
@@ -424,7 +424,7 @@ pub struct MfaRequiredResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MfaSetupRequest {
-    pub name: String,
+    pub name: serde_json::Value,
 
     pub password: String,
 }
@@ -444,7 +444,7 @@ pub struct MfaVerifyRequest {
 
     pub code: String,
 
-    pub session_id: String,
+    pub session_id: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -468,7 +468,7 @@ pub struct MigrateUserRequest {
 
     pub legacy_user_id: String,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub picture_url: String,
 
@@ -507,19 +507,19 @@ pub struct OauthUserinfoResponse {
 
     pub last_name: String,
 
-    pub name: String,
+    pub name: serde_json::Value,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
-    pub org_name: String,
+    pub org_name: serde_json::Value,
 
-    pub phone_number: String,
+    pub phone_number: serde_json::Value,
 
     pub phone_verified: bool,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
-    pub preferred_username: String,
+    pub preferred_username: serde_json::Value,
 
     pub properties: serde_json::Value,
 
@@ -529,9 +529,9 @@ pub struct OauthUserinfoResponse {
 
     pub user_id: String,
 
-    pub user_permissions: Vec<String>,
+    pub user_permissions: serde_json::Value,
 
-    pub user_role: String,
+    pub user_role: serde_json::Value,
 
     pub username: String,
 }
@@ -550,7 +550,7 @@ pub struct OpenIDConfiguration {
 
     pub jwks_uri: String,
 
-    pub registration_endpoint: String,
+    pub registration_endpoint: serde_json::Value,
 
     pub response_modes_supported: Vec<String>,
 
@@ -585,7 +585,7 @@ pub struct OpenidConfigurationResponse {
 
     pub jwks_uri: String,
 
-    pub registration_endpoint: String,
+    pub registration_endpoint: serde_json::Value,
 
     pub response_modes_supported: Vec<String>,
 
@@ -641,11 +641,11 @@ pub struct RegisterRequest {
 
     pub name: String,
 
-    pub organization_id: String,
+    pub organization_id: serde_json::Value,
 
     pub password: String,
 
-    pub tenant_id: String,
+    pub tenant_id: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -849,7 +849,7 @@ pub struct User {
 
     pub last_name: String,
 
-    pub legacy_user_id: String,
+    pub legacy_user_id: serde_json::Value,
 
     pub locked: bool,
 
@@ -882,19 +882,19 @@ pub struct UserProfile {
 
     pub last_name: String,
 
-    pub name: String,
+    pub name: serde_json::Value,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
-    pub org_name: String,
+    pub org_name: serde_json::Value,
 
-    pub phone_number: String,
+    pub phone_number: serde_json::Value,
 
     pub phone_verified: bool,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
-    pub preferred_username: String,
+    pub preferred_username: serde_json::Value,
 
     pub properties: serde_json::Value,
 
@@ -904,9 +904,9 @@ pub struct UserProfile {
 
     pub user_id: String,
 
-    pub user_permissions: Vec<String>,
+    pub user_permissions: serde_json::Value,
 
-    pub user_role: String,
+    pub user_role: serde_json::Value,
 
     pub username: String,
 }
@@ -929,7 +929,7 @@ pub struct UserQueryItem {
 
     pub locked: bool,
 
-    pub signup_flow: String,
+    pub signup_flow: serde_json::Value,
 
     pub user_id: String,
 
@@ -959,19 +959,19 @@ pub struct UsersMeGetResponse {
 
     pub last_name: String,
 
-    pub name: String,
+    pub name: serde_json::Value,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
-    pub org_name: String,
+    pub org_name: serde_json::Value,
 
-    pub phone_number: String,
+    pub phone_number: serde_json::Value,
 
     pub phone_verified: bool,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
-    pub preferred_username: String,
+    pub preferred_username: serde_json::Value,
 
     pub properties: serde_json::Value,
 
@@ -981,9 +981,9 @@ pub struct UsersMeGetResponse {
 
     pub user_id: String,
 
-    pub user_permissions: Vec<String>,
+    pub user_permissions: serde_json::Value,
 
-    pub user_role: String,
+    pub user_role: serde_json::Value,
 
     pub username: String,
 }
@@ -1011,19 +1011,19 @@ pub struct UsersMePatchResponse {
 
     pub last_name: String,
 
-    pub name: String,
+    pub name: serde_json::Value,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
-    pub org_name: String,
+    pub org_name: serde_json::Value,
 
-    pub phone_number: String,
+    pub phone_number: serde_json::Value,
 
     pub phone_verified: bool,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
-    pub preferred_username: String,
+    pub preferred_username: serde_json::Value,
 
     pub properties: serde_json::Value,
 
@@ -1033,9 +1033,9 @@ pub struct UsersMePatchResponse {
 
     pub user_id: String,
 
-    pub user_permissions: Vec<String>,
+    pub user_permissions: serde_json::Value,
 
-    pub user_role: String,
+    pub user_role: serde_json::Value,
 
     pub username: String,
 }

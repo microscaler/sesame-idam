@@ -26,8 +26,8 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
 
     Response {
         allowed: true,
-        permissions_used: Some(vec![]),
+        permissions_used: Some(Default::default()),
         reason: Some("explicit_role_assignment".to_string()),
-        roles_matched: Some(vec![]),
+        roles_matched: Some(Default::default()),
     }
 }

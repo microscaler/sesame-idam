@@ -81,7 +81,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "picture_url")]
-    pub picture_url: Option<String>,
+    pub picture_url: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "properties")]

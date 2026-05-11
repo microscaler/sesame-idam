@@ -18,11 +18,11 @@ pub struct ApiKey {
 
     pub name: String,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub permissions: Vec<String>,
 
-    pub user_id: String,
+    pub user_id: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -37,11 +37,11 @@ pub struct ApiKeyCreateResponse {
 
     pub name: String,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub permissions: Vec<String>,
 
-    pub user_id: String,
+    pub user_id: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -70,19 +70,19 @@ pub struct ApiKeyUsageResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ApiKeyValidationResponse {
-    pub api_key_id: String,
+    pub api_key_id: serde_json::Value,
 
     pub expires_at: i32,
 
     pub is_expired: bool,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub permissions: Vec<String>,
 
-    pub scope_type: String,
+    pub scope_type: serde_json::Value,
 
-    pub user_id: String,
+    pub user_id: serde_json::Value,
 
     pub valid: bool,
 }
@@ -113,17 +113,17 @@ pub struct ArchivedApiKeyListResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CreateApiKeyRequest {
-    pub expires_in_days: i32,
+    pub expires_in_days: serde_json::Value,
 
     pub metadata: serde_json::Value,
 
     pub name: String,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub permissions: Vec<String>,
 
-    pub user_id: String,
+    pub user_id: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -138,11 +138,11 @@ pub struct CreateApiKeyResponse {
 
     pub name: String,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub permissions: Vec<String>,
 
-    pub user_id: String,
+    pub user_id: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -246,7 +246,7 @@ pub struct PersonalApiKeyValidationResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateApiKeyRequest {
-    pub expires_in_days: i32,
+    pub expires_in_days: serde_json::Value,
 
     pub metadata: serde_json::Value,
 
@@ -267,11 +267,11 @@ pub struct UpdateApiKeyResponse {
 
     pub name: String,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub permissions: Vec<String>,
 
-    pub user_id: String,
+    pub user_id: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -281,19 +281,19 @@ pub struct ValidateApiKeyRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ValidateApiKeyResponse {
-    pub api_key_id: String,
+    pub api_key_id: serde_json::Value,
 
     pub expires_at: i32,
 
     pub is_expired: bool,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub permissions: Vec<String>,
 
-    pub scope_type: String,
+    pub scope_type: serde_json::Value,
 
-    pub user_id: String,
+    pub user_id: serde_json::Value,
 
     pub valid: bool,
 }

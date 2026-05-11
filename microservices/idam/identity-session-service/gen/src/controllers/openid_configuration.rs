@@ -13,7 +13,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         id_token_signing_alg_values_supported: Some(vec![]),
         issuer: Some("example".to_string()),
         jwks_uri: Some("example".to_string()),
-        registration_endpoint: Some("example".to_string()),
+        registration_endpoint: Some(Default::default()),
         response_modes_supported: Some(vec![]),
         response_types_supported: Some(vec![]),
         scopes_supported: Some(vec![]),

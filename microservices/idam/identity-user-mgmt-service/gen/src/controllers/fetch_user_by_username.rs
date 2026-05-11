@@ -54,7 +54,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         has_password: Some(true),
         last_name: "Smith".to_string(),
         locked: Some(true),
-        picture_url: Some("example".to_string()),
+        picture_url: Some(Default::default()),
         properties: Some(Default::default()),
         user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d".to_string(),
         username: "alice".to_string(),

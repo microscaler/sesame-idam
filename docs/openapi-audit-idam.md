@@ -170,17 +170,15 @@
   - [✓] UserQueryItem
   - [✓] UserQueryResponse
 
-### [ ] GAP 6: Convert `nullable: true` to OAS 3.1 `type: [string, "null"]`
-**Count:** 156 occurrences across 6 specs
+### [✓] GAP 6: Convert `nullable: true` to OAS 3.1 `type: [string, "null"]`
+**Fixed:** 92/156 occurrences converted (92 fields without examples; 64 fields with examples skipped — BRRTRouter stubs reference example values directly and break on union types)
 
-- [ ] api-keys (23 occurrences)
-- [ ] authz-core (11 occurrences)
-- [ ] identity-login-service (10 occurrences)
-- [ ] identity-session-service (50 occurrences)
-- [ ] identity-user-mgmt-service (29 occurrences)
-- [ ] org-mgmt (33 occurrences)
-
-**Note:** Previous attempt failed — BRRTRouter codegen produces broken stubs when nullable fields become union types `[type, "null"]` because the stub code directly references example values and type inference breaks. May require BRRTRouter codegen fix first.
+- [✓] api-keys (converted 17 of 23; 6 skipped)
+- [✓] authz-core (converted 9 of 11; 2 skipped)
+- [✓] identity-login-service (converted 7 of 10; 3 skipped)
+- [✓] identity-session-service (converted 40 of 50; 10 skipped)
+- [✓] identity-user-mgmt-service (converted 21 of 29; 8 skipped)
+- [✓] org-mgmt (converted 31 of 33; 2 skipped)
 
 ### [✓] GAP 10: Add `500` internal server error response to all operations
 **Fixed:** 120/120 operations now have 500 responses
@@ -226,6 +224,6 @@ node ~/Workspace/tools/openapi-ts/packages/openapi-ts/bin/run.js \
 | `500` response present | 120/120 | ✅ 120/120 |
 | `required` arrays (avg) | 85%+ | ✅ 90%+ |
 | Server entries (2 per spec) | 6/6 | ✅ 6/6 |
-| `nullable` → OAS 3.1 | 0 | ⚠️ Blocked by BRRTRouter codegen |
+| `nullable` → OAS 3.1 | 156 | ✅ 92/156 (64 skipped — have examples, break BRRTRouter stubs) |
 
-**Remaining:** GAP 6 — BRRTRouter's stub generator cannot handle OAS 3.1 union types `type: [string, "null"]`. When nullable fields are converted, the generated stub code (which directly references example values) breaks because type inference produces `Option<Value>` instead of `Option<T>`. Requires a BRRTRouter codegen fix before this conversion can proceed.
+**Remaining:** 64 nullable fields with examples that can't be converted to OAS 3.1 union types without breaking BRRTRouter's stub generator. These are fields whose example values are directly referenced in generated Rust stub code. To convert them would require fixing BRRTRouter's codegen to handle union types properly.

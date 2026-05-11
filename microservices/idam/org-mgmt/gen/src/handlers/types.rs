@@ -135,11 +135,11 @@ pub struct CreateOrgRequest {
 
     pub domains: Vec<String>,
 
-    pub legacy_org_id: String,
+    pub legacy_org_id: serde_json::Value,
 
     pub logo_url: String,
 
-    pub max_users: i32,
+    pub max_users: serde_json::Value,
 
     pub metadata: serde_json::Value,
 
@@ -220,7 +220,7 @@ pub struct CreateWebhookSubscriptionRequest {
 
     pub metadata: serde_json::Value,
 
-    pub secret: String,
+    pub secret: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -316,11 +316,11 @@ pub struct FetchOrgResponse {
 
     pub isolated: bool,
 
-    pub legacy_org_id: String,
+    pub legacy_org_id: serde_json::Value,
 
     pub logo_url: String,
 
-    pub max_users: i32,
+    pub max_users: serde_json::Value,
 
     pub metadata: serde_json::Value,
 
@@ -334,7 +334,7 @@ pub struct FetchOrgResponse {
 
     pub slug: String,
 
-    pub sso_trust_level: String,
+    pub sso_trust_level: serde_json::Value,
 
     pub updated_at: String,
 }
@@ -562,11 +562,11 @@ pub struct Org {
 
     pub isolated: bool,
 
-    pub legacy_org_id: String,
+    pub legacy_org_id: serde_json::Value,
 
     pub logo_url: String,
 
-    pub max_users: i32,
+    pub max_users: serde_json::Value,
 
     pub metadata: serde_json::Value,
 
@@ -580,7 +580,7 @@ pub struct Org {
 
     pub slug: String,
 
-    pub sso_trust_level: String,
+    pub sso_trust_level: serde_json::Value,
 
     pub updated_at: String,
 }
@@ -1003,7 +1003,7 @@ pub struct SubscribeRoleMappingRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct TestWebhookDeliveryResponse {
-    pub delivery_status: i32,
+    pub delivery_status: serde_json::Value,
 
     pub endpoint_url: String,
 
@@ -1034,35 +1034,35 @@ pub struct UpdateOrgDomainsResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateOrgRequest {
-    pub domain: String,
+    pub domain: serde_json::Value,
 
-    pub domain_auto_join: bool,
+    pub domain_auto_join: serde_json::Value,
 
-    pub domain_restrict: bool,
+    pub domain_restrict: serde_json::Value,
 
-    pub domains: Vec<String>,
+    pub domains: serde_json::Value,
 
-    pub is_saml_configured: bool,
+    pub is_saml_configured: serde_json::Value,
 
-    pub isolated: bool,
+    pub isolated: serde_json::Value,
 
-    pub legacy_org_id: String,
+    pub legacy_org_id: serde_json::Value,
 
-    pub logo_url: String,
+    pub logo_url: serde_json::Value,
 
-    pub max_users: i32,
+    pub max_users: serde_json::Value,
 
     pub metadata: serde_json::Value,
 
     pub name: String,
 
-    pub password_rotation_enabled: bool,
+    pub password_rotation_enabled: serde_json::Value,
 
-    pub password_rotation_history_size: i32,
+    pub password_rotation_history_size: serde_json::Value,
 
-    pub password_rotation_period: i32,
+    pub password_rotation_period: serde_json::Value,
 
-    pub slug: String,
+    pub slug: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1078,15 +1078,15 @@ pub struct UpdateOrgResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateWebhookSubscriptionRequest {
-    pub enabled: bool,
+    pub enabled: serde_json::Value,
 
-    pub endpoint_url: String,
+    pub endpoint_url: serde_json::Value,
 
-    pub events: Vec<String>,
+    pub events: serde_json::Value,
 
     pub metadata: serde_json::Value,
 
-    pub secret: String,
+    pub secret: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1127,9 +1127,9 @@ pub struct WebhookSubscription {
 
     pub failed_deliveries: i32,
 
-    pub last_delivery_at: String,
+    pub last_delivery_at: serde_json::Value,
 
-    pub last_delivery_status: String,
+    pub last_delivery_status: serde_json::Value,
 
     pub org_id: String,
 
@@ -1151,7 +1151,7 @@ pub struct WebhookSubscriptionListResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct WebhookTestResponse {
-    pub delivery_status: i32,
+    pub delivery_status: serde_json::Value,
 
     pub endpoint_url: String,
 

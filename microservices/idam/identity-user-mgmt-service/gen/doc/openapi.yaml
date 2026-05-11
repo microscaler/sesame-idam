@@ -1711,8 +1711,9 @@ components:
           type: string
           nullable: true
         picture_url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         org_id_to_org_info:
           type: object
           additionalProperties:
@@ -1834,8 +1835,9 @@ components:
 
             '
         challenge_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn factor type).
 
             '
@@ -1870,9 +1872,10 @@ components:
         salt:
           type: string
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: 'For SaaS: required, their own org. For platform: optional.
 
             '
@@ -1990,11 +1993,13 @@ components:
         access_token:
           type: string
         refresh_token:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         id_token:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         token_type:
           type: string
           enum:
@@ -2002,8 +2007,9 @@ components:
         expires_in:
           type: integer
         scope:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     UserQueryItem:
       type: object
       properties:
@@ -2034,8 +2040,9 @@ components:
           type: string
           format: date-time
         signup_flow:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
       required:
       - user_id
       - email
@@ -2081,22 +2088,27 @@ components:
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
         picture_url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           format: uri
         email_confirmed:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
         locked:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
         enabled:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
         extra_properties:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties: true
-          nullable: true
         send_welcome_email:
           type: boolean
           nullable: true
@@ -2155,8 +2167,9 @@ components:
           pattern: ^[a-zA-Z0-9_-]+$
           description: Optional human-identifiable username (alphanumeric, underscore, hyphen)
         picture_url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           format: uri
           description: Profile picture URL (e.g. from social login)
         properties:

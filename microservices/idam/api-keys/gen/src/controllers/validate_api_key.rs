@@ -41,17 +41,17 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     }
 
     Response {
-        api_key_id: Some("example".to_string()),
+        api_key_id: Some(Default::default()),
         expires_at: Some(1736934600),
         is_expired: Some(true),
-        org_id: Some("example".to_string()),
+        org_id: Some(Default::default()),
         permissions: Some(vec![
             "read".to_string(),
             "write".to_string(),
             "delete".to_string(),
         ]),
-        scope_type: Some("example".to_string()),
-        user_id: Some("example".to_string()),
+        scope_type: Some(Default::default()),
+        user_id: Some(Default::default()),
         valid: true,
     }
 }

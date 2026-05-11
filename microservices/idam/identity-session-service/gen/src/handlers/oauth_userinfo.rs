@@ -34,19 +34,19 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "name")]
-    pub name: Option<String>,
+    pub name: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id")]
-    pub org_id: Option<String>,
+    pub org_id: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_name")]
-    pub org_name: Option<String>,
+    pub org_name: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "phone_number")]
-    pub phone_number: Option<String>,
+    pub phone_number: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "phone_verified")]
@@ -54,11 +54,11 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "picture_url")]
-    pub picture_url: Option<String>,
+    pub picture_url: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "preferred_username")]
-    pub preferred_username: Option<String>,
+    pub preferred_username: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "properties")]
@@ -78,11 +78,11 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_permissions")]
-    pub user_permissions: Option<Vec<String>>,
+    pub user_permissions: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_role")]
-    pub user_role: Option<String>,
+    pub user_role: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "username")]

@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 pub struct Request {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "challenge_id")]
-    pub challenge_id: Option<String>,
+    pub challenge_id: Option<serde_json::Value>,
 
     #[serde(rename = "code")]
     pub code: String,
@@ -38,15 +38,15 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "id_token")]
-    pub id_token: Option<String>,
+    pub id_token: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "refresh_token")]
-    pub refresh_token: Option<String>,
+    pub refresh_token: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "scope")]
-    pub scope: Option<String>,
+    pub scope: Option<serde_json::Value>,
 
     #[serde(rename = "token_type")]
     pub token_type: String,

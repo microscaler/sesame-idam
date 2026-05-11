@@ -1129,20 +1129,22 @@ components:
           format: email
           description: Email address to verify
         email_code:
-          type: string
+          type:
+          - string
+          - 'null'
           minLength: 6
           maxLength: 6
-          nullable: true
           description: 6-digit email OTP code (omit if already verified)
         phone:
           type: string
           pattern: ^\\+[1-9]\\d{1,14}$
           description: Phone number to verify (E.164 format)
         phone_code:
-          type: string
+          type:
+          - string
+          - 'null'
           minLength: 6
           maxLength: 6
-          nullable: true
           description: 6-digit phone OTP code (omit if already verified)
         session_id:
           type: string
@@ -1191,8 +1193,9 @@ components:
           type: string
           nullable: true
         picture_url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
         org_id_to_org_info:
           type: object
           additionalProperties:
@@ -1416,9 +1419,10 @@ components:
           nullable: true
           description: Optional organisation hint for multi-tenant orgs
         tenant_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Tenant for multi-tenant orgs
       oneOf:
       - required:
@@ -1455,8 +1459,9 @@ components:
           type: string
           description: Human-readable agent name
         description:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Agent description
         created_at:
           type: string
@@ -1486,6 +1491,7 @@ components:
       - created_at
       - updated_at
       - active
+      properties: {}
     McpAgentListResponse:
       type: object
       description: List of MCP agents
@@ -1548,18 +1554,21 @@ components:
         valid:
           type: boolean
         agent_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
         permissions:
-          type: array
+          type:
+          - array
+          - 'null'
           items:
             type: string
-          nullable: true
         expires_at:
-          type: string
+          type:
+          - string
+          - 'null'
           format: date-time
-          nullable: true
     MfaFactor:
       type: object
       description: An enabled MFA factor for the user
@@ -1616,8 +1625,9 @@ components:
 
             '
         mfa_challenge:
-          type: object
-          nullable: true
+          type:
+          - object
+          - 'null'
           description: 'Optional challenge payload for WebAuthn verification.
 
             Present when mfa_type is webauthn.
@@ -1645,8 +1655,9 @@ components:
           type: string
           description: User's current password for verification
         name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           maxLength: 50
           description: 'Optional label for the TOTP factor (e.g. "Google Authenticator", "Work phone").
 
@@ -1713,8 +1724,9 @@ components:
           maxLength: 10
           description: The MFA verification code (6-digit TOTP, 4-6 digit SMS, etc.)
         session_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: 'Session ID from MFA_REQUIRED login response. Required for step 2 of login.
 
             '
@@ -1777,9 +1789,10 @@ components:
         salt:
           type: string
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: 'For SaaS: required, their own org. For platform: optional.
 
             '
@@ -1835,8 +1848,9 @@ components:
           nullable: true
           description: OIDC userinfo endpoint
         registration_endpoint:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: OAuth2 Dynamic Client Registration endpoint
         scopes_supported:
           type: array
@@ -1994,14 +2008,16 @@ components:
         password:
           type: string
         organization_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Legal-entity customer
         tenant_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Tenant for multi-tenant org
         name:
           type: string
@@ -2439,8 +2455,9 @@ components:
           nullable: true
           description: Unix epoch timestamp of last successful authentication
         legacy_user_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: 'Identifier from the previous authentication system.
 
             Set during user migration to maintain referential integrity.
@@ -2524,12 +2541,14 @@ components:
           type: boolean
           description: Whether the email address has been verified
         name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Full display name (first_name + " " + last_name)
         preferred_username:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Human-identifiable username (alias for username)
         user_id:
           type: string
@@ -2551,8 +2570,9 @@ components:
           nullable: true
           description: Alias for preferred_username
         picture_url:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           format: uri
           description: Profile picture URL
         properties:
@@ -2560,30 +2580,35 @@ components:
           additionalProperties: true
           description: Custom key-value metadata (user-level, not org-scoped)
         phone_number:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Primary phone number in E.164 format (e.g. +14155551234)
         phone_verified:
           type: boolean
           description: Whether the phone number has been verified (via SMS OTP)
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Active organisation context (set by JWT enrichment)
         org_name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Name of the active organisation
         user_role:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Primary role in the active organisation
         user_permissions:
-          type: array
+          type:
+          - array
+          - 'null'
           items:
             type: string
-          nullable: true
           description: 'Permission codes for the active organisation.
 
             Uses dot-notation format (e.g. "accounting:invoices:read")
@@ -2625,8 +2650,9 @@ components:
           type: string
           format: date-time
         signup_flow:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
     UserQueryResponse:
       type: object
       properties:
