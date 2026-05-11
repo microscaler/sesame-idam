@@ -38,7 +38,7 @@ The competitors evaluated:
 | 4 | Session Management | [session-management/README.md](session-management/README.md) | Implemented |
 | 5 | Organization Governance | [organization-governance/README.md](organization-governance/README.md) | Implemented |
 | 6 | API Security | [api-security/README.md](api-security/README.md) | Implemented |
-| 7 | Audit & Compliance | [audit-logging/README.md](audit-logging/README.md) | Partial |
+| 7 | Audit & Compliance | [audit-logging/README.md](audit-logging/README.md) | API ✅ / Instrumentation ⏳ |
 | 8 | Enterprise SSO | [enterprise-sso/README.md](enterprise-sso/README.md) | Partial |
 
 ---
