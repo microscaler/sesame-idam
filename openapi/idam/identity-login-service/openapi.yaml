@@ -2,16 +2,24 @@ openapi: 3.1.0
 info:
   title: Login Service
   version: 1.0.0
-  description: "Slow-path service for authentication flows.\nHandles password login,\
-    \ registration, token exchange, password reset,\nsocial login redirects, and OAuth2\
-    \ authorization.\nHIGH frequency with HIGH per-request cost (bcrypt/scrypt hashing,\
-    \ token signing).\nCPU-bound operations limit throughput \u2014 requires vertical\
-    \ scaling.\n"
+  description: 'Slow-path service for authentication flows.
+
+    Handles password login, registration, token exchange, password reset,
+
+    social login redirects, and OAuth2 authorization.
+
+    HIGH frequency with HIGH per-request cost (bcrypt/scrypt hashing, token signing).
+
+    CPU-bound operations limit throughput — requires vertical scaling.
+
+    '
   contact:
     name: Platform / Security
 servers:
 - url: /auth
   description: Login Service API
+- url: /api/v1/identity-login-service
+  description: Identity Login Service API
 tags:
 - name: AuthFlows
   description: Authentication flows (login, register, token exchange, OTP, social)
@@ -34,8 +42,7 @@ paths:
       tags:
       - AuthFlows
       summary: Login with password
-      description: 'Authenticate with email+password. Returns access token and refresh
-        token.
+      description: 'Authenticate with email+password. Returns access token and refresh token.
 
         If MFA is enabled on the account, returns 202 with MFA verification flow.
 
@@ -117,10 +124,10 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call for user login
+      x-brrtrouter-impl: true
   /login/email-otp:
     post:
       tags:
@@ -171,6 +178,7 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP
+      x-brrtrouter-impl: true
   /verify/email-otp:
     post:
       tags:
@@ -236,10 +244,10 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Required for resolving the user to the correct
-          tenant context.
+        description: Tenant identifier. Required for resolving the user to the correct tenant context.
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify OTP
+      x-brrtrouter-impl: true
   /login/phone-otp:
     post:
       tags:
@@ -290,13 +298,13 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to phone
+      x-brrtrouter-impl: true
   /verify/phone-otp:
     post:
       tags:
       - AuthFlows
       summary: Verify phone SMS OTP and complete login
-      description: 'Verifies the 6-digit SMS OTP code. On success, returns access
-        token
+      description: 'Verifies the 6-digit SMS OTP code. On success, returns access token
 
         and refresh token. Sets phone_verified=true on the user''s profile.
 
@@ -354,6 +362,7 @@ paths:
       - *id011
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify phone OTP
+      x-brrtrouter-impl: true
   /login/dual-otp:
     post:
       tags:
@@ -412,6 +421,7 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to email+phone
+      x-brrtrouter-impl: true
   /verify/dual-otp:
     post:
       tags:
@@ -485,13 +495,13 @@ paths:
                     email_verified: true
                     phone_verified: false
                     both_verified: false
-                    message: Email verified. Please verify your phone to complete
-                      login.
+                    message: Email verified. Please verify your phone to complete login.
               example: *id016
       parameters:
       - *id011
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify dual OTP
+      x-brrtrouter-impl: true
   /register:
     post:
       tags:
@@ -559,6 +569,7 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call for new user registration
+      x-brrtrouter-impl: true
   /token:
     post:
       tags:
@@ -631,13 +642,13 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to refresh token or exchange OAuth code
+      x-brrtrouter-impl: true
   /forgot-password:
     post:
       tags:
       - PasswordReset
       summary: Request password reset email
-      description: 'Sends a password reset email with a time-limited token to the
-        given email.
+      description: 'Sends a password reset email with a time-limited token to the given email.
 
 
 
@@ -693,13 +704,13 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to request password reset
+      x-brrtrouter-impl: true
   /reset-password:
     post:
       tags:
       - PasswordReset
       summary: Confirm password reset with token
-      description: 'Validates the reset token from the password reset email and sets
-        a new password.
+      description: 'Validates the reset token from the password reset email and sets a new password.
 
 
 
@@ -742,6 +753,7 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to reset password with token
+      x-brrtrouter-impl: true
   /logout:
     post:
       tags:
@@ -767,6 +779,15 @@ paths:
                   refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
             example: *id023
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '204':
           description: Logged out successfully
         '401':
@@ -779,6 +800,7 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to logout current session
+      x-brrtrouter-impl: true
   /social/{provider}/login:
     get:
       tags:
@@ -830,8 +852,7 @@ paths:
       tags:
       - SocialLogin
       summary: Exchange OAuth provider callback for tokens
-      description: 'Step 2 of social login. Receives the provider''s authorization
-        code
+      description: 'Step 2 of social login. Receives the provider''s authorization code
 
         (from OAuth redirect), exchanges it for tokens, and completes login.
 
@@ -893,15 +914,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-consumer: external-provider
-      x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not
-        frontend
+      x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not frontend
+      x-brrtrouter-impl: true
   /oauth/authorize:
     get:
       tags:
       - Sessions
       summary: OAuth2 authorization endpoint
-      description: 'Redirects user to the Sesame login page. Compatible with `code`
-        response type.
+      description: 'Redirects user to the Sesame login page. Compatible with `code` response type.
 
         After successful login, redirects to `redirect_uri` with `code` parameter.
 
@@ -960,6 +980,15 @@ paths:
           - plain
         description: PKCE method
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '302':
           description: Redirect to login page or back with authorization code
       x-consumer: frontend
@@ -969,8 +998,7 @@ paths:
       tags:
       - Signup
       summary: Validate signup eligibility
-      description: 'Check if email/phone is allowed to register before the user starts
-        filling forms.
+      description: 'Check if email/phone is allowed to register before the user starts filling forms.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -1016,15 +1044,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-consumer: frontend
-      x-consumer-note: Direct browser call to validate signup data (email/username
-        availability)
+      x-consumer-note: Direct browser call to validate signup data (email/username availability)
   /login/magic-link:
     post:
       tags:
       - Passwordless
       summary: Send magic link for passwordless login
-      description: 'Sends a time-limited magic link to the user email. The user clicks
-        the link to complete login without a password.
+      description: 'Sends a time-limited magic link to the user email. The user clicks the link to complete login without
+        a password.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -1067,13 +1094,13 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send magic link to email
+      x-brrtrouter-impl: true
   /login/magic-link/verify:
     post:
       tags:
       - Passwordless
       summary: Verify magic link token and complete login
-      description: 'Verifies the magic link token. On success, returns access token
-        and refresh token.
+      description: 'Verifies the magic link token. On success, returns access token and refresh token.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -1125,6 +1152,7 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify magic link token
+      x-brrtrouter-impl: true
   /login/phone-magic-link:
     post:
       tags:
@@ -1173,13 +1201,13 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to send magic link to phone
+      x-brrtrouter-impl: true
   /login/phone-magic-link/verify:
     post:
       tags:
       - Passwordless
       summary: Verify SMS magic link token and complete login
-      description: 'Verifies the SMS magic link token. On success, returns access
-        token and refresh token.
+      description: 'Verifies the SMS magic link token. On success, returns access token and refresh token.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -1231,6 +1259,7 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify SMS magic link token
+      x-brrtrouter-impl: true
 components:
   parameters:
     Page:
@@ -1248,6 +1277,14 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique resource identifier (UUID)
   securitySchemes:
     BearerAuth:
       type: http
@@ -1383,11 +1420,10 @@ components:
           description: Email address (unverified)
         email_verified:
           type: boolean
-          description: "Always false \u2014 user must confirm via email link"
+          description: Always false — user must confirm via email link
         message:
           type: string
-          example: A confirmation email has been sent. Please verify your email to
-            complete registration.
+          example: A confirmation email has been sent. Please verify your email to complete registration.
     MfaRequiredResponse:
       type: object
       required:
@@ -1584,7 +1620,7 @@ components:
           description: Current phone verification status
         both_verified:
           type: boolean
-          description: "Always false \u2014 both codes still needed"
+          description: Always false — both codes still needed
         message:
           type: string
           example: Email verified. Please verify your phone to complete login.
@@ -1696,12 +1732,10 @@ components:
       properties:
         refresh_token:
           type: string
-          description: The refresh token to revoke. Required only if no Authorization
-            header is present. If the session is identified via the Bearer token in
-            the Authorization header, this field is optional.
-      description: Request body for logout operation. Either the refresh_token in
-        the body OR the Bearer token in the Authorization header can be used to identify
-        the session to revoke. If both are provided, the refresh_token is preferred.
+          description: The refresh token to revoke. Required only if no Authorization header is present. If the session is
+            identified via the Bearer token in the Authorization header, this field is optional.
+      description: Request body for logout operation. Either the refresh_token in the body OR the Bearer token in the Authorization
+        header can be used to identify the session to revoke. If both are provided, the refresh_token is preferred.
       example: *id051
     SocialCallbackRequest:
       type: object
@@ -1859,35 +1893,3 @@ components:
           type: string
           description: Magic link token from the SMS URL
       example: *id058
-  examples:
-    LoginSuccessful:
-      value:
-        access_token: eyJhbGciOiJSUzI1NiIs...
-        token_type: Bearer
-        expires_in: 900
-        refresh_token: dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...
-        user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-        email: test@example.com
-        email_verified: true
-        phone_verified: false
-        mfa_required: false
-    DualOTPSent:
-      value:
-        success: true
-        email_sent: true
-        phone_sent: true
-        email_verified: false
-        phone_verified: false
-        both_verified: false
-        message: Verification codes have been sent to your email and phone
-    SocialCallbackComplete:
-      value:
-        access_token: eyJhbGciOiJSUzI1NiIs...
-        token_type: Bearer
-        expires_in: 900
-        refresh_token: dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...
-        user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-        email: developer@example.com
-        email_verified: true
-        social_provider: github
-        social_provider_user_id: '12345'

@@ -2,8 +2,7 @@ openapi: 3.1.0
 info:
   title: API Key Service
   version: 1.0.0
-  description: 'Machine-to-machine API key management and validation. Handles key
-    creation, rotation,
+  description: 'Machine-to-machine API key management and validation. Handles key creation, rotation,
 
     revocation, and real-time validation for M2M consumers.
 
@@ -13,6 +12,8 @@ info:
 servers:
 - url: /api/v1/am/api-keys
   description: API Keys API
+- url: /api/v1/api-keys
+  description: Api Keys API
 tags:
 - name: APIKeys
   description: API key lifecycle and validation (M2M keys, service accounts)
@@ -70,8 +71,8 @@ paths:
                     - read
                     - write
                     - delete
-                    created_at: '2024-01-15T10:30:00Z'
-                    expires_at: '2025-01-15T10:30:00Z'
+                    created_at: 1705312200
+                    expires_at: 1736934600
                     last_used_at: null
               example: *id002
         '400':
@@ -91,10 +92,10 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call to create API key for current user/org
+      x-brrtrouter-impl: true
   /current:
     get:
       tags:
@@ -142,6 +143,15 @@ paths:
           minimum: 0
           default: 0
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Active API keys
           content:
@@ -227,8 +237,8 @@ paths:
                     permissions:
                     - read
                     - write
-                    created_at: '2024-01-15T10:30:00Z'
-                    expires_at: '2025-01-15T10:30:00Z'
+                    created_at: 1705312200
+                    expires_at: 1736934600
                     last_used_at: '2024-01-16T08:00:00Z'
                     updated_at: '2024-01-17T10:00:00Z'
               example: *id006
@@ -249,6 +259,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-consumer: frontend
       x-consumer-note: Direct browser call to update own API key
+      x-brrtrouter-impl: true
     delete:
       tags:
       - APIKeys
@@ -267,6 +278,15 @@ paths:
           type: string
           format: uuid
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '204':
           description: API key deleted
         '404':
@@ -285,13 +305,22 @@ paths:
       tags:
       - APIKeys
       summary: Validate API key
-      description: "Validates an API key and returns the associated user, organisation,\
-        \ and permissions.\nUsed by consuming services to authenticate incoming API\
-        \ key requests.\n\nOptional `key_type` query parameter: \"any\" (default),\
-        \ \"personal\", or \"org\".\nIf specified and the key doesn't match the requested\
-        \ type, returns 401.\n\nEndpoints `/validate/personal` and `/validate/org`\
-        \ are deprecated \u2014 use `/validate?key_type=personal` or `/validate?key_type=org`\
-        \ instead.\n\n\nRequires `X-Tenant-ID` header for tenant resolution."
+      description: 'Validates an API key and returns the associated user, organisation, and permissions.
+
+        Used by consuming services to authenticate incoming API key requests.
+
+
+        Optional `key_type` query parameter: "any" (default), "personal", or "org".
+
+        If specified and the key doesn''t match the requested type, returns 401.
+
+
+        Endpoints `/validate/personal` and `/validate/org` are deprecated — use `/validate?key_type=personal` or `/validate?key_type=org`
+        instead.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: validate_api_key
       requestBody:
         required: true
@@ -300,6 +329,15 @@ paths:
             schema:
               $ref: '#/components/schemas/ValidateApiKeyRequest'
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: API key is valid
           content:
@@ -317,7 +355,7 @@ paths:
                     - read
                     - write
                     - delete
-                    expires_at: '2025-01-15T10:30:00Z'
+                    expires_at: 1736934600
                     tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
               example: *id007
         '401':
@@ -341,18 +379,16 @@ paths:
           - personal
           - org
           default: any
-        description: Filter validation to a specific key type. "any" validates all
-          key types.
+        description: Filter validation to a specific key type. "any" validates all key types.
       x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Validate API key (used by backend services),
-        never from browser'
+      x-consumer-note: 'Backend-only: Validate API key (used by backend services), never from browser'
+      x-brrtrouter-impl: true
   /usage:
     get:
       tags:
       - APIKeys
       summary: Fetch API key usage
-      description: 'Returns the number of API key validation calls for a given key/user/org
-        on a specific date.
+      description: 'Returns the number of API key validation calls for a given key/user/org on a specific date.
 
 
 
@@ -385,6 +421,15 @@ paths:
           format: date
         description: Date filter in YYYY-MM-DD format
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Usage count
           content:
@@ -408,9 +453,10 @@ paths:
       tags:
       - APIKeys
       summary: 'DEPRECATED: Validate personal API key'
-      description: "DEPRECATED \u2014 Use POST /validate?key_type=personal instead.\
-        \ Validates a personal (user-scoped) API key.\n\nRequires `X-Tenant-ID` header\
-        \ for tenant resolution."
+      description: 'DEPRECATED — Use POST /validate?key_type=personal instead. Validates a personal (user-scoped) API key.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: validate_personal_api_key
       requestBody:
         required: true
@@ -419,6 +465,15 @@ paths:
             schema:
               $ref: '#/components/schemas/ValidateApiKeyRequest'
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Personal API key is valid
           content:
@@ -452,6 +507,7 @@ paths:
       - *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Validate personal API key, never from browser'
+      x-brrtrouter-impl: true
   /archived:
     get:
       tags:
@@ -493,6 +549,15 @@ paths:
           minimum: 0
           default: 0
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Archived API keys
           content:
@@ -533,6 +598,15 @@ paths:
           type: string
           format: uuid
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Archived API key details
           content:
@@ -565,8 +639,7 @@ paths:
       tags:
       - APIKeys
       summary: Import API keys from external system
-      description: 'Bulk imports API keys from another system. Each key is created
-        with its
+      description: 'Bulk imports API keys from another system. Each key is created with its
 
         original secret hash, metadata, and expiration. Platform admin only.
 
@@ -621,14 +694,16 @@ paths:
       - *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Bulk import API keys, not direct frontend'
+      x-brrtrouter-impl: true
   /validate/org:
     post:
       tags:
       - APIKeys
       summary: 'DEPRECATED: Validate organisation API key'
-      description: "DEPRECATED \u2014 Use POST /validate?key_type=org instead. Validates\
-        \ an organisation-scoped API key.\n\nRequires `X-Tenant-ID` header for tenant\
-        \ resolution."
+      description: 'DEPRECATED — Use POST /validate?key_type=org instead. Validates an organisation-scoped API key.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: validate_org_api_key
       requestBody:
         required: true
@@ -637,6 +712,15 @@ paths:
             schema:
               $ref: '#/components/schemas/ValidateApiKeyRequest'
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Organisation API key is valid
           content:
@@ -669,6 +753,7 @@ paths:
       - *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Validate org API key, never from browser'
+      x-brrtrouter-impl: true
 components:
   parameters:
     Page:
@@ -686,6 +771,14 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique resource identifier (UUID)
   securitySchemes:
     BearerAuth:
       type: http
@@ -726,8 +819,7 @@ components:
           type: array
           items:
             type: string
-          description: 'Permission codes to include in the key. If omitted, includes
-            all permissions
+          description: 'Permission codes to include in the key. If omitted, includes all permissions
 
             for the user/org scope.
 
@@ -783,8 +875,11 @@ components:
           description: Unique ID of the created API key
         api_key:
           type: string
-          description: "The raw API key (secret). This is the ONLY time the secret\
-            \ is returned.\nStore it securely \u2014 it cannot be retrieved again.\n"
+          description: 'The raw API key (secret). This is the ONLY time the secret is returned.
+
+            Store it securely — it cannot be retrieved again.
+
+            '
         name:
           type: string
           description: Human-readable name
@@ -953,8 +1048,7 @@ components:
       properties:
         is_personal:
           type: boolean
-          description: "Always true \u2014 confirms this is a personal (user-scoped)\
-            \ key"
+          description: Always true — confirms this is a personal (user-scoped) key
     OrgApiKeyValidationResponse:
       type: object
       required:
@@ -965,8 +1059,7 @@ components:
       properties:
         is_org_scoped:
           type: boolean
-          description: "Always true \u2014 confirms this is an organisation-scoped\
-            \ key"
+          description: Always true — confirms this is an organisation-scoped key
     ApiKeyUsageResponse:
       type: object
       properties:
@@ -1051,8 +1144,7 @@ components:
                 description: Owner user ID or org ID
               secret_hash:
                 type: string
-                description: Pre-computed hash of the API key secret (not the raw
-                  secret)
+                description: Pre-computed hash of the API key secret (not the raw secret)
               permissions:
                 type: array
                 items:
@@ -1124,27 +1216,3 @@ components:
       example:
         error: invalid_request
         error_description: Bad request (validation error)
-  examples:
-    ApiKeyCreated:
-      value:
-        api_key_id: 550e8400-e29b-41d4-a716-446655440000
-        api_key: sk_live_abc123def456ghi789
-        name: Production Service
-        user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-        created_at: 1625476380
-        expires_at: 1657012380
-        permissions:
-        - accounting:invoices:write
-        - accounting:invoices:read
-    ApiKeyValidated:
-      value:
-        valid: true
-        api_key_id: 550e8400-e29b-41d4-a716-446655440000
-        user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-        org_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
-        scope_type: user
-        permissions:
-        - accounting:invoices:write
-        - accounting:invoices:read
-        expires_at: 1657012380
-        is_expired: false

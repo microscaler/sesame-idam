@@ -385,6 +385,17 @@ pub struct OauthLogoutRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OauthLogoutResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PhoneNumberRequest {
     pub phone_number: String,
 }

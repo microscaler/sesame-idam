@@ -8,8 +8,8 @@ use brrtrouter_macros::handler;
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // Example response:
     // {
-    //   "created_at": "2024-01-15T10:30:00Z",
-    //   "expires_at": "2025-01-15T10:30:00Z",
+    //   "created_at": 1705312200,
+    //   "expires_at": 1736934600,
     //   "key": "sk_live_abc***",
     //   "key_id": "550e8400-e29b-41d4-a716-446655440003",
     //   "last_used_at": "2024-01-16T08:00:00Z",
@@ -22,8 +22,8 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // }
     match serde_json::from_str::<Response>(
         r###"{
-  "created_at": "2024-01-15T10:30:00Z",
-  "expires_at": "2025-01-15T10:30:00Z",
+  "created_at": 1705312200,
+  "expires_at": 1736934600,
   "key": "sk_live_abc***",
   "key_id": "550e8400-e29b-41d4-a716-446655440003",
   "last_used_at": "2024-01-16T08:00:00Z",
@@ -45,8 +45,8 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     Response {
         active: Some(true),
         api_key_id: Some("example".to_string()),
-        created_at: Some("2024-01-15T10:30:00Z".to_string()),
-        expires_at: Some("2025-01-15T10:30:00Z".to_string()),
+        created_at: Some(1705312200),
+        expires_at: Some(1736934600),
         metadata: Some(Default::default()),
         name: Some("Updated Production Key".to_string()),
         org_id: Some("example".to_string()),
