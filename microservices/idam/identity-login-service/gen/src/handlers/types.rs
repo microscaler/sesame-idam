@@ -393,6 +393,17 @@ pub struct MfaRequiredResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OauthAuthorizeResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PendingEmailVerificationResponse {
     pub email: String,
 

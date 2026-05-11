@@ -8,7 +8,7 @@ use brrtrouter_macros::handler;
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // Example response:
     // {
-    //   "expires_at": "2025-01-15T10:30:00Z",
+    //   "expires_at": 1736934600,
     //   "key_id": "550e8400-e29b-41d4-a716-446655440003",
     //   "name": "Production API Key",
     //   "permissions": [
@@ -21,7 +21,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // }
     match serde_json::from_str::<Response>(
         r###"{
-  "expires_at": "2025-01-15T10:30:00Z",
+  "expires_at": 1736934600,
   "key_id": "550e8400-e29b-41d4-a716-446655440003",
   "name": "Production API Key",
   "permissions": [
@@ -42,7 +42,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
 
     Response {
         api_key_id: Some("example".to_string()),
-        expires_at: Some("2025-01-15T10:30:00Z".to_string()),
+        expires_at: Some(1736934600),
         is_expired: Some(true),
         org_id: Some("example".to_string()),
         permissions: Some(vec![

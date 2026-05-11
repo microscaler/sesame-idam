@@ -8,13 +8,13 @@ use brrtrouter_macros::handler;
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // Example response:
     // {
-    //   "error": "invalid_request",
-    //   "error_description": "Not found"
+    //   "error": "validation_error",
+    //   "message": "Request validation failed"
     // }
     match serde_json::from_str::<Response>(
         r###"{
-  "error": "invalid_request",
-  "error_description": "Not found"
+  "error": "validation_error",
+  "message": "Request validation failed"
 }"###,
     ) {
         Ok(parsed) => return parsed,
@@ -25,7 +25,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     }
 
     Response {
-        error: "invalid_request".to_string(),
-        error_description: Some("Not found".to_string()),
+        error: "validation_error".to_string(),
+        error_description: Some("example".to_string()),
     }
 }

@@ -6,8 +6,7 @@ info:
 
     Handles token refresh, user profile lookup, and OIDC/JWKS endpoints.
 
-    EXTREME frequency with LOW per-request cost (indexed DB lookups, cached static
-    data).
+    EXTREME frequency with LOW per-request cost (indexed DB lookups, cached static data).
 
     Must respond in <5ms to avoid blocking client-side navigation.
 
@@ -56,6 +55,15 @@ paths:
                   client_id: my-app
             example: *id001
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           content:
             application/json:
@@ -95,11 +103,11 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to refresh access token
+      x-brrtrouter-impl: true
   /api/v1/identity/users/me:
     get:
       tags:
@@ -107,6 +115,15 @@ paths:
       summary: Current user profile
       operationId: users_me_get
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           content:
             application/json:
@@ -163,6 +180,15 @@ paths:
                   avatar_url: https://example.com/avatars/alice_v2.png
             example: *id005
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           content:
             application/json:
@@ -200,6 +226,7 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to update current user profile
+      x-brrtrouter-impl: true
   /.well-known/openid-configuration:
     get:
       tags:
@@ -208,6 +235,15 @@ paths:
       operationId: openid_configuration
       security: []
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           content:
             application/json:
@@ -223,6 +259,15 @@ paths:
       operationId: jwks
       security: []
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           content:
             application/json:
@@ -253,6 +298,15 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: oauth_userinfo
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           content:
             application/json:
@@ -276,8 +330,7 @@ paths:
       tags:
       - StepUp
       summary: Step-up MFA verification
-      description: 'Re-authenticate for sensitive operations (delete account, change
-        email, etc.). Requires current MFA enrollment.
+      description: 'Re-authenticate for sensitive operations (delete account, change email, etc.). Requires current MFA enrollment.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -298,6 +351,15 @@ paths:
                   answer: '123456'
             example: *id008
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Step-up verification successful, session elevated
           content:
@@ -334,17 +396,16 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify step-up authentication
+      x-brrtrouter-impl: true
   /api/v1/identity/users/me/token:
     post:
       tags:
       - TokenIssuance
       summary: Issue access token
-      description: 'Programmatically create tokens for server-side flows and admin
-        scripts. Bypasses standard login flow.
+      description: 'Programmatically create tokens for server-side flows and admin scripts. Bypasses standard login flow.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -358,6 +419,15 @@ paths:
             schema:
               $ref: '#/components/schemas/TokenIssuanceRequest'
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Token issued successfully
           content:
@@ -386,6 +456,7 @@ paths:
       - *id004
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin issues tokens on behalf of user'
+      x-brrtrouter-impl: true
   /mcp/token:
     post:
       tags:
@@ -404,6 +475,15 @@ paths:
             schema:
               $ref: '#/components/schemas/McpTokenRequest'
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: MCP token issued
           content:
@@ -423,6 +503,7 @@ paths:
       - *id004
       x-consumer: agent
       x-consumer-note: 'Agent-only: Generate token for MCP agent, never from browser'
+      x-brrtrouter-impl: true
   /mcp/token/validate:
     post:
       tags:
@@ -440,6 +521,15 @@ paths:
             schema:
               $ref: '#/components/schemas/McpValidateRequest'
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Validation result
           content:
@@ -459,6 +549,7 @@ paths:
       - *id004
       x-consumer: agent
       x-consumer-note: 'Agent-only: Validate MCP agent token, never from browser'
+      x-brrtrouter-impl: true
   /api/v1/platform/mcp/agents:
     get:
       tags:
@@ -472,6 +563,15 @@ paths:
       security:
       - BearerAuth: []
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: List of MCP agents
           content:
@@ -547,6 +647,7 @@ paths:
       - *id004
       x-consumer: agent
       x-consumer-note: 'Agent-only: Create MCP agent for user, never from browser'
+      x-brrtrouter-impl: true
   /api/v1/platform/mcp/agents/{agent_id}:
     get:
       tags:
@@ -556,6 +657,15 @@ paths:
       security:
       - BearerAuth: []
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Agent details
           content:
@@ -584,6 +694,15 @@ paths:
       security:
       - BearerAuth: []
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '204':
           description: Agent deleted successfully
         '404':
@@ -605,8 +724,7 @@ paths:
       tags:
       - Impersonation
       summary: Impersonate user
-      description: 'Admin switches to user session for debugging/support. Creates
-        a new session for the target user.
+      description: 'Admin switches to user session for debugging/support. Creates a new session for the target user.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -622,6 +740,15 @@ paths:
             schema:
               $ref: '#/components/schemas/ImpersonateRequest'
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Impersonation successful, new session created
           content:
@@ -648,6 +775,7 @@ paths:
                 error_description: Not found
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin impersonate user session'
+      x-brrtrouter-impl: true
   /admin/impersonate/restore:
     post:
       tags:
@@ -669,6 +797,15 @@ paths:
             schema:
               $ref: '#/components/schemas/ImpersonateRestoreRequest'
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '200':
           description: Restored to admin session
           content:
@@ -686,6 +823,7 @@ paths:
                 error_description: Forbidden (insufficient permissions)
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Restore original session after impersonation'
+      x-brrtrouter-impl: true
 components:
   parameters:
     Page:
@@ -703,6 +841,14 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique resource identifier (UUID)
   securitySchemes:
     BearerAuth:
       type: http
@@ -716,8 +862,7 @@ components:
   schemas:
     CreateUserRequest:
       type: object
-      description: 'Creates a new user. Idempotent: if an existing user with the same
-        email
+      description: 'Creates a new user. Idempotent: if an existing user with the same email
 
         is found, returns the existing user instead of creating a duplicate.
 
@@ -734,8 +879,7 @@ components:
         email_confirmed:
           type: boolean
           default: false
-          description: 'If true, the email is considered pre-verified (no confirmation
-            email sent).
+          description: 'If true, the email is considered pre-verified (no confirmation email sent).
 
             Useful for platform-admin-created users or migrated accounts.
 
@@ -778,9 +922,13 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: "For SaaS customers: required, must be their own organisation.\n\
-            For platform admins: optional \u2014 if omitted, creates a platform-level\
-            \ user.\nWhen present, the user is automatically added to this organisation.\n"
+          description: 'For SaaS customers: required, must be their own organisation.
+
+            For platform admins: optional — if omitted, creates a platform-level user.
+
+            When present, the user is automatically added to this organisation.
+
+            '
       example:
         email: newuser@example.com
         email_confirmed: false
@@ -836,7 +984,7 @@ components:
           description: Current phone verification status
         both_verified:
           type: boolean
-          description: "Always false \u2014 both codes still needed"
+          description: Always false — both codes still needed
         message:
           type: string
           example: Email verified. Please verify your phone to complete login.
@@ -1044,8 +1192,8 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The target user to impersonate. This replaces the path parameter
-            for security (prevents leaking user_id in access logs/CDN keys)
+          description: The target user to impersonate. This replaces the path parameter for security (prevents leaking user_id
+            in access logs/CDN keys)
     ImpersonateResponse:
       type: object
       required:
@@ -1105,8 +1253,7 @@ components:
                 description: Key type (e.g. "RSA")
               kid:
                 type: string
-                description: "Key ID \u2014 unique identifier for this key (used by\
-                  \ JWT `kid` header)"
+                description: Key ID — unique identifier for this key (used by JWT `kid` header)
               use:
                 type: string
                 description: Intended use of the public key (sig = signature)
@@ -1181,8 +1328,7 @@ components:
             '
         password:
           type: string
-          description: User's password (only required when logging in with email,
-            not with phone OTP)
+          description: User's password (only required when logging in with email, not with phone OTP)
         organization_id:
           type: string
           format: uuid
@@ -1421,8 +1567,7 @@ components:
           type: string
           nullable: true
           maxLength: 50
-          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator",
-            "Work phone").
+          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator", "Work phone").
 
             Shown in MFA management UI.
 
@@ -1433,8 +1578,7 @@ components:
         password: SecureP@ss123!
     MfaSetupResponse:
       type: object
-      description: 'Returns the TOTP provisioning URI that can be rendered as a QR
-        code.
+      description: 'Returns the TOTP provisioning URI that can be rendered as a QR code.
 
         The user must scan the QR code and enter the resulting code to complete setup.
 
@@ -1451,8 +1595,7 @@ components:
             '
         secret:
           type: string
-          description: 'Base32-encoded TOTP secret (also available in the provisioning
-            URI).
+          description: 'Base32-encoded TOTP secret (also available in the provisioning URI).
 
             Shown as a fallback if the QR code cannot be scanned.
 
@@ -1491,15 +1634,13 @@ components:
         session_id:
           type: string
           nullable: true
-          description: 'Session ID from MFA_REQUIRED login response. Required for
-            step 2 of login.
+          description: 'Session ID from MFA_REQUIRED login response. Required for step 2 of login.
 
             '
         challenge_id:
           type: string
           nullable: true
-          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn
-            factor type).
+          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn factor type).
 
             '
       example:
@@ -2159,8 +2300,7 @@ components:
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
-          description: Optional human-identifiable username (alphanumeric, underscore,
-            hyphen)
+          description: Optional human-identifiable username (alphanumeric, underscore, hyphen)
         picture_url:
           type: string
           nullable: true
@@ -2171,8 +2311,7 @@ components:
           additionalProperties: true
           description: 'Custom key-value metadata attached to the user.
 
-            Platform admins can set arbitrary properties; SaaS customers limited to
-            org-scoped keys.
+            Platform admins can set arbitrary properties; SaaS customers limited to org-scoped keys.
 
             '
         locked:
@@ -2193,8 +2332,7 @@ components:
           type: boolean
           description: 'Whether the user has a password set.
 
-            Users with has_password=false can only authenticate via MFA, social login,
-            or SSO.
+            Users with has_password=false can only authenticate via MFA, social login, or SSO.
 
             '
         update_password_required:
@@ -2209,8 +2347,7 @@ components:
           description: Whether any 2FA method is currently enabled for this user
         can_create_orgs:
           type: boolean
-          description: Whether this user can create new organisations (platform admin
-            flag)
+          description: Whether this user can create new organisations (platform admin flag)
         created_at:
           type: integer
           format: int64
@@ -2287,8 +2424,7 @@ components:
 
         Combines standard OIDC claims (sub, email_verified, name, preferred_username)
 
-        with identity-specific fields (user_id, first_name, last_name) and session
-        context
+        with identity-specific fields (user_id, first_name, last_name) and session context
 
         (org_id, org_name, user_role, user_permissions).
 
@@ -2297,7 +2433,7 @@ components:
         sub:
           type: string
           format: uuid
-          description: "Subject \u2014 the user's opaque identifier (not PII)"
+          description: Subject — the user's opaque identifier (not PII)
         email:
           type: string
           format: email

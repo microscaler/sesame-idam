@@ -6,5 +6,28 @@ use brrtrouter_macros::handler;
 
 #[handler(OauthLogoutController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {}
+    // Example response:
+    // {
+    //   "error": "validation_error",
+    //   "message": "Request validation failed"
+    // }
+    match serde_json::from_str::<Response>(
+        r###"{
+  "error": "validation_error",
+  "message": "Request validation failed"
+}"###,
+    ) {
+        Ok(parsed) => return parsed,
+        Err(e) => {
+            eprintln!("Failed to parse mock example JSON into Response: {}", e);
+            // Fallback to empty default structs below
+        }
+    }
+
+    Response {
+        error: "validation_error".to_string(),
+        error_description: Some("example".to_string()),
+        hint: Some("example".to_string()),
+        retry_after: Some(42),
+    }
 }

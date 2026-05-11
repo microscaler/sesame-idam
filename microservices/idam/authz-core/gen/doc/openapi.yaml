@@ -2,8 +2,7 @@ openapi: 3.1.0
 info:
   title: Authorization Core Service (AuthZ Core)
   version: 1.0.0
-  description: 'Real-time authorization checks and principal rights resolution. Called
-    on every
+  description: 'Real-time authorization checks and principal rights resolution. Called on every
 
     API request from consuming applications for both coarse-grained (JWT claim) and
 
@@ -15,10 +14,11 @@ info:
 servers:
 - url: /api/v1/am
   description: Authz Core API
+- url: /api/v1/authz-core
+  description: Authz Core API
 tags:
 - name: Principal
-  description: Principal role assignment, attributes, effective rights, and authorization
-    checks
+  description: Principal role assignment, attributes, effective rights, and authorization checks
 security:
 - BearerAuth: []
 - ApiKeyHeader: []
@@ -28,8 +28,7 @@ paths:
       tags:
       - Principal
       summary: Assign role to principal
-      description: 'Assigns a role to a principal (sub) within an application, organisation,
-        and tenant scope.
+      description: 'Assigns a role to a principal (sub) within an application, organisation, and tenant scope.
 
         SaaS customers assign roles within their own org; platform admins assign globally.
 
@@ -80,10 +79,10 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Assign role to principal, never from browser'
+      x-brrtrouter-impl: true
     delete:
       tags:
       - Principal
@@ -96,6 +95,15 @@ paths:
             schema:
               $ref: '#/components/schemas/RevokePrincipalRoleRequest'
       responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
         '204':
           description: Revoked
         '404':
@@ -141,13 +149,13 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Set attribute on principal, never from browser'
+      x-brrtrouter-impl: true
   /principal/effective:
     post:
       tags:
       - Principal
       summary: Get effective roles and permissions for principal
-      description: 'Returns the effective roles and permissions for a principal within
-        an application,
+      description: 'Returns the effective roles and permissions for a principal within an application,
 
         organisation, and tenant scope. Used by Identity service for JWT enrichment.
 
@@ -190,15 +198,14 @@ paths:
       parameters:
       - *id002
       x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Get effective permissions for principal, used
-        by authz middleware'
+      x-consumer-note: 'Backend-only: Get effective permissions for principal, used by authz middleware'
+      x-brrtrouter-impl: true
   /authorize:
     post:
       tags:
       - Principal
       summary: Check if principal is allowed to perform action on resource
-      description: 'Real-time authorization check. Consuming microservices call this
-        to verify
+      description: 'Real-time authorization check. Consuming microservices call this to verify
 
         a user has permission for a specific action on a resource.
 
@@ -248,8 +255,8 @@ paths:
       parameters:
       - *id002
       x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Check if principal is authorized, used by all
-        backend services'
+      x-consumer-note: 'Backend-only: Check if principal is authorized, used by all backend services'
+      x-brrtrouter-impl: true
 components:
   parameters:
     Page:
@@ -267,6 +274,14 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique resource identifier (UUID)
   securitySchemes:
     BearerAuth:
       type: http
@@ -372,7 +387,7 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: "Organisation scope (optional \u2014 unset for user-level attributes)"
+          description: Organisation scope (optional — unset for user-level attributes)
         tenant_id:
           type: string
           format: uuid
@@ -513,21 +528,3 @@ components:
             type: string
           nullable: true
           description: Permission codes that granted access
-  examples:
-    AuthorizeAllowed:
-      value:
-        allowed: true
-        reason: null
-        roles_matched:
-        - editor
-        - admin
-        permissions_used:
-        - accounting:invoices:write
-    AuthorizeDenied:
-      value:
-        allowed: false
-        reason: insufficient_permissions
-        roles_matched:
-        - viewer
-        permissions_used:
-        - accounting:invoices:read
