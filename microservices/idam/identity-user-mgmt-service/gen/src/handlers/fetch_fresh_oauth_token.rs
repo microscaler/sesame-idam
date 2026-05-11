@@ -22,9 +22,8 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "access_token")]
-    pub access_token: Option<String>,
+    pub access_token: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "expires_in")]
@@ -38,9 +37,8 @@ pub struct Response {
     #[serde(rename = "scope")]
     pub scope: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "token_type")]
-    pub token_type: Option<String>,
+    pub token_type: String,
 }
 
 impl TryFrom<HandlerRequest> for Request {

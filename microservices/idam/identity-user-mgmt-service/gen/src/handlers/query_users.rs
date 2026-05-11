@@ -61,21 +61,17 @@ pub struct Response {
     #[serde(rename = "has_more")]
     pub has_more: Option<bool>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "limit")]
-    pub limit: Option<i32>,
+    pub limit: i32,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "page")]
-    pub page: Option<i32>,
+    pub page: i32,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "total")]
-    pub total: Option<i32>,
+    pub total: i32,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "users")]
-    pub users: Option<Vec<UserQueryItem>>,
+    pub users: Vec<UserQueryItem>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

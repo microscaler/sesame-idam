@@ -48,8 +48,8 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     Response {
         current_page: Some(42),
         has_more_results: Some(true),
-        keys: Some(vec![]),
-        page_size: Some(42),
-        total_keys: Some(42),
+        keys: vec![],
+        page_size: 42,
+        total_keys: 42,
     }
 }

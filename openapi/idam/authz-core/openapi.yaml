@@ -71,8 +71,17 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: &id002
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
       parameters:
-      - &id002
+      - &id003
         name: X-Tenant-ID
         in: header
         required: true
@@ -115,8 +124,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id002
       parameters:
-      - *id002
+      - *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Revoke role from principal, never from browser'
@@ -144,8 +156,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id002
       parameters:
-      - *id002
+      - *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Set attribute on principal, never from browser'
@@ -195,8 +210,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id002
       parameters:
-      - *id002
+      - *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Get effective permissions for principal, used by authz middleware'
       x-brrtrouter-impl: true
@@ -222,14 +240,14 @@ paths:
             schema:
               $ref: '#/components/schemas/AuthorizeRequest'
             examples:
-              default: &id003
+              default: &id004
                 summary: Example for authorize
                 value:
                   principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                   resource: user:123
                   action: read
                   tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
-            example: *id003
+            example: *id004
       responses:
         '200':
           content:
@@ -237,12 +255,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthorizeResponse'
               examples:
-                default: &id004
+                default: &id005
                   summary: Example for authorize 200
                   value:
                     allowed: true
                     reason: explicit_role_assignment
-              example: *id004
+              example: *id005
         '400':
           description: Invalid request
           content:
@@ -252,8 +270,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id002
       parameters:
-      - *id002
+      - *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Check if principal is authorized, used by all backend services'
       x-brrtrouter-impl: true

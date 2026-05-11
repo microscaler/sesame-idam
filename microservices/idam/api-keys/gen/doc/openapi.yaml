@@ -45,7 +45,7 @@ paths:
             examples:
               default: &id001
                 summary: Example request for create_api_key
-                value: &id015
+                value: &id016
                   name: Production API Key
                   permissions:
                   - read
@@ -63,7 +63,7 @@ paths:
               examples:
                 default: &id002
                   summary: Example response 201 for create_api_key
-                  value: &id017
+                  value: &id018
                     key_id: 550e8400-e29b-41d4-a716-446655440003
                     name: Production API Key
                     key: sk_live_abc123def456ghi789
@@ -84,6 +84,15 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: &id005
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
       parameters:
       - &id003
         name: X-Tenant-ID
@@ -161,7 +170,7 @@ paths:
               examples:
                 default: &id004
                   summary: Example response 200 for fetch_active_api_keys
-                  value: &id019
+                  value: &id020
                     api_keys:
                     - key_id: 550e8400-e29b-41d4-a716-446655440003
                       name: Production API Key
@@ -185,6 +194,9 @@ paths:
                     page: 1
                     limit: 20
               example: *id004
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to list active API keys for current user/org
   /{key_id}:
@@ -212,14 +224,14 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateApiKeyRequest'
             examples:
-              default: &id005
+              default: &id006
                 summary: Example request for update_api_key
-                value: &id016
+                value: &id017
                   name: Updated Production Key
                   permissions:
                   - read
                   - write
-            example: *id005
+            example: *id006
       responses:
         '200':
           description: API key updated
@@ -228,9 +240,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiKey'
               examples:
-                default: &id006
+                default: &id007
                   summary: Example response 200 for update_api_key
-                  value: &id018
+                  value: &id019
                     key_id: 550e8400-e29b-41d4-a716-446655440003
                     name: Updated Production Key
                     key: sk_live_abc***
@@ -241,7 +253,7 @@ paths:
                     expires_at: 1736934600
                     last_used_at: '2024-01-16T08:00:00Z'
                     updated_at: '2024-01-17T10:00:00Z'
-              example: *id006
+              example: *id007
         '404':
           description: API key not found
           content:
@@ -257,6 +269,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to update own API key
       x-brrtrouter-impl: true
@@ -298,6 +313,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to delete own API key
   /validate:
@@ -345,7 +363,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiKeyValidationResponse'
               examples:
-                default: &id007
+                default: &id008
                   summary: Example response 200 for validate_api_key
                   value:
                     valid: true
@@ -357,7 +375,7 @@ paths:
                     - delete
                     expires_at: 1736934600
                     tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
-              example: *id007
+              example: *id008
         '401':
           description: Invalid or expired API key
           content:
@@ -437,15 +455,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiKeyUsageResponse'
               examples:
-                default: &id008
+                default: &id009
                   summary: Example response 200 for fetch_api_key_usage
-                  value: &id020
+                  value: &id021
                     key_id: 550e8400-e29b-41d4-a716-446655440003
                     total_requests: 15234
                     requests_last_24h: 342
                     requests_last_7d: 2891
                     requests_last_30d: 11456
-              example: *id008
+              example: *id009
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to check usage stats for own API keys
   /validate/personal:
@@ -481,7 +502,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PersonalApiKeyValidationResponse'
               examples:
-                default: &id009
+                default: &id010
                   summary: Example response 200 for validate_personal_api_key
                   value:
                     valid: true
@@ -492,7 +513,7 @@ paths:
                     - write
                     expires_at: '2025-01-15T10:30:00Z'
                     tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
-              example: *id009
+              example: *id010
         '401':
           description: Invalid or not a personal API key
           content:
@@ -565,9 +586,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArchivedApiKeyListResponse'
               examples:
-                default: &id010
+                default: &id011
                   summary: Example response 200 for fetch_archived_api_keys
-                  value: &id022
+                  value: &id023
                     api_keys:
                     - key_id: 550e8400-e29b-41d4-a716-446655440005
                       name: Archived Key
@@ -576,7 +597,10 @@ paths:
                     total: 1
                     page: 1
                     limit: 20
-              example: *id010
+              example: *id011
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to list archived API keys for current user/org
   /archived/{key_id}:
@@ -614,15 +638,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArchivedApiKey'
               examples:
-                default: &id011
+                default: &id012
                   summary: Example response 200 for fetch_archived_api_key
-                  value: &id021
+                  value: &id022
                     key_id: 550e8400-e29b-41d4-a716-446655440005
                     name: Archived Key
                     key: sk_arc_old***
                     archived_at: '2024-01-10T00:00:00Z'
                     archived_by: admin@example.com
-              example: *id011
+              example: *id012
         '404':
           description: Not found
           content:
@@ -632,6 +656,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to get details of archived API key
   /import:
@@ -654,7 +681,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ImportApiKeysRequest'
             examples:
-              default: &id012
+              default: &id013
                 summary: Example request for import_api_keys
                 value:
                   api_keys:
@@ -662,7 +689,7 @@ paths:
                     key: sk_import_abc123
                     permissions:
                     - read
-            example: *id012
+            example: *id013
       responses:
         '201':
           description: API keys imported
@@ -671,7 +698,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ImportApiKeysResponse'
               examples:
-                default: &id013
+                default: &id014
                   summary: Example response 201 for import_api_keys
                   value:
                     imported: 1
@@ -680,7 +707,7 @@ paths:
                     - key_id: 550e8400-e29b-41d4-a716-446655440006
                       name: Key 1
                       imported_at: '2024-01-17T10:00:00Z'
-              example: *id013
+              example: *id014
         '400':
           description: Invalid import data
           content:
@@ -690,6 +717,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id005
       parameters:
       - *id003
       x-consumer: admin-console
@@ -728,7 +758,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OrgApiKeyValidationResponse'
               examples:
-                default: &id014
+                default: &id015
                   summary: Example response 200 for validate_org_api_key
                   value:
                     valid: true
@@ -738,7 +768,7 @@ paths:
                     - read
                     expires_at: '2025-01-15T10:30:00Z'
                     tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
-              example: *id014
+              example: *id015
         '401':
           description: Invalid or not an organisation API key
           content:
@@ -796,6 +826,8 @@ components:
         error:
           type: string
           description: Error message
+      required:
+      - error
     CreateApiKeyRequest:
       type: object
       required:
@@ -837,7 +869,7 @@ components:
           additionalProperties: true
           nullable: true
           description: Custom key-value metadata attached to this key
-      example: *id015
+      example: *id016
     UpdateApiKeyRequest:
       type: object
       properties:
@@ -854,7 +886,9 @@ components:
           additionalProperties: true
           nullable: true
           description: Updated metadata
-      example: *id016
+      example: *id017
+      required:
+      - name
     ValidateApiKeyRequest:
       type: object
       required:
@@ -907,7 +941,7 @@ components:
           items:
             type: string
           description: Permission codes granted by this key
-      example: *id017
+      example: *id018
     ApiKey:
       type: object
       properties:
@@ -950,7 +984,12 @@ components:
           additionalProperties: true
           nullable: true
           description: Custom metadata attached to this key
-      example: *id018
+      example: *id019
+      required:
+      - api_key_id
+      - name
+      - created_at
+      - active
     ApiKeyListResponse:
       type: object
       properties:
@@ -993,7 +1032,11 @@ components:
           description: List of filters applied to the query results
           default:
           - active
-      example: *id019
+      example: *id020
+      required:
+      - keys
+      - total_keys
+      - page_size
     ApiKeyValidationResponse:
       type: object
       required:
@@ -1070,7 +1113,10 @@ components:
         total_validations:
           type: integer
           description: Total number of API key validation calls on this date
-      example: *id020
+      example: *id021
+      required:
+      - date
+      - total_validations
     ArchivedApiKey:
       allOf:
       - $ref: '#/components/schemas/ApiKey'
@@ -1093,7 +1139,7 @@ components:
           type: string
           nullable: true
           description: Why the key is archived (expired, revoked, etc.)
-      example: *id021
+      example: *id022
     ArchivedApiKeyListResponse:
       type: object
       properties:
@@ -1113,7 +1159,11 @@ components:
         has_more_results:
           type: boolean
           description: Whether additional pages exist
-      example: *id022
+      example: *id023
+      required:
+      - keys
+      - total_keys
+      - page_size
     ImportApiKeysRequest:
       type: object
       required:
@@ -1178,6 +1228,10 @@ components:
                 type: integer
               error:
                 type: string
+      required:
+      - imported_count
+      - failed_count
+      - errors
     ErrorResponse:
       type: object
       required:

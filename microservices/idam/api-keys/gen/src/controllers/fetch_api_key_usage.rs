@@ -31,7 +31,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     }
 
     Response {
-        date: Some("example".to_string()),
-        total_validations: Some(42),
+        date: "example".to_string(),
+        total_validations: 42,
     }
 }

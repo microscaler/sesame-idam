@@ -19,17 +19,14 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "errors")]
-    pub errors: Option<Vec<serde_json::Value>>,
+    pub errors: Vec<serde_json::Value>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "failed_count")]
-    pub failed_count: Option<i32>,
+    pub failed_count: i32,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "imported_count")]
-    pub imported_count: Option<i32>,
+    pub imported_count: i32,
 }
 
 impl TryFrom<HandlerRequest> for Request {

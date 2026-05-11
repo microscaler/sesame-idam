@@ -26,17 +26,14 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "provisioning_uri")]
-    pub provisioning_uri: Option<String>,
+    pub provisioning_uri: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "secret")]
-    pub secret: Option<String>,
+    pub secret: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_id")]
-    pub user_id: Option<String>,
+    pub user_id: String,
 }
 
 impl TryFrom<HandlerRequest> for Request {

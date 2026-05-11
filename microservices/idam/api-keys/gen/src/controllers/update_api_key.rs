@@ -43,12 +43,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     }
 
     Response {
-        active: Some(true),
-        api_key_id: Some("example".to_string()),
-        created_at: Some(1705312200),
+        active: true,
+        api_key_id: "example".to_string(),
+        created_at: 1705312200,
         expires_at: Some(1736934600),
         metadata: Some(Default::default()),
-        name: Some("Updated Production Key".to_string()),
+        name: "Updated Production Key".to_string(),
         org_id: Some("example".to_string()),
         permissions: Some(vec!["read".to_string(), "write".to_string()]),
         user_id: Some("example".to_string()),

@@ -19,9 +19,8 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "tokens")]
-    pub tokens: Option<Vec<serde_json::Value>>,
+    pub tokens: Vec<serde_json::Value>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

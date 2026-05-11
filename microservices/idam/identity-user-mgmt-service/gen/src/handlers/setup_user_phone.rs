@@ -9,9 +9,8 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "phone_number")]
-    pub phone_number: Option<String>,
+    pub phone_number: String,
 
     #[serde(rename = "X-Tenant-ID")]
     pub x_tenant_id: String,

@@ -17,9 +17,8 @@ pub struct Request {
     #[serde(rename = "metadata")]
     pub metadata: Option<serde_json::Value>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "name")]
-    pub name: Option<String>,
+    pub name: String,
 
     #[serde(rename = "X-Tenant-ID")]
     pub x_tenant_id: String,
@@ -31,17 +30,14 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "active")]
-    pub active: Option<bool>,
+    pub active: bool,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "api_key_id")]
-    pub api_key_id: Option<String>,
+    pub api_key_id: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "created_at")]
-    pub created_at: Option<i32>,
+    pub created_at: i32,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "expires_at")]
@@ -51,9 +47,8 @@ pub struct Response {
     #[serde(rename = "metadata")]
     pub metadata: Option<serde_json::Value>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "name")]
-    pub name: Option<String>,
+    pub name: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id")]

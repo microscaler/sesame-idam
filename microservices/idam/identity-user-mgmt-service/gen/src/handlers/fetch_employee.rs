@@ -19,17 +19,14 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "email")]
-    pub email: Option<String>,
+    pub email: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "first_name")]
-    pub first_name: Option<String>,
+    pub first_name: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "last_name")]
-    pub last_name: Option<String>,
+    pub last_name: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id_to_org_info")]
@@ -39,13 +36,11 @@ pub struct Response {
     #[serde(rename = "picture_url")]
     pub picture_url: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_id")]
-    pub user_id: Option<String>,
+    pub user_id: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "username")]
-    pub username: Option<String>,
+    pub username: String,
 }
 
 impl TryFrom<HandlerRequest> for Request {
