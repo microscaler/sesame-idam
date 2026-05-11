@@ -41,8 +41,8 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     }
 
     Response {
-        provisioning_uri: Some("example".to_string()),
-        secret: Some("JBSWY3DPEHPK3PXP".to_string()),
-        user_id: Some("example".to_string()),
+        provisioning_uri: "example".to_string(),
+        secret: "JBSWY3DPEHPK3PXP".to_string(),
+        user_id: "example".to_string(),
     }
 }

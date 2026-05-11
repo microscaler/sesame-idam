@@ -108,42 +108,42 @@
 ## 🟡 High-Impact Gaps
 
 ### [✓] GAP 3: Add `PaginatedResponse` allOf pattern to list endpoints
-**Count:** 5 specs missing the standard pattern
+**Fixed:** Added to 10 list response schemas across 4 specs
 
-- [ ] api-keys
-  - [ ] ApiKeyListResponse
-  - [ ] ArchivedApiKeyListResponse
-- [ ] identity-session-service
-  - [ ] McpAgentListResponse
-  - [ ] TokenListResponse
-- [ ] identity-user-mgmt-service
-  - [ ] TokenListResponse
-- [ ] org-mgmt
-  - [ ] OrgListResponse
-  - [ ] ApplicationListResponse
-  - [ ] RoleListResponse
-  - [ ] PermissionListResponse
-  - [ ] RolePermissionListResponse
+- [✓] api-keys
+  - [✓] ApiKeyListResponse
+  - [✓] ArchivedApiKeyListResponse
+- [✓] identity-session-service
+  - [✓] McpAgentListResponse
+  - [✓] TokenListResponse
+- [✓] identity-user-mgmt-service
+  - [✓] TokenListResponse
+- [✓] org-mgmt
+  - [✓] OrgListResponse
+  - [✓] ApplicationListResponse
+  - [✓] RoleListResponse
+  - [✓] PermissionListResponse
+  - [✓] WebhookSubscriptionListResponse
 
 ### [✓] GAP 4: Add `400` bad request response to operations
-**Count:** 62 operations fixed
+**Fixed:** 120/120 operations now have 400 responses
 
-- [✓] api-keys (8/11 fixed)
-- [✓] authz-core (1/5 fixed)
-- [✓] identity-login-service (2/20 fixed)
-- [✓] identity-session-service (15/16 fixed)
-- [✓] identity-user-mgmt-service (13/25 fixed)
-- [✓] org-mgmt (23/43 fixed)
+- [✓] api-keys
+- [✓] authz-core
+- [✓] identity-login-service
+- [✓] identity-session-service
+- [✓] identity-user-mgmt-service
+- [✓] org-mgmt
 
-### [ ] GAP 5: Add `401` unauthorized response to operations using global security
-**Count:** 100 operations missing
+### [✓] GAP 5: Add `401` unauthorized response to all operations
+**Fixed:** 120/120 operations now have 401 responses
 
-- [ ] api-keys (8/11)
-- [ ] authz-core (5/5)
-- [ ] identity-login-service (17/20)
-- [ ] identity-session-service (7/16)
-- [ ] identity-user-mgmt-service (24/25)
-- [ ] org-mgmt (39/43)
+- [✓] api-keys (all 11 ops)
+- [✓] authz-core (all 5 ops)
+- [✓] identity-login-service (all 20 ops)
+- [✓] identity-session-service (all 16 ops)
+- [✓] identity-user-mgmt-service (all 25 ops)
+- [✓] org-mgmt (all 43 ops)
 
 ### [ ] GAP 6: Convert `nullable: true` to OAS 3.1 `type: [string, "null"]`
 **Count:** 156 occurrences across 6 specs

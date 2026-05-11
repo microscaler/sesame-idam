@@ -31,13 +31,11 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "date")]
-    pub date: Option<String>,
+    pub date: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "total_validations")]
-    pub total_validations: Option<i32>,
+    pub total_validations: i32,
 }
 
 impl TryFrom<HandlerRequest> for Request {

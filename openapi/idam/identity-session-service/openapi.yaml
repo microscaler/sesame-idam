@@ -49,7 +49,7 @@ paths:
             examples:
               default: &id001
                 summary: Example request for auth_refresh
-                value: &id011
+                value: &id012
                   grant_type: refresh_token
                   refresh_token: cmVmcmVzaC10b2tlbi1zZXNzaW9u
                   client_id: my-app
@@ -132,7 +132,7 @@ paths:
               examples:
                 default: &id003
                   summary: Example response 200 for users_me_get
-                  value: &id015
+                  value: &id016
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                     email: alice@example.com
                     email_verified: true
@@ -174,7 +174,7 @@ paths:
             examples:
               default: &id005
                 summary: Example request for users_me_patch
-                value: &id014
+                value: &id015
                   first_name: Alice
                   last_name: Johnson
                   avatar_url: https://example.com/avatars/alice_v2.png
@@ -249,6 +249,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OpenIDConfiguration'
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: &id008
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
       x-consumer: frontend
       x-consumer-note: Public OpenID Connect discovery endpoint, no auth required
   /.well-known/jwks.json:
@@ -276,7 +285,7 @@ paths:
               examples:
                 default: &id007
                   summary: Example for jwks 200
-                  value: &id010
+                  value: &id011
                     keys:
                     - kty: RSA
                       kid: default
@@ -285,6 +294,9 @@ paths:
                       n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe
                       e: AQAB
               example: *id007
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id008
       x-consumer: frontend
       x-consumer-note: Public JWKS endpoint for token verification, no auth required
   /api/v1/identity/users/me/userinfo:
@@ -344,12 +356,12 @@ paths:
             schema:
               $ref: '#/components/schemas/StepUpRequest'
             examples:
-              default: &id008
+              default: &id009
                 summary: Example request for step_up_verify
-                value: &id012
+                value: &id013
                   challenge_id: 550e8400-e29b-41d4-a716-446655440000
                   answer: '123456'
-            example: *id008
+            example: *id009
       responses:
         '400':
           description: Bad request — validation error
@@ -367,9 +379,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/StepUpResponse'
               examples:
-                default: &id009
+                default: &id010
                   summary: Example response 200 for step_up_verify
-                  value: &id013
+                  value: &id014
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJsZXZlbCI6ImhpZ2gifQ.sig
                     token_type: Bearer
                     expires_in: 300
@@ -382,7 +394,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid profile
-              example: *id009
+              example: *id010
         '401':
           description: Unauthorized or MFA verification failed
           content:
@@ -452,6 +464,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id008
       parameters:
       - *id004
       x-consumer: backend-service
@@ -681,6 +696,9 @@ paths:
               example:
                 error: not_found
                 error_description: Agent not found
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id008
       parameters:
       - *id004
       description: Requires `X-Tenant-ID` header for tenant resolution.
@@ -714,6 +732,9 @@ paths:
               example:
                 error: not_found
                 error_description: Agent not found
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id008
       parameters:
       - *id004
       description: Requires `X-Tenant-ID` header for tenant resolution.
@@ -773,6 +794,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Not found
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id008
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin impersonate user session'
       x-brrtrouter-impl: true
@@ -821,6 +845,9 @@ paths:
               example:
                 error: invalid_request
                 error_description: Forbidden (insufficient permissions)
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id008
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Restore original session after impersonation'
       x-brrtrouter-impl: true
@@ -1288,7 +1315,7 @@ components:
               e: AQAB
               x5c:
               - MIIDdTCCAl2gAwIBAgITBn+USII9N7z2GPaVWCQDIQ...
-      example: *id010
+      example: *id011
     LinkSocialAccountRequest:
       type: object
       required:
@@ -1900,7 +1927,7 @@ components:
       properties:
         refresh_token:
           type: string
-      example: *id011
+      example: *id012
     RegisterRequest:
       type: object
       required:
@@ -2021,7 +2048,7 @@ components:
           - email
           - phone
           description: Preferred MFA method for re-authentication
-      example: *id012
+      example: *id013
     StepUpResponse:
       type: object
       required:
@@ -2037,7 +2064,7 @@ components:
           type: string
           format: uuid
           description: Session with elevated trust level
-      example: *id013
+      example: *id014
     TokenIssuanceRequest:
       type: object
       required:
@@ -2219,7 +2246,7 @@ components:
           type: string
           format: uri
           description: Profile picture URL
-      example: *id014
+      example: *id015
     UpdateUserRequest:
       type: object
       description: 'Partial update of user attributes. Only provided fields are modified.
@@ -2513,7 +2540,7 @@ components:
           format: date-time
           nullable: true
           description: Last profile update timestamp
-      example: *id015
+      example: *id016
     UserQueryItem:
       type: object
       properties:

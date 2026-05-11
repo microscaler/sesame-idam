@@ -41,17 +41,14 @@ pub struct Response {
     #[serde(rename = "has_more_results")]
     pub has_more_results: Option<bool>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "keys")]
-    pub keys: Option<Vec<ArchivedApiKey>>,
+    pub keys: Vec<ArchivedApiKey>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "page_size")]
-    pub page_size: Option<i32>,
+    pub page_size: i32,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "total_keys")]
-    pub total_keys: Option<i32>,
+    pub total_keys: i32,
 }
 
 impl TryFrom<HandlerRequest> for Request {

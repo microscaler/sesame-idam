@@ -39,8 +39,8 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     }
 
     Response {
-        errors: Some(vec![]),
-        failed_count: Some(42),
-        imported_count: Some(42),
+        errors: vec![],
+        failed_count: 42,
+        imported_count: 42,
     }
 }

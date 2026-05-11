@@ -27,10 +27,10 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     }
 
     Response {
-        access_token: Some("example".to_string()),
+        access_token: "example".to_string(),
         expires_in: Some(3600),
         refresh_token: Some("example".to_string()),
         scope: Some("example".to_string()),
-        token_type: Some("example".to_string()),
+        token_type: "example".to_string(),
     }
 }

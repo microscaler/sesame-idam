@@ -7,16 +7,16 @@ use brrtrouter_macros::handler;
 #[handler(CreateUserController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     Response {
-        email: Some("example".to_string()),
+        email: "example".to_string(),
         email_confirmed: Some(true),
-        enabled: Some(true),
-        first_name: Some("example".to_string()),
+        enabled: true,
+        first_name: "example".to_string(),
         has_password: Some(true),
-        last_name: Some("example".to_string()),
+        last_name: "example".to_string(),
         locked: Some(true),
         picture_url: Some("example".to_string()),
         properties: Some(Default::default()),
-        user_id: Some("example".to_string()),
-        username: Some("example".to_string()),
+        user_id: "example".to_string(),
+        username: "example".to_string(),
     }
 }

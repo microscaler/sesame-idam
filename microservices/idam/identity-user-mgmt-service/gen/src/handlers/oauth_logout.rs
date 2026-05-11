@@ -13,9 +13,8 @@ pub struct Request {
     #[serde(rename = "id_token_hint")]
     pub id_token_hint: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "post_logout_redirect_uri")]
-    pub post_logout_redirect_uri: Option<String>,
+    pub post_logout_redirect_uri: String,
 
     #[serde(rename = "X-Tenant-ID")]
     pub x_tenant_id: String,

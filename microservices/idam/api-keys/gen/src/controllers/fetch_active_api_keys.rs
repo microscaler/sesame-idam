@@ -85,9 +85,9 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         current_page: Some(42),
         filters_applied: Some(vec![]),
         has_more_results: Some(true),
-        keys: Some(vec![]),
-        page_size: Some(42),
+        keys: vec![],
+        page_size: 42,
         sort_order: Some("example".to_string()),
-        total_keys: Some(42),
+        total_keys: 42,
     }
 }
