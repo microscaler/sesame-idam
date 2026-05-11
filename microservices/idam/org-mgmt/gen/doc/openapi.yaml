@@ -119,6 +119,15 @@ paths:
               example:
                 error: unauthorized
                 error_description: Authentication required
+        '500':
+          description: Internal server error
+          content: &id003
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Query/list organizations, not direct frontend'
   /{org_id}:
@@ -167,6 +176,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: frontend
       x-consumer-note: Direct browser call to get org details
     put:
@@ -194,12 +206,12 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateOrgRequest'
             examples:
-              default: &id003
+              default: &id004
                 summary: Example for update_org
                 value:
                   name: Acme Technologies
                   description: A leading technology company
-            example: *id003
+            example: *id004
       responses:
         '200':
           description: Organisation updated
@@ -224,6 +236,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Update organization details, not direct frontend'
       x-brrtrouter-impl: true
@@ -268,6 +283,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete organization, not direct frontend'
   /{org_id}/users:
@@ -333,6 +351,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: List users in organization, not direct frontend'
     post:
@@ -368,12 +389,12 @@ paths:
             schema:
               $ref: '#/components/schemas/AddUserToOrgRequest'
             examples:
-              default: &id004
+              default: &id005
                 summary: Example for add_user_to_org
                 value:
                   user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                   role: member
-            example: *id004
+            example: *id005
       responses:
         '200':
           description: User added
@@ -398,6 +419,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Add user to organization, not direct frontend'
       x-brrtrouter-impl: true
@@ -443,6 +467,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Invite user to organization by email, not direct frontend'
       x-brrtrouter-impl: true
@@ -488,6 +515,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Invite existing user to organization, not direct frontend'
       x-brrtrouter-impl: true
@@ -540,6 +570,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Revoke pending org invite, not direct frontend'
   /{org_id}/role-mappings:
@@ -599,6 +632,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Fetch role mappings for organization, not direct frontend'
   /{org_id}/subscribe-role-mapping:
@@ -652,6 +688,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Subscribe org to role mapping, not direct frontend'
       x-brrtrouter-impl: true
@@ -704,6 +743,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Update org domain settings, not direct frontend'
       x-brrtrouter-impl: true
@@ -750,6 +792,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Enable SAML SSO for org, not direct frontend'
       x-brrtrouter-impl: true
@@ -796,6 +841,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Disable SAML SSO for org, not direct frontend'
       x-brrtrouter-impl: true
@@ -845,6 +893,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Create SAML setup link for org, not direct frontend'
       x-brrtrouter-impl: true
@@ -888,6 +939,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Set SAML IdP metadata for org, not direct frontend'
       x-brrtrouter-impl: true
@@ -931,6 +985,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Set OIDC IdP metadata for org, not direct frontend'
       x-brrtrouter-impl: true
@@ -977,6 +1034,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Enable SAML connection for org, not direct frontend'
       x-brrtrouter-impl: true
@@ -1022,6 +1082,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete SAML connection for org, not direct frontend'
   /{org_id}/migrate-to-isolated:
@@ -1069,6 +1132,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Migrate org to isolated SAML mode, not direct frontend'
       x-brrtrouter-impl: true
@@ -1122,6 +1188,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Fetch SCIM groups for org, SCIM provisioner only'
   /{org_id}/scim/groups/{group_id}:
@@ -1190,6 +1259,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Fetch specific SCIM group, SCIM provisioner only'
   /api/v1/am/applications:
@@ -1235,6 +1307,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to list applications for org
@@ -1267,6 +1342,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       parameters:
       - *id001
       description: Requires `X-Tenant-ID` header for tenant resolution.
@@ -1314,6 +1392,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get app details
@@ -1364,9 +1445,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/RoleListResponse'
               examples:
-                default: &id005
+                default: &id006
                   summary: Example for list_roles 200
-                  value: &id010
+                  value: &id011
                     roles:
                     - role_id: 550e8400-e29b-41d4-a716-446655440010
                       name: Project Manager
@@ -1385,10 +1466,13 @@ paths:
                     total: 2
                     page: 1
                     limit: 20
-              example: *id005
+              example: *id006
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to list roles available
@@ -1412,7 +1496,7 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateRoleRequest'
             examples:
-              default: &id006
+              default: &id007
                 summary: Example for create_role
                 value:
                   name: Project Manager
@@ -1421,7 +1505,7 @@ paths:
                   - project:read
                   - project:write
                   - team:read
-            example: *id006
+            example: *id007
       responses:
         '201':
           content:
@@ -1429,7 +1513,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Role'
               examples:
-                default: &id007
+                default: &id008
                   summary: Example for create_role 201
                   value:
                     role_id: 550e8400-e29b-41d4-a716-446655440010
@@ -1440,7 +1524,7 @@ paths:
                     - project:write
                     - team:read
                     created_at: '2024-01-16T12:00:00Z'
-              example: *id007
+              example: *id008
         '400':
           description: Invalid request
           content:
@@ -1453,6 +1537,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Create role for application, not direct frontend'
@@ -1493,9 +1580,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Role'
               examples:
-                default: &id008
+                default: &id009
                   summary: Example for get_role 200
-                  value: &id011
+                  value: &id012
                     role_id: 550e8400-e29b-41d4-a716-446655440010
                     name: Project Manager
                     description: Can manage projects and view team members
@@ -1504,7 +1591,7 @@ paths:
                     - project:write
                     - team:read
                     created_at: '2024-01-16T12:00:00Z'
-              example: *id008
+              example: *id009
         '404':
           description: Not found
           content:
@@ -1517,6 +1604,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get role details
@@ -1569,6 +1659,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to list available permissions
@@ -1609,6 +1702,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Create permission for application, not direct frontend'
@@ -1677,6 +1773,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get permissions for a role
@@ -1729,6 +1828,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Assign permission to role, not direct frontend'
@@ -1782,6 +1884,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Revoke permission from role, not direct frontend'
@@ -1839,6 +1944,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: List webhooks for org, not direct frontend'
   /{org_id}/webhooks/{subscription_id}:
@@ -1892,6 +2000,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete webhook subscription, not direct frontend'
   /{org_id}/webhooks/{subscription_id}/test:
@@ -1949,6 +2060,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Test webhook delivery, not direct frontend'
       x-brrtrouter-impl: true
@@ -2007,6 +2121,9 @@ paths:
               example:
                 error: unauthorized
                 error_description: Authentication required
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Invalidate all API keys for user, not direct frontend'
       x-brrtrouter-impl: true
@@ -2063,22 +2180,25 @@ paths:
                 $ref: '#/components/schemas/ScimUserListResponse'
         '400':
           description: Invalid filter, malformed request, or unsupported SCIM query parameter
-          content: &id009
+          content: &id010
             application/json:
               schema:
                 $ref: '#/components/schemas/ScimError'
         '401':
           description: Unauthorized — valid SCIM credentials required
-          content: *id009
+          content: *id010
         '403':
           description: Forbidden — insufficient permissions for SCIM list operations
-          content: *id009
+          content: *id010
         '404':
           description: Not found — org not found or SCIM provisioning disabled
-          content: *id009
+          content: *id010
         '409':
           description: Conflict — unsupported filter combination
-          content: *id009
+          content: *id010
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: List SCIM users in org, SCIM provisioner only'
     post:
@@ -2107,19 +2227,22 @@ paths:
                 $ref: '#/components/schemas/ScimUser'
         '400':
           description: Invalid request body — malformed SCIM user or invalid attribute values
-          content: *id009
+          content: *id010
         '401':
           description: Unauthorized — valid SCIM credentials required
-          content: *id009
+          content: *id010
         '409':
           description: Conflict — duplicate user (email or username already exists)
-          content: *id009
+          content: *id010
         '403':
           description: Forbidden — insufficient permissions to create users
-          content: *id009
+          content: *id010
         '404':
           description: Not found — org not found or SCIM provisioning disabled
-          content: *id009
+          content: *id010
+        '500':
+          description: Internal server error
+          content: *id003
       parameters:
       - *id001
       x-consumer: backend-service
@@ -2160,19 +2283,22 @@ paths:
                 $ref: '#/components/schemas/ScimUser'
         '400':
           description: Invalid request body — malformed SCIM user or unsupported attribute mutation
-          content: *id009
+          content: *id010
         '404':
           description: Not found — user not found or org not found
-          content: *id009
+          content: *id010
         '409':
           description: Conflict — version mismatch (etag) or duplicate attribute
-          content: *id009
+          content: *id010
         '401':
           description: Unauthorized — valid SCIM credentials required
-          content: *id009
+          content: *id010
         '403':
           description: Forbidden — insufficient permissions to update user
-          content: *id009
+          content: *id010
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Update user via SCIM, SCIM provisioner only'
       x-brrtrouter-impl: true
@@ -2200,19 +2326,22 @@ paths:
           description: User deleted
         '404':
           description: Not found — user not found or org not found
-          content: *id009
+          content: *id010
         '400':
           description: Invalid filter — malformed delete request
-          content: *id009
+          content: *id010
         '401':
           description: Unauthorized — valid SCIM credentials required
-          content: *id009
+          content: *id010
         '403':
           description: Forbidden — insufficient permissions to delete user
-          content: *id009
+          content: *id010
         '409':
           description: Conflict — user has active dependencies preventing deletion
-          content: *id009
+          content: *id010
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Delete user via SCIM, SCIM provisioner only'
   /{org_id}/users/{user_id}:
@@ -2270,6 +2399,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Remove user from organization, not direct frontend'
   /{org_id}/users/{user_id}/role:
@@ -2329,6 +2461,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Change user role in organization, not direct frontend'
       x-brrtrouter-impl: true
@@ -2971,7 +3106,7 @@ components:
           type: integer
         page_size:
           type: integer
-      example: *id010
+      example: *id011
     Role:
       type: object
       required:
@@ -2999,7 +3134,7 @@ components:
         updated_at:
           type: string
           format: date-time
-      example: *id011
+      example: *id012
     CreateRoleRequest:
       type: object
       required:

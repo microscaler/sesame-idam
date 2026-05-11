@@ -49,7 +49,7 @@ paths:
             examples:
               default: &id001
                 summary: Example request for auth_refresh
-                value: &id012
+                value: &id013
                   grant_type: refresh_token
                   refresh_token: cmVmcmVzaC10b2tlbi1zZXNzaW9u
                   client_id: my-app
@@ -95,8 +95,17 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+        '500':
+          description: Internal server error
+          content: &id004
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       parameters:
-      - &id004
+      - &id005
         name: X-Tenant-ID
         in: header
         required: true
@@ -132,7 +141,7 @@ paths:
               examples:
                 default: &id003
                   summary: Example response 200 for users_me_get
-                  value: &id016
+                  value: &id017
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                     email: alice@example.com
                     email_verified: true
@@ -156,8 +165,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get current user profile
@@ -172,13 +184,13 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateUserProfileRequest'
             examples:
-              default: &id005
+              default: &id006
                 summary: Example request for users_me_patch
-                value: &id015
+                value: &id016
                   first_name: Alice
                   last_name: Johnson
                   avatar_url: https://example.com/avatars/alice_v2.png
-            example: *id005
+            example: *id006
       responses:
         '400':
           description: Bad request — validation error
@@ -195,7 +207,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserProfile'
               examples:
-                default: &id006
+                default: &id007
                   summary: Example response 200 for users_me_patch
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
@@ -211,7 +223,7 @@ paths:
                     is_active: true
                     created_at: '2024-01-01T00:00:00Z'
                     updated_at: '2024-01-16T12:00:00Z'
-              example: *id006
+              example: *id007
         '401':
           description: Unauthorized
           content:
@@ -221,8 +233,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to update current user profile
@@ -251,13 +266,16 @@ paths:
                 $ref: '#/components/schemas/OpenIDConfiguration'
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: &id008
+          content: &id009
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 error: unauthorized
                 error_description: Authentication required
+        '500':
+          description: Internal server error
+          content: *id004
       x-consumer: frontend
       x-consumer-note: Public OpenID Connect discovery endpoint, no auth required
   /.well-known/jwks.json:
@@ -283,9 +301,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/JWKS'
               examples:
-                default: &id007
+                default: &id008
                   summary: Example for jwks 200
-                  value: &id011
+                  value: &id012
                     keys:
                     - kty: RSA
                       kid: default
@@ -293,10 +311,13 @@ paths:
                       alg: RS256
                       n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe
                       e: AQAB
-              example: *id007
+              example: *id008
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id008
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id004
       x-consumer: frontend
       x-consumer-note: Public JWKS endpoint for token verification, no auth required
   /api/v1/identity/users/me/userinfo:
@@ -333,8 +354,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to get user info from OAuth token
   /verify/step-up:
@@ -356,12 +380,12 @@ paths:
             schema:
               $ref: '#/components/schemas/StepUpRequest'
             examples:
-              default: &id009
+              default: &id010
                 summary: Example request for step_up_verify
-                value: &id013
+                value: &id014
                   challenge_id: 550e8400-e29b-41d4-a716-446655440000
                   answer: '123456'
-            example: *id009
+            example: *id010
       responses:
         '400':
           description: Bad request — validation error
@@ -379,9 +403,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/StepUpResponse'
               examples:
-                default: &id010
+                default: &id011
                   summary: Example response 200 for step_up_verify
-                  value: &id014
+                  value: &id015
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJsZXZlbCI6ImhpZ2gifQ.sig
                     token_type: Bearer
                     expires_in: 300
@@ -394,13 +418,16 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid profile
-              example: *id010
+              example: *id011
         '401':
           description: Unauthorized or MFA verification failed
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
       - name: X-Tenant-ID
         in: header
@@ -466,9 +493,12 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id008
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin issues tokens on behalf of user'
       x-brrtrouter-impl: true
@@ -514,8 +544,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       x-consumer: agent
       x-consumer-note: 'Agent-only: Generate token for MCP agent, never from browser'
       x-brrtrouter-impl: true
@@ -560,8 +593,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       x-consumer: agent
       x-consumer-note: 'Agent-only: Validate MCP agent token, never from browser'
       x-brrtrouter-impl: true
@@ -602,8 +638,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       x-consumer: agent
       x-consumer-note: 'Agent-only: List MCP agents for user, never from browser'
     post:
@@ -658,8 +697,11 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       x-consumer: agent
       x-consumer-note: 'Agent-only: Create MCP agent for user, never from browser'
       x-brrtrouter-impl: true
@@ -698,9 +740,12 @@ paths:
                 error_description: Agent not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id008
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: agent
       x-consumer-note: 'Agent-only: Get MCP agent details, never from browser'
@@ -734,9 +779,12 @@ paths:
                 error_description: Agent not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id008
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id004
       parameters:
-      - *id004
+      - *id005
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: agent
       x-consumer-note: 'Agent-only: Delete MCP agent, never from browser'
@@ -753,7 +801,7 @@ paths:
       security:
       - BearerAuth: []
       parameters:
-      - *id004
+      - *id005
       requestBody:
         required: true
         content:
@@ -796,7 +844,10 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id008
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id004
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin impersonate user session'
       x-brrtrouter-impl: true
@@ -813,7 +864,7 @@ paths:
       security:
       - BearerAuth: []
       parameters:
-      - *id004
+      - *id005
       requestBody:
         required: true
         content:
@@ -847,7 +898,10 @@ paths:
                 error_description: Forbidden (insufficient permissions)
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id008
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id004
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Restore original session after impersonation'
       x-brrtrouter-impl: true
@@ -1315,7 +1369,7 @@ components:
               e: AQAB
               x5c:
               - MIIDdTCCAl2gAwIBAgITBn+USII9N7z2GPaVWCQDIQ...
-      example: *id011
+      example: *id012
     LinkSocialAccountRequest:
       type: object
       required:
@@ -1927,7 +1981,7 @@ components:
       properties:
         refresh_token:
           type: string
-      example: *id012
+      example: *id013
     RegisterRequest:
       type: object
       required:
@@ -2048,7 +2102,7 @@ components:
           - email
           - phone
           description: Preferred MFA method for re-authentication
-      example: *id013
+      example: *id014
     StepUpResponse:
       type: object
       required:
@@ -2064,7 +2118,7 @@ components:
           type: string
           format: uuid
           description: Session with elevated trust level
-      example: *id014
+      example: *id015
     TokenIssuanceRequest:
       type: object
       required:
@@ -2246,7 +2300,7 @@ components:
           type: string
           format: uri
           description: Profile picture URL
-      example: *id015
+      example: *id016
     UpdateUserRequest:
       type: object
       description: 'Partial update of user attributes. Only provided fields are modified.
@@ -2540,7 +2594,7 @@ components:
           format: date-time
           nullable: true
           description: Last profile update timestamp
-      example: *id016
+      example: *id017
     UserQueryItem:
       type: object
       properties:

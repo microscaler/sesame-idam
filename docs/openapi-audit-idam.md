@@ -155,51 +155,40 @@
 - [ ] identity-user-mgmt-service (29 occurrences)
 - [ ] org-mgmt (33 occurrences)
 
-### [ ] GAP 7: Add `required` arrays to low-coverage schemas
-**Count:** api-keys at 50%, identity-user-mgmt-service at 48%
+### [✓] GAP 7: Add `required` arrays to low-coverage schemas
+**Fixed:** 100% coverage on api-keys and identity-user-mgmt-service
 
-- [ ] api-keys (add to 8 schemas lacking required)
-  - [ ] ApiKeyUsageResponse
-  - [ ] ArchivedApiKey
-  - [ ] ArchivedApiKeyListResponse
-  - [ ] UpdateApiKeyRequest
-  - [ ] ApiKeyListResponse
-  - [ ] CreateApiKeyRequest
-  - [ ] ApiKey (verify)
-  - [ ] ApiKeyCreateResponse (verify)
-- [ ] identity-user-mgmt-service (add to 12 schemas lacking required)
-  - [ ] UpdateEmailRequest
-  - [ ] UpdateUserProfileRequest
-  - [ ] PhoneNumberRequest
-  - [ ] PhoneOTPRequest
-  - [ ] PhoneOTPVerifyRequest
-  - [ ] PhoneVerificationRequest
-  - [ ] EmailOTPRequest
-  - [ ] EmailOTPVerifyRequest
-  - [ ] MagicLinkRequest
-  - [ ] MagicLinkResponse
-  - [ ] MagicLinkVerifyRequest
-  - [ ] ResetPasswordRequest
+- [✓] api-keys (7 schemas, 100%)
+  - [✓] ApiKey
+  - [✓] ApiKeyListResponse
+  - [✓] ApiKeyUsageResponse
+  - [✓] ArchivedApiKeyListResponse
+  - [✓] Error
+  - [✓] ImportApiKeysResponse
+  - [✓] UpdateApiKeyRequest
+- [✓] identity-user-mgmt-service (12 schemas, 100%)
+  - [✓] EmployeeResponse
+  - [✓] Error
+  - [✓] MfaSetupResponse
+  - [✓] OAuthLogoutRequest
+  - [✓] OAuthTokenResponse
+  - [✓] PhoneNumberRequest
+  - [✓] PhoneVerificationRequest
+  - [✓] TokenListResponse
+  - [✓] UpdateUserRequest
+  - [✓] User
+  - [✓] UserQueryItem
+  - [✓] UserQueryResponse
 
-### [✓] GAP 8: Add second server entry (`/api/v1`) to 5 specs
-**Fixed:** All 6 specs now have 2 server entries
+### [ ] GAP 6: Convert `nullable: true` to OAS 3.1 `type: [string, "null"]`
+**Count:** 156 occurrences across 6 specs
 
-- [✓] api-keys
-- [✓] authz-core
-- [✓] identity-login-service
-- [✓] identity-user-mgmt-service
-- [✓] org-mgmt
-
-### [✓] GAP 9: Remove `components.examples` key from specs (not BRRTRouter-supported)
-**Fixed:** Removed from api-keys, authz-core, identity-login-service
-
-- [✓] api-keys
-- [✓] authz-core
-- [✓] identity-login-service
-**Current:** Present in api-keys and authz-core, but not a supported component key per skill
-
-- [ ] api-keys
-- [ ] authz-core
+- [ ] api-keys (23 occurrences)
+- [ ] authz-core (11 occurrences)
+- [ ] identity-login-service (10 occurrences)
+- [ ] identity-session-service (50 occurrences)
+- [ ] identity-user-mgmt-service (29 occurrences)
+- [ ] org-mgmt (33 occurrences)
 
 ### [ ] GAP 10: Add `500` internal server error response to all operations
 **Count:** 0/120 operations currently have it
