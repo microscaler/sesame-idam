@@ -2,7 +2,6 @@
 // ⚠️ DO NOT MODIFY - Changes will be overwritten on next generation
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
-use crate::handlers::types::WebhookSubscription;
 use brrtrouter::dispatcher::HandlerRequest;
 use brrtrouter::typed::TypedHandlerRequest;
 use serde::{Deserialize, Serialize};
@@ -27,15 +26,7 @@ pub struct Request {
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "subscriptions")]
-    pub subscriptions: Option<Vec<WebhookSubscription>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "total")]
-    pub total: Option<i32>,
-}
+pub struct Response {}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;

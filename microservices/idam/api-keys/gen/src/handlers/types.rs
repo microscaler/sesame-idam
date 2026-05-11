@@ -45,23 +45,6 @@ pub struct ApiKeyCreateResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct ApiKeyListResponse {
-    pub current_page: i32,
-
-    pub filters_applied: Vec<String>,
-
-    pub has_more_results: bool,
-
-    pub keys: Vec<ApiKey>,
-
-    pub page_size: i32,
-
-    pub sort_order: String,
-
-    pub total_keys: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ApiKeyUsageResponse {
     pub date: String,
 
@@ -96,19 +79,6 @@ pub struct ArchivedApiKey {
     pub revoked_at: i32,
 
     pub revoked_by_user_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct ArchivedApiKeyListResponse {
-    pub current_page: i32,
-
-    pub has_more_results: bool,
-
-    pub keys: Vec<ArchivedApiKey>,
-
-    pub page_size: i32,
-
-    pub total_keys: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -173,23 +143,6 @@ pub struct ErrorResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct FetchActiveApiKeysResponse {
-    pub current_page: i32,
-
-    pub filters_applied: Vec<String>,
-
-    pub has_more_results: bool,
-
-    pub keys: Vec<ApiKey>,
-
-    pub page_size: i32,
-
-    pub sort_order: String,
-
-    pub total_keys: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct FetchApiKeyUsageResponse {
     pub date: String,
 
@@ -205,19 +158,6 @@ pub struct FetchArchivedApiKeyResponse {
     pub revoked_at: i32,
 
     pub revoked_by_user_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct FetchArchivedApiKeysResponse {
-    pub current_page: i32,
-
-    pub has_more_results: bool,
-
-    pub keys: Vec<ArchivedApiKey>,
-
-    pub page_size: i32,
-
-    pub total_keys: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -237,6 +177,17 @@ pub struct ImportApiKeysResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OrgApiKeyValidationResponse {
     pub is_org_scoped: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PaginatedResponse {
+    pub has_more: bool,
+
+    pub page: i32,
+
+    pub page_size: i32,
+
+    pub total: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

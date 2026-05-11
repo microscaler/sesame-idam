@@ -2763,23 +2763,27 @@ components:
           description: Migrate to isolated SAML mode
     OrgListResponse:
       type: object
-      required:
-      - items
-      - total
-      - page
-      - page_size
-      properties:
-        items:
-          type: array
+      description: Paginated list of items
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
           items:
-            $ref: '#/components/schemas/Org'
-        total:
-          type: integer
-          description: Total number of organisations
-        page:
-          type: integer
-        page_size:
-          type: integer
+            type: array
+            items:
+              $ref: '#/components/schemas/Org'
+          total:
+            type: integer
+            description: Total number of organisations
+          page:
+            type: integer
+          page_size:
+            type: integer
+        required:
+        - items
+        - total
+        - page
+        - page_size
     UsersInOrgResponse:
       type: object
       required:
@@ -3035,22 +3039,26 @@ components:
           format: date-time
     ApplicationListResponse:
       type: object
-      required:
-      - items
-      - total
-      - page
-      - page_size
-      properties:
-        items:
-          type: array
+      description: Paginated list of items
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
           items:
-            $ref: '#/components/schemas/Application'
-        total:
-          type: integer
-        page:
-          type: integer
-        page_size:
-          type: integer
+            type: array
+            items:
+              $ref: '#/components/schemas/Application'
+          total:
+            type: integer
+          page:
+            type: integer
+          page_size:
+            type: integer
+        required:
+        - items
+        - total
+        - page
+        - page_size
       example:
         items:
         - id: 550e8400-e29b-41d4-a716-446655440001
@@ -3110,22 +3118,26 @@ components:
           description: Application URL-safe slug
     RoleListResponse:
       type: object
-      required:
-      - items
-      - total
-      - page
-      - page_size
-      properties:
-        items:
-          type: array
+      description: Paginated list of items
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
           items:
-            $ref: '#/components/schemas/Role'
-        total:
-          type: integer
-        page:
-          type: integer
-        page_size:
-          type: integer
+            type: array
+            items:
+              $ref: '#/components/schemas/Role'
+          total:
+            type: integer
+          page:
+            type: integer
+          page_size:
+            type: integer
+        required:
+        - items
+        - total
+        - page
+        - page_size
       example: *id011
     Role:
       type: object
@@ -3168,22 +3180,26 @@ components:
           description: Role description
     PermissionListResponse:
       type: object
-      required:
-      - items
-      - total
-      - page
-      - page_size
-      properties:
-        items:
-          type: array
+      description: Paginated list of items
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
           items:
-            $ref: '#/components/schemas/Permission'
-        total:
-          type: integer
-        page:
-          type: integer
-        page_size:
-          type: integer
+            type: array
+            items:
+              $ref: '#/components/schemas/Permission'
+          total:
+            type: integer
+          page:
+            type: integer
+          page_size:
+            type: integer
+        required:
+        - items
+        - total
+        - page
+        - page_size
       example:
         items:
         - id: 550e8400-e29b-41d4-a716-446655440010
@@ -3382,14 +3398,18 @@ components:
           description: When the subscription was last updated
     WebhookSubscriptionListResponse:
       type: object
-      properties:
-        subscriptions:
-          type: array
-          items:
-            $ref: '#/components/schemas/WebhookSubscription'
-        total:
-          type: integer
-          description: Total number of webhook subscriptions
+      description: Paginated list of items
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
+          subscriptions:
+            type: array
+            items:
+              $ref: '#/components/schemas/WebhookSubscription'
+          total:
+            type: integer
+            description: Total number of webhook subscriptions
     WebhookTestResponse:
       type: object
       properties:
@@ -3692,3 +3712,23 @@ components:
         detail: The requested attribute is not supported
         status: '400'
         scimType: invalidFilter
+    PaginatedResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+        page_size:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether more pages are available
+      required:
+      - total
+      - page
+      - page_size
+      - has_more

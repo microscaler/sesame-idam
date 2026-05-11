@@ -56,5 +56,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         }
     }
 
-    Response { tokens: vec![] }
+    Response {}
 }

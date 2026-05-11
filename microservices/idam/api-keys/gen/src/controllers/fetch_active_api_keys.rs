@@ -4,9 +4,6 @@ use crate::handlers::fetch_active_api_keys::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
-#[allow(unused_imports)]
-use crate::handlers::types::ApiKey;
-
 #[handler(FetchActiveApiKeysController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // Example response:
@@ -81,13 +78,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         }
     }
 
-    Response {
-        current_page: Some(42),
-        filters_applied: Some(vec![]),
-        has_more_results: Some(true),
-        keys: vec![],
-        page_size: 42,
-        sort_order: Some("example".to_string()),
-        total_keys: 42,
-    }
+    Response {}
 }

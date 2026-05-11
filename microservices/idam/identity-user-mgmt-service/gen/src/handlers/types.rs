@@ -232,11 +232,6 @@ pub struct FetchUserByUsernameResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct FetchUserOauthTokensResponse {
-    pub tokens: Vec<serde_json::Value>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LinkSocialAccountRequest {
     pub provider: String,
 
@@ -396,6 +391,17 @@ pub struct OauthLogoutResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PaginatedResponse {
+    pub has_more: bool,
+
+    pub page: i32,
+
+    pub page_size: i32,
+
+    pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PhoneNumberRequest {
     pub phone_number: String,
 }
@@ -461,11 +467,6 @@ pub struct SetupUserPhoneResponse {
     pub hint: String,
 
     pub retry_after: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct TokenListResponse {
-    pub tokens: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
