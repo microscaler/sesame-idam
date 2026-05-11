@@ -49,8 +49,8 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         expires_at: Some(1736934600),
         metadata: Some(Default::default()),
         name: "Updated Production Key".to_string(),
-        org_id: Some("example".to_string()),
+        org_id: Some(Default::default()),
         permissions: Some(vec!["read".to_string(), "write".to_string()]),
-        user_id: Some("example".to_string()),
+        user_id: Some(Default::default()),
     }
 }

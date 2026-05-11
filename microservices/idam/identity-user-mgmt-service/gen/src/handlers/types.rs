@@ -65,7 +65,7 @@ pub struct CreateUserResponse {
 
     pub locked: bool,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
     pub properties: serde_json::Value,
 
@@ -117,7 +117,7 @@ pub struct EmployeeResponse {
 
     pub org_id_to_org_info: serde_json::Value,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
     pub user_id: String,
 
@@ -161,7 +161,7 @@ pub struct FetchEmployeeResponse {
 
     pub org_id_to_org_info: serde_json::Value,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
     pub user_id: String,
 
@@ -197,7 +197,7 @@ pub struct FetchUserByEmailResponse {
 
     pub locked: bool,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
     pub properties: serde_json::Value,
 
@@ -222,7 +222,7 @@ pub struct FetchUserByUsernameResponse {
 
     pub locked: bool,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
     pub properties: serde_json::Value,
 
@@ -279,7 +279,7 @@ pub struct MfaSetupResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MfaVerifyRequest {
-    pub challenge_id: String,
+    pub challenge_id: serde_json::Value,
 
     pub code: String,
 
@@ -323,7 +323,7 @@ pub struct MigrateUserRequest {
 
     pub legacy_user_id: String,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub picture_url: String,
 
@@ -348,7 +348,7 @@ pub struct MigrateUserResponse {
 
     pub locked: bool,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
     pub properties: serde_json::Value,
 
@@ -474,11 +474,11 @@ pub struct TokenResponse {
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    pub id_token: serde_json::Value,
 
-    pub refresh_token: String,
+    pub refresh_token: serde_json::Value,
 
-    pub scope: String,
+    pub scope: serde_json::Value,
 
     pub token_type: String,
 }
@@ -511,9 +511,9 @@ pub struct UpdateUserEmailResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateUserRequest {
-    pub email_confirmed: bool,
+    pub email_confirmed: serde_json::Value,
 
-    pub enabled: bool,
+    pub enabled: serde_json::Value,
 
     pub extra_properties: serde_json::Value,
 
@@ -521,9 +521,9 @@ pub struct UpdateUserRequest {
 
     pub last_name: String,
 
-    pub locked: bool,
+    pub locked: serde_json::Value,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
     pub send_welcome_email: bool,
 
@@ -546,7 +546,7 @@ pub struct User {
 
     pub locked: bool,
 
-    pub picture_url: String,
+    pub picture_url: serde_json::Value,
 
     pub properties: serde_json::Value,
 
@@ -573,7 +573,7 @@ pub struct UserQueryItem {
 
     pub locked: bool,
 
-    pub signup_flow: String,
+    pub signup_flow: serde_json::Value,
 
     pub user_id: String,
 
@@ -606,7 +606,7 @@ pub struct VerifyUserEmailResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct VerifyUserMfaRequest {
-    pub challenge_id: String,
+    pub challenge_id: serde_json::Value,
 
     pub code: String,
 
@@ -619,11 +619,11 @@ pub struct VerifyUserMfaResponse {
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    pub id_token: serde_json::Value,
 
-    pub refresh_token: String,
+    pub refresh_token: serde_json::Value,
 
-    pub scope: String,
+    pub scope: serde_json::Value,
 
     pub token_type: String,
 }

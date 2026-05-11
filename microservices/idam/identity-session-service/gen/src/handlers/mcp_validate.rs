@@ -21,15 +21,15 @@ pub struct Request {
 pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "agent_id")]
-    pub agent_id: Option<String>,
+    pub agent_id: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "expires_at")]
-    pub expires_at: Option<String>,
+    pub expires_at: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "permissions")]
-    pub permissions: Option<Vec<String>>,
+    pub permissions: Option<serde_json::Value>,
 
     #[serde(rename = "valid")]
     pub valid: bool,

@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 pub struct Request {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "expires_in_days")]
-    pub expires_in_days: Option<i32>,
+    pub expires_in_days: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "metadata")]
@@ -22,7 +22,7 @@ pub struct Request {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id")]
-    pub org_id: Option<String>,
+    pub org_id: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "permissions")]
@@ -30,7 +30,7 @@ pub struct Request {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_id")]
-    pub user_id: Option<String>,
+    pub user_id: Option<serde_json::Value>,
 
     #[serde(rename = "X-Tenant-ID")]
     pub x_tenant_id: String,
@@ -59,7 +59,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id")]
-    pub org_id: Option<String>,
+    pub org_id: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "permissions")]
@@ -67,7 +67,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_id")]
-    pub user_id: Option<String>,
+    pub user_id: Option<serde_json::Value>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

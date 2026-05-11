@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 pub struct AssignPrincipalRoleRequest {
     pub app_id: String,
 
-    pub expires_at: String,
+    pub expires_at: serde_json::Value,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub role: String,
 
@@ -30,11 +30,11 @@ pub struct AssignPrincipalRoleResponse {
 pub struct AuthorizeRequest {
     pub action: String,
 
-    pub app_id: String,
+    pub app_id: serde_json::Value,
 
     pub context: serde_json::Value,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub resource: String,
 
@@ -47,11 +47,11 @@ pub struct AuthorizeRequest {
 pub struct AuthorizeResponse {
     pub allowed: bool,
 
-    pub permissions_used: Vec<String>,
+    pub permissions_used: serde_json::Value,
 
     pub reason: String,
 
-    pub roles_matched: Vec<String>,
+    pub roles_matched: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -60,7 +60,7 @@ pub struct EffectiveRequest {
 
     pub include_inherited: bool,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub tenant_id: String,
 
@@ -91,7 +91,7 @@ pub struct PrincipalEffectiveRequest {
 
     pub include_inherited: bool,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub tenant_id: String,
 
@@ -129,7 +129,7 @@ pub struct RevokePrincipalRoleResponse {
 pub struct SetPrincipalAttributeRequest {
     pub key: String,
 
-    pub org_id: String,
+    pub org_id: serde_json::Value,
 
     pub tenant_id: String,
 

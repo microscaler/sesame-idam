@@ -2556,13 +2556,15 @@ components:
           minimum: 3600
           description: Password expiry period in seconds (default 30 days)
         max_users:
-          type: integer
+          type:
+          - integer
+          - 'null'
           minimum: 1
-          nullable: true
           description: Maximum number of users allowed in the organisation (seat limit). null means unlimited.
         legacy_org_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Legacy organisation ID from a previous auth system
         metadata:
           type: object
@@ -2621,17 +2623,20 @@ components:
           default: 2592000
           description: Password expiry period in seconds (default 30 days)
         max_users:
-          type: integer
-          nullable: true
+          type:
+          - integer
+          - 'null'
           description: Maximum number of users allowed (seat limit). null means unlimited.
         legacy_org_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Legacy organisation ID from a previous auth system
         metadata:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties: true
-          nullable: true
           description: Free-form organisation metadata
         is_saml_configured:
           type: boolean
@@ -2650,8 +2655,9 @@ components:
           default: false
           description: Whether the org uses isolated SAML (separate identity pool)
         sso_trust_level:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: SAML trust level — AlwaysTrust, NeverTrust, TrustForDomain
         created_at:
           type: string
@@ -2678,68 +2684,82 @@ components:
           nullable: true
           description: Organisation name
         slug:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Organisation slug (URL-safe identifier)
         logo_url:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uri
-          nullable: true
           description: Organisation logo URL
         metadata:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties: true
-          nullable: true
           description: Free-form organisation metadata
         domain:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Primary organisation domain
         domains:
-          type: array
+          type:
+          - array
+          - 'null'
           items:
             type: string
-          nullable: true
           description: Additional domains for auto-join
         domain_auto_join:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
           description: Toggle domain-based auto-join for members
         domain_restrict:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
           description: Restrict signups to the organisation's domain(s) only
         password_rotation_enabled:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
           description: Enable or disable password rotation enforcement
         password_rotation_history_size:
-          type: integer
+          type:
+          - integer
+          - 'null'
           minimum: 1
           maximum: 24
-          nullable: true
           description: Number of past passwords to remember (1-24)
         password_rotation_period:
-          type: integer
+          type:
+          - integer
+          - 'null'
           minimum: 3600
-          nullable: true
           description: Password expiry period in seconds (minimum 1 hour)
         max_users:
-          type: integer
+          type:
+          - integer
+          - 'null'
           minimum: 1
-          nullable: true
           description: Seat limit for the organisation. null means unlimited.
         legacy_org_id:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Legacy organisation ID
         is_saml_configured:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
           description: Toggle SAML configuration (write-only flag)
         isolated:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
           description: Migrate to isolated SAML mode
     OrgListResponse:
       type: object
@@ -3263,44 +3283,51 @@ components:
             - saml_disabled
           description: List of events to subscribe to
         secret:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Optional shared secret for signing webhook payloads (HMAC-SHA256)
         enabled:
           type: boolean
           default: true
           description: Whether this webhook is currently active
         metadata:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties: true
-          nullable: true
           description: Custom key-value metadata
     UpdateWebhookSubscriptionRequest:
       type: object
       properties:
         endpoint_url:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uri
-          nullable: true
           description: New endpoint URL
         events:
-          type: array
+          type:
+          - array
+          - 'null'
           items:
             type: string
-          nullable: true
           description: Updated list of subscribed events
         secret:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Optional new shared secret for signing
         enabled:
-          type: boolean
-          nullable: true
+          type:
+          - boolean
+          - 'null'
           description: Toggle webhook enabled status
         metadata:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties: true
-          nullable: true
           description: Updated metadata
     WebhookSubscription:
       type: object
@@ -3329,13 +3356,15 @@ components:
           type: boolean
           description: Whether this webhook is currently active
         last_delivery_at:
-          type: string
+          type:
+          - string
+          - 'null'
           format: date-time
-          nullable: true
           description: Timestamp of the last successful delivery
         last_delivery_status:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: HTTP status of the last delivery attempt
         total_deliveries:
           type: integer
@@ -3372,8 +3401,9 @@ components:
           format: uri
           description: The endpoint that received the test event
         delivery_status:
-          type: integer
-          nullable: true
+          type:
+          - integer
+          - 'null'
           description: HTTP status code returned by the endpoint
         message:
           type: string

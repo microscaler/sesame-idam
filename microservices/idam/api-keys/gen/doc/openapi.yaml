@@ -877,14 +877,16 @@ components:
           maxLength: 100
           description: Human-readable name for this API key (e.g., "Production Service")
         user_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: User ID to scope the key to (omit for org-scoped keys)
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Organisation ID to scope the key to (omit for user-scoped keys)
         permissions:
           type: array
@@ -899,14 +901,16 @@ components:
           - accounting:invoices:write
           - accounting:invoices:read
         expires_in_days:
-          type: integer
-          nullable: true
+          type:
+          - integer
+          - 'null'
           description: Number of days until the key expires (omit for no expiry)
           example: 90
         metadata:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties: true
-          nullable: true
           description: Custom key-value metadata attached to this key
       example: *id017
     UpdateApiKeyRequest:
@@ -917,13 +921,15 @@ components:
           maxLength: 100
           description: Updated name for this API key
         expires_in_days:
-          type: integer
-          nullable: true
+          type:
+          - integer
+          - 'null'
           description: New expiration (in days from now)
         metadata:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties: true
-          nullable: true
           description: Updated metadata
       example: *id018
       required:
@@ -957,14 +963,16 @@ components:
           type: string
           description: Human-readable name
         user_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: User ID if user-scoped
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Organisation ID if org-scoped
         created_at:
           type: integer
@@ -992,14 +1000,16 @@ components:
           type: string
           description: Human-readable name
         user_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: User ID if user-scoped
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Organisation ID if org-scoped
         created_at:
           type: integer
@@ -1019,9 +1029,10 @@ components:
             type: string
           description: Permission codes granted by this key
         metadata:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties: true
-          nullable: true
           description: Custom metadata attached to this key
       example: *id020
       required:
@@ -1085,26 +1096,30 @@ components:
           type: boolean
           description: Whether the API key is valid
         api_key_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: API key ID (null if invalid)
         user_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Associated user ID (user-scoped keys only)
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Associated organisation ID
         scope_type:
-          type: string
+          type:
+          - string
+          - 'null'
           enum:
           - user
           - org
-          nullable: true
           description: Whether this key is user-scoped or org-scoped
         permissions:
           type: array

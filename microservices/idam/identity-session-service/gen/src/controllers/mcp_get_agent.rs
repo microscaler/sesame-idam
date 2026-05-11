@@ -10,7 +10,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         active: true,
         agent_id: "example".to_string(),
         created_at: "example".to_string(),
-        description: Some("example".to_string()),
+        description: Some(Default::default()),
         name: "example".to_string(),
         updated_at: "example".to_string(),
     }

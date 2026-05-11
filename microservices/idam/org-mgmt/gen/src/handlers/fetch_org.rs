@@ -59,7 +59,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "legacy_org_id")]
-    pub legacy_org_id: Option<String>,
+    pub legacy_org_id: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "logo_url")]
@@ -67,7 +67,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "max_users")]
-    pub max_users: Option<i32>,
+    pub max_users: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "metadata")]
@@ -93,7 +93,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "sso_trust_level")]
-    pub sso_trust_level: Option<String>,
+    pub sso_trust_level: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "updated_at")]

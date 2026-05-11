@@ -48,12 +48,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         created_at: Some(1705312200),
         expires_at: Some(1736934600),
         name: Some("Production API Key".to_string()),
-        org_id: Some("example".to_string()),
+        org_id: Some(Default::default()),
         permissions: Some(vec![
             "read".to_string(),
             "write".to_string(),
             "delete".to_string(),
         ]),
-        user_id: Some("example".to_string()),
+        user_id: Some(Default::default()),
     }
 }

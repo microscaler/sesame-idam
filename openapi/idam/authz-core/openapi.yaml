@@ -373,9 +373,10 @@ components:
           format: uuid
           description: Application ID that defines this role
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Organisation scope (for multi-tenant orgs)
         tenant_id:
           type: string
@@ -383,9 +384,10 @@ components:
           nullable: false
           description: Tenant scope (for multi-tenant orgs)
         expires_at:
-          type: string
+          type:
+          - string
+          - 'null'
           format: date-time
-          nullable: true
           description: Optional role expiration time
     RevokePrincipalRoleRequest:
       type: object
@@ -426,9 +428,10 @@ components:
           maxLength: 1024
           description: Attribute value
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Organisation scope (optional — unset for user-level attributes)
         tenant_id:
           type: string
@@ -451,9 +454,10 @@ components:
           format: uuid
           description: Application ID
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Organisation scope
         tenant_id:
           type: string
@@ -523,14 +527,16 @@ components:
           type: string
           description: Resource identifier (e.g., "accounting:invoices", "users:123")
         app_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Application scope
         org_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Organisation scope
         tenant_id:
           type: string
@@ -538,9 +544,10 @@ components:
           nullable: true
           description: Tenant scope
         context:
-          type: object
+          type:
+          - object
+          - 'null'
           additionalProperties: true
-          nullable: true
           description: Additional context for ABAC evaluation (e.g., resource attributes)
     AuthorizeResponse:
       type: object
@@ -559,14 +566,16 @@ components:
 
             '
         roles_matched:
-          type: array
+          type:
+          - array
+          - 'null'
           items:
             type: string
-          nullable: true
           description: Roles that contributed to the decision (for audit logging)
         permissions_used:
-          type: array
+          type:
+          - array
+          - 'null'
           items:
             type: string
-          nullable: true
           description: Permission codes that granted access

@@ -25,7 +25,7 @@ pub struct Request {
 pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "api_key_id")]
-    pub api_key_id: Option<String>,
+    pub api_key_id: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "expires_at")]
@@ -37,7 +37,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id")]
-    pub org_id: Option<String>,
+    pub org_id: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "permissions")]
@@ -45,11 +45,11 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "scope_type")]
-    pub scope_type: Option<String>,
+    pub scope_type: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_id")]
-    pub user_id: Option<String>,
+    pub user_id: Option<serde_json::Value>,
 
     #[serde(rename = "valid")]
     pub valid: bool,

@@ -7,7 +7,7 @@ use brrtrouter_macros::handler;
 #[handler(TestWebhookDeliveryController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     Response {
-        delivery_status: Some(42),
+        delivery_status: Some(Default::default()),
         endpoint_url: Some("example".to_string()),
         message: Some("example".to_string()),
         success: Some(true),
