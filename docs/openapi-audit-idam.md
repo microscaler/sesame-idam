@@ -214,17 +214,18 @@ node ~/Workspace/tools/openapi-ts/packages/openapi-ts/bin/run.js \
   -o clients/idam-frontend
 ```
 
-## 📊 Current Compliance Summary
+## 📊 Compliance Summary
 
-| Metric | Current | Target |
-|--------|---------|--------|
-| `x-brrtrouter-impl` on write ops | 0/81 | 81/81 |
-| `Id` parameter defined | 0/6 | 6/6 |
-| `PaginatedResponse` pattern | 1/6 | 6/6 |
-| `400` response present | 58/120 | 120/120 |
-| `401` response present | 20/120 | 120/120 |
-| `500` response present | 0/120 | 120/120 |
-| `required` arrays (avg) | 71% | 85%+ |
-| OAS 3.1 optional fields | 0/156 | 156/156 |
-| Server entries (2 per spec) | 1/6 | 6/6 |
-| `nullable` usage | 156 | 0 |
+| Metric | Target | Status |
+|--------|--------|--------|
+| `x-brrtrouter-impl` on write ops | 81/81 | ✅ 81/81 |
+| `Id` parameter defined | 6/6 | ✅ 6/6 |
+| `PaginatedResponse` allOf pattern | 10 schemas | ✅ All 10 |
+| `400` response present | 120/120 | ✅ 120/120 |
+| `401` response present | 120/120 | ✅ 120/120 |
+| `500` response present | 120/120 | ✅ 120/120 |
+| `required` arrays (avg) | 85%+ | ✅ 90%+ |
+| Server entries (2 per spec) | 6/6 | ✅ 6/6 |
+| `nullable` → OAS 3.1 | 0 | ⚠️ Blocked by BRRTRouter codegen |
+
+**Remaining:** GAP 6 — BRRTRouter's stub generator cannot handle OAS 3.1 union types `type: [string, "null"]`. When nullable fields are converted, the generated stub code (which directly references example values) breaks because type inference produces `Option<Value>` instead of `Option<T>`. Requires a BRRTRouter codegen fix before this conversion can proceed.
