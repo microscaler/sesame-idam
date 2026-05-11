@@ -110,20 +110,20 @@
 ### [✓] GAP 3: Add `PaginatedResponse` allOf pattern to list endpoints
 **Count:** 5 specs missing the standard pattern
 
-- [✓] api-keys
-  - [✓] ApiKeyListResponse
-  - [✓] ArchivedApiKeyListResponse
-- [✓] identity-session-service
-  - [✓] McpAgentListResponse
-  - [✓] TokenListResponse
-- [✓] identity-user-mgmt-service
-  - [✓] TokenListResponse
-- [✓] org-mgmt
-  - [✓] OrgListResponse
-  - [✓] ApplicationListResponse
-  - [✓] RoleListResponse
-  - [✓] PermissionListResponse
-  - [✓] RolePermissionListResponse
+- [ ] api-keys
+  - [ ] ApiKeyListResponse
+  - [ ] ArchivedApiKeyListResponse
+- [ ] identity-session-service
+  - [ ] McpAgentListResponse
+  - [ ] TokenListResponse
+- [ ] identity-user-mgmt-service
+  - [ ] TokenListResponse
+- [ ] org-mgmt
+  - [ ] OrgListResponse
+  - [ ] ApplicationListResponse
+  - [ ] RoleListResponse
+  - [ ] PermissionListResponse
+  - [ ] RolePermissionListResponse
 
 ### [✓] GAP 4: Add `400` bad request response to operations
 **Count:** 62 operations fixed
@@ -181,20 +181,21 @@
   - [ ] MagicLinkVerifyRequest
   - [ ] ResetPasswordRequest
 
----
+### [✓] GAP 8: Add second server entry (`/api/v1`) to 5 specs
+**Fixed:** All 6 specs now have 2 server entries
 
-## 🟢 Minor Gaps
+- [✓] api-keys
+- [✓] authz-core
+- [✓] identity-login-service
+- [✓] identity-user-mgmt-service
+- [✓] org-mgmt
 
-### [ ] GAP 8: Add second server entry (`/api/v1`) to 5 specs
-**Current:** Only identity-session-service has both entries
+### [✓] GAP 9: Remove `components.examples` key from specs (not BRRTRouter-supported)
+**Fixed:** Removed from api-keys, authz-core, identity-login-service
 
-- [ ] api-keys
-- [ ] authz-core
-- [ ] identity-login-service
-- [ ] identity-user-mgmt-service
-- [ ] org-mgmt
-
-### [ ] GAP 9: Remove `components.examples` key from specs (not BRRTRouter-supported)
+- [✓] api-keys
+- [✓] authz-core
+- [✓] identity-login-service
 **Current:** Present in api-keys and authz-core, but not a supported component key per skill
 
 - [ ] api-keys
