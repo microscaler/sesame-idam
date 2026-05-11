@@ -1962,27 +1962,31 @@ components:
       - phone_number
     TokenListResponse:
       type: object
-      properties:
-        tokens:
-          type: array
-          items:
-            type: object
-            properties:
-              provider:
-                type: string
-              created_at:
-                type: integer
-                format: int64
-              expires_at:
-                type: integer
-                format: int64
-                nullable: true
-              scopes:
-                type: array
-                items:
+      description: Paginated list of items
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
+          tokens:
+            type: array
+            items:
+              type: object
+              properties:
+                provider:
                   type: string
-      required:
-      - tokens
+                created_at:
+                  type: integer
+                  format: int64
+                expires_at:
+                  type: integer
+                  format: int64
+                  nullable: true
+                scopes:
+                  type: array
+                  items:
+                    type: string
+        required:
+        - tokens
     TokenResponse:
       type: object
       required:
@@ -2259,3 +2263,23 @@ components:
           description: Unique state token for CSRF protection, must be included in the callback
       description: Response containing OAuth provider redirect URL and CSRF state token
       example: *id022
+    PaginatedResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+        page_size:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether more pages are available
+      required:
+      - total
+      - page
+      - page_size
+      - has_more

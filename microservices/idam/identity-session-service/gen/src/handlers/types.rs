@@ -322,13 +322,6 @@ pub struct McpAgent {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct McpAgentListResponse {
-    pub agents: Vec<McpAgent>,
-
-    pub total: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct McpCreateAgentRequest {
     pub description: String,
 
@@ -359,13 +352,6 @@ pub struct McpGetAgentResponse {
     pub name: String,
 
     pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct McpListAgentsResponse {
-    pub agents: Vec<McpAgent>,
-
-    pub total: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -607,6 +593,17 @@ pub struct OpenidConfigurationResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PaginatedResponse {
+    pub has_more: bool,
+
+    pub page: i32,
+
+    pub page_size: i32,
+
+    pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PhoneNumberRequest {
     pub phone_number: String,
 }
@@ -732,11 +729,6 @@ pub struct TokenIssuanceRequest {
     pub scope: String,
 
     pub user_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct TokenListResponse {
-    pub tokens: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

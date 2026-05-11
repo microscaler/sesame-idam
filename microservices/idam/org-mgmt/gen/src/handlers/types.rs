@@ -47,17 +47,6 @@ pub struct Application {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct ApplicationListResponse {
-    pub items: Vec<Application>,
-
-    pub page: i32,
-
-    pub page_size: i32,
-
-    pub total: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AssignPermissionRequest {
     pub permission_id: String,
 }
@@ -388,13 +377,6 @@ pub struct FetchUsersInOrgResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct FetchWebhookSubscriptionsResponse {
-    pub subscriptions: Vec<WebhookSubscription>,
-
-    pub total: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct GetApplicationResponse {
     pub created_at: String,
 
@@ -407,17 +389,6 @@ pub struct GetApplicationResponse {
     pub slug: String,
 
     pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct GetRolePermissionsResponse {
-    pub items: Vec<Permission>,
-
-    pub page: i32,
-
-    pub page_size: i32,
-
-    pub total: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -483,39 +454,6 @@ pub struct InviteUserToOrgResponse {
     pub hint: String,
 
     pub retry_after: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct ListApplicationsResponse {
-    pub items: Vec<Application>,
-
-    pub page: i32,
-
-    pub page_size: i32,
-
-    pub total: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct ListPermissionsResponse {
-    pub items: Vec<Permission>,
-
-    pub page: i32,
-
-    pub page_size: i32,
-
-    pub total: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct ListRolesResponse {
-    pub items: Vec<Role>,
-
-    pub page: i32,
-
-    pub page_size: i32,
-
-    pub total: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -595,8 +533,8 @@ pub struct OrgDomainsRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct OrgListResponse {
-    pub items: Vec<Org>,
+pub struct PaginatedResponse {
+    pub has_more: bool,
 
     pub page: i32,
 
@@ -629,28 +567,6 @@ pub struct Permission {
     pub name: String,
 
     pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct PermissionListResponse {
-    pub items: Vec<Permission>,
-
-    pub page: i32,
-
-    pub page_size: i32,
-
-    pub total: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct QueryOrgsResponse {
-    pub items: Vec<Org>,
-
-    pub page: i32,
-
-    pub page_size: i32,
-
-    pub total: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -709,17 +625,6 @@ pub struct Role {
     pub name: String,
 
     pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct RoleListResponse {
-    pub items: Vec<Role>,
-
-    pub page: i32,
-
-    pub page_size: i32,
-
-    pub total: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1140,13 +1045,6 @@ pub struct WebhookSubscription {
     pub total_deliveries: i32,
 
     pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct WebhookSubscriptionListResponse {
-    pub subscriptions: Vec<WebhookSubscription>,
-
-    pub total: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

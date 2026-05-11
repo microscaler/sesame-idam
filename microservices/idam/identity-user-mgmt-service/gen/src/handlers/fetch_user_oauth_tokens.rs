@@ -18,10 +18,7 @@ pub struct Request {
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {
-    #[serde(rename = "tokens")]
-    pub tokens: Vec<serde_json::Value>,
-}
+pub struct Response {}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;

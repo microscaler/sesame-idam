@@ -1495,17 +1495,20 @@ components:
     McpAgentListResponse:
       type: object
       description: List of MCP agents
-      properties:
-        agents:
-          type: array
-          items:
-            $ref: '#/components/schemas/McpAgent'
-        total:
-          type: integer
-          description: Total number of agents
-      required:
-      - agents
-      - total
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
+          agents:
+            type: array
+            items:
+              $ref: '#/components/schemas/McpAgent'
+          total:
+            type: integer
+            description: Total number of agents
+        required:
+        - agents
+        - total
     McpTokenRequest:
       type: object
       required:
@@ -2158,25 +2161,29 @@ components:
           description: 'Token lifetime in seconds (default: 1 hour)'
     TokenListResponse:
       type: object
-      properties:
-        tokens:
-          type: array
-          items:
-            type: object
-            properties:
-              provider:
-                type: string
-              created_at:
-                type: integer
-                format: int64
-              expires_at:
-                type: integer
-                format: int64
-                nullable: true
-              scopes:
-                type: array
-                items:
+      description: Paginated list of items
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
+          tokens:
+            type: array
+            items:
+              type: object
+              properties:
+                provider:
                   type: string
+                created_at:
+                  type: integer
+                  format: int64
+                expires_at:
+                  type: integer
+                  format: int64
+                  nullable: true
+                scopes:
+                  type: array
+                  items:
+                    type: string
       example:
         oauth_tokens:
         - id: 550e8400-e29b-41d4-a716-446655440001
@@ -2668,3 +2675,23 @@ components:
           type: integer
         has_more:
           type: boolean
+    PaginatedResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+        page_size:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether more pages are available
+      required:
+      - total
+      - page
+      - page_size
+      - has_more

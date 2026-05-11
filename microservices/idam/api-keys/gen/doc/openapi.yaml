@@ -1042,51 +1042,55 @@ components:
       - active
     ApiKeyListResponse:
       type: object
-      properties:
-        keys:
-          type: array
-          items:
-            $ref: '#/components/schemas/ApiKey'
-        total_keys:
-          type: integer
-          description: Total number of active API keys matching the query
-        current_page:
-          type: integer
-          description: Current page number
-        page_size:
-          type: integer
-          description: Number of items per page
-        has_more_results:
-          type: boolean
-          description: Whether additional pages exist
-        sort_order:
-          type: string
-          enum:
-          - created_at_desc
-          - created_at_asc
-          - name_asc
-          - name_desc
-          - last_used_desc
-          - last_used_asc
-          description: The sort order applied to the results
-          default: created_at_desc
-        filters_applied:
-          type: array
-          items:
+      description: Paginated list of items
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
+          keys:
+            type: array
+            items:
+              $ref: '#/components/schemas/ApiKey'
+          total_keys:
+            type: integer
+            description: Total number of active API keys matching the query
+          current_page:
+            type: integer
+            description: Current page number
+          page_size:
+            type: integer
+            description: Number of items per page
+          has_more_results:
+            type: boolean
+            description: Whether additional pages exist
+          sort_order:
             type: string
             enum:
+            - created_at_desc
+            - created_at_asc
+            - name_asc
+            - name_desc
+            - last_used_desc
+            - last_used_asc
+            description: The sort order applied to the results
+            default: created_at_desc
+          filters_applied:
+            type: array
+            items:
+              type: string
+              enum:
+              - active
+              - expired
+              - near_expiry
+              - revoked
+            description: List of filters applied to the query results
+            default:
             - active
-            - expired
-            - near_expiry
-            - revoked
-          description: List of filters applied to the query results
-          default:
-          - active
+        required:
+        - keys
+        - total_keys
+        - page_size
       example: *id021
-      required:
-      - keys
-      - total_keys
-      - page_size
     ApiKeyValidationResponse:
       type: object
       required:
@@ -1196,28 +1200,32 @@ components:
       example: *id023
     ArchivedApiKeyListResponse:
       type: object
-      properties:
-        keys:
-          type: array
-          items:
-            $ref: '#/components/schemas/ArchivedApiKey'
-        total_keys:
-          type: integer
-          description: Total number of archived API keys matching the query
-        current_page:
-          type: integer
-          description: Current page number
-        page_size:
-          type: integer
-          description: Number of items per page
-        has_more_results:
-          type: boolean
-          description: Whether additional pages exist
+      description: Paginated list of items
+      allOf:
+      - $ref: '#/components/schemas/PaginatedResponse'
+      - type: object
+        properties:
+          keys:
+            type: array
+            items:
+              $ref: '#/components/schemas/ArchivedApiKey'
+          total_keys:
+            type: integer
+            description: Total number of archived API keys matching the query
+          current_page:
+            type: integer
+            description: Current page number
+          page_size:
+            type: integer
+            description: Number of items per page
+          has_more_results:
+            type: boolean
+            description: Whether additional pages exist
+        required:
+        - keys
+        - total_keys
+        - page_size
       example: *id024
-      required:
-      - keys
-      - total_keys
-      - page_size
     ImportApiKeysRequest:
       type: object
       required:
@@ -1324,3 +1332,23 @@ components:
       example:
         error: invalid_request
         error_description: Bad request (validation error)
+    PaginatedResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+        page_size:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether more pages are available
+      required:
+      - total
+      - page
+      - page_size
+      - has_more
