@@ -113,6 +113,15 @@ paths:
               example:
                 error: unauthorized
                 error_description: Authentication required
+        '500':
+          description: Internal server error
+          content: &id005
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       parameters:
       - &id003
         name: X-Tenant-ID
@@ -170,6 +179,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete user account, not direct frontend'
   /users/query:
@@ -264,7 +276,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserQueryResponse'
               examples:
-                default: &id005
+                default: &id006
                   summary: Example response 200 for query_users
                   value:
                     users:
@@ -295,7 +307,7 @@ paths:
                     total: 2
                     page: 1
                     limit: 20
-              example: *id005
+              example: *id006
         '400':
           description: Invalid request
           content:
@@ -308,6 +320,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Query/filter users, not direct frontend'
   /users/email:
@@ -345,7 +360,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
               examples:
-                default: &id006
+                default: &id007
                   summary: Example response 200 for fetch_user_by_email
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
@@ -361,7 +376,7 @@ paths:
                     is_active: true
                     created_at: '2024-01-01T00:00:00Z'
                     updated_at: '2024-01-15T10:30:00Z'
-              example: *id006
+              example: *id007
         '404':
           description: Not found
           content:
@@ -374,6 +389,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Lookup user by email, not direct frontend'
   /users/username:
@@ -405,7 +423,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
               examples:
-                default: &id007
+                default: &id008
                   summary: Example response 200 for fetch_user_by_username
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
@@ -421,7 +439,7 @@ paths:
                     is_active: true
                     created_at: '2024-01-01T00:00:00Z'
                     updated_at: '2024-01-15T10:30:00Z'
-              example: *id007
+              example: *id008
         '404':
           description: Not found
           content:
@@ -434,6 +452,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Lookup user by username, not direct frontend'
@@ -476,7 +497,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/EmployeeResponse'
               examples:
-                default: &id008
+                default: &id009
                   summary: Example response 200 for fetch_employee
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
@@ -486,7 +507,7 @@ paths:
                     last_name: Smith
                     department: Engineering
                     title: Senior Developer
-              example: *id008
+              example: *id009
         '404':
           description: Not found
           content:
@@ -499,6 +520,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Fetch user in employee context, not direct frontend'
   /users/{user_id}/disable:
@@ -543,6 +567,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Disable/block user account, not direct frontend'
       x-brrtrouter-impl: true
@@ -588,6 +615,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Enable/unblock user account, not direct frontend'
       x-brrtrouter-impl: true
@@ -633,6 +663,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to logout all sessions for current user
       x-brrtrouter-impl: true
@@ -678,6 +711,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Generate magic link for another user, not direct frontend'
       x-brrtrouter-impl: true
@@ -728,6 +764,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Clear user password (force SSO), not direct frontend'
   /users/{user_id}/email/verify:
@@ -768,6 +807,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify current user email
@@ -810,6 +852,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to resend email verification
@@ -856,6 +901,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to disable MFA for current user
       x-brrtrouter-impl: true
@@ -889,11 +937,11 @@ paths:
             schema:
               $ref: '#/components/schemas/MfaSetupRequest'
             examples:
-              default: &id009
+              default: &id010
                 summary: Example request for setup_user_mfa_totp
                 value:
                   password: SecureP@ss123!
-            example: *id009
+            example: *id010
       responses:
         '200':
           description: TOTP secret generated
@@ -902,7 +950,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/MfaSetupResponse'
               examples:
-                default: &id010
+                default: &id011
                   summary: Example response 200 for setup_user_mfa_totp
                   value:
                     mfa_required: true
@@ -914,7 +962,7 @@ paths:
                     - '11111111'
                     - '22222222'
                     - '33333333'
-              example: *id010
+              example: *id011
         '400':
           description: Invalid password or MFA already configured
           content:
@@ -936,6 +984,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to setup TOTP MFA for current user
       x-brrtrouter-impl: true
@@ -969,12 +1020,12 @@ paths:
             schema:
               $ref: '#/components/schemas/MfaVerifyRequest'
             examples:
-              default: &id011
+              default: &id012
                 summary: Example request for verify_user_mfa
                 value:
                   password: SecureP@ss123!
                   code: '123456'
-            example: *id011
+            example: *id012
       responses:
         '200':
           description: MFA verified
@@ -983,13 +1034,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                default: &id012
+                default: &id013
                   summary: Example response 200 for verify_user_mfa
                   value:
                     mfa_required: false
                     success: true
                     message: MFA verified successfully
-              example: *id012
+              example: *id013
         '400':
           description: Invalid code
           content:
@@ -1011,6 +1062,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify MFA code for current user
       x-brrtrouter-impl: true
@@ -1042,11 +1096,11 @@ paths:
             schema:
               $ref: '#/components/schemas/PhoneNumberRequest'
             examples:
-              default: &id013
+              default: &id014
                 summary: Example request for setup_user_phone
                 value:
                   phone: '+1234567890'
-            example: *id013
+            example: *id014
       responses:
         '200':
           description: Phone number added, SMS code sent
@@ -1071,6 +1125,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to setup phone number for current user
       x-brrtrouter-impl: true
@@ -1099,12 +1156,12 @@ paths:
             schema:
               $ref: '#/components/schemas/PhoneVerificationRequest'
             examples:
-              default: &id014
+              default: &id015
                 summary: Example request for verify_user_phone
                 value:
                   phone: '+1234567890'
                   code: '654321'
-            example: *id014
+            example: *id015
       responses:
         '200':
           description: Phone number verified
@@ -1129,6 +1186,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify phone number for current user
       x-brrtrouter-impl: true
@@ -1153,11 +1213,11 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateEmailRequest'
             examples:
-              default: &id015
+              default: &id016
                 summary: Example request for update_user_email
                 value:
                   email: alice.j@example.com
-            example: *id015
+            example: *id016
       responses:
         '200':
           description: Email updated
@@ -1182,6 +1242,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to update current user email
@@ -1221,12 +1284,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/LinkSocialAccountResponse'
               examples:
-                default: &id016
+                default: &id017
                   summary: Example for link_social_account 200
-                  value: &id021
+                  value: &id022
                     redirect_url: https://github.com/login/oauth/authorize?client_id=abc
                     state: csrf-token-xyz
-              example: *id016
+              example: *id017
         '400':
           description: Bad Request - Invalid provider or user_id
           content:
@@ -1245,6 +1308,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to link social account to current user
       x-brrtrouter-impl: true
@@ -1278,7 +1344,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenListResponse'
               examples:
-                default: &id017
+                default: &id018
                   summary: Example response 200 for fetch_user_oauth_tokens
                   value:
                     oauth_tokens:
@@ -1294,10 +1360,13 @@ paths:
                       scope: email,profile
                       created_at: '2024-01-12T00:00:00Z'
                       expires_at: '2024-07-12T00:00:00Z'
-              example: *id017
+              example: *id018
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to fetch OAuth tokens for current user
@@ -1340,16 +1409,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthTokenResponse'
               examples:
-                default: &id018
+                default: &id019
                   summary: Example response 200 for fetch_fresh_oauth_token
                   value:
                     token: gho_new123abc456
                     provider: github
                     expires_in: 3600
-              example: *id018
+              example: *id019
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to fetch fresh OAuth token for current user
   /users/migrate:
@@ -1372,12 +1444,12 @@ paths:
             schema:
               $ref: '#/components/schemas/MigrateUserRequest'
             examples:
-              default: &id019
+              default: &id020
                 summary: Example request for migrate_user
                 value:
                   source_provider: legacy
                   source_user_id: LEG-001
-            example: *id019
+            example: *id020
       responses:
         '201':
           description: User migrated
@@ -1386,14 +1458,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
               examples:
-                default: &id020
+                default: &id021
                   summary: Example response 201 for migrate_user
                   value:
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                     migrated: true
                     email: alice@example.com
                     migrated_at: '2024-01-15T10:30:00Z'
-              example: *id020
+              example: *id021
         '400':
           description: Invalid request
           content:
@@ -1406,6 +1478,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       parameters:
       - *id003
       x-consumer: backend-service
@@ -1445,6 +1520,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       parameters:
       - *id003
       x-consumer: backend-service
@@ -1481,6 +1559,9 @@ paths:
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
           content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
       parameters:
       - *id003
       x-consumer: frontend
@@ -2164,4 +2245,4 @@ components:
           type: string
           description: Unique state token for CSRF protection, must be included in the callback
       description: Response containing OAuth provider redirect URL and CSRF state token
-      example: *id021
+      example: *id022
