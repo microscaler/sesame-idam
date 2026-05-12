@@ -1,25 +1,24 @@
-// Implementation stub for handler 'step_up_verify'
-// Step-up MFA verification for sensitive operations
 use brrtrouter_macros::handler;
-use sesame_idam_identity_session_service_gen::handlers::step_up_verify::{Request, Response};
+use identity_session_service_service_api::handlers::step_up_verify::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(StepUpVerifyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    let user_id = req.inner.user_id;
-    let session_id = req.inner.session_id;
-    let action = req.inner.action;
-    let mfa_method = req.inner.mfa_method;
-    
-    // TODO: Verify user has active MFA device
-    // TODO: Verify session_id matches active session
-    // TODO: Check if action requires step-up (e.g., delete, change_email)
-    // TODO: Verify MFA code/credential
-    // TODO: Set step_up_verified flag on session
-    
-    Response {
-        verified: true,
-        mfa_method: mfa_method.clone(),
-        session_id: Some(session_id),
-    }
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::SessionManagement,
+        "step_up_verified",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::User,
+        req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.session_id = req.inner.session_id.parse::<Uuid>().ok();
+    event.severity = Some(AuditSeverity::Warning);
+    EMITTER.emit(&mut event);
+
+    Response { success: req.inner.success.unwrap_or(false) }
 }

@@ -1301,7 +1301,7 @@ paths:
               examples:
                 default: &id017
                   summary: Example for link_social_account 200
-                  value: &id022
+                  value: &id023
                     redirect_url: https://github.com/login/oauth/authorize?client_id=abc
                     state: csrf-token-xyz
               example: *id017
@@ -1730,6 +1730,15 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
+      parameters:
+      - &id022
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+          description: Tenant identifier for multi-tenant isolation
   /audit/user/{user_id}/events/count:
     get:
       tags:
@@ -1758,6 +1767,7 @@ paths:
           type: string
           format: date-time
         description: End time (ISO 8601)
+      - *id022
       responses:
         '200':
           description: Event count for user
@@ -1836,6 +1846,7 @@ paths:
           type: string
           format: uuid
         description: User ID to export events for
+      - *id022
       responses:
         '200':
           description: Export job created
@@ -2592,7 +2603,7 @@ components:
             the callback
       description: Response containing OAuth provider redirect URL and CSRF state
         token
-      example: *id022
+      example: *id023
     PaginatedResponse:
       type: object
       properties:
@@ -2616,7 +2627,7 @@ components:
     AuditEventType:
       description: Classification of audit event categories
       type: string
-      enum: &id023
+      enum: &id024
       - authentication
       - authorization
       - user_management
@@ -2630,7 +2641,7 @@ components:
     AuditSeverity:
       description: Severity level of the audit event
       type: string
-      enum: &id025
+      enum: &id026
       - info
       - warning
       - error
@@ -2640,7 +2651,7 @@ components:
     AuditActor:
       description: Who performed the action
       type: string
-      enum: &id024
+      enum: &id025
       - user
       - system
       - admin
@@ -2666,7 +2677,7 @@ components:
           type: string
         event_type:
           type: string
-          enum: *id023
+          enum: *id024
           description: Classification of audit event categories
           example: authentication
         event_action:
@@ -2686,7 +2697,7 @@ components:
           type: string
         actor:
           type: string
-          enum: *id024
+          enum: *id025
           description: Who performed the action
           example: user
         target_id:
@@ -2698,7 +2709,7 @@ components:
           type: string
         severity:
           type: string
-          enum: *id025
+          enum: *id026
           description: Severity level of the audit event
           example: warning
         metadata:

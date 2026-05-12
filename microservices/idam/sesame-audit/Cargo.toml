@@ -1,0 +1,17 @@
+[package]
+name = "sesame-audit"
+version.workspace = true
+edition.workspace = true
+description = "Shared audit event emission interface for Sesame-IDAM microservices"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+uuid = { version = "1.14", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+arc-swap = { workspace = true }
+tracing = "0.1"
+anyhow = { workspace = true }
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"

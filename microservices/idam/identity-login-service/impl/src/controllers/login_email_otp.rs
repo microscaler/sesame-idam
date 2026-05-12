@@ -1,30 +1,30 @@
-
-// Implementation stub for handler 'login_email_otp'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path login_email_otp --force
-
 use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::login_email_otp::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
-
-
 #[handler(LoginEmailOtpController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let email = req.inner.email;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
-    Response {
-        message: None, // TODO: Set from your business logic
-        success: None, // TODO: Set from your business logic
-    }
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    // TODO: Look up user by email
+    // TODO: If user not found, still return success (prevent email enumeration)
+    // TODO: Generate 6-digit OTP
+    // TODO: Store OTP in Redis with 5min TTL
+    // TODO: Send OTP via SES/SendGrid email
+    // TODO: Log login_failure audit event if user doesn't exist
+
+    let mut event = AuditEvent::new(
+        AuditEventType::Authentication,
+        "email_otp_sent",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::User,
+        req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
+    );
+    event.metadata = serde_json::json!({ "email": req.inner.email }).into();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
+    Response { success: Some(true), message: Some("Verification code sent to your email".to_string()) }
 }

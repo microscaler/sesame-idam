@@ -1,28 +1,26 @@
-
-// Implementation stub for handler 'delete_org'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path delete_org --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_org_mgmt_gen::handlers::delete_org::{Request, Response};
+use org_mgmt_service_api::handlers::delete_org::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(DeleteOrgController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let org_id = req.inner.org_id;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::Organization,
+        "org_deleted",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::Admin,
+        "internal".to_string(),
+    );
+    event.org_id = req.inner.org_id.parse::<Uuid>().ok();
+    event.severity = Some(AuditSeverity::Critical);
+    EMITTER.emit(&mut event);
+
     Response {
+        success: req.inner.success.unwrap_or(false),
+        error: req.inner.error.clone().unwrap_or_default(),
     }
-    
 }

@@ -1,34 +1,27 @@
-
-// Implementation stub for handler 'create_role'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path create_role --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_org_mgmt_gen::handlers::create_role::{Request, Response};
+use org_mgmt_service_api::handlers::create_role::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(CreateRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let description = req.inner.description;// let name = req.inner.name;// let app_id = req.inner.app_id;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::Organization,
+        "role_created",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::Admin,
+        "internal".to_string(),
+    );
+    event.org_id = req.inner.org_id.parse::<Uuid>().ok();
+    event.metadata = serde_json::json!({ "role": req.inner.role }).into();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
     Response {
-        application_id: "example".to_string(), // TODO: Set from your business logic
-        created_at: "example".to_string(), // TODO: Set from your business logic
-        description: None, // TODO: Set from your business logic
-        id: "example".to_string(), // TODO: Set from your business logic
-        name: "example".to_string(), // TODO: Set from your business logic
-        updated_at: None, // TODO: Set from your business logic
+        success: req.inner.success.unwrap_or(false),
+        error: req.inner.error.clone().unwrap_or_default(),
     }
-    
 }

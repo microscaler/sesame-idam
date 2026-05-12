@@ -1,28 +1,26 @@
-
-// Implementation stub for handler 'revoke_principal_role'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path revoke_principal_role --force
-
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::revoke_principal_role::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
-
-
 #[handler(RevokePrincipalRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let app_id = req.inner.app_id;// let role = req.inner.role;// let user_id = req.inner.user_id;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
-    Response {
+    use crate::audit::EMITTER;
+    use sesame_audit::events;
+
+    // Emit audit event: role revocation
+    if let (Ok(tenant_id), Ok(org_id), Ok(user_id), Ok(app_id)) = (
+        req.inner.tenant_id.parse(),
+        req.inner.org_id.as_deref().and_then(|s| s.parse().ok()),
+        req.inner.user_id.parse(),
+        req.inner.app_id.parse(),
+    ) {
+        events::role_revoked(&EMITTER, tenant_id, org_id, user_id, app_id, &req.inner.role);
     }
-    
+
+    // In a production implementation, this would:
+    // 1. Remove the role assignment from the database
+    // 2. Invalidate cached effective permissions
+    // 3. Force re-evaluation on next authorization check
+
+    Response {}
 }

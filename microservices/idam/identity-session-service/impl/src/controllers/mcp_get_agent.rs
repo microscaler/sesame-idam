@@ -1,20 +1,27 @@
-// Implementation stub for handler 'mcp_get_agent'
-// Get MCP agent by ID
 use brrtrouter_macros::handler;
-use sesame_idam_identity_session_service_gen::handlers::mcp_get_agent::{Request, Response};
+use identity_session_service_service_api::handlers::mcp_get_agent::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(McpGetAgentController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    let api_key = req.inner.api_key;
-    
-    // TODO: Validate API key
-    // TODO: Fetch agent by ID
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::SessionManagement,
+        "mcp_agent_accessed",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::User,
+        req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.metadata = serde_json::json!({ "agent_id": req.inner.agent_id }).into();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
     Response {
-        agent_id: "agent-xxx".to_string(),
-        name: "example-agent".to_string(),
-        description: None,
-        created_at: "2026-01-01T00:00:00Z".to_string(),
+        success: req.inner.success.unwrap_or(false),
+        error: req.inner.error.clone().unwrap_or_default(),
     }
 }

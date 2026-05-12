@@ -1,29 +1,31 @@
-
-// Implementation stub for handler 'validate_personal_api_key'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path validate_personal_api_key --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_api_keys_gen::handlers::validate_personal_api_key::{Request, Response};
+use api_keys_service_api::handlers::validate_personal_api_key::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(ValidatePersonalApiKeyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let api_key = req.inner.api_key;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::ApiKey,
+        "personal_api_key_validated",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::ApiKey,
+        "internal".to_string(),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.metadata = serde_json::json!({ "valid": req.inner.valid }).into();
+    event.severity = if req.inner.valid.unwrap_or(false) {
+        Some(AuditSeverity::Info)
+    } else {
+        Some(AuditSeverity::Warning)
+    };
+    EMITTER.emit(&mut event);
+
     Response {
-        is_personal: true, // TODO: Set from your business logic
+        valid: req.inner.valid.unwrap_or(false),
+        error: req.inner.error.clone().unwrap_or_default(),
     }
-    
 }

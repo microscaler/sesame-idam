@@ -1,30 +1,18 @@
-
-// Implementation stub for handler 'login_phone_otp'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path login_phone_otp --force
-
 use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::login_phone_otp::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
-
-
 #[handler(LoginPhoneOtpController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let phone = req.inner.phone;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
-    Response {
-        message: None, // TODO: Set from your business logic
-        success: None, // TODO: Set from your business logic
-    }
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    // TODO: Look up user by phone number
+    // TODO: Generate 6-digit OTP
+    // TODO: Store OTP in Redis with 5min TTL
+    // TODO: Send OTP via Twilio SMS
+    // TODO: Rate limit: max 3 attempts per 5 minutes per phone
+
+    Response { success: Some(true), message: Some("Verification code sent to your phone".to_string()) }
 }
