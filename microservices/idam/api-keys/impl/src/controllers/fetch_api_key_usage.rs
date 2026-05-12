@@ -1,30 +1,27 @@
-
-// Implementation stub for handler 'fetch_api_key_usage'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path fetch_api_key_usage --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_api_keys_gen::handlers::fetch_api_key_usage::{Request, Response};
+use api_keys_service_api::handlers::fetch_api_key_usage::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(FetchApiKeyUsageController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let api_key_id = req.inner.api_key_id;// let user_id = req.inner.user_id;// let org_id = req.inner.org_id;// let date = req.inner.date;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::ApiKey,
+        "api_key_usage_accessed",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::User,
+        "internal".to_string(),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.metadata = serde_json::json!({ "api_key_id": req.inner.api_key_id }).into();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
     Response {
-        date: None, // TODO: Set from your business logic
-        total_validations: None, // TODO: Set from your business logic
+        success: req.inner.success.unwrap_or(false),
+        error: req.inner.error.clone().unwrap_or_default(),
     }
-    
 }

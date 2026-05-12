@@ -1,24 +1,23 @@
-// Implementation stub for handler 'admin_restore_impersonation'
-// Restore admin session after impersonation
 use brrtrouter_macros::handler;
-use sesame_idam_identity_session_service_gen::handlers::admin_restore_impersonation::{Request, Response};
+use identity_session_service_service_api::handlers::admin_restore_impersonation::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(AdminRestoreImpersonationController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    let admin_user_id = req.inner.admin_user_id;
-    
-    // TODO: Verify user is currently impersonating
-    // TODO: Restore original admin session from Redis
-    // TODO: Revoke impersonation session
-    // TODO: Return admin tokens
-    
-    Response {
-        user_id: admin_user_id,
-        session_id: "admin-session-id".to_string(),
-        access_token: "admin-jwt".to_string(),
-        refresh_token: "admin-refresh".to_string(),
-        is_impersonation: false,
-        impersonated_by: None,
-    }
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::SessionManagement,
+        "impersonation_restored",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::Admin,
+        "internal".to_string(),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.severity = Some(AuditSeverity::Warning);
+    EMITTER.emit(&mut event);
+
+    Response { success: req.inner.success.unwrap_or(false) }
 }

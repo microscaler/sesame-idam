@@ -1,46 +1,26 @@
-
-// Implementation stub for handler 'users_me_patch'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path users_me_patch --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_identity_session_service_gen::handlers::users_me_patch::{Request, Response};
+use identity_session_service_service_api::handlers::users_me_patch::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(UsersMePatchController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let first_name = req.inner.first_name;// let last_name = req.inner.last_name;// let name = req.inner.name;// let picture_url = req.inner.picture_url;// let preferred_username = req.inner.preferred_username;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::UserManagement,
+        "user_profile_updated",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::User,
+        req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
     Response {
-        email: None, // TODO: Set from your business logic
-        email_verified: None, // TODO: Set from your business logic
-        first_name: None, // TODO: Set from your business logic
-        last_name: None, // TODO: Set from your business logic
-        name: None, // TODO: Set from your business logic
-        org_id: None, // TODO: Set from your business logic
-        org_name: None, // TODO: Set from your business logic
-        phone_number: None, // TODO: Set from your business logic
-        phone_verified: None, // TODO: Set from your business logic
-        picture_url: None, // TODO: Set from your business logic
-        preferred_username: None, // TODO: Set from your business logic
-        properties: None, // TODO: Set from your business logic
-        sub: None, // TODO: Set from your business logic
-        updated_at: None, // TODO: Set from your business logic
-        user_id: None, // TODO: Set from your business logic
-        user_permissions: None, // TODO: Set from your business logic
-        user_role: None, // TODO: Set from your business logic
-        username: None, // TODO: Set from your business logic
+        error: req.inner.error.clone().unwrap_or_default(),
+        success: req.inner.success.unwrap_or(false),
     }
-    
 }

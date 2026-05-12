@@ -11,6 +11,9 @@ use std::convert::TryFrom;
 pub struct Request {
     #[serde(rename = "export_id")]
     pub export_id: String,
+
+    #[serde(rename = "X-Tenant-ID")]
+    pub x_tenant_id: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -51,6 +54,17 @@ impl TryFrom<HandlerRequest> for Request {
             );
         } else {
             return Err(anyhow::anyhow!("Missing required parameter 'export_id'"));
+        }
+
+        if let Some(v) = req.get_header("x-tenant-id") {
+            data_map.insert(
+                "X-Tenant-ID".to_string(),
+                brrtrouter::server::request::decode_param_value(
+                    v,Some(&serde_json::json!({"description":"Tenant identifier for multi-tenant isolation","format":"uuid","type":"string"})),None,None,
+                ),
+            );
+        } else {
+            return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
         }
 
         if let Some(body) = req.body {

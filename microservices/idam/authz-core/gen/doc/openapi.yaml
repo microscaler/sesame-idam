@@ -377,6 +377,15 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
+      parameters:
+      - &id007
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+          description: Tenant identifier for multi-tenant isolation
     get:
       tags:
       - Audit
@@ -421,6 +430,7 @@ paths:
           type: string
           format: date-time
         description: End time filter (ISO 8601)
+      - *id007
       responses:
         '200':
           description: Paginated audit events
@@ -478,6 +488,7 @@ paths:
           type: string
           format: uuid
         description: Event identifier
+      - *id007
       responses:
         '200':
           description: Audit event details
@@ -590,6 +601,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
+      parameters:
+      - *id007
   /audit/export:
     post:
       tags:
@@ -645,6 +658,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
+      parameters:
+      - *id007
   /audit/export/{export_id}:
     get:
       tags:
@@ -661,6 +676,7 @@ paths:
           type: string
           format: uuid
         description: Export job identifier
+      - *id007
       responses:
         '200':
           description: Export status
@@ -744,6 +760,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
+      parameters:
+      - *id007
     post:
       tags:
       - Audit
@@ -819,6 +837,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
+      parameters:
+      - *id007
   /audit/retention/{id}:
     patch:
       tags:
@@ -834,6 +854,7 @@ paths:
           type: string
           format: uuid
         description: Policy identifier
+      - *id007
       requestBody:
         required: true
         content:
@@ -899,6 +920,7 @@ paths:
           type: string
           format: uuid
         description: Policy identifier
+      - *id007
       responses:
         '204':
           description: Policy deleted

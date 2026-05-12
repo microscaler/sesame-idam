@@ -1,31 +1,34 @@
-
-// Implementation stub for handler 'setup_user_mfa_totp'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path setup_user_mfa_totp --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_identity_user_mgmt_service_gen::handlers::setup_user_mfa_totp::{Request, Response};
+use identity_user_mgmt_service_service_api::handlers::setup_user_mfa_totp::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(SetupUserMfaTotpController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let name = req.inner.name;// let password = req.inner.password;// let user_id = req.inner.user_id;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::UserManagement,
+        "mfa_enrolled",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::User,
+        req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
+    // TODO: Generate TOTP secret (RFC 4226)
+    // TODO: Store encrypted secret in user_mfa_devices table
+    // TODO: Return QR code URI for the user to scan with authenticator app
     
     Response {
-        provisioning_uri: None, // TODO: Set from your business logic
-        secret: None, // TODO: Set from your business logic
-        user_id: None, // TODO: Set from your business logic
+        provisioning_uri: format!(
+            "otpauth://totp/{}:{}",
+            "sesame-idam",
+            req.inner.user_id
+        ),
+        secret: Some("TOTP_SECRET_PLACEHOLDER".to_string()),
     }
-    
 }

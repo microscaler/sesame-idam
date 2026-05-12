@@ -20,13 +20,13 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "searchAuditEvents",
         crate::controllers::searchAuditEvents::SearchAuditEventsController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "getAuditStats",
         crate::controllers::getAuditStats::GetAuditStatsController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -38,7 +38,7 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "exportAuditEvents",
         crate::controllers::exportAuditEvents::ExportAuditEventsController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -50,13 +50,13 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "listRetentionPolicies",
         crate::controllers::listRetentionPolicies::ListRetentionPoliciesController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "createRetentionPolicy",
         crate::controllers::createRetentionPolicy::CreateRetentionPolicyController,
-        16384,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -130,7 +130,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "searchAuditEvents" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::searchAuditEvents::SearchAuditEventsController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -138,7 +138,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "getAuditStats" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::getAuditStats::GetAuditStatsController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -154,7 +154,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "exportAuditEvents" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::exportAuditEvents::ExportAuditEventsController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -170,7 +170,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "listRetentionPolicies" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::listRetentionPolicies::ListRetentionPoliciesController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -178,7 +178,7 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "createRetentionPolicy" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::createRetentionPolicy::CreateRetentionPolicyController,
-                    16384,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

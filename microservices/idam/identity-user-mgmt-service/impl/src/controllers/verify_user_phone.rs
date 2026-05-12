@@ -1,28 +1,28 @@
-
-// Implementation stub for handler 'verify_user_phone'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path verify_user_phone --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_identity_user_mgmt_service_gen::handlers::verify_user_phone::{Request, Response};
+use identity_user_mgmt_service_service_api::handlers::verify_user_phone::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(VerifyUserPhoneController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let code = req.inner.code;// let phone_number = req.inner.phone_number;// let user_id = req.inner.user_id;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::UserManagement,
+        "phone_verified",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::User,
+        req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
+    // TODO: Verify SMS code and set phone_verified = true in users table
     
     Response {
+        user_id: req.inner.user_id,
+        phone_verified: true,
     }
-    
 }

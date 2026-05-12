@@ -22,6 +22,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
+sesame_audit = { package = "sesame-audit", path = "idam/sesame-audit" }
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
 brrtrouter = { path = "../../BRRTRouter", default-features = false }
 brrtrouter_macros = { path = "../../BRRTRouter/brrtrouter_macros" }

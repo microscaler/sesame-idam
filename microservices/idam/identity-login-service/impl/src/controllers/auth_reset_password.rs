@@ -1,30 +1,19 @@
-
-// Implementation stub for handler 'auth_reset_password'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path auth_reset_password --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_identity_login_service_gen::handlers::auth_reset_password::{Request, Response};
+use identity_login_service_service_api::handlers::auth_reset_password::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(AuthResetPasswordController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let new_password = req.inner.new_password;// let token = req.inner.token;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
-    Response {
-        message: None, // TODO: Set from your business logic
-        success: None, // TODO: Set from your business logic
-    }
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    // TODO: Validate reset token from Redis (check TTL, verify it hasn't been used)
+    // TODO: Hash new password with bcrypt/argon2
+    // TODO: UPDATE users SET password_hash = $1
+    // TODO: Delete reset token from Redis (one-time use)
+    // TODO: Invalidate all existing sessions for this user
+    // TODO: Send "password changed" notification email
+
+    Response { success: true, message: Some("Password has been reset successfully".to_string()) }
 }

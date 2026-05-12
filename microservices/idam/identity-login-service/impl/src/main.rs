@@ -4,11 +4,18 @@
 // You can modify this file freely - it will NOT be auto-regenerated.
 
 use identity_login_service_service_api::registry;
+mod audit;
+
 use brrtrouter::dispatcher::Dispatcher;
+
 use brrtrouter::middleware::MetricsMiddleware;
+
 use brrtrouter::router::Router;
+
 use brrtrouter::runtime_config::RuntimeConfig;
+
 use brrtrouter::server::AppService;
+
 use brrtrouter::server::HttpServer;
 use clap::Parser;
 use std::io;

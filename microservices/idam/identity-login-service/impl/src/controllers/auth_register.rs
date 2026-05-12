@@ -1,38 +1,36 @@
-
 // Implementation stub for handler 'auth_register'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path auth_register --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_identity_login_service_gen::handlers::auth_register::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
+use sesame_idam_identity_login_service_gen::handlers::auth_register::{Request, Response};
 
 #[handler(AuthRegisterController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let email = req.inner.email;// let first_name = req.inner.first_name;// let last_name = req.inner.last_name;// let password = req.inner.password;// let phone = req.inner.phone;// let username = req.inner.username;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let user_id = Uuid::new_v7();
+
+    // TODO: Validate password strength (min length, complexity)
+    // TODO: Hash password with bcrypt/argon2
+    // TODO: INSERT INTO users (tenant_id, email, username, password_hash)
+    // TODO: Check if email is already in use (return 409 Conflict)
+    // TODO: Send email confirmation
+    // TODO: Issue access_token + refresh_token
+    // TODO: Emit user_created audit event
+
     Response {
-        access_token: "example".to_string(), // TODO: Set from your business logic
-        email: None, // TODO: Set from your business logic
-        email_verified: None, // TODO: Set from your business logic
-        expires_in: 42, // TODO: Set from your business logic
-        mfa_required: None, // TODO: Set from your business logic
-        phone_verified: None, // TODO: Set from your business logic
-        refresh_token: "example".to_string(), // TODO: Set from your business logic
-        refresh_token_expires_in: None, // TODO: Set from your business logic
-        token_type: "example".to_string(), // TODO: Set from your business logic
-        user_id: "example".to_string(), // TODO: Set from your business logic
+        access_token: format!("access_{}", Uuid::new_v4()),
+        token_type: "Bearer".to_string(),
+        expires_in: 3600,
+        refresh_token: format!("refresh_{}", Uuid::new_v4()),
+        refresh_token_expires_in: Some(86400),
+        user_id: user_id.to_string(),
+        email: Some(req.inner.email),
+        email_verified: Some(false),
+        phone_verified: None,
+        mfa_required: Some(false),
+        id_token: None,
+        scope: "".to_string(),
     }
-    
 }

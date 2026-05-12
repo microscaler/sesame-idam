@@ -1,35 +1,28 @@
-
-// Implementation stub for handler 'login_dual_otp'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path login_dual_otp --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_identity_login_service_gen::handlers::login_dual_otp::{Request, Response};
+use identity_login_service_service_api::handlers::login_dual_otp::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(LoginDualOtpController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let email = req.inner.email;// let phone = req.inner.phone;// let send_welcome_email = req.inner.send_welcome_email;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::Authentication,
+        "dual_otp_login_success",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::User,
+        req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.session_id = req.inner.session_id.parse::<Uuid>().ok();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
     Response {
-        both_verified: None, // TODO: Set from your business logic
-        email_sent: true, // TODO: Set from your business logic
-        email_verified: None, // TODO: Set from your business logic
-        message: None, // TODO: Set from your business logic
-        phone_sent: true, // TODO: Set from your business logic
-        phone_verified: None, // TODO: Set from your business logic
-        success: true, // TODO: Set from your business logic
+        success: req.inner.success.unwrap_or(false),
+        error: req.inner.error.clone().unwrap_or_default(),
+        session_id: req.inner.session_id.clone().unwrap_or_default(),
     }
-    
 }

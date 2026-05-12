@@ -1,28 +1,27 @@
-
-// Implementation stub for handler 'delete_api_key'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path delete_api_key --force
-
 use brrtrouter_macros::handler;
-use sesame_idam_api_keys_gen::handlers::delete_api_key::{Request, Response};
+use api_keys_service_api::handlers::delete_api_key::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
-
-
 
 #[handler(DeleteApiKeyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let key_id = req.inner.key_id;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::ApiKey,
+        "api_key_deleted",
+        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::ApiKey,
+        "internal".to_string(),
+    );
+    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.metadata = serde_json::json!({ "api_key_id": req.inner.api_key_id }).into();
+    event.severity = Some(AuditSeverity::Warning);
+    EMITTER.emit(&mut event);
+
     Response {
+        success: req.inner.success.unwrap_or(false),
+        error: req.inner.error.clone().unwrap_or_default(),
     }
-    
 }
