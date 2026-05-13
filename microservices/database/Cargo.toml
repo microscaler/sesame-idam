@@ -1,0 +1,8 @@
+[package]
+name = "sesame_idam_database"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lifeguard = { workspace = true }
+tracing = "0.1"

@@ -17,6 +17,16 @@ default = []
 jemalloc = ["tikv-jemallocator"]
 
 [dependencies]
+# Lifeguard ORM
+lifeguard = { workspace = true }
+lifeguard-derive = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+rust_decimal = { workspace = true }
+
+# Database layer
+sesame_idam_database = { path = "../../../database" }
+
 org_mgmt_service_api = { path = "../gen" }
 
 brrtrouter = { workspace = true }

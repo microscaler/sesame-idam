@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    # Database layer (shared across all services)
+    "database",
     # IDAM microservices — gen crates (generated types + handlers)
     "idam/identity-login-service/gen",
     "idam/identity-login-service/impl",
@@ -41,3 +43,14 @@ anyhow = "1.0"
 arc-swap = "1.7"
 clap = { version = "4.5", features = ["derive"] }
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
+
+# Database
+lifeguard = { path = "../../lifeguard" }
+lifeguard-derive = { path = "../../lifeguard/lifeguard-derive" }
+lifeguard-migrate = { path = "../../lifeguard/lifeguard-migrate" }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+
+# Decimal types from OpenAPI format: decimal / money
+rust_decimal = { version = "1.33", features = ["serde-float", "db-postgres"] }
+sea-query = { version = "1.0.0-rc.29", features = ["with-json"] }
