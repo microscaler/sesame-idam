@@ -12,17 +12,19 @@
 //!
 //! Usage:
 //! ```rust
+//! use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity, AuditEmitter};
+//! use uuid::Uuid;
+//!
 //! let emitter = AuditEmitter::new(Some(b"my-secret-key"));
-//! emitter.emit(&AuditEvent {
-//!     event_type: AuditEventType::Authentication,
-//!     event_action: "login_success".into(),
-//!     tenant_id: some_uuid,
-//!     user_id: Some(user_uuid),
-//!     actor: AuditActor::User,
-//!     severity: AuditSeverity::Info,
-//!     ip_address: "192.168.1.1".into(),
-//!     ..Default::default()
-//! });
+//! let tenant_id = Uuid::new_v4();
+//! let mut event = AuditEvent::new(
+//!     AuditEventType::Authentication,
+//!     "login_success",
+//!     tenant_id,
+//!     AuditActor::User,
+//!     "192.168.1.1",
+//! );
+//! emitter.emit(&mut event);
 //! ```
 
 pub use chrono::{DateTime, Utc};
