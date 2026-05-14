@@ -1,0 +1,41 @@
+fix(seasame-idam): complete Phase 0 & 1 remediation -- Tiltfile, codegen, OpenAPI, docs
+
+Phase 0 -- Tiltfile Rewrite:
+- Complete Tiltfile rewrite from hauliage pattern with hardcoded service discovery
+- Fixed all spec path refs: openapi/idam/<service>/openapi.yaml (file, not directory)
+- Fixed lint deps to reference correct YAML file paths
+- Added sesame-idam CLI shim for gen/build delegation
+- Created docker/base/Dockerfile + dev-entrypoint.sh (Alpine 3.23 + hot-reload)
+- Created docker/microservices/Dockerfile.template
+- Created openapi/idam/bff-suite-config.yaml (6 services + ports)
+- Cleaned helm/sesame-idam-microservice/values (removed stale files, fixed typos)
+
+Phase 1 -- Package Naming Fix (CRITICAL):
+- Renamed all 6 gen crate package names to match impl dependency names:
+  - identity-login: login_service -> identity_login_service_service_api
+  - identity-session: session_service -> identity_session_service_service_api
+  - identity-user-mgmt: user_management_service -> identity_user_mgmt_service_service_api
+  - authz-core: authorization_core_service__authz_core -> authz_core_service_api
+  - api-keys: api_key_service -> api_keys_service_api
+  - org-mgmt: organization_management_service -> org_mgmt_service_api
+- Result: cargo check --workspace passes with 0 errors
+
+OpenAPI Lint Fixes:
+- authz-core: 10 operationId camelCase to snake_case + added missing PaginatedResponse schema
+- identity-user-mgmt-service: 3 operationId camelCase to snake_case
+
+Build Infrastructure Cleanup:
+- Updated all 6 service impl main.rs to use correct gen crate imports
+- Updated all 6 service gen registry.rs to use snake_case controller names
+
+Documentation:
+- 5 new wiki pages: package-naming-convention, build-infrastructure,
+  tiltfile-architecture, tooling-architecture, remediation-plan
+- Updated 2 wiki pages: architecture-overview, brrtrouter-codegen
+- Updated index.md, log.md with comprehensive session history
+- Added PRD-SEASAME-AUDIT-REMEDIATION.md (source document)
+- Updated AGENTS.md
+
+Note: Tiltfile changes are written but the Tiltfile build is still broken
+via tilt (not yet validated with tilt up). The Tiltfile itself is syntactically
+valid Starlark, but the full end-to-end tilt pipeline has not been tested.
