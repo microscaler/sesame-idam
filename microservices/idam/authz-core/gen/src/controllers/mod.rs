@@ -3,25 +3,25 @@
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
 
-pub mod listAuditEvents;
+pub mod list_audit_events;
 
-pub mod searchAuditEvents;
+pub mod search_audit_events;
 
-pub mod getAuditStats;
+pub mod get_audit_stats;
 
-pub mod getAuditEvent;
+pub mod get_audit_event;
 
-pub mod exportAuditEvents;
+pub mod export_audit_events;
 
-pub mod checkExportStatus;
+pub mod check_export_status;
 
-pub mod listRetentionPolicies;
+pub mod list_retention_policies;
 
-pub mod createRetentionPolicy;
+pub mod create_retention_policy;
 
-pub mod deleteRetentionPolicy;
+pub mod delete_retention_policy;
 
-pub mod updateRetentionPolicy;
+pub mod update_retention_policy;
 
 pub mod authorize;
 

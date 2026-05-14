@@ -35,9 +35,9 @@ spec:
             - name: RUST_BACKTRACE
               value: {{ .Values.env.RUST_BACKTRACE | quote }}
             - name: BRRTR_LOG_FORMAT
-              value: {{ .Values.env.BRTR_LOG_FORMAT | quote }}
+              value: {{ .Values.env.BRRTR_LOG_FORMAT | quote }}
             - name: BRRTR_STACK_SIZE
-              value: {{ .Values.env.BRTR_STACK_SIZE | quote }}
+              value: {{ .Values.env.BRRTR_STACK_SIZE | quote }}
           livenessProbe:
             httpGet:
               path: /health

@@ -1,15 +1,17 @@
 ---
 title: Architecture Overview
-status: partially-verified
-updated: 2026-01-22
-sources: [design-doc.md, service-topology-design.md, sesame-idam-complete.md]
+status: verified
+updated: 2026-05-14
+sources: [PRD-SEASAME-AUDIT-REMEDIATION.md, design-doc.md, service-topology-design.md, sesame-idam-complete.md]
 ---
 
 # Architecture Overview
 
 ## Six Independent Rust Microservices
 
-Sesame-IDAM is NOT a monolith. It is **six independent services** split by access frequency and per-request cost. Total: **119 endpoints, 26 tags**.
+Sesame-IDAM is NOT a monolith. It is **six independent services** split by access frequency and per-request cost. Total: **133 endpoints, 26 tags**.
+
+> **Note:** Endpoint count was 119, updated to 133 per PRD-SEASAME-AUDIT-REMEDIATION.md. The existing wiki pages (entities, topics, references) were based on the old count and should be re-verified against the current OpenAPI specs.
 
 | Service | Port | Frequency | Cost | Endpoints | Responsibility |
 |---------|------|-----------|------|-----------|----------------|
@@ -31,6 +33,13 @@ Sesame-IDAM is NOT a monolith. It is **six independent services** split by acces
 
 - **PostgreSQL** — All persistent data (namespace `data` in shared Kind cluster)
 - **Redis** — Session cache, permission cache, key validation cache (namespace `sesame-idam`)
+
+## Workspace Crates
+
+- **12 workspace members** — 6 gen crates + 6 impl crates
+- **Shared crates:** `sesame_idam_database` (PooledLifeExecutor), `sesame_audit` (HMAC signing)
+- **Codegen pattern:** gen/ (generated types + handlers) + impl/ (binary + controllers + models)
+- **Naming convention:** All gen→impl package names match. See `topic-package-naming-convention.md` for details.
 
 ## The Only Cross-Service Dependency
 

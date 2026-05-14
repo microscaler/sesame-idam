@@ -32,24 +32,29 @@ Data structures and database entities across all 6 microservices.
 
 Architectural concepts, workflows, and cross-cutting concerns.
 
-|| Page | Description |
-||------|-------------|
-|| [topic-architecture-overview](./topics/topic-architecture-overview.md) | Six-service split rationale, service map |
-|| [topic-tenancy-model](./topics/topic-tenancy-model.md) | Hard-segment multi-tenant model, X-Tenant-ID, isolation guarantees |
-|| [topic-openapi-tenancy-strategy](./topics/topic-openapi-tenancy-strategy.md) | Global spec + middleware injection pattern, why not per-tenant specs |
-|| [topic-jwt-schema](./topics/topic-jwt-schema.md) | JWT enrichment claims, coarse vs fine-grained auth |
-|| [topic-login-flow](./topics/topic-login-flow.md) | User login flow: login → authz-core → JWT |
-|| [topic-authorization-flow](./topics/topic-authorization-flow.md) | Per-request authorization: Redis cache, role evaluation |
-|| [topic-api-key-validation](./topics/topic-api-key-validation.md) | M2M key validation flow |
-|| [topic-rls-bridge](./topics/topic-rls-bridge.md) | RLS helpers, session injection, database security |
-|| [topic-brrtrouter-codegen](./topics/topic-brrtrouter-codegen.md) | OpenAPI → codegen workflow, gen/ vs impl/ |
-|| [topic-data-model](./topics/topic-data-model.md) | Full ERD, key design decisions |
-|| [topic-scaling-profiles](./topics/topic-scaling-profiles.md) | Per-service scaling, cache strategies |
-|| [topic-openapi-convention](./topics/topic-openapi-convention.md) | Spec layout, schema duplication convention |
-|| [topic-inter-service-deps](./topics/topic-inter-service-deps.md) | Only dependency: login → authz-core at login |
-|| [topic-two-user-types](./topics/topic-two-user-types.md) | customer vs platform user model |
-|| [topic-org-personas](./topics/topic-org-personas.md) | Platform, provider, consumer org types |
-|| [topic-developer-contract](./topics/topic-developer-contract.md) | 3-layer SDK, Admin API, RLS helpers |
+||| Page | Description |
+|||------|-------------|
+||| [topic-architecture-overview](./topics/topic-architecture-overview.md) | Six-service split rationale, service map, 133 endpoints, 12 workspace crates. `cargo check --workspace` passes with 0 errors. |
+||| [topic-package-naming-convention](./topics/topic-package-naming-convention.md) | Gen/impl package naming mismatch that breaks `brrtrouter client build` — current vs target |
+||| [topic-build-infrastructure](./topics/topic-build-infrastructure.md) | Missing build.rs, config/service.yaml, services layer, tests, seeds |
+||| [topic-tiltfile-architecture](./topics/topic-tiltfile-architecture.md) | Tiltfile is broken — rewrite plan based on hauliage pattern, infra wiring |
+||| [topic-tooling-architecture](./topics/topic-tooling-architecture.md) | sesame-idam CLI shim, brrtrouter_tooling delegation map, justfile recipes |
+||| [topic-remediation-plan](./topics/topic-remediation-plan.md) | 5-phase remediation plan (naming fix → build infra → Tiltfile → workspace cleanup → validation) |
+||| [topic-tenancy-model](./topics/topic-tenancy-model.md) | Hard-segment multi-tenant model, X-Tenant-ID, isolation guarantees |
+||| [topic-openapi-tenancy-strategy](./topics/topic-openapi-tenancy-strategy.md) | Global spec + middleware injection pattern, why not per-tenant specs |
+||| [topic-jwt-schema](./topics/topic-jwt-schema.md) | JWT enrichment claims, coarse vs fine-grained auth |
+||| [topic-login-flow](./topics/topic-login-flow.md) | User login flow: login → authz-core → JWT |
+||| [topic-authorization-flow](./topics/topic-authorization-flow.md) | Per-request authorization: Redis cache, role evaluation |
+||| [topic-api-key-validation](./topics/topic-api-key-validation.md) | M2M key validation flow |
+||| [topic-rls-bridge](./topics/topic-rls-bridge.md) | RLS helpers, session injection, database security |
+||| [topic-brrtrouter-codegen](./topics/topic-brrtrouter-codegen.md) | OpenAPI → codegen workflow, gen/ vs impl/, package naming warning |
+||| [topic-data-model](./topics/topic-data-model.md) | Full ERD, key design decisions |
+||| [topic-scaling-profiles](./topics/topic-scaling-profiles.md) | Per-service scaling, cache strategies |
+||| [topic-openapi-convention](./topics/topic-openapi-convention.md) | Spec layout, schema duplication convention |
+||| [topic-inter-service-deps](./topics/topic-inter-service-deps.md) | Only dependency: login → authz-core at login |
+||| [topic-two-user-types](./topics/topic-two-user-types.md) | customer vs platform user model |
+||| [topic-org-personas](./topics/topic-org-personas.md) | Platform, provider, consumer org types |
+||| [topic-developer-contract](./topics/topic-developer-contract.md) | 3-layer SDK, Admin API, RLS helpers |
 
 ## Audit
 

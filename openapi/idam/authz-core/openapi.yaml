@@ -316,7 +316,7 @@ paths:
         severity, and actor.
 
         Returns paginated results sorted by timestamp descending by default.'
-      operationId: searchAuditEvents
+      operationId: search_audit_events
       requestBody:
         required: true
         content:
@@ -392,7 +392,7 @@ paths:
       summary: List audit events (simple query)
       description: List recent audit events with basic query parameters. Simpler alternative
         to POST /audit/events for straightforward queries.
-      operationId: listAuditEvents
+      operationId: list_audit_events
       parameters:
       - $ref: '#/components/parameters/Id'
       - $ref: '#/components/parameters/Page'
@@ -479,7 +479,7 @@ paths:
       summary: Get single audit event
       description: Retrieve a specific audit event by its ID. Returns full event details
         including metadata.
-      operationId: getAuditEvent
+      operationId: get_audit_event
       parameters:
       - name: id
         in: path
@@ -543,7 +543,7 @@ paths:
       summary: Get audit event statistics
       description: Get aggregate statistics for audit events — counts by type, severity,
         actor, and time range.
-      operationId: getAuditStats
+      operationId: get_audit_stats
       requestBody:
         required: true
         content:
@@ -611,7 +611,7 @@ paths:
       description: Request an export of audit events in a specified format (JSON,
         CSV, PDF). Export is processed asynchronously; use the export_id to check
         status.
-      operationId: exportAuditEvents
+      operationId: export_audit_events
       requestBody:
         required: true
         content:
@@ -667,7 +667,7 @@ paths:
       summary: Check export status
       description: Check the status of an audit event export job and get download
         URL when complete.
-      operationId: checkExportStatus
+      operationId: check_export_status
       parameters:
       - name: export_id
         in: path
@@ -721,7 +721,7 @@ paths:
       - Audit
       summary: List retention policies
       description: List all audit event retention policies for the current tenant.
-      operationId: listRetentionPolicies
+      operationId: list_retention_policies
       responses:
         '200':
           description: Retention policies
@@ -768,7 +768,7 @@ paths:
       summary: Create retention policy
       description: Create a new audit event retention policy specifying how long events
         of a given type should be kept before archival and deletion.
-      operationId: createRetentionPolicy
+      operationId: create_retention_policy
       requestBody:
         required: true
         content:
@@ -845,7 +845,7 @@ paths:
       - Audit
       summary: Update retention policy
       description: Update an existing retention policy.
-      operationId: updateRetentionPolicy
+      operationId: update_retention_policy
       parameters:
       - name: id
         in: path
@@ -911,7 +911,7 @@ paths:
       summary: Delete retention policy
       description: Delete a retention policy (will be replaced by system defaults
         if applicable).
-      operationId: deleteRetentionPolicy
+      operationId: delete_retention_policy
       parameters:
       - name: id
         in: path
@@ -980,6 +980,32 @@ components:
       in: header
       name: X-API-KEY
   schemas:
+    PaginatedResponse:
+      type: object
+      description: Standard paginated response envelope
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        limit:
+          type: integer
+          description: Number of items per page
+        offset:
+          type: integer
+          description: Number of items to skip
+        sort_by:
+          type: string
+          description: Field used for sorting
+        sort_order:
+          type: string
+          enum: [asc, desc]
+          description: Sort order (ascending or descending)
+        filters:
+          type: array
+          items:
+            type: string
+          description: List of filters applied to the query
+
     ErrorResponse:
       type: object
       required:
