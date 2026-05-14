@@ -126,6 +126,110 @@ def patched_load_suite_services(project_root: Path) -> set:
 _h_suites.load_suite_services = patched_load_suite_services
 
 # ---------------------------------------------------------------------------
+# Monkey-patch discovery.services for build tool (build calls get_package_names
+# which imports iter_suite_services directly, so patches on _h_suites don't propagate)
+# Read actual package/binary names from Cargo.toml instead of guessing.
+# ---------------------------------------------------------------------------
+
+import brrtrouter_tooling.workspace.discovery.services as _h_services
+
+
+def _read_impl_package_name(project_root: Path, service_name: str) -> str:
+    """Read impl/Cargo.toml [package].name for a service."""
+    impl_cargo = project_root / "microservices" / "idam" / service_name / "impl" / "Cargo.toml"
+    if not impl_cargo.exists():
+        return ""
+    try:
+        import configparser
+        cfg = configparser.ConfigParser()
+        cfg.read(str(impl_cargo))
+        val = cfg.get("package", "name", fallback="")
+        return val.strip().strip('"')
+    except Exception:
+        return ""
+
+
+def _read_impl_binary_name(project_root: Path, service_name: str) -> str:
+    """Read impl/Cargo.toml [[bin]] name for a service."""
+    impl_cargo = project_root / "microservices" / "idam" / service_name / "impl" / "Cargo.toml"
+    if not impl_cargo.exists():
+        return ""
+    try:
+        with open(impl_cargo) as f:
+            content = f.read()
+        import re
+        m = re.search(r'\[\[bin\]\]\s*name\s*=\s*"([^"]+)"', content)
+        if m:
+            return m.group(1)
+    except Exception:
+        pass
+    return ""
+
+
+_original_get_package_names = _h_services.get_package_names
+
+
+def patched_get_package_names(project_root: Path, suite: str | None = None) -> dict[str, str]:
+    """Cargo [package].name per service with idam suite support.
+
+    Reads impl/Cargo.toml for the actual package name (e.g. sesame_idam_authz_core_gen_impl).
+    """
+    out: dict[str, str] = {}
+    for _s, service_name in _h_suites.iter_suite_services(project_root, suite=suite):
+        pkg_name = _read_impl_package_name(project_root, service_name)
+        if pkg_name:
+            out[service_name] = pkg_name
+    for bff_svc, _s in _h_suites.iter_bffs(project_root, suite=suite):
+        pkg_name = _read_impl_package_name(project_root, bff_svc)
+        if pkg_name:
+            out[bff_svc] = pkg_name
+    return out
+
+
+_original_get_binary_names = _h_services.get_binary_names
+
+
+def patched_get_binary_names(project_root: Path, suite: str | None = None) -> dict[str, str]:
+    """Binary name per service with idam suite support.
+
+    Reads [[bin]] name from impl/Cargo.toml.
+    """
+    out: dict[str, str] = {}
+    for _s, service_name in _h_suites.iter_suite_services(project_root, suite=suite):
+        bin_name = _read_impl_binary_name(project_root, service_name)
+        if bin_name:
+            out[service_name] = bin_name
+        else:
+            out[service_name] = service_name.replace("-", "_")
+    for bff_svc, _ in _h_suites.iter_bffs(project_root, suite=suite):
+        bin_name = _read_impl_binary_name(project_root, bff_svc)
+        if bin_name:
+            out[bff_svc] = bin_name
+        else:
+            out[bff_svc] = bff_svc.replace("-", "_")
+    return out
+
+
+_original_get_service_ports = _h_services.get_service_ports
+
+
+def patched_get_service_ports(project_root: Path) -> dict[str, str]:
+    """HTTP port per service with idam suite support."""
+    out: dict[str, str] = {}
+    for name, (_suite, port) in _h_services.discover_openapi_suite_microservice_localhost(project_root).items():
+        out[name] = str(port)
+    for name, port in _h_services.discover_bff_suite_config(project_root).items():
+        out.setdefault(name, str(port))
+    for name, port in _h_services.discover_helm(project_root).items():
+        out.setdefault(name, str(port))
+    return out
+
+
+_h_services.get_package_names = patched_get_package_names
+_h_services.get_binary_names = patched_get_binary_names
+_h_services.get_service_ports = patched_get_service_ports
+
+# ---------------------------------------------------------------------------
 # Monkey-patch regenerate.py to use sesame-idam's nested paths
 # ---------------------------------------------------------------------------
 
