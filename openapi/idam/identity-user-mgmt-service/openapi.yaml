@@ -1595,7 +1595,7 @@ paths:
       description: Query audit events for a specific user — login attempts, profile
         changes, MFA enrollment, password resets, session activity. Returns paginated
         results sorted by timestamp descending.
-      operationId: getUserAuditEvents
+      operationId: get_user_audit_events
       requestBody:
         required: true
         content:
@@ -1746,7 +1746,7 @@ paths:
       summary: Get user event count
       description: Get a count of audit events for a specific user within the given
         time range. Useful for dashboards and monitoring.
-      operationId: getUserEventCount
+      operationId: get_user_event_count
       parameters:
       - name: user_id
         in: path
@@ -1837,7 +1837,7 @@ paths:
       summary: Export user's audit events (GDPR)
       description: Export all audit events for a specific user — required for GDPR
         Data Subject Access Requests. Returns a download URL when the export is ready.
-      operationId: exportUserAuditEvents
+      operationId: export_user_audit_events
       parameters:
       - name: user_id
         in: path

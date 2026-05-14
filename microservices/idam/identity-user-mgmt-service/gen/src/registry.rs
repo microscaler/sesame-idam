@@ -12,20 +12,20 @@ use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 #[allow(dead_code)]
 pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
-        "getUserAuditEvents",
-        crate::controllers::getUserAuditEvents::GetUserAuditEventsController,
+        "get_user_audit_events",
+        crate::controllers::get_user_audit_events::GetUserAuditEventsController,
         20480,
     );
 
     dispatcher.register_typed_with_stack_size(
-        "exportUserAuditEvents",
-        crate::controllers::exportUserAuditEvents::ExportUserAuditEventsController,
+        "export_user_audit_events",
+        crate::controllers::export_user_audit_events::ExportUserAuditEventsController,
         20480,
     );
 
     dispatcher.register_typed_with_stack_size(
-        "getUserEventCount",
-        crate::controllers::getUserEventCount::GetUserEventCountController,
+        "get_user_event_count",
+        crate::controllers::get_user_event_count::GetUserEventCountController,
         20480,
     );
 
@@ -197,25 +197,25 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
     for route in routes {
         // JSF P0-2: Use as_ref() for Arc<str> -> &str conversion
         match route.handler_name.as_ref() {
-            "getUserAuditEvents" => {
+            "get_user_audit_events" => {
                 let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::getUserAuditEvents::GetUserAuditEventsController,
+                    crate::controllers::get_user_audit_events::GetUserAuditEventsController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
-            "exportUserAuditEvents" => {
+            "export_user_audit_events" => {
                 let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::exportUserAuditEvents::ExportUserAuditEventsController,
+                    crate::controllers::export_user_audit_events::ExportUserAuditEventsController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
-            "getUserEventCount" => {
+            "get_user_event_count" => {
                 let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::getUserEventCount::GetUserEventCountController,
+                    crate::controllers::get_user_event_count::GetUserEventCountController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

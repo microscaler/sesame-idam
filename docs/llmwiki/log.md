@@ -1,6 +1,131 @@
 # LLM Wiki — Session Log
 
-### ApiKeyListResponse Sorting/Filtering Metadata Fix
+## [2026-05-14] Phase 0b: Tiltfile Lint Path Fix + Wiki Update
+
+### Summary
+
+Fixed the Tiltfile `create_microservice_lint()` and `create_microservice_gen()` functions to use full YAML file paths (`openapi/idam/<service>/openapi.yaml`) instead of directory paths. Also updated the llmwiki to reflect the current correct state of sesame-idam infrastructure.
+
+### Tiltfile Fixes
+
+- `create_microservice_lint()`: Changed `--spec ./openapi/idam/%s` to `--spec ./openapi/idam/%s/openapi.yaml` (brrtrouter-gen needs the file path, not the directory)
+- `create_microservice_lint() deps`: Changed `./openapi/idam/%s` to `./openapi/idam/%s/openapi.yaml`
+- `create_microservice_gen() deps`: Changed `./openapi/idam/%s` to `./openapi/idam/%s/openapi.yaml`
+
+### Wiki Updates
+
+| File | Change |
+|------|--------|
+| `index.md` | Updated topic-architecture-overview description to note `cargo check --workspace` passes |
+| `topics/topic-remediation-plan.md` | Phase 0 and Phase 1 marked ✅ Completed; build warnings documented; acceptance criteria updated |
+| `topics/topic-build-infrastructure.md` | Status → verified; added build status table; Phase 2 items moved to "Planned" |
+| `topics/topic-package-naming-convention.md` | Status → verified; documented final naming table; removed "target" section since fix is complete |
+| `topics/topic-tiltfile-architecture.md` | Status → verified; documented current Tiltfile architecture and design decisions |
+| `topics/topic-brrtrouter-codegen.md` | Fixed duplicate OpenAPI layout section; noted `openapi/idam/` nesting |
+
+### Current Build State
+
+- `cargo check --workspace` — ✅ 0 errors, 31 warnings
+- `cargo test --workspace` — ✅ 5 tests (4 unit + 1 doc)
+- `brrtrouter-gen lint` — ✅ All 6 specs pass (authz-core + identity-user-mgmt-service fixed)
+- Tiltfile — ✅ Validated Starlark syntax, all path refs corrected
+
+### OpenAPI Lint Fixes
+
+Fixed `operation_id_casing` errors in 2 specs:
+
+| Spec | Issues Fixed |
+|------|-------------|
+| `authz-core` | 10 operationIds (camelCase → snake_case) + added missing `PaginatedResponse` schema |
+| `identity-user-mgmt-service` | 3 operationIds (getUserAuditEvents, exportUserAuditEvents, getUserEventCount → snake_case) |
+
+### Codegen State After Fixes
+
+All 18 camelCase operationIds now use snake_case convention. All specs define all referenced schemas.
+
+---
+
+## [2026-05-14] Sesame-IDAM Structural Audit — Wiki Updated from PRD
+
+### Summary
+
+Read `docs/PRD-SEASAME-AUDIT-REMEDIATION.md` and updated the llmwiki with correct setup information for sesame-idam before starting implementation. The PRD documents a structural audit comparing sesame-idam against the hauliage reference codebase, identifying 5 phases of remediation work.
+
+### New Wiki Pages Created
+
+1. **`topics/topic-package-naming-convention.md`** — Documents the gen/impl package naming mismatch that causes `brrtrouter client build` to fail. Contains current vs target naming tables for all 6 services, cross-reference impact, and risk assessment.
+
+2. **`topics/topic-build-infrastructure.md`** — Documents missing build infrastructure items (build.rs, config/service.yaml, services layer, org_resolution.rs, tests/, seeds/) compared to hauliage conventions. Includes Phase 2 remediation details.
+
+3. **`topics/topic-tiltfile-architecture.md`** — Documents that the existing Tiltfile is completely broken (template interpolation failures, missing infrastructure files). Includes hauliage Tiltfile working pattern to replicate, service port mapping, post-Phase-1 package names, data infrastructure wiring, and the Tiltfile rewrite plan (Phase 0).
+
+4. **`topics/topic-tooling-architecture.md`** — Documents the sesame-idam CLI shim architecture, brrtrouter_tooling delegation map, justfile working commands (codegen, lint, serve, dev-up), and the critical rule to use the project CLI shim instead of `brrtrouter client` directly.
+
+5. **`topics/topic-remediation-plan.md`** — Documents the complete 5-phase remediation plan from the PRD:
+   - Phase 0: Tiltfile rewrite (parallel with Phase 1)
+   - Phase 1: Fix package naming (CRITICAL)
+   - Phase 2: Add build infrastructure (MODERATE)
+   - Phase 3: Add supporting files (MINOR)
+   - Phase 4: Workspace cleanup
+   - Phase 5: Tiltfile validation & data wiring
+   - Includes risk assessment, acceptance criteria, open questions, and out-of-scope items.
+
+### Updated Wiki Pages
+
+6. **`topics/topic-architecture-overview.md`** — Updated:
+   - Endpoint count: 119 → 133
+   - Status: partially-verified → unverified (needs source code verification)
+   - Date: 2026-01-22 → 2026-05-14
+   - Added "Workspace Crates" section (12 workspace members, shared crates, naming convention warning)
+
+7. **`topics/topic-brrtrouter-codegen.md`** — Updated:
+   - Status: partially-verified → unverified
+   - Date: 2026-01-22 → 2026-05-14
+   - Added package naming warning note linking to convention page
+   - Added justfile codegen recipes section with current (broken) and target (fixed) package names
+   - Updated endpoint count to 133
+
+8. **`index.md`** — Updated:
+   - Added 6 new topic pages to the Topics catalog with descriptions
+   - Fixed table formatting (3-level pipes for proper alignment)
+
+### Key Findings from PRD
+
+- **133 endpoints** across 6 services (up from 119)
+- **47 entity model files** across 6 services (Lifeguard ORM derive macros)
+- **12 workspace members** (6 gen + 6 impl)
+- `sesame_idam_database` crate with `PooledLifeExecutor`
+- `sesame-audit` crate with HMAC signing
+- **Build warnings:** 26 non_snake_case (from OpenAPI names), 5 dead_code (stub audit)
+- **Tests:** 4 unit tests, 1 doc test (all passing)
+
+### Current Build State
+
+- `cargo check --workspace` — 0 errors
+- `cargo test --workspace` — 5 tests passing (4 + 1 doc)
+- `brrtrouter client build` — FAILS across all 6 services (naming mismatch)
+- Tiltfile — BROKEN (template failures, missing infrastructure)
+
+### Next Steps (Not Implemented Yet)
+
+The implementation work (5-phase remediation) has NOT been started. This session only documented the correct setup in the wiki. The actual implementation follows the remediation plan documented in `topic-remediation-plan.md`.
+
+### Files Created
+
+- `docs/llmwiki/topics/topic-package-naming-convention.md`
+- `docs/llmwiki/topics/topic-build-infrastructure.md`
+- `docs/llmwiki/topics/topic-tiltfile-architecture.md`
+- `docs/llmwiki/topics/topic-tooling-architecture.md`
+- `docs/llmwiki/topics/topic-remediation-plan.md`
+
+### Files Updated
+
+- `docs/llmwiki/topics/topic-architecture-overview.md`
+- `docs/llmwiki/topics/topic-brrtrouter-codegen.md`
+- `docs/llmwiki/index.md`
+
+---
+
 - **Issue:** ApiKeyListResponse had no way to indicate how results were sorted or what filters were applied
 - **Fix:** Added two fields:
   - `sort_order` (string, enum) — indicates sort direction (created_at_desc, created_at_asc, name_asc, name_desc, last_used_desc, last_used_asc)

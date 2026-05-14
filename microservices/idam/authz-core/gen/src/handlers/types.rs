@@ -341,6 +341,21 @@ pub struct ListRetentionPoliciesResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PaginatedResponse {
+    pub filters: Vec<String>,
+
+    pub limit: i32,
+
+    pub offset: i32,
+
+    pub sort_by: String,
+
+    pub sort_order: String,
+
+    pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PrincipalEffectiveRequest {
     pub app_id: String,
 

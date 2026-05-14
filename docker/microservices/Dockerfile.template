@@ -1,34 +1,32 @@
-# Minimal runtime-only Dockerfile for Sesame-IDAM {{service_name}} (Tilt development)
+# Minimal runtime-only Dockerfile for {{service_name}} (Tilt development)
 # Binary is cross-compiled to musl and copied in. Matches hauliage pattern.
-# Rendered with sed --service {{service_name}} --binary {{binary_name}} --port {{port}} --module {{module}} --arch {{arch}}
+# Rendered from this template with: sesame-idam docker build-image-simple ...
 #
-# Multi-arch: TARGETARCH injected via sed for the COPY path.
+# Multi-arch: TARGETARCH injected via python template processing
 
-FROM alpine:3.19
+ARG BASE_IMAGE=sesame-idam-base:latest
+FROM ${BASE_IMAGE}
 
-RUN apk add --no-cache \
-    ca-certificates \
-    libgcc \
-    tzdata
-
+# TARGETARCH injected via python template processing
 COPY ./build_artifacts/{{target_arch}}/{{binary_name}} /app/{{binary_name}}
-RUN chmod +x /app/{{binary_name}}
 
+# Create directories for configuration and assets with write permissions
 RUN mkdir -p /app/config /app/doc /app/static_site && chmod -R 777 /app
 
-# Config: minimal placeholder (gen-only services have no impl/config)
-RUN echo '# Sesame-IDAM {{service_name}} config' > /app/config/config.yaml
-
-# Gen doc/static_site
+# Copy configuration and assets (gen: doc/static_site; impl: config)
+COPY ./microservices/idam/{{module}}/impl/config /app/config
 COPY ./microservices/idam/{{module}}/gen/doc /app/doc
 COPY ./microservices/idam/{{module}}/gen/static_site /app/static_site
 
+# Expose HTTP port
 EXPOSE {{port}}
 
+# Runtime environment
 ENV RUST_BACKTRACE=1
 ENV RUST_LOG=debug
 
-ENTRYPOINT ["/app/{{binary_name}}", \
+# Run the service via dev-entrypoint for Tilt hot-reload support
+ENTRYPOINT ["/dev-entrypoint.sh", "/app/{{binary_name}}", \
     "--spec", "/app/doc/openapi.yaml", \
     "--doc-dir", "/app/doc", \
     "--static-dir", "/app/static_site", \
