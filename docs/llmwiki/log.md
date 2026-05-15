@@ -1,5 +1,82 @@
 # LLM Wiki — Session Log
 
+## [2026-05-16] Epic 5 Token Versioning & Epic 6 Delegation — Full Enrichment
+
+### Summary
+
+Completed comprehensive testing enrichment for all stories in Epic 5 (Token Versioning) and Epic 6 (Delegation/Act). Each story received individual, hand-written test sections covering Unit, Integration/BDD, Security Regression, Edge Cases, and Cleanup.
+
+### Stories Enriched
+
+| Story | File | Unit | Integration | Security | Edge | Total |
+|-------|------|------|-------------|----------|------|-------|
+| 5.1 | `Epics/05-token-versioning/stories/story-5.1.md` | 22 | 8 | 5 | 7 | 42 |
+| 5.2 | `Epics/05-token-versioning/stories/story-5.2.md` | 28 | 10 | 6 | 8 | 52 |
+| 5.3 | `Epics/05-token-versioning/stories/story-5.3.md` | 26 | 10 | 7 | 8 | 51 |
+| 5.4 | `Epics/05-token-versioning/stories/story-5.4.md` | 29 | 10 | 7 | 9 | 56 |
+| 5.5 | `Epics/05-token-versioning/stories/story-5.5.md` | 31 | 10 | 7 | 8 | 56 |
+| 6.1 | `Epics/06-delegation-act/stories/story-6.1.md` | 58 | 17 | 12 | 11 | 98 |
+| 6.2 | `Epics/06-delegation-act/stories/story-6.2.md` | 33 | 14 | 12 | 10 | 69 |
+| 6.3 | `Epics/06-delegation-act/stories/story-6.3.md` | 43 | 14 | 12 | 11 | 80 |
+
+### Epic 5 — Token Versioning
+
+**Story 5.1 (ver claim):** Tests cover JWT payload claim verification (uint64 type, not string), Redis version tracking (GET defaults to 0, INCR atomicity, SET with correct TTL), version bump on authz changes, fail-open on Redis unavailability, sid uniqueness.
+
+**Story 5.2 (version cache):** Tests cover 15s subject TTL vs 60s tenant TTL, version comparison (claims.ver >= cached_ver), route classification gating (jwt-only skips, high-risk checks both), cache miss defaults, concurrent INCR atomicity, service restart survival, TTL expiry reset.
+
+**Story 5.3 (jti denylist):** Tests cover denylist add with TTL matching token exp, local LRU cache hit/miss behavior, Redis lookup fallback, auto-expire via Redis TTL, denylist NOT checked for jwt-only/jwt-with-fallback routes, metrics emission, cache capacity eviction, parallel coexistence of entries.
+
+**Story 5.4 (push invalidation):** Tests cover Redis pub/sub subscribe on startup, message parse/extract, local cache update on event receipt (subject vs tenant keys), reconnection after disconnect, missed event handling (fire-and-forget), multiple sequential events, metrics (version_bump_total, revocation_propagation_seconds), malformed event handling, concurrent event thread safety.
+
+**Story 5.5 (version mismatch):** Tests cover HTTP 401 response format, WWW-Authenticate header, Retry-After header and JSON body, gap-based retry_after calculation (1-10 → 300s, >100 → 0s), client refresh-and-retry flow, large gap immediate re-auth, jwt-only routes bypass, metrics recording.
+
+### Epic 6 — Delegation/Act
+
+**Story 6.1 (RFC 8693 Token Exchange):** Tests cover RFC 8693 compliance (grant_type validation, subject_token parsing for JWT/API key/refresh token, actor_token optional), can_delegate logic (platform_admin, org_admin same/different org, service_account delegate:*), scope intersection (3-way: subject ∩ requested ∩ actor), act claim inclusion/exclusion, act.chain for nested delegation, tenant match validation, F-003 (iss/aud/iat in response), F-012 (merged audiences), F-021 (CSRF documentation), metrics emission.
+
+**Story 6.2 (Support Impersonation):** Tests cover support_agent role requirement, cross-tenant blocking, org assignment validation, impersonation token structure (act claim, impersonated_by, impersonation_scope), admin action denial, token exchange denial, short TTL (2-5 min), audit log writing, user notification, role revocation mid-impersonation, password change during impersonation.
+
+**Story 6.3 (Step-Up MFA):** Tests cover sx.mfa_verified claim, 6 MFA-protected actions (admin:create_org, org:config:update, admin:impersonate, api_key:create, api_key:revoke, role:assign), /auth/step-up/mfa endpoint validation, mfa_type strength (F-016: SMS blocked for high-consequence, TOTP/WebAuthn allowed), F-006 fix (old refresh token denylisted on step-up), TOTP time window, rate limiting, WebAuthn device registration.
+
+### Wiki Pages Created
+
+| File | Change |
+|------|--------|
+| `topics/topic-token-versioning.md` | **Created.** Documents ver claim design, version storage in Redis, version validation flow, TTL strategy, version bump on authz change, version mismatch handling |
+| `topics/topic-delegation.md` | **Created.** Documents RFC 8693 token exchange, act claim structure, delegation chain, actor can_delegate logic, support impersonation flow, step-up MFA, mfa_type strength requirements |
+| `topics/topic-mfa.md` | **Created.** Documents sx.mfa_verified claim, step-up MFA flow, mfa_type strength table, F-006 refresh token invalidation, F-016 SMS restriction |
+
+### Commits
+
+- `72edd2f` — docs(wiki): create topic-token-versioning.md with ver claim design, version storage, validation flow, TTL strategy
+- `84894cb` — feat(stories): enrich Epic 6 stories with testing requirements (Story 6.1, 6.2, 6.3)
+- `b5142b1` — feat(stories): enrich Story 5.5 with testing requirements
+- `5ac7899` — feat(stories): enrich Story 5.4 with testing requirements
+- `2265725` — feat(stories): enrich Story 5.3 with testing requirements
+- `0ea8359` — feat(stories): enrich Story 5.2 with testing requirements
+- `b2566e8` — feat(stories): enrich Story 5.1 with testing requirements
+
+### Current Epic 5 Status
+
+| Story | Testing Enriched | Wiki Updated |
+|-------|-----------------|-------------|
+| 5.1 | ✅ (committed b2566e8) | topic-token-versioning ✅ |
+| 5.2 | ✅ (committed 0ea8359) | topic-token-versioning ✅ |
+| 5.3 | ✅ (committed 2265725) | topic-token-versioning ✅ |
+| 5.4 | ✅ (committed 5ac7899) | topic-token-versioning ✅ |
+| 5.5 | ✅ (committed b5142b1) | topic-token-versioning ✅ |
+
+### Current Epic 6 Status
+
+| Story | Testing Enriched | Wiki Updated |
+|-------|-----------------|-------------|
+| 6.1 | ✅ (committed 84894cb) | topic-delegation ✅ |
+| 6.2 | ✅ (committed 84894cb) | topic-delegation ✅ |
+| 6.3 | ✅ (committed 84894cb) | topic-mfa ✅ |
+
+---
+
 ## [2026-05-16] Epic 4 Hybrid Authz — Story 4.4, 4.5 Enrichment + Wiki Update
 
 ### Summary
