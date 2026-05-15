@@ -308,3 +308,60 @@ components:
 - **Introspection defeats the purpose of JWT common path**: If every resource server calls introspection instead of validating JWTs, the load reduction benefit is lost. Introspection should only be used for edge cases where JWT validation is not possible or immediate revocation is needed.
 - **API key requirement**: Introspection requires API key authentication. This means the resource server must have an API key registered with Sesame. This adds onboarding complexity but is necessary to prevent unauthorized token introspection.
 - **Rate limiting**: Without rate limiting, introspection can be abused (e.g., a malicious resource server introspecting millions of tokens). The rate limit (100 req/min per client) is a starting point that can be adjusted based on actual usage patterns.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Introspection response includes active=true for valid JWT**: Given a valid, non-expired, non-revoked JWT, assert `handle_introspect()` returns `IntrospectionResponse { active: true, sub: Some(...), aud: Some(...), iss: Some(...), exp: Some(...), iat: Some(...), jti: Some(...), scope: Some(...), client_id: Some(...), token_type: Some("Bearer") }`
+- [ ] **Introspection response includes active=false for expired JWT**: Given a JWT where `exp < current_time`, assert `handle_introspect()` returns `IntrospectionResponse { active: false }`
+- [ ] **Introspection response includes active=false for revoked JWT**: Given a JWT whose `jti` is in the revocation cache, assert `handle_introspect()` returns `IntrospectionResponse { active: false }`
+- [ ] **Introspection response includes active=false for invalid signature**: Given a JWT with a tampered signature (e.g., `claims.sub` modified after signing), assert `handle_introspect()` returns `IntrospectionResponse { active: false }`
+- [ ] **Introspection response omits username for PII protection**: Given a valid JWT for a user with email `alice@example.com`, assert the `username` field in the introspection response is `None` (PII is not included in token introspection)
+- [ ] **Introspection requires API key authentication**: Given a request without an API key, assert the endpoint returns 401 Unauthorized before any JWT validation occurs
+- [ ] **Introspection rejects requests without token parameter**: Given a request with no `token` field in the body, assert the endpoint returns 400 Bad Request with a clear error message
+- [ ] **Introspection rejects unknown token_type_hint values**: Given `token_type_hint: "refresh_token"` (or any invalid value), assert the endpoint either returns 400 or accepts it gracefully (RFC 7662 says unknown hints should be ignored)
+- [ ] **Rate limiter rejects excess introspections**: Given 101 introspection requests from the same client within one minute, assert the 101st request returns 429 Too Many Requests
+- [ ] **Fast path uses JWT validation**: Given a valid JWT, assert the introspection handler validates via JWKS (fast path) and does NOT fall back to database lookup
+- [ ] **Slow path falls back to database for unrecognized tokens**: Given a JWT signed by an unknown issuer (not in JWKS), assert the handler falls back to database token lookup rather than immediately denying
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Introspect active valid token**: `given` a valid access token issued to user alice with scope `profile:read` → `when` a resource server calls `POST /auth/introspect` with Alice's token and a valid API key → `then` the response is `{ active: true, scope: "profile:read", sub: "alice", aud: [...], ... }`
+- [ ] **Scenario: Introspect expired token**: `given` an access token with `exp` in the past → `when` a resource server calls `POST /auth/introspect` with the expired token → `then` the response is `{ active: false }`
+- [ ] **Scenario: Introspect revoked token**: `given` an access token that has been explicitly revoked via `jti` denylisting → `when` a resource server calls `POST /auth/introspect` → `then` the response is `{ active: false }` (immediate revocation awareness)
+- [ ] **Scenario: Introspect token signed by unknown issuer**: `given` a JWT signed with a JWKS key that is not registered → `when` a resource server calls introspection → `then` the handler falls back to database lookup and returns `{ active: false }` if the token is not found in the database
+- [ ] **Scenario: Introspection with valid token_type_hint**: `given` a valid access token → `when` introspection is called with `token_type_hint=access_token` → `then` the token is validated and `{ active: true, ... }` is returned
+- [ ] **Scenario: Introspection without token_type_hint**: `given` a valid access token → `when` introspection is called without `token_type_hint` → `then` the handler validates the token anyway and returns the full response (hint is optional)
+- [ ] **Scenario: Introspection rate limiting kicks in**: `given` a resource server client → `when` the client sends 101 introspection requests within 60 seconds → `then` the first 100 are processed normally and the 101st returns 429 Too Many Requests with a retry-after header
+- [ ] **Scenario: Introspection is server-to-server only**: `given` a client with only a Bearer token (no API key) → `when` the client calls `POST /auth/introspect` → `then` the endpoint returns 401 Unauthorized (introspection is not accessible with user Bearer tokens)
+- [ ] **Scenario: Introspection logs all requests**: `given` a resource server calls introspection with a valid token → `then` the system logs include the resource server's client ID, the introspected token's `jti`, the result (active/inactive), and a timestamp
+
+### Security Regression Tests
+
+- [ ] **Introspection does not leak PII**: Assert that the introspection response NEVER includes `email`, `phone_number`, `first_name`, `last_name`, or any other PII field from the JWT claims — only `sub`, `aud`, `iss`, `exp`, `iat`, `jti`, `scope`, `client_id`, and `token_type` are returned
+- [ ] **Introspection requires API key, not Bearer token**: Assert that a request with only a Bearer token (no API key) is rejected at the authentication layer before any JWT validation or token lookup occurs
+- [ ] **Introspection cannot enumerate valid tokens**: Assert that an attacker cannot use introspection to enumerate which tokens are valid — the response for active vs inactive tokens should have the same timing characteristics (no timing side-channel)
+- [ ] **Introspection cannot bypass revocation**: Assert that a token whose `jti` has been denylisted returns `{ active: false }` even if the JWT signature is valid and the token has not expired (revocation takes precedence over validity)
+- [ ] **Introspection rate limit cannot be bypassed**: Assert that rate limiting is applied per client API key, not per introspected token — an attacker cannot bypass the limit by introspecting different tokens from the same client
+- [ ] **Introspection response does not include internal error details**: Assert that when introspection encounters an error (e.g., database connection failure, JWKS cache miss), the response is `{ active: false }` or a generic 500 error without leaking internal state, stack traces, or query details
+
+### Edge Cases
+
+- [ ] **Introspect with empty token string**: Given `token=""` in the request body, assert the handler returns 400 Bad Request with a clear message ("token parameter is required" or "token cannot be empty")
+- [ ] **Introspect with extremely long token (>64KB)**: Given a JWT-like token string exceeding 64,000 characters, assert the handler rejects with 400 Bad Request without consuming excessive memory or CPU
+- [ ] **Introspect with malformed JOSE header**: Given a token where the first base64url segment decodes to invalid JSON, assert the handler returns `{ active: false }` (not a 500 panic or crash)
+- [ ] **Concurrent introspection of same token**: 100 concurrent requests to introspect the same valid token — assert all 100 return `{ active: true, ... }` without race conditions or inconsistent results
+- [ ] **Introspect with token from expired JWKS key**: Given a JWT signed with a JWKS key that has since been rotated out of the JWKS cache, assert the handler either (a) uses a cached JWKS entry if the cache TTL hasn't expired, or (b) falls back to database lookup if the token is recognized
+- [ ] **Introspect with zero-value timestamps**: Given a JWT with `exp: 0` (epoch) or `iat: 0`, assert the handler correctly interprets this as an already-expired token and returns `{ active: false }`
+- [ ] **Introspect with aud audience mismatch**: Given a JWT issued for `aud: "other-app"` introspected by a resource server expecting `aud: "sesame-api"`, assert the handler still returns `{ active: true }` (the introspection endpoint does not enforce audience matching — it reports the token's state regardless of which service is asking)
+
+### Cleanup
+
+- Redis revocation cache must be cleaned between tests — use `FLUSHDB` or a unique prefix per test run to prevent stale revocation entries from affecting subsequent tests
+- JWKS cache used in tests must be reset between scenarios — use a fresh `JwksClient` or clear the cache between test runs
+- Rate limiter state must be cleared between tests — if using an in-memory rate limiter, use a fresh instance per test scenario
+- Mock database state (tokens stored for fallback lookup) must be cleared between tests — use a test transaction rollback or drop/recreate test tables
+- Metrics registry must be reset between test scenarios using `prometheus::Registry::new()` to prevent cross-test metric contamination
+- Log output from tests should be isolated per test run — use a test-specific logger or capture logs in-memory rather than writing to a shared file
+- API keys used for introspection authentication must be unique per test to prevent key collisions between concurrent test scenarios
