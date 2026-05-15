@@ -26,8 +26,10 @@ Client → POST /auth/login {email, password} →
 ## Key Points
 
 1. **authz-core is called ONCE at login.** The resulting JWT contains all role/permission claims. Subsequent requests use the JWT directly.
-2. **Password hashing is the bottleneck.** CPU-bound operation. Needs to scale vertically.
-3. **Session is stored in both PG and Redis.** Redis for fast refresh lookups, PG for persistence.
+2. **Login routes are NOT protected by JWT common-path authz.** They CREATE trust, not evaluate it. Authentication IS the authorization.
+3. **Password hashing is the bottleneck.** CPU-bound operation. Needs to scale vertically.
+4. **Session is stored in both PG and Redis.** Redis for fast refresh lookups, PG for persistence.
+5. **Post-2026 hybrid model (Epic 4):** All per-request auth after login uses the hybrid model (jwt-only, jwt-with-fallback, online-only), NOT authz-core for every request.
 
 ## Variants
 
