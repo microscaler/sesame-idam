@@ -252,6 +252,7 @@ def create_microservice_deployment(name, port):
     # render_dockerfile_template() resolves via get_binary_names() (which is
     # monkey-patched by sesame_idam_tooling to read [[bin]] from Cargo.toml).
     package_name = PACKAGE_NAMES.get(name, 'sesame_idam_' + name.replace('-', '_'))
+    binary_name = name.replace('-', '_')
 
     # Paths — both target (Cargo output) and artifacts (copy-binary output +
     # Dockerfile COPY) must use package_name since that's what the template
@@ -328,8 +329,10 @@ def create_microservice_deployment(name, port):
 # ====================
 # Data Infrastructure
 # ====================
+# Create the namespace so Helm manifests have a target.
 # Redis and PostgreSQL are managed by shared-kind-cluster's Tilt.
 # Do NOT stand up data infrastructure here — let the shared cluster own it.
+k8s_yaml('k8s/microservices/namespace.yaml')
 
 # ====================
 # Per-Service Resources

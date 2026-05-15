@@ -320,6 +320,16 @@ The Tiltfile is completely broken and needs a rewrite. This can happen in parall
 
 ---
 
+## 6b. TILTFILE KNOWN ISSUES (2026-05-15)
+
+**Issue 1: Missing namespace creation.** The Tiltfile does not call `k8s_yaml('k8s/microservices/namespace.yaml')` before deploying services. Without this, Tilt cannot apply Helm manifests into the `sesame-idam` namespace, causing pods to be created but failing to mount configmaps (`configmap "org-mgmt-config" not found`). Hauliage has this call at module level.
+
+**Issue 2: `binary_name` undefined in `create_microservice_deployment()`.** Line 304 references `%s' % binary_name` but `binary_name` is never defined. Hauliage defines `binary_name = name.replace('-', '_')` at the start of the function alongside `package_name`. This causes a Starlark crash when Tilt evaluates the `custom_build` section.
+
+**Resolution applied:** Added `binary_name = name.replace('-', '_')` to `create_microservice_deployment()` and `k8s_yaml('k8s/microservices/namespace.yaml')` to the Data Infrastructure section. All 6 pods now Running, all 6 configmaps created, all returning 200 on `/health`.
+
+---
+
 ## 6. TILT & TOOLING ARCHITECTURE (NEW SECTION)
 
 ### 6.1 Current Tooling Stack
