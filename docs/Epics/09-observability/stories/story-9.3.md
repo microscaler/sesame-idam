@@ -1,0 +1,199 @@
+# Story 9.3: Implement Authz Fallback Metrics
+
+## Epic
+
+[09-observability](../observability.md)
+
+## Parent Epic Story
+
+Story 9.3
+
+## Summary
+
+Implement Prometheus metrics for authz fallback: `authz_fallback_total{route}` counting fallback calls per route, and `authz_fallback_ratio` tracking the ratio of fallback calls to total requests per route. Alert on fallback ratio spikes (indicates JWT common path is not working properly).
+
+## Why This Story Exists
+
+The JWT document states: "authz_fallback_total{route} -- count of fallback calls per route" and "authz_fallback_ratio -- ratio of fallback calls to total requests per route. Alert on fallback ratio spikes (indicates JWT common path is not working)." The fallback ratio is the primary indicator of whether the hybrid authorization model is achieving its goals.
+
+## Design Context
+
+### Metric Definitions
+
+| Metric | Type | Labels | Purpose |
+|--------|------|--------|---------|
+| `authz_fallback_total` | Counter | route (path pattern) | Count of online authz calls per route |
+| `authz_fallback_cache_hit_total` | Counter | route | Count of cache hits per route |
+| `authz_fallback_ratio` | Gauge | route | Fallback ratio per route (fallback / total) |
+
+### Implementation
+
+```rust
+use prometheus::{register_counter_vec, register_gauge_vec, CounterVec, GaugeVec};
+
+static AUTHZ_FALLBACK_TOTAL: CounterVec = register_counter_vec!(
+    "authz_fallback_total",
+    "Total authz fallback calls per route",
+    &["route"]
+).unwrap();
+
+static AUTHZ_FALLBACK_CACHE_HIT: CounterVec = register_counter_vec!(
+    "authz_fallback_cache_hit_total",
+    "Total authz fallback cache hits per route",
+    &["route"]
+).unwrap();
+
+static AUTHZ_FALLBACK_RATIO: GaugeVec = register_gauge_vec!(
+    "authz_fallback_ratio",
+    "Ratio of fallback calls to total requests per route",
+    &["route"]
+).unwrap();
+
+// In the fallback handler:
+async fn handle_fallback(
+    route: &str,
+    request: &AuthorizeRequest,
+) -> Result<AuthorizeResponse, AuthError> {
+    // Check cache
+    let result = if let Some(cached) = cache.get(route, request) {
+        AUTHZ_FALLBACK_CACHE_HIT.with(&[("route", route)]).inc();
+        Ok(cached)
+    } else {
+        // Call authz-core
+        let result = authz_client.authorize(request).await?;
+        cache.set(route, request, &result)?;
+        AUTHZ_FALLBACK_TOTAL.with(&[("route", route)]).inc();
+        Ok(result)
+    };
+    
+    // Update ratio (computed periodically, not per-request)
+    update_fallback_ratio(route);
+    
+    result
+}
+
+fn update_fallback_ratio(route: &str) {
+    let total = AUTHZ_FALLBACK_TOTAL
+        .with(&[("route", route)])
+        .get() + AUTHZ_FALLBACK_CACHE_HIT
+        .with(&[("route", route)])
+        .get();
+    
+    let fallback = AUTHZ_FALLBACK_TOTAL
+        .with(&[("route", route)])
+        .get();
+    
+    let ratio = if total > 0 {
+        fallback / total
+    } else {
+        0.0
+    };
+    
+    AUTHZ_FALLBACK_RATIO.with(&[("route", route)]).set(ratio);
+}
+```
+
+### Expected Fallback Ratios by Route Type
+
+| Route Type | Expected Fallback Ratio | Rationale |
+|------------|------------------------|-----------|
+| `jwt-only` | 0% | No fallback by design |
+| `jwt-with-fallback` | 5-20% | Fallback only when JWT claims insufficient |
+| `online-only` | 100% | Always fallback |
+| **Overall** | **< 5%** | **Target: >95% of requests handled by JWT common path** |
+
+### Alert Thresholds
+
+| Metric | Warning | Critical | Action |
+|--------|---------|----------|--------|
+| `authz_fallback_ratio` (jwt-with-fallback routes) | > 20% | > 40% | Investigate JWT common path |
+| `authz_fallback_total` (rate) | Spiking | Sustained high | Load spike on authz-core |
+| Overall fallback ratio | > 10% | > 20% | JWT common path not working |
+
+## Mermaid Diagrams
+
+### Fallback Metrics Collection
+
+```mermaid
+sequenceDiagram
+    participant Handler
+    participant Cache
+    participant Authz as authz-core
+    participant Prometheus
+    participant Grafana
+
+    Handler->>Cache: GET fallback:{route}
+    alt Cache HIT
+        Cache-->>Handler: Cached result
+        Handler->>Prometheus: inc authz_fallback_cache_hit_total{route}
+    else Cache MISS
+        Cache-->>Handler: nil
+        Handler->>Authz: POST /authorize
+        Authz-->>Handler: {allowed: true}
+        Handler->>Cache: SET fallback:{route} (TTL)
+        Handler->>Prometheus: inc authz_fallback_total{route}
+    end
+    
+    Handler->>Prometheus: update authz_fallback_ratio{route}
+    
+    Note over Prometheus: Scrape every 15s
+    Grafana->>Prometheus: Query fallback ratio
+    Grafana->>Grafana: Alert if ratio > 20%
+```
+
+### Fallback Ratio by Route Type
+
+```mermaid
+pie title Expected Fallback Ratios
+    "jwt-only (0%)" : 30
+    "jwt-with-fallback (5-20%)" : 40
+    "online-only (100%)" : 30
+```
+
+### Fallback Ratio Trend
+
+```mermaid
+graph LR
+    A[Post-migration] --> B[Fallback ratio ~5%<br/>JWT common path working]
+    B --> C{Fallback ratio spikes to 50%?}
+    C -->|Yes| D[Alert: JWT common path not working]
+    C -->|No| B
+    
+    D --> E[Investigate: JWKS cache? Route classification?]
+    E --> F[Fix and verify ratio drops back]
+    F --> B
+```
+
+## OpenAPI Changes
+
+No OpenAPI changes. Metrics are internal.
+
+## Design Doc References
+
+- `design-doc.md` section 10.3: Hybrid Authorization Model -- fallback metrics
+- `design-doc.md` section 10.12: Observability -- authz_fallback_total and authz_fallback_ratio
+
+## Wiki Pages to Update/Create
+
+- `topics/topic-observability.md`: Document authz fallback metrics
+
+## Acceptance Criteria
+
+- [ ] `authz_fallback_total{route}` counter is implemented per route
+- [ ] `authz_fallback_cache_hit_total{route}` counter is implemented per route
+- [ ] `authz_fallback_ratio{route}` gauge is computed per route
+- [ ] Overall fallback ratio < 5% (target: >95% JWT common path)
+- [ ] Per-route fallback ratio < 20% for jwt-with-fallback routes
+- [ ] Alerts on: overall fallback > 10%, per-route fallback > 20%
+- [ ] Unit tests verify: counter increments, ratio calculation, alert thresholds
+
+## Dependencies
+
+- Depends on Story 4.3 (selective online fallback)
+- Intersects with Story 9.1 (metrics infrastructure)
+
+## Risk / Trade-outs
+
+- **Route label cardinality**: `authz_fallback_total{route}` creates one time series per route. With 133 routes, this creates ~133 time series. This is acceptable -- Prometheus can handle thousands of time series per metric.
+- **Ratio computation**: The ratio is computed by the service periodically (not per-request) to avoid per-request counter division. This means the ratio may be up to 15 seconds stale (scrape interval) when displayed in Grafana. For alerting purposes, this is acceptable.
+- **Baseline calibration**: The expected fallback ratio (5%) is a target based on the JWT document's assumptions. The actual ratio will depend on traffic patterns and route classification. The baseline should be established during migration (shadow mode) before production deployment.

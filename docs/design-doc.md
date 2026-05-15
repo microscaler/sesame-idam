@@ -650,38 +650,71 @@ flowchart TD
 
 ### 6.2 JWT Schema
 
-Every JWT issued by Sesame is an RS256-signed token containing all the identity and access context the application needs:
+Every JWT issued by Sesame is an ES256/EdDSA-signed token containing all the identity and access context the application needs. The schema follows RFC 9068 (JWT access token profile) with a collision-resistant namespaced custom claims block.
 
 ```json
 {
-  "alg": "RS256",
-  "typ": "JWT",
-  "kid": "key-2025-01",
-  "iss": "https://auth.seesame.io",
+  "alg": "ES256",
+  "typ": "at+jwt",
+  "kid": "key-2026-01",
+  "iss": "https://idam.example.com",
   "sub": "31c41c16-...",
-  "aud": "myapp.com",
+  "aud": ["myapp.com"],
+  "client_id": "web-portal",
+  "scope": "profile:read preferences:write orders:read",
   "exp": 1715003600,
-  "iat": 1715000000,
+  "nbf": 1715003300,
+  "iat": 1715003300,
   "jti": "tok_abc123",
+  "ver": 42,
+  "sid": "ses_01JV8W...",
   "tenant_id": "app_a4b9c1...",
   "user_id": "31c41c16-...",
   "user_type": "customer",
-  "org_id": "1189c444-...",
-  "org_name": "Acme Inc",
-  "roles": ["admin", "billing-viewer"],
-  "permissions": ["org:admin", "billing:read", "billing:write"],
-  "inherited_roles_plus_current": ["admin", "member"],
-  "mfa_enabled": true,
-  "is_platform_admin": false,
-  "phone_number": "+141****1234",
-  "phone_verified": true,
-  "email_verified": true,
-  "locked": false,
-  "enabled": true
+  "https://sesame-idam.dev/claims": {
+    "tenant": "tenant_a4b9c1...",
+    "portal": "web",
+    "roles": ["admin", "billing-viewer"],
+    "permissions": ["org:admin", "billing:read", "billing:write"],
+    "entitlements_ref": "ent_2c6a7a9f",
+    "entitlements_hash": "sha256:7a0d...",
+    "risk": "normal"
+  }
 }
 ```
 
+**Standard claims:**
+| Claim | Type | Description |
+|-------|------|-------------|
+| `iss` | string | Issuer (Sesame base URL) |
+| `sub` | string | User ID |
+| `aud` | array | Application platform domains (supports multiple audiences) |
+| `client_id` | string | Client application ID |
+| `scope` | string | Space-delimited scope strings (RFC 9068) |
+| `exp` | int64 | Expiration (default 5 minutes) |
+| `nbf` | int64 | Not before |
+| `iat` | int64 | Issued at |
+| `jti` | string | JWT ID (for rotation tracking and denylist) |
+| `ver` | uint64 | Token version (monotonically increasing per subject/tenant) |
+| `sid` | string | Session ID (for session-level revocation) |
+| `tenant_id` | string | Tenant UUID (hard-segment isolation boundary) |
+| `user_id` | string | User ID (convenience, same as sub) |
+| `user_type` | string | `customer` or `platform` |
+
+**Sesame custom claims** (namespaced, collision-resistant):
+| Claim | Type | Description |
+|-------|------|-------------|
+| `tenant` | string | Tenant UUID (also in top-level for backward compat) |
+| `portal` | string | Application portal name (web, admin, api, mobile) |
+| `roles` | array | Resolved roles for the current org (with inheritance) |
+| `permissions` | array | Resolved permissions for the current org (bounded set) |
+| `entitlements_ref` | string | Reference to full ACL snapshot (avoids embedding large ACLs) |
+| `entitlements_hash` | string | SHA-256 hash of entitlement snapshot |
+| `risk` | string | Risk signal (`normal`, `elevated`, `critical`) |
+
 **Claim trust model:** All claims are **authoritative in Sesame**. They are written by the identity service at token generation time and are never modifiable by the client. The application reads them as trusted facts.
+
+**PII note:** Email and phone number are NOT included in access tokens. Consumers that need them should fetch from the user profile endpoint. This keeps token size minimal and reduces PII exposure.
 
 ### 6.3 Authorization Model
 
@@ -1046,44 +1079,100 @@ graph LR
 
 ### 10.1 Token Security
 
-| Property | Detail |
-|----------|--------|
-| **Algorithm** | RS256 (RSA + SHA-256) |
-| **Key management** | Public keys served via `/.well-known/jwks.json`, rotated on schedule |
-| **TTL** | Default 15 minutes, configurable per application |
-| **Refresh tokens** | Rotated on every use, stored hashed in Redis and PostgreSQL |
-| **Impersonation** | Platform admins can generate tokens acting as any user in their org |
-| **Session management** | Full session lifecycle with per-application scoping, logout-all, IP tracking |
+|| Property | Detail ||
+|----------|--------||
+| **Algorithm** | ES256 (ECDSA + P-256 + SHA-256) or EdDSA (Ed25519) |
+| **Key management** | Public keys served via `/.well-known/jwks.json`, rotated on schedule with overlapping validity windows |
+| **TTL** | Default 5 minutes for normal users, 1-5 minutes for admin/high-privilege tokens, configurable per role tier |
+| **Refresh tokens** | Rotating token families stored in Redis with reuse detection (revoke family on replay) |
+| **Impersonation** | Platform admins can generate tokens acting as any user in their org (delegation via RFC 8693 `act` claim) |
+| **Session management** | Full session lifecycle with per-tenant scoping, logout-all, IP tracking |
+| **Token versioning** | Monotonically increasing `ver` claim per subject and per tenant for instant privilege invalidation |
+| **Claim namespace** | `https://sesame-idam.dev/claims` for collision-resistant custom authz claims |
 
-### 10.2 Password Security
+### 10.2 Asymmetric Signing & JWKS
 
-| Property | Detail |
-|----------|--------|
+Sesame uses asymmetric signing: a private key signs tokens at the identity service, and public keys are published via `/.well-known/jwks.json` for validation by all other services.
+
+- **Algorithm allow-list** (RFC 8725): Only ES256, EdDSA, and optionally RS256 are accepted. `alg: none` is explicitly rejected.
+- **Token type enforcement** (RFC 9068): `typ` must equal `at+jwt`. Tokens with missing or wrong `typ` are rejected.
+- **Issuer and audience validation**: `iss` and `aud` are validated per consumer application. Tokens with wrong `iss` or missing `aud` are rejected.
+- **Clock skew**: 60 seconds allowed in both directions for `nbf` and `exp` validation.
+- **JWKS cache**: All services cache the JWKS document for 5 minutes before re-fetching.
+
+### 10.3 Hybrid Authorization Model
+
+Sesame uses a **hybrid authorization model** -- JWT claims handle the common path for coarse-grained checks, with selective online fallback for high-risk or dynamic decisions.
+
+**Route classification:**
+
+| Route Category | JWT Common Path | Online Fallback | Examples |
+|---|---|---|---|
+| `jwt-only` | Evaluate claims locally | No | Self-service reads (users/me GET, preferences GET) |
+| `jwt-with-fallback` | Validate JWT, extract claims | Yes, cached 5-30s | Self-service low-risk writes (preferences PUT) |
+| `online-only` | Validate JWT only | Yes, no cache | API key lifecycle, delegated/admin actions |
+
+**Coarse-grained checks** (zero latency, no DB call): "Is Admin?", "Has invoices:write?", "Is in tenant X?"
+**Fine-grained checks** (<10ms cached, authz-core): "Can user delete invoice #123?" -- requires action + resource context.
+
+**Fallback caching**: Redis cache with per-route TTL (5-30s). Track `authz_fallback_ratio` -- if this spikes, the common path is not working.
+
+### 10.4 Token Versioning & Revocation
+
+Token versioning enables near-instant revocation without relying solely on short TTLs:
+
+- **Per-subject version**: `authz_ver:{sub}` in Redis. Bumped whenever user's permissions change.
+- **Per-tenant version**: `authz_ver:tenant:{tenant_id}`. Bumped when org-level roles/permissions change.
+- **Token `ver` claim**: Monotonically increasing integer. On validation, compare to cached version.
+- **Version mismatch**: If `claims.ver < current_ver`, deny with "stale authz snapshot", return 401 with retry-after header.
+- **Target propagation**: Measured in seconds, not minutes, for sensitive routes.
+- **Push invalidation**: On important authz changes, emit a version bump event (Redis pub/sub). Downstream services drop cached version on receiving bump.
+
+**Layered revocation:**
+1. Short access-token TTLs (cap staleness)
+2. Rotating refresh tokens stored in Redis, with reuse detection
+3. Per-subject or per-tenant token versioning (invalidate future requests quickly)
+4. Targeted `jti` denylisting (exceptional, urgent cases only)
+5. Push invalidation events (near-real-time response for important events)
+
+### 10.5 Delegation & Actor Claims (RFC 8693)
+
+Sesame supports RFC 8693 token exchange for delegation:
+
+- **Token exchange**: Accept a valid access token as a subject token, issue a new token containing `act: {sub: "actor_id", ...}`.
+- **Actor validation**: `act.sub` must have permission to act on behalf of the subject.
+- **Decision input**: Top-level claims + current actor are what matter for access control. Deeper nested actors are audit-only.
+- **Support tool impersonation**: Platform admin initiates impersonation, returns a delegated token. Consuming API sees both the impersonated user and the admin actor.
+
+### 10.6 Password Security
+
+|| Property | Detail ||
+|----------|--------||
 | **Hashing** | Argon2id with tuned parameters (configurable cost) |
 | **Rotation** | Per-org settings: `password_rotation_enabled`, `history_size` (1-24), `period` (default 30 days) |
 | **Reset** | Token-based password reset via email, single-use |
 | **Clear password** | `DELETE /users/{id}/password` for SSO-only conversion |
 
-### 10.3 MFA
+### 10.7 MFA
 
-| Feature | Detail |
-|---------|--------|
+|| Feature | Detail ||
+|---------|--------||
 | **TOTP** | QR code provisioning, 6-digit codes |
 | **WebAuthn** | Hardware security keys, biometric |
 | **SMS OTP** | 4-6 digit codes |
 | **Step-up** | Re-authentication for sensitive actions (separate from login) |
 
-### 10.4 API Key Security
+### 10.8 API Key Security
 
-| Property | Detail |
-|----------|--------|
+|| Property | Detail ||
+|----------|--------||
 | **Storage** | SHA-256 hash of key (never stored plaintext) |
 | **Prefix** | Full key shown only at creation time |
 | **Validation** | Hash lookup, <1ms |
 | **Rotation** | PATCH /api-keys/{id} with new key material |
 | **Archival** | Revoked/expired keys retained for audit |
 
-### 10.5 RLS Security Model
+### 10.9 RLS Security Model
 
 ```mermaid
 sequenceDiagram
@@ -1093,7 +1182,7 @@ sequenceDiagram
     participant DB as PostgreSQL (RLS enabled)
     Client->>Mid: POST /invoices<br/>Authorization: Bearer ***
     activate Mid
-    Mid->>Mid: Validate JWT (RS256 + JWKS)
+    Mid->>Mid: Validate JWT (ES256/EdDSA + JWKS)
     Mid->>Mid: Extract claims → SesameContext
     Mid-->>Client: Continue to handler
     deactivate Mid
@@ -1108,19 +1197,49 @@ sequenceDiagram
 ```
 
 **Security guarantees:**
-1. JWT signature verification happens in the application layer using RS256 public keys from Sesame's JWKS
+1. JWT signature verification happens in the application layer using ES256/EdDSA public keys from Sesame's JWKS
 2. The JWT itself **never** enters PostgreSQL
 3. Only extracted, verified claim values enter the database via `SET LOCAL`
-4. RLS policies are the defense-in-depth safety net — if middleware is bypassed, zero rows are returned
+4. RLS policies are the defense-in-depth safety net -- if middleware is bypassed, zero rows are returned
 5. `SET LOCAL` scoping prevents cross-user leakage in connection pooling scenarios
 
-### 10.6 Webhook Security
+### 10.10 Webhook Security
 
-| Property | Detail |
-|----------|--------|
+|| Property | Detail ||
+|----------|--------||
 | **Signing** | HMAC-SHA256(payload, secret) in `X-Signature-256` header |
 | **Secret** | Configurable per webhook, stored encrypted |
 | **Verification** | Consumer app computes HMAC and compares with header |
+
+### 10.11 Caching Strategy
+
+| Cache | Suggested TTL | Why |
+|---|---|---|
+| **JWKS cache** | 5 minutes | Low churn, avoids repeated discovery/JWKS fetches |
+| **Subject/tenant version cache** | 15-60 seconds | Limits central lookups without making revocation too slow |
+| **Online fallback authz result cache** | 5-30 seconds | Cuts repeated fallback chatter on hot objects |
+| **Denylist cache (jti)** | Until token exp | Needed only for urgent revocations |
+| **Entitlement snapshot cache** | 30-300 seconds | Lets you avoid embedding large ACLs in tokens |
+
+### 10.12 Observability
+
+**Required metrics:**
+
+| Metric | Why it matters |
+|---|---|
+| `jwt_validation_total{result,reason}` | Shows whether failures spike by expiry, signature, issuer, audience, or type |
+| `jwt_validation_latency_ms` | Measures common-path cost |
+| `jwks_cache_hit_ratio` and `jwks_refresh_failures_total` | Detects key-discovery issues |
+| `authz_fallback_total{route}` and `authz_fallback_ratio` | Tells you whether the common path is really local |
+| `authz_shadow_mismatch_total{route}` | Essential during migration (compare online vs local decisions) |
+| `token_refresh_total`, `refresh_reuse_detected_total`, `refresh_rotation_failures_total` | Detects session and replay problems |
+| `token_revocation_total`, `revocation_propagation_seconds` | Measures how revocation actually behaves |
+| `token_size_bytes` and `authorization_header_size_bytes` | Prevents gradual token bloat |
+| `denylist_lookup_latency_ms` and `version_lookup_latency_ms` | Detects hidden central bottlenecks |
+
+**Structured logs** (NEVER log raw access tokens): issuer, subject, client_id, session_id, token_id, token_version, route, decision_source (`jwt`, `fallback`, `denylist`, `version_mismatch`), actor subject when `act` is present.
+
+**Alerts**: Sudden increases in invalid-token errors, JWKS refresh failures, fallback ratio spikes, token-size percentile growth, refresh-token reuse detection, revocation propagation exceeding route-class SLO.
 
 ---
 
@@ -1208,15 +1327,24 @@ At any given moment, a user operates within **ONE** org context. When a user bel
 
 ## 14. Future Work
 
-| Area | Status | Notes |
-|------|--------|-------|
-| **Custom OAuth providers** | Planned | Support arbitrary OAuth providers beyond Google, GitHub, LinkedIn |
-| **Bulk user operations** | Deferred | Import/export users in bulk for migration |
-| **Session analytics** | Deferred | Login frequency, active sessions, geographic distribution |
-| **Advanced MFA** | Deferred | Push notifications, hardware key enrollment flows |
-| **Custom login pages** | Deferred | Branded login/signup pages (PropelAuth provides this) |
-| **Frontend SDK** | Planned | React/Vue hooks for auth state management |
-| **Backend SDK** | Planned | Rust, Python, Node.js libraries for token validation and enrichment |
+|| Area | Status | Notes ||
+|------|--------|-------||
+| **JWT claims evolution** | Epic 2 | Namespaced claims, entitlements_ref, PII removal -- see `docs/Epics/02-claims-schema-evolution/` ||
+| **Asymmetric signing (ES256/EdDSA)** | Epic 1 | Move from HS256 to asymmetric with JWKS -- see `docs/Epics/01-asymmetric-jwks/JWT.md` ||
+| **Hybrid authz model** | Epic 4 | Route classification, JWT common-path middleware, selective fallback -- see `docs/Epics/04-hybrid-authz-model/` ||
+| **Token versioning** | Epic 5 | Per-subject/tenant versioning, push invalidation -- see `docs/Epics/05-token-versioning/` ||
+| **Delegation (RFC 8693)** | Epic 6 | Token exchange, `act` claim, support tool impersonation -- see `docs/Epics/06-delegation-act/` ||
+| **Refresh token rotation** | Epic 3 | Token families, reuse detection, token exchange -- see `docs/Epics/03-token-lifecycle/` ||
+| **Caching strategy** | Epic 7 | JWKS cache, version cache, fallback cache, entitlement snapshot -- see `docs/Epics/07-caching-strategy/` ||
+| **Security hardening** | Epic 8 | RFC 8725/9068/9449, DPoP, algorithm allow-list -- see `docs/Epics/08-security-hardening/` ||
+| **Observability** | Epic 9 | JWT metrics, shadow decisions, structured logging -- see `docs/Epics/09-observability/` ||
+| **Custom OAuth providers** | Planned | Support arbitrary OAuth providers beyond Google, GitHub, LinkedIn ||
+| **Bulk user operations** | Deferred | Import/export users in bulk for migration ||
+| **Session analytics** | Deferred | Login frequency, active sessions, geographic distribution ||
+| **Advanced MFA** | Deferred | Push notifications, hardware key enrollment flows ||
+| **Custom login pages** | Deferred | Branded login/signup pages (PropelAuth provides this) ||
+| **Frontend SDK** | Planned | React/Vue hooks for auth state management ||
+| **Backend SDK** | Planned | Rust, Python, Node.js libraries for token validation and enrichment ||
 
 ---
 
