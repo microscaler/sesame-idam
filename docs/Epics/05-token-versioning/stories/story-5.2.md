@@ -200,3 +200,70 @@ No OpenAPI changes. Version cache is internal to the validation logic.
 - **TTL mismatch**: The version cache TTL (15-60 seconds) is longer than the token TTL (5 minutes). This means after a version bump, stale tokens will be rejected for up to 15 seconds (subject) or 60 seconds (tenant). After the TTL expires, the cache is empty and validators skip the version check (fail open). This is a design trade-off: short cache TTL means stale tokens are eventually accepted again. If stricter revocation is needed, the TTL should be shorter (e.g., 5 seconds).
 - **Redis dependency**: If Redis is down, version lookup fails. The code uses `unwrap_or(0)` to handle this gracefully -- missing version defaults to 0, which means `claims.ver >= 0` is always true, so the version check is skipped (fail open).
 - **Version increment contention**: Multiple authz changes may increment the same version counter concurrently. The INCR command is atomic in Redis, so there is no lost update. The worst case is a version bump from 42 to 44 instead of 42 -> 43 -> 44. This is acceptable -- the version is only used for monotonic comparison, not for tracking exact change counts.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Subject version stored with 15-second TTL**: Given user alice's version is bumped to 5, assert Redis key `authz_ver:{alice}` exists with TTL of 15 seconds (`TTL authz_ver:{alice}` returns ~15)
+- [ ] **Tenant version stored with 60-second TTL**: Given tenant abc's version is bumped to 10, assert Redis key `authz_ver:tenant:abc` exists with TTL of 60 seconds (`TTL authz_ver:tenant:abc` returns ~60)
+- [ ] **Redis INCR atomically increments version**: Given `authz_ver:{user}` is 42, assert `INCR authz_ver:{user}` returns 43, `INCR authz_ver:{user}` returns 44 — no duplicate or skipped values under concurrency
+- [ ] **Missing subject version defaults to 0**: Given `authz_ver:{new_user}` does not exist in Redis, assert `GET authz_ver:{new_user}` returns nil and the version reader returns 0 (not a panic, error, or unwrap crash)
+- [ ] **Missing tenant version defaults to 0**: Given `authz_ver:tenant:{new_tenant}` does not exist, assert the version reader returns 0
+- [ ] **Version comparison allows when claims.ver >= cached_ver**: Given `claims.ver = 45` and `cached_ver = 42`, assert `validate_version()` returns `Ok(())` (token is current)
+- [ ] **Version comparison denies when claims.ver < cached_ver**: Given `claims.ver = 40` and `cached_ver = 42`, assert `validate_version()` returns `Err(AuthError::StaleAuthToken { expected_min_version: 42, actual_version: 40 })`
+- [ ] **Jwt-only routes skip version check**: Given a route classified as `jwt-only`, assert `validate_version()` returns `Ok(())` immediately without any Redis lookup
+- [ ] **Jwt-with-fallback routes skip version check**: Given a route classified as `jwt-with-fallback`, assert `validate_version()` returns `Ok(())` without Redis lookup
+- [ ] **High-risk routes check subject version**: Given a route classified as `high-risk`, assert `validate_version()` performs a `GET authz_ver:{user_id}` Redis lookup and compares against `claims.ver`
+- [ ] **High-risk routes check tenant version**: Given a route classified as `high-risk`, assert `validate_version()` also performs a `GET authz_ver:tenant:{tenant_id}` lookup and compares — failure of EITHER subject or tenant check results in denial
+- [ ] **Subject version check is independent of tenant version check**: Given `claims.ver = 42`, `cached_subject_ver = 40` (passes), `cached_tenant_ver = 45` (fails), assert the token is DENIED — the tenant version check is a separate gate, not an AND of both
+- [ ] **Subject version TTL mismatch (F-013)**: Given subject version cache TTL = 15 seconds, token TTL = 300 seconds, assert that after 16 seconds (cache expired, token still valid), the version check is skipped (fail open). Document this as an acceptable trade-off.
+- [ ] **Tenant version TTL mismatch (F-013)**: Given tenant version cache TTL = 60 seconds, token TTL = 300 seconds, assert that after 61 seconds (cache expired, token still valid), the version check is skipped (fail open). Document the 6-minute worst-case stale window.
+- [ ] **Concurrent INCR produces sequential values**: Given 100 concurrent `INCR authz_ver:{user}` calls from 100 goroutines, assert all 100 return unique sequential values from 1 to 100 (no duplicates, no gaps)
+- [ ] **Metrics emitted on version lookup**: Assert `version_lookup_latency_ms` histogram records a sample for every version lookup, and `version_mismatch_total{result: "match", "mismatch"}` is incremented per comparison outcome
+- [ ] **Version check with both subject and tenant versions**: Given `claims.ver = 43`, `subject_ver = 42`, `tenant_ver = 45`, assert the token is DENIED (tenant version mismatch triggers denial)
+- [ ] **Version check with zero cached values**: Given `claims.ver = 1` and both subject and tenant cached versions are 0 (first login after service restart), assert the token is ALLOWED (1 >= 0)
+- [ ] **Version bump on authz change increments correctly**: Given tenant version 10 and subject version 5, a role change in the tenant bumps both: `INCR authz_ver:tenant:abc` returns 11, `INCR authz_ver:{user}` returns 6
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Version check passes for current token**: `given` user alice has `authz_ver:{alice} = 5` and `authz_ver:tenant:abc = 10` → `when` a high-risk request arrives with JWT containing `ver = 5` → `then` the version check passes (subject 5 >= 5) AND tenant check passes (10 >= 10) → token is allowed
+- [ ] **Scenario: Subject version mismatch denied**: `given` user alice has `authz_ver:{alice} = 8` (recent role change) → `when` a high-risk request arrives with JWT containing `ver = 5` → `then` the version check fails (5 < 8) → token is denied with `StaleAuthToken`
+- [ ] **Scenario: Tenant version mismatch denied**: `given` tenant abc has `authz_ver:tenant:abc = 15` (platform-wide change) but user bob's subject version is still 5 → `when` a high-risk request arrives with JWT containing `ver = 5` → `then` the tenant version check fails (5 < 15) → token is denied with `StaleAuthToken`
+- [ ] **Scenario: Jwt-only route skips version check entirely**: `given` user carol has `authz_ver:{carol} = 100` (recent version bump) → `when` a jwt-only route request arrives with JWT containing `ver = 1` (very stale) → `then` no Redis lookup is performed and the request is allowed based on JWT claims alone
+- [ ] **Scenario: Jwt-with-fallback route skips version check**: `given` user dave has `authz_ver:{dave} = 50` → `when` a jwt-with-fallback route request arrives with `ver = 1` → `then` no version check is performed — the handler proceeds with its own fallback logic
+- [ ] **Scenario: High-risk route checks both subject and tenant**: `given` user eve has subject version 20 and tenant version 25 → `when` a high-risk request arrives with `ver = 21` (subject passes, tenant fails) → `then` the request is denied because tenant check (21 < 25) fails
+- [ ] **Scenario: Version lookup latency metric recorded**: `given` a high-risk request with a valid JWT → `when` the version cache is checked → `then` `version_lookup_latency_ms` histogram records a sample with latency in the <1ms range (Redis is local)
+- [ ] **Scenario: Version mismatch metric recorded**: `given` a high-risk request with a stale JWT (`ver = 5`, cached = 10) → `then` `version_mismatch_total{result: "mismatch"}` is incremented by 1
+- [ ] **Scenario: Redis cache miss defaults to 0**: `given` a new user with no version in Redis → `when` a high-risk request arrives → `then` the version lookup returns 0 (cache miss) and the check passes (claims.ver >= 0) without error
+- [ ] **Scenario: Version survives service crash**: `given` user frank has `authz_ver:{frank} = 30` in Redis → `when` the identity-login-service crashes and restarts → `then` a subsequent high-risk request for frank correctly reads version 30 from Redis and rejects tokens with `ver < 30`
+
+### Security Regression Tests
+
+- [ ] **Version check cannot be bypassed by removing ver claim**: Assert that a JWT missing the `ver` claim does not allow high-risk routes to proceed — the handler must reject or require version for high-risk routes
+- [ ] **Version check cannot be bypassed by setting ver to future value**: Assert that a client cannot set `ver = 999999` in a tampered JWT to bypass the version check — the comparison is against the authoritative Redis value, but the JWT signature must still be valid (tampered tokens are rejected before version evaluation)
+- [ ] **Tenant version cannot be used to deny cross-tenant access**: Assert that user from tenant A cannot cause version-based denial for a user from tenant B — tenant version checks are scoped to the user's own tenant_id extracted from the JWT, not from the request
+- [ ] **Version bump on authz change is idempotent**: Assert that calling the authz change handler twice with the same change results in two INCRs (42 -> 44), and the version comparison still works correctly (44 >= 44 passes, 43 >= 44 fails)
+- [ ] **Redis failure does not escalate privileges**: Assert that when Redis is unavailable, high-risk routes fail open (skip version check) but do NOT grant elevated permissions — the handler still checks JWT claims, signature, exp, iss, aud. Only the version comparison is skipped.
+- [ ] **Subject version and tenant version are properly isolated**: Assert that incrementing the subject version for user A does not affect tenant version for tenant B, and vice versa — Redis keys are properly namespaced
+
+### Edge Cases
+
+- [ ] **Version check with very large version numbers**: Given `claims.ver = 18446744073709551615` (u64::MAX) and `cached_ver = 1`, assert the comparison correctly evaluates `>=` without overflow or wraparound
+- [ ] **Concurrent version lookups and increments**: Given 100 concurrent requests reading version 42 and 50 concurrent INCR operations, assert all reads and increments are consistent — no torn reads, no lost updates
+- [ ] **Redis SETEX with empty user_id**: Given `authz_ver:{""}` (empty string user ID), assert the key is still created and stored (no validation on user_id format in the version key)
+- [ ] **Redis connection pool exhaustion during version check**: Given all Redis connections in the pool are in use, assert the version lookup either waits for a connection, returns an error, or times out gracefully — not a panic
+- [ ] **Version TTL exactly at expiry boundary**: Given a version with TTL = 1 second and a request arriving at 0.9s, assert the version is still readable (TTL has not expired). At 1.1s, assert the key is gone and lookup returns 0.
+- [ ] **Very long tenant_id in version key**: Given `tenant_id` is 1000 characters long, assert `authz_ver:tenant:{tenant_id}` is created without error and the key length is reasonable for Redis
+- [ ] **Version check after service restart with TTL expired**: Given `authz_ver:{user}` was 50 but TTL expired before restart, assert the restarted service reads 0 (cache miss) and allows requests — no stale in-memory version causes incorrect denial
+- [ ] **Redis cluster failover during version bump**: Given a Redis cluster failover occurs during `INCR authz_ver:{user}`, assert the operation either succeeds on the new master or fails with a clear error — no silent data loss
+
+### Cleanup
+
+- Redis state must be cleaned between test scenarios — use `FLUSHDB` or a unique Redis prefix per test run to prevent stale version entries from affecting subsequent tests
+- Both subject and tenant version keys (`authz_ver:{sub}` and `authz_ver:tenant:{tenant_id}`) must be cleared between tests — verify by checking that `DBSIZE` returns to 0 after cleanup
+- Metrics registry must be reset between test scenarios using `prometheus::Registry::new()` to prevent cross-test metric contamination
+- JWT signing/verification keys used in tests should be unique per test to prevent key collisions between concurrent test scenarios
+- If using mock Redis (e.g., `mock-redis` crate), ensure the mock is reset between tests — use a fresh mock instance or call `mock.reset()`
+- Version comparison logic uses `unwrap_or(0)` for cache misses — no cleanup needed as this is in-memory logic
+- Redis connection pool used in tests should not leak connections — verify by checking pool stats after each test
