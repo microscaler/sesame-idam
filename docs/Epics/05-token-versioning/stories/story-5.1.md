@@ -157,3 +157,61 @@ components:
 - **Redis dependency for version**: The version check depends on Redis. If Redis is down, the version check is skipped (fail open). This is acceptable because the version check is a secondary check -- if Redis is unavailable, the token is still validated (signature, exp, iss, aud).
 - **Version bump timing**: When authz changes occur, the version is bumped immediately. Existing tokens with older `ver` values are rejected on the NEXT request (after token validation). This means there is a window (up to token TTL) where stale tokens are still valid. This is intentional -- the version bump is a "soft" revocation that takes effect on the next validation.
 - **Version overflow**: `ver` is a `u64`, so overflow is practically impossible (would take ~584,000 years at 1 bump/second). No overflow handling needed.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Version claim is included in JWT payload**: Given a user authenticating and a valid login flow, assert the issued access token contains `ver` as a uint64 field in the decoded JWT payload
+- [ ] **Session ID claim is included in JWT payload**: Given a user authenticating, assert the issued access token contains `sid` (session ID) as a string field in the decoded JWT payload
+- [ ] **Version starts at 0 for new users**: Given a first-time user with no prior version in Redis, assert `GET authz_ver:{user_id}` returns None/nil, so the initial version read defaults to 0 and the issued token has `ver = 1` (0 + 1)
+- [ ] **Version increments monotonically per user**: Given user alice issues token A (ver=1), then token B (ver=2), then token C (ver=3), assert each subsequent token has a strictly increasing version (ver_A < ver_B < ver_C)
+- [ ] **Tenant version increments independently**: Given tenant abc with version 10, a role change for a different user in the same tenant bumps the tenant version to 11 while user-specific version stays at its own value (no cross-contamination)
+- [ ] **Redis GET returns default 0 on cache miss**: Given `authz_ver:{new_user}` does not exist in Redis, assert the version reader returns 0 (not a panic or error)
+- [ ] **Redis INCR atomically increments version**: Given concurrent token issues for the same user, assert `INCR authz_ver:{user_id}` produces strictly sequential values (42, 43, 44) with no duplicate values
+- [ ] **Redis SET stores version with correct TTL**: Given version 42 is incremented for user X, assert `GET authz_ver:{X}` returns 42 within the TTL window (15-60 seconds) and returns nil after TTL expiry
+- [ ] **Token issue reads current version, increments, stores, returns**: Given user with current version 7 in Redis, assert the token issue flow: (1) reads 7, (2) computes new_ver = 8, (3) sets `authz_ver:{user_id} = 8 EX 30`, (4) issues JWT with `ver: 8`, (5) emits `token_version_total{event: "issued"}` metric
+- [ ] **Authz change bumps tenant version**: Given a role update that changes permissions for org in tenant abc, assert the authz change handler calls `INCR authz_ver:tenant:abc`, resulting in a tenant version bump
+- [ ] **Authz change emits version bump metric**: Given a permission change, assert `token_version_total{event: "bumped"}` metric is incremented
+- [ ] **Redis unavailable: token issue succeeds (fail open)**: Given Redis is unreachable during token issue, assert the handler either skips version tracking and issues the token (fail open) or returns a clear error without crashing — signature validation and other JWT operations still work
+- [ ] **Version claim is uint64, not string**: Assert the `ver` claim in the JWT is encoded as a JSON number, not a string (type check on the serialized JWT)
+- [ ] **Sid is unique per session**: Given two different login sessions for the same user, assert the `sid` values differ (each session gets a unique session ID)
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: New user gets ver=1**: `given` a brand new user with no version in Redis → `when` the user logs in → `then` the access token contains `ver: 1` and `authz_ver:{user_id} = 1` is stored in Redis with a 30-second TTL
+- [ ] **Scenario: Returning user gets incremented version**: `given` user alice previously logged in and has `authz_ver:{alice} = 5` in Redis → `when` alice logs in again (or refreshes) → `then` the new token contains `ver: 6` (5 + 1) and the Redis value is updated to 6
+- [ ] **Scenario: Role change bumps tenant version**: `given` tenant abc has `authz_ver:tenant:abc = 20` → `when` a platform admin changes permissions for a role in tenant abc → `then` Redis contains `authz_ver:tenant:abc = 21` and the metric `token_version_total{event: "bumped"}` is emitted
+- [ ] **Scenario: LoginResponse includes token_version field**: `given` a successful login → `when` the response is parsed → `then` the `LoginResponse` schema contains `token_version: 42` (matching the token's ver claim)
+- [ ] **Scenario: Concurrent login increments correctly**: `given` user bob has no existing version → `when` 10 concurrent login requests arrive simultaneously → `then` each request receives a token with a strictly increasing version (1, 2, 3, ... 10) — Redis INCR prevents duplicate values
+- [ ] **Scenario: Version survives service restart**: `given` user carol has `authz_ver:{carol} = 15` stored in Redis → `when` the identity-login-service restarts (losing in-memory state) → `then` a subsequent login for carol correctly reads 15 from Redis and issues ver=16
+- [ ] **Scenario: Tenant version is separate from user version**: `given` user dave has user version 5 and tenant xyz has tenant version 20 → `when` an authz change occurs for a user in tenant xyz → `then` tenant version increments to 21 while dave's user version stays at 5
+- [ ] **Scenario: Version TTL expires and resets on next issue**: `given` user eve has `authz_ver:{eve} = 3` stored with 30-second TTL → `when` 31 seconds pass (TTL expired, key removed from Redis) → `then` the next login for eve starts from default 0 and issues ver=1
+
+### Security Regression Tests
+
+- [ ] **Version claim cannot be tampered by client**: Assert that a client cannot modify the `ver` claim in the JWT to a higher value — the signature verification rejects any tampered token before the version claim is ever evaluated
+- [ ] **Version check cannot be bypassed for high-risk routes**: Assert that high-risk routes always check `claims.ver >= cached_ver` — a client cannot send a JWT with an artificially high `ver` claim to skip the version check (version is compared against the authoritative Redis value, not trusted from the token)
+- [ ] **Tenant version cannot be manipulated via user version**: Assert that a malicious user cannot increment another user's version to interfere with tenant version tracking — user and tenant versions are stored in separate Redis keys with independent operations
+- [ ] **Redis failure does not cause privilege escalation**: Assert that when Redis is unavailable during token validation, the system fails open (skips version check) but does NOT grant elevated privileges — signature validation, exp, iss, aud checks still apply; only the version comparison is skipped
+- [ ] **Version bump on authz change cannot be denied by timing attack**: Assert that an attacker cannot prevent a version bump by flooding authz-core with requests — the INCR operation is atomic in Redis, and the authz change handler increments once per change event, not per request
+
+### Edge Cases
+
+- [ ] **Version claim with zero value**: Given a first-time user with no prior version, assert `ver: 1` is issued (not `ver: 0` — the version starts at 0 in Redis, is read, incremented to 1, and stored as 1)
+- [ ] **Version claim with max u64**: Given `ver` reaches 18,446,744,073,709,551,615 (u64::MAX), assert the INCR operation wraps around to 0 or is capped — given the ~584,000 year timeframe at 1 bump/second, handle via saturating arithmetic or simply accept the theoretical overflow
+- [ ] **Concurrent version bumps from multiple authz changes**: Given 100 concurrent role updates for the same tenant, assert each INCR is atomic and produces unique sequential values (no lost updates due to Redis INCR atomicity)
+- [ ] **Redis connection timeout during version read**: Given Redis responds with a timeout during `GET authz_ver:{user_id}`, assert the handler either retries with backoff or defaults to 0 (fail open) without crashing or leaving partial state
+- [ ] **Redis SETEX with zero TTL edge case**: Given an edge case where the TTL configuration results in 0 seconds, assert the handler validates TTL is at least the configured minimum (15 seconds) before calling SETEX
+- [ ] **User logs out and logs in again**: Given user frank logs out (refresh token revoked) and logs in again 2 hours later, assert the version continues from where it left off (if Redis TTL still holds) or starts from 0 (if TTL expired) — behavior depends on Redis TTL relative to login interval
+- [ ] **Version metric emitted on every login**: Given 50 sequential logins for the same user, assert `token_version_total{event: "issued"}` is incremented exactly 50 times (no missed metrics)
+
+### Cleanup
+
+- Redis state must be cleaned between test scenarios — use `FLUSHDB` or a unique Redis prefix per test run to prevent stale version entries from affecting subsequent tests
+- Version counters (`authz_ver:{user_id}` and `authz_ver:tenant:{tenant_id}`) must be reset between tests — use a dedicated test Redis instance or flush
+- Metrics registry must be reset between test scenarios using `prometheus::Registry::new()` to prevent cross-test metric contamination
+- JWT signing/verification keys used in tests should be unique per test to prevent key collisions between concurrent test scenarios
+- Session IDs (`sid`) generated during tests should be cleared between scenarios — use fresh session factories per test
+- No files (version state files, config) should be left in the filesystem after test runs — use in-memory state or temporary directories
+- Redis TTL behavior in tests: when testing TTL expiry, use `REDIS_MAX_TTL` override or mock the time if the test framework does not support time control
