@@ -10,7 +10,13 @@ Story 8.2
 
 ## Summary
 
-Implement token binding to the TLS connection (TLS-SNI or client certificate) so that a stolen token cannot be replayed from a different connection. This is a high-security enhancement that prevents token theft via network sniffing or proxy attacks.
+Implement DPoP (Demonstrating Proof-of-Possession, RFC 9449) as the primary token binding mechanism. DPoP binds access tokens and refresh tokens to a client-held cryptographic key pair, preventing replay attacks even when TLS terminates at a load balancer. TLS-SNI can be added as a secondary mechanism for internal service-to-service communication.
+
+This replaces the original RFC 8725 TLS-SNI-only approach because:
+1. DPoP works at the application layer and protects browser-based clients (TLS-SNI does not reach the app when TLS terminates at NGINX)
+2. DPoP binds refresh tokens, not just access tokens (RFC 8725 only covers access tokens)
+3. DPoP is the standards-track mechanism for OAuth 2.0 token binding; TLS-SNI is not an OAuth standard
+4. DPoP protects against proxy-based token theft and NGINX-level token interception
 
 ## Why This Story Exists
 
@@ -18,64 +24,93 @@ The JWT document mentions RFC 8725 as a future enhancement: "Not currently visib
 
 ## Design Context
 
-### Current State
+### DPoP Implementation (F-004 Fix)
 
-- No token binding
-- Tokens are sent in the Authorization header (over TLS)
-- A stolen token can be replayed from any client
+DPoP binds tokens to a cryptographic proof key held by the client. The flow:
 
-### Token Binding Design
-
-Token binding works by including a binding hash in the JWT:
+1. Client generates an Ed25519 key pair (DPoP key)
+2. Client sends a DPoP proof JWT with the initial login/token request:
+   - Header: `{"typ": "dpop+jwt", "alg": "EdDSA", "jwk": {...}}`
+   - Payload: `{"jti": "...", "iat": ..., "htm": "POST", "htu": "/auth/token", "jti": "..."}`
+3. Server validates the DPoP proof:
+   - `jwk` in proof header must match the `dpop_jkt` in the issued token's `cnf` claim
+   - `htm`/`htu` must match the actual request method and path
+   - Proof must be signed by the private key corresponding to `jwk`
+4. Server issues the access token with `cnf.jkt` = `SHA-256(DPoP public key)`
+5. On subsequent requests, client includes `DPoP` header with proof JWT
+6. Server validates `cnf.jkt` matches the public key in the DPoP proof's `jwk`
 
 ```json
 {
   "cnf": {
-    "jkt": "base64url(SHA-256(TLS-SNI-binding-data))"
+    "jkt": "base64url(SHA-256(DPoP_public_key_bytes))"
   }
 }
 ```
 
-- `cnf` = confirmation (RFC 7800)
-- `jkt` = JWT thumbprint of the binding data
-
-### TLS-SNI Binding
-
-For the most common case (TLS Server Name Indication):
-
-1. Client sends TLS ClientHello with SNI
-2. Service extracts the SNI from the TLS handshake
-3. Service computes SHA-256 of SNI bytes
-4. Service includes SHA-256 hash in JWT as `cnf.jkt`
-5. On each request, service verifies the current SNI matches `cnf.jkt`
-
-### Alternative: mTLS (Mutual TLS)
-
-For higher security, use mutual TLS (client certificate):
-
-1. Client presents X.509 certificate during TLS handshake
-2. Service extracts certificate fingerprint
-3. Service includes fingerprint in JWT as `cnf.jkt`
-4. On each request, service verifies the client certificate matches
-
-### Binding Enforcement
+### DPoP Proof Validation
 
 ```rust
-pub fn verify_token_binding(
+pub fn verify_dpop_proof(
     claims: &AccessClaims,
-    current_sni: &str,
+    dpop_header: &DpopProof,
 ) -> Result<(), AuthError> {
-    if let Some(cnf) = &claims.cnf {
-        let expected_jkt = cnf.jkt;
-        let current_jkt = compute_sha256_hash(current_sni);
-        
-        if current_jkt != expected_jkt {
-            return Err(AuthError::TokenBindingMismatch);
-        }
+    // 1. Verify dpop_proof.jwk thumbprint matches claims.cnf.jkt
+    let expected_jkt = sha256(&dpop_header.jwk);
+    if claims.cnf.jkt != expected_jkt {
+        return Err(AuthError::DpopBindingMismatch);
+    }
+    // 2. Verify proof signature
+    verify_eddsa(&dpop_header, &dpop_header.jwk)?;
+    // 3. Validate htm/htu match actual request
+    if dpop_header.htm != actual_method || dpop_header.htu != actual_path {
+        return Err(AuthError::DpopMethodMismatch);
+    }
+    // 4. Verify proof is fresh (iat within 60 seconds)
+    if now - dpop_header.iat > 60 {
+        return Err(AuthError::DpopProofExpired);
     }
     Ok(())
 }
 ```
+
+### Refresh Token Binding
+
+DPoP must also bind refresh tokens (F-015 Fix). The refresh token response includes the DPoP key confirmation:
+
+- The refresh token is stored in Redis with an associated `dpop_jkt` (DPoP key thumbprint)
+- On refresh, the client MUST present a valid DPoP proof
+- The `dpop_jkt` in the proof must match the stored `dpop_jkt`
+- This prevents stolen refresh tokens from being replayed from a different device
+
+### TLS-SNI (Secondary, Internal Services Only)
+
+For internal service-to-service communication (e.g., between microservices behind a shared cluster), TLS-SNI can be added as a secondary binding mechanism:
+
+1. Service extracts SNI from TLS handshake
+2. Computes SHA-256 of SNI bytes
+3. Includes as `cnf.jkt_tls` in JWT (secondary binding)
+4. On each request, verifies SNI matches
+5. **Not for browser-based clients** — TLS-SNI is only valid when the service sees the original TLS handshake
+
+### Binding Enforcement
+
+Binding is applied differently by token type:
+
+| Token Type | Binding Mechanism | When Checked |
+|---|---|---|
+| Access token | DPoP proof in `DPoP` header | Every API request |
+| Refresh token | DPoP proof in refresh request | Every `/auth/refresh` call |
+| Internal service | TLS-SNI (optional secondary) | Every inter-service call |
+
+### F-015 Fix: Refresh Token Binding
+
+Refresh tokens MUST be DPoP-bound (not just access tokens). Without refresh token binding, a stolen refresh token can be replayed from any device until reuse is detected. The refresh flow requires:
+
+1. Client sends refresh request with valid DPoP proof
+2. Server verifies `cnf.jkt` matches stored `dpop_jkt` for the refresh token
+3. If mismatch: reject 401 (stolen refresh token detected)
+4. If match: proceed with normal rotation and issue new access token with same `cnf.jkt`
 
 ## Mermaid Diagrams
 

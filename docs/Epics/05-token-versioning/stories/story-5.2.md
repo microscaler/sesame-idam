@@ -30,12 +30,23 @@ The JWT document recommends: "check a central blacklist or Redis version key on 
 | Subject version | `authz_ver:{sub}` | 15-60 seconds | Current version for a subject |
 | Tenant version | `authz_ver:tenant:{tenant_id}` | 15-60 seconds | Current version for a tenant |
 
-### TTL Rationale
+### TTL Rationale (F-013 Fix)
 
-| Cache | TTL | Rationale |
+|| Cache | TTL | Rationale |
 |-------|-----|-----------|
 | Subject version | 15 seconds | Faster revocation for user-specific changes |
 | Tenant version | 60 seconds | Less frequent tenant-wide changes, less Redis load |
+
+**F-013 Fix: Version cache TTL alignment with token TTL.** The current design has a critical gap:
+- Subject version cache TTL: 15 seconds
+- Tenant version cache TTL: 60 seconds
+- Token TTL: 5 minutes (300 seconds)
+
+After a version cache TTL expires, the cache is empty and validators skip version checks (fail-open via `unwrap_or(0)`). Worst-case stale window = `60s (tenant TTL expired) + 300s (token still valid) = 360 seconds = 6 minutes`. This means an admin permission change could take up to 6 minutes to propagate to all validators.
+
+**Recommended fix:** Increase tenant version TTL to 5 minutes (matching token TTL). This ensures that when the version cache expires, any tokens still valid will be short-lived (within their 5-minute TTL). The version check becomes "fail-closed" at token expiry rather than "fail-open" after cache expiry.
+
+If even faster revocation is needed, use push invalidation (Story 5.4) which immediately increments the version counter in Redis regardless of cache state.
 
 ### Redis Operations
 

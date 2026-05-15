@@ -30,14 +30,21 @@ The current design doc states 15 minutes default -- this story updates it to the
 - No per-role TTL differentiation
 - TTL is fixed at compile time or through a single environment variable
 
-### Role-Based TTL Tiers
+### Role-Based TTL Tiers (F-010 Fix)
 
-| Tier | TTL (minutes) | Use Case | Config Var |
+|| Tier | TTL (minutes) | Use Case | Config Var |
 |------|---------------|----------|------------|
 | `normal` | 5 | Customer users, standard access | `JWT_ACCESS_TTL_NORMAL` |
-| `elevated` | 3 | Users with sensitive permissions | `JWT_ACCESS_TTL_ELEVATED` |
-| `admin` | 1-3 | Platform admins, org admins | `JWT_ACCESS_TTL_ADMIN` |
-| `platform` | 2 | Platform users (support, editors) | `JWT_ACCESS_TTL_PLATFORM` |
+| `elevated` | 5 | Users with sensitive permissions | `JWT_ACCESS_TTL_ELEVATED` |
+| `admin` | 5 | Platform admins, org admins | `JWT_ACCESS_TTL_ADMIN` |
+| `platform` | 5 | Platform users (support, editors) | `JWT_ACCESS_TTL_PLATFORM` |
+
+**F-010 Fix: Admin TTL aligned to 5 minutes.** The original story proposed 1-3 minute admin tokens. This is operationally problematic:
+
+- **Diminishing security return**: An admin with a 3-minute token can still perform any admin action without MFA for 3 minutes. The real security boundary for high-consequence admin actions is step-up MFA (Epic 6), not token frequency.
+- **Redis load impact**: 3-minute tokens = 20 refreshes/hour per admin vs 12 refreshes/hour for 5-minute tokens. At 10k admins, this is ~80k additional Redis ops/hr vs ~120k total at 5 min. The 2.5x increase in refresh operations significantly increases Redis load.
+- **Operational friction**: Admin tooling that performs batch operations (e.g., bulk org member management) cannot complete within 1-3 minute windows without constant token refresh, creating UX friction that encourages insecure workarounds.
+- **Conclusion**: All token types use 5-minute TTL. Step-up MFA (Epic 6) provides the real security boundary for high-consequence admin actions. This simplifies the configuration matrix while maintaining security.
 
 ### TTL Configuration
 

@@ -33,7 +33,7 @@ actor_token=<optional_actor_token>
 scope=profile:read orders:write
 ```
 
-Response:
+Response (RFC 8693 compliant -- F-003 + F-012):
 
 ```json
 {
@@ -42,7 +42,10 @@ Response:
   "token_type": "Bearer",
   "expires_in": 300,
   "scope": "profile:read orders:write",
-  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token"
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "iss": "https://idam.example.com",
+  "aud": ["myapp.com"],
+  "iat": 1715000000
 }
 ```
 
@@ -281,8 +284,11 @@ components:
 - [ ] New token includes `act` claim with actor's identity
 - [ ] Nested delegation includes `act.chain` for audit
 - [ ] Delegation event is logged with actor_id, subject_id, scopes
+- [ ] **F-003/F-012**: TokenExchangeResponse includes `iss`, `aud`, and `iat` claims per RFC 8693
+- [ ] **F-012**: Audience claim contains both the audience of the original token AND the audience of the actor token
 - [ ] Metrics: `token_exchange_total{result: "success", "denied"}` is emitted
 - [ ] Error responses: 401 (invalid token), 403 (no delegation permission)
+- [ ] **F-021**: Browser-context CSRF assumption is documented (endpoint operates on bearer tokens only)
 
 ## Dependencies
 

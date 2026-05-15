@@ -14,14 +14,14 @@ This is **not** about migrating a production system. It is about defining the ar
 
 | # | Epic | Focus | Dependencies |
 |---|------|-------|-------------|
-| 1 | Asymmetric JWT & JWKS | ES256/EdDSA signing, JWKS key publication, per-service public-key validation | None (foundation) |
-| 2 | Claims Schema Evolution | Namespaced claims, versioning, PII removal, `https://sesame-idam.dev/claims` | Epic 1 |
-| 3 | Token Lifecycle & Refresh Rotation | Rotating refresh tokens, reuse detection, RFC 8693 token exchange | Epic 1 |
+| 1 | Asymmetric JWT & JWKS | EdDSA/Ed25519 signing (ES256 co-default), JWKS key publication, per-service public-key validation | None (foundation) |
+| 2 | Claims Schema Evolution | Namespaced claims, versioning, PII removal, entitlements hash, `https://sesame-idam.dev/claims` | Epic 1 |
+| 3 | Token Lifecycle & Refresh Rotation | Rotating refresh tokens, reuse detection, RFC 8693 token exchange, DPoP binding | Epic 1 |
 | 4 | Hybrid Authorization Model | Route classification, JWT common-path middleware, selective online fallback | Epic 1, 2 |
-| 5 | Token Versioning & Revocation | Per-subject/tenant versioning, jti denylist, push invalidation | Epic 2 |
-| 6 | Delegation & Actor Claims | RFC 8693 `act` claim, token exchange, support tool impersonation | Epic 1, 2 |
+| 5 | Token Versioning & Revocation | Per-subject/tenant versioning, jti denylist, push invalidation, aligned TTLs | Epic 2 |
+| 6 | Delegation & Actor Claims | RFC 8693 `act` claim, token exchange (with `iss`/`aud`), step-up MFA (with token invalidation) | Epic 1, 2 |
 | 7 | Caching Strategy | JWKS cache, version cache, fallback result cache, denylist cache, entitlement snapshot cache | Epic 2, 4, 5 |
-| 8 | Security Hardening | Algorithm allow-list, DPoP, RFC 8725/9068/9449 compliance, security regression tests | Epic 1 |
+| 8 | Security Hardening | Algorithm allow-list, DPoP token binding (RFC 9449), typ enforcement (RFC 9068) | Epic 1 |
 | 9 | Observability & Monitoring | JWT validation metrics, shadow decisions, structured logging, alerting | Parallel (all epics) |
 
 ## Execution Order

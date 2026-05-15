@@ -64,7 +64,7 @@ gantt
 
 ```mermaid
 flowchart LR
-    A[HS256 (symmetric)] --> B[ES256/EdDSA (asymmetric)]
+    A["HS256 (symmetric)"] --> B["ES256/EdDSA (asymmetric)"]
     B --> C[Public key in JWKS]
     C --> D[Private key secure]
     D --> E[No shared secret]

@@ -63,9 +63,11 @@ fn handle_request(
 ```rust
 fn generate_fallback_cache_key(request: &AuthorizeRequest) -> String {
     // Hash the request to create a compact cache key
-    let key_data = format!("{}:{}:{}:{}", 
-        request.sub, 
-        request.org_id, 
+    // F-008 Fix: tenant_id is critical to prevent cache key collision between tenants
+    let key_data = format!("{}:{}:{}:{}:{}",
+        request.tenant_id,   // CRITICAL: tenant isolation boundary
+        request.sub,
+        request.org_id,
         request.action,
         request.resource_id
     );

@@ -64,6 +64,29 @@ The JWKS response is near-static and served from memory:
 - Response is served directly from the in-memory key set
 - HTTP `Cache-Control: public, max-age=300` (5 minutes, matches JWKS cache TTL from design doc section 10.11)
 
+### Rate Limiting (F-009 Fix)
+
+The JWKS endpoint is public and has no authentication. Without rate limiting, an attacker could:
+- Send hundreds of requests/second to exhaust NGINX worker connections
+- Force repeated JSON serialization, consuming CPU
+- Amplify a DoS against identity-session-service
+
+**Rate limit configuration:**
+- 100 requests/second per IP (global, not per-route)
+- Return 429 Too Many Requests when exceeded
+- Log rate limit violations for security monitoring
+- Implement using NGINX `limit_req` or application-level middleware (e.g., `tower_http::limit::RateLimitLayer`)
+
+**NGINX rate limit config:**
+```nginx
+limit_req_zone $binary_remote_addr zone=jwks_limit:10m rate=100r/s;
+
+location /.well-known/jwks.json {
+    limit_req zone=jwks_limit burst=50 nodelay;
+    ...
+}
+```
+
 ### Key Set Construction
 
 On each request:

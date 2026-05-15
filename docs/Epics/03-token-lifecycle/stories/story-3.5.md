@@ -72,6 +72,16 @@ SET user:{user_id}:families fam_abc123,fam_def456,fam_ghi789
 EXPIRE user:{user_id}:families 2592000  # 30 days
 ```
 
+**F-017 Fix: Dead token sweep and TTL consistency.** The current design has unbounded Redis growth because:
+- `refresh:{jti}` entries have 30-day TTL (matching refresh token TTL)
+- `family:{family_id}` entries have 24-hour TTL
+- `user:{user_id}:families` entries have 30-day TTL (correct)
+- BUT: when a user logs out or is revoked, `family:{family_id}` sets and individual `refresh:{jti}` entries are deleted, BUT the corresponding entry in `user:{user_id}:families` is NOT cleaned up
+
+This causes `user:{user_id}:families` to accumulate stale family IDs for users who have logged out or been revoked.
+
+**Fix:** On logout-all, after revoking all families, explicitly `DEL user:{user_id}:families` (already done). On single-session logout, `SREM user:{user_id}:families family_id` after removing the family's tokens. This keeps the family registry in sync with actual active families.
+
 ## Implementation Notes
 
 ### Logout API

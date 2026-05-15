@@ -119,12 +119,12 @@ sequenceDiagram
 ```mermaid
 graph TB
     subgraph "Tenant A (hauliage)"
-        A1[User: alice@hauliage.com]
+        A1["User: alice@hauliage.com"]
         A2[JWT: tenant_id = tenant_hauliage]
         A1 --> A2
     end
     subgraph "Tenant B (rerp)"
-        B1[User: alice@rerp.com]
+        B1["User: alice@rerp.com"]
         B2[JWT: tenant_id = tenant_rerp]
         B1 --> B2
     end

@@ -26,20 +26,30 @@ The JWT document flags "shared-secret blast radius" as a critical security issue
 - All services that validate JWTs currently share the same symmetric key
 - `config.yaml` exposes JWKS configuration settings but they are not wired
 
-### Validation Pipeline (RFC 9068)
+### Validation Pipeline (RFC 9068) -- CRITICAL: Pipeline Ordering
+
+The validation pipeline MUST be executed in the exact order below. This is NOT optional -- the ordering prevents specific attack vectors:
 
 ```
-1. Parse JOSE header
-2. Require typ = at+jwt
-3. Require algorithm from allow-list
-4. Choose key by kid from JWKS cache
-5. Verify signature
-6. Validate iss, aud, exp, nbf (with clock skew)
-7. Reject if jti in local deny cache
-8. Compare token ver to cached version (for high-risk routes)
-9. Evaluate local policy from scope, roles, permissions, tenant
-10. If high-risk route: call online fallback
+1. Parse JOSE header              -- Extract typ, alg, kid before ANY trust decision
+2. Require typ = at+jwt           -- Reject type confusion (F-002) BEFORE signature check
+3. Require algorithm from allow   -- Reject alg: none, reject HS256, reject unexpected alg
+4. Choose key by kid from JWKS    -- Select public key for verification
+5. Verify signature               -- CRYPTOGRAPHIC TRUST DECISION POINT
+6. Validate iss, aud, exp, nbf    -- Claim validation (after trust is established)
+7. Reject if jti in local deny    -- Revocation check (optimization only, NEVER bypass step 5)
+8. Compare token ver to cached    -- Version check for high-risk routes
+9. Evaluate local policy from     -- Authorization decision
+10. If high-risk route: call      -- Selective online fallback
 ```
+
+**F-002 Fix: extract_jti deprecation.** The existing repo's `extract_jti` helper that disables signature validation to pre-check denylists MUST be removed or deprecated. If retained as a pre-validation optimization:
+- It MUST NEVER be used in production validation logic
+- It MUST be behind a feature flag `DISABLE_EXTRACT_JTI=true` by default
+- It MUST have a clear comment: "WARNING: signature validation disabled. Do NOT use as trust decision path."
+- The canonical `validate_jti` check (step 7 above) MUST always follow step 5 (signature verification)
+
+**Zero-trust principle**: Steps 1-4 are pre-trust. Step 5 is the ONLY trust decision. Steps 6-10 operate on established trust. The `extract_jti` helper inverts this and MUST be eliminated.
 
 ### Algorithm Allow-List
 
@@ -51,23 +61,51 @@ The JWT document flags "shared-secret blast radius" as a critical security issue
 | HS256 | **No** (deprecated) | Shared-secret blast radius |
 | `alg: none` | **Never** | RFC 8725 rejection |
 
-### Service Configuration
+| Service | Issuer | Audience | Cache TTL | Clock Skew | Rate Limit |
+|---------|--------|----------|-----------|------------|------------|
+| identity-login-service | `https://idam.example.com` | `["myapp.com"]` | 5 min | 60s | N/A (signer) |
+| identity-session-service | `https://idam.example.com` | `["myapp.com"]` | 5 min | 60s | **N/A — serves JWKS** |
+| identity-user-mgmt-service | `https://idam.example.com` | `["myapp.com"]` | 5 min | 60s | **100 req/s** (F-009) |
+| authz-core | `https://idam.example.com` | `["authz-core.myapp.com"]` | 5 min | 60s | **100 req/s** (F-009) |
+| api-keys | `https://idam.example.com` | `["api-keys.myapp.com"]` | 5 min | 60s | **100 req/s** (F-009) |
+| org-mgmt | `https://idam.example.com` | `["org-mgmt.myapp.com"]` | 5 min | 60s | **100 req/s** (F-009) |
 
-Each service that validates JWTs needs:
+**F-009 Fix: JWKS endpoint rate limiting.** Rate limiting is applied to the JWKS endpoint (`/.well-known/jwks.json`) only — it is the only unauthenticated endpoint and the only one with no operational reason for high request volume.
 
-```yaml
-jwks:
-  issuer: "https://idam.example.com"      # Expected iss
-  audience: ["myapp.com"]                  # Expected aud (may vary per service)
-  cache_ttl_secs: 300                      # JWKS cache TTL (5 min)
-  algorithm_allow_list: ["ES256"]
-  clock_skew_secs: 60                      # NBF/EXP tolerance
+**F-011 Fix: Key health monitoring.** Add a health check endpoint to the identity-session-service:
+
+```
+GET /health/jwks
 ```
 
-The `issuer`, `audience`, and `algorithm_allow_list` are per-service because:
-- Different services may serve different audiences
-- The issuer is always the same (identity-session-service)
-- Algorithm allow-list should be consistent, but could vary in transition
+This endpoint returns:
+```json
+{
+  "keys": [
+    {
+      "kid": "key-2026-05-01",
+      "alg": "EdDSA",
+      "age_seconds": 2592000,
+      "active": true
+    },
+    {
+      "kid": "key-2026-06-01",
+      "alg": "EdDSA",
+      "age_seconds": 0,
+      "active": true
+    }
+  ],
+  "key_count": 2,
+  "last_rotation": "2026-06-01T00:00:00Z",
+  "next_rotation": "2026-07-01T00:00:00Z"
+}
+```
+
+**Alerting rules:**
+- **CRITICAL**: `key_count == 1` for more than 10 minutes (should be 2 during overlap window — rotation has failed)
+- **WARNING**: `key_count == 0` (no keys at all — service misconfigured or crashed during key generation)
+- **WARNING**: `last_rotation` is more than 35 days ago (rotation has not occurred — possible stuck rotation timer)
+- **CRITICAL**: JWKS endpoint health check returns non-200 (endpoint is down)
 
 ## Implementation Notes
 

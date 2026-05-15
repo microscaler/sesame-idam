@@ -27,13 +27,14 @@ Asymmetric signing eliminates shared-secret blast radius. Currently all 6 servic
 
 ### Algorithm Choice
 
-**Decision: ES256 (ECDSA + P-256 + SHA-256)** as the default. Rationale:
-- Widest library support across Rust crypto crates (jsonwebtoken, ring, p256)
-- 256-bit key size (matches P-256 curve) vs Ed25519's 256 bits (comparable security)
-- RS256 is slower (1024-2048 bit RSA) and adds 2-3x signing latency
-- EdDSA/Ed25519 has best performance but narrower library support;可作为未来升级
+**Decision: EdDSA (Ed25519) as the default, ES256 as co-default.** Rationale:
+- **EdDSA/Ed25519 default**: Mathematically stronger security margins (elliptic-curve discrete log, immune to timing side-channels by design via full scalar multiplication). Signature is 64 bytes (vs ~71 bytes for ES256 P-256), reducing JWT payload size and NGINX header pressure. Production-proven, supported by `jsonwebtoken` Rust crate and `ring` crate.
+- **ES256 co-default**: Required for interoperability with existing OAuth providers and consumers that expect P-256 ECDSA. Both algorithms are served simultaneously via JWKS allow-list.
+- RS256 is excluded: 1024-2048 bit RSA adds 2-3x signing latency and 4-8x larger public key footprint. Not warranted when EdDSA and ES256 both cover the security and interoperability requirements.
 
-Alternative: EdDSA can be added as a second supported algorithm once ES256 is proven in production.
+**Algorithm negotiation**: Consumers MUST accept both `EdDSA` and `ES256` from the JWKS allow-list. The `alg` claim in the signed JWT header will always be `EdDSA` for new tokens.
+
+**Future migration**: If EdDSA library support becomes universally available, ES256 can be dropped as co-default. For now, both are active.
 
 ### Key Rotation Strategy
 

@@ -22,15 +22,35 @@ The JWT document identifies PII in tokens as a risk: it violates the principle o
 
 The following claims are removed from the access token:
 
-| Removed Claim | Current Use | Replacement |
-|--------------|-------------|-------------|
-| `email` | User identification | `GET /api/v1/identity/users/me` endpoint |
-| `email_verified` | Verification status | Same endpoint |
-| `phone_number` | Contact info | Same endpoint |
-| `phone_verified` | Verification status | Same endpoint |
-| `first_name`, `last_name` | Display name | Same endpoint |
-| `name` | Display name | Same endpoint |
-| `preferred_username` | Username | Same endpoint |
+|| Removed Claim | Current Use | Replacement | Security Note |
+|--------------|-------------|-------------|-------------|
+| `email` | User identification | `GET /api/v1/identity/users/me` endpoint | PII isolation per RFC 9068 |
+| `email_verified` | Verification status | Same endpoint | PII isolation per RFC 9068 |
+| `phone_number` | Contact info | Same endpoint | PII isolation per RFC 9068 |
+| `phone_verified` | Verification status | Same endpoint | PII isolation per RFC 9068 |
+| `first_name`, `last_name` | Display name | Same endpoint | PII isolation per RFC 9068 |
+| `name` | Display name | Same endpoint | PII isolation per RFC 9068 |
+| `preferred_username` | Username | Same endpoint | PII isolation per RFC 9068 |
+
+### Entitlements Hash Verification (F-007 Fix)
+
+The `entitlements_hash` is NOT only for consumer verification — it MUST be verified by any service that accepts a cached entitlements snapshot from Redis. The verification process:
+
+```rust
+fn verify_entitlements_hash(
+    snapshot: &EntitlementsSnapshot,
+    expected_hash: &str,
+) -> Result<(), AuthError> {
+    let computed = compute_sha256_canonical_json(snapshot);
+    if computed != expected_hash {
+        return Err(AuthError::EntitlementsHashMismatch);
+        // TODO: Invalidate cache entry and re-fetch from authz-core
+    }
+    Ok(())
+}
+```
+
+This prevents tenant bleed if Redis is compromised — a modified ACL snapshot would fail hash verification and the consumer would reject it, falling back to authz-core for the authoritative result.
 
 ### Entitlements Reference vs Full Array
 

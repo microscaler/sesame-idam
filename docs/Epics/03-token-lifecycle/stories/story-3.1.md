@@ -56,6 +56,8 @@ pub struct RefreshToken {
 - All refresh tokens from the same login session share the same `family_id`
 - When a token is reused (old jti found in denylist), ALL tokens in the family are revoked
 - This prevents the "tear" scenario where attacker and legitimate user both have the same token
+- F-005: When reuse is detected, the system MUST trigger cross-session notification (push notification, email, or in-app signal) to inform the user of potential compromise
+- F-015: All refresh tokens are DPoP-bound (see Story 8.2). A stolen refresh token without the matching DPoP proof key cannot be replayed, further reducing the risk window between theft and detection.
 
 ## Implementation Notes
 
@@ -81,7 +83,7 @@ Client -> POST /auth/refresh {refresh_token: "rt_xxx"}
 | Scenario | Denylist TTL | Reason |
 |----------|-------------|--------|
 | Normal rotation | 24 hours | Prevents replay of the old token |
-| Reuse detected (tear scenario) | Until token exp | Full family revocation |
+| Reuse detected (tear scenario) | Until token exp | Full family revocation + cross-session notification (F-005) |
 | Logout | 0 (immediate) | Full family invalidated |
 
 ### Redis Operations

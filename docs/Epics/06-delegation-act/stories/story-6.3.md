@@ -39,7 +39,7 @@ The `sx` namespace includes MFA verification status:
 }
 ```
 
-### Step-Up MFA Flow
+### Step-Up MFA Flow (F-006 + F-016 Fix)
 
 ```
 User (with JWT) -> Service (high-consequence action)
@@ -47,7 +47,51 @@ User (with JWT) -> Service (high-consequence action)
     -> Yes: redirect to step-up MFA flow
       -> User completes MFA (TOTP, WebAuthn, SMS)
       -> Service issues new JWT with sx.mfa_verified = true
+      -> Service INVALIDATES the old refresh token family (F-006 Fix)
       -> Retry original action
+```
+
+**F-006 Fix: Step-up MFA invalidates old refresh token.** When step-up MFA succeeds:
+1. Issue new access token with `sx.mfa_verified = true`
+2. Issue new refresh token (new jti)
+3. **CRITICAL**: Add the OLD refresh token jti to the denylist for 24 hours (same as Story 3.1)
+4. This prevents an attacker who stole the refresh token before the step-up from using it
+
+Without this fix, a stolen refresh token used BEFORE step-up would still work after step-up completes, as the old refresh token would still be valid in Redis. The attacker could then call `/auth/refresh` with the old token, receive a new token with `mfa_verified = true`, and completely bypass MFA.
+
+**F-016 Fix: MFA type strength requirements.** Not all MFA types provide equal security:
+
+| MFA Type | Strength | Recommended Actions | Security Notes |
+|----------|----------|---------------------|----------------|
+| WebAuthn/FIDO2 | Highest | All MFA-required actions | Phishing-resistant, hardware-bound |
+| TOTP | Medium | Admin actions, org config, impersonation | Standard RFC 6238, no SIM swap risk |
+| SMS | Lowest | User-facing actions ONLY (profile update, read) | Vulnerable to SIM swap, SS7 attacks |
+
+**Configuration requirement:** SMS must require an explicit `ALLOW_SMS_MFA=true` environment variable. By default, only TOTP and WebAuthn are accepted. SMS can only be used for low-consequence step-up actions (e.g., resetting an email address), never for admin/org/impersonation/API key actions.
+
+MFA type strength is checked in `check_mfa_for_action()`:
+```rust
+fn check_mfa_strength(
+    mfa_type: &str,
+    action: &str,
+) -> Result<(), AuthError> {
+    let requires_strong_mfa = matches!(action,
+        "admin:create_org" |
+        "org:config:update" |
+        "admin:impersonate" |
+        "api_key:create" |
+        "api_key:revoke" |
+        "role:assign"
+    );
+    
+    if requires_strong_mfa && mfa_type != "webauthn" && mfa_type != "totp" {
+        return Err(AuthError::MfaTypeTooWeak {
+            required: "webauthn or totp",
+            provided: mfa_type,
+        });
+    }
+    Ok(())
+}
 ```
 
 ### Step-Up MFA Endpoints
