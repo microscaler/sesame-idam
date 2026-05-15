@@ -1,5 +1,35 @@
 # LLM Wiki — Session Log
 
+## [2026-05-15] Dependency Vulnerability Remediation (npm)
+
+### Summary
+
+Remediated dependency vulnerabilities reported by `npm audit` across the repository root package and all three frontend packages (`ui/cx-frontend`, `ui/ax-frontend`, `ui/brochure`).
+
+### Changes Applied
+
+- Updated frontend lockfiles so all three Vite apps resolve to patched dependency graphs (including Vite 6.4.2 path traversal fixes).
+- Removed vulnerable root dependency chains by:
+  - Removing `@stoplight/prism-cli` from root dependencies.
+  - Switching `mock` scripts to use pinned `npx @stoplight/prism-cli@5.14.2` invocation instead of a locally locked dependency graph.
+  - Removing `@stoplight/spectral-cli` from root dependencies (it was not referenced by root npm scripts and retained vulnerable transitive lodash ranges).
+- Regenerated `package-lock.json` in root and all three UI packages.
+
+### Validation
+
+- `npm audit --audit-level=low` (root) — ✅ 0 vulnerabilities
+- `npm audit --audit-level=low` (`ui/cx-frontend`) — ✅ 0 vulnerabilities
+- `npm audit --audit-level=low` (`ui/ax-frontend`) — ✅ 0 vulnerabilities
+- `npm audit --audit-level=low` (`ui/brochure`) — ✅ 0 vulnerabilities
+- `npm run build` for all 3 frontends — ✅ success
+
+### Notes
+
+- Rust workspace `cargo check --workspace` is currently not runnable in this environment because sibling path dependencies (`/home/runner/work/sesame-idam/lifeguard`) are missing.
+- `cargo audit` still reports `RUSTSEC-2023-0071` via transitive `rsa` from `jsonwebtoken` in upstream `brrtrouter`; no fixed upgrade is currently available from RustSec.
+
+---
+
 ## [2026-05-14] Phase 0b: Tiltfile Lint Path Fix + Wiki Update
 
 ### Summary
