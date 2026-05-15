@@ -248,13 +248,16 @@ def create_microservice_deployment(name, port):
     )
 
     # Build Docker image
+    # CLI expects: build-image-simple <image_name> <dockerfile> <hash_path> <artifact_path> [--service NAME]
     local_resource(
         'docker-%s' % name,
-        cmd='%s docker build-image-simple %s build_artifacts/%s %s --service %s' % (
-            sesame_idam_bin, image_name, binary_name, 'docker/microservices/Dockerfile.template', name
+        cmd='%s docker build-image-simple %s %s %s/%s.sha256 %s --service %s' % (
+            sesame_idam_bin, image_name, 'docker/microservices/Dockerfile.template',
+            'build_artifacts', binary_name, binary_name, name
         ),
         deps=[
             artifact_path,
+            '%s/%s.sha256' % ('build_artifacts', binary_name),
             'docker/microservices/Dockerfile.template',
             'docker/base/Dockerfile',
             'tooling/pyproject.toml',
