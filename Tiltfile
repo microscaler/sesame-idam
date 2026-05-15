@@ -248,17 +248,17 @@ def create_microservice_deployment(name, port):
     4. k8s_yaml(helm): Helm deployment
     5. k8s_resource: port forward + labels + deps
     """
-    # Package name from known mapping (mirrors Cargo.toml [package].name)
+    # Package name — used to find the Cargo-built binary and matches what
+    # render_dockerfile_template() resolves via get_binary_names() (which is
+    # monkey-patched by sesame_idam_tooling to read [[bin]] from Cargo.toml).
     package_name = PACKAGE_NAMES.get(name, 'sesame_idam_' + name.replace('-', '_'))
 
-    # Binary name: service slug with dashes converted to underscores
-    # e.g. 'identity-login-service' -> 'identity_login_service'
-    binary_name = name.replace('-', '_')
-
-    # Paths - mirror hauliage exactly
+    # Paths — both target (Cargo output) and artifacts (copy-binary output +
+    # Dockerfile COPY) must use package_name since that's what the template
+    # resolves via the monkey-patched get_binary_names().
     target_path = 'microservices/target/%s/debug/%s' % (TARGET_RUST_TRIPLE, package_name)
-    artifact_path = 'build_artifacts/%s/%s' % (TARGET_ARCH_NAME, binary_name)
-    hash_path = 'build_artifacts/%s/%s.sha256' % (TARGET_ARCH_NAME, binary_name)
+    artifact_path = 'build_artifacts/%s/%s' % (TARGET_ARCH_NAME, package_name)
+    hash_path = 'build_artifacts/%s/%s.sha256' % (TARGET_ARCH_NAME, package_name)
     dockerfile_template = 'docker/microservices/Dockerfile.template'
     image_name = 'localhost:5001/sesame-idam-%s' % name
 
@@ -266,7 +266,7 @@ def create_microservice_deployment(name, port):
     local_resource(
         'copy-%s' % name,
         '%s docker copy-binary %s %s %s' % (
-            sesame_idam_bin, target_path, artifact_path, binary_name
+            sesame_idam_bin, target_path, artifact_path, package_name
         ),
         deps=[target_path, 'tooling/pyproject.toml'],
         resource_deps=['build-%s' % name],
@@ -301,7 +301,7 @@ def create_microservice_deployment(name, port):
               'microservices/idam/%s/gen/static_site' % name],
         tag='tilt',
         live_update=[
-            sync(artifact_path, '/app/%s' % binary_name),
+            sync(artifact_path, '/app/%s' % package_name),
             sync('microservices/idam/%s/impl/config/' % name, '/app/config/'),
             sync('microservices/idam/%s/gen/doc/' % name, '/app/doc/'),
             sync('microservices/idam/%s/gen/static_site/' % name, '/app/static_site/'),
