@@ -299,3 +299,111 @@ components:
 
 - **Actor impersonation**: A platform admin can impersonate any user. This is intentional for support tools but must be strictly audited. Every delegation is logged with actor_id, subject_id, and scopes.
 - **Nested delegation complexity**: The `act.chain` adds complexity to the authorization model. The decision rule (only top-level act.sub matters) simplifies this but means deeper actors are audit-only.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Endpoint accepts grant_type=urn:ietf:params:oauth:grant-type:token-exchange**: Given a POST request to `/auth/token` with `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`, assert the handler dispatches to the token exchange logic (not the standard login endpoint)
+- [ ] **Endpoint rejects unsupported grant_type**: Given a POST request with `grant_type=password`, assert the handler returns 400 Bad Request with an error indicating unsupported grant type
+- [ ] **Subject token required**: Given a token exchange request without a `subject_token`, assert the handler returns 400 Bad Request with `error="invalid_request"`
+- [ ] **Valid JWT subject token is parsed**: Given a valid JWT as `subject_token`, assert the handler extracts the claims (sub, tenant_id, scopes, aud) correctly
+- [ ] **Valid API key subject token is parsed**: Given a valid API key as `subject_token`, assert the handler resolves it to the corresponding user/org claims
+- [ ] **Valid refresh token subject token is parsed**: Given a valid refresh token as `subject_token`, assert the handler resolves it to the corresponding user claims
+- [ ] **Invalid JWT subject token returns 401**: Given a tampered or expired JWT as `subject_token`, assert the handler returns 401 Unauthorized with `error="invalid_request"`
+- [ ] **Invalid API key subject token returns 401**: Given a revoked or non-existent API key as `subject_token`, assert the handler returns 401 Unauthorized
+- [ ] **Missing actor token proceeds without act claim**: Given a valid subject_token without an `actor_token`, assert the handler issues a new token with NO `act` claim (standard exchange without delegation)
+- [ ] **Valid actor token is parsed**: Given an `actor_token` field containing a valid JWT, assert the handler extracts actor claims (sub, tenant_id, roles, permissions)
+- [ ] **Invalid actor token returns 401**: Given an invalid `actor_token`, assert the handler returns 401 Unauthorized (actor token is optional but must be valid if provided)
+- [ ] **Tenant match validation passes**: Given actor with `tenant_id = "abc"` and subject with `tenant_id = "abc"`, assert `verify_tenant_match()` returns `true`
+- [ ] **Tenant match validation fails (mismatch)**: Given actor with `tenant_id = "abc"` and subject with `tenant_id = "xyz"`, assert `verify_tenant_match()` returns `false` and the handler returns 403 Forbidden
+- [ ] **Platform admin can delegate any user in tenant**: Given actor with `roles = ["platform_admin"]`, assert `can_delegate(actor, "any_user")` returns `true`
+- [ ] **Org admin can delegate user in same org**: Given actor with `roles = ["org_admin"]` in org_123, assert `can_delegate(actor, "user_in_org_123")` returns `true`
+- [ ] **Org admin cannot delegate user in different org**: Given actor with `roles = ["org_admin"]` in org_123, assert `can_delegate(actor, "user_in_org_456")` returns `false`
+- [ ] **Non-admin cannot delegate any user**: Given actor with roles = ["user"], assert `can_delegate(actor, "any_user")` returns `false`
+- [ ] **Service account with delegate permission can delegate**: Given actor with `roles = ["service_account"]` and permissions containing `delegate:*`, assert `can_delegate(actor, target_user)` returns `true`
+- [ ] **Service account without delegate permission cannot delegate**: Given actor with `roles = ["service_account"]` and no `delegate:*` permissions, assert `can_delegate(actor, target_user)` returns `false`
+- [ ] **Scope intersection logic**: Given subject_scope = `profile:read orders:write`, requested_scope = `profile:read`, actor_scope = `profile:read orders:write:admin`, assert merged scope = `profile:read` (intersection of all three)
+- [ ] **Scope intersection with no overlap returns empty**: Given subject_scope = `profile:read`, requested_scope = `orders:write`, assert merged scope = `` (empty — no common scope)
+- [ ] **Scope intersection with full overlap**: Given subject_scope = `profile:read orders:write`, requested_scope = `profile:read orders:write`, actor_scope = `profile:read orders:write`, assert merged scope = `profile:read orders:write`
+- [ ] **New token includes act claim when actor present**: Given valid actor and subject tokens, assert the issued JWT contains an `act` claim with the actor's identity (sub, tenant)
+- [ ] **New token omits act claim when no actor present**: Given valid subject_token without actor_token, assert the issued JWT has NO `act` claim
+- [ ] **New token includes act chain for nested delegation**: Given actor token with its own `act` claim (nested delegation), assert the new token contains `act.chain` with the full delegation chain
+- [ ] **New token includes tenant_id**: Assert the new access token contains `tenant_id` in its claims (same as subject's tenant_id)
+- [ ] **New token includes sid (session ID)**: Assert the new access token contains `sid` claim per Story 5.1
+- [ ] **New token includes ver (token version)**: Assert the new access token contains `ver` claim incremented per Story 5.1
+- [ ] **TokenExchangeResponse includes iss per RFC 8693**: Given a successful exchange, assert the JSON response includes `"iss": "https://idam.example.com"` (F-003)
+- [ ] **TokenExchangeResponse includes aud per RFC 8693**: Given a successful exchange, assert the JSON response includes `"aud": ["myapp.com"]` (F-003)
+- [ ] **TokenExchangeResponse includes iat per RFC 8693**: Given a successful exchange, assert the JSON response includes `"iat": 1715000000` (F-003)
+- [ ] **Audience contains both original and actor audiences (F-012)**: Given subject token audience = `["myapp.com"]` and actor token audience = `["support-portal.com"]`, assert the response `aud` contains both: `["myapp.com", "support-portal.com"]`
+- [ ] **Delegation event logged with actor_id**: Given a successful delegation, assert the logging system receives an event with `actor_id = <actor.sub>`
+- [ ] **Delegation event logged with subject_id**: Given a successful delegation, assert the logging system receives an event with `subject_id = <subject.sub>`
+- [ ] **Delegation event logged with scopes**: Given a successful delegation with merged scope = `profile:read`, assert the logging event includes the granted scopes
+- [ ] **Metrics: token_exchange_total{result: "success"} emitted**: Assert the `token_exchange_total` counter with `result: "success"` label is incremented on successful exchange
+- [ ] **Metrics: token_exchange_total{result: "denied"} emitted on 403**: Assert the `token_exchange_total` counter with `result: "denied"` label is incremented when delegation is denied (no permission)
+- [ ] **Metrics: token_exchange_total{result: "denied"} emitted on 401**: Assert the `token_exchange_total` counter with `result: "denied"` label is incremented when token validation fails
+- [ ] **Actor can_delegate check uses correct authority check**: Assert the `can_delegate` function first checks platform_admin role, then org_admin role, then service_account with delegate permission — in that exact order
+- [ ] **Refresh token exchange rotates the refresh token**: Given a refresh token is used as the subject token, assert the old refresh token is invalidated and a new refresh token is issued
+- [ ] **Refresh token exchange preserves scopes**: Given the original refresh token had scopes `profile:read orders:write`, assert the new token reflects the requested (intersected) scopes
+- [ ] **Actor claim cannot be forged via actor_token**: Assert that even if a client provides a maliciously crafted `actor_token`, the actor identity is derived from the validated JWT claims, not from client-supplied fields — a fake actor_token will fail signature validation
+- [ ] **Actor token must be JWT, not API key**: Assert that `actor_token` only accepts JWT tokens (not API keys) — the actor must be authenticated via JWT to prove their identity
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Simple token exchange without actor**: `given` user alice has a valid access token with scopes `profile:read` → `when` the client calls POST `/auth/token` with `subject_token=<alice's_token>` and `scope=profile:read` → `then` the response contains a new access_token WITHOUT an `act` claim, the `token_exchange_total{result: "success"}` metric is incremented, and the new token has the same subject identity
+- [ ] **Scenario: Platform admin delegates any user**: `given` admin bob (platform_admin) has a valid JWT and user carol has a valid access token → `when` bob calls POST `/auth/token` with `subject_token=<carol's_token>`, `actor_token=<bob's_token>`, and `scope=profile:read` → `then` the response contains a new token WITH `act.sub = "bob"`, the tenant match passes, and the delegation event is logged with `actor_id: "bob"`, `subject_id: "carol"`
+- [ ] **Scenario: Org admin delegates user in same org**: `given` org_admin dave in org_123 has a valid JWT and user eve is in org_123 → `when` dave calls POST `/auth/token` with eve's token as subject → `then` the delegation succeeds with `act.sub = "dave"` and scope intersection is computed
+- [ ] **Scenario: Org admin cannot delegate user in different org**: `given` org_admin frank in org_123 has a valid JWT and user grace is in org_456 → `when` frank calls POST `/auth/token` with grace's token as subject → `then` the handler returns 403 Forbidden because frank cannot delegate grace
+- [ ] **Scenario: Tenant mismatch returns 403**: `given` actor from tenant "abc" has a valid JWT and subject from tenant "xyz" has a valid token → `when` the actor tries to exchange the subject's token → `then` the handler returns 403 Forbidden because tenant IDs don't match
+- [ ] **Scenario: Non-admin cannot delegate**: `given` user hank (regular user, no admin role) has a valid JWT → `when` hank tries to call POST `/auth/token` with `actor_token=<hank's_token>` → `then` the handler returns 403 Forbidden
+- [ ] **Scenario: Service account with delegate permission**: `given` service account svc_001 with `delegate:*` permission has a valid JWT and user iris has a valid access token → `when` svc_001 calls POST `/auth/token` with iris's token → `then` the delegation succeeds with `act.sub = "svc_001"`
+- [ ] **Scenario: Scope intersection works correctly**: `given` subject token has scope `profile:read orders:write`, requested scope is `profile:read`, actor scope is `profile:read orders:write` → `when` token exchange succeeds → `then` the new token has scope `profile:read` (the intersection)
+- [ ] **Scenario: Nested delegation with act.chain**: `given` support tool has JWT with `act.sub = "tool"`, admin has JWT with `act.sub = "admin"`, and user has access token → `when` the support tool calls POST `/auth/token` with admin's token as actor_token and user's token as subject_token → `then` the new token has `act.sub = "tool"` and `act.chain = ["admin", "user"]`
+- [ ] **Scenario: Subject token is API key**: `given` user judy has a valid API key → `when` an actor calls POST `/auth/token` with `subject_token=<judy's_api_key>&subject_token_type=urn:ietf:params:oauth:token-type:api_key` → `then` the API key is resolved to judy's user claims and a new token is issued
+- [ ] **Scenario: Subject token is refresh token**: `given` user kate has a valid refresh token → `when` an actor calls POST `/auth/token` with `subject_token=<kate's_refresh_token>&subject_token_type=urn:ietf:params:oauth:token-type:refresh_token` → `then` the refresh token is rotated (old invalidated) and a new access token is issued
+- [ ] **Scenario: Expired subject token returns 401**: `given` user leo has an expired access token → `when` POST `/auth/token` is called with the expired token → `then` the handler returns 401 Unauthorized with `error="invalid_request"`
+- [ ] **Scenario: Tampered subject token returns 401**: `given` user mia has a valid access token → `when` the token is tampered (claims modified, signature invalid) and POST `/auth/token` is called → `then` the handler returns 401 Unauthorized
+- [ ] **Scenario: Token exchange response format matches RFC 8693**: `given` a successful token exchange → `when` the response is parsed → `then` it contains `access_token`, `refresh_token`, `token_type: "Bearer"`, `expires_in: 300`, `scope`, `issued_token_type: "urn:ietf:params:oauth:token-type:access_token"`, `iss`, `aud`, and `iat`
+- [ ] **Scenario: Metrics recorded on successful exchange**: `given` a successful token exchange → `when` the response is received → `then` `token_exchange_total{result: "success"}` is incremented by 1
+- [ ] **Scenario: Metrics recorded on denied exchange**: `given` a denied token exchange (no delegate permission) → `when` the 403 response is received → `then` `token_exchange_total{result: "denied"}` is incremented by 1
+- [ ] **Scenario: Browser-context CSRF not applicable (bearer tokens only, F-021)**: `given` the endpoint only accepts bearer tokens in the Authorization header → `then` the endpoint operates without CSRF protection — document this as intentional since it's a machine-to-machine API endpoint, not a browser context
+
+### Security Regression Tests
+
+- [ ] **Actor cannot impersonate platform admin**: Assert that a non-platform admin cannot forge an `actor_token` with `roles = ["platform_admin"]` to gain platform-level delegation rights — the actor token must be a valid, signed JWT and the platform_admin role can only be assigned by the identity provider
+- [ ] **Actor cannot escalate privileges via scope manipulation**: Assert that a client cannot request a scope wider than what the subject token possesses — the scope intersection logic ensures the new token never has more permissions than the subject
+- [ ] **Cross-tenant delegation is impossible**: Assert that an actor from tenant A cannot use the token exchange endpoint to obtain a token on behalf of a user in tenant B — the tenant match check blocks this
+- [ ] **Subject token cannot be reused after refresh token exchange**: Assert that when a refresh token is used as the subject token in a token exchange, the old refresh token is immediately invalidated and cannot be reused
+- [ ] **Act claim in response does not expose actor password/secret**: Assert that the token exchange response does NOT include the actor's password, secret, or any credentials — only the actor's identity (sub, tenant, portal) in the new token's `act` claim
+- [ ] **Nested delegation chain is limited**: Assert that the `act.chain` is truncated to a maximum depth (e.g., 10 levels) to prevent stack overflow or excessive memory usage in chain parsing
+- [ ] **Delegation event is immutable**: Assert that once a delegation event is logged, it cannot be modified or deleted — the audit log must be append-only
+- [ ] **Actor token validation is not bypassed**: Assert that a client cannot omit the `actor_token` parameter and claim platform admin privileges — the `act` claim is only added when a valid actor_token is present AND the can_delegate check passes
+- [ ] **Actor cannot use token exchange to bypass rate limits**: Assert that the token exchange endpoint enforces the same rate limiting as the login endpoint — a client cannot use token exchange to circumvent login rate limits
+- [ ] **Audience claim does not leak unrelated audiences**: Assert that the `aud` in the new token only includes audiences relevant to the exchange (subject's aud + actor's aud) — not unrelated audiences from other tokens
+- [ ] **Token exchange endpoint is not accessible to unauthenticated requests**: Assert that the POST `/auth/token` endpoint does not require authentication on the endpoint itself (the subject_token and actor_token provide authentication) but rejects requests with invalid or missing tokens
+- [ ] **No information leakage in error responses**: Assert that 401 and 403 responses do not reveal whether the failure was due to an invalid token vs. insufficient delegation permission — use generic error messages
+
+### Edge Cases
+
+- [ ] **Empty scope in exchange request**: Given `scope=""` in the token exchange request, assert the new token is issued with empty scope (or default scope) — no error
+- [ ] **Subject token is exactly at expiration**: Given a subject token whose `exp` equals the current time (zero-lifetime), assert the exchange is rejected (token is expired)
+- [ ] **Actor token has shorter lifetime than subject token**: Given an actor token expiring in 1 minute and a subject token expiring in 5 minutes, assert the new token's `expires_in` is capped at the shorter of the two (1 minute)
+- [ ] **Very long act.chain (100 levels deep)**: Given a nested delegation chain with 100 levels, assert the handler processes it without stack overflow or memory exhaustion, and the chain is either accepted or truncated based on the configured max depth
+- [ ] **Token exchange with zero TTL**: Given the token exchange request results in a new token with `expires_in = 0`, assert the handler either rejects this (zero TTL is not useful) or issues a token that expires immediately (edge case — unlikely in practice)
+- [ ] **Concurrent token exchanges for same subject**: Given 100 concurrent token exchange requests for the same subject token (from different actors), assert each request is processed independently — the subject token is read-only and concurrent reads are safe
+- [ ] **Actor token and subject token are the same**: Given the same JWT is used for both `actor_token` and `subject_token`, assert the exchange either succeeds (user delegating to themselves — `act.sub` equals `sub`) or returns a clear error
+- [ ] **Subject token type is not specified**: Given a token exchange request without `subject_token_type`, assert the handler defaults to `urn:ietf:params:oauth:token-type:access_token` per RFC 8693
+- [ ] **API key as subject_token with invalid key format**: Given `subject_token="not-a-valid-key-format"`, assert the handler returns 401 Invalid Request without attempting JWT parsing
+- [ ] **Refresh token already rotated once**: Given a refresh token that has already been used in a token exchange, assert it cannot be used again (rotate-on-use enforcement)
+- [ ] **Subject token from expired actor**: Given a subject token from a user whose account is disabled, assert the token exchange fails with 401 (disabled account) even if the token signature is valid
+
+### Cleanup
+
+- Redis state must be cleaned between test scenarios — use `FLUSHDB` or a unique Redis prefix per test run to prevent stale tokens, refresh tokens, and version entries from affecting subsequent tests
+- JWT signing/verification keys used in tests should be unique per test to prevent key collisions between concurrent test scenarios
+- Refresh tokens stored in Redis must be cleared between tests — verify by checking that `DBSIZE` returns to 0 after cleanup
+- Metrics registry must be reset between test scenarios using `prometheus::Registry::new()` to prevent cross-test metric contamination
+- Delegation audit log state (in-memory or file-based) must be reset between tests — use a fresh logger or clear the log buffer
+- Actor and subject tokens used in tests should be generated with fresh JWTs per test to prevent token reuse across scenarios
+- If using mock Redis, ensure the mock is reset between tests — use a fresh mock instance or call `mock.reset()`
+- Test user accounts and API keys created during tests must be cleaned up — use test factories that roll back or delete test data between scenarios
