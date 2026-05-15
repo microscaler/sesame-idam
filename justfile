@@ -304,7 +304,7 @@ gen-identity-login:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_identity_login}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_identity_login}}" \
-    --package-name identity_login_service_service_api \
+    --package-name sesame_idam_identity_login_service_gen \
     --force
   echo "✅ Generated {{out_identity_login}}"
 

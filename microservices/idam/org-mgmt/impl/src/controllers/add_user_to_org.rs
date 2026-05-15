@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use org_mgmt_service_api::handlers::add_user_to_org::{Request, Response};
+use sesame_idam_org_mgmt_gen::handlers::add_user_to_org::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(AddUserToOrgController)]

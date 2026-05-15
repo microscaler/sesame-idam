@@ -3,7 +3,7 @@
 // This file is generated as a starting point.
 // You can modify this file freely - it will NOT be auto-regenerated.
 
-use org_mgmt_service_api::registry;
+use sesame_idam_org_mgmt_gen::registry;
 mod audit;
 
 use brrtrouter::dispatcher::Dispatcher;

@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use org_mgmt_service_api::handlers::enable_saml::{Request, Response};
+use sesame_idam_org_mgmt_gen::handlers::enable_saml::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(EnableSamlController)]

@@ -1,11 +1,11 @@
 
 [package]
-name = "sesame_idam_authz_core_gen_impl"
+name = "sesame_idam_authz_core"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "authz_core"
+name = "sesame_idam_authz_core"
 path = "src/main.rs"
 
 [features]
@@ -27,7 +27,7 @@ rust_decimal = { workspace = true }
 # Database layer
 sesame_idam_database = { path = "../../../database" }
 
-authz_core_service_api = { path = "../gen" }
+sesame_idam_authz_core_gen = { path = "../gen" }
 
 brrtrouter = { workspace = true }
 brrtrouter_macros = { workspace = true }

@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use org_mgmt_service_api::handlers::assign_permission_to_role::{Request, Response};
+use sesame_idam_org_mgmt_gen::handlers::assign_permission_to_role::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(AssignPermissionToRoleController)]

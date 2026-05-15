@@ -1,11 +1,11 @@
 
 [package]
-name = "sesame_idam_org_mgmt_gen_impl"
+name = "sesame_idam_org_mgmt"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "org_mgmt"
+name = "sesame_idam_org_mgmt"
 path = "src/main.rs"
 
 [features]
@@ -27,7 +27,7 @@ rust_decimal = { workspace = true }
 # Database layer
 sesame_idam_database = { path = "../../../database" }
 
-org_mgmt_service_api = { path = "../gen" }
+sesame_idam_org_mgmt_gen = { path = "../gen" }
 
 brrtrouter = { workspace = true }
 brrtrouter_macros = { workspace = true }

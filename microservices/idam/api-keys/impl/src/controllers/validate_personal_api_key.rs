@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use api_keys_service_api::handlers::validate_personal_api_key::{Request, Response};
+use sesame_idam_api_keys_gen::handlers::validate_personal_api_key::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(ValidatePersonalApiKeyController)]

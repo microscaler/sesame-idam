@@ -3,7 +3,7 @@
 // This file is generated as a starting point.
 // You can modify this file freely - it will NOT be auto-regenerated.
 
-use identity_user_mgmt_service_service_api::registry;
+use sesame_idam_identity_user_mgmt_service_gen::registry;
 mod audit;
 
 use brrtrouter::dispatcher::Dispatcher;

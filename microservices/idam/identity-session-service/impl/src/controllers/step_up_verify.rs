@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use identity_session_service_service_api::handlers::step_up_verify::{Request, Response};
+use sesame_idam_identity_session_service_gen::handlers::step_up_verify::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(StepUpVerifyController)]

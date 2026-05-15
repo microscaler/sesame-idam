@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use api_keys_service_api::handlers::fetch_active_api_keys::{Request, Response};
+use sesame_idam_api_keys_gen::handlers::fetch_active_api_keys::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(FetchActiveApiKeysController)]

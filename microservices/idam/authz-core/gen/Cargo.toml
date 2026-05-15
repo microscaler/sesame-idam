@@ -1,5 +1,5 @@
 [package]
-name = "authz_core_service_api"
+name = "sesame_idam_authz_core_gen"
 version = "0.1.0"
 edition = "2021"
 

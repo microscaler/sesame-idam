@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use identity_session_service_service_api::handlers::oauth_userinfo::{Request, Response};
+use sesame_idam_identity_session_service_gen::handlers::oauth_userinfo::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(OauthUserinfoController)]

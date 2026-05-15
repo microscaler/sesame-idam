@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use api_keys_service_api::handlers::delete_api_key::{Request, Response};
+use sesame_idam_api_keys_gen::handlers::delete_api_key::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(DeleteApiKeyController)]

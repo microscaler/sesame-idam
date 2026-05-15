@@ -108,27 +108,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
-name = "api_keys_service_api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "brrtrouter",
- "brrtrouter_macros",
- "clap",
- "config",
- "http 0.2.12",
- "http 1.4.0",
- "may",
- "may_http",
- "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "serde_json",
- "serde_yaml",
- "tikv-jemallocator",
-]
-
-[[package]]
 name = "arc-swap"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -218,27 +197,6 @@ name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
-
-[[package]]
-name = "authz_core_service_api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "brrtrouter",
- "brrtrouter_macros",
- "clap",
- "config",
- "http 0.2.12",
- "http 1.4.0",
- "may",
- "may_http",
- "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "serde_json",
- "serde_yaml",
- "tikv-jemallocator",
-]
 
 [[package]]
 name = "autocfg"
@@ -1854,69 +1812,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
-name = "identity_login_service_service_api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "brrtrouter",
- "brrtrouter_macros",
- "clap",
- "config",
- "http 0.2.12",
- "http 1.4.0",
- "may",
- "may_http",
- "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "serde_json",
- "serde_yaml",
- "tikv-jemallocator",
-]
-
-[[package]]
-name = "identity_session_service_service_api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "brrtrouter",
- "brrtrouter_macros",
- "clap",
- "config",
- "http 0.2.12",
- "http 1.4.0",
- "may",
- "may_http",
- "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "serde_json",
- "serde_yaml",
- "tikv-jemallocator",
-]
-
-[[package]]
-name = "identity_user_mgmt_service_service_api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "brrtrouter",
- "brrtrouter_macros",
- "clap",
- "config",
- "http 0.2.12",
- "http 1.4.0",
- "may",
- "may_http",
- "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "serde_json",
- "serde_yaml",
- "tikv-jemallocator",
-]
-
-[[package]]
 name = "idna"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2836,27 +2731,6 @@ checksum = "49203cdcae0030493bad186b28da2fa25645fa276a51b6fec8010d281e02ef79"
 dependencies = [
  "dlv-list",
  "hashbrown 0.14.5",
-]
-
-[[package]]
-name = "org_mgmt_service_api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "brrtrouter",
- "brrtrouter_macros",
- "clap",
- "config",
- "http 0.2.12",
- "http 1.4.0",
- "may",
- "may_http",
- "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "serde_json",
- "serde_yaml",
- "tikv-jemallocator",
 ]
 
 [[package]]
@@ -4017,10 +3891,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "sesame_idam_api_keys_gen_impl"
+name = "sesame_idam_api_keys"
 version = "0.1.0"
 dependencies = [
- "api_keys_service_api",
  "arc-swap",
  "brrtrouter",
  "brrtrouter_macros",
@@ -4034,17 +3907,38 @@ dependencies = [
  "serde",
  "serde_json",
  "sesame-audit",
+ "sesame_idam_api_keys_gen",
  "sesame_idam_database",
  "tikv-jemallocator",
  "uuid",
 ]
 
 [[package]]
-name = "sesame_idam_authz_core_gen_impl"
+name = "sesame_idam_api_keys_gen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "brrtrouter",
+ "brrtrouter_macros",
+ "clap",
+ "config",
+ "http 0.2.12",
+ "http 1.4.0",
+ "may",
+ "may_http",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tikv-jemallocator",
+]
+
+[[package]]
+name = "sesame_idam_authz_core"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
- "authz_core_service_api",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
@@ -4057,9 +3951,31 @@ dependencies = [
  "serde",
  "serde_json",
  "sesame-audit",
+ "sesame_idam_authz_core_gen",
  "sesame_idam_database",
  "tikv-jemallocator",
  "uuid",
+]
+
+[[package]]
+name = "sesame_idam_authz_core_gen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "brrtrouter",
+ "brrtrouter_macros",
+ "clap",
+ "config",
+ "http 0.2.12",
+ "http 1.4.0",
+ "may",
+ "may_http",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tikv-jemallocator",
 ]
 
 [[package]]
@@ -4071,7 +3987,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sesame_idam_identity_login_service_gen_impl"
+name = "sesame_idam_identity_login_service"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
@@ -4079,7 +3995,6 @@ dependencies = [
  "brrtrouter_macros",
  "chrono",
  "clap",
- "identity_login_service_service_api",
  "lifeguard",
  "lifeguard-derive",
  "may",
@@ -4089,12 +4004,34 @@ dependencies = [
  "serde_json",
  "sesame-audit",
  "sesame_idam_database",
+ "sesame_idam_identity_login_service_gen",
  "tikv-jemallocator",
  "uuid",
 ]
 
 [[package]]
-name = "sesame_idam_identity_session_service_gen_impl"
+name = "sesame_idam_identity_login_service_gen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "brrtrouter",
+ "brrtrouter_macros",
+ "clap",
+ "config",
+ "http 0.2.12",
+ "http 1.4.0",
+ "may",
+ "may_http",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tikv-jemallocator",
+]
+
+[[package]]
+name = "sesame_idam_identity_session_service"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
@@ -4102,7 +4039,6 @@ dependencies = [
  "brrtrouter_macros",
  "chrono",
  "clap",
- "identity_session_service_service_api",
  "lifeguard",
  "lifeguard-derive",
  "may",
@@ -4112,12 +4048,34 @@ dependencies = [
  "serde_json",
  "sesame-audit",
  "sesame_idam_database",
+ "sesame_idam_identity_session_service_gen",
  "tikv-jemallocator",
  "uuid",
 ]
 
 [[package]]
-name = "sesame_idam_identity_user_mgmt_service_gen_impl"
+name = "sesame_idam_identity_session_service_gen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "brrtrouter",
+ "brrtrouter_macros",
+ "clap",
+ "config",
+ "http 0.2.12",
+ "http 1.4.0",
+ "may",
+ "may_http",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tikv-jemallocator",
+]
+
+[[package]]
+name = "sesame_idam_identity_user_mgmt_service"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
@@ -4125,7 +4083,6 @@ dependencies = [
  "brrtrouter_macros",
  "chrono",
  "clap",
- "identity_user_mgmt_service_service_api",
  "lifeguard",
  "lifeguard-derive",
  "may",
@@ -4135,12 +4092,34 @@ dependencies = [
  "serde_json",
  "sesame-audit",
  "sesame_idam_database",
+ "sesame_idam_identity_user_mgmt_service_gen",
  "tikv-jemallocator",
  "uuid",
 ]
 
 [[package]]
-name = "sesame_idam_org_mgmt_gen_impl"
+name = "sesame_idam_identity_user_mgmt_service_gen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "brrtrouter",
+ "brrtrouter_macros",
+ "clap",
+ "config",
+ "http 0.2.12",
+ "http 1.4.0",
+ "may",
+ "may_http",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tikv-jemallocator",
+]
+
+[[package]]
+name = "sesame_idam_org_mgmt"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
@@ -4152,14 +4131,35 @@ dependencies = [
  "lifeguard-derive",
  "may",
  "may_postgres 0.1.0 (git+https://github.com/microscaler/may_postgres.git?branch=master)",
- "org_mgmt_service_api",
  "rust_decimal",
  "serde",
  "serde_json",
  "sesame-audit",
  "sesame_idam_database",
+ "sesame_idam_org_mgmt_gen",
  "tikv-jemallocator",
  "uuid",
+]
+
+[[package]]
+name = "sesame_idam_org_mgmt_gen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "brrtrouter",
+ "brrtrouter_macros",
+ "clap",
+ "config",
+ "http 0.2.12",
+ "http 1.4.0",
+ "may",
+ "may_http",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tikv-jemallocator",
 ]
 
 [[package]]

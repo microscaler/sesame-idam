@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use identity_session_service_service_api::handlers::mcp_list_agents::{Request, Response};
+use sesame_idam_identity_session_service_gen::handlers::mcp_list_agents::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(McpListAgentsController)]

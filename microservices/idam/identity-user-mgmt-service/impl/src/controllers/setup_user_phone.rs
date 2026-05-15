@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use identity_user_mgmt_service_service_api::handlers::setup_user_phone::{Request, Response};
+use sesame_idam_identity_user_mgmt_service_gen::handlers::setup_user_phone::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(SetupUserPhoneController)]

@@ -1,11 +1,11 @@
 
 [package]
-name = "sesame_idam_identity_session_service_gen_impl"
+name = "sesame_idam_identity_session_service"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "identity_session_service"
+name = "sesame_idam_identity_session_service"
 path = "src/main.rs"
 
 [features]
@@ -27,7 +27,7 @@ rust_decimal = { workspace = true }
 # Database layer
 sesame_idam_database = { path = "../../../database" }
 
-identity_session_service_service_api = { path = "../gen" }
+sesame_idam_identity_session_service_gen = { path = "../gen" }
 
 brrtrouter = { workspace = true }
 brrtrouter_macros = { workspace = true }

@@ -1,5 +1,5 @@
 [package]
-name = "api_keys_service_api"
+name = "sesame_idam_api_keys_gen"
 version = "0.1.0"
 edition = "2021"
 

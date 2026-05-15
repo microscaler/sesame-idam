@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use identity_user_mgmt_service_service_api::handlers::verify_user_mfa::{Request, Response};
+use sesame_idam_identity_user_mgmt_service_gen::handlers::verify_user_mfa::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(VerifyUserMfaController)]

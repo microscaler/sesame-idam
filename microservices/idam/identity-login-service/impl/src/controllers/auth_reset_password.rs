@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use identity_login_service_service_api::handlers::auth_reset_password::{Request, Response};
+use sesame_idam_identity_login_service_gen::handlers::auth_reset_password::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(AuthResetPasswordController)]

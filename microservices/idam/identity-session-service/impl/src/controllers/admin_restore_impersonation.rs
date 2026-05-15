@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use identity_session_service_service_api::handlers::admin_restore_impersonation::{Request, Response};
+use sesame_idam_identity_session_service_gen::handlers::admin_restore_impersonation::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(AdminRestoreImpersonationController)]

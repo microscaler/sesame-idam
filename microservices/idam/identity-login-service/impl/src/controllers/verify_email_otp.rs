@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use identity_login_service_service_api::handlers::verify_email_otp::{Request, Response};
+use sesame_idam_identity_login_service_gen::handlers::verify_email_otp::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(VerifyEmailOtpController)]

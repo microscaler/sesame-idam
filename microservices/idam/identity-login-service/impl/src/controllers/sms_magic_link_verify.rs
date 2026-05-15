@@ -1,5 +1,5 @@
 use brrtrouter_macros::handler;
-use identity_login_service_service_api::handlers::sms_magic_link_verify::{Request, Response};
+use sesame_idam_identity_login_service_gen::handlers::sms_magic_link_verify::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(SmsMagicLinkVerifyController)]
