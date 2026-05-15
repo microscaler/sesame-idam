@@ -308,3 +308,69 @@ No OpenAPI changes. Route-specific authorization logic is internal to the handle
 - **Route classification accuracy**: If a route is misclassified (e.g., a high-risk route is put in `jwt-only`), the authorization decision will be based solely on JWT claims without online verification. This could allow unauthorized access. The classification must be audited and reviewed for each route.
 - **Decision logic complexity**: Each route type has different authorization logic. This adds code complexity in the handlers -- each handler must implement its own decision logic based on the route type. A generic decision framework could reduce complexity but adds abstraction overhead.
 - **Online fallback for identity resolution**: Identity resolution routes (email/upsert, user lookup) always call authz-core for data-integrity. This defeats the purpose of the hybrid model for these routes (they are high-traffic cross-service endpoints). However, data-integrity cannot be compromised for performance -- the online check is intentional.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Self-service read: ownership check passes**: Given `claims.sub = "user-123"` and `request.user_id = "user-123"`, assert `handle_get_users_me()` proceeds to fetch profile and returns `Ok(UserProfile)`
+- [ ] **Self-service read: ownership check fails**: Given `claims.sub = "user-123"` and `request.user_id = "user-456"`, assert `handle_get_users_me()` returns `AuthError::Forbidden` without querying the database
+- [ ] **Self-service write: ownership check passes**: Given `claims.sub = body.user_id`, assert `handle_put_preferences()` passes the ownership check and continues to business validation
+- [ ] **Self-service write: ownership check fails**: Given `claims.sub != body.user_id`, assert `handle_put_preferences()` returns `AuthError::Forbidden` at the ownership check step (before any business validation or DB call)
+- [ ] **Self-service write: business validation triggered**: Given a preferences update with custom settings that `requires_business_validation()` returns true for, assert `authz_client.authorize()` is called with `action: "preferences:update"`
+- [ ] **Self-service write: business validation skipped**: Given a standard preferences update where `requires_business_validation()` returns false, assert `authz_client.authorize()` is NOT called (common path optimization)
+- [ ] **Identity resolution: tenant validation from JWT**: Given `claims.sx.tenant = "tenant-abc"` and a valid JWT tenant claim, assert `handle_email_upsert()` passes tenant validation and proceeds to permission check
+- [ ] **Identity resolution: missing permission denied**: Given `claims.sx.permissions` does not contain `"email:write"`, assert `handle_email_upsert()` returns `AuthError::Forbidden` without calling authz-core
+- [ ] **Identity resolution: authz-core always called for data-integrity**: Given `claims.sx.permissions.contains("email:write")`, assert `authz_client.authorize()` is called with `action: "email:upsert"` and the result determines the final allow/deny
+- [ ] **API key lifecycle: tenant mismatch rejected**: Given `key_data.tenant_id != claims.tenant_id`, assert `handle_api_key_validate()` returns `AuthError::TenantMismatch` without proceeding to revocation check
+- [ ] **API key lifecycle: revoked key rejected**: Given `key_data.revoked == true`, assert `handle_api_key_validate()` returns `AuthError::ApiKeyRevoked`
+- [ ] **API key lifecycle: valid key accepted**: Given a non-revoked key with matching tenant, assert `handle_api_key_validate()` returns `Ok(ApiKeyValidationResponse { valid: true, ... })`
+- [ ] **Delegated action: act claim present**: Given `claims.act = Some(ActorClaim { sub: "support_tool" })`, assert the actor is extracted from `act.sub` and used for authorization decisions
+- [ ] **Delegated action: no act claim uses user claim**: Given `claims.act = None`, assert the actor is derived from `claims.sub` (the user themselves) and no delegation is assumed
+- [ ] **Delegated action: version mismatch rejected**: Given `claims.sx.risk = Some("elevated")` and `claims.ver < version_cache.get(actor.sub)`, assert `handle_admin_action()` returns `AuthError::StaleAuthToken`
+- [ ] **Delegated action: normal risk skips version check**: Given `claims.sx.risk = Some("normal")` or `claims.sx.risk = None`, assert the version cache is NOT consulted (version check only for elevated risk)
+- [ ] **Delegated action: admin permission always online**: Given a valid act claim and passing version check, assert `authz_client.authorize()` is always called with the admin action and resource context
+- [ ] **Route classification: login routes NOT in middleware**: Assert that login endpoint patterns (`/auth/login`, `/auth/callback/*`, `/auth/verify/*`, `/auth/login/google`, `/auth/login/github`) are NOT classified as any middleware category (they are handled by server-side session logic, not JWT common-path)
+- [ ] **Route classification: self-service reads are jwt-only**: Assert that `GET /api/v1/identity/users/me` and `GET /api/v1/identity/preferences` are classified as `jwt-only`
+- [ ] **Route classification: identity resolution is hybrid**: Assert that `PUT /api/v1/identity/email/upsert` and `GET /api/v1/identity/users/{id}` are classified as requiring online fallback for data-integrity
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Self-service read succeeds with valid JWT**: `given` user alice with valid JWT containing `sub: "alice"` → `when` a request to `GET /api/v1/identity/users/me` is made with `X-Tenant-ID: hauliage` → `then` the handler returns alice's profile without any call to authz-core
+- [ ] **Scenario: Self-service read denied with different user ID**: `given` user alice with valid JWT containing `sub: "alice"` → `when` a request to `GET /api/v1/identity/users/me` is made requesting bob's profile → `then` the middleware returns 403 Forbidden before any database query
+- [ ] **Scenario: Self-service low-risk write bypasses authz-core**: `given` user alice with `permissions: ["prefs:write"]` → `when` a PUT to `/api/v1/identity/preferences` with standard settings that `requires_business_validation() == false` → `then` authz-core is NOT called and the handler proceeds directly to database update
+- [ ] **Scenario: Self-service low-risk write triggers authz-core**: `given` user alice with `permissions: ["prefs:write"]` → `when` a PUT to `/api/v1/identity/preferences` with custom settings that `requires_business_validation() == true` → `then` authz-core IS called and the decision gates the update
+- [ ] **Scenario: Identity resolution always calls authz-core**: `given` user with `permissions: ["email:write"]` and valid JWT → `when` a PUT to `/api/v1/identity/email/upsert` is made → `then` authz-core IS called for data-integrity verification regardless of JWT claims (email is the single source of truth)
+- [ ] **Scenario: API key validation with revoked key**: `given` an API key that has been revoked in the database → `when` a validation request is made → `then` the handler returns 401 ApiKeyRevoked with the correct tenant context
+- [ ] **Scenario: Delegated action with act claim and version bump**: `given` a support tool with `act` claim and `ver: 42` → `when` an admin action is taken after the user's version was bumped to 43 → `then` the request returns 401 StaleAuthToken and the action is NOT executed
+- [ ] **Scenario: Login route bypasses JWT common-path authz**: `given` a request to `POST /api/v1/identity/auth/login` with valid credentials → `when` the request is processed → `then` no JWT middleware evaluation occurs (login is handled by server-side session logic and results in JWT issuance, not JWT evaluation)
+- [ ] **Scenario: Cross-tenant self-service read blocked**: `given` user alice from `Tenant A` with JWT → `when` a request is made to access a resource from `Tenant B` via `X-Tenant-ID: Tenant B` → `then` tenant validation fails at the middleware layer and 401 TenantMismatch is returned
+
+### Security Regression Tests
+
+- [ ] **Login routes cannot be used as JWT authz entry points**: Assert that an attacker who crafts a valid JWT for a login route (`/auth/login`) gains no authorization advantage -- the route handler does not evaluate JWT claims for authorization decisions (login CREATES trust, it doesn't evaluate it)
+- [ ] **Ownership claim cannot be forged**: Assert that a client cannot modify `claims.sub` in the JWT to access another user's profile -- signature verification at step 1 of the validation pipeline rejects tampered tokens
+- [ ] **Act claim cannot grant unauthorized admin access**: Assert that a user with `act` claim but insufficient roles/permissions cannot execute admin actions -- the online admin permission check at step 3 of delegated actions validates regardless of the `act` claim
+- [ ] **Version check cannot be bypassed**: Assert that a client cannot remove `sx.risk` from the JWT to skip version validation for elevated-risk routes -- the `act` claim validation and admin permission check are always performed regardless of risk level
+- [ ] **Tenant ID in JWT matches X-Tenant-ID header**: Assert that a client cannot send a JWT for `Tenant A` with a request header `X-Tenant-ID: Tenant B` -- the middleware validates tenant consistency and rejects mismatches
+- [ ] **Email upsert always verifies via authz-core**: Assert that no amount of JWT claim enrichment (even `permissions: ["email:write"]`) bypasses the authz-core call for email upsert -- data-integrity is always verified online, even when JWT claims suggest permission exists
+
+### Edge Cases
+
+- [ ] **Self-service read with empty JWT claims**: Given a valid JWT where `sx.roles = []` and `sx.permissions = []`, assert the self-service read handler proceeds (empty roles/permissions do not block ownership-based authorization for read routes)
+- [ ] **Delegated action with missing act claim fields**: Given `claims.act` is present but `sub` field is empty string, assert the handler returns a clear 400 error (not a panic or 500)
+- [ ] **Version cache miss during version check**: Given `claims.sx.risk = Some("elevated")` but the version cache has no entry for the actor, assert the handler either allows the request (no version bump needed) or denies with a clear "version unknown" error -- not a database crash or cache panic
+- [ ] **Concurrent requests with same ownership check**: 100 concurrent requests from the same JWT user to `GET /api/v1/identity/users/me` -- assert all 100 succeed without race conditions (ownership check is in-memory, thread-safe)
+- [ ] **Self-service write with null body**: Given a PUT to `/api/v1/identity/preferences` with an empty or null request body, assert the handler returns 400 Bad Request before any authorization check is performed
+- [ ] **Identity resolution with very long email address**: Given a PUT to `/api/v1/identity/email/upsert` with an email address exceeding 256 characters, assert the handler rejects with a validation error (not an authz-core timeout)
+- [ ] **API key validation for expired key**: Given an API key whose expiration date has passed but `revoked == false`, assert the handler returns a 401 ExpiredKey error (distinct from ApiKeyRevoked)
+
+### Cleanup
+
+- In-memory `RoutePolicyStore` used in tests must be created fresh per test scenario -- do not share state between tests
+- Mock `authz_client` used in integration tests must be reset between scenarios (clear all recorded calls and response overrides)
+- Redis state must be cleaned between tests if any fallback caching is tested -- use `FLUSHDB` or a unique Redis prefix per test run
+- Database state created during integration tests (user profiles, preferences, emails, API keys) must be rolled back or cleaned using a test transaction rollback
+- Metrics registry must be reset between test scenarios using `prometheus::Registry::new()` or equivalent to prevent cross-test metric contamination
+- JWT signing/verification keys used in tests should be unique per test to prevent key collisions between concurrent test scenarios
+- No files (YAML configs, test data) should be left in the filesystem after test runs -- use temporary directories or in-memory data structures
