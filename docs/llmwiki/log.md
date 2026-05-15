@@ -1,5 +1,65 @@
 # LLM Wiki — Session Log
 
+## [2026-05-16] Epic 4 Hybrid Authz — Story 4.4, 4.5 Enrichment + Wiki Update
+
+### Summary
+
+Continued enrichment of Epic 4 (Hybrid Authorization Model) stories. Enriched Story 4.4 (Route-Specific Authorization Decisions) and Story 4.5 (RFC 7662 Introspection) with comprehensive testing sections. Updated wiki pages to reflect the complete hybrid model.
+
+### Stories Enriched
+
+| Story | File | New Test Sections |
+|-------|------|------------------|
+| 4.4 | `Epics/04-hybrid-authz-model/stories/story-4.4.md` | Unit (21 tests), Integration (9 scenarios), Security Reg (6 tests), Edge (7 tests), Cleanup (7 items) |
+| 4.5 | `Epics/04-hybrid-authz-model/stories/story-4.5.md` | Unit (11 tests), Integration (9 scenarios), Security Reg (6 tests), Edge (7 tests), Cleanup (7 items) |
+
+### Story 4.4 — Route-Specific Authorization Decisions
+
+Key test areas covered:
+- **Self-service reads:** ownership check pass/fail (claims.sub == user_id)
+- **Self-service writes:** ownership + business validation trigger/skip
+- **Identity resolution:** tenant validation, permission check, always-online data-integrity
+- **API key lifecycle:** tenant mismatch, revocation, valid key acceptance
+- **Delegated actions:** act claim presence, version mismatch, normal risk skip
+- **Route classification:** login routes NOT in middleware, read routes as jwt-only, identity as hybrid
+- **Security:** login routes cannot be used as JWT authz entry points, ownership claim forgery, act claim privilege escalation prevention, email upsert always verifies via authz-core
+
+### Story 4.5 — RFC 7662 Introspection
+
+Key test areas covered:
+- **Active/inactive responses:** valid JWT, expired, revoked, invalid signature
+- **PII protection:** username field always None in introspection response
+- **Authz:** API key required (not Bearer), rate limiting, enumeration prevention
+- **Edge cases:** empty token, oversized token (>64KB), malformed JOSE, concurrent same-token
+- **Cross-issuer fallback:** JWT from unknown issuer falls back to DB lookup
+
+### Wiki Updates
+
+| File | Change |
+|------|--------|
+| `topics/topic-hybrid-authz.md` | **Created.** 6-section hybrid model doc: route categories, middleware, route-specific decisions, selective fallback, RFC 7662 introspection, caches |
+| `topics/topic-authorization-flow.md` | **Rewritten.** Expanded from ~60 lines to ~300 lines. Added: hybrid model overview, route classification table, JWT middleware, route-specific decisions (Story 4.4), selective fallback (Story 4.3), RFC 7662 (Story 4.5), cache strategy, performance impact |
+| `topics/topic-login-flow.md` | **Updated.** Added 2 key points: login routes NOT protected by JWT authz, and hybrid post-login model |
+| `index.md` | **Updated.** Added topic-hybrid-authz entry to Topics table |
+
+### Commits
+
+- `b7560de` — docs(wiki): update authorization-flow and login-flow with Epic 4 hybrid authz model
+- `236e2b0` — feat(stories): enrich Story 4.5 with testing requirements
+- `0cf925a` — feat(stories): enrich Story 4.4 with testing requirements
+
+### Current Epic 4 Status
+
+| Story | Testing Enriched | Wiki Updated |
+|-------|-----------------|-------------|
+| 4.1 | ✅ (committed 2198fc1) | topic-authorization-flow ✅ |
+| 4.2 | ✅ (committed 2198fc1) | topic-authorization-flow ✅ |
+| 4.3 | ✅ (committed 2198fc1) | topic-authorization-flow ✅ |
+| 4.4 | ✅ (committed 0cf925a) | topic-authorization-flow ✅, topic-hybrid-authz ✅ |
+| 4.5 | ✅ (committed 236e2b0) | topic-hybrid-authz ✅ |
+
+---
+
 ## [2026-05-15] Tiltfile Configmap Fix — Namespace + binary_name
 
 ### Summary

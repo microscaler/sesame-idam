@@ -40,6 +40,7 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-tiltfile-architecture](./topics/topic-tiltfile-architecture.md) | Tiltfile is broken — rewrite plan based on hauliage pattern, infra wiring |
 ||| [topic-tooling-architecture](./topics/topic-tooling-architecture.md) | sesame-idam CLI shim, brrtrouter_tooling delegation map, justfile recipes |
 ||| [topic-remediation-plan](./topics/topic-remediation-plan.md) | 5-phase remediation plan (naming fix → build infra → Tiltfile → workspace cleanup → validation) |
+||| [topic-hybrid-authz](./topics/topic-hybrid-authz.md) | Hybrid authorization model: JWT claims for common path, selective online fallback. Route classification (jwt-only, jwt-with-fallback, online-only), JWT middleware, route-specific decisions (Story 4.4), selective fallback caching (Story 4.3), RFC 7662 introspection (Story 4.5). |
 ||| [topic-tenancy-model](./topics/topic-tenancy-model.md) | Hard-segment multi-tenant model, X-Tenant-ID, isolation guarantees |
 ||| [topic-openapi-tenancy-strategy](./topics/topic-openapi-tenancy-strategy.md) | Global spec + middleware injection pattern, why not per-tenant specs |
 ||| [topic-jwt-schema](./topics/topic-jwt-schema.md) | JWT enrichment claims, coarse vs fine-grained auth |
