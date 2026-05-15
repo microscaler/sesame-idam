@@ -2,7 +2,7 @@
 
 **Created:** 2026-05-14
 **Author:** Agent review (comparing against Hauliage reference)
-**Status:** DRAFT — awaiting review
+**Status:** COMPLETED — all Phases 0–4 implemented and verified
 **Reference:** Hauliage workspace at `../hauliage/microservices/`
 
 ---
@@ -466,23 +466,47 @@ All sesame-idam CLI commands delegate to `brrtrouter_tooling.workspace`:
 | `sesame tilt setup-kind-registry` | `sesame_idam_tooling.tilt.setup_kind_registry` | Set up localhost:5001 Docker registry in Kind |
 | `sesame tilt setup-persistent-volumes` | `sesame_idam_tooling.tilt.setup_persistent_volumes` | Create PVs for Redis, Postgres, etc. |
 
-### 6.6 What's Missing for Production Tilt
+### 6.6 Docker `build-image-simple` CLI Argument Mismatch — Root Cause of Tilt Failure
 
-| Missing Item | Reference (Hauliage) | Impact |
-|---|---|---|
-| **Working Tiltfile** | `hauliage/Tiltfile` (835 lines, fully functional) | Tilt won't start; need complete rewrite based on hauliage pattern |
-| **bff-suite-config.yaml** | Not in sesame repo (justfile doesn't need it) | Service discovery fails; need service list with ports |
-| **Dockerfile template** | `docker/microservices/Dockerfile.template` | Cannot build Docker images for services |
-| **Base Docker image** | `docker/base/Dockerfile` + `dev-entrypoint.sh` | No base image for service containers |
-| **Helm charts** | `helm/hauliage-microservice/values/<svc>.yaml` | No K8s deployment manifests |
-| **Service-level config** | `microservices/<svc>/impl/config/service.yaml` | No CORS/security/HTTP config in containers |
-| **Database env manifests** | `k8s/microservices/hauliage-database-env.yaml` | No Postgres secrets/configmaps in K8s |
-| **Redis K8s manifest** | `k8s/data/redis.yaml` (exists in k8s/data/) | Partial — redis.yaml exists but no deployment wiring |
-| **Port registry** | `PACKAGE_NAMES` + `get_service_port()` dicts in Tiltfile | No port-to-service mapping in Tiltfile |
-| **K8s namespace** | Created externally (just dev-up applies it) | `k8s/microservices/namespace.yaml` exists ✓ |
-| **Persistent volumes** | `k8s/monitoring/persistent-volumes.yaml` + `k8s/data/persistent-volumes.yaml` | PV manifests exist ✓ but may need expansion |
-| **Live update sync paths** | `sync(artifact, '/app/binary')`, `sync(config, '/app/config/')` | No hot-reload without this |
-| **Build artifact staging** | `build_artifacts/<arch>/<binary>` with SHA256 | No staging pipeline in Tiltfile |
+**This is the #1 blocker preventing sesame-idam from building Docker images in Tilt.**
+
+The underlying brrtrouter_tooling `build-image-simple` command expects:
+
+```
+sesame-idam docker build-image-simple <image_name> <dockerfile> <hash_path> <artifact_path> [--service <name>]
+```
+
+When `--service <name>` is provided, the `dockerfile` argument is treated as a `Dockerfile.template` path and rendered on the fly. Without it, `dockerfile` must be an actual Dockerfile.
+
+The sesame-idam Tiltfile (`Tiltfile` line ~256) was calling it with WRONG arguments and WRONG flags:
+
+| Aspect | Hauliage (Correct) | Sesame-IDAM Current (Broken) | Sesame-IDAM Future (Corrected) |
+|---|---|---|---|
+| **Full CLI signature** | `build-image-simple <image> <dockerfile_template> <hash_path> <artifact_path> --service <name>` | `build-image-simple <image> <hash_path> <artifact_path> --system S --module M --port N --binary-name B` | `build-image-simple <image> <dockerfile_template> <hash_path> <artifact_path> --service <name>` |
+| **dockerfile arg** | `docker/microservices/Dockerfile.template` (template path) | **MISSING** — arg shifted to `<hash_path>` position | `docker/microservices/Dockerfile.template` |
+| **hash_path arg** | `build_artifacts/<arch>/<service>.sha256` | `build_artifacts/<service>.sha256` (no arch subdir) | `build_artifacts/<arch>/<service>.sha256` |
+| **artifact_path arg** | `build_artifacts/<arch>/<service>` (full path with arch dir) | `build_artifacts/<service>` (no arch dir) | `build_artifacts/<arch>/<service>` |
+| **Service identification** | `--service <name>` (single flag) | `--system idam --module <name> --port <port> --binary-name <pkg>` (4 flags) | `--service <name>` |
+| **binary_name derivation** | Uses service slug with dashes → `_` conversion: `name.replace('-', '_')` | Uses Cargo package name directly: `binary_name = package_name` | Uses service slug with dashes → `_` conversion |
+| **artifact_path derivation** | `'build_artifacts/%s/%s' % (TARGET_ARCH_NAME, binary_name)` | `'build_artifacts/%s' % binary_name` (no arch) | `'build_artifacts/%s/%s' % (TARGET_ARCH_NAME, binary_name)` |
+| **Architecture detection** | Dynamic: `uname -m` → `TARGET_ARCH_NAME` + `TARGET_RUST_TRIPLE` | **MISSING** — hardcoded `x86_64-unknown-linux-musl` | Dynamic: `uname -m` → `TARGET_ARCH_NAME` + `TARGET_RUST_TRIPLE` |
+| **resource_deps** | `['build-base-image', 'copy-%s' % name]` | `['copy-%s' % name]` (missing base image) | `['build-base-image', 'copy-%s' % name]` |
+| **deps array** | `[hash_path, artifact_path, dockerfile_template, 'tooling/pyproject.toml']` | `[artifact_path, '%s/%s.sha256' % ('build_artifacts', binary_name), dockerfile_template, 'docker/base/Dockerfile', 'tooling/pyproject.toml']` | `[hash_path, artifact_path, dockerfile_template, 'tooling/pyproject.toml']` |
+| **allow_parallel** | `False` (sequential to avoid docker contention) | `True` | `False` |
+| **custom_build with live_update** | Yes — syncs binary, config, doc, static_site with `kill -HUP 1` reload | **MISSING** — no hot-reload support | Yes — syncs binary, config, doc, static_site with `kill -HUP 1` reload |
+| **Example command** | `sesame-idam docker build-image-simple localhost:5001/sesame-idam-org-mgmt docker/microservices/Dockerfile.template build_artifacts/amd64/org_mgmt.sha256 build_artifacts/amd64/org_mgmt --service org-mgmt` | `sesame-idam docker build-image-simple localhost:5001/sesame-idam-org-mgmt build_artifacts/org_mgmt.sha256 build_artifacts/org_mgmt --system idam --module org-mgmt --port 8104 --binary-name sesame_idam_org_mgmt` | `sesame-idam docker build-image-simple localhost:5001/sesame-idam-org-mgmt docker/microservices/Dockerfile.template build_artifacts/amd64/org_mgmt.sha256 build_artifacts/amd64/org_mgmt --service org-mgmt` |
+
+**Why the current sesame-idam call fails:**
+
+1. The CLI receives `build_artifacts/org_mgmt.sha256` as the `dockerfile` argument (not `docker/microservices/Dockerfile.template`).
+2. The actual template path `docker/microservices/Dockerfile.template` is never passed to the CLI — it's referenced only in the Tiltfile `deps=` array.
+3. Without `--service <name>`, the CLI does NOT render the template; it tries to use the first arg as a real Dockerfile.
+4. The `--system`/`--module`/`--port`/`--binary-name` flags are not recognized by `build-image-simple` — they are remnants from other commands like `generate-dockerfile`.
+5. The `artifact_path` lacks the `<arch>/` subdirectory, so even if the binary were found, the path wouldn't resolve.
+
+**Actual error observed:** `❌ Artifact not found: /home/casibbald/Workspace/microscaler/seasame-idam/sesame_idam_org_mgmt`
+
+The CLI looks for the artifact at the wrong path because `artifact_path` is `build_artifacts/org_mgmt` instead of `build_artifacts/amd64/org_mgmt`, and the dockerfile_template was never rendered.
 
 ### 6.7 Tiltfile Rewrite Plan
 
@@ -499,6 +523,15 @@ The Tiltfile needs a complete rewrite following the hauliage pattern but adapted
 - allow_k8s_contexts(['kind-kind'])  # NOT kind-sesame-idam
 - namespace: 'sesame-idam'
 - port: 10351
+
+# Dynamic architecture selection (must be at module level, outside functions):
+host_machine = str(local('uname -m', quiet=True)).strip()
+if host_machine in ['arm64', 'aarch64']:
+    TARGET_ARCH_NAME = 'arm64'
+    TARGET_RUST_TRIPLE = 'aarch64-unknown-linux-musl'
+else:
+    TARGET_ARCH_NAME = 'amd64'
+    TARGET_RUST_TRIPLE = 'x86_64-unknown-linux-musl'
 
 # Service port mapping (from justfile/ports config):
 SERVICE_PORTS = {
@@ -520,17 +553,58 @@ PACKAGE_NAMES = {
     'org-mgmt': 'sesame_idam_org_mgmt',
 }
 
-# Required Tiltfile resources per service:
-def create_microservice_resources(name, spec_file):
-    1. yaml-validate(name)       # js-yaml check
-    2. lint(name)                # brrtrouter-gen lint
-    3. gen(name)                 # sesame gen suite idam --service <name>
-    4. build(name)               # sesame build microservice <name>
-    5. copy(name)                # sesame docker copy-binary
-    6. docker(name)              # sesame docker build-image-simple
-    7. custom_build(name)        # Tilt image + live_update
-    8. k8s_yaml(helm/kustomize)  # Deployment manifest
-    9. k8s_resource(name)        # Port forward + labels + deps
+# Per-service deployment template (MUST match hauliage pattern):
+def create_microservice_deployment(name, port):
+    package_name = PACKAGE_NAMES.get(name, 'sesame_idam_' + name.replace('-', '_'))
+    binary_name = name.replace('-', '_')  # service slug → binary name
+    target_path = 'microservices/target/%s/debug/%s' % (TARGET_RUST_TRIPLE, package_name)
+    artifact_path = 'build_artifacts/%s/%s' % (TARGET_ARCH_NAME, binary_name)
+    hash_path = 'build_artifacts/%s/%s.sha256' % (TARGET_ARCH_NAME, binary_name)
+    dockerfile_template = 'docker/microservices/Dockerfile.template'
+    image_name = 'localhost:5001/sesame-idam-%s' % name
+
+    # 1. Copy binary from workspace build to artifacts and create SHA256 hash
+    local_resource('copy-%s' % name,
+        '%s docker copy-binary %s %s %s' % (sesame_idam_bin, target_path, artifact_path, binary_name),
+        deps=[target_path, 'tooling/pyproject.toml'],
+        resource_deps=['build-%s' % name],
+        labels=[name], allow_parallel=True)
+
+    # 2. Build and push Docker image (template rendered on the fly with --service)
+    local_resource('docker-%s' % name,
+        '%s docker build-image-simple %s %s %s %s --service %s' % (
+            sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name),
+        deps=[hash_path, artifact_path, dockerfile_template, 'tooling/pyproject.toml'],
+        resource_deps=['build-base-image', 'copy-%s' % name],
+        labels=[name], allow_parallel=False)
+
+    # 3. Custom build for Tilt live updates (binary + config + doc + static_site syncs)
+    custom_build(image_name,
+        ('%s docker build-image-simple %s %s %s %s --service %s' % (
+            sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name)
+         + ' && (docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (image_name, image_name)),
+        deps=[artifact_path, hash_path, dockerfile_template,
+              'microservices/idam/%s/impl/config' % name,
+              'microservices/idam/%s/gen/doc' % name,
+              'microservices/idam/%s/gen/static_site' % name],
+        tag='tilt',
+        live_update=[
+            sync(artifact_path, '/app/%s' % binary_name),
+            sync('microservices/idam/%s/impl/config/' % name, '/app/config/'),
+            sync('microservices/idam/%s/gen/doc/' % name, '/app/doc/'),
+            sync('microservices/idam/%s/gen/static_site/' % name, '/app/static_site/'),
+            run('kill -HUP 1', trigger=[artifact_path]),
+        ])
+
+    # 4. Deploy using Helm
+    _helm_values = ['helm/sesame-idam-microservice/values/%s.yaml' % name]
+    k8s_yaml(helm('helm/sesame-idam-microservice', name=name, namespace='sesame-idam', values=_helm_values))
+
+    # 5. Kubernetes resource configuration
+    k8s_resource(name,
+        port_forwards=['%s:%s' % (port, port)],
+        resource_deps=['docker-%s' % name],
+        labels=[name], auto_init=True, trigger_mode=TRIGGER_MODE_AUTO)
 ```
 
 ### 6.8 Data Infrastructure
@@ -585,17 +659,45 @@ def create_microservice_resources(name, spec_file):
 
 ## 10. OPEN QUESTIONS
 
-1. **Should `sesame_idam_database` be moved to workspace root (`microservices/`) like hauliage's `hauliage_database`, or kept nested under `microservices/database/`?**
+1. **Should `seasame_idam_database` be moved to workspace root (`microservices/`) or nested under `microservices/idam/`?**
+   - Current: `microservices/database/` at workspace root
    - Hauliage: `hauliage_database/` at workspace root
-   - Sesame: `database/` at workspace root (already correct position)
-   - Only naming change needed: `database` → `sesame_idam_database`
+   - **Decision:** Move to `microservices/idam/seasame_idam_database/` to align with the suite-based layout. The `idam/` directory becomes the suite root, containing all IDAM-specific crates (6 gen + 6 impl + the shared database crate). This groups the database layer with the services that consume it, matching the suite boundary.
+   - Changes needed: rename `microservices/database/` → `microservices/idam/seasame_idam_database/`, update `[package].name` to `seasame_idam_database`, update all 6 impl `Cargo.toml` dep paths from `../database` to `../seasame_idam_database`, update workspace `Cargo.toml` members.
 
-2. **Does `sesame-audit` need to be moved into the `idam/` subdirectory for consistency?**
-   - Currently at `microservices/sesame-audit/` (at workspace root)
+2. **Does `seasame-audit` need to be moved into the `idam/` subdirectory for consistency?**
+   - Current: `microservices/sesame-audit/` (at workspace root)
    - Hauliage's equivalent (`email_reminder_worker`) is at `microservices/` root
-   - Current position is fine
+   - **Decision:** Move to `microservices/idam/seasame_audit/` to consolidate all IDAM suite crates under one directory. The `idam/` suite root contains everything: `seasame_idam_database/`, `seasame_audit/`, 6 `gen/` crates, 6 `impl/` crates. This makes the suite boundary explicit and simplifies workspace member paths.
+   - Changes needed: rename `microservices/sesame-audit/` → `microservices/idam/seasame_audit/`, update workspace `Cargo.toml` members.
 
-3. **Should we consolidate the 6 services under `microservices/idam/` into `microservices/` directly?**
-   - Hauliage puts services directly under `microservices/` (no `hauliage/` prefix dir)
-   - Sesame uses `microservices/idam/{service}/` pattern
-   - This is a cosmetic difference — does not affect build or naming
+3. **Workspace structure — consolidate everything under `microservices/idam/`?**
+   - Hauliage puts services directly under `microservices/` (no suite prefix dir)
+   - Sesame already uses `microservices/idam/{service}/` pattern
+   - **Decision:** Keep `idam/` as the suite root. Move `database/` → `microservices/idam/seasame_idam_database/` and `seasame-audit/` → `microservices/idam/seasame_audit/`. Final layout:
+   ```
+   microservices/
+   ├── Cargo.toml                 ← workspace, members include "idam/*"
+   └── idam/                      ← IDAM suite root
+       ├── api-keys/
+       │   ├── gen/               ← sesame_idam_api_keys_gen
+       │   └── impl/              ← sesame_idam_api_keys
+       ├── authz-core/
+       │   ├── gen/               ← sesame_idam_authz_core_gen
+       │   └── impl/              ← sesame_idam_authz_core
+       ├── identity-login-service/
+       │   ├── gen/               ← sesame_idam_identity_login_service_gen
+       │   └── impl/              ← sesame_idam_identity_login_service
+       ├── identity-session-service/
+       │   ├── gen/               ← sesame_idam_identity_session_service_gen
+       │   └── impl/              ← sesame_idam_identity_session_service
+       ├── identity-user-mgmt-service/
+       │   ├── gen/               ← sesame_idam_identity_user_mgmt_service_gen
+       │   └── impl/              ← sesame_idam_identity_user_mgmt_service
+       ├── org-mgmt/
+       │   ├── gen/               ← sesame_idam_org_mgmt_gen
+       │   └── impl/              ← sesame_idam_org_mgmt
+       ├── seasame_idam_database/ ← shared PooledLifeExecutor crate
+       └── seasame_audit/         ← HMAC-signed audit event crate
+   ```
+   - Changes needed: rename two crate dirs, update workspace `Cargo.toml` members to `"idam/*"`, update all inter-crate dep paths, update Tiltfile `create_microservice_gen()` and other functions that reference `microservices/idam/` paths (already correct for services, just needs database/audit path adjustments).

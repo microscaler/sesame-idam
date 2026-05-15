@@ -1,19 +1,19 @@
 ---
 title: Remediation Plan
-status: unverified
-updated: 2026-05-14
-sources: [PRD-SEASAME-AUDIT-REMEDIATION.md]
+status: verified
+updated: 2026-05-15
+sources: [PRD-SEASAME-AUDIT-REMEDIATION.md, actual state verification]
 ---
 
 # Sesame-IDAM Structural Remediation Plan
 
 ## Overview
 
-Sesame-IDAM compiles and tests pass, but `brrtrouter client build` fails across all services due to package naming mismatches. Additionally, several structural conventions from Hauliage are missing for production readiness.
+Sesame-IDAM compiles and tests pass. Tiltfile rewritten with correct `build-image-simple` CLI arguments and `custom_build` with `live_update`. Phase 2 build infrastructure (build.rs) added to all 6 impl crates.
 
 ## Endpoints
 
-Total: **133 endpoints** across 6 services (up from original 119):
+Total: **133 endpoints** across 6 services:
 
 | Service | Port | Endpoints | Access Pattern |
 |---------|------|-----------|----------------|
@@ -33,11 +33,15 @@ Total: **133 endpoints** across 6 services (up from original 119):
 - [x] Workspace compiles: `cargo check --workspace` — 0 errors
 - [x] Tests pass: 4 unit tests, 1 doc test
 - [x] Stub controllers for all 133 endpoints (placeholder responses)
+- [x] Tiltfile rewritten with correct `build-image-simple` CLI args, architecture detection, `custom_build` with `live_update`
+- [x] Package naming convention: `sesame_idam_<svc>_gen` / `sesame_idam_<svc>` (gen→impl paths correct)
+- [x] `[[bin]]` names match `[package].name` in all impl crates
+- [x] `build.rs` entity discovery added to all 6 impl crates
 
 ## Build Warnings (Current)
 
-- 26 `non_snake_case` warnings in generated modules — expected from OpenAPI endpoint names
-- 5 `dead_code` warnings for `EMITTER` static — expected, stub controllers don't call audit yet
+- 6 `dead_code` warnings for `EMITTER` static in `impl/src/audit.rs` — expected, stub controllers don't call audit yet.
+- `non_snake_case` warnings in generated modules from OpenAPI endpoint names. Not a blocker.
 
 ---
 
@@ -45,7 +49,7 @@ Total: **133 endpoints** across 6 services (up from original 119):
 
 **Status: ✅ Completed**
 
-All Phase 0 subtasks completed. Tiltfile uses hardcoded service discovery (no blob parsing), correct `openapi/idam/` paths, and delegates to sesame-idam CLI shim for gen/build.
+All Phase 0 subtasks completed. Tiltfile uses hardcoded service discovery, correct `openapi/idam/` paths, `build-image-simple` with correct CLI signature, and `custom_build` with `live_update` for hot-reload.
 
 | Step | Status | Notes |
 |------|--------|-------|
@@ -53,50 +57,51 @@ All Phase 0 subtasks completed. Tiltfile uses hardcoded service discovery (no bl
 | 0b. `docker/microservices/Dockerfile.template` | ✅ | hauliage pattern |
 | 0c. `docker/base/Dockerfile` + `dev-entrypoint.sh` | ✅ | Alpine 3.23 + hot-reload |
 | 0d. Helm values cleanup | ✅ | Removed stale files, fixed typos |
-| 0e. Tiltfile rewrite | ✅ | 305 lines, hardcoded discovery |
-| 0f. Validation | ⏳ | Pending `tilt up` |
+| 0e. Tiltfile rewrite | ✅ | ~320 lines, hardcoded discovery, correct build-image-simple args, custom_build + live_update |
+| 0f. Validation | ⏳ | Pending `tilt trigger` (Tilt service managed by systemd) |
 
 ## Phase 1: Fix Package Naming (CRITICAL)
 
 **Status: ✅ Completed**
 
-All gen crate package names were manually corrected to match what impl crates expect.
+All gen/impl package names follow `sesame_idam_<svc>_gen` / `sesame_idam_<svc>` convention. `cargo check --workspace` passes with 0 errors. `[[bin]]` names match `[package].name` in all impl crates.
 
 ### Changes Made
 
 | Service | Before (gen name) | After (gen name) |
 |---------|-------------------|------------------|
-| api-keys | `api_key_service` | `api_keys_service_api` |
-| authz-core | `authorization_core_service__authz_core` | `authz_core_service_api` |
-| identity-login | `login_service` | `identity_login_service_service_api` |
-| identity-session | `session_service` | `identity_session_service_service_api` |
-| identity-user-mgmt | `user_management_service` | `identity_user_mgmt_service_service_api` |
-| org-mgmt | `organization_management_service` | `org_mgmt_service_api` |
+| api-keys | `api_key_service` | `sesame_idam_api_keys_gen` |
+| authz-core | `authorization_core_service__authz_core` | `sesame_idam_authz_core_gen` |
+| identity-login | `login_service` | `sesame_idam_identity_login_service_gen` |
+| identity-session | `session_service` | `sesame_idam_identity_session_service_gen` |
+| identity-user-mgmt | `user_management_service` | `sesame_idam_identity_user_mgmt_service_gen` |
+| org-mgmt | `organization_management_service` | `sesame_idam_org_mgmt_gen` |
 
 ### Result
 
-`cargo check --workspace` now passes with 0 errors. Only warnings are expected:
-- 26 `non_snake_case` warnings in generated modules (from OpenAPI endpoint names)
-- 5 `dead_code` warnings for `EMITTER` static (stub controllers don't call audit yet)
+`cargo check --workspace` passes with 0 errors. Only pre-existing warnings:
+- 6 `dead_code` warnings for `EMITTER` static (stub controllers don't call audit yet)
+- `non_snake_case` warnings in generated modules (from OpenAPI endpoint names)
 
 ## Phase 2: Add Build Infrastructure (MODERATE)
 
-**Status:** Not started
+**Status: Partially Completed**
 
-### 2.1 Add `build.rs` to each impl crate
+### 2.1 Add `build.rs` to each impl crate ✅
 
-- Reads entity models from `src/models/`
-- Generates migrations via lifeguard-migrate
-- Creates `migrations/` output directory
+- Entity discovery via `lifeguard_migrate::build_script::discover_entities()`
+- Generates `OUT_DIR/entity_registry.rs`
+- Enables `cargo run -p <migrator>` for migration generation
+- Added `[build-dependencies] lifeguard-migrate = { workspace = true }` to all 6 impl crates
 
-### 2.2 Add `config/service.yaml` to each impl crate
+### 2.2 Add `config/service.yaml` to each impl crate ⏳
 
 - CORS configuration
 - Security provider configuration
 - HTTP server configuration (address, port, timeouts)
 - Database pool configuration
 
-### 2.3 Add `services/` layer to each impl crate
+### 2.3 Add `services/` layer to each impl crate ⏳
 
 - Controllers call services (not database directly)
 - Services implement business logic
@@ -104,7 +109,7 @@ All gen crate package names were manually corrected to match what impl crates ex
 
 ## Phase 3: Add Supporting Files (MINOR)
 
-**Status:** Not started
+**Status: Not started**
 
 ### 3.1 Add `org_resolution.rs` to each impl service
 
@@ -120,7 +125,7 @@ All gen crate package names were manually corrected to match what impl crates ex
 
 ## Phase 4: Workspace Cleanup
 
-**Status:** Not started
+**Status: Not started**
 
 ### 4.1 Rename database crate from `database` to `sesame_idam_database`
 
@@ -132,9 +137,9 @@ All gen crate package names were manually corrected to match what impl crates ex
 
 ## Phase 5: Tiltfile Validation & Data Wiring
 
-**Status:** Not started
+**Status: Not started**
 
-5a. Run `tilt up` and verify all 6 services start
+5a. Run `tilt trigger docker-<service>` for each service and verify builds
 5b. Verify port forwards work (postgres 5432, redis 6379)
 5c. Verify live_update sync (edit source → save → service restarts)
 5d. Create database env manifests (secrets/configmaps for postgres)
@@ -155,14 +160,16 @@ All gen crate package names were manually corrected to match what impl crates ex
 
 ## Acceptance Criteria
 
-- [ ] `cargo check --workspace` passes with 0 errors
-- [ ] `cargo test --workspace` passes (existing 4 + 1 doc test)
+- [x] `cargo check --workspace` passes with 0 errors
+- [x] `cargo test --workspace` passes (existing 4 + 1 doc test)
 - [ ] `brrtrouter client build` succeeds for all 6 services
 - [ ] No `non_snake_case` warnings introduced (existing ones are from gen code)
 - [ ] No dead_code warnings for new code
 - [ ] All gen→impl dependency paths resolve correctly
 - [ ] Package naming follows `sesame_idam_<service>_gen` / `sesame_idam_<service>` convention
 - [ ] `sesame_idam_database` crate properly renamed and referenced
+- [ ] Tiltfile `build-image-simple` CLI args correct
+- [ ] `custom_build` with `live_update` working
 
 ## Open Questions
 
@@ -193,3 +200,6 @@ All gen crate package names were manually corrected to match what impl crates ex
 
 - `PRD-SEASAME-AUDIT-REMEDIATION.md` — Full remediation document
 - `brrtrouter-workspace-architecture` skill — Workspace patterns and pitfalls
+- `lifeguard-entity-migration` skill — Entity→migration workflow
+- `tilt` skill — Tiltfile patterns and pitfalls
+- `systemd-tilt-services` skill — Tilt systemd service management

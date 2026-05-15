@@ -18,10 +18,11 @@ Strict operational rules for AI assistants and humans working in this repository
 
 ## Before you do anything
 
-1. Read [`docs/llmwiki/README.md`](./docs/llmwiki/README.md) — the wiki entry point. It redirects to `SCHEMA.md` + `index.md` + `log.md`.
-2. Read [`docs/llmwiki/index.md`](./docs/llmwiki/index.md) — the wiki index. Scan it to identify what pages are relevant to your task.
-3. Tail [`docs/llmwiki/log.md`](./docs/llmwiki/log.md) for recent context.
-4. Read **only** the wiki pages identified in step 2. Drill into linked pages only when the wiki flags drift or a gap.
+1. Load the `systemd-tilt-services` skill — it contains critical Tilt workflow rules (systemd-only, never run `tilt up` directly, how to check pod status, etc.).
+2. Read [`docs/llmwiki/README.md`](./docs/llmwiki/README.md) — the wiki entry point. It redirects to `SCHEMA.md` + `index.md` + `log.md`.
+3. Read [`docs/llmwiki/index.md`](./docs/llmwiki/index.md) — the wiki index. Scan it to identify what pages are relevant to your task.
+4. Tail [`docs/llmwiki/log.md`](./docs/llmwiki/log.md) for recent context.
+5. Read **only** the wiki pages identified in step 3. Drill into linked pages only when the wiki flags drift or a gap.
 
 **Key principle: Read index.md, identify what you need, read only those pages. Never read the whole wiki.** Loading all wiki pages into context for a single-file change wastes tokens and buries relevant information under noise.
 

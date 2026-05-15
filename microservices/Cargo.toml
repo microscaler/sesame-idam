@@ -2,6 +2,8 @@
 members = [
     # Database layer (shared across all services)
     "database",
+    # Shared audit crate
+    "idam/sesame-audit",
     # IDAM microservices — gen crates (generated types + handlers)
     "idam/identity-login-service/gen",
     "idam/identity-login-service/impl",
@@ -54,3 +56,7 @@ uuid = { version = "1", features = ["v4"] }
 # Decimal types from OpenAPI format: decimal / money
 rust_decimal = { version = "1.33", features = ["serde-float", "db-postgres"] }
 sea-query = { version = "1.0.0-rc.29", features = ["with-json"] }
+
+# Patch may_postgres to use local fork for dev
+[patch."https://github.com/microscaler/may_postgres.git"]
+may_postgres = { path = "../../may_postgres" }

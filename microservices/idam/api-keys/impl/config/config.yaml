@@ -1,0 +1,31 @@
+# BRRTRouter application configuration (YAML)
+# Adjust values per environment and reload/restart the app.
+
+security:
+  api_keys:
+    ApiKeyHeader:
+      key: "test123"
+http:
+  keep_alive: true
+  timeout_secs: 5
+  max_requests: 5000
+
+# Browser / Swagger "Try it out": without a cors section, BRRTRouter still installs CORS
+# middleware with an empty origin list and returns 403 for cross-origin Origin headers.
+# Wildcard is dev-only (insecure for production); replace with explicit origins before prod.
+cors:
+  origins:
+    - "*"
+  allowed_headers:
+    - "Content-Type"
+    - "Authorization"
+    - "Accept"
+    - "X-API-Key"
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+    - "PATCH"
+  allow_credentials: false

@@ -41,6 +41,21 @@ sesame_idam_bin = '%s/bin/sesame-idam' % brrtrouter_venv
 namespace = 'sesame-idam'
 
 # ====================
+# Dynamic Architecture Detection
+# ====================
+# Mirrors hauliage pattern: detect host arch at Tilt startup time.
+# Must be at module level (outside functions) so it's evaluated once.
+host_machine = str(local('uname -m', quiet=True)).strip()
+if host_machine in ['arm64', 'aarch64']:
+    TARGET_ARCH_NAME = 'arm64'
+    TARGET_RUST_TRIPLE = 'aarch64-unknown-linux-musl'
+else:
+    TARGET_ARCH_NAME = 'amd64'
+    TARGET_RUST_TRIPLE = 'x86_64-unknown-linux-musl'
+
+print("Sesame-IDAM Tilt: detected arch=%s target=%s" % (TARGET_ARCH_NAME, TARGET_RUST_TRIPLE))
+
+# ====================
 # Tooling
 # ====================
 TOOLING_IGNORE = [
@@ -136,34 +151,28 @@ IDAM_SPEC_PATHS = {
     'org-mgmt': 'org-mgmt',
 }
 
+# Package name mapping (after Phase 1 naming fix).
+# Must match [package].name in each impl/Cargo.toml.
+PACKAGE_NAMES = {
+    'identity-login-service': 'sesame_idam_identity_login_service',
+    'identity-session-service': 'sesame_idam_identity_session_service',
+    'identity-user-mgmt-service': 'sesame_idam_identity_user_mgmt_service',
+    'authz-core': 'sesame_idam_authz_core',
+    'api-keys': 'sesame_idam_api_keys',
+    'org-mgmt': 'sesame_idam_org_mgmt',
+}
+
 DISCOVERED_SERVICES = SERVICE_NAMES
 print("Sesame-IDAM Tilt discovered %d services" % len(DISCOVERED_SERVICES))
 
 # ====================
-# Package Names
+# Helper Functions
 # ====================
-def get_package_name(name):
-    """Return the impl crate package name for a service."""
-    # These match the TARGET names from PRD Phase 1 (after naming fix)
-    # For now, use the current (broken) names since Phase 1 hasn't run yet
-    fallback = 'sesame_idam_' + name.replace('-', '_')
-    manifest = 'microservices/idam/%s/impl/Cargo.toml' % name
-    result = str(local('test -e "%s" && echo yes || true' % manifest, quiet=True)).strip()
-    if result != 'yes':
-        return fallback
-
-    # Read package name from Cargo.toml using shell
-    pkg = str(local('grep "^name = " "%s" | head -1 | sed "s/^name = *//;s/[^a-zA-Z0-9_-]//g"' % manifest, quiet=True)).strip()
-    return pkg if pkg else fallback
 
 def get_service_port(name):
     if name in IDAM_PORTS:
         return IDAM_PORTS[name]
     return '8100'
-
-# ====================
-# Helper Functions
-# ====================
 
 def create_microservice_lint(name, spec_file):
     """Lint an OpenAPI spec with brrtrouter-gen."""
@@ -208,7 +217,7 @@ def create_microservice_gen(name, spec_file):
         allow_parallel=True,
     )
 
-def create_microservice_build(name, package_name):
+def create_microservice_build(name):
     """Build a service using the sesame-idam CLI shim."""
     local_resource(
         'build-%s' % name,
@@ -230,59 +239,90 @@ def create_microservice_build(name, package_name):
     )
 
 def create_microservice_deployment(name, port):
-    """Create Docker image and k8s deployment for a service."""
-    package_name = get_package_name(name)
-    binary_name = package_name
-    target_path = 'microservices/target/x86_64-unknown-linux-musl/debug/%s' % package_name
-    artifact_path = 'build_artifacts/%s' % binary_name
+    """Create Docker image and k8s deployment for a service.
+
+    Matches hauliage pattern exactly:
+    1. copy-binary: binary -> build_artifacts/<arch>/<name> + SHA256
+    2. build-image-simple: render Dockerfile.template, build image
+    3. custom_build: Tilt live_update with sync + kill -HUP reload
+    4. k8s_yaml(helm): Helm deployment
+    5. k8s_resource: port forward + labels + deps
+    """
+    # Package name from known mapping (mirrors Cargo.toml [package].name)
+    package_name = PACKAGE_NAMES.get(name, 'sesame_idam_' + name.replace('-', '_'))
+
+    # Binary name: service slug with dashes converted to underscores
+    # e.g. 'identity-login-service' -> 'identity_login_service'
+    binary_name = name.replace('-', '_')
+
+    # Paths - mirror hauliage exactly
+    target_path = 'microservices/target/%s/debug/%s' % (TARGET_RUST_TRIPLE, package_name)
+    artifact_path = 'build_artifacts/%s/%s' % (TARGET_ARCH_NAME, binary_name)
+    hash_path = 'build_artifacts/%s/%s.sha256' % (TARGET_ARCH_NAME, binary_name)
+    dockerfile_template = 'docker/microservices/Dockerfile.template'
     image_name = 'localhost:5001/sesame-idam-%s' % name
 
-    # Copy binary to build_artifacts
+    # 1. Copy binary from workspace build to artifacts and create SHA256 hash
     local_resource(
         'copy-%s' % name,
-        cmd='%s docker copy-binary %s %s %s' % (sesame_idam_bin, target_path, artifact_path, binary_name),
+        '%s docker copy-binary %s %s %s' % (
+            sesame_idam_bin, target_path, artifact_path, binary_name
+        ),
         deps=[target_path, 'tooling/pyproject.toml'],
         resource_deps=['build-%s' % name],
         labels=[name],
         allow_parallel=True,
     )
 
-    # Build Docker image
-    # CLI expects: build-image-simple <image_name> <dockerfile> <hash_path> <artifact_path> [--service NAME]
+    # 2. Build and push Docker image (template rendered on the fly with --service)
+    # CLI signature: build-image-simple <image> <dockerfile_template> <hash_path> <artifact_path> --service <name>
     local_resource(
         'docker-%s' % name,
-        cmd='%s docker build-image-simple %s %s %s/%s.sha256 %s --service %s' % (
-            sesame_idam_bin, image_name, 'docker/microservices/Dockerfile.template',
-            'build_artifacts', binary_name, binary_name, name
+        '%s docker build-image-simple %s %s %s %s --service %s' % (
+            sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
         ),
-        deps=[
-            artifact_path,
-            '%s/%s.sha256' % ('build_artifacts', binary_name),
-            'docker/microservices/Dockerfile.template',
-            'docker/base/Dockerfile',
-            'tooling/pyproject.toml',
-        ],
-        resource_deps=['copy-%s' % name],
+        deps=[hash_path, artifact_path, dockerfile_template, 'tooling/pyproject.toml'],
+        resource_deps=['build-base-image', 'copy-%s' % name],
         labels=[name],
-        allow_parallel=True,
+        allow_parallel=False,
     )
 
-    # Helm chart values per service
-    helm_values = 'helm/sesame-idam-microservice/values/%s.yaml' % name
+    # 3. Custom build for Tilt live updates
+    # Ensures image exists (build if custom_build runs before docker-%s),
+    # then push to localhost:5001 or kind load.
+    custom_build(
+        image_name,
+        ('%s docker build-image-simple %s %s %s %s --service %s' % (
+            sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
+        ) + ' && (docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (image_name, image_name)),
+        deps=[artifact_path, hash_path, dockerfile_template,
+              'microservices/idam/%s/impl/config' % name,
+              'microservices/idam/%s/gen/doc' % name,
+              'microservices/idam/%s/gen/static_site' % name],
+        tag='tilt',
+        live_update=[
+            sync(artifact_path, '/app/%s' % binary_name),
+            sync('microservices/idam/%s/impl/config/' % name, '/app/config/'),
+            sync('microservices/idam/%s/gen/doc/' % name, '/app/doc/'),
+            sync('microservices/idam/%s/gen/static_site/' % name, '/app/static_site/'),
+            run('kill -HUP 1', trigger=[artifact_path]),
+        ],
+    )
 
-    # Deploy via Helm
+    # 4. Deploy using Helm
+    helm_values = ['helm/sesame-idam-microservice/values/%s.yaml' % name]
     k8s_yaml(
-        helm('helm/sesame-idam-microservice', name=name, namespace=namespace,
-             values=[helm_values]),
+        helm('helm/sesame-idam-microservice', name=name, namespace=namespace, values=helm_values),
     )
 
-    # Port forward and link to docker resource
+    # 5. Kubernetes resource configuration
     k8s_resource(
         name,
         port_forwards=['%s:%s' % (port, port)],
         resource_deps=['docker-%s' % name],
-        labels=['sesame-idam_' + name],
+        labels=[name],
         auto_init=True,
+        trigger_mode=TRIGGER_MODE_AUTO,
     )
 
 # ====================
@@ -297,12 +337,11 @@ def create_microservice_deployment(name, port):
 for name in DISCOVERED_SERVICES:
     port = get_service_port(name)
     spec_path = IDAM_SPEC_PATHS.get(name, '%s/openapi.yaml' % name)
-    package_name = get_package_name(name)
 
-    print("Sesame-IDAM Tilt: configuring service '%s' (port %s, package %s)" % (name, port, package_name))
+    print("Sesame-IDAM Tilt: configuring service '%s' (port %s)" % (name, port))
 
     # Full build pipeline: lint -> gen -> build -> copy -> docker -> k8s
     create_microservice_lint(name, spec_path)
     create_microservice_gen(name, spec_path)
-    create_microservice_build(name, package_name)
+    create_microservice_build(name)
     create_microservice_deployment(name, port)
