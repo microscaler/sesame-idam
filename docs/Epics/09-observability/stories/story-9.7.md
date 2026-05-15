@@ -218,8 +218,8 @@ flowchart TD
     end
     
     subgraph "Dashboard"
-        I[Grafana: alert status] --> J[alert_count{severity}]
-        J --> K[alert_duration{severity}]
+        I[Grafana: alert status] --> J["alert_count{severity}"]
+        J --> K["alert_duration{severity}"]
     end
 ```
 

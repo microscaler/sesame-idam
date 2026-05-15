@@ -143,11 +143,11 @@ flowchart TD
     B --> C[Attacker uses token from different IP]
     C --> D{TLS SNI different?}
     D -->|Yes| E[Rejected: binding mismatch]
-    D -->|No| F[Token accepted (but attacker needs same SNI)]
+    D -->|No| F["Token accepted (but attacker needs same SNI)"]
     
     A --> G{Without binding}
     G --> H[Attacker uses token from any IP]
-    H --> I[Token accepted (no binding check)]
+    H --> I["Token accepted (no binding check)"]
     I --> J[Data breach]
 ```
 

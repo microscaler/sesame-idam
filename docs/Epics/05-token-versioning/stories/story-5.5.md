@@ -151,8 +151,8 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     A[Version mismatch] --> B{Gap size?}
-    B -->|Small: 1-10| C[retry_after = 300 (5 min)]
-    B -->|Large: >100| D[retry_after = 0 (immediate)]
+    B -->|Small: 1-10| C["retry_after = 300 (5 min)"]
+    B -->|Large: >100| D["retry_after = 0 (immediate)"]
     
     C --> E[Client refreshes token]
     D --> F[Client must re-authenticate]

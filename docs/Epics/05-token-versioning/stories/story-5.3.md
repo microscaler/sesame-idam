@@ -125,7 +125,7 @@ flowchart TD
     A[Revocation needed] --> B{How urgent?}
     B -->|Immediate| C[jti denylist]
     B -->|Within 15-60s| D[Token version bump]
-    B -->|Within token TTL (5 min)| E[Short token TTL]
+    B -->|"Within token TTL (5 min)"| E[Short token TTL]
     
     C --> F[Reject immediately]
     D --> G[Reject on next validation]

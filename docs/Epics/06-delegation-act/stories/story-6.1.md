@@ -142,8 +142,8 @@ sequenceDiagram
 flowchart TD
     A[Support tool acts as platform admin] --> B{Admin acting as?}
     B -->|Support tool| C[act.sub = support_tool_id]
-    B -->|Admin on behalf of user| D[act.sub = admin_id<br/>act.chain = [user_id]]
-    B -->|Nested: tool -> admin -> user| E[act.sub = tool_id<br/>act.chain = [admin_id, user_id]]
+    B -->|Admin on behalf of user| D["act.sub = admin_id<br/>act.chain = [user_id]"]
+    B -->|Nested: tool -> admin -> user| E["act.sub = tool_id<br/>act.chain = [admin_id, user_id]"]
     
     C --> F[Access control uses act.sub]
     D --> F

@@ -173,7 +173,7 @@ flowchart TD
     A[Token stolen at t=0] --> B[Legitimate user uses token at t=5]
     B --> C[Token rotated, old jti in denylist]
     C --> D[Attacker uses stolen token at t=10]
-    D --> E[Reuse detected: refresh_reuse_detected_total.inc()]
+    D --> E["Reuse detected: refresh_reuse_detected_total.inc()"]
     E --> F[All family tokens revoked]
     F --> G[Both parties know compromised]
     

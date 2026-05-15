@@ -89,9 +89,9 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     A[JWT received] --> B{Check typ}
-    B -->|typ = "at+jwt"| C[Access token - Proceed]
-    B -->|typ = "id+at+jwt"| D[Reject: wrong type]
-    B -->|typ = "jwt"| E[Reject: wrong type]
+    B -->|typ = at+jwt| C[Access token - Proceed]
+    B -->|typ = id+at+jwt| D[Reject: wrong type]
+    B -->|typ = jwt| E[Reject: wrong type]
     B -->|no typ| F[Reject: missing typ]
     B -->|typ = ""| G[Reject: empty typ]
     

@@ -170,7 +170,7 @@ impl RoutePolicyStore {
 
 ```mermaid
 flowchart TD
-    A[Route /api/v1/.../{method}] --> B{Any online authz decision needed?}
+    A["Route /api/v1/.../{method}"] --> B{Any online authz decision needed?}
     B -->|Yes| C{Is risk high?}
     C -->|Yes| D[online-only]
     C -->|No| E{JWT claims cover decision?}

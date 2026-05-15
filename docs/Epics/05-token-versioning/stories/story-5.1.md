@@ -81,7 +81,7 @@ flowchart TD
     A[Request with JWT] --> B{Has ver claim?}
     B -->|No| C{Is route high-risk?}
     C -->|Yes| D[Check version in Redis]
-    C -->|No| E[Allow (old token accepted)]
+    C -->|No| E["Allow (old token accepted)"]
     D --> F{claims.ver >= cached_ver?}
     F -->|No| G[Reject 401 stale token]
     F -->|Yes| H[Allow]

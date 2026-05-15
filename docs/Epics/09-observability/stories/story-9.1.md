@@ -108,7 +108,7 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     A[JWT validation] --> B{Result?}
-    B -->|Success| C[inc jwt_validation_total{result=success}]
+    B -->|Success| C["inc jwt_validation_total{result=success}"]
     B -->|Failed| D{Reason?}
     D -->|expired| E[inc reason=expired]
     D -->|invalid_signature| F[inc reason=invalid_signature]

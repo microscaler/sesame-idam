@@ -12,7 +12,9 @@ This is **not** about migrating a production system. It is about defining the ar
 
 ## Epic Summary
 
-| # | Epic | Focus | Dependencies |
+**Endpoint count reconciliation (F-018):** Discrepancy exists across documents — INDEX.md originally stated 133 endpoints, AGENTS.md states 119. All epics reference 133. Before Story 4.1 begins route classification, a programmatic audit of all 6 OpenAPI specs must reconcile this count. The classified endpoint count must match the authoritative OpenAPI spec count exactly.
+
+|| # | Epic | Focus | Dependencies |
 |---|------|-------|-------------|
 | 1 | Asymmetric JWT & JWKS | EdDSA/Ed25519 signing (ES256 co-default), JWKS key publication, per-service public-key validation | None (foundation) |
 | 2 | Claims Schema Evolution | Namespaced claims, versioning, PII removal, entitlements hash, `https://sesame-idam.dev/claims` | Epic 1 |
