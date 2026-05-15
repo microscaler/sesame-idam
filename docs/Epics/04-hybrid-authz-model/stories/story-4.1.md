@@ -250,4 +250,49 @@ flowchart TD
 
 - **File-based config**: If a route needs to be reclassified, the service must be redeployed. This is acceptable for an early-stage design -- once production traffic is flowing, dynamic updates (database-backed config) can be added.
 - **Default fail-safe**: Routes not in the config default to `jwt-with-fallback`. This means the online fallback is called for unknown routes, which is safe but adds latency. If a new endpoint is added without classification, it won't break -- it will just use the default.
-- **Classification audit**: The classification of 133 endpoints is a manual process. Each endpoint must be reviewed to ensure it's in the right category. A wrong classification (e.g., putting a high-risk route in `jwt-only`) could allow unauthorized access. The audit must be thorough and documented.
+- **Classification audit**: The classification of all endpoints is a manual process. Each endpoint must be reviewed to ensure it's in the right category. A wrong classification (e.g., putting a high-risk route in `jwt-only`) could allow unauthorized access. The audit must be thorough and documented.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **RoutePolicyStore loads valid YAML**: Given a valid YAML file with 3 route policies (one of each category), assert `load_from_file()` parses successfully and returns a `RoutePolicyStore` with 3 entries
+- [ ] **RoutePolicyStore rejects invalid YAML**: Given a YAML file with a syntax error, assert `load_from_file()` returns a `RouteError` variant (not a panic)
+- [ ] **Route lookup returns correct category (jwt-only)**: Given a policy store with `/api/users/me GET` classified as `JwtOnly`, assert `get_policy("/api/users/me", "GET")` returns `Some(&RoutePolicy { category: JwtOnly, ... })`
+- [ ] **Route lookup returns correct category (jwt-with-fallback)**: Given a policy store with `/api/preferences PUT` classified as `JwtWithFallback { cache_ttl_secs: 30, ... }`, assert lookup returns the correct category with `cache_ttl_secs == 30`
+- [ ] **Route lookup returns correct category (online-only)**: Given a policy store with `/api/authorize POST` classified as `OnlineOnly`, assert lookup returns `OnlineOnly`
+- [ ] **Route lookup returns None for unknown path**: Given a policy store, assert `get_policy("/unknown/path", "GET")` returns `None`
+- [ ] **Route lookup returns None for wrong method**: Given a policy store with `/api/users/me` only for `GET`, assert `get_policy("/api/users/me", "POST")` returns `None`
+- [ ] **Default policy is jwt-with-fallback**: Given the JWT middleware receives a request for a path that returns `None` from `get_policy()`, assert the middleware uses `JwtWithFallback { cache_ttl_secs: 15, requires_fresh_version: false }` as the default
+- [ ] **yaml serde round-trip**: Serialize a `RoutePolicy` to YAML, deserialize back, assert all fields match (path, methods, category, cache_ttl_secs, description)
+- [ ] **Multiple methods per route**: Given a policy with `methods: ["PUT", "PATCH"]`, assert both `get_policy(path, "PUT")` and `get_policy(path, "PATCH")` return the same policy
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Endpoint count matches OpenAPI**: `given` all 6 OpenAPI specs are parsed — `when` unique path+method combinations are counted — `then` the total count matches the programmatic endpoint inventory (resolving the F-014 discrepancy)
+- [ ] **Scenario: Every OpenAPI endpoint has a classification**: `given` the full endpoint inventory from OpenAPI specs — `when` each endpoint is looked up in the route policy store — `then` every endpoint has exactly one classification (no endpoint is unclassified)
+- [ ] **Scenario: jwt-only routes bypass online authz**: `given` a request to a `jwt-only` classified route — `when` the JWT middleware processes it — `then` no call is made to authz-core or any online fallback endpoint
+- [ ] **Scenario: jwt-with-fallback routes call fallback on policy failure**: `given` a request to a `jwt-with-fallback` route — `when` the JWT claims do not satisfy local policy — `then` the online fallback endpoint is called (authz-core or equivalent)
+- [ ] **Scenario: online-only routes always call authz-core**: `given` a request to an `online-only` classified route — `when` the JWT middleware processes it — `then` the online authz endpoint is always called (even if JWT claims would allow the request)
+- [ ] **Scenario: Cache TTL is respected for jwt-with-fallback**: `given` a `jwt-with-fallback` route with `cache_ttl_secs: 30` — `when` two identical requests arrive within 30 seconds — `then` the second request uses the cached fallback result (no online call)
+
+### Security Regression Tests
+
+- [ ] **High-risk route cannot be misclassified as jwt-only**: Assert that routes for API key revocation (`DELETE /api-keys/{id}`), key rotation (`PUT /api-keys/{id}/rotate`), and org lifecycle (`DELETE /orgs/{id}`) are all classified as `online-only` — NOT `jwt-only`
+- [ ] **Admin routes are not jwt-only**: Assert that all admin-facing routes (role management, permission management, SCIM, SSO) are classified as `online-only` or `jwt-with-fallback` with fallback — never `jwt-only`
+- [ ] **Default classification is safe (not jwt-only)**: Assert that the default fail-safe category is `jwt-with-fallback`, NOT `jwt-only` — unknown routes should always check online
+- [ ] **Tenant-scoped routes are not jwt-only**: Assert that routes operating on tenant data (`/api/v1/identity/email/upsert`, `/api/v1/identity/users/query`) are classified as `jwt-with-fallback` with fallback to verify tenant context
+
+### Edge Cases
+
+- [ ] **Wildcard path matching**: Given a route policy with path pattern `/api/v1/identity/users/{id}` — assert that a request to `/api/v1/identity/users/123` matches the policy (path parameter substitution)
+- [ ] **Duplicate path+method in YAML**: Given a YAML file with two entries for the same path+method but different categories — assert the parser either rejects the file with an error or uses a deterministic first-wins rule (documented behavior)
+- [ ] **Empty route policies list**: Given a valid YAML file with `route_policies: []` (empty list) — assert the store is created with 0 policies and ALL requests fall through to the default `jwt-with-fallback`
+- [ ] **Very large classification file**: Given a YAML file with 200 route policies — assert `load_from_file()` completes within 1 second and the lookup map is built efficiently (O(1) or O(log n) lookup)
+- [ ] **Route with special characters in path**: Given a route policy with path `/api/v1/identity/users/{id}/preferences/{key}` — assert lookup with a matching request path succeeds
+
+### Cleanup
+
+- YAML route policy files used in tests should be in-memory or in a temp directory — do not commit test YAML files to the repo
+- If the route policy store uses a file-based config, integration tests must use unique temp files per test to avoid cross-test contamination
+- No database or cache cleanup needed — route classification is a static lookup table loaded at startup

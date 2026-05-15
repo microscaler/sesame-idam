@@ -195,4 +195,40 @@ No OpenAPI changes needed for key generation (internal operation). The `/.well-k
 
 - **Restart key generation**: A restart invalidates the signing key. Existing tokens are still valid until `exp`, but new tokens are signed with a different `kid`. This is acceptable because access tokens have short TTLs (5 min).
 - **No key backup**: If the signing service goes down for an extended period, new tokens cannot be issued. This is intentional -- a compromised private key should be rotated immediately. Backup implies the old key must be recovered, which defeats the security model.
-- **ES256 vs EdDSA**: ES256 is chosen for widest library support. EdDSA can be added as a second algorithm later without breaking changes (algorithm allow-list supports multiple).
+- **EdDSA vs ES256**: EdDSA chosen for best security/performance. ES256 co-default for interoperability.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Key generation at bootstrap**: Verify that a fresh EdDSA key pair is generated on service startup, and that the public key JWK contains correct `kty=OKP`, `crv=Ed25519`, and a valid `kid`
+- [ ] **Private key never persists**: Assert that private key bytes are never written to disk, env vars, or config files. Test by scanning filesystem after key generation
+- [ ] **Kid format**: Verify `kid` follows `key-{year}-{month}-{index}` pattern (e.g., `key-2026-05-01`)
+- [ ] **Key manager state transitions**: Test `KeyManager` through full lifecycle: current key only, current + next (rotation prep), current + grace keys, and post-grace cleanup
+- [ ] **Algorithm negotiation**: Verify that tokens are always signed with `EdDSA` (the default). Verify that ES256 keys co-exist in JWKS for consumer compatibility
+- [ ] **EdDSA signature verification**: Given a token signed with EdDSA, verify that any consumer using the public key from JWKS can successfully verify it
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Fresh service start generates key**: `given` a freshly started identity-session-service → `when` the service registers its KeyManager → `then` exactly 1 key exists in the manager with `alg=EdDSA` and `valid_from` in the near future
+- [ ] **Scenario: Key rotation with overlap**: `given` two keys in the manager (current + next) → `when` the next key's `valid_from` arrives → `then` the current key becomes grace-period and the next key becomes active
+- [ ] **Scenario: Grace period cleanup**: `given` a grace-period key older than `JWT_KEY_GRACE_PERIOD` → `when` the cleanup task runs → `then` the old key is removed from JWKS and its private key is dropped from memory
+- [ ] **Scenario: Service restart regenerates key**: `given` a running service with a key → `when` the service restarts → `then` a new key is generated with a fresh `kid`, and the old key's tokens remain valid until their `exp`
+
+### Edge Cases
+
+- [ ] **Key generation failure**: If the cryptographic RNG fails, the service must fail fast with a clear error (not silently continue with a weak key)
+- [ ] **Concurrent rotation**: If two rotation timers fire simultaneously, only one key should be created (test with concurrent tasks)
+- [ ] **Clock skew during rotation**: Verify rotation behavior when the system clock jumps forward or backward by more than the grace period
+
+### Cleanup
+
+- Test keys are ephemeral (in-memory only) — no cleanup needed for the KeyManager itself
+- Integration tests must not leave stale keys in the process memory across test runs — use separate process or `Drop` impl to clear keys
+
+### Spec Verification
+
+- [ ] JWT header includes `typ=at+jwt` per RFC 9068
+- [ ] JWT `alg` claim is `EdDSA` (not `ES256` or `HS256`)
+- [ ] JWKS `kty` is `OKP` (not `EC` or `RSA`)
+- [ ] JWKS `crv` is `Ed25519`

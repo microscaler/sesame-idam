@@ -246,3 +246,44 @@ components:
 - **Family ID persistence**: The `family_id` must be stored with the refresh token in Redis. If the refresh token is compromised, the attacker can see the `family_id` (it's in the JWT or stored in Redis). This is not a security issue -- the family_id is a non-secret identifier.
 - **Multiple sessions**: A user can have many active sessions. If the user logs out of all sessions (logout-all), all families must be revoked. This requires iterating over all families for the user, which is O(n) where n is the number of sessions. For most users, n is small (< 5).
 - **Redis set size**: The `family:{family_id}` set can grow to the number of refreshes for a session. With 30-day refresh tokens and daily refreshes, the set has ~30 entries. This is small and fits efficiently in Redis.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **`generate_family_id()` format**: Assert the generated family ID matches the pattern `fam_<uuid>` (e.g., `fam_550e8400-e29b-41d4-a716-446655440000`)
+- [ ] **`generate_family_id()` uniqueness**: Assert two consecutive calls to `generate_family_id()` produce different values
+- [ ] **Family ID never duplicates across users**: Assert that family IDs are globally unique (no collision between users' sessions) — use property-based testing to generate 10,000 family IDs and assert all are unique
+- [ ] **`family:{family_id}:revoked` check returns false for new family**: Given a fresh `family_id` not yet in Redis, assert `redis.get(&format!("family:{family_id}:revoked"))` returns `None` or `false`
+- [ ] **Family lookup correctly identifies reused jti**: Given a family set `{"rt_001", "rt_002"}` and a request with `jti = "rt_001"`, assert `jti_set.contains(&jti)` returns `true` (reuse detected)
+- [ ] **Family lookup correctly identifies fresh jti**: Given a family set `{"rt_001", "rt_002"}` and a request with `jti = "rt_003"`, assert `jti_set.contains(&jti)` returns `false` (new token, no reuse)
+- [ ] **Logout removes correct family only**: Given a user with families `fam_abc` and `fam_def`, assert that logout of `fam_abc` does NOT delete `refresh:{jti}` entries belonging to `fam_def`
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: First login creates family**: `given` a user who logs in for the first time → `when` the login handler executes → `then` a `family:{family_id}` set is created in Redis with the initial refresh token's jti, and `family:{family_id}:revoked` is not set
+- [ ] **Scenario: Second refresh adds jti to family set**: `given` a family with 1 token (jti `rt_001`) → `when` the user refreshes and gets `rt_002` → `then` the family set contains both `rt_001` and `rt_002`
+- [ ] **Scenario: Reuse triggers family revocation**: `given` a family with tokens `rt_001` and `rt_002`, where `rt_001` is already in the denylist → `when` `/auth/refresh` is called with `rt_001` → `then` `family:{family_id}:revoked` is set to true, all `refresh:{jti}` entries for that family are deleted, and a 401 with `reason: "family_revoked"` is returned
+- [ ] **Scenario: Reuse only affects compromised session**: `given` a user with Session 1 (family `fam_abc`, tokens `rt_001`, `rt_002`) and Session 2 (family `fam_def`, token `rt_003`) → `when` Session 1's token `rt_001` is reused → `then` only `fam_abc` tokens are revoked; `rt_003` (Session 2) remains valid and can be used for `/refresh`
+- [ ] **Scenario: Logout-all revokes all families**: `given` a user with 3 active families (Web, Mobile, API) → `when` a logout-all request is made → `then` all `family:{family_id}` sets and their `refresh:{jti}` entries are deleted across all 3 families
+- [ ] **Scenario: Metrics track family revocations**: `given` a family revocation event → `then` `refresh_reuse_detected_total` is incremented with a `family_revoked` label
+- [ ] **Scenario: Concurrent refresh on same token**: `given` a single refresh token shared by two concurrent requests → `when` both requests hit `/auth/refresh` simultaneously → `then` one succeeds (normal rotation) and the other fails (reuse detected) — no data corruption in Redis
+
+### Security Regression Tests
+
+- [ ] **Stolen token detected immediately**: `given` a refresh token stolen from the client → `when` the attacker uses it → `then` the legitimate user's next refresh detects the reuse and triggers family revocation (attacker gets 401, legitimate user is notified)
+- [ ] **Family ID cannot be spoofed**: If a client sends a request with a `family_id` belonging to a different user, assert the refresh is rejected (the `family_id` is derived from the refresh token's stored state, not the request)
+- [ ] **Token rotation is atomic**: Assert that between checking `family:{family_id}:revoked` and adding the new jti to the set, no other thread can slip in and cause a race condition (use Redis transactions or Lua scripts to ensure atomicity)
+
+### Edge Cases
+
+- [ ] **100 sessions for a single user**: Inject 100 families for a single user (simulating an extreme case) — assert logout-all completes within a reasonable time (< 1 second)
+- [ ] **Empty family set on revocation**: If `family:{family_id}` set is empty when revocation is triggered, assert the revocation logic handles this gracefully (no Redis errors, family marked as revoked, 401 returned)
+- [ ] **Family ID collision**: Simulate a UUID collision (two different families with the same `family_id`) — assert the system handles this by treating them as the same family (which is the expected behavior; true UUID collisions are astronomically unlikely)
+- [ ] **Session with 1000 refreshes**: A session that has been refreshed 1000 times — assert the `family:{family_id}` set still fits efficiently in Redis (no memory issues)
+
+### Cleanup
+
+- Redis state must be cleaned between test scenarios — use a unique Redis key prefix per test run or `FLUSHDB` in a test fixture
+- Test fixtures must not leave stale `family:{family_id}:revoked` flags between runs
+- When testing logout-all, assert that no partial cleanup leaves orphaned family entries (every family entry should be fully removed)

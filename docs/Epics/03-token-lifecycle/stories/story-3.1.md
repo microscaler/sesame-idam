@@ -231,3 +231,45 @@ paths:
 - **Redis dependency**: Rotation is Redis-backed. If Redis is down, rotation cannot be verified. Fallback: if Redis is unavailable, treat the token as valid (fail open) and log an error. This is acceptable because the token has a short TTL anyway.
 - **Family TTL choice**: 24 hours is a reasonable balance between replay protection and storage overhead. A shorter TTL (1 hour) reduces storage but allows token replay within the window. A longer TTL (7 days) increases storage but provides better protection.
 - **Storage overhead**: Each refresh adds a new `refresh:{jti}` entry (30 days TTL) and a `denylist:{jti}` entry (24 hours). For high-traffic services, this can add up. The 24-hour denylist TTL ensures entries expire quickly.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Refresh token structure round-trip**: Create a `RefreshToken` with all fields populated (jti, sub, sid, family_id, iat, exp, client_id, scopes), serialize to JSON, deserialize back — assert all fields match
+- [ ] **`RefreshToken.jti` is unique**: Assert that two `RefreshToken` instances created with `uuid::Uuid::new_v4()` always produce different `jti` values
+- [ ] **Denylist TTL is 24 hours**: Assert the denylist entry uses exactly `EXPIRE denylist:{jti} 86400` (24 hours in seconds)
+- [ ] **Family TTL is 24 hours**: Assert `family:{family_id}` set uses `EXPIRE family:{family_id} 86400`
+- [ ] **Refresh token TTL is 30 days**: Assert `refresh:{jti}` hash uses `EXPIRE refresh:{jti} 2592000` (30 days)
+- [ ] **Session TTL is 30 days**: Assert `session:{sid}` hash uses `EXPIRE session:{sid} 2592000` (30 days)
+- [ ] **Family ID is deterministic per session**: Assert that all refresh tokens issued during the same login session share the same `family_id` (derived from the session ID)
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Normal refresh rotation**: `given` a valid refresh token for user-123 with family `fam-abc` → `when` a `/auth/refresh` request is made with that token → `then` the old `refresh:{jti}` is deleted from Redis, a new `refresh:{new_jti}` is created with the same `family_id`, the old `jti` is added to `denylist:{jti}` with 24h TTL, and `{access_token, refresh_token}` is returned
+- [ ] **Scenario: Reuse detection triggers family revocation**: `given` a refresh token that has already been used (its `jti` is in `denylist:{jti}`) → `when` a `/auth/refresh` request is made with that token → `then` all tokens in `family:{family_id}` are deleted from Redis, and a 401 response with `reason: "token_rotated"` is returned
+- [ ] **Scenario: Invalid refresh token (not in Redis)**: `given` a malformed or expired refresh token → `when` `/auth/refresh` is called → `then` the response is 401 (token not found in `refresh:{jti}`)
+- [ ] **Scenario: New access token has updated version**: `given` a token with `ver: 42` and authz has changed → `when` the token is refreshed → `then` the new access token has `ver: 43` (bumped version)
+- [ ] **Scenario: Cross-session notification on reuse**: `given` reuse is detected for family `fam-abc` → `when` the revocation logic runs → `then` a cross-session notification signal is emitted (push notification, email, or in-app alert) to the user's registered endpoints (F-005)
+- [ ] **Scenario: Metrics emitted on successful rotation**: `given` a successful `/auth/refresh` → `then` `token_refresh_total{result: "rotated"}` and `refresh_rotation_failures_total` metrics are emitted
+- [ ] **Scenario: Metrics emitted on reuse detection**: `given` a reuse detection event → `then` `refresh_reuse_detected_total` is incremented
+
+### Security Regression Tests
+
+- [ ] **Refresh token cannot be replayed after rotation**: After a successful rotation, assert that the old refresh token is rejected (its `jti` is in the denylist, causing family revocation)
+- [ ] **Denylist prevents replay within 24h**: Assert that a refresh token used 1 minute ago is still in the denylist 23 hours later (the 24h TTL protects against replay)
+- [ ] **Stale refresh token cannot bypass rotation**: Assert that a refresh token from more than 30 days ago is rejected (its `refresh:{jti}` entry has expired from Redis)
+- [ ] **Replay attack on active token is detected**: If an attacker has a refresh token and uses it while the legitimate user also refreshes, the first replayed token triggers family revocation (preventing the "tear" scenario)
+
+### Edge Cases
+
+- [ ] **Concurrent refresh requests**: If two `/auth/refresh` requests are made simultaneously with the same token, assert that the first succeeds (rotation) and the second is rejected (reuse detection via denylist) — this must be race-condition free
+- [ ] **Redis unavailable during refresh**: If Redis returns an error (connection refused), assert the refresh handler fails closed (401 error, NOT fail open) — rotation requires Redis state to be reliable
+- [ ] **Empty family set**: If `family:{family_id}` set is empty (cleanup bug), assert the refresh still proceeds normally (empty set is not an error condition)
+- [ ] **Very large `family_id`**: Inject a 1000-character `family_id` — assert Redis operations succeed (no key size issues)
+
+### Cleanup
+
+- Redis state must be cleaned between test scenarios — use a unique Redis key prefix per test run or use `FLUSHDB` in a test fixture
+- Test refresh tokens created in unit tests that write to Redis must be deleted after the test (cleanup step)
+- Integration tests must verify that denylist entries expire after 24 hours — use a mocked clock or speed up time in tests

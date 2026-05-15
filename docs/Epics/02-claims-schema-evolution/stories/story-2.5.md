@@ -195,3 +195,39 @@ No OpenAPI changes. Token size is an internal implementation detail. The OpenAPI
 - **Strict budget may block deployment**: If the budget is too tight, legitimate use cases (users with many roles/permissions) may fail. The budget accounts for bounded permission arrays (max 10 per role). If a user legitimately has more than 10 effective permissions, the token will exceed the budget and the user must refresh or use `entitlements_ref` to fetch the full ACL.
 - **Base64url encoding overhead**: The 33% overhead is fixed by the JWT format. There is no way to reduce this without switching to a different encoding (e.g., COSE for CBOR-encoded JWTs). This is a standard JWT trade-off.
 - **NGINX configuration override**: If consumers deploy with custom NGINX configurations that increase `client_header_buffer_size` to 8KB or 16KB, the budget constraint is relaxed. However, most deployments use defaults, so the 1KB budget is the safe assumption.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Representative token fits budget**: Create a token with 10 roles, 10 permissions, all standard + version + tenancy + authz claims — assert the unencoded payload is <= 750 bytes (assertion test — should pass)
+- [ ] **100 roles + 100 permissions exceeds budget**: Create a token with 100 roles, 100 permissions — assert the unencoded payload is > 750 bytes (this is an intentional failure test — the assertion should fail, confirming the budget catch works)
+- [ ] **JOSE header size is within budget**: Assert the JOSE header (alg, typ, kid) is <= 100 bytes when serialized to JSON
+- [ ] **Base64url encoding increases size by ~33%**: Take a claims JSON of 490 bytes, encode it as base64url, assert the result is approximately 650 bytes (within 30-36% overhead range)
+- [ ] **Authorization header total fits NGINX 1KB**: Serialize a representative token, add "Authorization: Bearer " prefix (21 bytes), assert total <= 1024 bytes
+- [ ] **Compact JSON reduces size**: Compare `serde_json::to_string` (pretty-printed) vs `serde_json::to_string_pretty` — assert the compact form saves significant bytes and is the format used for JWT payloads
+- [ ] **Token size histogram records valid token**: When a valid token (< 750 bytes) is validated, assert the `token_size_bytes` histogram receives a sample at the token's byte size
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Token size metric recorded on every validation**: `given` a valid access token for a user with 3 roles → `when` a downstream service validates it → `then` the `token_size_bytes` histogram metric is emitted with the token's size in bytes
+- [ ] **Scenario: Warning log for oversized token**: `given` a token that is 600 bytes (over the 500-byte warning threshold) → `when` a service validates it → `then` a warning log is emitted: "Token size 600 bytes exceeds 500 byte warning threshold"
+- [ ] **Scenario: Alert for very oversized token**: `given` a token that is 800 bytes (over the 750-byte error threshold) → `when` a service validates it → `then` an alert-level log/trace is emitted: "Token size 800 bytes exceeds 750 byte budget — header rejection likely"
+- [ ] **Scenario: NGINX header budget test**: `given` a representative token of 490 bytes — `when` it is sent in an `Authorization: Bearer ` header — `then` the total header size (~511 bytes) is under NGINX's default 1KB `client_header_buffer_size` and the request would be accepted
+
+### Security Regression Tests
+
+- [ ] **Token size cannot bypass budget via encoding tricks**: Create a token with intentionally short key names (e.g., `"a": "b"` instead of `"sub": "user-123"`) — assert the budget test still measures the full claims structure, not just the encoded form
+- [ ] **Large `entitlements_ref` doesn't inflate token**: Inject a 200-character `entitlements_ref` — assert the total token size still stays under 750 bytes (the ref is a small part of the total budget)
+
+### Edge Cases
+
+- [ ] **Empty token payload**: Create a JWT with only the minimum required claims (iss, sub, aud, exp, iat, jti, ver, sid, tenant_id, sx) — assert the size is the minimum possible (approximately the baseline of ~350 bytes)
+- [ ] **Maximum roles/permissions at budget limit**: Create a token with the maximum number of roles/permissions that still fits under 750 bytes — assert the size is close to (but not exceeding) the budget, confirming the budget is being utilized effectively
+- [ ] **Token size stability across rebuilds**: Run the build-time budget test multiple times — assert the token size does not drift between runs (no random UUIDs or timestamps in the representative claims)
+
+### Cleanup
+
+- Build-time tests are stateless — no cleanup needed
+- Integration tests that emit metrics must reset the metrics registry between test scenarios (use `prometheus::Registry::new()` per test, or clear the default registry)
+- No database or cache cleanup needed — token size tests are pure payload measurement

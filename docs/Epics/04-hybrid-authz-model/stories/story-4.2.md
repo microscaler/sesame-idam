@@ -273,3 +273,56 @@ No OpenAPI changes. The middleware is internal to the routing layer. The OpenAPI
   - JWKS cache (5-minute TTL) so validation doesn't depend on network
   - In-memory RoutePolicyStore so classification doesn't depend on external config
   - JWT validation is fast (signature check + claim parsing, <1ms)
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Bearer token extraction works**: Given an HTTP request with `Authorization: Bearer eyJhbG...`, assert `extract_bearer_token()` returns `"eyJhbG..."` (the raw token string)
+- [ ] **Bearer token extraction rejects missing header**: Given an HTTP request with no `Authorization` header, assert `extract_bearer_token()` returns `AuthError::MissingAuthorization`
+- [ ] **Bearer token extraction rejects non-Bearer scheme**: Given `Authorization: Basic dXNlcjpwYXNz`, assert `extract_bearer_token()` returns an error (only `Bearer` scheme is accepted)
+- [ ] **Tenant validation accepts match**: Given `claims.tenant_id = "tenant-abc"` and `X-Tenant-ID: tenant-abc`, assert `validate_tenant()` returns `Ok(())`
+- [ ] **Tenant validation rejects mismatch**: Given `claims.tenant_id = "tenant-abc"` and `X-Tenant-ID: tenant-def`, assert `validate_tenant()` returns `AuthError::TenantMismatch { expected: "tenant-def", actual: "tenant-abc" }`
+- [ ] **Tenant validation rejects missing header**: Given no `X-Tenant-ID` header, assert `validate_tenant()` returns `AuthError::MissingTenantId`
+- [ ] **Local policy allows with matching role**: Given `claims.sx.roles = ["admin"]` and a route requiring `["admin"]`, assert `evaluate_local_policy()` returns `true`
+- [ ] **Local policy denies with missing role**: Given `claims.sx.roles = ["customer"]` and a route requiring `["admin"]`, assert `evaluate_local_policy()` returns `false`
+- [ ] **Local policy allows with matching permission**: Given `claims.sx.permissions = ["prefs:write"]` and a route requiring `["prefs:write"]`, assert `evaluate_local_policy()` returns `true`
+- [ ] **Local policy denies with missing permission**: Given `claims.sx.permissions = ["prefs:read"]` and a route requiring `["prefs:write"]`, assert `evaluate_local_policy()` returns `false`
+- [ ] **Local policy allows with normal risk**: Given `claims.sx.risk = Some("normal")` and a route allowing all risk levels, assert `evaluate_local_policy()` returns `true`
+- [ ] **Local policy allows without risk claim**: Given `claims.sx.risk = None`, assert `evaluate_local_policy()` returns `true` (absence of risk claim does not cause denial)
+- [ ] **jwt-only returns AuthDecision::Allowed**: Given a jwt-only route with all policy checks passing, assert `validate_and_authorize()` returns `AuthDecision::Allowed { claims }`
+- [ ] **jwt-only returns AuthDecision::Denied**: Given a jwt-only route with a role check failure, assert `validate_and_authorize()` returns `AuthDecision::Denied { reason: "jwt_only_policy_violation" }`
+- [ ] **jwt-with-fallback returns AuthDecision::JwtCommonPath**: Given a jwt-with-fallback route, assert `validate_and_authorize()` returns `AuthDecision::JwtCommonPath { claims }` (continues to handler)
+- [ ] **online-only returns AuthDecision::JwtCommonPath**: Given an online-only route, assert `validate_and_authorize()` returns `AuthDecision::JwtCommonPath { claims }` (continues to handler)
+- [ ] **PolicyNotFound error for unclassified route**: Given a path+method not in any RoutePolicy, assert `validate_and_authorize()` returns `AuthError::PolicyNotFound`
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Valid jwt-only request succeeds**: `given` a user with `org_admin` role → `when` a request to `/api/users/me GET` (jwt-only) is made with a valid JWT and matching X-Tenant-ID → `then` the middleware returns `AuthDecision::Allowed` and the handler processes the request
+- [ ] **Scenario: jwt-only denied due to role**: `given` a user with `customer` role → `when` a request to a route requiring `org_admin` is made → `then` the middleware returns `AuthDecision::Denied { reason: "jwt_only_policy_violation" }` and the client receives 403
+- [ ] **Scenario: Tenant mismatch rejected**: `given` a valid JWT for tenant A → `when` a request with `X-Tenant-ID: B` is made → `then` the middleware rejects with `TenantMismatch` and the client receives 401
+- [ ] **Scenario: jwt-with-fallback continues to handler**: `given` a valid JWT → `when` a request to a `jwt-with-fallback` route is made → `then` the middleware returns `AuthDecision::JwtCommonPath` and the handler proceeds (no 403 from middleware)
+- [ ] **Scenario: online-only continues to handler**: `given` a valid JWT → `when` a request to an `online-only` route is made → `then` the middleware returns `AuthDecision::JwtCommonPath` and the handler proceeds to call authz-core
+- [ ] **Scenario: Metrics emitted per route**: `given` 10 requests to `/api/users/me GET` → `then` `jwt_validation_total{route: "/api/users/me", result: "allowed"}` is emitted 10 times, and `jwt_validation_latency_ms` histogram records 10 samples
+- [ ] **Scenario: Invalid JWT rejected at step 2**: `given` a request with an expired JWT → `when` the middleware processes it → `then` `jwt_validation_total{result: "denied", reason: "token_expired"}` is emitted and the handler is never called
+
+### Security Regression Tests
+
+- [ ] **Tenant bleed prevented**: `given` user alice from tenant A → `when` alice sends a request with `X-Tenant-ID: B` → `then` the middleware rejects with `TenantMismatch` BEFORE the handler is called (tenant validation happens at the middleware layer, not in the handler)
+- [ ] **Token tampering detected**: `given` a JWT where the client modifies `sx.roles` from `["customer"]` to `["admin"]` → `then` the signature verification fails (the token is unsigned by the issuer, so it's rejected before policy evaluation)
+- [ ] **Missing X-Tenant-ID blocks request**: `given` a request with a valid JWT but no `X-Tenant-ID` header → `then` the middleware rejects with 401 `MissingTenantId` (no request reaches the handler)
+- [ ] **jwt-only routes cannot be bypassed**: Assert that `jwt-only` routes NEVER make a call to authz-core — the entire authorization decision is made from JWT claims alone
+
+### Edge Cases
+
+- [ ] **Malformed JWT header (not base64url)**: Send a request with `Authorization: Bearer not-a-jwt` — assert the middleware returns 401 with a clear error message (not a panic or 500)
+- [ ] **JWT with no claims body**: Send a JWT where the payload decodes to an empty JSON object — assert deserialization into `AccessClaims` fails and the middleware returns 401
+- [ ] **Concurrent requests with same token**: 100 concurrent requests with the same valid JWT — assert all 100 succeed without cache corruption or race conditions (JWKS validation is thread-safe via `Arc`/`RwLock`)
+- [ ] **Very large JWT (>750 bytes)**: Send a JWT that exceeds the token size budget — assert the middleware still validates it correctly (the middleware should NOT reject based on size alone; size enforcement is a build-time test per Story 2.5)
+- [ ] **JWT with unusual claim values**: A JWT with `sx.roles = []` (empty array), `sx.permissions = []` (empty array), `sx.risk = Some("elevated")` — assert policy evaluation handles empty role/permission arrays gracefully (no panic, returns appropriate allow/deny based on route requirements)
+
+### Cleanup
+
+- No state cleanup required — the middleware is stateless (it reads from in-memory `RoutePolicyStore` and `JwksClient`)
+- Integration tests must not leave partially-validated JWTs in caches — use fresh JWTs per test scenario
+- If metrics are global singletons, clear the metrics registry between test scenarios using `prometheus::Registry::new()` or similar

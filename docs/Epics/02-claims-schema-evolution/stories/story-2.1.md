@@ -263,3 +263,45 @@ components:
   1. The transition is planned (Story 1.4 provides dual-mode)
   2. Tokens have short TTLs (5 minutes), so old tokens expire quickly
   3. A 5-minute window of old tokens is acceptable during migration
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Target schema deserializes**: Create a JWT payload JSON matching the target schema exactly (all claims present) and assert it deserializes into `AccessClaims` with no errors and all fields populated correctly
+- [ ] **Old flat schema deserializes with defaults**: Create a legacy JWT payload (flat, PII included, no `ver`, no namespaced claims) and assert it deserializes with `ver=None`, `sx=None`, `sid=None` (due to `#[serde(default)]` on optional fields). This validates backward-compatibility
+- [ ] **Namespace key serializes correctly**: Serialize `AccessClaims` to JSON and assert the claims object key is the literal string `"https://sesame-idam.dev/claims"` (not `"claims"` or any other variation)
+- [ ] **`https://sesame-idam.dev/claims.tenant` matches top-level `tenant_id`**: Given a claims struct with `tenant_id` and `sx.tenant`, assert both values are identical (consistency invariant)
+- [ ] **`roles` is an array**: Given a claims struct with `roles = ["admin", "billing-viewer"]`, assert serialization produces a JSON array, not a single string
+- [ ] **PII fields are absent from serialized token**: Serialize a new `AccessClaims` struct and assert the resulting JSON does NOT contain keys: `email`, `email_verified`, `phone_number`, `phone_verified`, `first_name`, `last_name`, `name`, `preferred_username`
+- [ ] **`entitlements_hash` is a SHA-256 string**: Given a claims struct with an `entitlements_hash`, assert it matches the format `"sha256:<hex>"` where the hex portion is exactly 64 characters
+- [ ] **`act` claim is optional**: Serialize a claims struct with `act=None` and assert the `act` key is omitted from the JSON (not present as `null`). Serialize with `act=Some(ActorClaim{...})` and assert it is present
+- [ ] **Token size within budget**: Serialize a realistic `AccessClaims` struct (with roles, permissions, tenant, version, session) and assert the payload is under 8 KB (target: <600 bytes p95, max <750 bytes)
+- [ ] **`ver` is monotonic unsigned**: Assert that `ver: u64` accepts values up to `u64::MAX` and rejects negative values (type system enforces this)
+- [ ] **`sid` format validation**: Given a session ID like `"ses_01JV8W..."`, assert it matches the expected prefix pattern and length
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: New claims are present in issued token**: `given` a successful login with a user having `org_admin` role → `when` identity-login-service issues an access token → `then` the decoded JWT contains `typ=at+jwt`, `ver` > 0, `sid` present, `sx.tenant` present, `sx.roles` includes `"org_admin"`, and no PII fields
+- [ ] **Scenario: Legacy token deserializes**: `given` an old HS256-signed JWT with flat claims and PII → `when` it is deserialized into `AccessClaims` → `then` PII fields are parsed but ignored by validation logic; `ver=None` triggers version check rejection (Epic 5)
+- [ ] **Scenario: Missing namespace claims**: `given` a JWT with valid signature but no namespaced claims block → `when` a service decodes it → `then` `sx` deserializes to `None` or empty struct, and the claim evaluation treats the user as having no roles/permissions
+- [ ] **Scenario: LoginResponse includes new fields**: `given` a successful login → `when` the `POST /auth/login` endpoint returns → `then` the response JSON includes `token_version` (integer) and `session_id` (string) fields
+
+### Security Regression Tests
+
+- [ ] **No PII in token payload**: Generate 100 tokens with diverse user data (including sensitive names, emails, phone numbers) and assert NONE of them appear in the JWT payload (only in the external profile endpoint)
+- [ ] **Namespace URI collision resistance**: Assert the namespace URI `https://sesame-idam.dev/claims` cannot be spoofed by a different issuer — JWT validation should only accept this namespace from the trusted `iss` (verified in Story 1.3 pipeline)
+- [ ] **`user_role` single string is rejected**: Assert that old JWTs with `user_role: "Admin"` (single string, not array) are deserialized but the `roles` array in `sx` is empty (migration path), preventing authorization based on stale role format
+
+### Edge Cases
+
+- [ ] **Empty `roles` array**: A user with no assigned roles — assert `sx.roles = []` serializes as empty JSON array, not `null` or omitted
+- [ ] **Very long `entitlements_ref`**: Inject an `entitlements_ref` of 200 characters — assert serialization succeeds and the JWT payload stays under the size budget
+- [ ] **Malformed namespace URI**: If a JWT is constructed with `http://sesame-idam.dev/claims` (http instead of https), assert it is either deserialized but treated as a different namespace (no match) or rejected
+- [ ] **Maximum `ver` value**: Set `ver` to `u64::MAX` and assert serialization and deserialization round-trip correctly (overflow safety in version comparison logic)
+
+### Cleanup
+
+- No state cleanup required — claim schema tests are pure serialization/deserialization
+- Integration tests must not leave old-format tokens in the token cache — ensure the test fixture clears any token caches between scenarios
+- Legacy flat-schema test data must not be committed to the repo — generate old-format tokens in-memory in test fixtures only

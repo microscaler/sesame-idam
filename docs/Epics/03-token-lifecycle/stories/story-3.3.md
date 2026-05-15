@@ -202,5 +202,48 @@ components:
   - Refresh is cached in Redis (30s TTL)
   - Refresh tokens are stored hashed (fast lookup)
   - Clients should refresh proactively (e.g., at 4:30 minutes, not at 5:00)
-- **Admin token short TTL**: 1-3 minute admin tokens are short but intentional -- admin actions are high-risk and benefit from short staleness windows. Admin users should use step-up MFA (separate flow) rather than long-lived tokens.
+- **Admin token short TTL**: All token types use 5-minute TTL (F-010 fix). Step-up MFA (Epic 6) provides the real security boundary for high-consequence admin actions. This simplifies the configuration matrix while maintaining security.
 - **Client-side TTL tracking**: Clients must track token expiry and refresh proactively. If a client sends a request at exactly 5 minutes, the token is expired and the request fails. This is a client-side responsibility -- the backend returns 401 and the client must refresh first.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Normal user TTL is 300 seconds**: Assert `ttl_for_role("customer")` returns `Duration::from_secs(300)` (5 minutes)
+- [ ] **Elevated user TTL is 300 seconds**: Assert `ttl_for_role("elevated")` returns `Duration::from_secs(300)` (F-010: aligned to 5 minutes, same as normal)
+- [ ] **Admin user TTL is 300 seconds**: Assert `ttl_for_role("org_admin")` and `ttl_for_role("platform_admin")` return `Duration::from_secs(300)` (F-010: aligned to 5 minutes)
+- [ ] **Platform user TTL is 300 seconds**: Assert `ttl_for_role("platform")` returns `Duration::from_secs(300)` (F-010: aligned to 5 minutes)
+- [ ] **Unknown role defaults to 300 seconds**: Assert `ttl_for_role("unknown_role")` returns `Duration::from_secs(300)` (the default arm)
+- [ ] **All roles produce the same TTL**: Assert `ttl_for_role("customer") == ttl_for_role("org_admin") == ttl_for_role("platform") == Duration::from_secs(300)` — confirming F-010 alignment
+- [ ] **`exp` claim is correct**: Given a login at `iat = 1000` with 300s TTL, assert the issued JWT has `exp = 1300`
+- [ ] **Refresh token TTL is configurable**: Assert that `JWT_REFRESH_TTL_DAYS` env var, when set to `14`, produces a refresh token with `exp - iat = 14 * 86400` seconds
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Normal user gets 5-minute token**: `given` a customer user logs in → `when` the access token is decoded → `then` `exp - iat = 300` seconds
+- [ ] **Scenario: Admin user gets 5-minute token**: `given` an org_admin logs in → `when` the access token is decoded → `then` `exp - iat = 300` seconds (same as normal, F-010 fix)
+- [ ] **Scenario: Expired token is rejected**: `given` a token with `exp` in the past → `when` a service validates it → `then` the validation returns 401 with `token_expired`
+- [ ] **Scenario: Token just before expiry is accepted**: `given` a token with `exp` 1 second in the future → `when` a service validates it → `then` the token is accepted
+- [ ] **Scenario: Token 61 seconds past expiry is rejected**: `given` a token with `exp` 61 seconds ago → `when` a service validates it → `then` the token is rejected (past 60-second clock skew tolerance, per Story 1.3)
+- [ ] **Scenario: Environment variable overrides default**: `given` `JWT_ACCESS_TTL_NORMAL=600` is set → `when` a normal user logs in → `then` the access token has `exp - iat = 600` seconds
+- [ ] **Scenario: Short TTL increases refresh rate**: `given` a client with a 5-minute token → `when` the client makes requests over 30 minutes → `then` the `/auth/refresh` endpoint is called at least 6 times (one per token expiry)
+- [ ] **Scenario: Metrics track issued TTLs**: `given` tokens are issued for different user types → `then` `token_ttl_seconds{role: "customer"}`, `token_ttl_seconds{role: "org_admin"}`, etc. are emitted with the correct values
+
+### Security Regression Tests
+
+- [ ] **Admin token cannot get extended TTL via role spoofing**: If a client claims to be an admin, assert the TTL is determined by the user's ACTUAL role in the system (from the authz service), not by any client-supplied role field
+- [ ] **TTL cannot be manipulated at token issuance**: Assert that the `exp` claim is set by the server-side TTL function, not by any value from the request body
+- [ ] **Refresh token TTL always exceeds access token TTL**: Assert that for every role tier, `refresh_token_ttl > access_token_ttl` — a refresh token should NEVER expire before its associated access token
+
+### Edge Cases
+
+- [ ] **Zero TTL**: If `JWT_ACCESS_TTL_NORMAL=0` is accidentally set, assert the token is issued with `exp = iat` (immediately expired) — this should cause the token to be rejected on first use, serving as a live integration test that the TTL is enforced
+- [ ] **Negative TTL**: If a misconfiguration causes `ttl_for_role` to return a negative duration, assert the token issuance fails with a clear error (not a token with `exp < iat` issued to a user)
+- [ ] **Maximum TTL**: If `JWT_ACCESS_TTL_NORMAL=3600` (1 hour) is set, assert the token is issued with a 1-hour expiry — confirm the budget test (Story 2.5) still passes with the longer-lived token
+- [ ] **Concurrent logins with different roles**: `given` a user who logs in as both a customer and an org_admin at the same time → `then` both tokens are issued with the correct TTL for their respective roles (5 minutes for both, since F-010 aligned them)
+
+### Cleanup
+
+- No state cleanup required — TTL tests are stateless assertions on token claims
+- Integration tests that rely on `exp` timing must either use a mocked clock or account for real-time drift between test steps
+- Environment variable overrides must be reset between test runs — use `std::env::remove_var` in test teardown to restore the default state

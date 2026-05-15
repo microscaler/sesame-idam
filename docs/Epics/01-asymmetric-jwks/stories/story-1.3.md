@@ -293,3 +293,59 @@ bearerAuth:
 - **JWKS refresh failure**: If identity-session-service is down during refresh, services retain stale JWKS. This is acceptable -- stale keys are valid until token expiry. The risk is that a rotated-out key remains in the cache, but since keys are in-memory only and rotated on schedule, this window is short.
 - **Clock skew tolerance**: 60 seconds is generous but safe. NTP drift on Linux is typically under 100ms, so 60s is a safety margin for clock changes, not drift.
 - **Algorithm allow-list**: Starting with only ES256. If EdDSA or RS256 is added later, they are added to the allow-list without breaking existing tokens.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **typ enforcement rejects wrong type**: Given a valid JWT with `typ: refresh+token`, assert the validation pipeline returns 401 with reason `invalid_token_type` — the pipeline checks `typ` BEFORE any signature verification
+- [ ] **typ enforcement rejects missing typ**: Given a valid JWT with no `typ` header field, assert rejection with reason `invalid_token_type`
+- [ ] **typ enforcement accepts `at+jwt`**: Given a valid JWT with `typ: at+jwt`, assert the pipeline passes the type check and continues to signature verification
+- [ ] **Algorithm allow-list rejects `alg: none`**: Given a JWT with `alg: none` in the header, assert the pipeline rejects immediately with reason `algorithm_not_allowed` (RFC 8725 compliance)
+- [ ] **Algorithm allow-list rejects HS256**: Given a JWT signed with HS256 (the deprecated symmetric algorithm), assert the pipeline rejects it even if the signature is valid
+- [ ] **Algorithm allow-list accepts EdDSA**: Given a JWT with `alg: EdDSA` and a valid signature from the public key in the JWKS cache, assert the pipeline passes the algorithm check
+- [ ] **Algorithm allow-list accepts ES256 co-default**: Given a JWT with `alg: ES256` and a valid signature from the ES256 key in the JWKS cache, assert the pipeline passes (interoperability)
+- [ ] **iss validation rejects wrong issuer**: Given a JWT with `iss: https://evil.example.com` and otherwise valid claims, assert the pipeline returns 401 with reason `invalid_issuer`
+- [ ] **iss validation accepts correct issuer**: Given a JWT with `iss: https://idam.example.com`, assert the pipeline passes
+- [ ] **aud validation rejects missing audience**: Given a JWT with no `aud` claim, assert the pipeline returns 401 with reason `invalid_audience`
+- [ ] **aud validation rejects wrong audience**: Given a JWT with `aud: other-service` when the service expects `authz-core.myapp.com`, assert rejection with reason `invalid_audience`
+- [ ] **aud validation accepts matching audience**: Given a JWT with `aud` containing the expected audience value, assert the pipeline passes
+- [ ] **exp validation rejects expired token (with skew)**: Given a JWT whose `exp` is 61 seconds ago (past the 60-second skew tolerance), assert the pipeline rejects with reason `token_expired`
+- [ ] **exp validation accepts token just before expiry (with skew)**: Given a JWT whose `exp` is 30 seconds from now, assert the pipeline passes
+- [ ] **nbf validation rejects future token**: Given a JWT whose `nbf` is 120 seconds in the future (past 60s skew), assert rejection with reason `not_yet_valid`
+- [ ] **Unknown kid returns 401**: Given a JWT with a `kid` not present in the JWKS cache, assert the pipeline returns 401 with reason `unknown_key`
+- [ ] **Valid key resolves from JWKS cache**: Given a JWT with a valid `kid`, assert the pipeline finds the public key in the JWKS cache and proceeds to signature verification
+- [ ] **Signature verification rejects invalid signature**: Given a JWT with valid `typ`, `iss`, `aud`, `exp` but an invalid signature, assert the pipeline returns 401 with reason `invalid_signature`
+- [ ] **Signature verification accepts valid signature**: Given a JWT signed with the private key corresponding to the `kid` in the JWKS cache, assert signature verification passes
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Valid token passes full pipeline**: `given` a JWT issued by identity-session-service with all correct claims → `when` authz-core receives it → `then` the token is accepted and local policy is evaluated from claims
+- [ ] **Scenario: Expired token is rejected at step 6**: `given` a valid JWT with `exp` in the past → `when` authz-core validates it → `then` the pipeline returns 401 at step 6 (exp validation) without reaching step 7 (jti denylist)
+- [ ] **Scenario: JWKS refresh at startup**: `given` an authz-core service with no cached JWKS → `when` it starts → `then` it fetches JWKS from identity-session-service and caches the key set
+- [ ] **Scenario: JWKS refresh failure retains old keys**: `given` a service with a cached JWKS key set → `when` the identity-session-service returns 503 during refresh → `then` the service retains and uses the old key set, logs an error
+- [ ] **Scenario: Token with new kid after rotation**: `given` a consumer whose JWKS cache has key-A → `when` the issuer rotates and issues a token with key-B's kid → `then` if the consumer's JWKS cache has been refreshed, the new key is used; if not, the token is rejected (grace period overlap prevents this in production)
+- [ ] **Scenario: All 6 services validate JWTs**: `given` a JWT issued from identity-session-service → `when` each of the 6 services (identity-login, identity-session, identity-user-mgmt, authz-core, api-keys, org-mgmt) validates it → `then` all 6 accept it (assuming correct `aud` per service)
+- [ ] **Scenario: Metrics are emitted on valid token**: `given` a valid JWT → `when` a service validates it → `then` `jwt_validation_total{result: "valid"}` and `jwt_validation_latency_ms` are emitted
+
+### Security Regression Tests
+
+- [ ] **Reject `alg: none` token**: Inject a JWT with `alg: none` into the validation pipeline — assert 401 rejection (RFC 8725)
+- [ ] **Reject token with `typ: refresh+token`**: Inject a JWT with `typ: refresh+token` — assert it is rejected before any signature check (F-002 pipeline ordering)
+- [ ] **Reject token with wrong `iss`**: Inject a JWT from a different issuer — assert 401
+- [ ] **Reject token with `extract_jti` helper**: If the legacy `extract_jti` helper is present, assert it is behind a `DISABLE_EXTRACT_JTI=true` feature flag and NOT used in production validation (F-002)
+- [ ] **No HS256 secret in config**: Verify no service config file, environment variable, or source code contains the literal string `JWT_SECRET` used for HS256 validation
+
+### Edge Cases
+
+- [ ] **Malformed JWT header**: Send a request with a JWT where the header segment cannot be decoded as base64 — assert the pipeline returns 401 with a clear error message (not a panic/500)
+- [ ] **Oversized JWT**: Send a JWT exceeding the token size budget (target <8KB, max <750B) — assert the pipeline rejects or truncates gracefully
+- [ ] **JWKS cache concurrent access**: Spawn 100 concurrent requests that all trigger a JWKS refresh simultaneously — assert only one fetch is made (single-flight) and all requests receive a valid key set
+- [ ] **Clock skew edge**: Set the system clock to 59 seconds ahead of the JWT's `iat` — assert the pipeline accepts (within 60s skew). Set to 61 seconds ahead — assert rejection
+- [ ] **Multiple audiences in `aud`**: JWT with `aud: ["svc-a", "svc-b"]` — assert a service matching either audience passes
+
+### Cleanup
+
+- Validation tests are stateless — no cleanup needed for individual token validation scenarios
+- Integration tests that modify the JWKS cache must reset the cache between scenarios (each service has its own in-memory JWKS cache instance)
+- `extract_jti` cleanup: if the legacy helper exists in code, integration tests must verify it is disabled in the active validation path

@@ -311,3 +311,51 @@ components:
 - **Actor impersonation risk**: An actor with platform_admin can impersonate any user in any tenant. This is intentional for support tools but must be strictly audited. Every token exchange is logged with actor_id, subject_id, and scope.
 - **Nested delegation complexity**: Supporting nested `act` chains adds complexity. The decision rule (only top-level act.sub matters) simplifies this but means deeper actors are invisible to authorization decisions. If per-layer delegation control is needed, this would require a more complex authorization model.
 - **Scope merging**: The `min(subject.scope ∩ requested.scope, actor.scope)` rule ensures the new token's scopes are the intersection of what the subject has, what the actor requested, and what the actor is allowed to grant. This prevents privilege escalation through scope manipulation.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **`can_delegate` returns true for platform_admin**: Given an actor with `roles = ["platform_admin"]`, assert `can_delegate(actor_claims, "any_user_id")` returns `true`
+- [ ] **`can_delegate` returns true for org_admin same org**: Given an actor with `roles = ["org_admin"]` and the target is in the same org, assert `can_delegate` returns `true`
+- [ ] **`can_delegate` returns false for org_admin different org**: Given an actor with `roles = ["org_admin"]` and the target is in a different org, assert `can_delegate` returns `false`
+- [ ] **`can_delegate` returns false for regular user**: Given an actor with `roles = ["customer"]`, assert `can_delegate` returns `false` (regular users cannot delegate)
+- [ ] **`can_delegate` handles empty roles**: Given an actor with `roles = []` (empty array), assert `can_delegate` returns `false`
+- [ ] **Tenant match check**: Assert that `actor.tenant == subject.tenant` is enforced — if the actor's tenant differs from the subject's tenant, the exchange is rejected
+- [ ] **Scope merging produces intersection**: Given subject scopes `"profile:read orders:write"`, requested `"orders:write invoices:read"`, and actor scopes `"orders:write"`, assert the resulting scopes are `"orders:write"` (intersection of all three)
+- [ ] **Scope merging rejects over-requested scope**: Given subject has `"profile:read"` but actor requests `"profile:read orders:write"`, assert the result is `"profile:read"` (subject's scopes limit the result)
+- [ ] **Nested `act` chain is preserved**: Given an actor_token with `act.sub = "user_456"` and `act.chain = [{sub: "support_tool"}]`, assert the new token's `act` includes the full chain
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Service delegation (user token + service key)**: `given` a valid user access token as subject and a service API key as actor → `when` `POST /auth/token` is called with `grant_type=token-exchange` → `then` a new access token is returned with `act.sub = "svc_id"` and the subject's claims are preserved
+- [ ] **Scenario: Support tool impersonation**: `given` an org_admin's access token as actor and a user's token as subject → `when` token exchange is requested → `then` the new token has `act.sub = "admin_id"` and the admin's scope is intersected with the requested scope
+- [ ] **Scenario: Cross-tenant delegation is rejected**: `given` an actor from tenant `hauliage` and a subject from tenant `rerp` → `when` token exchange is requested → `then` the response is 403 Forbidden (tenant mismatch)
+- [ ] **Scenario: Non-admin user delegation is rejected**: `given` a regular user's token as actor trying to delegate another user's token as subject → `when` token exchange is requested → `then` the response is 403 Forbidden (actor lacks delegation permission)
+- [ ] **Scenario: Invalid subject token is rejected**: `given` a malformed or expired JWT as the subject token → `when` token exchange is requested → `then` the response is 401 Invalid Token
+- [ ] **Scenario: Missing actor_token is accepted (self-delegation)**: `given` a valid subject token without an actor_token → `when` token exchange is requested → `then` the new token is issued without an `act` claim (self-delegation produces a token with fresh claims but no actor)
+- [ ] **Scenario: New token has bumped version**: `given` a subject token with `ver: 42` → `when` token exchange succeeds → `then` the new access token has `ver: 43` (bumped version)
+- [ ] **Scenario: Metrics track exchange results**: `given` a successful token exchange → `then` `token_exchange_total{result: "success"}` is emitted; `given` a denied exchange → `then` `token_exchange_total{result: "denied"}` is emitted
+- [ ] **Scenario: Audit log includes all required fields**: `given` a token exchange request → `then` the structured log includes `issuer`, `subject`, `client_id`, `session_id`, `token_id`, `token_version`, `route`, `decision_source: "exchange"`, and `actor subject`
+
+### Security Regression Tests
+
+- [ ] **Actor cannot delegate scope it does not have**: Given an actor with `"profile:read"` requesting `"profile:read orders:write"`, assert the new token only contains `"profile:read"` (scope cannot be expanded beyond actor's own scopes)
+- [ ] **Actor cannot escalate privilege via subject token**: Given a low-privilege subject token, assert that the actor cannot produce a token with more permissions than the subject has
+- [ ] **`act.sub` is set by the server, not the client**: Assert that the `act.sub` claim in the new token is derived from the validated actor token, not from any client-supplied value
+- [ ] **Nested actors are audit-only**: Assert that downstream authorization decisions only consider `act.sub` (the top-level actor), NOT the nested chain members
+- [ ] **Token exchange endpoint requires authentication**: Assert that the `/auth/token` endpoint requires a valid `subject_token` — requests without a subject token are rejected with 401
+
+### Edge Cases
+
+- [ ] **Empty subject token**: Send an empty string as `subject_token` — assert the exchange is rejected with 401 (not a panic or 500)
+- [ ] **Subject token is a refresh token**: Send a refresh token (not an access token) as the subject token — assert it is rejected (only `at+jwt` tokens are accepted as subjects)
+- [ ] **Max depth nested delegation**: Simulate a chain with 10 levels of nested `act` claims — assert the exchange still succeeds and only the top-level `act.sub` is used for decisions
+- [ ] **Token exchange with all scopes removed**: Given a subject with scopes `"profile:read"` and the actor requests scope `""` (empty) — assert the new token has no scopes (empty scope is valid, it means the delegated token has no permissions)
+- [ ] **Concurrent token exchanges with same subject**: Two concurrent token exchange requests using the same subject token — assert both succeed independently (each produces a new token with a fresh `jti` and bumped `ver`)
+
+### Cleanup
+
+- No state cleanup required — token exchange is stateless (no persistent side effects other than audit logs and metrics)
+- Integration tests must not leave partially-validated tokens in caches — clear the JWKS cache and any token caches between scenarios
+- Audit log tests should use an in-memory log collector to avoid polluting the real log system

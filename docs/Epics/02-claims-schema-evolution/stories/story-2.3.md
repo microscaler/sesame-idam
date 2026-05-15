@@ -248,3 +248,38 @@ Old vs New:
 - **Consumer migration**: Services that extract PII from the JWT must be updated to use the user profile endpoint. This is a breaking change for existing consumers. The migration window is short because tokens have 5-minute TTLs.
 - **Entitlements cache miss**: If the entitlements cache is empty, consumers must make an additional call to resolve the full ACL. This adds latency for the first request after token issue. The cache TTL (30-300s) minimizes this.
 - **Deterministic reference**: The `entitlements_ref` is deterministic, which means if the entitlements data changes but the reference is the same (unlikely with version bumping), the cache would serve stale data. This is mitigated by the `ver` claim and cache TTL.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **PII fields absent from serialized token**: Serialize a fully-populated `AccessClaims` struct and assert the resulting JSON payload does NOT contain the keys: `email`, `email_verified`, `phone_number`, `phone_verified`, `first_name`, `last_name`, `name`, `preferred_username`
+- [ ] **`entitlements_ref` is deterministic**: Create two `AccessClaims` with the same `(user_id, org_id, ver)` tuple — assert the generated `entitlements_ref` is identical both times
+- [ ] **`entitlements_hash` matches canonical JSON**: Create a mock entitlements snapshot, compute its SHA-256 of the canonical JSON serialization, create a token with that hash — assert `token.sx.entitlements_hash == sha256(canonical_json(snapshot))`
+- [ ] **`entitlements_ref` format**: Assert the generated reference matches the expected format (UUID or prefixed UUID like `"ent_<uuid>"`)
+- [ ] **Hash format validation**: Assert `entitlements_hash` always has the `"sha256:"` prefix followed by a 64-character hex string
+- [ ] **Token size budget respected**: Create a representative `AccessClaims` (10 roles, 10 permissions, all claims present) and assert the serialized JSON payload is < 600 bytes (target well under 750-byte budget)
+- [ ] **Old PII fields NOT in token payload**: Generate a token for a user with known PII (email `"alice@corp.com"`, phone `"+14155551234"`) — assert these values are completely absent from the JWT payload
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Login token has no PII**: `given` a user with a known email and phone number → `when` the user logs in and receives an access token → `then` the decoded JWT payload contains no `email`, `phone_number`, `name`, `first_name`, `last_name` fields
+- [ ] **Scenario: Entitlements ref is used in consumer flow**: `given` a token with `sx.entitlements_ref` set → `when` a consumer service receives the token → `then` the service first checks the local cache for `entitlements:{ref}`, and only calls the authz API on cache miss
+- [ ] **Scenario: Hash verification on consumer side**: `given` a token with `sx.entitlements_hash` and the consumer fetches the full snapshot from cache — `when` the consumer computes SHA-256 of the cached snapshot — `then` the computed hash matches `token.sx.entitlements_hash` (F-007: consumer-side hash verification)
+- [ ] **Scenario: User profile endpoint serves PII**: `given` a valid JWT for user alice — `when` a consumer calls `GET /api/v1/identity/users/me` with the Bearer token — `then` the response includes `email`, `phone_number`, `name` (PII is available via the dedicated endpoint, not the token)
+
+### Security Regression Tests
+
+- [ ] **No PII in token even with special characters**: Test users with PII containing unicode characters, spaces, special chars (e.g., email `"用户@example.com"`, name `"O'Brien"`) — assert none of these values appear in the JWT payload
+- [ ] **Entitlements hash prevents tampering**: If a consumer modifies the entitlements snapshot in the cache, assert that recomputing the SHA-256 produces a different hash than the one in the token — the consumer must reject the mismatch
+
+### Edge Cases
+
+- [ ] **Empty entitlements snapshot**: A user with no assigned entitlements — assert `entitlements_ref` is still generated (from the zero-length canonical JSON) and `entitlements_hash` is the SHA-256 of `{}`
+- [ ] **Entitlements snapshot with 1000 permissions**: Generate a token for a user with a large entitlements set — assert the token still uses `entitlements_ref` + `entitlements_hash` and stays under the 750-byte budget (the full 1000 permissions are NOT embedded in the token)
+- [ ] **Deterministic ref on version bump**: When `ver` is bumped, assert the `entitlements_ref` changes (the reference is version-dependent), ensuring stale cache entries are not served
+
+### Cleanup
+
+- Entitlements snapshots in Redis cache must be cleaned between integration test runs — use a unique Redis prefix or namespace per test run
+- Test fixtures must not include PII test data in version-controlled files — generate test PII in-memory only

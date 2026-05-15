@@ -255,3 +255,45 @@ components:
 - **JWKS endpoint is public**: It does not require authentication. This is by design -- public key material should be discoverable. The risk is minimal since it only contains public keys.
 - **Response is unversioned**: The JWKS doesn't include a `version` or `updated_at` field. Consumers must rely on `Cache-Control` headers. A `jku` (JWK Set URL) claim in the JWT itself could provide the authoritative source, but this adds complexity.
 - **Single endpoint**: All services share one JWKS endpoint. If identity-session-service is down, no service can validate new tokens. This is acceptable because identity-session-service is classified as HIGH frequency and should be highly available.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **JWKS response parses as valid RFC 7517**: Construct a JWKS document from `KeyManager` with known keys and assert the JSON structure matches RFC 7517 — `keys` is an array, each element has `kty`, `kid`, `alg`, and curve-specific fields (`x`/`y` for EC, `x` for OKP)
+- [ ] **Single key yields correct response**: With only 1 key in `KeyManager`, verify JWKS contains exactly 1 entry in `keys` array
+- [ ] **Rotation yields 2 keys**: After key rotation prepares the next key, verify `keys` array has 2 entries (current + next)
+- [ ] **Grace period yields 3 keys**: During the overlap window, verify `keys` array has 3 entries (current + next + old grace key)
+- [ ] **Post-grace cleanup yields 1 key**: After grace period expires, verify only the current key remains
+- [ ] **Response size budget**: Serialize the JWKS to JSON and assert the byte count is under 2 KB (1-2 keys normal)
+- [ ] **Cache-Control header**: The endpoint handler MUST include `Cache-Control: public, max-age=300` and `X-Content-Type-Options: nosniff`
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: JWKS serves current key**: `given` an identity-session-service with 1 active key → `when` a consumer calls `GET /.well-known/jwks.json` → `then` the response is 200 OK with valid JWKS JSON containing exactly that key's `kid` and `alg`
+- [ ] **Scenario: JWKS serves rotating keys**: `given` a KeyManager with 3 keys (current, next, grace) → `when` `GET /.well-known/jwks.json` is called → `then` the response contains 3 entries with distinct `kid` values
+- [ ] **Scenario: Cache-Control header present**: `given` a JWKS endpoint → `when` a request is made → `then` the `Cache-Control` header is exactly `public, max-age=300`
+- [ ] **Scenario: No DB queries during JWKS serve**: `given` a JWKS endpoint with database connections tracked → `when` a request is made → `then` zero database queries are executed (JWKS is served entirely from in-memory KeyManager state)
+- [ ] **Scenario: JWKS response is not a valid JWT**: Verify the JWKS response itself cannot be used as a JWT token (different structure, no JWS signature)
+
+### Security Regression Tests
+
+- [ ] **JWKS endpoint requires no auth**: Verify the endpoint returns 200 without any `Authorization` header — it IS public by design
+- [ ] **JWKS contains no private key material**: Parse the JWKS response and assert `d` (private key) field is NEVER present — only public key fields (`x`, `y` for EC; `x` for OKP)
+- [ ] **JWKS response Content-Type**: Verify `Content-Type: application/json` is set (not `text/html` or anything else)
+
+### Edge Cases
+
+- [ ] **Empty key manager**: If `KeyManager` has no keys (edge case during init), the endpoint should return `{ "keys": [] }` (not 500)
+- [ ] **Concurrent requests**: Send 100 concurrent requests to the JWKS endpoint and verify all succeed with identical content
+- [ ] **Large number of keys**: Inject 10 keys into the manager (simulating extended rotation bugs) and verify the response is still under the size budget and parses correctly
+
+### Cleanup
+
+- No cleanup required — JWKS endpoint is stateless; it reads from in-memory `KeyManager` and does not modify state
+- Integration tests must ensure no stale `KeyManager` state leaks between test scenarios (instantiate a fresh `KeyManager` per test or use a `Drop` impl)
+
+### Spec Verification
+
+- [ ] OpenAPI spec defines `GET /.well-known/jwks.json` with 200 response containing `JsonWebKey` schema
+- [ ] `JsonWebKey` schema has required fields: `kty`, `kid`, `alg`, `crv`, and coordinate fields

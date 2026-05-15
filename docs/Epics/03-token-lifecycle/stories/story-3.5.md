@@ -239,3 +239,46 @@ paths:
 - **Family registry maintenance**: The `user:{user_id}:families` set must be maintained on every login (add family) and logout (remove family). This adds complexity but is necessary for efficient logout-all.
 - **No enumeration protection**: The 204 response prevents enumeration. If a client sends logout with an invalid token, they get 401. If valid, they get 204. This leaks whether the token is valid, but not whether a user account exists. This is an acceptable trade-off -- the alternative is to always return 204 regardless of token validity, which prevents detecting invalid token errors.
 - **Logout-all performance**: For users with many active sessions (e.g., a user with 100 devices), logout-all must iterate over 100 families and revoke each one. This is O(n) where n is the number of families. For most users, n is small (< 5). For extreme cases, this could be a bottleneck. Mitigation: use pipeline Redis commands to batch deletions.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Logout response is 204 No Content**: Assert that a successful logout returns HTTP 204 with an empty body (no JSON, no HTML — just status code)
+- [ ] **Logout-invalid token returns 401**: Assert that logout with an expired, malformed, or revoked refresh token returns HTTP 401 with `{"reason": "invalid_token"}`
+- [ ] **Single-session logout does not affect other sessions**: Given a user with 3 families (fam_abc, fam_def, fam_ghi) — assert that single-session logout of fam_abc does NOT delete tokens in fam_def or fam_ghi
+- [ ] **Logout-all removes all families**: Given a user with 3 families — assert that logout-all deletes all `refresh:{jti}` entries for all 3 families AND deletes `user:{user_id}:families`
+- [ ] **Family registry is cleaned on single logout**: Given a user with families `["fam_abc", "fam_def"]` — assert that single logout of fam_abc results in `user:{user_id}:families` containing only `["fam_def"]` (SREM operation verified)
+- [ ] **Family registry is deleted on logout-all**: Given a user with families `["fam_abc", "fam_def"]` — assert that logout-all results in `user:{user_id}:families` being deleted (DEL operation verified)
+- [ ] **Revoked family prevents future refresh**: After logout, assert that any refresh token from the revoked family is rejected (its `jti` is in the denylist or its `family:{family_id}` is marked as revoked)
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Single-session logout**: `given` a valid refresh token for user-123 with family `fam_abc` → `when` a `POST /auth/logout {logout_all: false}` request is made → `then` the response is 204 No Content, Redis `refresh:{jti}` is deleted, and `family:{fam_abc}` is marked as revoked
+- [ ] **Scenario: Logout-all removes all sessions**: `given` a user with 3 active sessions (families `fam_abc`, `fam_def`, `fam_ghi`) → `when` a `POST /auth/logout {logout_all: true}` request is made → `then` the response is 204 No Content, all 3 family sets are deleted, all `refresh:{jti}` entries are deleted, and `user:{user_id}:families` is deleted
+- [ ] **Scenario: Expired token logout returns 401**: `given` an expired refresh token → `when` logout is requested → `then` the response is 401 with `reason: "invalid_token"` (the token cannot be used for logout)
+- [ ] **Scenario: Logout with valid access token also revokes refresh**: `given` a valid access token (derived from a refresh token) → `when` the access token's associated refresh token is used for logout → `then` the refresh token is revoked and the family is marked as revoked
+- [ ] **Scenario: Metrics track logout events**: `given` a successful logout-all → `then` `token_logout_total{type: "all"}` is emitted and `token_logout_families_total{type: "all"}` reflects the number of families revoked
+- [ ] **Scenario: No body in 204 response**: `given` a successful logout → `when` the response is captured → `then` the response body is empty (0 bytes) — this prevents user enumeration
+
+### Security Regression Tests
+
+- [ ] **Logout prevents token reuse**: After logout, assert that any attempt to use the revoked refresh token for `/auth/refresh` is rejected (the token is in the denylist or its family is revoked)
+- [ ] **Logout-all revokes ALL sessions including future ones**: After logout-all, assert that even if the client attempts to use a previously-issued refresh token, it is rejected (the family is revoked and the `user:{user_id}:families` registry is deleted, preventing new families from being looked up)
+- [ ] **Logout does not leak user information**: Assert that the 204 response body is always empty regardless of whether the logout was single or all — the client cannot distinguish between the two based on the response
+- [ ] **Logout with invalid token does not reveal account existence**: Assert that 401 responses only indicate invalid token, not whether the user exists — the error message is generic (`"invalid_token"`), not user-specific
+
+### Edge Cases
+
+- [ ] **Logout with 100 active sessions**: Inject 100 families for a single user — assert logout-all completes within 1 second (use Redis pipeline to batch deletions and verify the batch size)
+- [ ] **Logout after family already revoked**: Given a family that was already revoked (via reuse detection) — assert that single logout of that family does not error (idempotent: deleting an already-deleted key is safe in Redis)
+- [ ] **Logout with empty family registry**: If `user:{user_id}:families` is empty (data corruption edge case) — assert logout-all still returns 204 (empty set means nothing to revoke, not an error)
+- [ ] **Concurrent logout requests**: Two concurrent logout requests (one single, one all) for the same user — assert both complete without error and all families are eventually revoked (no data corruption)
+- [ ] **Logout during active refresh**: A logout request arrives at the same time as a refresh request for the same family — assert the system handles this correctly (one succeeds, the other detects the revocation)
+
+### Cleanup
+
+- Redis state must be cleaned between test scenarios — use a unique Redis key prefix per test run or `FLUSHDB` in a test fixture
+- Test fixtures must not leave stale `user:{user_id}:families` entries between runs
+- Integration tests must verify that a revoked token is truly unusable — this requires a follow-up refresh attempt after logout to confirm the revocation takes effect
+- Logout-all pipeline tests must verify that all Redis keys are deleted (not just some) — use `KEYS user:*` pattern scan in the test assertion

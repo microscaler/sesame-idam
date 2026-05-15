@@ -199,3 +199,41 @@ components:
 - **Tenant ID in JWT is not encrypted**: The JWT is signed, not encrypted. Any service that can decode the JWT can see the `tenant_id`. This is intentional -- `tenant_id` is not a secret, it is an authorization boundary. The risk is that a stolen JWT reveals the tenant, which is already visible from the `X-Tenant-ID` header.
 - **Platform admin cross-tenant access**: Platform admins (e.g., Sesame operators) may need to operate across tenants. This is an Enterprise opt-in feature. For the base implementation, all tokens have a single `tenant_id`. Cross-tenant admin tokens would use a special `tenant_id` value (e.g., "all" or null) with elevated risk level.
 - **No tenant change after token issue**: A token's `tenant_id` is fixed at issue time. If a user moves between tenants (unlikely, as users are strictly scoped to one tenant), they must re-authenticate to get a new token. This is correct -- there is no cross-tenant identity.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **`tenant_id` matches between top-level and namespaced claims**: Create an `AccessClaims` with `tenant_id = "tenant-abc"` and `sx.tenant = "tenant-abc"`, assert both fields are identical (consistency invariant)
+- [ ] **`tenant_id` is a valid UUID format**: Generate a `tenant_id` string and assert it matches the UUID regex pattern (`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+- [ ] **`validate_tenant()` rejects mismatch**: Create an `AccessClaims` with `tenant_id = "tenant-abc"`, call `validate_tenant("tenant-def")`, assert it returns `JwtError::TenantMismatch { expected: "tenant-def", actual: "tenant-abc" }`
+- [ ] **`validate_tenant()` accepts match**: Create an `AccessClaims` with `tenant_id = "tenant-abc"`, call `validate_tenant("tenant-abc")`, assert it returns `Ok(())`
+- [ ] **Top-level `tenant_id` populates on login**: Given a login request with `X-Tenant-ID: tenant-abc`, assert the issued JWT payload contains `tenant_id: "tenant-abc"` at the root level
+- [ ] **Namespaced `sx.tenant` populates on login**: Same login request — assert the decoded JWT payload contains `"https://sesame-idam.dev/claims": { "tenant": "tenant-abc", ... }`
+- [ ] **User's actual tenant matches request tenant**: In the login handler, given a user record with `tenant_id = "tenant-abc"` and a login request with `X-Tenant-ID: tenant-def`, assert the login is rejected (401) — users cannot authenticate as a different tenant
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Tenant ID flows from login to token**: `given` a user belonging to tenant `hauliage` (UUID: `abc-123`) → `when` the user logs in with `X-Tenant-ID: abc-123` → `then` the access token's `tenant_id` field equals `abc-123` in both top-level and `sx.tenant`
+- [ ] **Scenario: Cross-tenant login is rejected**: `given` a user registered under tenant `hauliage` → `when` the user attempts to login with `X-Tenant-ID: rerp` → `then` the login returns 401 with a tenant-mismatch error (not a password error — prevents tenant enumeration)
+- [ ] **Scenario: Downstream service validates tenant**: `given` a JWT with `tenant_id = "hauliage"` → `when` a downstream service receives the request with `X-Tenant-ID: rerp` → `then` the service rejects the request with 401 Tenant Mismatch (the JWT tenant and header tenant don't match)
+- [ ] **Scenario: Tenant ID present in LoginResponse**: `given` a successful login → `when` the `LoginResponse` is returned → `then` it includes a `tenant_id` field matching the tenant of the authenticated user
+- [ ] **Scenario: Different users on different tenants have different JWT tenants**: `given` user alice on tenant `hauliage` and user alice on tenant `rerp` → `when` both login → `then` alice@hauliage's JWT has `tenant_id = hauliage_uuid` and alice@rerp's JWT has `tenant_id = rerp_uuid` — confirming zero cross-tenant identity
+
+### Security Regression Tests
+
+- [ ] **Tenant ID cannot be forged in token**: If a client modifies the `tenant_id` claim in a validly-signed token, assert that the JWT signature verification fails (the token cannot be tampered with — only the issuer can set the tenant)
+- [ ] **Tenant ID matches request header**: For every login request, assert `claims.tenant_id == X-Tenant-ID` header value — never allow the token's tenant to differ from the request's tenant
+- [ ] **No tenant_id leakage across login sessions**: Assert that a login to tenant A never results in a JWT containing tenant B's UUID (test with sequential logins to different tenants using the same client)
+
+### Edge Cases
+
+- [ ] **Malformed tenant_id UUID**: If a request sends `X-Tenant-ID: not-a-uuid`, assert the login fails before token generation (tenant validation happens before JWT issuance)
+- [ ] **Null tenant_id**: If the user's database record has no `tenant_id` (data corruption edge case), assert the login handler rejects it (500 error, not a token issued with null tenant)
+- [ ] **Tenant ID with special characters in UUID**: UUIDs should only contain hex characters and hyphens — assert any `tenant_id` containing non-hex characters is rejected
+
+### Cleanup
+
+- Tenant data in the test database must be isolated per test — use unique UUIDs for each test's tenant to prevent cross-test leakage
+- Redis cache keys prefixed with tenant_id must be cleaned between test scenarios (use `DEL hauliage:*` or a per-test Redis namespace)
+- Integration tests must not leave tokens in a "stale" state — tokens are 5-minute TTL, so they expire naturally; no explicit cleanup needed for JWT tokens

@@ -301,3 +301,46 @@ No OpenAPI changes needed for Rust struct implementation (internal code). The Op
 - **Required fields**: `ver`, `sid`, and `sx` are required in the new schema. Old JWTs (signed during HS256 transition) will fail deserialization or validation. This is acceptable -- tokens have 5-minute TTLs, so old tokens expire quickly.
 - **Serde rename**: The URI key `https://sesame-idam.dev/claims` requires `#[serde(rename = "...")]`. This works but is less ergonomic than a regular Rust field name. It is necessary per RFC 7519 for collision-resistant custom claims.
 - **Builder pattern overhead**: The builder pattern adds code volume but provides clarity and validation at construction time. It is the right trade for an IAM system where token correctness is critical.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **`ActorClaim` round-trip**: Create `ActorClaim { sub: "user-123" }`, serialize to JSON, deserialize back, assert `sub` is identical
+- [ ] **`SesameAuthzClaims` full struct round-trip**: Create a `SesameAuthzClaims` with all fields populated (tenant, portal, roles, permissions, entitlements_ref, entitlements_hash, risk), serialize and deserialize — assert all fields match
+- [ ] **`SesameAuthzClaims` optional fields absent**: Create a `SesameAuthzClaims` with `entitlements_ref=None`, `entitlements_hash=None`, `risk=None` — serialize and assert the JSON does NOT contain these keys (not `null`, omitted entirely)
+- [ ] **`AccessClaims` required field validation rejects missing `ver`**: Create a claims struct with `ver: 0` (or test deserialization of a payload missing `ver`), assert `validate()` returns `JwtValidationError::MissingVersion`
+- [ ] **`AccessClaims` required field validation rejects missing `tenant_id`**: Create a claims struct with `tenant_id: ""` (empty string), assert `validate()` returns `JwtValidationError::MissingTenant`
+- [ ] **`AccessClaims` required field validation rejects missing `sx.tenant`**: Create a claims struct with `SesameAuthzClaims { tenant: "", ... }`, assert `validate()` returns `JwtValidationError::MissingAuthzClaims`
+- [ ] **`AccessClaims` validation rejects invalid `risk`**: Create a claims struct with `sx.risk = Some("unknown")`, assert `validate()` returns `JwtValidationError::InvalidRisk`
+- [ ] **`AccessClaims` validation accepts valid `risk` values**: For each of `"normal"`, `"elevated"`, `"critical"`, assert `validate()` returns `Ok(())`
+- [ ] **`AccessClaims` validation accepts valid claims**: Create a fully-populated, well-formed `AccessClaims` and assert `validate()` returns `Ok(())`
+- [ ] **Builder pattern constructs valid claims**: Use `AccessClaims::builder()` to set all required fields and call `build()`, assert the result is `Ok(AccessClaims)` with all fields populated
+- [ ] **Builder pattern rejects missing required fields**: Call `build()` on a builder missing `ver`, assert it returns a `JwtError` variant indicating a missing required field
+- [ ] **All structs derive required traits**: Assert `ActorClaim`, `SesameAuthzClaims`, and `AccessClaims` all implement `Clone`, `Debug`, `PartialEq` (compile-time check — if they don't, the code won't compile)
+- [ ] **`AccessClaims` contains `ActorClaim` optional**: Assert that `AccessClaims { act: None, ... }` serializes without the `act` key, and `AccessClaims { act: Some(ActorClaim{sub:"..."}), ... }` serializes with the `act` object
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Claims deserialized from real JWT**: `given` a JWT issued by identity-login-service during a login flow → `when` the claims are decoded and deserialized into `AccessClaims` → `then` `validate()` returns `Ok(())` and all fields are populated correctly
+- [ ] **Scenario: Legacy JWT fails validation**: `given` an old-format JWT (HS256, flat claims, no `ver`) → `when` it is deserialized into `AccessClaims` and `validate()` is called → `then` it returns `JwtValidationError::MissingVersion` (not a deserialization panic)
+- [ ] **Scenario: Builder produces serializable claims**: `given` a claims builder with all fields set → `when` `build()` succeeds → `then` the resulting `AccessClaims` serializes to valid JSON matching the target schema from Story 2.1
+- [ ] **Scenario: Shared crate types accessible from all services**: `given` the `common` crate with the new types → `when` any of the 6 services import `AccessClaims`, `SesameAuthzClaims`, or `ActorClaim` → `then` compilation succeeds (compile-time verification)
+
+### Security Regression Tests
+
+- [ ] **`validate()` rejects `iss` from non-trusted issuer**: Create an `AccessClaims` with `iss: "https://evil-issuer.example.com"` (not in `ALLOWED_ISSUERS`), assert `validate()` returns `JwtValidationError::InvalidIssuer`
+- [ ] **`validate()` rejects `aud` with no match**: Create an `AccessClaims` with `aud: ["unknown-service"]`, assert `validate()` returns `JwtValidationError::InvalidAudience`
+- [ ] **Token builder cannot set `ver=0`**: Attempt to build a token with `ver=0` — assert the builder rejects it (enforced at construction time, not just validation time)
+
+### Edge Cases
+
+- [ ] **Very long `tenant_id`**: Inject a 1000-character `tenant_id`, assert serialization succeeds and the token stays under the size budget
+- [ ] **Very large `roles` array**: Inject 500 roles, assert serialization succeeds but the token size is flagged (test fails if over size budget — this is intentional to catch entitlement inflation)
+- [ ] **`aud` vector empty**: Create `AccessClaims { aud: vec![] }`, assert `validate()` returns `InvalidAudience`
+- [ ] **`scope` empty string**: Create `AccessClaims { scope: "" }`, assert the struct accepts it (empty scope is valid — it means no permissions, which is enforced by policy evaluation, not schema validation)
+
+### Cleanup
+
+- No state cleanup required — these are pure data type tests
+- Integration tests must not leave partially-constructed `AccessClaims` in shared caches (if claims are cached, clear the cache between test scenarios)

@@ -272,3 +272,50 @@ components:
 - **Cache staleness**: Cached fallback results may be stale (up to TTL seconds old). For low-risk routes (preferences PUT, user updates), this is acceptable -- the worst case is a user sees a 30-second-old authorization decision. For high-risk routes, the cache TTL should be shorter (5 seconds) or the route should be classified as `online-only`.
 - **Single-flight complexity**: The single-flight pattern adds code complexity and requires a concurrent data structure (HashMap with mutex or tokio::sync::watch). It is necessary to prevent cache miss storms but adds operational complexity.
 - **Fallback ratio spike**: If the JWT common path is not working (e.g., JWKS cache miss, validation failures), the fallback ratio spikes. This is detected by the `authz_fallback_ratio` metric and alerts on >5%. However, the alert threshold (5%) is arbitrary -- it may need tuning based on actual traffic patterns.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **jwt_claims_cover_decision returns true for sufficient claims**: Given `claims.sx.roles = ["admin"]` and a request that only needs admin role check, assert `jwt_claims_cover_decision()` returns `true`
+- [ ] **jwt_claims_cover_decision returns false for insufficient claims**: Given `claims.sx.roles = ["customer"]` and a request needing org admin, assert `jwt_claims_cover_decision()` returns `false`
+- [ ] **Cache key is deterministic**: Generate a cache key for `AuthorizeRequest { tenant_id: "t1", sub: "u1", action: "read", resource_id: "r1" }` twice — assert both produce the same `authz_fallback:{hash}` string
+- [ ] **Cache key differs by tenant**: Generate cache keys for identical requests but different `tenant_id` values — assert the hashes differ (F-008: tenant isolation)
+- [ ] **Cache key includes all critical fields**: Assert the cache key data includes `tenant_id`, `sub`, `org_id`, `action`, and `resource_id` — omitting any of these should change the hash
+- [ ] **Single-flight prevents duplicate authz calls**: Given two concurrent requests with the same cache key — assert only ONE call is made to authz-core (the second request waits for the first to complete)
+- [ ] **Fallback ratio calculation**: Given 100 total requests and 2 fallback calls, assert `fallback_ratio = 0.02` (2%)
+- [ ] **Fallback ratio alert triggers at >5%**: Given 100 total requests and 6 fallback calls, assert `fallback_ratio = 0.06` which exceeds the 5% threshold
+- [ ] **Fallback ratio does not divide by zero**: Given 0 total requests, assert `fallback_ratio = 0.0` (no division by zero panic)
+- [ ] **Cache TTL is read from RoutePolicy**: Assert that the cache TTL used for a route is `route_policy.requested_fallback_ttl` (not hardcoded)
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Cache hit returns cached result**: `given` a `jwt-with-fallback` route with a cached result for a specific request — `when` the same request arrives → `then` the handler returns the cached result without calling authz-core
+- [ ] **Scenario: Cache miss calls authz-core**: `given` a `jwt-with-fallback` route with no cached result — `when` a request arrives → `then` authz-core is called, the result is cached, and the handler returns the authz-core response
+- [ ] **Scenario: Single-flight prevents thundering herd**: `given` a cache miss for a popular route — `when` 50 concurrent requests arrive — `then` only ONE call is made to authz-core, and all 50 requests receive the same result
+- [ ] **Scenario: Cache TTL expires and triggers fresh call**: `given` a cached result with TTL 30 seconds — `when` a request arrives after 31 seconds — `then` the cache is expired and a fresh call to authz-core is made
+- [ ] **Scenario: Different tenants get different cache keys**: `given` tenant A and tenant B both make the same request — `then` they get separate cache entries (tenant A's cached result is never served to tenant B)
+- [ ] **Scenario: Fallback ratio metric is emitted**: `given` 10 requests to a `jwt-with-fallback` route where 2 trigger fallback — `then` `authz_fallback_total{route: "/prefs", result: "fallback"}` = 2 and `authz_fallback_total{route: "/prefs", result: "jwt_claims"}` = 8
+- [ ] **Scenario: Fallback latency metric is emitted**: `given` a fallback call to authz-core — `then` `authz_fallback_latency_ms` histogram records the latency of the authz-core call
+
+### Security Regression Tests
+
+- [ ] **Cache does not leak across tenants**: Assert that `tenant_id` is always included in the cache key — verify by generating keys for the same action/resource with different `tenant_id` values and confirming the hashes differ
+- [ ] **Cache does not return stale results for high-risk routes**: Assert that routes classified as `online-only` NEVER use the fallback cache (they always call authz-core)
+- [ ] **Single-flight does not share results between different requests**: Assert that concurrent requests with DIFFERENT request bodies get their own results from authz-core (single-flight only deduplicates identical keys)
+- [ ] **Fallback cannot escalate privilege**: Assert that a cached result that says `allowed: false` for a user cannot be replaced by a later request that says `allowed: true` for a different user (cache keys are user-scoped)
+
+### Edge Cases
+
+- [ ] **Cache key with empty string fields**: Given a request with `org_id = ""` — assert the cache key is still generated (the hash handles empty strings, no panic)
+- [ ] **Very long resource_id**: Given a `resource_id` of 10,000 characters — assert the cache key generation completes and the resulting `authz_fallback:{hash}` key is a reasonable length (blake3 always produces a fixed-size hash)
+- [ ] **Concurrent single-flight with different keys**: 100 concurrent requests with 100 different cache keys — assert 100 separate calls are made to authz-core (no incorrect deduplication)
+- [ ] **Cache miss storm after TTL expiry**: 1000 concurrent requests arriving exactly when a cache TTL expires — assert the single-flight pattern prevents more than ONE authz-core call
+- [ ] **authz-core returns error during fallback**: `given` a cache miss — `when` authz-core returns 500 — `then` the handler returns 500 and the result is NOT cached (failed results should not be cached)
+
+### Cleanup
+
+- Redis cache state must be cleaned between test scenarios — use `FLUSHDB` or a unique Redis prefix per test run
+- In-flight request tracking structures (single-flight `HashMap`) must be cleared between tests — use a fresh `RoutePolicyStore` and `JwksClient` per test
+- Metrics must be reset between tests — use `prometheus::Registry::new()` per test scenario
+- authz-core mock server must be reset between tests (no leftover state from previous scenarios)
