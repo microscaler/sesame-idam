@@ -212,3 +212,62 @@ No OpenAPI changes. Version caching is internal to the validation logic.
 - **Single-flight complexity**: The single-flight pattern adds significant code complexity (watch channels, in-flight tracking, cleanup timers). It is only needed for high-concurrency scenarios (100+ concurrent lookups per key). For lower concurrency, simple Redis lookups are sufficient.
 - **Watch channel memory**: Each in-flight key has a watch channel that holds memory. If requests are constantly added and removed, the `in_flight` HashMap can grow. The 5-second cleanup timer prevents unbounded growth, but if the system is under constant load, this could be a memory leak.
 - **Cache TTL vs Token TTL mismatch**: The version cache TTL (15-60 seconds) is much shorter than token TTL (5 minutes). This means after cache TTL expires, the next request will do a Redis lookup. If the cache is constantly expiring, the benefit of caching is reduced. The cache TTL should be tuned to match the expected request pattern (e.g., if a user makes 10 requests per minute, a 15-second cache provides ~60% cache hit rate).
+- **In-flight watcher leak**: If a request that spawned the in-flight lookup panics or is cancelled before the result is sent, the watch channel receiver (`rx`) hangs forever. The spawned task sends `ver` to the sender, so all receivers get notified — but if the task panics, no notification is sent and all waiters block indefinitely.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **Cache hit: version found in local cache within TTL**: Given a VersionCache populated with key "authz_ver:user_1" = (42, now), assert that `get_version("authz_ver:user_1")` returns 42 without any Redis call
+- [ ] **Cache miss: key not in local cache**: Given an empty VersionCache, assert that `get_version("authz_ver:user_1")` proceeds to the single-flight lookup path (does not return a cached value)
+- [ ] **Single-flight: concurrent requests for same key deduplicated**: Given 10 concurrent `get_version("authz_ver:user_1")` calls for a key not in cache, assert that only ONE Redis GET is executed and all 10 callers receive the same result
+- [ ] **Single-flight: different keys are independent**: Given concurrent `get_version("authz_ver:user_1")` and `get_version("authz_ver:user_2")` calls, assert two separate Redis GETs are executed (no deduplication across different keys)
+- [ ] **Cache TTL expiry forces Redis lookup**: Given a VersionCache with key "authz_ver:user_1" = (42, time = 20 seconds ago) and TTL = 15 seconds, assert that `get_version()` triggers a Redis lookup (cache entry is considered stale)
+- [ ] **In-flight result stored in cache**: Given a single-flight lookup for key X completes with version 42, assert the result is stored in the local cache `(42, Instant::now())` so the NEXT request hits the cache
+- [ ] **In-flight cleanup after 5 seconds**: Given an in-flight lookup completes and 6 seconds pass, assert the key is removed from the `in_flight` HashMap (no longer blocks new lookups)
+- [ ] **Watch channel notifies all waiters**: Given 5 concurrent waiters on the same key, assert that when the spawned task sends the result, all 5 receivers get the value (not just the first)
+- [ ] **Redis returns None for missing key**: Given Redis has no entry for "authz_ver:user_99", assert `get_version()` returns an `AuthError::VersionLookupFailed` (not a panic or None unwrap)
+- [ ] **Concurrent cache write from single-flight does not deadlock**: Given 10 concurrent requests for the same key where the spawned task writes to the cache, assert no RwLock deadlock occurs (readers from other keys coexist with writer)
+- [ ] **Per-subject TTL is 15 seconds**: Given a config with subject_ttl=15s, assert the cache entry expiration check uses 15 seconds
+- [ ] **Per-tenant TTL is 60 seconds**: Given a config with tenant_ttl=60s, assert the cache entry expiration check uses 60 seconds for tenant keys (authz_ver:tenant:abc)
+- [ ] **In-flight map bounded by max_in_flight**: Given max_in_flight=1000 concurrent keys in-flight, assert that the 1001st key either waits for an existing slot or is rejected with a clear error
+- [ ] **Spawned task does not leak on Redis error**: Given the spawned task fails to fetch from Redis (connection refused), assert the task sends a None/error to the watch channel and does not hang
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Full single-flight lifecycle — miss then hit then stale**: `given` a VersionCache with no entries → `when` 5 concurrent requests for user_1 arrive → `then` only 1 Redis lookup occurs → `when` the next request arrives 5 seconds later (cache hit) → `then` 0 Redis lookups → `when` 20 seconds pass (cache TTL expired) → `then` the next request triggers a new Redis lookup
+- [ ] **Scenario: High-concurrency storm — 1000 requests**: `given` 1000 concurrent requests for the same key not in cache → `when` all requests complete → `then` exactly 1 Redis lookup was made, all 1000 received version 42, and no panics or deadlocks occurred
+- [ ] **Scenario: Rapid key turnover — different keys every request**: `given` a stream of 100 sequential requests each for a different user key → `when` all complete → `then` 100 Redis lookups were made (no deduplication possible across unique keys) and no memory leaks in the in_flight map
+- [ ] **Scenario: Mixed concurrent keys — 50 unique keys, 20 requests each**: `given` 50 unique version keys with 20 concurrent requests per key → `when` all requests complete → `then` 50 Redis lookups (one per key), 1000 total responses correct, no deadlocks
+- [ ] **Scenario: In-flight cleanup after task completion**: `given` a single-flight lookup for key X completes at time T → `when` 6 seconds pass → `then` key X is removed from in_flight and a new request for X triggers a fresh lookup
+- [ ] **Scenario: Cache miss storm mitigated for version validation**: `given` 500 JWT validations for user_1 arrive simultaneously, all requiring version check → `when` the version cache has no entry → `then` 1 Redis lookup, 500 successful validations with version 42, p95 latency under 50ms (no thundering herd)
+- [ ] **Scenario: Redis recovery after temporary outage**: `given` Redis is down during the first request for key X → `then` the request fails with AuthError → `when` Redis comes back up → `then` the next request for key X succeeds with a Redis lookup
+
+### Security Regression Tests
+
+- [ ] **In-flight lookup cannot be hijacked by a different subject**: Given an attacker sends a request for "authz_ver:attacker_user" while a legitimate request for "authz_ver:victim_user" is in-flight, assert the attacker receives nothing from the victim's in-flight lookup (keys are separate, no cross-contamination)
+- [ ] **Version result cannot be spoofed by a malicious Redis**: Given a compromised Redis returning a fake version (e.g., version=999999), assert that the version check correctly uses the returned value — if version=999999 >= claims.ver, the token passes (this is expected behavior; Redis is a trusted source)
+- [ ] **Single-flight does not cache across subjects**: Assert that a version cached for "authz_ver:user_A" is never returned for a request for "authz_ver:user_B" — keys are strictly separate
+- [ ] **Watch channel closed gracefully on task panic**: Given the spawned Redis lookup task panics, assert the watch channel is handled gracefully — waiters receive an error or timeout, not an infinite hang
+- [ ] **In-flight HashMap does not grow unbounded under attack**: Given an attacker sends 100,000 unique keys rapidly, assert the in_flight map is bounded by the 5-second cleanup timer and max_in_flight limit — memory usage stays under control
+
+### Edge Cases
+
+- [ ] **Single-flight for key with very long subject (1000 chars)**: Given a subject string of 1000 characters used as a version cache key, assert the key is stored correctly in both cache and in_flight map without truncation or panic
+- [ ] **In-flight cleanup timer race condition**: Given a spawned task completes and the cleanup timer fires simultaneously with a new request, assert the new request either gets the cached result or triggers a new single-flight — no panic or missing result
+- [ ] **Watch channel receiver dropped before send**: Given a waiter drops its `rx` receiver before the spawned task sends the result, assert the spawned task handles the broken pipe gracefully (send returns `Err(SendError)`, task logs and exits)
+- [ ] **Cache entry TTL exactly at boundary**: Given a cache entry with TTL=15 seconds and it is queried at exactly 15.000 seconds, assert the behavior is deterministic — either it hits (not yet expired) or misses (expired) — document which
+- [ ] **Concurrent cleanup and write to in_flight**: Given the cleanup task removes key X from in_flight while a new request simultaneously inserts key X, assert both operations complete without deadlock or data race
+- [ ] **Zero concurrent requests (no single-flight needed)**: Given sequential requests for the same key with no concurrency, assert the behavior is correct — first request does Redis lookup and caches, subsequent requests hit the cache
+- [ ] **Redis returns non-numeric value**: Given Redis returns a corrupted/non-numeric value for "authz_ver:user_1", assert the handler logs a warning and treats it as a cache miss (does not panic on type conversion)
+
+### Cleanup
+
+- [ ] Local cache must be cleared between test scenarios — use a fresh `VersionCache` instance or a `clear()` method to prevent stale version entries from affecting subsequent tests
+- [ ] In-flight map must be cleared between tests — spawned tasks must be awaited or cancelled to prevent them from modifying the cache of a subsequent test
+- [ ] Metrics registry must be reset between test scenarios using `prometheus::Registry::new()` to prevent cross-test metric contamination
+- [ ] Mock Redis responses must be isolated per test — each test should configure its own mock Redis or use a test-specific Redis instance to prevent response pollution
+- [ ] Tokio time control: when testing cache TTL expiry and in-flight cleanup timing, use `tokio::time::pause()` and `tokio::time::advance()` to control time deterministically in tests
+- [ ] No files (cache state files, config) should be left in the filesystem after test runs — all state is in-memory (RwLock<HashMap>) so no filesystem cleanup is needed
+- [ ] Spawned task cleanup: ensure all tokio::spawn tasks are awaited or dropped between tests — use `tokio::task::JoinHandle::abort()` or `tokio::time::timeout()` to prevent hanging tests
+- [ ] Redis prefix isolation: when using a shared Redis test instance, use a unique prefix per test (e.g., `test_73_{test_name}:`) to prevent cross-test key contamination
