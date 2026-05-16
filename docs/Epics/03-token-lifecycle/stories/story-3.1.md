@@ -164,6 +164,110 @@ flowchart TD
     J --> K[Return new tokens]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-301: No Token Binding — Stolen Token Usable Anywhere (CRITICAL — Hole #3 from PRS)
+
+**Risk:** Full session takeover from stolen refresh token
+
+The refresh token has NO binding to the client (device, IP, or TLS certificate). An attacker who obtains a refresh token can use it from ANY device, IP address, or browser. The "tear scenario" detection (F-005) only kicks in when the legitimate user tries to rotate — but by that time, the attacker has already been using the token for up to 30 days.
+
+**Exploit path:**
+1. Attacker obtains refresh token (from localStorage XSS, network intercept, memory dump)
+2. Attacker uses the refresh token from a different device/IP
+3. The refresh succeeds — the token has no binding check
+4. Attacker gets a new access token
+5. Legitimate user tries to rotate — reuse detected (F-005 fires)
+6. BUT: attacker has been using the token for 30 days
+
+**The DPoP story (Story 8.2) addresses this, but Story 3.1 implements refresh without DPoP binding.** Story 3.1's F-015 says "All refresh tokens are DPoP-bound (see Story 8.2)" — but Story 3.1 doesn't implement any DPoP logic itself.
+
+**Implementation requirement:**
+- Story 3.1 must validate the DPoP proof on refresh token usage (if DPoP is enabled)
+- If DPoP is not yet enabled (Story 8.2), document this as a known vulnerability: "Refresh tokens are currently NOT bound to client — stolen tokens are usable from any device until reuse is detected"
+- Add this to the Risk/Trade-offs section
+
+### HACK-302: No Re-Authentication on Privilege Change (HIGH — Hole #4 from PRS)
+
+**Risk:** Admin can perform admin actions without re-authentication
+
+The refresh flow does NOT require re-authentication. A user who logs in with regular credentials can refresh their token indefinitely. Even if their privilege level changes (e.g., promoted to admin, or MFA step-up occurs), the old access token remains valid until expiry.
+
+**Exploit path:**
+1. Regular user logs in with password only (no MFA)
+2. User is later promoted to admin (permissions change in database)
+3. User refreshes their access token — the new token has admin permissions
+4. BUT: the user did NOT re-authenticate with MFA to get the admin permissions
+5. Result: admin access obtained without MFA
+
+**Implementation requirement:**
+- When a user's privilege level changes (role promotion, MFA step-up), the OLD access tokens should be invalidated
+- The token version bump (Story 3.1) helps, but if the version check is not implemented (Hole #14), the old token still works
+- Explicitly require re-authentication on privilege change (not just token rotation)
+
+**Acceptance criterion addition:**
+- "When user's privilege level changes, old access tokens are invalidated — user must re-authenticate to obtain new token with updated privileges"
+
+### HACK-303: Token Version Check Not Implemented (HIGH — Hole #14 from PRS)
+
+**Risk:** Stale access tokens persist after permission changes
+
+Story 3.1 issues new access tokens with "updated `ver` if authz changed" — but the CLIENT does NOT validate the version. The version check is only performed on the server when processing each request. If the version check middleware is not deployed (Story 3.2), the old access token with stale permissions continues to work.
+
+**Exploit path:**
+1. User is admin. They refresh their token (ver: 42)
+2. Admin is demoted to regular user (ver bumped to 43)
+3. User refreshes again — gets new token with ver: 43
+4. BUT: if the version check middleware is not deployed, the old token with ver: 42 still works
+
+**Implementation requirement:**
+- Ensure the version check middleware is deployed alongside Story 3.1
+- Or document as a known gap: "Version check is enforced by Story 3.2 (token version middleware). Without Story 3.2, revoked/stale tokens may still work until their TTL expires"
+
+### HACK-304: Denylist Size Can Cause DoS (MEDIUM)
+
+**Risk:** Attacker fills Redis denylist with garbage
+
+Each rotation creates a `denylist:{jti}` entry (24 hours TTL). An attacker can request millions of refreshes, creating millions of denylist entries. Even with 24h TTL, the Redis instance could run out of memory.
+
+**Implementation requirement:**
+- Add a maximum denylist size per user (e.g., 1000 entries)
+- When the limit is reached, evict the oldest entries
+- Monitor Redis memory usage for denylist growth
+
+### HACK-305: Redis Fail-Open on Rotation (MEDIUM — documented but risky)
+
+**Risk:** If Redis is down, rotation cannot be verified
+
+The Risk/Trade-offs section says: "Fallback: if Redis is unavailable, treat the token as valid (fail open) and log an error." This means if Redis goes down, refresh tokens are accepted WITHOUT verification — bypassing denylist checks, rotation, and reuse detection entirely.
+
+**Exploit path:**
+1. Attacker disrupts Redis (DoS, or exploits a known vulnerability)
+2. Redis is down — rotation is fail-open
+3. Attacker replays old/compromised refresh tokens
+4. All replay detection is bypassed
+
+**Implementation requirement:**
+- Document this as a design decision: "Redis unavailability = fail open (refresh succeeds without rotation). Mitigation: Redis HA, alerting, rate limiting on refresh endpoint"
+- Consider a "fail-hard" mode: when Redis is unavailable, return 503 and require re-authentication
+
+### HACK-306: No Device or IP Binding (MEDIUM — Hole #3 from PRS)
+
+**Risk:** Stolen refresh token usable from any device
+
+**Exploit path:** Same as HACK-301. Refresh tokens have NO binding to device or IP.
+
+**Implementation requirement:**
+- Add device fingerprinting (optional): store a device fingerprint in Redis and compare on refresh
+- Store IP address in Redis and compare (with caveat: mobile users may change IP between requests)
+- Document these as optional enhancements to be implemented in Story 8.2 (DPoP)
+
+---
+
 ## OpenAPI Changes
 
 - `/auth/refresh` POST request: Document the rotating refresh token behavior
