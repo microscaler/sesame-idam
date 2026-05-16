@@ -160,6 +160,181 @@ pie title Binding by Environment
     "No binding (development, testing)" : 20
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-801: DPoP Disabled in Dev Mode Can Leak to Production (CRITICAL — Hole #3 from PRS)
+
+**Risk:** Accidental DPoP-less production deployments
+
+The acceptance criterion says: "Development/testing environment allows no binding." The Risk/Trade-offs say: "For development and testing, token binding may be disabled." This means an environment variable (`DPoP_ENABLED`) controls whether DPoP is enforced.
+
+**Exploit path:**
+1. Developer sets `DPoP_ENABLED=false` in dev and tests everything
+2. CI/CD pipeline deploys to production with the same env var (misconfiguration, stale container image, etc.)
+3. All production requests are accepted WITHOUT DPoP proof
+4. Attacker uses stolen tokens from any device — no binding check
+5. Result: DPoP is completely ineffective in production despite being "implemented"
+
+**Implementation requirement:**
+- DPoP MUST be ENFORCED in production — never configurable via env var
+- Only dev/test environments should have DPoP disabled
+- Add a startup check: "If DPoP_ENABLED is not set AND we are NOT in development mode, reject startup with error: 'DPoP must be enabled in non-development environments'"
+- Add a runtime check: periodically verify DPoP is enforced (e.g., via a health check endpoint)
+- Document: "DPoP is a security-critical control. It cannot be disabled in production."
+
+### HACK-802: DPoP Proof JTI Replay Not Detected (HIGH — documented but NOT implemented)
+
+**Risk:** DPoP proofs can be replayed within 60-second freshness window
+
+The design says: "DPoP proofs have a 60-second freshness window." The unit test "DPoP proof replay within window rejected" exists but the IMPLEMENTATION is not specified. There's no jti tracking mechanism described.
+
+**Exploit path:**
+1. Attacker captures a valid DPoP proof (from network traffic, memory dump, etc.)
+2. Attacker replays the SAME proof within 60 seconds (within the freshness window)
+3. Server accepts the replayed proof because the iat is still "fresh"
+4. Result: DPoP provides NO protection against proof capture and replay
+
+**Implementation requirement:**
+- Track DPoP proof jtis in Redis with a 60-second TTL
+- On each request, check if the proof's jti has been seen before:
+```rust
+// In verify_dpop_proof():
+let jti_seen = redis.get(&format!("dpop_jti:{proof_jti}")).await?;
+if jti_seen.is_some() {
+    return Err(AuthError::DpopProofReplay);
+}
+redis.setex(&format!("dpop_jti:{proof_jti}"), 60, "seen").await?;
+```
+- This is the MISSING piece — the 60-second window is ONLY effective if proof jtis are tracked
+
+### HACK-803: DPoP Does NOT Protect Refresh Token Binding (HIGH — related to F-015)
+
+**Risk:** Refresh token bound to DPoP key, but key is not validated on refresh
+
+The design says refresh tokens MUST be DPoP-bound. The refresh flow says: "Server verifies `cnf.jkt` matches stored `dpop_jkt`." But this check is only described as pseudocode — it's NOT in the refresh token flow implementation.
+
+**Exploit path:**
+1. Attacker steals a refresh token (which is DPoP-bound to device A's key)
+2. Attacker tries to refresh from device B (which has key B)
+3. If the refresh handler doesn't validate `cnf.jkt == stored_dpop_jkt`, the refresh succeeds
+4. Attacker gets a new access token from device B
+5. Result: refresh token binding is implemented in the spec but not in the code
+
+**Implementation requirement:**
+- The refresh handler MUST validate the DPoP proof's `cnf.jkt` matches the stored `dpop_jkt` for the refresh token
+- This is the COMPLETE F-015 fix — refresh token binding requires BOTH:
+  - DPoP proof presentation (new in Story 8.2)
+  - `cnf.jkt` comparison (already in Story 3.1 but not connected to DPoP)
+
+### HACK-804: DPoP Key Material in Every Request Header (MEDIUM — information leak)
+
+**Risk:** Attacker can fingerprint and correlate clients via DPoP proof public keys
+
+Every request includes a DPoP proof with `jwk` in the header. The public key is visible to every proxy, load balancer, and log aggregator between the client and the IDAM service.
+
+**Exploit path:**
+1. Attacker monitors DPoP headers on public endpoints
+2. Attacker extracts the `jwk` public key from each proof
+3. Attacker correlates requests by DPoP key — knows which requests are from the same device
+4. Attacker builds a profile of the user's activity across all services
+5. Result: DPoP public keys serve as persistent device fingerprints
+
+**Implementation requirement:**
+- Document: "DPoP proof jwk is visible to all intermediaries. This is acceptable because the key is short-lived (60s freshness) and the public key alone is not sensitive."
+- Consider: rotate DPoP keys more frequently (e.g., every request or every hour) to reduce fingerprint persistence
+- Add privacy notice: "Clients are informed that their DPoP public key may be visible to service intermediaries"
+
+### HACK-805: DPoP Does NOT Solve the Version Check Fail-Open Problem (MEDIUM — Hole #8 from PRS)
+
+**Risk:** Even with DPoP, version checks fail open when Redis is down
+
+DPoP binding prevents token replay from a DIFFERENT device. But it does NOT prevent an attacker from using a stolen token from the SAME device (if the token was stolen from that device's memory).
+
+**Combined with HACK-501 (Story 5.1):**
+1. Attacker steals DPoP-bound access token from device A's memory
+2. Attacker uses the token from device A (DPoP check passes — same key)
+3. Attacker's version is stale (permissions were revoked)
+4. Redis is down → version check fails open → stale token accepted
+5. Result: DPoP protects against device-switching, but NOT against in-memory token theft
+
+**Implementation requirement:**
+- DPoP + version check are complementary, not redundant
+- Document: "DPoP prevents cross-device token replay. Version check prevents stale permissions. Both are required."
+- DPoP MUST NOT be seen as a replacement for version checks
+
+### HACK-806: DPoP Does NOT Handle Token Exchange (MEDIUM — Hole #17 from PRS)
+
+**Risk:** Token exchange creates new token without inheriting DPoP binding
+
+Story 6.1 (Token Exchange) creates a new access token with merged scopes. But it does NOT specify that the new token should inherit the DPoP binding from the original token.
+
+**Exploit path:**
+1. User has a DPoP-bound access token (cnf.jkt = key_A)
+2. User initiates token exchange with actor token (key_B)
+3. New token is issued with merged scopes but WITHOUT DPoP binding (cnf.jkt = key_B or missing)
+4. New token is accepted by services that enforce DPoP but with a DIFFERENT binding than expected
+5. Result: token exchange breaks DPoP binding and creates a new binding for a different key
+
+**Implementation requirement:**
+- Token exchange MUST preserve the DPoP binding of the SUBJECT token
+- OR: token exchange MUST require a NEW DPoP proof from the actor
+- Document: "Token exchange MUST validate that the new token's DPoP binding matches the original or requires a fresh proof"
+
+### HACK-807: DPoP Key Size Can Be Inflated (MEDIUM — related to Hole #2.5 from PRS)
+
+**Risk:** Attacker submits massive DPoP proof keys to cause memory exhaustion
+
+The design says DPoP keys should be Ed25519 or P-256. But there's no validation on the `jwk` size. An attacker can submit a 1MB RSA-8192 key as the DPoP proof `jwk`, causing:
+- SHA-256 hash computation on the large key
+- Memory allocation for the large key
+- Token payload to explode (cnf.jkt is computed from the large key)
+
+**Implementation requirement:**
+- Validate `jwk` size: reject keys > 500 bytes (Ed25519 is ~70 bytes, P-256 is ~90 bytes)
+- Reject keys with `kty` other than `OKP` or `EC`
+- Reject curves other than `Ed25519` or `P-256`
+- Add size limit to the DPoP proof header itself (e.g., max 1KB)
+
+### HACK-808: DPoP Doesn't Prevent Tenant Isolation Breach (HIGH — Hole #5 from PRS)
+
+**Risk:** DPoP binds to device, not to tenant
+
+DPoP proof verification checks that the client's key matches the token's `cnf.jkt`. But it does NOT check that the client is authorized for the requested tenant. The tenant validation happens in the JWT middleware (Story 4.2), but DPoP adds ANOTHER validation layer that could be confused.
+
+**Exploit path:**
+1. Attacker has a DPoP-bound token for Tenant A
+2. Attacker changes the `X-Tenant-ID` header to Tenant B
+3. DPoP check passes (same key)
+4. JWT middleware checks `claims.tenant_id != X-Tenant-ID` → TenantMismatch
+5. BUT: if the middleware is not deployed or has a bug, DPoP doesn't catch this
+6. Result: DPoP protects the device but not the tenant
+
+**Implementation requirement:**
+- DPoP is a DEVICE binding mechanism, NOT a tenant isolation mechanism
+- Document clearly: "DPoP prevents device-switching. Tenant isolation is enforced by the JWT middleware and RLS. DPoP does NOT replace tenant validation."
+
+### HACK-809: Pre-DPoP Token Migration Is Not Specified (LOW — operational)
+
+**Risk:** Once DPoP is enabled, all existing tokens become invalid
+
+The Edge Cases test says: "Given an old refresh token that was issued before DPoP binding was enabled and has no `dpop_jkt`, assert the refresh either succeeds (backward compatibility) or requires the client to re-authenticate." But this decision is NOT documented.
+
+**Exploit path:**
+1. DPoP is enabled in production
+2. All existing clients have tokens without DPoP binding
+3. All existing sessions are instantly invalidated
+4. Result: mass session logout, user confusion, support tickets
+
+**Implementation requirement:**
+- Document the migration strategy:
+  - Option A: Enable DPoP gradually — accept both DPoP and non-DPoP tokens for 30 days
+  - Option B: Enable DPoP and require immediate re-authentication (breaking change)
+- Document: "DPoP enables in phases: Phase 1 (monitoring) — log but don't reject. Phase 2 (enforcement) — reject non-DPoP tokens."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Token binding is a transport-level security feature, not part of the API schema.
