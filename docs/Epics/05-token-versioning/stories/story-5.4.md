@@ -157,6 +157,184 @@ flowchart TD
     E -->|No| D
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-501: Redis Pub/Sub Is Fire-and-Forget — No Delivery Guarantees (CRITICAL — Hole #14 from PRS)
+
+**Risk:** Missed events = stale permissions persist indefinitely
+
+Redis pub/sub does NOT guarantee delivery. If a service is disconnected when an event is published, it misses the event entirely. The story says: "the next Redis lookup (polling) catches up after reconnection." But this means there's a GAP where the service doesn't know about the version bump.
+
+**Exploit path (targeted):**
+1. Attacker identifies which services are subscribed to `authz:version_bump`
+2. Attacker disrupts the Redis connection for a specific service (e.g., by targeting its IP)
+3. Attacker triggers a version bump (e.g., admin revokes attacker's permissions)
+4. The event is published while the service is disconnected → MISSED
+5. Service reconnects and resubscribes → misses the event forever (pub/sub is fire-and-forget)
+6. Next Redis lookup catches up within 15-60 seconds (version cache TTL)
+7. BUT: if the service's version cache TTL is already expired, the next request does `GET authz_ver:{user_id}` → returns nil → `unwrap_or(0)` → 0 → `claims.ver >= 0` → ALLOWED
+
+**Combined with HACK-501a (Story 5.2) and HACK-501b (Story 5.2):**
+- Missed event due to disconnection
+- Next Redis lookup defaults to 0 (unwrap_or(0))
+- Result: stale token accepted indefinitely until TTL expires
+
+**Implementation requirement:**
+- Push invalidation is an OPTIMIZATION, not a REQUIREMENT. The primary revocation mechanism must be:
+  1. Version bump in Redis (Story 5.1)
+  2. Version check on every request (Story 5.2) — FAIL CLOSED (not fail open)
+  3. Token denylist for immediate revocation (Story 3.2)
+- Push invalidation only REDUCES the window between version bump and service awareness. It does NOT replace the version check.
+- Document: "Push invalidation is a latency optimization. It reduces the revocation window from 60 seconds (polling) to ~10ms (pub/sub). But the version check on every request is the PRIMARY revocation mechanism."
+
+### HACK-502: Events Can Be Forged by Any Client (CRITICAL — related to Hole #7 from PRS)
+
+**Risk:** Attacker publishes fake version bump to DENY ALL legitimate users
+
+The event format is plain JSON published to `authz:version_bump`. There's NO authentication or signature on the event itself. Any client that can connect to Redis and publish to the channel can forge events.
+
+**Exploit path (denial-of-service attack):**
+1. Attacker obtains Redis access (via a service that connects to Redis, e.g., identity-login-service)
+2. Attacker publishes a fake version bump: `PUBLISH authz:version_bump {"tenant_id": "hauliage", "new_version": 999999, "reason": "attacker"} `
+3. All subscribed services receive the event and update their local cache to version 999999
+4. Every legitimate user's token (ver < 999999) is now rejected with "Stale Auth Token"
+5. Result: complete denial of service — ALL users locked out until the event is reverted
+
+**Implementation requirement:**
+- Events MUST be authenticated before updating the cache:
+  - Verify the publisher is authz-core (check the Redis client identity or use ACL)
+  - OR: sign the event with a HMAC using a shared secret (only authz-core and services know the secret)
+  - OR: use Redis ACL to restrict PUBLISH to authz-core only, SUBSCRIBE to all services
+- If Redis ACL is used, document: "Redis ACL must be configured to allow only authz-core to PUBLISH to the authz:version_bump channel"
+
+### HACK-503: Fake Version Bump Can Be Used for PRIVILEGE ESCALATION (HIGH)
+
+**Risk:** Attacker publishes fake version bump to bypass version checks
+
+Wait — the exploit in HACK-502 was about DENIAL of service (setting version to 999999). But what about the OPPOSITE?
+
+**Exploit path (privilege escalation):**
+1. Attacker has a token with ver=42 (revoked, but version check not deployed or Redis down)
+2. Attacker publishes: `PUBLISH authz:version_bump {"tenant_id": "hauliage", "new_version": 42}`
+3. Services update local cache to version 42
+4. Attacker's token (ver=42) passes version check (42 >= 42)
+5. Result: revoked token is accepted because the fake event lowered the version
+
+**Wait, this only works if the fake version is LOWER than the real one.** If the real version is 43 and the fake is 42, the version check still works: `claims.ver (42) < cached_ver (43)` → DENIED.
+
+**But what if the attacker knows the real version?** If the attacker can read Redis, they can publish a fake event with the CURRENT version (43), and services update their cache to 43 (no change). The attacker's token (ver=42) is still rejected.
+
+**The real exploit is different:** What if the attacker can make the LOCAL CACHE believe the version is LOWER than it actually is?
+
+**Exploit path (cache poisoning via fake event):**
+1. Attacker has access to authz-core's Redis connection
+2. Attacker publishes: `PUBLISH authz:version_bump {"tenant_id": "hauliage", "new_version": 0}`
+3. Services update local cache to version 0
+4. Attacker's revoked token (ver=42) passes version check (42 >= 0)
+5. Result: ALL tokens are accepted until the real version is rediscovered
+
+**Implementation requirement:**
+- Events must be SIGNED with HMAC:
+  - authz-core signs every event: `HMAC-SHA256(shared_secret, event_json)`
+  - Services verify the signature before updating the cache
+  - If signature is invalid, reject the event and alert
+
+### HACK-504: Event Volume DoS Can Cause Memory Exhaustion (HIGH — Hole #3 from PRS)
+
+**Risk:** Attacker floods events to exhaust local cache memory
+
+Each event updates the local cache in `VersionBumpSubscriber`. If an attacker floods the channel with events, every subscriber updates its cache for every event.
+
+**Exploit path:**
+1. Attacker floods `authz:version_bump` with 1 million events
+2. Each subscriber processes each event and updates the local cache
+3. The cache grows to 1 million entries (one per event)
+4. Each service's memory usage increases by ~100MB (1M entries × 100 bytes each)
+5. Result: memory exhaustion → OOM kill → service restart
+
+**Implementation requirement:**
+- Add a MAXIMUM cache size per subscriber (e.g., 10,000 entries)
+- When the limit is reached, evict the oldest entries (LRU)
+- OR: use a TTL on cache entries (matching the version cache TTL) so old entries expire automatically
+- Rate limit event processing (e.g., max 100 events/sec per subscriber)
+
+### HACK-505: Version Bump Event Format Is Not Signed (HIGH — Hole #7 from PRS)
+
+**Risk:** Any client that can connect to Redis can forge version bump events
+
+The event format is:
+```json
+{
+  "event": "version_bump",
+  "tenant_id": "tenant_abc",
+  "user_id": "user_123",
+  "new_version": 43,
+  "reason": "role_revoked",
+  "timestamp": 1715000000
+}
+```
+
+There's no signature, no HMAC, no authentication. Any client that can publish to the Redis pub/sub channel can forge events with any `new_version`, any `tenant_id`, and any `reason`.
+
+**Implementation requirement:**
+- Add a `signature` field to every event: `HMAC-SHA256(shared_secret, canonical_json(event_without_signature))`
+- Only authz-core (or services with the shared secret) can publish valid events
+- Services MUST verify the signature before updating the cache
+- If the signature is invalid: reject the event, log it, and alert
+
+### HACK-506: Pub/Sub Events Do Not Survive Service Restarts (MEDIUM — Hole #9 from PRS)
+
+**Risk:** After a service restart, it misses all version bumps that occurred while it was down
+
+The service subscribes to `authz:version_bump` on startup. If the service is restarted:
+1. All version bumps that occurred during the restart are MISSED
+2. The service's local cache is EMPTY (fresh startup)
+3. The next request does `GET authz_ver:{user_id}` from Redis
+4. If Redis is unavailable: `unwrap_or(0)` → 0 → ALLOWED (HACK-501a)
+5. If Redis is available: gets the current version → if `claims.ver < cached_ver` → DENIED
+
+**The risk is only when Redis is ALSO down.** In that case, the service has NO version information and defaults to 0.
+
+**Implementation requirement:**
+- On startup, read the CURRENT version from Redis (NOT from pub/sub events)
+- This is a "warm-up" step: immediately after subscribing, the service queries Redis for all known versions
+- Document: "On startup, the subscriber queries Redis for current versions to initialize the local cache"
+
+### HACK-507: Event Timestamp Is Trusted Without Validation (LOW — Hole #6 from PRS)
+
+**Risk:** Attacker manipulates the `timestamp` field to distort metrics
+
+The event includes a `timestamp` field used for `revocation_propagation_seconds` metric. An attacker can set the timestamp to any value, which distorts the metric and makes it harder to detect delayed propagation.
+
+**Exploit path:**
+1. Attacker publishes a fake event with `timestamp` far in the future
+2. Service receives the event
+3. `revocation_propagation_seconds` is negative (received_time - future_timestamp)
+4. Metrics are corrupted → alerting fails
+
+**Implementation requirement:**
+- Validate `timestamp`: reject events where `timestamp > now + 60 seconds` (clock skew tolerance)
+- Also reject events where `timestamp < now - 1 year` (impossibly old)
+
+### HACK-508: Missing Event During Event-Driven Transition (MEDIUM — Hole #14 from PRS)
+
+**Risk:** During the transition from polling to push invalidation, events may be missed
+
+If services are upgraded one at a time (rolling update), some services may be using polling (Story 5.2) and others using push (Story 5.4). During this transition:
+1. Services using polling see version bumps via Redis GET (every 15-60 seconds)
+2. Services using push see version bumps via pub/sub (near-instant)
+3. But if a service is upgraded to push and then disconnected, it MISSES the push event AND its polling mechanism is no longer active
+4. Result: stale tokens accepted until reconnection
+
+**Implementation requirement:**
+- During the transition period, services should support BOTH polling AND push invalidation
+- Push invalidation supplements polling, not replaces it
+- If push events are missed, polling catches up
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Push invalidation is internal to the versioning system.
