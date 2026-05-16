@@ -174,6 +174,222 @@ flowchart TD
     F --> F2[version_mismatch]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-831: Audit Log Can Be Suppressed by Denylisting the jti (CRITICAL — related to Hole #4 from PRS)
+
+**Risk:** Attacker denies their own token to suppress audit logs
+
+The story says: "Denylisted jti cannot suppress audit log: Given a revocation is triggered, assert the `token_revoked` log entry is written even if the token's jti is already in the denylist."
+
+But what about other events? If an attacker forges a JWT with a jti that's already in the denylist, could the audit logging code skip logging because it thinks the event is a duplicate?
+
+**Exploit path (log suppression via duplicate jti):**
+1. Attacker has a valid token with jti=tok_123
+2. Attacker's token is logged: `event: "jwt_issued", jti: "tok_123"`
+3. Attacker's token is denylisted: `event: "token_revoked", jti: "tok_123"`
+4. Attacker creates a new token with the SAME jti=tok_123 (if jti generation is predictable or replayable)
+5. The audit logging code checks: "Is jti=tok_123 already in the log?" → yes → skip logging
+6. Result: The new token's issuance is NOT logged
+
+**Wait — this assumes the audit logging code deduplicates by jti, which the story does NOT mention.** The story says each event is logged independently. So this exploit only works if a buggy deduplication mechanism is added.
+
+**The real exploit is different:** What if the attacker DENIES the token BEFORE logging it?
+
+**Exploit path (race condition between revocation and logging):**
+1. Attacker's token is used for a malicious action
+2. The action is logged: `event: "jwt_issued", ...`
+3. BEFORE the log entry reaches the immutable storage, the attacker's token is denylisted
+4. An automated process checks: "Is jti=tok_123 in the denylist?" → yes → "This token is revoked, skip logging"
+5. Result: The log entry is suppressed because the token was denylisted
+
+**But this only works if the audit logging pipeline checks the denylist before writing the log.** The story does NOT mention this. It says: "All JWT operations are logged: issuance, validation, revocation, delegation, version bump."
+
+**The real risk is different:** What if the attacker DENIES a token that they DID NOT USE? They denylist a token to create noise in the logs, making it harder to find the ACTUAL malicious activity.
+
+**Exploit path (log flooding via mass denylisting):**
+1. Attacker obtains 1000 valid tokens (from a compromised service or leaked tokens)
+2. Attacker denylists all 1000 tokens rapidly
+3. 1000 `token_revoked` log entries are generated
+4. The security team is overwhelmed by 1000 log entries
+5. The attacker's ACTUAL malicious action (which generated only 1 log entry) is hidden in the noise
+6. Result: Log flooding hides the real attack
+
+**Implementation requirement:**
+- Audit logging must NOT check the denylist before writing log entries
+- All events must be logged regardless of the token's state
+- Add a rate limit on audit log writes: MAX 100 log entries per second per service (to prevent log flooding DoS)
+- Document: "Audit log entries are written for ALL events, regardless of the token's state. The denylist is NOT checked before logging."
+
+### HACK-832: Raw Token String in Audit Log Enables Token Replay (CRITICAL — related to Hole #1 from PRS)
+
+**Risk:** The raw JWT string (full `eyJ...`) is written to audit logs, which an attacker can extract and replay
+
+The story says: "Raw access token is never in audit logs: Given a JWT validation fails, assert the raw access token string (the full `eyJ...` base64url content) is NOT written to any log entry — only metadata like `jti` and `user_id` are logged."
+
+**But this is in the Security Regression Tests section — it's an assertion, not an implementation requirement.**
+
+**Exploit path:**
+1. Attacker gains read access to the log aggregator (e.g., Elasticsearch, Splunk)
+2. Attacker searches for `event: "jwt_issued"` entries
+3. For each entry, the attacker extracts the raw token string from the log
+4. The attacker uses the extracted tokens to access the system until they expire
+5. Result: Token replay at scale
+
+**The story correctly states:** "only metadata like `jti` and `user_id` are logged." The `jti` is a random string that cannot be used to forge a token (it's not the token itself). So as long as the raw token is NOT in the log, this exploit doesn't work.
+
+**Implementation requirement:**
+- The audit log MUST NOT include the full JWT string (`eyJ...`) in ANY field
+- Only `jti`, `user_id`, `tenant_id`, `scopes`, `actor_id` are allowed
+- Add a pre-write validation: if any log field contains `.` (the JWT separator), LOG AN ERROR and DROP the entry
+- Document: "Raw JWT strings are NEVER written to audit logs. Only metadata (jti, user_id, tenant_id, scopes, actor_id) is logged."
+
+### HACK-833: Audit Log Volume Hides Security Events (HIGH — related to Hole #3 from PRS)
+
+**Risk:** High-volume DEBUG logs (successful JWT validations) drown out critical WARN/ERROR events
+
+The story says: "JWT validated (allowed) → DEBUG — High volume, normal operation." At 10,000 RPS with 10 services, that's 100,000 DEBUG log entries per second.
+
+**Exploit path (log flooding via legitimate traffic):**
+1. Attacker generates 100,000 requests per second with valid JWTs (using stolen tokens)
+2. Each request generates a DEBUG-level audit log: `event: "jwt_validated", result: "allowed"`
+3. The security team monitors WARN and ERROR level logs
+4. But the log aggregator buffers are overwhelmed by DEBUG logs
+5. A critical WARN/ERROR event (e.g., "validation_failed") is delayed or dropped
+6. Result: The security team misses the attack because DEBUG logs clogged the pipeline
+
+**The story says:** "Use DEBUG level for successful validations (low volume), INFO/WARN/ERROR for security-relevant events only." But at 10,000 RPS, DEBUG IS high volume.
+
+**Implementation requirement:**
+- DEBUG-level logs must be rate-limited: MAX 1000 DEBUG log entries per second per service
+- If the rate limit is exceeded, excess DEBUG entries are DROPPED (not written to the log buffer)
+- The drop count must be tracked in a metric: `audit_log_debug_dropped_total`
+- Alert on high drop counts: "DEBUG log drop rate exceeds 50% — possible log flooding"
+- Document: "DEBUG-level audit logs are rate-limited to 1000 entries/sec. Excess entries are dropped."
+
+### HACK-834: Audit Log Buffer Overflow on Service Crash (HIGH — related to Hole #9 from PRS)
+
+**Risk:** Audit log entries in the async buffer are LOST when the service crashes
+
+The story says: "Async log loss on service crash: Given a service crashes while log entries are in the async buffer, assert that the buffer is flushed on graceful shutdown (if possible) or that the lost entries are acceptable (known limitation of async logging)."
+
+**But "acceptable" is NOT acceptable for security events.** If the service crashes during an active attack, the last N seconds of audit logs are lost, including the attacker's actions.
+
+**Exploit path:**
+1. Attacker initiates a denial of service attack (e.g., floods the API with requests)
+2. The service crashes due to resource exhaustion
+3. Audit log entries for the attack (last 10 seconds) are in the async buffer
+4. The service crashes BEFORE the buffer is flushed
+5. Result: 10 seconds of attack activity are unrecorded
+
+**Implementation requirement:**
+- SECURITY events (WARN, ERROR level) must be logged SYNCHRONOUSLY (not async)
+- Only normal operational events (DEBUG, INFO level) can be logged async
+- For security events: write the log entry synchronously and wait for confirmation
+- Add a flush hook: when the service receives SIGTERM (graceful shutdown), flush ALL pending log entries synchronously
+- Document: "Security events (WARN, ERROR) are logged synchronously. Normal events (DEBUG, INFO) are logged asynchronously."
+
+### HACK-835: Audit Log Can Be Tampered With via Log Injection (HIGH — related to Hole #7 from PRS)
+
+**Risk:** Attacker injects malicious content into audit log entries via user input
+
+The story uses structured JSON logging. If user input (e.g., `user_id`, `tenant_id`) is written to the log without sanitization, an attacker can inject malformed JSON or malicious content.
+
+**Exploit path (log injection via unicode):**
+1. Attacker sets their `user_id` to: `"\n{\"event\": \"admin_login\", \"user_id\": \"attacker\", \"result\": \"allowed\"}"`
+2. The audit log writes:
+   ```json
+   {"event": "jwt_issued", "user_id": "
+   {"event": "admin_login", "user_id": "attacker", "result": "allowed"}", ...}
+   ```
+3. The log entry is INVALID JSON (the embedded JSON breaks the structure)
+4. The log aggregator fails to parse the entry → the entry is LOST
+5. The attacker's malicious entry (which was injected) may also be lost, OR it may be partially parsed
+
+**The real risk is different:** What if the attacker's injected content is PARSED by the log aggregator as a separate log entry?
+
+**Exploit path (log injection creating fake entries):**
+1. Attacker sets their `user_id` to: `"user_123\n{\"event\": \"jwt_issued\", \"user_id\": \"attacker\", \"tenant_id\": \"hauliage\", \"result\": \"allowed\", \"token_version\": 999}"`
+2. The log aggregator (if it splits on newlines) parses the injected content as a SEPARATE log entry
+3. The security team sees a fake `jwt_issued` entry with `user_id: "attacker"` and `token_version: 999`
+4. The security team might think the attacker legitimately received a token
+5. Result: Fake log entry created via injection
+
+**Implementation requirement:**
+- ALL user input written to audit logs must be JSON-escaped (use the JSON library's string serialization, not manual string concatenation)
+- The `serde_json::Value` type automatically handles JSON string escaping
+- Add a test: "Verify that malicious `user_id` values do not create separate log entries"
+- Document: "All fields in audit log entries are serialized using serde_json, which handles JSON escaping automatically. Manual string concatenation is prohibited."
+
+### HACK-836: Audit Log Does Not Record IP Address or User Agent (MEDIUM — related to Hole #5 from PRS)
+
+**Risk:** Missing contextual information prevents attack investigation
+
+The story's log format does NOT include `ip_address` or `user_agent`. Without this information:
+- Investigators cannot determine the attacker's location
+- Cannot detect bot vs. human traffic
+- Cannot identify the attack vector (browser, API client, script)
+
+**Exploit path:**
+1. Attacker initiates an attack from a specific IP
+2. The audit log does not include the IP address
+3. Investigators cannot trace the attack to its source
+4. Result: Attack source is untraceable
+
+**Implementation requirement:**
+- Add `ip_address` and `user_agent` to ALL log entries
+- `ip_address` must be extracted from the request's `X-Forwarded-For` header (if present) or `remote_addr`
+- `user_agent` must be extracted from the `User-Agent` header
+- These fields are OPTIONAL (not all requests include these headers)
+- Document: "All audit log entries include ip_address (from X-Forwarded-For or remote_addr) and user_agent (from User-Agent header) when available."
+
+### HACK-837: Audit Log Event Type Is Not Validated (MEDIUM — related to Hole #6 from PRS)
+
+**Risk:** An invalid `event` type is written to the log, making log parsing unreliable
+
+The story has a test: "Event type is one of the defined set: Assert that every log entry's `event` field is one of: `jwt_issued`, `jwt_validated`, `validation_failed`, `token_revoked`, `family_revoked`, `delegation`, `version_bump`, `version_mismatch`."
+
+**But the story doesn't say: "Reject invalid event types."** What if a developer accidentally writes a log entry with `event: "unknown_event"`?
+
+**Exploit path:**
+1. Attacker discovers a code path that writes an invalid event type (e.g., via a bug)
+2. The log entry is written: `event: "unknown_event", ...`
+3. The log aggregator does not recognize the event type → the entry is not indexed properly
+4. The attacker's action is effectively "invisible" to log search tools
+5. Result: Attack is hidden by using an unrecognized event type
+
+**Implementation requirement:**
+- The `event` field must be validated against the allowed set BEFORE writing the log entry
+- If the event type is not in the allowed set → LOG AN ERROR (to the application error log, not the audit log) and DROP the audit log entry
+- Add a runtime check: `if !allowed_events.contains(&event) { error!("Invalid event type: {}", event); return; }`
+- Document: "Audit log event types are validated against the allowed set before writing. Invalid event types are rejected and logged as errors."
+
+### HACK-838: Async Log Buffer Overflow Drops Security Events (HIGH — related to Hole #3 from PRS)
+
+**Risk:** The bounded log buffer drops security events when overwhelmed by normal traffic
+
+The story says: "Log buffer does not overflow: Given a burst of 10,000 log entries in 1 second, assert the bounded buffer handles overflow gracefully (drops oldest or waits) without blocking the request handler."
+
+But "drops oldest" means security events might be dropped if they're in the oldest part of the buffer!
+
+**Exploit path:**
+1. Attacker generates 10,000 JWT validations per second (normal traffic)
+2. The log buffer (capacity: 5000) fills up with DEBUG-level log entries
+3. A critical WARN/ERROR event arrives (e.g., "validation_failed")
+4. The buffer is full → the security event is DROPPED (if FIFO) or REPLACED (if overwrite-oldest)
+5. Result: The critical security event is not logged
+
+**Implementation requirement:**
+- The log buffer must have a priority queue: security events (WARN, ERROR) are ALWAYS written, even if the buffer is full
+- Normal events (DEBUG, INFO) are dropped when the buffer is full
+- The buffer must be split: HIGH priority (security events) and LOW priority (normal events)
+- If the HIGH priority buffer is full, security events are logged SYNCHRONously (bypass the buffer)
+- Document: "The log buffer has two queues: HIGH priority (WARN, ERROR) and LOW priority (DEBUG, INFO). HIGH priority events are always written; LOW priority events are dropped when the buffer is full."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Audit logging is internal -- no API surface is exposed.
