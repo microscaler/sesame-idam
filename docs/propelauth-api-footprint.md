@@ -21,7 +21,7 @@ PropelAuth is a **bolt-on identity platform** designed to eliminate all auth log
 ```mermaid
 flowchart LR
     App["App"]
-    PA_Hosted["PropelAuth\nhosted pages\n(login/signup/org mgmt)"]
+    PA_Hosted["PropelAuth\nhosted pages\n(login/auth/signup/org mgmt)"]
     AppSDK["App SDK"]
     PA_API["Backend APIs\n(user/org CRUD,\ntoken validation)"]
     JWT["JWT on every API call"]
@@ -59,7 +59,7 @@ DELETE /api/backend/v1/...
 | `/api/backend/v1/user/email` | GET | Fetch user by email. |
 | `/api/backend/v1/user/username` | GET | Fetch user by username. |
 | `/api/backend/v1/user/query` | GET | Paginated query for users with filters (email, emailConfirmed, enabled, disabled, locked, createdAfter, createdBefore, emailPattern). |
-| `/api/backend/v1/user/signup/query` | GET | Query users who signed up via a specific flow (`signup`, `invite`, `magiclink`, `password`, `social`, `saml`). |
+| `/api/backend/v1/user/auth/signup/query` | GET | Query users who signed up via a specific flow (`signup`, `invite`, `magiclink`, `password`, `social`, `saml`). |
 
 **Create User request body:**
 
@@ -277,8 +277,8 @@ Per-org SAML/OIDC/SCIM configuration.
 | `/api/backend/v1/org/<orgId>/allow_saml` | POST | Allow org to set up SAML SSO. |
 | `/api/backend/v1/org/<orgId>/disallow_saml` | POST | Disallow org from using SAML SSO. |
 | `/api/backend/v1/org/<orgId>/create_saml_connection_link` | POST | Create a link for SAML setup without requiring login. |
-| `/api/backend/v1/saml/metadata` | GET | Fetch the org's SAML SP metadata (for IdP config). |
-| `/api/backend/v1/org/<orgId>/saml_metadata` | POST | Set SAML IdP metadata XML for an org. |
+| `/api/backend/v1/sso/sso/saml/metadata` | GET | Fetch the org's SAML SP metadata (for IdP config). |
+| `/api/backend/v1/org/<orgId>/sso/saml_metadata` | POST | Set SAML IdP metadata XML for an org. |
 | `/api/backend/v1/org/<orgId>/oidc_metadata` | POST | Set OIDC IdP metadata for an org. |
 | `/api/backend/v1/org/<orgId>/enable_saml` | POST | Enable SAML connection for an org. |
 | `/api/backend/v1/org/<orgId>/delete_saml` | DELETE | Delete SAML connection. |
@@ -292,10 +292,10 @@ Per-org SAML/OIDC/SCIM configuration.
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `{AUTH_URL}/{PROVIDER_NAME}/login` | GET | Redirect user to OAuth provider login (Google, GitHub, LinkedIn, etc.). Supports scopes, redirect_uri, login_hint. |
-| `{AUTH_URL}/link/{PROVIDER_NAME}/login` | GET | Link social account to existing user (requires login). |
-| `/api/backend/v1/user/<userId>/oauth/tokens` | GET | Fetch user's stored OAuth tokens from providers. |
-| `/api/backend/v1/user/<userId>/oauth/tokens/<provider>` | GET | Fetch a fresh token from a specific provider (refresh if needed). |
+| `{AUTH_URL}/{PROVIDER_NAME}/auth/login` | GET | Redirect user to OAuth provider login (Google, GitHub, LinkedIn, etc.). Supports scopes, redirect_uri, login_hint. |
+| `{AUTH_URL}/link/{PROVIDER_NAME}/auth/login` | GET | Link social account to existing user (requires login). |
+| `/api/backend/v1/user/<userId>/oauth/auth/tokens` | GET | Fetch user's stored OAuth tokens from providers. |
+| `/api/backend/v1/user/<userId>/oauth/auth/tokens/<provider>` | GET | Fetch a fresh token from a specific provider (refresh if needed). |
 
 **Supported providers:** Google, GitHub, LinkedIn, Facebook, Twitter/X, Apple, Microsoft, Slack, Okta, and custom OAuth providers.
 
@@ -306,8 +306,8 @@ PropelAuth can act as an OAuth2/OIDC provider.
 | Endpoint | Method | Description |
 |---|---|---|
 | `{AUTH_URL}/propelauth/oauth/authorize` | GET | Authorization endpoint (response_type=code). |
-| `{AUTH_URL}/propelauth/oauth/token` | POST | Token endpoint — exchange auth code for access/refresh tokens. |
-| `{AUTH_URL}/propelauth/oauth/token` | POST | Refresh token endpoint. |
+| `{AUTH_URL}/propelauth/oauth/auth/token` | POST | Token endpoint — exchange auth code for access/refresh tokens. |
+| `{AUTH_URL}/propelauth/oauth/auth/token` | POST | Refresh token endpoint. |
 | `{AUTH_URL}/propelauth/oauth/userinfo` | GET | User Info endpoint (JWT Bearer auth). |
 | `{AUTH_URL}/propelauth/oauth/logout` | POST | Logout endpoint. |
 | `{AUTH_URL}/.well-known/openid-configuration` | GET | OIDC discovery endpoint. |
@@ -507,8 +507,8 @@ Based on the PropelAuth footprint, Sesame's OpenAPI specs should cover:
 | **Password Auth** | `PUT /users/{id}/password`, `PUT /users/{id}/clear-password`, `POST /users/migrate-password` |
 | **Session/Auth** | `POST /users/{id}/accesstoken`, `POST /users/{id}/logout-all-sessions` |
 | **Status** | `POST /users/{id}/disable`, `POST /users/{id}/enable`, `POST /users/{id}/disable-2fa` |
-| **Social/SSO** | `GET /social/login`, `POST /social/link`, `GET /users/{id}/oauth/tokens` |
-| **OAuth2/OIDC** | `GET /oauth/authorize`, `POST /oauth/token`, `GET /oauth/userinfo`, `POST /oauth/logout`, `GET /.well-known/openid-configuration` |
+| **Social/SSO** | `GET /auth/social/auth/login`, `POST /auth/social/link`, `GET /users/{id}/oauth/auth/tokens` |
+| **OAuth2/OIDC** | `GET /oauth/authorize`, `POST /oauth/auth/token`, `GET /oauth/userinfo`, `POST /oauth/logout`, `GET /.well-known/openid-configuration` |
 | **MFA** | `POST /mfa/setup`, `POST /mfa/verify`, `POST /mfa/disable` |
 | **User migration** | `POST /users/migrate`, `POST /users/migrate-password` |
 
@@ -516,10 +516,10 @@ Based on the PropelAuth footprint, Sesame's OpenAPI specs should cover:
 
 | Area | Required Endpoints |
 |---|---|
-| **Org CRUD** | `POST /orgs/`, `GET /orgs/{id}`, `GET /orgs/query`, `PUT /orgs/{id}`, `DELETE /orgs/{id}` |
-| **Org Members** | `GET /orgs/{id}/users`, `POST /orgs/{id}/add-user`, `POST /orgs/{id}/remove-user` |
-| **Invites** | `POST /orgs/{id}/invite-user`, `POST /orgs/{id}/invite-user-by-id`, `GET /orgs/{id}/pending-invites`, `DELETE /orgs/{id}/invites` |
-| **Roles** | `POST /orgs/{id}/change-role`, `GET /orgs/{id}/role-mappings`, `PUT /orgs/{id}/subscribe-role-mapping` |
+| **Org CRUD** | `POST /organizations/`, `GET /organizations/{org_id}`, `GET /organizations/query`, `PUT /organizations/{org_id}`, `DELETE /organizations/{org_id}` |
+| **Org Members** | `GET /organizations/{org_id}/users`, `POST /organizations/{org_id}/add-user`, `POST /organizations/{org_id}/remove-user` |
+| **Invites** | `POST /organizations/{org_id}/invite-user`, `POST /organizations/{org_id}/invite-user-by-id`, `GET /organizations/{org_id}/pending-invites`, `DELETE /organizations/{org_id}/invites` |
+| **Roles** | `POST /organizations/{org_id}/change-role`, `GET /organizations/{org_id}/role-mappings`, `PUT /organizations/{org_id}/subscribe-role-mapping` |
 | **Permissions** | `POST /permissions/check`, role/permission CRUD |
 | **API Keys** | `POST /api-keys/`, `GET /api-keys/current`, `GET /api-keys/{id}`, `PATCH /api-keys/{id}`, `DELETE /api-keys/{id}`, `POST /api-keys/validate`, `GET /api-keys/usage` |
 | **SSO** | SAML/OIDC per-org config, SCIM endpoints |

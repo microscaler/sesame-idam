@@ -41,7 +41,7 @@ MFA in Sesame-IDAM supports multiple verification methods (TOTP, WebAuthn, SMS) 
 
 ### Endpoint
 
-`POST /auth/step-up/mfa`
+`POST /auth/verify/step-up`
 
 ### Request
 
@@ -69,7 +69,7 @@ MFA in Sesame-IDAM supports multiple verification methods (TOTP, WebAuthn, SMS) 
 1. User completes login (no MFA verified yet)
 2. User attempts MFA-protected action (e.g., `admin:impersonate`)
 3. Handler checks `sx.mfa_verified` — it's false, returns 401 with `error="mfa_required"`
-4. User calls `POST /auth/step-up/mfa` with their MFA code
+4. User calls `POST /auth/verify/step-up` with their MFA code
 5. Service verifies the code against the user's registered MFA devices
 6. On success: issues new access token and refresh token with `sx.mfa_verified: true`
 7. Old refresh token is denylisted (F-006 fix)

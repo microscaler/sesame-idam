@@ -36,7 +36,7 @@ PropelAuth exceeds us in **14 areas** across authentication, session management,
 
 | Field | Value |
 |-------|-------|
-| **PropelAuth has** | `/api/users/me/signup/validate` - checks if email/phone allowed to register BEFORE form submission |
+| **PropelAuth has** | `/api/users/me/auth/signup/validate` - checks if email/phone allowed to register BEFORE form submission |
 | **Our state** | We validate on submit but have no pre-check endpoint |
 | **Impact** | UX - users discover invalid email/phone AFTER filling forms instead of BEFORE |
 | **Effort** | LOW (1-2 hours) |
@@ -49,7 +49,7 @@ tags:
     description: Pre-registration validation
 
 paths:
-  /signup/validate:
+  /auth/signup/validate:
     get:
       tags: [Signup]
       summary: Validate signup eligibility
@@ -87,7 +87,7 @@ paths:
 **No API spec change needed.** This is infrastructure:
 - Add SendGrid/Mailgun integration to `identity-login-service`
 - Add Twilio/Abstract API integration for SMS
-- Wire into existing `/login/email-otp`, `/login/phone-otp`, `/forgot-password` endpoints
+- Wire into existing `/auth/auth/login/email-otp`, `/auth/auth/login/phone-otp`, `/forgot-password` endpoints
 
 PriceWhisperer already has Abstract API email/phone validation - reuse that pattern for delivery.
 
@@ -99,7 +99,7 @@ PriceWhisperer already has Abstract API email/phone validation - reuse that patt
 |-------|-------|
 | **PropelAuth has** | Pre-built login, register, password reset pages |
 | **Our state** | Zero frontend for identity flows |
-| **Impact** | Every new user needs custom frontend code to register/login |
+| **Impact** | Every new user needs custom frontend code to register/auth/login |
 | **Effort** | HIGH (frontend framework needed) |
 
 **No API spec change.** This is frontend work. Options:
@@ -128,7 +128,7 @@ tags:
     description: Multi-factor re-authentication for sensitive operations
 
 paths:
-  /verify/step-up:
+  /auth/verify/step-up:
     post:
       tags: [StepUp]
       summary: Step-up MFA verification
@@ -223,8 +223,8 @@ paths:
 
 | Field | Value |
 |-------|-------|
-| **PropelAuth has** | `/api/users/me/token` - programmatically issues access tokens |
-| **Our state** | Our `/token` requires valid credentials (login), no admin-issued token endpoint |
+| **PropelAuth has** | `/api/users/me/auth/token` - programmatically issues access tokens |
+| **Our state** | Our `/auth/token` requires valid credentials (login), no admin-issued token endpoint |
 | **Impact** | Developer experience - no programmatic token issuance for CLI tools, admin scripts |
 | **Effort** | LOW (1-2 hours) |
 
@@ -236,7 +236,7 @@ tags:
     description: Programmatic token creation (admin/server-side)
 
 paths:
-  /api/v1/identity/users/me/token:
+  /identity/me/auth/token:
     post:
       tags: [TokenIssuance]
       summary: Issue access token
@@ -313,7 +313,7 @@ tags:
     description: Passwordless magic link authentication
 
 paths:
-  /login/magic-link:
+  /auth/auth/login/magic-link:
     post:
       tags: [Passwordless]
       summary: Send magic link
@@ -335,7 +335,7 @@ paths:
                   magic_link_sent: { type: boolean }
                   expires_in: { type: integer, example: 900 }
 
-  /login/magic-link/verify:
+  /auth/auth/login/magic-link/verify:
     post:
       tags: [Passwordless]
       summary: Verify magic link token
@@ -374,12 +374,12 @@ tags:
     description: Model Context Protocol authentication
 
 paths:
-  /mcp/token:
+  /mcp/auth/token:
     post:
       tags: [MCP]
       summary: Issue MCP auth token
       ...
-  /mcp/token/validate:
+  /mcp/auth/token/validate:
     post:
       tags: [MCP]
       summary: Validate MCP token
@@ -447,7 +447,7 @@ paths:
 
 ```yaml
 paths:
-  /login/phone-magic-link:
+  /auth/auth/login/phone-magic-link:
     post:
       tags: [Passwordless]
       summary: Send SMS magic link
@@ -546,7 +546,7 @@ paths:
 
 The Dual OTP concept (login with BOTH email AND phone OTP) originated in PriceWhisperer's IDAM microservice as a fraud prevention mechanism. The flow:
 
-1. User provides email + phone during registration/login
+1. User provides email + phone during registration/auth/login
 2. **Dual OTP** sends OTP to BOTH channels simultaneously
 3. User must verify BOTH codes before access is granted
 4. Abstract API validates both email reputation and phone number validity BEFORE sending
@@ -557,7 +557,7 @@ This is documented in:
 - `~/Workspace/microscaler/PriceWhisperer/microservices/trader/idam/PHONE_VALIDATION_ANALYSIS.md`
 - `~/Workspace/microscaler/PriceWhisperer/microservices/trader/idam/src/controllers/send_dual_otp.rs`
 
-Our sesame-idam `identity-login-service` already implements this as `POST /login/dual-otp` and `POST /verify/dual-otp`.
+Our sesame-idam `identity-login-service` already implements this as `POST /auth/auth/login/dual-otp` and `POST /auth/auth/verify/dual-otp`.
 
 ---
 

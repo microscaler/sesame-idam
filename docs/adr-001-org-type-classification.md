@@ -61,7 +61,7 @@ Add `org_type` as a field on the Org schema in the canonical spec, with CRUD ope
 
 **Cons:**
 - Violates the constraint of not putting trusted data in client-controlled context — org_type becomes queryable via API
-- Risk of privilege escalation: a Consumer org could call `GET /orgs?org_type=provider` or attempt `PATCH /orgs/{id}` to reclassify themselves
+- Risk of privilege escalation: a Consumer org could call `GET /orgs?org_type=provider` or attempt `PATCH /organizations/{org_id}` to reclassify themselves
 - Breaks the principle that only the platform controls org lifecycle
 - Creates circular dependency: org-mgmt would need to check the caller's org_type to enforce who can modify what
 

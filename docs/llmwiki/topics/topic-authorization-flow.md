@@ -15,7 +15,7 @@ sources: [design-doc.md, service-topology-design.md]
 
 | Category | Description | Online Fallback | Examples |
 |----------|-------------|----------------|----------|
-| `jwt-only` | All authz decisions from JWT claims | No | Self-service reads (users/me GET, preferences GET) |
+| `jwt-only` | All authz decisions from JWT claims | No | Self-service reads (`GET /identity/me`, `GET /identity/userinfo`) |
 | `jwt-with-fallback` | JWT handles common path, fallback for edge cases | Yes, cached 5-30s | Self-service low-risk writes (preferences PUT) |
 | `online-only` | All decisions require online evaluation | Yes, no cache | API key lifecycle, delegated/admin actions, authz-core endpoints |
 
@@ -23,19 +23,19 @@ sources: [design-doc.md, service-topology-design.md]
 
 | Path Pattern | Methods | Category | Service | Rationale |
 |--------------|---------|----------|---------|-----------|
-| `/api/v1/identity/users/me` | GET | jwt-only | identity-user-mgmt | Self-service read, ownership from JWT |
-| `/api/v1/identity/preferences` | GET | jwt-only | identity-user-mgmt | Self-service read |
-| `/api/v1/identity/preferences` | PUT, PATCH | jwt-with-fallback | identity-user-mgmt | Low-risk write, business validation online |
-| `/api/v1/identity/users/me` | PUT, PATCH | jwt-with-fallback | identity-user-mgmt | Low-risk update, ownership from JWT |
-| `/api/v1/identity/email/upsert` | PUT | jwt-with-fallback | identity-user-mgmt | Data-integrity check needs freshness |
-| `/api/v1/identity/users/query` | POST | jwt-with-fallback | identity-user-mgmt | Admin query, ownership + tenant context |
-| `/api/v1/identity/users/{id}` | GET | jwt-with-fallback | identity-user-mgmt | Identity resolution, needs freshness |
-| `/api/v1/am/authorize` | POST | online-only | authz-core | Fine-grained resource check always online |
-| `/api/v1/am/principal/effective` | POST | online-only | authz-core | JWT claim enrichment, always online |
-| `/api/v1/am/api-keys/validate` | POST | online-only | api-keys | Key validation needs freshness for revocation |
-| `/api/v1/am/api-keys` (CRUD) | POST/PUT/DELETE | online-only | api-keys | Key creation/revocation always fresh |
-| `/orgs` (CRUD) | POST/PUT/DELETE | online-only | org-mgmt | Org lifecycle, always online |
-| `/orgs/{id}/members` (CRUD) | POST/PUT/DELETE | online-only | org-mgmt | Membership changes, always online |
+| `/identity/me` | GET | jwt-only | identity-user-mgmt | Self-service read, ownership from JWT |
+| `/identity/me` | GET | jwt-only | identity-user-mgmt | Self-service read |
+| `/identity/me` | PUT, PATCH | jwt-with-fallback | identity-user-mgmt | Low-risk write, business validation online |
+| `/identity/me` | PUT, PATCH | jwt-with-fallback | identity-user-mgmt | Low-risk update, ownership from JWT |
+| `PUT /admin/users/{user_id}/email` | PUT | jwt-with-fallback | identity-user-mgmt | Data-integrity check needs freshness |
+| `POST /admin/users/query` | POST | jwt-with-fallback | identity-user-mgmt | Admin query, ownership + tenant context |
+| `GET /admin/users/{user_id}` | GET | jwt-with-fallback | identity-user-mgmt | Identity resolution, needs freshness |
+| `/authz/authorize` | POST | online-only | authz-core | Fine-grained resource check always online |
+| `/authz/principals/effective` | POST | online-only | authz-core | JWT claim enrichment, always online |
+| `/api-keys/validate` | POST | online-only | api-keys | Key validation needs freshness for revocation |
+| `/api-keys` (CRUD) | POST/PUT/DELETE | online-only | api-keys | Key creation/revocation always fresh |
+| `/organizations` (CRUD) | POST/PUT/DELETE | online-only | org-mgmt | Org lifecycle, always online |
+|| `/organizations/{org_id}/users` (CRUD) | POST/PUT/DELETE | online-only | org-mgmt | Membership changes, always online |
 | All SSO/SCIM/webhooks | POST/PUT/DELETE | online-only | org-mgmt | Sensitive org config, always online |
 
 **Approximate split:** 40 jwt-only + 50 jwt-with-fallback + 43 online-only = ~133 endpoints total.
@@ -67,7 +67,7 @@ For `jwt-only` routes, the middleware:
 For `jwt-with-fallback` routes, the handler decides whether to call authz-core:
 
 ```
-Consumer App → POST /api/v1/identity/preferences {preferences_data} →
+Consumer App → PATCH /identity/me {preferences_data} →
   Handler:
     1. JWT middleware already validated token and returned claims
     2. Check: does JWT cover this decision?
@@ -76,7 +76,7 @@ Consumer App → POST /api/v1/identity/preferences {preferences_data} →
             i. Redis cache lookup (authz_fallback:{hash})
             ii. Cache HIT → return cached result
             iii. Cache MISS →
-                   a. Call authz-core POST /authorize {org_id, action}
+                   a. Call authz-core POST /authz/authorize {org_id, action}
                    b. Write result to Redis (per-route TTL 5-30s)
                    c. Return {allowed: true/false}
 ```
@@ -204,10 +204,10 @@ fn generate_fallback_cache_key(request: &AuthorizeRequest) -> String {
 
 | Route | Cache TTL | Rationale |
 |-------|-----------|-----------|
-| `/api/v1/identity/preferences` PUT | 30s | Low-risk write, stale results acceptable |
-| `/api/v1/identity/email/upsert` PUT | 15s | Data integrity needs more freshness |
-| `/api/v1/identity/users/me` PUT | 30s | User update, ownership from JWT |
-| `/api/v1/identity/users/query` POST | 15s | Admin query, tenant-scoped |
+| `/identity/me` PUT | 30s | Low-risk write, stale results acceptable |
+| `PUT /admin/users/{user_id}/email` PUT | 15s | Data integrity needs more freshness |
+| `/identity/me` PUT | 30s | User update, ownership from JWT |
+| `POST /admin/users/query` POST | 15s | Admin query, tenant-scoped |
 
 ### Cache Miss Storm Mitigation (Single-Flight)
 
@@ -304,7 +304,7 @@ Response:
 Called once at login time from identity-login-service:
 
 ```
-identity-login-service → POST /api/v1/am/principal/effective {user_id, org_id} →
+identity-login-service → POST /authz/principals/effective {user_id, org_id} →
   authz-core:
     1. Resolve user's roles in this org
     2. Walk role inheritance chain (parent_role_id)

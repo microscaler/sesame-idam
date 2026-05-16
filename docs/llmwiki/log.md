@@ -31,14 +31,14 @@ Complete audit of the Sesame-IDAM entity relationship diagram by reconciling the
 ### API Path Corrections
 
 All entity pages updated with current OpenAPI endpoint paths:
-- `POST /auth/login` (not `POST /login`)
-- `POST /auth/verify/step-up` (not `POST /verify/step-up`)
+- `POST /auth/auth/login` (not `POST /auth/auth/login`)
+- `POST /auth/auth/verify/step-up` (not `POST /auth/auth/verify/step-up`)
 - `POST /admin/impersonate` (not `POST /admin/users/{user_id}/impersonate`)
-- `GET /identity/me` (not `GET /api/v1/identity/users/me`)
-- `POST /identity/me/token` (not `POST /api/v1/identity/users/me/token`)
-- `POST /mcp/token` (new endpoint)
+- `GET /identity/me` (not `GET /identity/me`)
+- `POST /identity/me/auth/token` (not `POST /identity/me/auth/token`)
+- `POST /mcp/auth/token` (new endpoint)
 - `POST /admin/users` (not `POST /users`)
-- `POST /applications` (not `POST /api/v1/am/applications`)
+- `POST /applications` (not `POST /applications`)
 
 ### Entity Changes by Service
 

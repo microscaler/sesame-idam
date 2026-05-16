@@ -136,7 +136,7 @@ Six actions require `sx.mfa_verified = true`:
 
 ### Step-Up MFA Endpoint
 
-`POST /auth/step-up/mfa`
+`POST /auth/verify/step-up`
 
 ### mfa_type Strength Requirements (F-016)
 

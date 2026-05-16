@@ -1,380 +1,396 @@
 ---
 title: API Surface
-status: partially-verified
-updated: 2026-01-22
+status: verified
+updated: 2026-05-16
 sources: [openapi/*/openapi.yaml]
 ---
 
 # API Surface — Complete Reference
 
-Built from actual OpenAPI specs. Total: 119 endpoints across 6 services.
+Built from actual OpenAPI specs. Total: 133 endpoints across 6 services.
 
-## api-keys (Port :8103)
-
-M2M API key lifecycle: creation, validation (personal + org-scoped), usage tracking, archiving.
+## api-keys
 
 | Endpoint | Method | Summary |
 |----------|--------|---------|
-| `/` | POST | Create API key (M2M key / service account) |
-| `/archived` | GET | Fetch archived (revoked/expired) API keys |
-| `/archived/{key_id}` | GET | Fetch archived API key details |
-| `/current` | GET | Fetch active API keys |
-| `/import` | POST | Import API keys from external system |
-| `/usage` | GET | Fetch API key usage |
-| `/validate` | POST | Validate API key |
-| `/validate/org` | POST | Validate organisation API key |
-| `/validate/personal` | POST | Validate personal API key |
-| `/{key_id}` | DELETE | Delete API key |
+| `/api-keys` | POST | Create API key (M2M key / service account) |
+| `/api-keys/archived` | GET | Fetch archived (revoked/expired) API keys |
+| `/api-keys/archived/{key_id}` | GET | Fetch archived API key details |
+| `/api-keys/current` | GET | Fetch active API keys |
+| `/api-keys/import` | POST | Import API keys from external system |
+| `/api-keys/usage` | GET | Fetch API key usage |
+| `/api-keys/validate` | POST | Validate API key |
+| `/api-keys/validate/org` | POST | DEPRECATED: Validate organisation API key |
+| `/api-keys/validate/personal` | POST | DEPRECATED: Validate personal API key |
+| `/api-keys/{key_id}` | PUT | Update API key metadata |
+| `/api-keys/{key_id}` | DELETE | Delete API key |
 
-## authz-core (Port :8102)
-
-Centralized authorization engine. Evaluates principal permissions at request time via /principal/effective.
-
-| Endpoint | Method | Summary |
-|----------|--------|---------|
-| `/authorize` | POST | Check if principal is allowed to perform action on resource |
-| `/principal/effective` | POST | Get effective roles and permissions for principal |
-| `/principals/attributes` | POST | Set attribute for principal (ABAC) |
-| `/principals/roles` | DELETE | Revoke role from principal |
-| `/principals/roles` | POST | Assign role to principal |
-
-## identity-login-service (Port :8101)
-
-Handles all authentication entry points: login, register, MFA, social OAuth, OTP flows, passwordless magic links, and signup validation.
+## authz-core
 
 | Endpoint | Method | Summary |
 |----------|--------|---------|
-| `/forgot-password` | POST | Request password reset email |
-| `/login` | POST | Login with password |
-| `/login/dual-otp` | POST | Send OTPs to both email and phone simultaneously |
-| `/login/email-otp` | POST | Send email OTP |
-| `/login/magic-link` | POST | Send magic link for passwordless login |
-| `/login/magic-link/verify` | POST | Verify magic link token and complete login |
-| `/login/phone-magic-link` | POST | Send SMS magic link for passwordless login |
-| `/login/phone-magic-link/verify` | POST | Verify SMS magic link token and complete login |
-| `/login/phone-otp` | POST | Send phone SMS OTP |
-| `/logout` | POST | Logout (revoke refresh token) |
+| `/authz/audit/events` | GET | List audit events (simple query) |
+| `/authz/audit/events` | POST | Search audit events |
+| `/authz/audit/events/stats` | POST | Get audit event statistics |
+| `/authz/audit/events/{id}` | GET | Get single audit event |
+| `/authz/audit/export` | POST | Request audit event export |
+| `/authz/audit/export/{export_id}` | GET | Check export status |
+| `/authz/audit/retention` | GET | List retention policies |
+| `/authz/audit/retention` | POST | Create retention policy |
+| `/authz/audit/retention/{id}` | PATCH | Update retention policy |
+| `/authz/audit/retention/{id}` | DELETE | Delete retention policy |
+| `/authz/authorize` | POST | Check if principal is allowed to perform action on resource |
+| `/authz/principals/attributes` | POST | Set attribute for principal (ABAC) |
+| `/authz/principals/effective` | POST | Get effective roles and permissions for principal |
+| `/authz/principals/roles` | POST | Assign role to principal |
+| `/authz/principals/roles` | DELETE | Revoke role from principal |
+
+## identity-login-service
+
+| Endpoint | Method | Summary |
+|----------|--------|---------|
+| `/auth/login` | POST | Login with password |
+| `/auth/login/dual-otp` | POST | Send OTPs to both email and phone simultaneously |
+| `/auth/login/email-otp` | POST | Send email OTP |
+| `/auth/login/magic-link` | POST | Send magic link for passwordless login |
+| `/auth/login/magic-link/verify` | POST | Verify magic link token and complete login |
+| `/auth/login/phone-magic-link` | POST | Send SMS magic link for passwordless login |
+| `/auth/login/phone-magic-link/verify` | POST | Verify SMS magic link token and complete login |
+| `/auth/login/phone-otp` | POST | Send phone SMS OTP |
+| `/auth/logout` | POST | Logout (revoke refresh token) |
+| `/auth/password/forgot` | POST | Request password reset email |
+| `/auth/password/reset` | POST | Confirm password reset with token |
+| `/auth/register` | POST | Register new user with email and password |
+| `/auth/signup/validate` | GET | Validate signup eligibility |
+| `/auth/social/{provider}/callback` | POST | Exchange OAuth provider callback for tokens |
+| `/auth/social/{provider}/login` | GET | Initiate OAuth login with provider |
+| `/auth/token` | POST | Token endpoint (refresh, client_credentials, token_exchange RFC 8693) |
+| `/auth/verify/dual-otp` | POST | Verify dual OTP codes and complete login |
+| `/auth/verify/email-otp` | POST | Verify email OTP and complete login |
+| `/auth/verify/phone-otp` | POST | Verify phone SMS OTP and complete login |
 | `/oauth/authorize` | GET | OAuth2 authorization endpoint |
-| `/register` | POST | Register new user with email and password |
-| `/reset-password` | POST | Confirm password reset with token |
-| `/signup/validate` | GET | Validate signup eligibility |
-| `/social/{provider}/callback` | POST | Exchange OAuth provider callback for tokens |
-| `/social/{provider}/login` | GET | Initiate OAuth login with provider |
-| `/token` | POST | Token endpoint (refresh, client_credentials, token_exchange RFC 8693) |
-| `/verify/dual-otp` | POST | Verify dual OTP codes and complete login |
-| `/verify/email-otp` | POST | Verify email OTP and complete login |
-| `/verify/phone-otp` | POST | Verify phone SMS OTP and complete login |
 
-## identity-session-service (Port :8105)
-
-Manages user sessions, token refresh, OIDC discovery, step-up MFA, user impersonation, direct token issuance, and MCP authentication.
+## identity-session-service
 
 | Endpoint | Method | Summary |
 |----------|--------|---------|
 | `/.well-known/jwks.json` | GET | JWKS for JWT verification |
 | `/.well-known/openid-configuration` | GET | OIDC discovery |
-| `/admin/users/{user_id}/impersonate` | POST | Impersonate user |
-| `/admin/users/{user_id}/impersonate/restore` | POST | Restore admin session |
-| `/api/v1/identity/users/me` | GET | Current user profile |
-| `/api/v1/identity/users/me` | PATCH | Update current user profile |
-| `/api/v1/identity/users/me/token` | POST | Issue access token |
-| `/api/v1/identity/users/me/userinfo` | GET | User Info endpoint |
-| `/api/v1/platform/mcp/agents` | GET | List agents |
-| `/api/v1/platform/mcp/agents` | POST | Create agent |
-| `/api/v1/platform/mcp/agents/{agent_id}` | DELETE | Delete agent |
-| `/api/v1/platform/mcp/agents/{agent_id}` | GET | Get agent |
+| `/admin/impersonate` | POST | Impersonate user |
+| `/admin/impersonate/restore` | POST | Restore admin session |
+| `/auth/verify/step-up` | POST | Step-up MFA verification |
+| `/identity/me` | GET | Current user profile |
+| `/identity/me` | PATCH | Update current user profile |
+| `/identity/me/token` | POST | Issue access token |
+| `/identity/userinfo` | GET | User Info endpoint |
+| `/mcp/agents` | GET | List agents |
+| `/mcp/agents` | POST | Create agent |
+| `/mcp/agents/{agent_id}` | GET | Get agent |
+| `/mcp/agents/{agent_id}` | DELETE | Delete agent |
 | `/mcp/token` | POST | Issue MCP auth token |
 | `/mcp/token/validate` | POST | Validate MCP token |
-| `/refresh` | POST | Refresh access token |
-| `/verify/step-up` | POST | Step-up MFA verification |
+| `/session/refresh` | POST | Refresh access token |
 
-## identity-user-mgmt-service (Port :8106)
-
-User administration: CRUD, email/phone management, MFA, password resets, social linking, migrations, and password clearing for SSO-only mode.
+## identity-user-mgmt-service
 
 | Endpoint | Method | Summary |
 |----------|--------|---------|
+| `/admin/audit/events` | POST | Get user-specific audit events |
+| `/admin/audit/users/{user_id}/events/compliance-export` | POST | Export user's audit events (GDPR) |
+| `/admin/audit/users/{user_id}/events/count` | GET | Get user event count |
+| `/admin/users` | POST | Create user (idempotent by email) |
+| `/admin/users/email` | GET | Fetch user by email |
+| `/admin/users/migrate` | POST | Migrate user from external auth system |
+| `/admin/users/migrate-password` | POST | Bulk migrate passwords (hash+salt) |
+| `/admin/users/query` | GET | Paginated query for users with filters |
+| `/admin/users/username` | GET | Fetch user by username |
+| `/admin/users/{user_id}` | DELETE | Delete user (irreversible) |
+| `/admin/users/{user_id}/disable` | POST | Disable/block user |
+| `/admin/users/{user_id}/email` | PUT | Change user email |
+| `/admin/users/{user_id}/email/verify` | POST | Verify user email |
+| `/admin/users/{user_id}/employee` | GET | Fetch user in employee mode |
+| `/admin/users/{user_id}/enable` | POST | Enable/unblock user |
+| `/admin/users/{user_id}/logout-all-sessions` | POST | Logout all user sessions |
+| `/admin/users/{user_id}/magiclink` | POST | Send magic link for login |
+| `/admin/users/{user_id}/mfa/disable` | POST | Disable user 2FA |
+| `/admin/users/{user_id}/mfa/setup` | POST | Set up TOTP MFA |
+| `/admin/users/{user_id}/mfa/verify` | POST | Verify MFA code |
+| `/admin/users/{user_id}/password` | DELETE | Clear password (convert to SSO-only) |
+| `/admin/users/{user_id}/phone` | POST | Add phone number for user |
+| `/admin/users/{user_id}/phone/verify` | POST | Verify phone number |
+| `/admin/users/{user_id}/resend-email-confirmation` | POST | Resend email confirmation |
+| `/admin/users/{user_id}/social/link` | POST | Link social account to user |
+| `/admin/users/{user_id}/social/tokens` | GET | Fetch user's OAuth tokens from providers |
+| `/admin/users/{user_id}/social/tokens/{provider}/refresh` | GET | Fetch fresh token from provider |
 | `/oauth/logout` | POST | OAuth2 logout endpoint |
-| `/users` | POST | Create user (idempotent by email) |
-| `/users/email` | GET | Fetch user by email |
-| `/users/migrate` | POST | Migrate user from external auth system |
-| `/users/migrate-password` | POST | Bulk migrate passwords (hash+salt) |
-| `/users/query` | GET | Paginated query for users with filters |
-| `/users/username` | GET | Fetch user by username |
-| `/users/{user_id}` | DELETE | Delete user (irreversible) |
-| `/users/{user_id}/disable` | POST | Disable/block user |
-| `/users/{user_id}/email` | PUT | Change user email |
-| `/users/{user_id}/email/verify` | POST | Verify user email |
-| `/users/{user_id}/employee` | GET | Fetch user in employee mode |
-| `/users/{user_id}/enable` | POST | Enable/unblock user |
-| `/users/{user_id}/logout-all-sessions` | POST | Logout all user sessions |
-| `/users/{user_id}/magiclink` | POST | Send magic link for login |
-| `/users/{user_id}/mfa/disable` | POST | Disable user 2FA |
-| `/users/{user_id}/mfa/setup` | POST | Set up TOTP MFA |
-| `/users/{user_id}/mfa/verify` | POST | Verify MFA code |
-| `/users/{user_id}/password` | DELETE | Clear password (convert to SSO-only) |
-| `/users/{user_id}/phone` | POST | Add phone number for user |
-| `/users/{user_id}/phone/verify` | POST | Verify phone number |
-| `/users/{user_id}/resend-email-confirmation` | POST | Resend email confirmation |
-| `/users/{user_id}/social/link` | POST | Link social account to user |
-| `/users/{user_id}/social/tokens` | GET | Fetch user's OAuth tokens from providers |
-| `/users/{user_id}/social/tokens/{provider}/refresh` | GET | Fetch fresh token from provider |
 
-## org-mgmt (Port :8104)
-
-Organization lifecycle, SAML/SCIM SSO, membership management, application/role/permission RBAC, webhooks, API key invalidation, and SCIM user provisioning.
+## org-mgmt
 
 | Endpoint | Method | Summary |
 |----------|--------|---------|
-| `/` | GET | Query for organisations |
-| `/admin/users/{user_id}/invalidate-all-keys` | POST | Invalidate all API keys for user |
-| `/api/v1/am/applications` | GET | List applications |
-| `/api/v1/am/applications` | POST | Register application |
-| `/api/v1/am/applications/{app_id}` | GET | Get application by id |
-| `/api/v1/am/applications/{app_id}/permissions` | GET | List permissions for application |
-| `/api/v1/am/applications/{app_id}/permissions` | POST | Create permission for application |
-| `/api/v1/am/applications/{app_id}/roles` | GET | List roles for application |
-| `/api/v1/am/applications/{app_id}/roles` | POST | Create role for application |
-| `/api/v1/am/applications/{app_id}/roles/{role_id}` | GET | Get role by id |
-| `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | DELETE | Revoke permission from role |
-| `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | GET | Get permissions for role |
-| `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | POST | Assign permission to role |
-| `/{org_id}` | DELETE | Delete organisation |
-| `/{org_id}` | GET | Fetch organisation by ID |
-| `/{org_id}` | PUT | Update organisation |
-| `/{org_id}/users` | POST | Add user to organisation |
-| `/{org_id}/allow-saml` | POST | Allow organisation to set up SAML SSO |
-| `/{org_id}/users/{user_id}/role` | PATCH | Change user role in organisation |
-| `/{org_id}/create-saml-link` | POST | Create SAML connection setup link |
-| `/{org_id}/disallow-saml` | POST | Disallow organisation from using SAML SSO |
-| `/{org_id}/domains` | PUT | Update organisation domain settings |
-| `/{org_id}/enable-saml` | POST | Enable SAML connection for organisation |
-| `/{org_id}/invite-user` | POST | Invite user to organisation by email |
-| `/{org_id}/invite-user-by-id` | POST | Invite existing user to organisation |
-| `/{org_id}/migrate-to-isolated` | POST | Migrate organisation to isolated SAML mode |
-| `/{org_id}/oidc-metadata` | POST | Set OIDC IdP metadata for organisation |
-| `/{org_id}/pending-invites` | DELETE | Revoke pending organisation invite |
-| `/{org_id}/users` | DELETE | Remove user from organisation |
-| `/{org_id}/role-mappings` | GET | Fetch custom role mappings for organisation |
-| `/{org_id}/saml` | DELETE | Delete SAML connection |
-| `/{org_id}/saml-metadata` | PUT | Set SAML IdP metadata for organisation |
-| `/{org_id}/scim/groups` | GET | Fetch SCIM groups for organisation |
-| `/{org_id}/scim/groups/{group_id}` | GET | Fetch a specific SCIM group |
-| `/{org_id}/scim/users` | GET | List SCIM users in org |
-| `/{org_id}/scim/users` | POST | Create SCIM user in org |
-| `/{org_id}/scim/users/{user_id}` | DELETE | Delete SCIM user from org |
-| `/{org_id}/scim/users/{user_id}` | PUT | Update SCIM user in org |
-| `/{org_id}/subscribe-role-mapping` | PUT | Subscribe organisation to a role mapping |
-| `/{org_id}/users` | GET | Fetch users in organisation |
-| `/{org_id}/webhooks` | GET | Fetch organisation webhook subscriptions |
-| `/{org_id}/webhooks/{subscription_id}` | DELETE | Delete webhook subscription |
-| `/{org_id}/webhooks/{subscription_id}/test` | POST | Test webhook delivery |
+| `/applications` | GET | List applications |
+| `/applications` | POST | Register application |
+| `/applications/{app_id}` | GET | Get application by id |
+| `/applications/{app_id}/permissions` | GET | List permissions for application |
+| `/applications/{app_id}/permissions` | POST | Create permission for application |
+| `/applications/{app_id}/roles` | GET | List roles for application |
+| `/applications/{app_id}/roles` | POST | Create role for application |
+| `/applications/{app_id}/roles/{role_id}` | GET | Get role by id |
+| `/applications/{app_id}/roles/{role_id}/permissions` | GET | Get permissions for role |
+| `/applications/{app_id}/roles/{role_id}/permissions` | POST | Assign permission to role |
+| `/applications/{app_id}/roles/{role_id}/permissions` | DELETE | Revoke permission from role |
+| `/organizations` | GET | Query for organisations |
+| `/organizations/admin/users/{user_id}/invalidate-all-keys` | POST | Invalidate all API keys for user |
+| `/organizations/{org_id}` | GET | Fetch organisation by ID |
+| `/organizations/{org_id}` | PUT | Update organisation |
+| `/organizations/{org_id}` | DELETE | Delete organisation |
+| `/organizations/{org_id}/domains` | PUT | Update organisation domain settings |
+| `/organizations/{org_id}/invitations` | POST | Invite user to organisation by email |
+| `/organizations/{org_id}/invitations/by-id` | POST | Invite existing user to organisation |
+| `/organizations/{org_id}/migrate-to-isolated` | POST | Migrate organisation to isolated SAML mode |
+| `/organizations/{org_id}/oidc-metadata` | POST | Set OIDC IdP metadata for organisation |
+| `/organizations/{org_id}/pending-invitations` | DELETE | Revoke pending organisation invite |
+| `/organizations/{org_id}/role-mappings` | GET | Fetch custom role mappings for organisation |
+| `/organizations/{org_id}/role-mappings/subscribe` | PUT | Subscribe organisation to a role mapping |
+| `/organizations/{org_id}/scim/groups` | GET | Fetch SCIM groups for organisation |
+| `/organizations/{org_id}/scim/groups/{group_id}` | GET | Fetch a specific SCIM group |
+| `/organizations/{org_id}/scim/users` | GET | List SCIM users in org |
+| `/organizations/{org_id}/scim/users` | POST | Create SCIM user in org |
+| `/organizations/{org_id}/scim/users/{user_id}` | PUT | Update SCIM user in org |
+| `/organizations/{org_id}/scim/users/{user_id}` | DELETE | Delete SCIM user from org |
+| `/organizations/{org_id}/users` | GET | Fetch users in organisation |
+| `/organizations/{org_id}/users` | POST | Add user to organisation |
+| `/organizations/{org_id}/users/{user_id}` | DELETE | Remove user from organisation |
+| `/organizations/{org_id}/users/{user_id}/role` | PATCH | Change user role in organisation |
+| `/organizations/{org_id}/webhooks` | GET | Fetch organisation webhook subscriptions |
+| `/organizations/{org_id}/webhooks/{subscription_id}` | DELETE | Delete webhook subscription |
+| `/organizations/{org_id}/webhooks/{subscription_id}/test` | POST | Test webhook delivery |
+| `/sso/saml` | DELETE | Delete SAML connection |
+| `/sso/saml/allow` | POST | Allow organisation to set up SAML SSO |
+| `/sso/saml/disable` | POST | Disallow organisation from using SAML SSO |
+| `/sso/saml/enable` | POST | Enable SAML connection for organisation |
+| `/sso/saml/link` | POST | Create SAML connection setup link |
+| `/sso/saml/metadata` | PUT | Set SAML IdP metadata for organisation |
 
 ## Endpoints by Tag
 
-### APIKeys (10 endpoints)
+### APIKeys (11 endpoints)
 
-- `DELETE /{key_id}`
-- `GET /archived`
-- `GET /archived/{key_id}`
-- `GET /current`
-- `GET /usage`
-- `POST /`
-- `POST /import`
-- `POST /validate`
-- `POST /validate/org`
-- `POST /validate/personal`
+- `DELETE /api-keys/{key_id}` (api-keys)
+- `GET /api-keys/archived` (api-keys)
+- `GET /api-keys/archived/{key_id}` (api-keys)
+- `GET /api-keys/current` (api-keys)
+- `GET /api-keys/usage` (api-keys)
+- `POST /api-keys` (api-keys)
+- `POST /api-keys/import` (api-keys)
+- `POST /api-keys/validate` (api-keys)
+- `POST /api-keys/validate/org` (api-keys)
+- `POST /api-keys/validate/personal` (api-keys)
+- `PUT /api-keys/{key_id}` (api-keys)
 
 ### AccountSecurity (1 endpoints)
 
-- `POST /admin/users/{user_id}/invalidate-all-keys`
+- `POST /organizations/admin/users/{user_id}/invalidate-all-keys` (org-mgmt)
 
 ### Applications (3 endpoints)
 
-- `GET /api/v1/am/applications`
-- `GET /api/v1/am/applications/{app_id}`
-- `POST /api/v1/am/applications`
+- `GET /applications` (org-mgmt)
+- `GET /applications/{app_id}` (org-mgmt)
+- `POST /applications` (org-mgmt)
+
+### Audit (10 endpoints)
+
+- `DELETE /authz/audit/retention/{id}` (authz-core)
+- `GET /authz/audit/events` (authz-core)
+- `GET /authz/audit/events/{id}` (authz-core)
+- `GET /authz/audit/export/{export_id}` (authz-core)
+- `GET /authz/audit/retention` (authz-core)
+- `PATCH /authz/audit/retention/{id}` (authz-core)
+- `POST /authz/audit/events` (authz-core)
+- `POST /authz/audit/events/stats` (authz-core)
+- `POST /authz/audit/export` (authz-core)
+- `POST /authz/audit/retention` (authz-core)
 
 ### AuthFlows (9 endpoints)
 
-- `POST /login`
-- `POST /login/dual-otp`
-- `POST /login/email-otp`
-- `POST /login/phone-otp`
-- `POST /register`
-- `POST /users/{user_id}/magiclink`
-- `POST /verify/dual-otp`
-- `POST /verify/email-otp`
-- `POST /verify/phone-otp`
+- `POST /auth/login` (identity-login-service)
+- `POST /auth/login/dual-otp` (identity-login-service)
+- `POST /auth/login/email-otp` (identity-login-service)
+- `POST /auth/login/phone-otp` (identity-login-service)
+- `POST /auth/register` (identity-login-service)
+- `POST /auth/verify/dual-otp` (identity-login-service)
+- `POST /auth/verify/email-otp` (identity-login-service)
+- `POST /auth/verify/phone-otp` (identity-login-service)
+- `POST /admin/users/{user_id}/magiclink` (identity-user-mgmt-service)
 
 ### Discovery (2 endpoints)
 
-- `GET /.well-known/jwks.json`
-- `GET /.well-known/openid-configuration`
+- `GET /.well-known/jwks.json` (identity-session-service)
+- `GET /.well-known/openid-configuration` (identity-session-service)
 
 ### Identity (3 endpoints)
 
-- `GET /api/v1/identity/users/me`
-- `PATCH /api/v1/identity/users/me`
-- `PUT /users/{user_id}/email`
+- `GET /identity/me` (identity-session-service)
+- `PATCH /identity/me` (identity-session-service)
+- `PUT /admin/users/{user_id}/email` (identity-user-mgmt-service)
 
 ### Impersonation (2 endpoints)
 
-- `POST /admin/users/{user_id}/impersonate`
-- `POST /admin/users/{user_id}/impersonate/restore`
+- `POST /admin/impersonate` (identity-session-service)
+- `POST /admin/impersonate/restore` (identity-session-service)
 
 ### MCP (6 endpoints)
 
-- `DELETE /api/v1/platform/mcp/agents/{agent_id}`
-- `GET /api/v1/platform/mcp/agents`
-- `GET /api/v1/platform/mcp/agents/{agent_id}`
-- `POST /api/v1/platform/mcp/agents`
-- `POST /mcp/token`
-- `POST /mcp/token/validate`
+- `DELETE /mcp/agents/{agent_id}` (identity-session-service)
+- `GET /mcp/agents` (identity-session-service)
+- `GET /mcp/agents/{agent_id}` (identity-session-service)
+- `POST /mcp/agents` (identity-session-service)
+- `POST /mcp/token` (identity-session-service)
+- `POST /mcp/token/validate` (identity-session-service)
 
 ### Membership (9 endpoints)
 
-- `DELETE /{org_id}/pending-invites`
-- `GET /{org_id}/role-mappings`
-- `GET /{org_id}/users`
-- `POST /{org_id}/users`
-- `POST /{org_id}/invite-user`
-- `POST /{org_id}/invite-user-by-id`
-- `DELETE /{org_id}/users`
-- `PUT /{org_id}/subscribe-role-mapping`
-- `PATCH /{org_id}/users/{user_id}/role`
+- `DELETE /organizations/{org_id}/pending-invitations` (org-mgmt)
+- `DELETE /organizations/{org_id}/users/{user_id}` (org-mgmt)
+- `GET /organizations/{org_id}/role-mappings` (org-mgmt)
+- `GET /organizations/{org_id}/users` (org-mgmt)
+- `PATCH /organizations/{org_id}/users/{user_id}/role` (org-mgmt)
+- `POST /organizations/{org_id}/invitations` (org-mgmt)
+- `POST /organizations/{org_id}/invitations/by-id` (org-mgmt)
+- `POST /organizations/{org_id}/users` (org-mgmt)
+- `PUT /organizations/{org_id}/role-mappings/subscribe` (org-mgmt)
 
 ### Organizations (5 endpoints)
 
-- `DELETE /{org_id}`
-- `GET /`
-- `GET /{org_id}`
-- `PUT /{org_id}`
-- `PUT /{org_id}/domains`
+- `DELETE /organizations/{org_id}` (org-mgmt)
+- `GET /organizations` (org-mgmt)
+- `GET /organizations/{org_id}` (org-mgmt)
+- `PUT /organizations/{org_id}` (org-mgmt)
+- `PUT /organizations/{org_id}/domains` (org-mgmt)
 
 ### PasswordReset (2 endpoints)
 
-- `POST /forgot-password`
-- `POST /reset-password`
+- `POST /auth/password/forgot` (identity-login-service)
+- `POST /auth/password/reset` (identity-login-service)
 
 ### PasswordSecurity (10 endpoints)
 
-- `DELETE /users/{user_id}/password`
-- `POST /users/{user_id}/disable`
-- `POST /users/{user_id}/email/verify`
-- `POST /users/{user_id}/enable`
-- `POST /users/{user_id}/mfa/disable`
-- `POST /users/{user_id}/mfa/setup`
-- `POST /users/{user_id}/mfa/verify`
-- `POST /users/{user_id}/phone`
-- `POST /users/{user_id}/phone/verify`
-- `POST /users/{user_id}/resend-email-confirmation`
+- `DELETE /admin/users/{user_id}/password` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/disable` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/email/verify` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/enable` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/mfa/disable` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/mfa/setup` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/mfa/verify` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/phone` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/phone/verify` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/resend-email-confirmation` (identity-user-mgmt-service)
 
 ### Passwordless (4 endpoints)
 
-- `POST /login/magic-link`
-- `POST /login/magic-link/verify`
-- `POST /login/phone-magic-link`
-- `POST /login/phone-magic-link/verify`
+- `POST /auth/login/magic-link` (identity-login-service)
+- `POST /auth/login/magic-link/verify` (identity-login-service)
+- `POST /auth/login/phone-magic-link` (identity-login-service)
+- `POST /auth/login/phone-magic-link/verify` (identity-login-service)
 
 ### Permissions (2 endpoints)
 
-- `GET /api/v1/am/applications/{app_id}/permissions`
-- `POST /api/v1/am/applications/{app_id}/permissions`
+- `GET /applications/{app_id}/permissions` (org-mgmt)
+- `POST /applications/{app_id}/permissions` (org-mgmt)
 
 ### Principal (5 endpoints)
 
-- `DELETE /principals/roles`
-- `POST /authorize`
-- `POST /principal/effective`
-- `POST /principals/attributes`
-- `POST /principals/roles`
+- `DELETE /authz/principals/roles` (authz-core)
+- `POST /authz/authorize` (authz-core)
+- `POST /authz/principals/attributes` (authz-core)
+- `POST /authz/principals/effective` (authz-core)
+- `POST /authz/principals/roles` (authz-core)
 
 ### Roles (6 endpoints)
 
-- `DELETE /api/v1/am/applications/{app_id}/roles/{role_id}/permissions`
-- `GET /api/v1/am/applications/{app_id}/roles`
-- `GET /api/v1/am/applications/{app_id}/roles/{role_id}`
-- `GET /api/v1/am/applications/{app_id}/roles/{role_id}/permissions`
-- `POST /api/v1/am/applications/{app_id}/roles`
-- `POST /api/v1/am/applications/{app_id}/roles/{role_id}/permissions`
+- `DELETE /applications/{app_id}/roles/{role_id}/permissions` (org-mgmt)
+- `GET /applications/{app_id}/roles` (org-mgmt)
+- `GET /applications/{app_id}/roles/{role_id}` (org-mgmt)
+- `GET /applications/{app_id}/roles/{role_id}/permissions` (org-mgmt)
+- `POST /applications/{app_id}/roles` (org-mgmt)
+- `POST /applications/{app_id}/roles/{role_id}/permissions` (org-mgmt)
 
 ### SCIM (4 endpoints)
 
-- `DELETE /{org_id}/scim/users/{user_id}`
-- `GET /{org_id}/scim/users`
-- `POST /{org_id}/scim/users`
-- `PUT /{org_id}/scim/users/{user_id}`
+- `DELETE /organizations/{org_id}/scim/users/{user_id}` (org-mgmt)
+- `GET /organizations/{org_id}/scim/users` (org-mgmt)
+- `POST /organizations/{org_id}/scim/users` (org-mgmt)
+- `PUT /organizations/{org_id}/scim/users/{user_id}` (org-mgmt)
 
 ### SSO (10 endpoints)
 
-- `DELETE /{org_id}/saml`
-- `GET /{org_id}/scim/groups`
-- `GET /{org_id}/scim/groups/{group_id}`
-- `POST /{org_id}/allow-saml`
-- `POST /{org_id}/create-saml-link`
-- `POST /{org_id}/disallow-saml`
-- `POST /{org_id}/enable-saml`
-- `POST /{org_id}/migrate-to-isolated`
-- `POST /{org_id}/oidc-metadata`
-- `PUT /{org_id}/saml-metadata`
+- `DELETE /sso/saml` (org-mgmt)
+- `GET /organizations/{org_id}/scim/groups` (org-mgmt)
+- `GET /organizations/{org_id}/scim/groups/{group_id}` (org-mgmt)
+- `POST /organizations/{org_id}/migrate-to-isolated` (org-mgmt)
+- `POST /organizations/{org_id}/oidc-metadata` (org-mgmt)
+- `POST /sso/saml/allow` (org-mgmt)
+- `POST /sso/saml/disable` (org-mgmt)
+- `POST /sso/saml/enable` (org-mgmt)
+- `POST /sso/saml/link` (org-mgmt)
+- `PUT /sso/saml/metadata` (org-mgmt)
 
 ### Sessions (7 endpoints)
 
-- `GET /api/v1/identity/users/me/userinfo`
-- `GET /oauth/authorize`
-- `POST /logout`
-- `POST /oauth/logout`
-- `POST /refresh`
-- `POST /token`
-- `POST /users/{user_id}/logout-all-sessions`
+- `GET /oauth/authorize` (identity-login-service)
+- `POST /auth/logout` (identity-login-service)
+- `POST /auth/token` (identity-login-service)
+- `GET /identity/userinfo` (identity-session-service)
+- `POST /session/refresh` (identity-session-service)
+- `POST /admin/users/{user_id}/logout-all-sessions` (identity-user-mgmt-service)
+- `POST /oauth/logout` (identity-user-mgmt-service)
 
 ### Signup (1 endpoints)
 
-- `GET /signup/validate`
+- `GET /auth/signup/validate` (identity-login-service)
 
 ### SocialLogin (5 endpoints)
 
-- `GET /social/{provider}/login`
-- `GET /users/{user_id}/social/tokens`
-- `GET /users/{user_id}/social/tokens/{provider}/refresh`
-- `POST /social/{provider}/callback`
-- `POST /users/{user_id}/social/link`
+- `GET /auth/social/{provider}/login` (identity-login-service)
+- `POST /auth/social/{provider}/callback` (identity-login-service)
+- `GET /admin/users/{user_id}/social/tokens` (identity-user-mgmt-service)
+- `GET /admin/users/{user_id}/social/tokens/{provider}/refresh` (identity-user-mgmt-service)
+- `POST /admin/users/{user_id}/social/link` (identity-user-mgmt-service)
 
 ### StepUp (1 endpoints)
 
-- `POST /verify/step-up`
+- `POST /auth/verify/step-up` (identity-session-service)
 
 ### TokenIssuance (1 endpoints)
 
-- `POST /api/v1/identity/users/me/token`
+- `POST /identity/me/token` (identity-session-service)
+
+### UserAudit (3 endpoints)
+
+- `GET /admin/audit/users/{user_id}/events/count` (identity-user-mgmt-service)
+- `POST /admin/audit/events` (identity-user-mgmt-service)
+- `POST /admin/audit/users/{user_id}/events/compliance-export` (identity-user-mgmt-service)
 
 ### UserMigration (2 endpoints)
 
-- `POST /users/migrate`
-- `POST /users/migrate-password`
+- `POST /admin/users/migrate` (identity-user-mgmt-service)
+- `POST /admin/users/migrate-password` (identity-user-mgmt-service)
 
 ### Users (6 endpoints)
 
-- `DELETE /users/{user_id}`
-- `GET /users/email`
-- `GET /users/query`
-- `GET /users/username`
-- `GET /users/{user_id}/employee`
-- `POST /users`
+- `DELETE /admin/users/{user_id}` (identity-user-mgmt-service)
+- `GET /admin/users/email` (identity-user-mgmt-service)
+- `GET /admin/users/query` (identity-user-mgmt-service)
+- `GET /admin/users/username` (identity-user-mgmt-service)
+- `GET /admin/users/{user_id}/employee` (identity-user-mgmt-service)
+- `POST /admin/users` (identity-user-mgmt-service)
 
 ### Webhooks (3 endpoints)
 
-- `DELETE /{org_id}/webhooks/{subscription_id}`
-- `GET /{org_id}/webhooks`
-- `POST /{org_id}/webhooks/{subscription_id}/test`
+- `DELETE /organizations/{org_id}/webhooks/{subscription_id}` (org-mgmt)
+- `GET /organizations/{org_id}/webhooks` (org-mgmt)
+- `POST /organizations/{org_id}/webhooks/{subscription_id}/test` (org-mgmt)
 
 ## Status
 
-> This page is **partially-verified** — built from OpenAPI specs, not runtime code.
-> Next session should verify implementations match specs.
-
-## Code Anchors
-
-- `openapi/*/openapi.yaml` — Source of truth (see per-service `README.md`)
-- `microservices/idam/*/impl/src/` — Handler implementations
+> This page is **verified** — regenerated from OpenAPI specs on 2026-05-16.

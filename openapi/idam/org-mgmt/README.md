@@ -26,9 +26,9 @@ User-level security actions including API key invalidation
 
 Register applications and define roles/permissions
 
-- `GET /api/v1/am/applications`
-- `GET /api/v1/am/applications/{app_id}`
-- `POST /api/v1/am/applications`
+- `GET /applications`
+- `GET /applications/{app_id}`
+- `POST /applications`
 
 ### Membership
 
@@ -58,19 +58,19 @@ Organization lifecycle (create, fetch, update, delete, query)
 
 Permissions per application
 
-- `GET /api/v1/am/applications/{app_id}/permissions`
-- `POST /api/v1/am/applications/{app_id}/permissions`
+- `GET /applications/{app_id}/permissions`
+- `POST /applications/{app_id}/permissions`
 
 ### Roles
 
 Roles per application
 
-- `DELETE /api/v1/am/applications/{app_id}/roles/{role_id}/permissions`
-- `GET /api/v1/am/applications/{app_id}/roles`
-- `GET /api/v1/am/applications/{app_id}/roles/{role_id}`
-- `GET /api/v1/am/applications/{app_id}/roles/{role_id}/permissions`
-- `POST /api/v1/am/applications/{app_id}/roles`
-- `POST /api/v1/am/applications/{app_id}/roles/{role_id}/permissions`
+- `DELETE /applications/{app_id}/roles/{role_id}/permissions`
+- `GET /applications/{app_id}/roles`
+- `GET /applications/{app_id}/roles/{role_id}`
+- `GET /applications/{app_id}/roles/{role_id}/permissions`
+- `POST /applications/{app_id}/roles`
+- `POST /applications/{app_id}/roles/{role_id}/permissions`
 
 ### SCIM
 
@@ -85,7 +85,7 @@ SCIM 2.0 user provisioning for enterprise SSO
 
 Enterprise SAML/OIDC/SCIM per-organisation configuration
 
-- `DELETE /{org_id}/saml`
+- `DELETE /{org_id}/sso/saml`
 - `GET /{org_id}/scim/groups`
 - `GET /{org_id}/scim/groups/{group_id}`
 - `POST /{org_id}/allow-saml`
@@ -94,7 +94,7 @@ Enterprise SAML/OIDC/SCIM per-organisation configuration
 - `POST /{org_id}/enable-saml`
 - `POST /{org_id}/migrate-to-isolated`
 - `POST /{org_id}/oidc-metadata`
-- `PUT /{org_id}/saml-metadata`
+- `PUT /{org_id}/sso/saml-metadata`
 
 ### Webhooks
 

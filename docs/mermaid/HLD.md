@@ -39,9 +39,9 @@ graph TB
     SPA -->|/auth/*, /.well-known/*| LS
     SPA -->|/auth/refresh| SS
     SPA -->|/api/v1/am/authorize| AC
-    SPA -->|/api/v1/am/api-keys/*| AK
-    Admin -->|/orgs/*, /api/v1/am/*| OM
-    Admin -->|/api/v1/identity/users/*| UM
+    SPA -->|/api-keys/*| AK
+    Admin -->|/organizations/*, /api/v1/am/*| OM
+    Admin -->|/admin/users/*| UM
 
     LS -. login calls .-> AC
     AC -. cache .-> Redis
@@ -64,26 +64,26 @@ The identity tier is split into 3 independent microservices, each with its own O
 |-------------|-----------|-----------|------|------|
 | **identity-login-service** | `openapi/idam/identity-login-service/openapi.yaml` | `/auth/*` | HIGH | HIGH (bcrypt + JWT sign) |
 | **identity-session-service** | `openapi/idam/identity-session-service/openapi.yaml` | `/auth/refresh`, `/.well-known/*` | EXTREME | LOW (cached lookups) |
-| **identity-user-mgmt-service** | `openapi/idam/identity-user-mgmt-service/openapi.yaml` | `/api/v1/identity/users/*` | LOW | MEDIUM (write-heavy) |
+| **identity-user-mgmt-service** | `openapi/idam/identity-user-mgmt-service/openapi.yaml` | `/admin/users/*` | LOW | MEDIUM (write-heavy) |
 (No combined spec — each service has its own independent OpenAPI spec for BRRTRouter codegen)
 
 ### authz-core
 
 | Spec | Base Path | Freq | Cost |
 |------|-----------|------|------|
-| `openapi/authz-core/openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | EXTREME | LOW (Redis cached) |
+| `openapi/authz-core/openapi.yaml` | `/authz/authorize`, `/authz/principals/*` | EXTREME | LOW (Redis cached) |
 
 ### api-keys
 
 | Spec | Base Path | Freq | Cost |
 |------|-----------|------|------|
-| `openapi/api-keys/openapi.yaml` | `/api/v1/am/api-keys/*` | HIGH | LOW (hash lookup) |
+| `openapi/api-keys/openapi.yaml` | `/api-keys/*` | HIGH | LOW (hash lookup) |
 
 ### org-mgmt
 
 | Spec | Base Path | Freq | Cost |
 |------|-----------|------|------|
-| `openapi/org-mgmt/openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | LOW | MEDIUM (CRUD) |
+| `openapi/org-mgmt/openapi.yaml` | `/organizations/*`, `/applications/*` | LOW | MEDIUM (CRUD) |
 
 ## Cross-Service Dependencies
 

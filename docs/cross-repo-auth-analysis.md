@@ -60,7 +60,7 @@ The vision is to build Sesame-IDAM as a **bolt-on identity platform** — simila
 | **Organizations** | B2B customer companies with memberships | `Organization` entity with `UserOrganizationInfo` memberships |
 | **Roles & Permissions** | RBAC scoped per organization | `Role`, `Permission`, `RolePermission`, `RoleInheritance` |
 | **JWT Enrichment** | JWT contains user + org + role + permission claims | **MISSING** — needs to be designed |
-| **Platform Admin API** | Server-side CRUD for users/orgs/roles/permissions | **PARTIALLY DEFINED** — needs completion |
+| **Platform Admin API** | Server-side CRUD for users/organizations/roles/permissions | **PARTIALLY DEFINED** — needs completion |
 | **Webhooks** | Real-time events on identity state changes | **MISSING** — needs to be designed |
 | **Auth Flows** | Login, register, refresh, logout, password reset, MFA | **PARTIALLY DEFINED** — needs completion |
 
@@ -105,7 +105,7 @@ PropelAuth provides SDKs with JWT validation middleware. Sesame has nothing.
 Sesame-IDAM needs to be designed as a **generic identity platform service** — not just a collection of microservices. The entity model is solid. The missing pieces are:
 
 1. Complete authentication endpoints (login, register, refresh, logout, MFA, password reset)
-2. JWT enrichment/token issuance endpoint
+2. JWT enrichment/auth/token issuance endpoint
 3. Platform admin REST API (idempotent user/org/role/permission CRUD)
 4. Access management endpoints (`/principal/effective`)
 5. Webhook delivery system
