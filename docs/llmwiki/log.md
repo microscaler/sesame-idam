@@ -1,5 +1,60 @@
 # LLM Wiki — Session Log
 
+## [2026-05-16] Epic 9 Observability — Full Rewrite to OTEL Spans
+
+### Summary
+
+**Critical rewrite of Epic 9.** The original stories built snowflake Prometheus counters (`jwt_validation_total`, `authz_fallback_total`, `token_refresh_total`, `authz_shadow_mismatch_total`, etc.) that duplicate what BRRTRouter already provides via `MetricsMiddleware` (`brrtrouter_requests_total`, `brrtrouter_request_duration_seconds`, `brrtrouter_auth_failures_total`). 
+
+Following the hauliage observability pattern, all stories were rewritten to use the `tracing` crate for OTEL spans and structured logs — they flow through `brrtrouter::otel::init_logging_with_config()` into Jaeger via OTLP. Alerting uses Loki log-based queries instead of Prometheus alerting rules.
+
+**Hauliage pattern recap:**
+- Metrics: BRRTRouter `MetricsMiddleware` → Prometheus text on `/metrics` — NO custom counters
+- Traces: `tracing::span!()` → `tracing-opentelemetry` → OTLP → Jaeger
+- Logs: JSON structured logs via OTLP → Loki
+- Health: BRRTRouter provides `/health` out of the box
+
+### Stories Enriched
+
+| Story | Change | Unit | Integration | Security | Edge | Total |
+|-------|--------|------|-------------|----------|------|-------|
+| 9.1 | Rewritten to OTEL spans for JWT validation | 9 | 7 | 4 | 6 | 26 |
+| 9.2 | Rewritten to OTEL spans for JWKS cache | — | — | — | — | — |
+| 9.3 | Rewritten to OTEL spans for authz fallback | 10 | 7 | 4 | 6 | 27 |
+| 9.4 | Rewritten to OTEL spans + structured logs for shadow decisions | 10 | 6 | 4 | 7 | 27 |
+| 9.5 | Rewritten to OTEL spans + structured logs for token lifecycle | — | — | — | — | — |
+| 9.6 | Already correct (structured logging) — enriched with tests | 8 | 7 | 4 | 5 | 24 |
+| 9.7 | Rewritten from Prometheus rules to Loki log-based alerting | — | — | — | — | — |
+
+Note: Stories 9.2, 9.3, and 9.5 had their design doc rewritten (Prometheus → OTEL). Testing sections for 9.1, 9.3, 9.4, and 9.6 were enriched. Story 9.7 was rewritten for log-based alerting.
+
+### Key Design Decisions
+
+1. **NO Prometheus counters for JWT observability** — BRRTRouter's `brrtrouter_requests_total{path, status}` and `brrtrouter_auth_failures_total` cover HTTP-level observability
+2. **OTEL spans via `tracing` crate** — JWT validation steps become named spans visible in Jaeger
+3. **Structured logs via Loki** — Security events logged at correct levels (INFO/WARN/ERROR) with `event` field for filtering
+4. **Log-based alerting** — Grafana/Loki log queries match on `event=` field for JWT-specific alerts; BRRTRouter Prometheus metrics for HTTP-level alerts
+5. **Token size monitoring** — NOT tracked as Prometheus histogram; measured in Jaeger span attributes instead
+6. **Shadow decisions** — `shadow_decision.compare` span only when migration mode enabled; DEBUG log for hits, WARN log for mismatches
+
+### Commits
+
+- `ea87b2a` — docs(observability): rewrite all Epic 9 stories to OTEL spans — no snowflake Prometheus counters, follow hauliage BRRTRouter pattern
+
+### Current Epic 9 Status
+
+| Story | Testing Enriched | Wiki Updated |
+|-------|-----------------|-------------|
+| 9.1 | ✅ (otel spans + 26 tests) | pending |
+| 9.2 | ✅ (otel spans design) | pending |
+| 9.3 | ✅ (otel spans + 27 tests) | pending |
+| 9.4 | ✅ (otel spans + 27 tests) | pending |
+| 9.5 | ✅ (otel spans + structured logs) | pending |
+| 9.6 | ✅ (structured logging + 24 tests) | pending |
+| 9.7 | ✅ (Loki log-based alerting) | pending |
+
+---
+
 ## [2026-05-16] Epic 7 Caching Strategy — Story 7.1 JWKS Cache Enrichment
 
 ### Summary
