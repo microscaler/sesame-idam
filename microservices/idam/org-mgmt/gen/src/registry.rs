@@ -12,18 +12,6 @@ use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 #[allow(dead_code)]
 pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
-        "query_orgs",
-        crate::controllers::query_orgs::QueryOrgsController,
-        24576,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "invalidate_user_api_keys",
-        crate::controllers::invalidate_user_api_keys::InvalidateUserApiKeysController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
         "list_applications",
         crate::controllers::list_applications::ListApplicationsController,
         20480,
@@ -90,6 +78,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "query_orgs",
+        crate::controllers::query_orgs::QueryOrgsController,
+        24576,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "fetch_org",
         crate::controllers::fetch_org::FetchOrgController,
         20480,
@@ -108,32 +102,14 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
-        "allow_org_saml",
-        crate::controllers::allow_org_saml::AllowOrgSamlController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "create_saml_link",
-        crate::controllers::create_saml_link::CreateSamlLinkController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "disallow_org_saml",
-        crate::controllers::disallow_org_saml::DisallowOrgSamlController,
+        "invalidate_user_api_keys",
+        crate::controllers::invalidate_user_api_keys::InvalidateUserApiKeysController,
         20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "update_org_domains",
         crate::controllers::update_org_domains::UpdateOrgDomainsController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "enable_saml",
-        crate::controllers::enable_saml::EnableSamlController,
         20480,
     );
 
@@ -174,14 +150,8 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
-        "delete_saml",
-        crate::controllers::delete_saml::DeleteSamlController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "set_saml_idp_metadata",
-        crate::controllers::set_saml_idp_metadata::SetSamlIdpMetadataController,
+        "subscribe_org_to_role_mapping",
+        crate::controllers::subscribe_org_to_role_mapping::SubscribeOrgToRoleMappingController,
         20480,
     );
 
@@ -218,12 +188,6 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "scim_delete_user",
         crate::controllers::scim_delete_user::ScimDeleteUserController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "subscribe_org_to_role_mapping",
-        crate::controllers::subscribe_org_to_role_mapping::SubscribeOrgToRoleMappingController,
         20480,
     );
 
@@ -268,6 +232,42 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         crate::controllers::test_webhook_delivery::TestWebhookDeliveryController,
         20480,
     );
+
+    dispatcher.register_typed_with_stack_size(
+        "delete_saml",
+        crate::controllers::delete_saml::DeleteSamlController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "allow_org_saml",
+        crate::controllers::allow_org_saml::AllowOrgSamlController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "disallow_org_saml",
+        crate::controllers::disallow_org_saml::DisallowOrgSamlController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "enable_saml",
+        crate::controllers::enable_saml::EnableSamlController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "create_saml_link",
+        crate::controllers::create_saml_link::CreateSamlLinkController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "set_saml_idp_metadata",
+        crate::controllers::set_saml_idp_metadata::SetSamlIdpMetadataController,
+        20480,
+    );
 }
 
 /// Dynamically register handlers for the provided routes using their handler names.
@@ -287,22 +287,6 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
     for route in routes {
         // JSF P0-2: Use as_ref() for Arc<str> -> &str conversion
         match route.handler_name.as_ref() {
-            "query_orgs" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::query_orgs::QueryOrgsController,
-                    24576,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "invalidate_user_api_keys" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::invalidate_user_api_keys::InvalidateUserApiKeysController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
             "list_applications" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::list_applications::ListApplicationsController,
@@ -391,6 +375,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "query_orgs" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::query_orgs::QueryOrgsController,
+                    24576,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "fetch_org" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::fetch_org::FetchOrgController,
@@ -415,25 +407,9 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
-            "allow_org_saml" => {
+            "invalidate_user_api_keys" => {
                 let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::allow_org_saml::AllowOrgSamlController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "create_saml_link" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::create_saml_link::CreateSamlLinkController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "disallow_org_saml" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::disallow_org_saml::DisallowOrgSamlController,
+                    crate::controllers::invalidate_user_api_keys::InvalidateUserApiKeysController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -442,14 +418,6 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "update_org_domains" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::update_org_domains::UpdateOrgDomainsController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "enable_saml" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::enable_saml::EnableSamlController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -503,17 +471,9 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
-            "delete_saml" => {
+            "subscribe_org_to_role_mapping" => {
                 let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::delete_saml::DeleteSamlController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "set_saml_idp_metadata" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::set_saml_idp_metadata::SetSamlIdpMetadataController,
+                    crate::controllers::subscribe_org_to_role_mapping::SubscribeOrgToRoleMappingController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -562,14 +522,6 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "scim_delete_user" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::scim_delete_user::ScimDeleteUserController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "subscribe_org_to_role_mapping" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::subscribe_org_to_role_mapping::SubscribeOrgToRoleMappingController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -626,6 +578,54 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "test_webhook_delivery" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::test_webhook_delivery::TestWebhookDeliveryController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "delete_saml" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::delete_saml::DeleteSamlController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "allow_org_saml" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::allow_org_saml::AllowOrgSamlController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "disallow_org_saml" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::disallow_org_saml::DisallowOrgSamlController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "enable_saml" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::enable_saml::EnableSamlController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "create_saml_link" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::create_saml_link::CreateSamlLinkController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "set_saml_idp_metadata" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::set_saml_idp_metadata::SetSamlIdpMetadataController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

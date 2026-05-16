@@ -2,17 +2,14 @@ openapi: 3.1.0
 info:
   title: Organization Management Service
   version: 1.0.0
-  description: 'Organization lifecycle, membership management, invitations, SSO/SAML/SCIM configuration, and application/role/permission
-    definitions. Admin-heavy operations with low access frequency.
+  description: 'Organization lifecycle, membership management, invitations, SSO/SAML/SCIM configuration, and application/role/permission definitions. Admin-heavy operations with low access frequency.
 
     '
   contact:
     name: Platform / Security
 servers:
-- url: /orgs
-  description: Org Mgmt API
-- url: /api/v1/org-mgmt
-  description: Org Mgmt API
+- url: /idam/v1
+  description: IDAM API v1
 tags:
 - name: Organizations
   description: Organization lifecycle (create, fetch, update, delete, query)
@@ -36,7 +33,125 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /:
+  /idam/v1/applications/{app_id}/permissions:
+    get:
+      tags:
+      - Permissions
+      summary: List permissions for application
+      operationId: list_permissions
+      parameters:
+      - &id001
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+      - name: app_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Number of items per page (max 100)
+      responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionListResponse'
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: &id002
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
+        '500':
+          description: Internal server error
+          content: &id003
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to list available permissions
+    post:
+      tags:
+      - Permissions
+      summary: Create permission for application
+      operationId: create_permission
+      parameters:
+      - *id001
+      - name: app_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePermissionRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Create permission for application, not direct frontend'
+      x-brrtrouter-impl: true
+  /idam/v1/organizations:
     get:
       tags:
       - Organizations
@@ -50,8 +165,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: query_orgs
       parameters:
-      - &id001
-        name: X-Tenant-ID
+      - name: X-Tenant-ID
         in: header
         required: true
         schema:
@@ -112,7 +226,7 @@ paths:
                 $ref: '#/components/schemas/OrgListResponse'
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: &id002
+          content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
@@ -121,7 +235,7 @@ paths:
                 error_description: Authentication required
         '500':
           description: Internal server error
-          content: &id003
+          content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
@@ -130,7 +244,7 @@ paths:
                 error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Query/list organizations, not direct frontend'
-  /{org_id}:
+  /idam/v1/organizations/{org_id}:
     get:
       tags:
       - Organizations
@@ -141,7 +255,14 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_org
       parameters:
-      - *id001
+      - &id004
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -175,10 +296,22 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: &id006
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content: &id007
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: frontend
       x-consumer-note: Direct browser call to get org details
     put:
@@ -192,7 +325,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: update_org
       parameters:
-      - *id001
+      - *id004
       - name: org_id
         in: path
         required: true
@@ -206,12 +339,12 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateOrgRequest'
             examples:
-              default: &id004
+              default: &id005
                 summary: Example for update_org
                 value:
                   name: Acme Technologies
                   description: A leading technology company
-            example: *id004
+            example: *id005
       responses:
         '200':
           description: Organisation updated
@@ -235,10 +368,10 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: *id006
         '500':
           description: Internal server error
-          content: *id003
+          content: *id007
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Update organization details, not direct frontend'
       x-brrtrouter-impl: true
@@ -252,7 +385,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_org
       parameters:
-      - *id001
+      - *id004
       - name: org_id
         in: path
         required: true
@@ -282,13 +415,13 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: *id006
         '500':
           description: Internal server error
-          content: *id003
+          content: *id007
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete organization, not direct frontend'
-  /{org_id}/users:
+  /idam/v1/organizations/{org_id}/users:
     get:
       tags:
       - Membership
@@ -302,7 +435,14 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_users_in_org
       parameters:
-      - *id001
+      - &id008
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -350,10 +490,22 @@ paths:
                 $ref: '#/components/schemas/UsersInOrgResponse'
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: &id010
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content: &id011
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: List users in organization, not direct frontend'
     post:
@@ -369,7 +521,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: add_user_to_org
       parameters:
-      - *id001
+      - *id008
       - name: org_id
         in: path
         required: true
@@ -389,12 +541,12 @@ paths:
             schema:
               $ref: '#/components/schemas/AddUserToOrgRequest'
             examples:
-              default: &id005
+              default: &id009
                 summary: Example for add_user_to_org
                 value:
                   user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                   role: member
-            example: *id005
+            example: *id009
       responses:
         '200':
           description: User added
@@ -418,14 +570,91 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: *id010
         '500':
           description: Internal server error
-          content: *id003
+          content: *id011
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Add user to organization, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/invite-user:
+    delete:
+      tags:
+      - Membership
+      summary: Remove user from organisation
+      description: 'Removes a user from this organisation. The user retains their account and may belong to other orgs.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: remove_user_from_org
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveUserFromOrgRequest'
+      responses:
+        '400':
+          description: Bad request — validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '204':
+          description: User removed from organization
+        '401':
+          description: Unauthorized — invalid, expired, or missing credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Remove user from organization, not direct frontend'
+  /idam/v1/organizations/{org_id}/invitations:
     post:
       tags:
       - Membership
@@ -439,7 +668,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: invite_user_to_org
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -466,14 +701,26 @@ paths:
                 error_description: Bad request (validation error)
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Invite user to organization by email, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/invite-user-by-id:
+  /idam/v1/organizations/{org_id}/invitations/by-id:
     post:
       tags:
       - Membership
@@ -487,7 +734,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: invite_user_to_org_by_id
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -514,14 +767,26 @@ paths:
                 error_description: Bad request (validation error)
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Invite existing user to organization, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/pending-invites:
+  /idam/v1/organizations/{org_id}/pending-invitations:
     delete:
       tags:
       - Membership
@@ -533,7 +798,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: revoke_pending_invite
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -569,13 +840,25 @@ paths:
           description: Pending invite revoked
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Revoke pending org invite, not direct frontend'
-  /{org_id}/role-mappings:
+  /idam/v1/organizations/{org_id}/role-mappings:
     get:
       tags:
       - Membership
@@ -589,7 +872,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_role_mappings
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -631,13 +920,25 @@ paths:
                 $ref: '#/components/schemas/RoleMappingResponse'
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Fetch role mappings for organization, not direct frontend'
-  /{org_id}/subscribe-role-mapping:
+  /idam/v1/organizations/{org_id}/role-mappings/subscribe:
     put:
       tags:
       - Membership
@@ -651,7 +952,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: subscribe_org_to_role_mapping
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -687,14 +994,26 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Subscribe org to role mapping, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/domains:
+  /idam/v1/organizations/{org_id}/domains:
     put:
       tags:
       - Organizations
@@ -706,7 +1025,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: update_org_domains
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -742,14 +1067,26 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Update org domain settings, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/allow-saml:
+  /idam/v1/sso/saml/allow:
     post:
       tags:
       - SSO
@@ -761,7 +1098,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: allow_org_saml
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -791,14 +1134,26 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Enable SAML SSO for org, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/disallow-saml:
+  /idam/v1/sso/saml/disable:
     post:
       tags:
       - SSO
@@ -810,7 +1165,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: disallow_org_saml
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -840,14 +1201,26 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Disable SAML SSO for org, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/create-saml-link:
+  /idam/v1/sso/saml/link:
     post:
       tags:
       - SSO
@@ -861,7 +1234,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: create_saml_link
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -892,14 +1271,26 @@ paths:
                 $ref: '#/components/schemas/SamlConnectionLinkResponse'
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Create SAML setup link for org, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/saml-metadata:
+  /idam/v1/sso/saml/metadata:
     put:
       tags:
       - SSO
@@ -911,7 +1302,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: set_saml_idp_metadata
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -938,14 +1335,26 @@ paths:
                 error_description: Bad request (validation error)
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Set SAML IdP metadata for org, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/oidc-metadata:
+  /idam/v1/organizations/{org_id}/oidc-metadata:
     post:
       tags:
       - SSO
@@ -957,7 +1366,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: set_oidc_idp_metadata
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -984,14 +1399,26 @@ paths:
                 error_description: Bad request (validation error)
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Set OIDC IdP metadata for org, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/enable-saml:
+  /idam/v1/sso/saml/enable:
     post:
       tags:
       - SSO
@@ -1003,7 +1430,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: enable_saml
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -1033,14 +1466,26 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Enable SAML connection for org, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/saml:
+  /idam/v1/sso/saml:
     delete:
       tags:
       - SSO
@@ -1051,7 +1496,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_saml
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -1081,13 +1532,25 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete SAML connection for org, not direct frontend'
-  /{org_id}/migrate-to-isolated:
+  /idam/v1/organizations/{org_id}/migrate-to-isolated:
     post:
       tags:
       - SSO
@@ -1101,7 +1564,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: migrate_org_isolated
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -1131,14 +1600,26 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Migrate org to isolated SAML mode, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/scim/groups:
+  /idam/v1/organizations/{org_id}/scim/groups:
     get:
       tags:
       - SSO
@@ -1152,7 +1633,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_scim_groups
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -1187,13 +1674,25 @@ paths:
                 $ref: '#/components/schemas/ScimError'
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Fetch SCIM groups for org, SCIM provisioner only'
-  /{org_id}/scim/groups/{group_id}:
+  /idam/v1/organizations/{org_id}/scim/groups/{group_id}:
     get:
       tags:
       - SSO
@@ -1204,7 +1703,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_scim_group
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -1258,20 +1763,39 @@ paths:
                 $ref: '#/components/schemas/ScimError'
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Fetch specific SCIM group, SCIM provisioner only'
-  /api/v1/am/applications:
+  /idam/v1/applications:
     get:
       tags:
       - Applications
       summary: List applications
       operationId: list_applications
       parameters:
-      - *id001
+      - &id014
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: page
         in: query
         required: false
@@ -1306,10 +1830,22 @@ paths:
                 $ref: '#/components/schemas/ApplicationListResponse'
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: &id012
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content: &id013
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to list applications for org
@@ -1341,24 +1877,30 @@ paths:
                 error_description: Bad request (validation error)
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: *id012
         '500':
           description: Internal server error
-          content: *id003
+          content: *id013
       parameters:
-      - *id001
+      - *id014
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Register new application for org, not direct frontend'
       x-brrtrouter-impl: true
-  /api/v1/am/applications/{app_id}:
+  /idam/v1/applications/{app_id}:
     get:
       tags:
       - Applications
       summary: Get application by id
       operationId: get_application
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: app_id
         in: path
         required: true
@@ -1391,21 +1933,40 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get app details
-  /api/v1/am/applications/{app_id}/roles:
+  /idam/v1/applications/{app_id}/roles:
     get:
       tags:
       - Roles
       summary: List roles for application
       operationId: list_roles
       parameters:
-      - *id001
+      - &id016
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: app_id
         in: path
         required: true
@@ -1445,9 +2006,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/RoleListResponse'
               examples:
-                default: &id006
+                default: &id015
                   summary: Example for list_roles 200
-                  value: &id011
+                  value:
                     roles:
                     - role_id: 550e8400-e29b-41d4-a716-446655440010
                       name: Project Manager
@@ -1466,13 +2027,25 @@ paths:
                     total: 2
                     page: 1
                     limit: 20
-              example: *id006
+              example: *id015
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: &id019
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content: &id020
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to list roles available
@@ -1482,7 +2055,7 @@ paths:
       summary: Create role for application
       operationId: create_role
       parameters:
-      - *id001
+      - *id016
       - name: app_id
         in: path
         required: true
@@ -1496,7 +2069,7 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateRoleRequest'
             examples:
-              default: &id007
+              default: &id017
                 summary: Example for create_role
                 value:
                   name: Project Manager
@@ -1505,7 +2078,7 @@ paths:
                   - project:read
                   - project:write
                   - team:read
-            example: *id007
+            example: *id017
       responses:
         '201':
           content:
@@ -1513,7 +2086,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Role'
               examples:
-                default: &id008
+                default: &id018
                   summary: Example for create_role 201
                   value:
                     role_id: 550e8400-e29b-41d4-a716-446655440010
@@ -1524,7 +2097,7 @@ paths:
                     - project:write
                     - team:read
                     created_at: '2024-01-16T12:00:00Z'
-              example: *id008
+              example: *id018
         '400':
           description: Invalid request
           content:
@@ -1536,22 +2109,28 @@ paths:
                 error_description: Bad request (validation error)
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: *id019
         '500':
           description: Internal server error
-          content: *id003
+          content: *id020
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Create role for application, not direct frontend'
       x-brrtrouter-impl: true
-  /api/v1/am/applications/{app_id}/roles/{role_id}:
+  /idam/v1/applications/{app_id}/roles/{role_id}:
     get:
       tags:
       - Roles
       summary: Get role by id
       operationId: get_role
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: app_id
         in: path
         required: true
@@ -1580,9 +2159,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Role'
               examples:
-                default: &id009
+                default: &id021
                   summary: Example for get_role 200
-                  value: &id012
+                  value:
                     role_id: 550e8400-e29b-41d4-a716-446655440010
                     name: Project Manager
                     description: Can manage projects and view team members
@@ -1591,7 +2170,7 @@ paths:
                     - project:write
                     - team:read
                     created_at: '2024-01-16T12:00:00Z'
-              example: *id009
+              example: *id021
         '404':
           description: Not found
           content:
@@ -1603,120 +2182,40 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get role details
-  /api/v1/am/applications/{app_id}/permissions:
-    get:
-      tags:
-      - Permissions
-      summary: List permissions for application
-      operationId: list_permissions
-      parameters:
-      - *id001
-      - name: app_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-        description: Page number for pagination
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 100
-          default: 20
-        description: Number of items per page (max 100)
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionListResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
-        '500':
-          description: Internal server error
-          content: *id003
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to list available permissions
-    post:
-      tags:
-      - Permissions
-      summary: Create permission for application
-      operationId: create_permission
-      parameters:
-      - *id001
-      - name: app_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePermissionRequest'
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Permission'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
-        '500':
-          description: Internal server error
-          content: *id003
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Create permission for application, not direct frontend'
-      x-brrtrouter-impl: true
-  /api/v1/am/applications/{app_id}/roles/{role_id}/permissions:
+  /idam/v1/applications/{app_id}/roles/{role_id}/permissions:
     get:
       tags:
       - Roles
       summary: Get permissions for role
       operationId: get_role_permissions
       parameters:
-      - *id001
+      - &id022
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: app_id
         in: path
         required: true
@@ -1772,10 +2271,22 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: &id023
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content: &id024
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get permissions for a role
@@ -1785,7 +2296,7 @@ paths:
       summary: Assign permission to role
       operationId: assign_permission_to_role
       parameters:
-      - *id001
+      - *id022
       - name: app_id
         in: path
         required: true
@@ -1827,10 +2338,10 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: *id023
         '500':
           description: Internal server error
-          content: *id003
+          content: *id024
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Assign permission to role, not direct frontend'
@@ -1841,7 +2352,7 @@ paths:
       summary: Revoke permission from role
       operationId: revoke_permission_from_role
       parameters:
-      - *id001
+      - *id022
       - name: app_id
         in: path
         required: true
@@ -1883,14 +2394,14 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content: *id023
         '500':
           description: Internal server error
-          content: *id003
+          content: *id024
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Revoke permission from role, not direct frontend'
-  /{org_id}/webhooks:
+  /idam/v1/organizations/{org_id}/webhooks:
     get:
       tags:
       - Webhooks
@@ -1901,7 +2412,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_webhook_subscriptions
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -1943,13 +2460,25 @@ paths:
                 $ref: '#/components/schemas/WebhookSubscriptionListResponse'
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: List webhooks for org, not direct frontend'
-  /{org_id}/webhooks/{subscription_id}:
+  /idam/v1/organizations/{org_id}/webhooks/{subscription_id}:
     delete:
       tags:
       - Webhooks
@@ -1963,7 +2492,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: delete_webhook_subscription
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -1999,13 +2534,25 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete webhook subscription, not direct frontend'
-  /{org_id}/webhooks/{subscription_id}/test:
+  /idam/v1/organizations/{org_id}/webhooks/{subscription_id}/test:
     post:
       tags:
       - Webhooks
@@ -2019,7 +2566,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: test_webhook_delivery
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -2059,20 +2612,31 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Test webhook delivery, not direct frontend'
       x-brrtrouter-impl: true
-  /admin/users/{user_id}/invalidate-all-keys:
+  /idam/v1/organizations/{org_id}/admin/users/{user_id}/invalidate-all-keys:
     post:
       tags:
       - AccountSecurity
       summary: Invalidate all API keys for user
-      description: 'Called when user is blocked or deleted. Archives all API keys belonging to this user across personal and
-        org scopes.
+      description: 'Called when user is blocked or deleted. Archives all API keys belonging to this user across personal and org scopes.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -2080,7 +2644,13 @@ paths:
       security:
       - BearerAuth: []
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: user_id
         in: path
         required: true
@@ -2123,11 +2693,17 @@ paths:
                 error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Invalidate all API keys for user, not direct frontend'
       x-brrtrouter-impl: true
-  /{org_id}/scim/users:
+  /idam/v1/organizations/{org_id}/scim/users:
     get:
       tags:
       - SCIM
@@ -2140,7 +2716,14 @@ paths:
       security:
       - BearerAuth: []
       parameters:
-      - *id001
+      - &id027
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: filter
         in: query
         required: false
@@ -2180,25 +2763,31 @@ paths:
                 $ref: '#/components/schemas/ScimUserListResponse'
         '400':
           description: Invalid filter, malformed request, or unsupported SCIM query parameter
-          content: &id010
+          content: &id025
             application/json:
               schema:
                 $ref: '#/components/schemas/ScimError'
         '401':
           description: Unauthorized — valid SCIM credentials required
-          content: *id010
+          content: *id025
         '403':
           description: Forbidden — insufficient permissions for SCIM list operations
-          content: *id010
+          content: *id025
         '404':
           description: Not found — org not found or SCIM provisioning disabled
-          content: *id010
+          content: *id025
         '409':
           description: Conflict — unsupported filter combination
-          content: *id010
+          content: *id025
         '500':
           description: Internal server error
-          content: *id003
+          content: &id026
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: List SCIM users in org, SCIM provisioner only'
     post:
@@ -2227,28 +2816,28 @@ paths:
                 $ref: '#/components/schemas/ScimUser'
         '400':
           description: Invalid request body — malformed SCIM user or invalid attribute values
-          content: *id010
+          content: *id025
         '401':
           description: Unauthorized — valid SCIM credentials required
-          content: *id010
+          content: *id025
         '409':
           description: Conflict — duplicate user (email or username already exists)
-          content: *id010
+          content: *id025
         '403':
           description: Forbidden — insufficient permissions to create users
-          content: *id010
+          content: *id025
         '404':
           description: Not found — org not found or SCIM provisioning disabled
-          content: *id010
+          content: *id025
         '500':
           description: Internal server error
-          content: *id003
+          content: *id026
       parameters:
-      - *id001
+      - *id027
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Create user via SCIM, SCIM provisioner only'
       x-brrtrouter-impl: true
-  /{org_id}/scim/users/{user_id}:
+  /idam/v1/organizations/{org_id}/scim/users/{user_id}:
     put:
       tags:
       - SCIM
@@ -2261,7 +2850,14 @@ paths:
       security:
       - BearerAuth: []
       parameters:
-      - *id001
+      - &id029
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: user_id
         in: path
         required: true
@@ -2283,22 +2879,31 @@ paths:
                 $ref: '#/components/schemas/ScimUser'
         '400':
           description: Invalid request body — malformed SCIM user or unsupported attribute mutation
-          content: *id010
+          content: &id028
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScimError'
         '404':
           description: Not found — user not found or org not found
-          content: *id010
+          content: *id028
         '409':
           description: Conflict — version mismatch (etag) or duplicate attribute
-          content: *id010
+          content: *id028
         '401':
           description: Unauthorized — valid SCIM credentials required
-          content: *id010
+          content: *id028
         '403':
           description: Forbidden — insufficient permissions to update user
-          content: *id010
+          content: *id028
         '500':
           description: Internal server error
-          content: *id003
+          content: &id030
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Update user via SCIM, SCIM provisioner only'
       x-brrtrouter-impl: true
@@ -2314,7 +2919,7 @@ paths:
       security:
       - BearerAuth: []
       parameters:
-      - *id001
+      - *id029
       - name: user_id
         in: path
         required: true
@@ -2326,85 +2931,25 @@ paths:
           description: User deleted
         '404':
           description: Not found — user not found or org not found
-          content: *id010
+          content: *id028
         '400':
           description: Invalid filter — malformed delete request
-          content: *id010
+          content: *id028
         '401':
           description: Unauthorized — valid SCIM credentials required
-          content: *id010
+          content: *id028
         '403':
           description: Forbidden — insufficient permissions to delete user
-          content: *id010
+          content: *id028
         '409':
           description: Conflict — user has active dependencies preventing deletion
-          content: *id010
+          content: *id028
         '500':
           description: Internal server error
-          content: *id003
+          content: *id030
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Delete user via SCIM, SCIM provisioner only'
-  /{org_id}/users/{user_id}:
-    delete:
-      tags:
-      - Membership
-      summary: Remove user from organisation
-      description: 'Removes a user from this organisation. The user retains their account and may belong to other orgs.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: remove_user_from_org
-      parameters:
-      - *id001
-      - name: org_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RemoveUserFromOrgRequest'
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '204':
-          description: User removed from organization
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
-        '500':
-          description: Internal server error
-          content: *id003
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Remove user from organization, not direct frontend'
-  /{org_id}/users/{user_id}/role:
+  /idam/v1/organizations/{org_id}/users/{user_id}/role:
     patch:
       tags:
       - Membership
@@ -2418,7 +2963,13 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: change_user_role_in_org
       parameters:
-      - *id001
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       - name: org_id
         in: path
         required: true
@@ -2460,10 +3011,22 @@ paths:
                 error_description: Not found
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id003
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Change user role in organization, not direct frontend'
       x-brrtrouter-impl: true
@@ -3138,7 +3701,25 @@ components:
         - total
         - page
         - page_size
-      example: *id011
+      example:
+        roles:
+        - role_id: 550e8400-e29b-41d4-a716-446655440010
+          name: Project Manager
+          description: Can manage projects and view team members
+          permissions:
+          - project:read
+          - project:write
+          - team:read
+          created_at: '2024-01-16T12:00:00Z'
+        - role_id: 550e8400-e29b-41d4-a716-446655440011
+          name: Viewer
+          description: Read-only access
+          permissions:
+          - project:read
+          created_at: '2024-01-10T00:00:00Z'
+        total: 2
+        page: 1
+        limit: 20
     Role:
       type: object
       required:
@@ -3166,7 +3747,15 @@ components:
         updated_at:
           type: string
           format: date-time
-      example: *id012
+      example:
+        role_id: 550e8400-e29b-41d4-a716-446655440010
+        name: Project Manager
+        description: Can manage projects and view team members
+        permissions:
+        - project:read
+        - project:write
+        - team:read
+        created_at: '2024-01-16T12:00:00Z'
     CreateRoleRequest:
       type: object
       required:

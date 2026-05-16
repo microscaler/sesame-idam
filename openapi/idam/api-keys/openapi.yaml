@@ -10,7 +10,7 @@ info:
   contact:
     name: Platform / Security
 servers:
-- url: /api/v1/am/api-keys
+- url: /idam/v1/api-keys
   description: API Keys API
 - url: /api/v1/api-keys
   description: Api Keys API
@@ -21,7 +21,7 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /:
+  /idam/v1/api-keys:
     post:
       tags:
       - APIKeys
@@ -73,7 +73,7 @@ paths:
                     - delete
                     created_at: 1705312200
                     expires_at: 1736934600
-                    last_used_at: null
+                    last_used_at:
               example: *id002
         '400':
           description: Invalid request
@@ -114,7 +114,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to create API key for current user/org
       x-brrtrouter-impl: true
-  /current:
+  /idam/v1/api-keys/current:
     get:
       tags:
       - APIKeys
@@ -211,7 +211,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to list active API keys for current user/org
-  /{key_id}:
+  /idam/v1/api-keys/{key_id}:
     put:
       tags:
       - APIKeys
@@ -336,7 +336,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to delete own API key
-  /validate:
+  /idam/v1/api-keys/validate:
     post:
       tags:
       - APIKeys
@@ -351,8 +351,7 @@ paths:
         If specified and the key doesn''t match the requested type, returns 401.
 
 
-        Endpoints `/validate/personal` and `/validate/org` are deprecated — use `/validate?key_type=personal` or `/validate?key_type=org`
-        instead.
+        Endpoints `/validate/personal` and `/validate/org` are deprecated — use `/validate?key_type=personal` or `/validate?key_type=org` instead.
 
 
 
@@ -422,7 +421,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Validate API key (used by backend services), never from browser'
       x-brrtrouter-impl: true
-  /usage:
+  /idam/v1/api-keys/usage:
     get:
       tags:
       - APIKeys
@@ -493,7 +492,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to check usage stats for own API keys
-  /validate/personal:
+  /idam/v1/api-keys/validate/personal:
     post:
       tags:
       - APIKeys
@@ -556,7 +555,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Validate personal API key, never from browser'
       x-brrtrouter-impl: true
-  /archived:
+  /idam/v1/api-keys/archived:
     get:
       tags:
       - APIKeys
@@ -633,7 +632,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to list archived API keys for current user/org
-  /archived/{key_id}:
+  /idam/v1/api-keys/archived/{key_id}:
     get:
       tags:
       - APIKeys
@@ -694,7 +693,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to get details of archived API key
-  /import:
+  /idam/v1/api-keys/import:
     post:
       tags:
       - APIKeys
@@ -761,7 +760,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Bulk import API keys, not direct frontend'
       x-brrtrouter-impl: true
-  /validate/org:
+  /idam/v1/api-keys/validate/org:
     post:
       tags:
       - APIKeys
