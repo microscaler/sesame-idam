@@ -346,6 +346,13 @@ k8s_yaml('k8s/microservices/namespace.yaml')
 # ====================
 # Database Init & Migration
 # ====================
+# Sesame-IDAM DB + migrations: kubectl exec into deployment/postgres-primary (in-cluster :5432, not host :5432).
+# setup-db.sh waits for rollout + pod Ready and uses -c postgres. Optional: SESAME_IDAM_DB_INIT_TIMEOUT (default 600s).
+_db_init_deps = ['postgres'] if bundled_data_stack else []
+
+# Sesame-IDAM apply-migrations deps: wait for postgres when bundled_data_stack is enabled.
+_apply_migrations_deps = ['postgres'] if bundled_data_stack else []
+
 # Local resource to bootstrap the Sesame-IDAM database role, schema, apply
 # Lifeguard migration SQL files, and seed data.
 # Usage: `tilt trigger sesame-idam-db-init` (manual trigger — runs once on a
@@ -354,6 +361,7 @@ local_resource(
     'sesame-idam-db-init',
     'chmod +x ./scripts/setup-db.sh && ./scripts/setup-db.sh',
     deps=['./scripts/setup-db.sh'],
+    resource_deps=_db_init_deps,
     labels=['data'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=True,
@@ -384,10 +392,22 @@ local_resource(
 
 # Apply ./migrations/*.sql in apply_order.txt order via kubectl exec to
 # deployment/postgres-primary (database sesame_idam).
+# Use after sesame-idam-migrate changes SQL, or when you added hand-written migrations. Skips role/DB bootstrap;
+# run sesame-idam-db-init first on a new cluster. Same GRANT step as full setup-db.sh.
 local_resource(
     'sesame-idam-apply-migrations',
     'SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 chmod +x ./scripts/setup-db.sh && ./scripts/setup-db.sh',
-    deps=['./scripts/setup-db.sh', './migrations/apply_order.txt'],
+    deps=[
+        './scripts/setup-db.sh',
+        './migrations/apply_order.txt',
+        './microservices/idam/identity-login-service/impl/seeds',
+        './microservices/idam/identity-session-service/impl/seeds',
+        './microservices/idam/identity-user-mgmt-service/impl/seeds',
+        './microservices/idam/authz-core/impl/seeds',
+        './microservices/idam/api-keys/impl/seeds',
+        './microservices/idam/org-mgmt/impl/seeds',
+    ],
+    resource_deps=_apply_migrations_deps,
     labels=['data'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,

@@ -97,7 +97,7 @@ apply_migrations_from_disk() {
 
 # Optional dev/demo data — not produced by lifeguard-migrate; one directory per microservice (impl/seeds/).
 #
-# Ordering: uses microservices/seed_order.txt when present (produced by `cargo run -p
+# Ordering: uses microservices/idam/seed_order.txt when present (produced by `cargo run -p
 # sesame_idam_migrator` via lifeguard-migrate's write_seed_order_file — FK-aware across services,
 # so tables are populated in correct FK order). Falls back to alphabetical path order for back-compat.
 #
@@ -117,8 +117,8 @@ apply_seeds_from_disk() {
     cat "${seed_file}" | kubectl exec -i -n "${NS}" "deployment/${DEPLOY}" -c postgres -- \
       sh -c 'env PGPASSWORD="$POSTGRESQL_PASSWORD" psql -h 127.0.0.1 -p 5432 -U postgres -d sesame_idam -v ON_ERROR_STOP=1'
   }
-  if [ -f ./microservices/seed_order.txt ]; then
-    echo "📥 Applying per-microservice seed SQL (microservices/seed_order.txt, FK-ordered)..."
+  if [ -f ./microservices/idam/seed_order.txt ]; then
+    echo "📥 Applying per-microservice seed SQL (microservices/idam/seed_order.txt, FK-ordered)..."
     while IFS= read -r rel || [ -n "${rel}" ]; do
       [[ -z "${rel}" || "${rel}" =~ ^# ]] && continue
       seed_file="./microservices/${rel}"
@@ -127,9 +127,9 @@ apply_seeds_from_disk() {
       else
         echo "  ⚠️  seed_order.txt lists missing file: ${seed_file}" >&2
       fi
-    done < ./microservices/seed_order.txt
+    done < ./microservices/idam/seed_order.txt
   else
-    echo "📥 Applying per-microservice seed SQL (microservices/*/impl/seeds/*.sql, alphabetical — run sesame-idam migrator to generate seed_order.txt)..."
+    echo "📥 Applying per-microservice seed SQL (microservices/idam/*/impl/seeds/*.sql, alphabetical — run sesame-idam migrator to generate seed_order.txt)..."
     while IFS= read -r -d '' seed_file; do
       apply_one_seed "${seed_file}"
     done < <(find ./microservices -path '*/impl/seeds/*.sql' -print0 2>/dev/null | sort -z)
