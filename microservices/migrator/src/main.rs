@@ -8,7 +8,7 @@ use lifeguard_migrate::sql_dependency_order::{
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// Recursively collect `.sql` files under `microservices/*/impl/seeds/` that setup-db.sh
+/// Recursively collect `.sql` files under `microservices/<svc>/impl/seeds/` that setup-db.sh
 /// applies. We use the same glob shape as the legacy `find` invocation so the generated order
 /// always matches what would otherwise be the alphabetical fallback.
 fn discover_seed_files(microservices_root: &Path) -> Vec<PathBuf> {
@@ -194,6 +194,16 @@ fn main() {
         .map(|r| (r.table.clone(), r.sql.clone()))
         .collect();
 
+    eprintln!("DEBUG: {} tables total", pairs.len());
+    for (name, sql) in &pairs {
+        eprintln!("  Table: {}", name);
+        // Look for REFERENCES in SQL
+        if let Some(ref_start) = sql.to_lowercase().find("references") {
+            let snippet = &sql[ref_start..std::cmp::min(ref_start + 100, sql.len())];
+            eprintln!("    REFERENCES: {}", snippet);
+        }
+    }
+
     let ordered = match order_migrations_by_foreign_key_sql(pairs) {
         Ok(o) => o,
         Err(e) => {
@@ -202,12 +212,7 @@ fn main() {
         }
     };
 
-    // migrations/ is at workspace root, one level above microservices/
-    let migrations_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("..")
-        .join("..")
-        .join("migrations");
+    let migrations_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../migrations");
 
     for (table, sql) in ordered {
         let service = table_to_service[&table];
@@ -228,7 +233,7 @@ fn main() {
     }
 
     // Seed order — FK-aware, so dependent tables are populated first.
-    let microservices_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let microservices_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let seeds_root = microservices_root.join("idam");
     let seed_files = discover_seed_files(&seeds_root);
     if seed_files.is_empty() {
