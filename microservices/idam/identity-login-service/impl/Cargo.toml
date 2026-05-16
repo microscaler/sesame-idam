@@ -27,6 +27,7 @@ lifeguard-derive = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 rust_decimal = { workspace = true }
+arc-swap = { workspace = true }
 
 # Database layer
 sesame_idam_database = { path = "../../../database" }
