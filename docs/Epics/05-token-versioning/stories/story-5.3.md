@@ -151,6 +151,173 @@ gantt
     Denylist expires                :300, 0
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-511: Local Cache Staleness Creates Security Gap (CRITICAL — related to Hole #2 from PRS)
+
+**Risk:** Cached "not revoked" result persists for 30 seconds even after token is denylisted
+
+The story uses an LRU cache with 30-second TTL. When a token is denylisted, the service's local cache still has the old value (`false`) for up to 30 seconds.
+
+**Exploit path:**
+1. Attacker has token with jti=tok_abc
+2. Service caches: `denylist_cache["tok_abc"] = false` (not yet denylisted)
+3. Admin revoke the token: `SETEX denylist:tok_abc 300 "revoked"`
+4. Attacker makes 30 requests within the next 30 seconds
+5. All requests hit the cached `false` → all are ALLOWED
+6. Result: Attacker has up to 30 seconds of unauthorized access after revocation
+
+**The story explicitly says:** "The 30-second cache TTL balances this" — but it doesn't say "30 seconds of bypassed security is acceptable."
+
+**Implementation requirement:**
+- The cache must only cache `true` (revoked) results, NOT `false` (not revoked)
+- When `is_revoked(jti)` returns `false` from Redis (key not found), do NOT cache it
+- On next request, do a fresh Redis lookup
+- This means: revoked tokens are cached, but non-revoked tokens always hit Redis
+- The trade-off: slightly higher Redis load, but no security gap
+- OR: use a much shorter cache TTL for `false` results (e.g., 1 second)
+
+### HACK-512: Denylist Can Bypass jwt-only and jwt-with-fallback Routes (CRITICAL — related to Hole #1 from PRS)
+
+**Risk:** Attacker uses a revoked token on routes that DON'T check the denylist
+
+The story says: "The denylist is NOT checked for jwt-only and jwt-with-fallback routes." Only "high-risk routes" check the denylist.
+
+**Exploit path:**
+1. Attacker's token is revoked and added to the denylist
+2. Attacker makes requests to "jwt-only" routes (which don't check the denylist)
+3. All requests succeed because the denylist is skipped
+4. Result: Revoked token works on 90%+ of routes
+
+**But wait:** The story says the denylist is "only for urgent revocations where immediate effect is needed" and "NOT used on every request." This implies that for non-urgent revocations (role removed, org deleted), the version bump is the primary mechanism and the denylist is an optional addition.
+
+**The exploit is real for urgent cases:** "User disabled" and "Account compromised" require immediate effect, but if the attacker can still access "jwt-only" routes, the revocation is incomplete.
+
+**Implementation requirement:**
+- Document: "For 'user disabled' and 'account compromised' revocations, the denylist applies to ALL routes, not just high-risk routes"
+- "For 'role removed' and 'org deleted' revocations, the denylist only applies to high-risk routes (version bump handles the rest)"
+- "jwt-only routes NEVER check the denylist — they trust the JWT claims entirely"
+- Consider: should jwt-only routes even be accessible after a user is disabled?
+
+### HACK-513: Denylist TTL Can Be Set to 0, Creating Immediate Expiry (MEDIUM — related to Hole #6 from PRS)
+
+**Risk:** Token is denylisted but immediately expires because TTL is calculated incorrectly
+
+The story says: "TTL: Until token exp (dynamic per token)" — but if `exp` is in the past or the calculation produces 0 or negative seconds, the denylist entry is created and immediately expires.
+
+**Exploit path:**
+1. Attacker has a token that's about to expire in 1 second
+2. Admin revokes the token: `SETEX denylist:tok_abc 0 "revoked"`
+3. Redis accepts the entry but it expires immediately (TTL=0)
+4. Attacker's token is NOT denylisted
+5. Result: Revocation has no effect
+
+**Implementation requirement:**
+- Validate that `seconds_until_exp > 0` before creating the denylist entry
+- If `seconds_until_exp <= 0`, reject the revocation with an error
+- Log a warning: "Cannot denylist expired token with TTL <= 0"
+
+### HACK-514: Denylist Lookup Can Cause Denial-of-Service via Large Key Sets (HIGH — Hole #3 from PRS)
+
+**Risk:** Attacker floods the denylist with millions of unique jti values, exhausting Redis memory
+
+The story says: "Each entry has a TTL matching the token's exp (5 minutes for normal tokens, 1-3 minutes for admin). After 5 minutes, all entries expire."
+
+**Exploit path:**
+1. Attacker triggers revocation of 1,000,000 unique tokens (via compromised admin account)
+2. Redis creates 1,000,000 keys, each with TTL of 5 minutes
+3. Total memory: 1M keys × ~200 bytes per key = ~200MB
+4. If the attacker repeats this every 5 minutes, Redis memory grows unbounded
+5. Result: Redis memory exhaustion → service crash
+
+**Implementation requirement:**
+- Add a MAXIMUM denylist size per tenant (e.g., 100,000 entries per tenant)
+- When the limit is reached, evict entries with the shortest remaining TTL
+- Track total denylist size in Redis and alert when limits are reached
+- Document: "Maximum denylist size is 100,000 entries per tenant. Older entries are evicted first."
+
+### HACK-515: Denylist Key Format Can Be Used for Cache Poisoning (MEDIUM — related to Hole #7 from PRS)
+
+**Risk:** Attacker crafts jti values that collide with other cache keys
+
+The story uses `denylist:{jti}` as the key format. If the jti contains special characters or colons, it could interfere with Redis key hierarchies.
+
+**Exploit path:**
+1. Attacker obtains a token with jti containing a colon: `tok:abc:123`
+2. Attacker is revoke: `SETEX denylist:tok:abc:123 300 "revoked"`
+3. If the service looks up `GET denylist:tok:abc:123`, it works
+4. BUT: if another service uses `SET denylist:tok:abc:123:other "value"`, the keys collide in the Redis key space
+
+**Implementation requirement:**
+- Normalize jti values before use: reject jti values containing `:`, `\0`, or control characters
+- OR: use a different key separator (e.g., `denylist_{jti}` instead of `denylist:{jti}`)
+- OR: use Redis key namespacing: `sesame:denylist:{tenant}:{jti}`
+
+### HACK-516: LRU Cache Can Be Exhausted via Unique jti Values (MEDIUM — related to Hole #3 from PRS)
+
+**Risk:** Attacker floods unique jti values to exhaust the service's local LRU cache
+
+The story uses `LruCache<String, bool>` with an unspecified capacity. If an attacker makes requests with millions of unique jti values, the cache fills up and evicts valid entries.
+
+**Exploit path:**
+1. Attacker generates 10,000 unique jti values (via stolen tokens from different users)
+2. Each request creates a new entry in the LRU cache
+3. After 10,000 requests, legitimate denylist entries are evicted from the cache
+4. Attacker's tokens (which were denylisted) are no longer in the cache
+5. Next request: cache miss → Redis lookup → if Redis is slow or down, the denylist check is delayed
+6. Result: Cache bypass via memory exhaustion
+
+**Implementation requirement:**
+- Set a maximum LRU cache size (e.g., 10,000 entries)
+- When the limit is reached, evict the least-recently-used entries
+- Document: "LRU cache capacity is 10,000 entries. When full, the least-recently-used entries are evicted."
+- Consider: should the cache size be configurable per environment?
+
+### HACK-517: Cache Miss Falls Back to Redis Without Timeout (HIGH — Hole #3 from PRS)
+
+**Risk:** Redis timeout on denylist lookup causes request latency spikes
+
+The story says: "Redis connection timeout during denylist lookup" is an edge case, but it's not clear what happens if Redis times out. Does the request hang until the timeout fires (e.g., 5 seconds)?
+
+**Exploit path:**
+1. Attacker identifies that the denylist lookup is synchronous
+2. Attacker floods Redis with connections or causes Redis to slow down
+3. The denylist lookup times out (e.g., 5 seconds)
+4. Every request that checks the denylist is delayed by 5 seconds
+5. Result: Service becomes unresponsive — denial of service
+
+**Implementation requirement:**
+- Set a MAXIMUM timeout for Redis denylist lookups (e.g., 100ms)
+- If the timeout is exceeded, FAIL CLOSED: deny the request
+- Document: "Redis denylist lookup timeout is 100ms. If exceeded, the request is denied to prevent latency spikes."
+- Consider: if Redis is slow, should all denylist-checked requests be denied? Or should they be allowed?
+
+### HACK-518: Denylist Does Not Survive Service Restart (MEDIUM — related to Hole #9 from PRS)
+
+**Risk:** After a service restart, the local LRU cache is empty and all denylist checks hit Redis
+
+The story says: "Denylist survives service restart" in the integration tests, but this is only true if Redis has the denylist entries (which it does, since they're stored there). However, the LOCAL cache is empty after restart.
+
+**Exploit path:**
+1. Attacker's token is denylisted in Redis
+2. Attacker's token is cached in the local LRU cache as `true` (revoked)
+3. Service restarts → local cache is empty
+4. Attacker makes a request with the denylisted jti
+5. Local cache miss → Redis lookup → `GET denylist:tok_abc` → "revoked" → DENIED
+6. Hmm, this doesn't help the attacker.
+
+**Wait — the exploit is the OPPOSITE:** After restart, the cache is empty, so EVERY request hits Redis. If Redis is slow or down, all requests are delayed or denied.
+
+**Implementation requirement:**
+- On startup, warm up the denylist cache with recent denylist entries from Redis
+- Query Redis for all keys matching `denylist:*` and load them into the LRU cache
+- This prevents a "thundering herd" of Redis lookups after restart
+- Document: "On startup, the denylist cache is warmed with all existing Redis entries"
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Denylist is internal to the validation logic.

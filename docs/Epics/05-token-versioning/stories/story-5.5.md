@@ -180,6 +180,225 @@ flowchart TD
     H -->|No| C
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-521: Version Gap Calculation Can Be Manipulated (CRITICAL — related to Hole #2 from PRS)
+
+**Risk:** Attacker triggers the large gap threshold (gap > 100) to force retry_after = 0, which blocks ALL retries
+
+The story says: "if cached_ver - claims_ver > 100: retry_after = 0" — but this is backwards from a security perspective. A LARGE gap means the version changed many times (many privilege changes), so the user probably shouldn't be trusted. But retry_after = 0 means "immediate re-auth" which forces the user to log in AGAIN.
+
+**The exploit is different:** What if the attacker CAN manipulate the claims_ver in their token?
+
+**Exploit path (claim manipulation via forged token):**
+1. Attacker forges a JWT with `ver = 1` (very old version)
+2. Current version is 500 (many privilege changes over time)
+3. Gap = 500 - 1 = 499 → retry_after = 0
+4. Client receives retry_after = 0 → forced to re-authenticate
+5. BUT: if the attacker's FORGED token has ver = 499 instead:
+6. Gap = 500 - 499 = 1 → retry_after = 300
+7. Client receives retry_after = 300 → refreshes token with 300-second TTL
+8. But the forged token's ver = 499 is STILL below the real version (500)
+9. After refresh, the new token might have ver = 500, giving the attacker access
+
+**The real exploit:** What if the attacker FORGES a token with ver just below the current version?
+
+**Exploit path (forged token with near-current version):**
+1. Attacker learns the current version is 500 (via version leakage, see HACK-522)
+2. Attacker forges a JWT with ver = 499 (just below current)
+3. Request arrives with ver = 499, cached_ver = 500
+4. Gap = 1 → retry_after = 300
+5. Client refreshes token → gets ver = 500 (now valid)
+6. Result: Attacker gets access because the refresh produces a valid token
+
+**But wait:** The forged token has an INVALID signature. The version check only happens AFTER signature verification. So the forged token would be rejected at signature verification, not at version check.
+
+**The real exploit requires a VALID signature.** The attacker would need to:
+- Steal the signing key, OR
+- Brute-force a weak key, OR
+- Use a valid token from a DIFFERENT user with ver = 499
+
+**Exploit path (token borrowing):**
+1. Attacker obtains user A's token with ver = 499
+2. Attacker sends the request with user A's token
+3. Current version for user A is 500
+4. Gap = 1 → retry_after = 300
+5. Client refreshes user A's token → gets ver = 500 → ACCESS GRANTED
+6. Result: The version bump doesn't prevent token refresh!
+
+**This is the critical hole:** When a user's version is bumped, their refresh token STILL works and produces a NEW token with the updated version. The version bump is supposed to revoke access, but the refresh token undoes it.
+
+**Implementation requirement:**
+- When a user's version is bumped, their REFRESH TOKEN must also be invalidated
+- The refresh token's `ver` claim must be compared against the current version
+- If `refresh_ver < cached_ver`: reject the refresh token
+- This is already partially addressed in Story 3.2 (token family/rotation), but it MUST be enforced in the version mismatch flow
+
+### HACK-522: retry_after Value Leaks Version State (MEDIUM — related to Hole #5 from PRS)
+
+**Risk:** Attacker learns the current version by analyzing retry_after values
+
+The story returns different `retry_after` values based on the gap:
+- Small gap (1-10): retry_after = 300
+- Large gap (>100): retry_after = 0
+
+**Exploit path (version enumeration):**
+1. Attacker has a token with ver = X
+2. Attacker increments X by 1: X+1, X+2, X+3, ...
+3. For each value, the attacker sends a request
+4. When retry_after = 300: the gap is 1-10 (cached_ver - X is small)
+5. When retry_after = 0: the gap is >100 (cached_ver - X is large)
+6. By binary searching the retry_after value, the attacker can determine the current version
+
+**But the story says:** "Version mismatch error uses same HTTP status for all gaps" and "401 response does not leak version information" — these are in the Security Regression Tests section, but they're just assertions, not implementation requirements.
+
+**Implementation requirement:**
+- Return the SAME retry_after value for ALL version mismatches (e.g., always 300)
+- OR: do not return retry_after in the response body — only in the header
+- OR: document that retry_after leakage is an ACCEPTED RISK because the attacker already needs a valid token to make the request
+
+### HACK-523: 401 vs 403 Confusion Allows Privilege Escalation (HIGH — related to Hole #4 from PRS)
+
+**Risk:** Attacker receives 401 (unauthorized) but the actual reason is insufficient permissions, not version mismatch
+
+The story says: "Should a stale token return 401 (unauthorized) or 403 (forbidden)? I chose 401 because the token is technically invalid for the requested operation (it's stale)."
+
+**Exploit path (error code confusion):**
+1. Attacker has a stale token (ver = 42, cached = 45)
+2. Attacker sends a request to a sensitive endpoint
+3. The middleware checks version mismatch FIRST → returns 401 "stale_auth_token"
+4. The middleware NEVER gets to the permission check (which would have returned 403 "insufficient_permissions")
+5. The attacker sees 401, not 403, so they think "my token is stale, not unauthorized"
+6. The attacker focuses on token refresh, not on privilege escalation
+7. Result: The attacker misses the fact that they don't have permission (the version mismatch masks the real issue)
+
+**This is subtle but important:** the version mismatch check should happen AFTER the permission check, so that insufficient permissions returns 403 (the correct error code), not 401.
+
+**Implementation requirement:**
+- Document: "Version mismatch check happens AFTER permission check. If the user lacks permissions, return 403 regardless of version."
+- This means: `if (!has_permission) return 403; if (ver < cached_ver) return 401;`
+
+### HACK-524: Client Can Ignore retry_after = 0 and Keep Retrying (MEDIUM — Hole #4 from PRS)
+
+**Risk:** retry_after = 0 is guidance, not enforcement
+
+The story says: "retry_after = 0" means "immediate re-auth required." But this is CLIENT-SIDE guidance. The server only returns 401 — it does NOT block the request.
+
+**Exploit path:**
+1. Attacker receives 401 with retry_after = 0
+2. Attacker immediately retries the same request with the SAME token
+3. The server returns 401 again with retry_after = 0
+4. Attacker continues retrying indefinitely
+5. Result: The server does NOT enforce the retry_after — it's just a hint to the client
+
+**But this is actually CORRECT behavior:** the server should always return 401 for a stale token, regardless of retry_after. The retry_after is a hint about when the client should try to refresh/re-auth. The server doesn't need to enforce it.
+
+**The real issue:** retry_after = 0 means "retry after re-authentication." If the attacker doesn't re-authenticate, they keep getting 401. This is correct.
+
+**The vulnerability is if the client DOES re-authenticate but the re-auth doesn't bump the version.** This is covered in HACK-521.
+
+### HACK-525: Version Mismatch Can Be Used for Timing Side-Channel (LOW — related to Hole #6 from PRS)
+
+**Risk:** The time taken to process a version mismatch request reveals version state
+
+The story shows:
+1. Request arrives
+2. JWT is decoded and signature verified
+3. Version cache is checked (Redis lookup or local cache)
+4. If version matches: continue normally
+5. If version mismatch: return 401
+
+The time difference between steps 3 and 4 might be detectable:
+- Cache HIT: ~0.01ms
+- Cache MISS (Redis): ~1-5ms
+- Version mismatch (401): +1ms for response generation
+
+**Exploit path:**
+1. Attacker sends 1000 requests to a jwt-only route (no version check) → baseline latency
+2. Attacker sends 1000 requests to a high-risk route → measures latency
+3. If high-risk route is consistently slower by ~1ms: version check is happening
+4. If the version check consistently returns 401: the attacker's token version is stale
+5. Result: Attacker learns whether their token version is stale (without getting 401)
+
+**Implementation requirement:**
+- Add RANDOM JITTER (1-5ms) to ALL version check responses (both success and failure)
+- This prevents timing-based version enumeration
+- Document: "All version check responses include 1-5ms random jitter to prevent timing side-channels"
+
+### HACK-526: Stale Token on jwt-only Route Creates False Security (CRITICAL — related to Hole #1 from PRS)
+
+**Risk:** jwt-only routes NEVER check version, so stale tokens work forever
+
+The story says: "jwt-only routes NEVER check the denylist" and "Version mismatch not returned for jwt-only routes." This means if a user's version is bumped, their token still works on ALL jwt-only routes indefinitely.
+
+**Exploit path:**
+1. Attacker has a token with ver = 42
+2. Admin revokes the attacker's permissions, version bumped to 43
+3. Attacker makes requests to jwt-only routes (which don't check version)
+4. All requests succeed because jwt-only routes trust the JWT entirely
+5. Result: Revoked permissions persist indefinitely on jwt-only routes
+
+**This is a DESIGN FLAW:** jwt-only routes should check version for ANY route, not just "high-risk" routes. If the version doesn't match, the token is stale regardless of the route's risk level.
+
+**But the story explicitly says:** "jwt-only routes NEVER check the denylist" and "jwt-only routes still proceed normally — the version mismatch is only triggered for high-risk routes."
+
+**The trade-off is intentional:** jwt-only routes are designed to be fast and stateless. Adding a version check would require a Redis lookup on every request, defeating the purpose of jwt-only.
+
+**The solution is NOT to check version on jwt-only routes. The solution is to make jwt-only routes a MINIMAL set of endpoints that don't require version checking.**
+
+**Implementation requirement:**
+- Limit jwt-only routes to endpoints that truly don't need version checking (e.g., health checks, public info)
+- All other routes should be jwt-with-fallback or high-risk
+- Document: "jwt-only routes should be restricted to public, non-sensitive endpoints only. Any endpoint that needs authorization should be jwt-with-fallback or high-risk."
+
+### HACK-527: Version Gap Threshold of 100 Is Arbitrary and Dangerous (MEDIUM — related to Hole #6 from PRS)
+
+**Risk:** The gap threshold of 100 has no security rationale
+
+The story says: "if cached_ver - claims_ver > 100: retry_after = 0." This means:
+- Gap of 99 → retry_after = 300 (allow refresh)
+- Gap of 100 → retry_after = 300 (allow refresh)
+- Gap of 101 → retry_after = 0 (force re-auth)
+
+There is NO explanation for why 100 is the threshold. What if the version changes 150 times in one day (e.g., 150 role changes)? Should the user be forced to re-authenticate?
+
+**Exploit path:**
+1. Attacker's permissions are revoked and re-granted 150 times in a single day
+2. Version goes from 10 → 160
+3. Attacker's token has ver = 10
+4. Gap = 150 → retry_after = 0
+5. Attacker is forced to re-authenticate, which might be the INTENDED behavior
+6. BUT: if the attacker re-authenticates and the refresh token still has ver = 10, the new access token also has ver = 10
+7. Result: The user is stuck in a loop where they keep getting retry_after = 0
+
+**The fix is in the refresh token:** the refresh token's version must be bumped when the access token's version is bumped. This is covered in Story 3.2 (token family/rotation) and Story 2.5 (refresh token version), but the interaction between stories is not documented here.
+
+**Implementation requirement:**
+- Document the interaction between Story 5.5 and Story 3.2: "When a version bump occurs, the refresh token's version is also bumped. The refresh token's `ver` claim must match the new version."
+- The gap threshold of 100 should be REMOVED or REDUCED. A gap of >1 should trigger retry_after = 0 (force re-auth). A gap of 1-5 should trigger retry_after = 300 (allow refresh).
+
+### HACK-528: Version Mismatch Response Can Be Used for User Enumeration (LOW — related to Hole #5 from PRS)
+
+**Risk:** Different version mismatch messages for different user states
+
+The story returns different error messages based on the version gap. If user A has ver = 42 (recent) and user B has ver = 1 (old, never refreshed), the gap between their token version and the current version might differ.
+
+**Exploit path:**
+1. Attacker knows the current version for user A is 50
+2. Attacker forges a token for user B (unknown user) with ver = 1
+3. If the response is retry_after = 0: the gap is >100, so the current version for user B is >101
+4. If the response is retry_after = 300: the gap is <=100, so the current version for user B is <=101
+5. Result: Attacker can enumerate user B's version state
+
+**Implementation requirement:**
+- Return a GENERIC error message for ALL version mismatches
+- Do NOT differentiate between small and large gaps in the error message
+- Document: "Error messages for version mismatch must be identical regardless of the gap size"
+
+---
+
 ## OpenAPI Changes
 
 - `/auth/introspect` response: Add `error` and `retry_after` fields for stale token scenarios
