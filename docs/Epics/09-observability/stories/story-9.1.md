@@ -160,6 +160,106 @@ flowchart TD
     M -->|Yes| O[record result=success]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-911: Span Attributes Leak Sensitive Data to Observability Systems (CRITICAL — Hole #5 from PRS)
+
+**Risk:** JWT validation spans expose PII or sensitive claims to Jaeger/Loki, which attackers can access if they compromise the observability infrastructure
+
+The story's span design records: `user_id`, `tenant_id`, `error` in structured logs and span attributes. If an attacker gains access to the Jaeger UI or Loki logs, they can see:
+- User IDs (which users are authenticating)
+- Tenant IDs (which tenants exist on the platform)
+- Error messages (which validations failed, revealing the validation pipeline order)
+
+**Exploit path (observability data leak):**
+1. Attacker gains access to the Jaeger UI (e.g., via a misconfigured service account, or by exploiting a vulnerability in the observability stack)
+2. Attacker queries for `jwt_validation` spans
+3. The spans contain `user_id`, `tenant_id`, and the validation pipeline result
+4. Attacker extracts all user IDs and tenant IDs from the spans
+5. Result: User/tenant enumeration from observability data
+
+**This is a significant risk:** observability systems are often less protected than the application itself. The spans contain metadata that should NOT be visible to attackers.
+
+**The risk is different from Hole #5 from the PRS** (which is about token size leaking information). This is about span attributes leaking information.
+
+**Implementation requirement:**
+- Span attributes MUST NOT include PII fields (email, phone, name) — the story already doesn't include these, but verify
+- Span attributes MUST NOT include raw JWT claims (roles, permissions) — only boolean validation results (typ_valid, sig_valid, etc.)
+- Structured logs MUST NOT include the raw token string or full JWT payload
+- Add a validation step: "Verify that no span attribute or log entry contains PII or sensitive JWT claims"
+- Document: "Span attributes contain only validation result booleans and metadata. No PII, no raw JWT claims, no token strings."
+
+### HACK-912: Span Cardinality DoS via Forced Validation Failures (HIGH — related to Hole #3 from PRS)
+
+**Risk:** Attacker floods the system with invalid JWTs to generate high-span-cardinality traces that exhaust Jaeger/Loki storage
+
+The story says: "At 10,000 RPS, this is 10,000 spans/sec." But what if the attacker sends 100,000 invalid JWTs per second?
+
+**Exploit path (span cardinality DoS):**
+1. Attacker sends 100,000 invalid JWTs per second (each with a different `user_id`, `tenant_id`, `error` combination)
+2. Each request generates a `jwt_validation` span with sub-spans for each check
+3. Each span has unique attributes (different user_id, tenant_id, error)
+4. Jaeger/Loki must store all 100,000 spans/sec with unique cardinality
+5. The observability storage fills up rapidly (e.g., 100,000 spans/sec × 1KB/spans = 100MB/sec = 8.6GB/day)
+6. Result: Observability system exhausted, real attack traces are lost
+
+**Implementation requirement:**
+- Limit span attribute cardinality: if `user_id` or `tenant_id` appears more than 10,000 times per minute, sample those spans (e.g., keep 1 in 100)
+- Or: record span attributes without the user_id/tenant_id for denied requests (high-volume failures don't need user context)
+- Add a metric: `otel_spans_dropped_total` to track when spans are dropped due to cardinality limits
+- Document: "High-volume invalid JWT validations are sampled to prevent span cardinality DoS."
+
+### HACK-913: OTEL Span Data Can Be Used as a Timing Oracle (MEDIUM — related to Hole #4 from PRS)
+
+**Risk:** The OTEL span duration reveals which validation step failed, enabling an attacker to probe the validation pipeline
+
+The story shows: "Each JWT validation creates a top-level span with sub-spans for each check." The span duration includes the time spent in each sub-span.
+
+**Exploit path (validation pipeline timing oracle):**
+1. Attacker sends a JWT with an invalid `typ` claim
+2. The `jwt.typ_check` sub-span returns quickly (string comparison, ~1μs)
+3. The `jwt.signature_verify` sub-span is skipped (typ check failed)
+4. The total span duration is ~10μs
+
+5. Attacker sends a JWT with a valid `typ` but invalid signature
+6. The `jwt.typ_check` sub-span takes ~1μs
+7. The `jwt.signature_verify` sub-span takes ~500μs (crypto operation)
+8. The total span duration is ~500μs
+
+9. Attacker can now distinguish which validation step failed by measuring span duration:
+   - ~10μs → typ failed
+   - ~500μs → signature failed
+   - ~10μs → exp/iss/aud/tenant failed
+
+**Is this useful?** Not directly for privilege escalation, but it helps the attacker map the validation pipeline order and identify which checks are performed before others.
+
+**Implementation requirement:**
+- Add random jitter (±100μs) to each validation sub-span to make timing indistinguishable
+- Or: always run all validation checks (even after a failure) and record the result without timing
+- Document: "Validation sub-span timing includes jitter to prevent timing-based oracle attacks."
+
+### HACK-914: OTEL Configuration Can Be Manipulated to Suppress Error Spans (HIGH — related to Hole #7 from PRS)
+
+**Risk:** An attacker modifies the OTEL configuration to suppress error spans, hiding failed validations from monitoring
+
+The story says: "Spans only appear in Jaeger when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (production)." But what if the OTEL configuration is loaded from an environment variable or config file that the attacker can modify?
+
+**Exploit path (OTEL configuration manipulation):**
+1. Attacker gains access to the service's environment (e.g., via a container escape, or by modifying the Kubernetes configmap)
+2. Attacker modifies `OTEL_EXPORTER_OTLP_ENDPOINT` to point to a malicious OTEL collector
+3. The malicious collector records all spans but suppresses error spans (by filtering on `result=denied`)
+4. Result: Failed JWT validations (which include security events) are invisible to the security team
+5. The attacker can continue their attack without detection
+
+**Implementation requirement:**
+- OTEL configuration MUST be loaded from a secure, immutable source (e.g., mounted ConfigMap with RBAC restrictions)
+- Add a secondary logging path: JWT validation failures MUST be logged to a secure, immutable log stream (separate from OTEL)
+- Document: "JWT validation failures are logged to an immutable log stream in addition to OTEL spans."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Spans are internal to the middleware layer.

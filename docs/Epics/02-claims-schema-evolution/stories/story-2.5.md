@@ -159,9 +159,105 @@ flowchart LR
     E -->|No| G[431 Request Header Fields Too Large]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-251: Token Size Manipulation via Permission Inflation (CRITICAL — Hole #3 from PRS)
+
+**Risk:** Attacker controls a user account with many roles/permissions and causes the token to exceed the 750-byte budget, triggering header rejections
+
+The story says: "Per role, max N permissions. If a role has more, resolution returns top-level role name." But what is `N`? If `N` is too high, a single user could generate a token exceeding the budget.
+
+**Exploit path (permission inflation DoS):**
+1. Attacker compromises an admin account with 50 roles
+2. Each role has 100 permissions (the story says "bounded to 10" but what if this bound is not enforced?)
+3. The login handler issues a token with all 5000 permissions
+4. The token size exceeds 750 bytes
+5. The client sends the token in the `Authorization` header
+6. NGINX rejects with 431 "Request Header Fields Too Large"
+7. The attacker cannot access the system — BUT, this is a self-inflicted DoS
+8. More dangerously: if the token is large enough, it could cause NGINX to reject ALL requests from that IP (header buffer exhaustion)
+
+**The real exploit is different:** What if the attacker creates a legitimate account with many roles (not compromised, but legitimate)?
+
+**Exploit path (legitimate permission bloat):**
+1. Attacker creates an account with 50 roles (allowed by the org management API)
+2. Each role has up to 100 permissions (if the "bounded to 10" rule is not enforced at token generation time)
+3. The token exceeds the budget
+4. The user's legitimate requests are rejected
+5. Result: Denial of service for a legitimate user (but not a security vulnerability per se)
+
+**The actual exploit is different:** What if the token size limit is NOT enforced at build time, and oversized tokens are silently accepted?
+
+**Exploit path (budget bypass via serialization):**
+1. A developer changes the JWT claims struct, adding extra fields
+2. The build-time test is updated to allow up to 8KB (instead of 750 bytes)
+3. Tokens now contain 100+ permissions, 20+ roles
+4. The token size grows to 3-4KB (base64url encoded: ~4-5KB)
+5. This exceeds NGINX's default 1KB header buffer
+6. The token fails at NGINX (431 error), but the service itself accepts it
+7. If the traffic goes through a different proxy with a larger header limit (e.g., 16KB), the oversized token passes
+8. Result: The budget enforcement is bypassed, and the system operates in an unsupported configuration
+
+**Implementation requirement:**
+- The "bounded to 10 permissions per role" rule MUST be enforced at token generation time, NOT just in tests
+- If a user has more than 10 effective permissions, the token generator must either:
+  (a) Truncate to the top 10 most important permissions, OR
+  (b) Use `entitlements_ref` instead of embedding the full permission array
+- The build-time test MUST use a MAXIMUM of 10 permissions per role (not 100) to accurately test the budget
+- The build-time test MUST fail if the budget is exceeded, preventing oversized tokens from being deployed
+- Document: "Token generation truncates permissions to max 10 per role. Build-time test enforces 750-byte budget."
+
+### HACK-252: Token Size as Side-Channel Information Leak (HIGH — related to Hole #5 from PRS)
+
+**Risk:** The token size leaks information about the user's role/permission count to an attacker
+
+The story tracks `token_size_bytes` as a histogram metric. An attacker can measure the size of the access token returned by the login endpoint.
+
+**Exploit path (token size enumeration):**
+1. Attacker logs in as user A → measures token size → 620 bytes
+2. Attacker logs in as user B → measures token size → 710 bytes
+3. Attacker logs in as user C → measures token size → 480 bytes
+4. The attacker concludes: user B has more roles/permissions than A, and C has fewer
+5. Result: The attacker can profile users' privilege levels by measuring token size
+
+**This is a design limitation:** the token contains roles and permissions (which vary in size), and the total token size reveals the approximate count of these fields.
+
+**The risk is limited** because the token size only reveals an approximate count (e.g., 620 bytes ≈ 5-8 roles/permissions), not the exact roles/permissions.
+
+**But combined with other information**, token size can help the attacker target specific users.
+
+**Implementation requirement:**
+- Add padding to tokens to make all tokens approximately the same size:
+  (a) Pad the `scope` claim with dummy scopes to a minimum length (e.g., 200 characters), OR
+  (b) Use a fixed-size `entitlements_ref` format (always 36 characters)
+- If padding is not feasible, document that token size is an intentional design choice: "Token size is proportional to the number of roles/permissions. This is not a security vulnerability because the size only reveals an approximate count, not specific roles."
+- Document: "Token size leaks approximate role/permission count. This is an intentional design trade-off."
+
+### HACK-253: Entitlements Ref Injection Causing Token Bloat (MEDIUM — related to Hole #6 from PRS)
+
+**Risk:** Attacker crafts a JWT with a maliciously long `entitlements_ref` value to inflate the token size beyond the budget
+
+The story says: "Entitlements reference: SHA-256 hash + UUID reference (~76 bytes) instead of full ACL array." But what prevents the `entitlements_ref` from being arbitrarily long?
+
+**Exploit path (entitlements_ref bloat):**
+1. Attacker forges a JWT with `entitlements_ref: "ent_" + "a" × 1000`
+2. The JWT payload grows by ~1000 bytes due to the inflated ref
+3. Total token size: 600 + 1000 = 1600 bytes (exceeds 750-byte budget)
+4. Token fails at NGINX (431 error) OR passes if the proxy has a larger header limit
+5. Result: Budget bypass via long entitlements_ref
+
+**Implementation requirement:**
+- Enforce a maximum `entitlements_ref` length: MAX 64 characters
+- If the entitlements_ref exceeds the maximum → truncate or reject the token
+- Document: "entitlements_ref is limited to 64 characters. Overlong refs are rejected."
+
+---
+
 ## OpenAPI Changes
 
-No OpenAPI changes. Token size is an internal implementation detail. The OpenAPI spec documents the token as a string -- the actual size is not part of the API contract.
+No OpenAPI changes. Token size is an internal implementation detail.
 
 ## Design Doc References
 
