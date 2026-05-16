@@ -1,7 +1,7 @@
 ---
 title: User Entity
-status: partially-verified
-updated: 2026-01-22
+status: verified
+updated: 2026-05-16
 sources: [openapi/*/openapi.yaml, microservices/*/impl/src/models/]
 ---
 
@@ -15,30 +15,20 @@ Single user table with two user types (`customer` | `platform`). No separate tab
 
 Users support multiple authentication methods: password, email OTP, phone OTP, dual OTP (email + phone), social OAuth, and magic links.
 
-## Schema (from OpenAPI specs + design-doc.md)
+## Schema (from impl/ crate — identity-login-service)
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid (PK) | |
-| email | text | Email address |
-| tenant_id | uuid (FK, UK part 1) | **REQUIRED** — partitions data per tenant |
-| email_confirmed | boolean | |
-| phone_number | text (nullable) | |
-| phone_confirmed | boolean | |
-| user_type | text | `customer` or `platform` |
-| first_name | text | |
-| last_name | text | |
-| username | text (nullable) | |
-| picture_url | text | |
-| extra_properties | jsonb | Custom metadata |
-| locked | boolean | Account lockout |
-| enabled | boolean | Soft disable flag |
-| has_password | boolean | Whether password hash exists |
-| password_hash | text | Bcrypt/scrypt hash |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
-| last_active_at | timestamptz | |
-| deleted_at | timestamptz | Soft delete |
+|| Column | Type | Notes |
+||--------|------|-------|
+|| id | uuid (PK) | |
+|| email | varchar(255) | Email address |
+|| password_hash | text | Bcrypt/scrypt hash |
+|| tenant_id | varchar(255) | **REQUIRED** — partitions data per tenant |
+|| email_verified | boolean | Email confirmed via OTP or link |
+|| phone | varchar(64, nullable) | Phone number |
+|| phone_verified | boolean | Phone confirmed via SMS OTP |
+|| status | varchar(32) | Active, suspended, etc. (replaces enabled/locked) |
+|| created_at | timestamptz | |
+|| updated_at | timestamptz | |
 
 ## Multi-Tenancy
 
@@ -48,74 +38,90 @@ Within a single tenant, email is globally unique. Within a multi-application ten
 
 ## Auth Method Flags
 
-| Field | Description |
-|-------|-------------|
-| `has_password` | User can login with email+password |
-| `email_verified` | Email address confirmed (via OTP or link) |
-| `phone_verified` | Phone number confirmed (via SMS OTP) |
-| `social_providers` | JSON array of social providers (google, github, etc.) |
-| `sso_only` | `has_password=false` + SSO-only mode (set via `DELETE /users/{user_id}/password`) |
+|| Field | Description |
+||-------|-------------|
+|| `email_verified` | Email address confirmed (via OTP or link) |
+|| `phone_verified` | Phone number confirmed (via SMS OTP) |
+|| `status` | Active, suspended, etc. (single status field replaces separate enabled/locked flags) |
+
+**Note:** `has_password`, `first_name`, `last_name`, `username`, `picture_url`, `extra_properties`, `deleted_at` are NOT in the impl model. `username` appears only in OpenAPI request/response schemas, not in the database.
 
 ## Key Design Decisions
 
-1. **One user table.** The `user_type` column distinguishes customer from platform users. JWT claim shape differs per type.
-2. **Soft deletes everywhere.** `deleted_at` column allows graceful deletion with auditability.
+1. **Single user table.** User type is distinguished by JWT claim, not a DB column. The `user_type` column from the wiki does not exist in the impl.
+2. **Single status field.** The `status` column (varchar(32)) replaces separate `enabled`/`locked` flags. No soft delete (`deleted_at`) exists.
 3. **Multiple auth methods supported simultaneously.** Users can have password + email OTP + phone OTP + social OAuth active.
 4. **Dual OTP for high security.** Both email and phone must be verified for login (see `POST /login/dual-otp` and `POST /verify/dual-otp`).
 5. **Password clearing for SSO-only.** `DELETE /users/{user_id}/password` removes password, forcing SSO/social login only.
+6. **No PII fields.** `first_name`, `last_name`, `picture_url` are NOT in the database model. `username` exists only in OpenAPI schemas, not in the impl.
 
 ## API Endpoints (User)
 
 | Service | Endpoint | Purpose |
 |---------|----------|---------|
-| identity-login-service | `POST /register` | Create user with email+password |
-| identity-login-service | `POST /login` | Email+password login |
-| identity-login-service | `POST /login/email-otp` | Send email OTP |
-| identity-login-service | `POST /verify/email-otp` | Verify email OTP code |
-| identity-login-service | `POST /login/phone-otp` | Send SMS OTP |
-| identity-login-service | `POST /verify/phone-otp` | Verify SMS OTP code |
-| identity-login-service | `POST /login/dual-otp` | Send OTPs to email + phone |
-| identity-login-service | `POST /verify/dual-otp` | Verify dual OTP codes |
-| identity-login-service | `POST /login/magic-link` | Send magic link (passwordless) |
-| identity-login-service | `POST /login/magic-link/verify` | Verify magic link token |
-| identity-login-service | `POST /login/phone-magic-link` | Send SMS magic link |
-| identity-login-service | `POST /login/phone-magic-link/verify` | Verify SMS magic link |
-| identity-session-service | `GET /api/v1/identity/users/me` | Current user profile |
-| identity-session-service | `PATCH /api/v1/identity/users/me` | Update current user profile |
-| identity-session-service | `POST /api/v1/identity/users/me/token` | Issue direct token (admin) |
-| identity-user-mgmt-service | `POST /users` | Admin create user |
-| identity-user-mgmt-service | `GET /users` | Admin list users |
-| identity-user-mgmt-service | `GET /users/query` | Admin paginated search |
-| identity-user-mgmt-service | `GET /users/email` | Lookup user by email |
-| identity-user-mgmt-service | `GET /users/username` | Lookup user by username |
-| identity-user-mgmt-service | `GET /users/{user_id}` | Get user by ID |
-| identity-user-mgmt-service | `DELETE /users/{user_id}` | Delete user |
-| identity-user-mgmt-service | `PUT /users/{user_id}/email` | Update email |
-| identity-user-mgmt-service | `DELETE /users/{user_id}/password` | Clear password (SSO-only) |
-| identity-user-mgmt-service | `POST /users/{user_id}/mfa/setup` | TOTP setup |
-| identity-user-mgmt-service | `POST /users/{user_id}/mfa/verify` | MFA verify |
-| identity-user-mgmt-service | `POST /users/{user_id}/mfa/disable` | MFA disable |
-| identity-user-mgmt-service | `POST /users/{user_id}/phone` | Add/update phone |
-| identity-user-mgmt-service | `POST /users/{user_id}/phone/verify` | Verify phone |
-| identity-user-mgmt-service | `POST /users/{user_id}/social/link` | Link social account |
-| identity-user-mgmt-service | `GET /users/{user_id}/social/tokens` | List social tokens |
-| identity-user-mgmt-service | `GET /users/{user_id}/social/tokens/{provider}/refresh` | Refresh social token |
-| identity-user-mgmt-service | `POST /users/{user_id}/disable` | Disable user |
-| identity-user-mgmt-service | `POST /users/{user_id}/enable` | Enable user |
-| identity-user-mgmt-service | `POST /users/{user_id}/logout-all-sessions` | Logout all sessions |
-| identity-user-mgmt-service | `POST /users/{user_id}/magiclink` | Admin send magic link |
-| identity-user-mgmt-service | `POST /users/{user_id}/email/verify` | Verify email |
-| identity-user-mgmt-service | `POST /users/{user_id}/resend-email-confirmation` | Resend confirmation |
-| identity-user-mgmt-service | `POST /users/migrate` | Bulk migrate users |
-| identity-user-mgmt-service | `POST /users/migrate-password` | Bulk migrate passwords |
-| identity-session-service | `POST /admin/users/{user_id}/impersonate` | Admin impersonate user |
-| identity-session-service | `POST /admin/users/{user_id}/impersonate/restore` | Restore admin session |
+| identity-login-service | `POST /auth/login` | Login with password |
+| identity-login-service | `POST /auth/login/dual-otp` | Send OTPs to both email and phone simultaneously |
+| identity-login-service | `POST /auth/login/email-otp` | Send email OTP |
+| identity-login-service | `POST /auth/login/magic-link` | Send magic link for passwordless login |
+| identity-login-service | `POST /auth/login/magic-link/verify` | Verify magic link token and complete login |
+| identity-login-service | `POST /auth/login/phone-magic-link` | Send SMS magic link for passwordless login |
+| identity-login-service | `POST /auth/login/phone-magic-link/verify` | Verify SMS magic link token and complete login |
+| identity-login-service | `POST /auth/login/phone-otp` | Send phone SMS OTP |
+| identity-login-service | `POST /auth/logout` | Logout (revoke refresh token) |
+| identity-login-service | `POST /auth/password/forgot` | Request password reset email |
+| identity-login-service | `POST /auth/password/reset` | Confirm password reset with token |
+| identity-login-service | `POST /auth/register` | Register new user with email and password |
+| identity-login-service | `GET /auth/signup/validate` | Validate signup eligibility |
+| identity-login-service | `POST /auth/social/{provider}/callback` | Exchange OAuth provider callback for tokens |
+| identity-login-service | `GET /auth/social/{provider}/login` | Initiate OAuth login with provider |
+| identity-login-service | `POST /auth/token` | Token endpoint (refresh, client_credentials, token_exchange RFC 8693) |
+| identity-login-service | `POST /auth/verify/dual-otp` | Verify dual OTP codes and complete login |
+| identity-login-service | `POST /auth/verify/email-otp` | Verify email OTP and complete login |
+| identity-login-service | `POST /auth/verify/phone-otp` | Verify phone SMS OTP and complete login |
+| identity-login-service | `GET /oauth/authorize` | OAuth2 authorization endpoint |
+| identity-user-mgmt-service | `POST /admin/audit/events` | Get user-specific audit events |
+| identity-user-mgmt-service | `POST /admin/audit/users/{user_id}/events/compliance-export` | Export user's audit events (GDPR) |
+| identity-user-mgmt-service | `GET /admin/audit/users/{user_id}/events/count` | Get user event count |
+| identity-user-mgmt-service | `POST /admin/users` | Create user (idempotent by email) |
+| identity-user-mgmt-service | `GET /admin/users/email` | Fetch user by email |
+| identity-user-mgmt-service | `POST /admin/users/migrate` | Migrate user from external auth system |
+| identity-user-mgmt-service | `POST /admin/users/migrate-password` | Bulk migrate passwords (hash+salt) |
+| identity-user-mgmt-service | `GET /admin/users/query` | Paginated query for users with filters |
+| identity-user-mgmt-service | `GET /admin/users/username` | Fetch user by username |
+| identity-user-mgmt-service | `DELETE /admin/users/{user_id}` | Delete user (irreversible) |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/disable` | Disable/block user |
+| identity-user-mgmt-service | `PUT /admin/users/{user_id}/email` | Change user email |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/email/verify` | Verify user email |
+| identity-user-mgmt-service | `GET /admin/users/{user_id}/employee` | Fetch user in employee mode |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/enable` | Enable/unblock user |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/logout-all-sessions` | Logout all user sessions |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/magiclink` | Send magic link for login |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/mfa/disable` | Disable user 2FA |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/mfa/setup` | Set up TOTP MFA |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/mfa/verify` | Verify MFA code |
+| identity-user-mgmt-service | `DELETE /admin/users/{user_id}/password` | Clear password (convert to SSO-only) |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/phone` | Add phone number for user |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/phone/verify` | Verify phone number |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/resend-email-confirmation` | Resend email confirmation |
+| identity-user-mgmt-service | `POST /admin/users/{user_id}/social/link` | Link social account to user |
+| identity-user-mgmt-service | `GET /admin/users/{user_id}/social/tokens` | Fetch user's OAuth tokens from providers |
+| identity-user-mgmt-service | `GET /admin/users/{user_id}/social/tokens/{provider}/refresh` | Fetch fresh token from provider |
+| identity-user-mgmt-service | `POST /oauth/logout` | OAuth2 logout endpoint |
 
 ## Code Anchors
 
 - `microservices/idam/*/impl/src/models/` — Lifeguard entity definitions per service
 - `openapi/*/openapi.yaml` — API request/response schemas (see per-service `README.md`)
 
-## Gaps / Drift
+## Drift Found (verified 2026-05-16)
 
-> **Open:** Verify actual Lifeguard models in impl crates against design doc schema. Some endpoints (step-up MFA, impersonation, direct token) are newly added to specs — implementations may not exist yet.
+| Wiki Claim | Actual Impl | Impact |
+|------------|-------------|--------|
+| `user_type` column exists | Column does not exist; type is a JWT claim only | Critical — schema reference was wrong |
+| `first_name`, `last_name`, `picture_url`, `extra_properties` | NOT in impl | High — wiki overstates user profile fields |
+| `username` column | Only in OpenAPI schemas, NOT in impl | Medium — DB lookup by username not possible |
+| `locked` / `enabled` separate flags | Single `status` (varchar(32)) column | Medium — status enum replaces boolean flags |
+| `has_password` flag | NOT in impl (password existence inferred from password_hash being non-null) | Low |
+| `deleted_at` soft delete | NOT in impl | Medium — no soft delete support |
+| `last_active_at` | NOT in impl | Low |
+| `tenant_id` is uuid | `tenant_id` is varchar(255), not uuid | Low — type mismatch |

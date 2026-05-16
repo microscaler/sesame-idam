@@ -1,7 +1,7 @@
 ---
 title: Role Entity
-status: partially-verified
-updated: 2026-01-22
+status: verified
+updated: 2026-05-16
 sources: [openapi/org-mgmt/openapi.yaml]
 ---
 
@@ -11,42 +11,48 @@ Owned by: **org-mgmt** (evaluated by authz-core for permission checks)
 
 ## Description
 
-Role model with inheritance support. Roles are per-application, scoped to organizations. Platform-level roles have `organization_id: NULL`.
+Role model. Roles are scoped to organizations (org-scoped). No inheritance or hierarchy support.
 
-## Schema (from OpenAPI)
+**Note:** The wiki previously documented `parent_role_id` inheritance, `tenant_id` scoping, `display_name`, and `is_system` — none of these exist in the impl model.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid (PK) | |
-| tenant_id | uuid (FK) | |
-| organization_id | uuid (FK, nullable) | NULL = platform role |
-| name | text | Internal name |
-| display_name | text | Human-readable name |
-| description | text | |
-| is_system | boolean | System roles cannot be modified/deleted |
-| parent_role_id | uuid (FK, self-ref) | Role inheritance chain |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
+## Schema (from impl/ crate — org-mgmt)
+
+|| Column | Type | Notes |
+||--------|------|-------|
+|| id | uuid (PK) | |
+|| org_id | uuid (FK -> orgs) | Role is org-scoped |
+|| name | varchar(255) | Internal name |
+|| description | text (nullable) | |
+|| created_at | timestamptz | |
+|| updated_at | timestamptz | |
 
 ## RolePermission Association
 
-| Column | Type | Notes |
-|--------|------|-------|
-| role_id | uuid (FK, PK composite) | |
-| permission_id | uuid (FK, PK composite) | |
+|| Column | Type | Notes |
+||--------|------|-------|
+|| role_id | uuid (FK -> roles, PK composite) | |
+|| permission_id | uuid (FK -> permissions, PK composite) | |
 
 ## Key Design Decisions
 
-1. **Per-application roles.** A role belongs to an application and optionally to an organization.
-2. **Role inheritance.** `parent_role_id` creates a hierarchy. Effective permissions are resolved by walking the chain.
-3. **System roles.** `is_system` flag prevents modification of built-in roles (admin, member, etc.).
-4. **Platform vs organization roles.** Platform-level roles (admin, editor) have `organization_id: NULL`.
+1. **Org-scoped roles.** Every role has a non-null `org_id`. There is no concept of platform-level roles (no `organization_id: NULL`).
+2. **No inheritance.** The `parent_role_id` column does NOT exist in the impl. Roles are flat — no hierarchy.
+3. **No system roles.** The `is_system` flag does NOT exist. All roles are user-managed.
+4. **Simple name field.** Only `name` (varchar(255)) — no separate `display_name`.
+5. **Role-permission is many-to-many.** Resolved via RolePermission association table.
 
 ## Code Anchors
 
 - `microservices/idam/org-mgmt/impl/src/models/` — Lifeguard entity definition
 - `openapi/org-mgmt/openapi.yaml` — Role/permission API
 
-## Gaps / Drift
+## Drift Found (verified 2026-05-16)
 
-> **Open:** Verify actual Lifeguard model against OpenAPI spec.
+| Wiki Claim | Actual Impl | Impact |
+|------------|-------------|--------|
+| Role inheritance via `parent_role_id` | Column does NOT exist — roles are flat, no hierarchy | Critical — inheritance feature is missing |
+| `tenant_id` column | NOT in impl — roles are org-scoped only (`org_id`) | High — wiki got scoping wrong |
+| `organization_id: NULL` for platform roles | NOT in impl — `org_id` is non-null FK | High — platform roles don't exist |
+| `display_name` column | NOT in impl (only `name`) | Medium |
+| `is_system` column | NOT in impl (all roles user-managed) | Medium |
+| `description` is text (required) | `description` is text (nullable) | Low — nullable vs required |
