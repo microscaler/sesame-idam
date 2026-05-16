@@ -1,4 +1,4 @@
-# Story 9.2: Implement JWKS Cache Metrics
+# Story 9.2: JWKS Cache Observability Spans
 
 ## Epic
 
@@ -10,256 +10,184 @@ Story 9.2
 
 ## Summary
 
-Implement Prometheus metrics for JWKS caching: `jwks_cache_hit_ratio` tracking the percentage of requests served from the JWKS cache versus fetching from the endpoint, and `jwks_refresh_failures_total` counting failed JWKS fetch attempts. Alert on refresh failures.
+Create OTEL spans for JWKS cache operations using the `tracing` crate. Spans flow through BRRTRouter's existing `otel::init_logging_with_config()` into Jaeger. **DO NOT use Prometheus counters** — BRRTRouter's `brrtrouter_request_duration_seconds` histogram can detect slow JWKS fetches, and structured logs capture failures.
 
 ## Why This Story Exists
 
-The JWT document states: "jwks_cache_hit_ratio -- percentage of requests served from JWKS cache" and "jwks_refresh_failures_total -- count of failed JWKS fetches." JWKS cache is the first layer of token validation -- without it, every request requires an HTTP call. If the cache hit ratio drops below 99%, something is wrong (cache not populating, or background refresh is failing).
+The JWT document requires observability for JWKS cache operations. Without spans, you cannot see in Jaeger how often the cache is hit vs. missed, how long refreshes take, and when refreshes fail. **BRRTRouter already provides HTTP-level metrics** — this story adds JWKS-specific diagnostic spans.
 
 ## Design Context
 
-### Metric Definitions
+### Current State
 
-| Metric | Type | Labels | Purpose |
-|--------|------|--------|---------|
-| `jwks_cache_hit_ratio` | Gauge | None | Percentage of requests served from cache (0.0 to 1.0) |
-| `jwks_refresh_failures_total` | Counter | None | Count of failed JWKS fetch attempts |
-| `jwks_keys_count` | Gauge | None | Number of keys currently cached |
-| `jwks_last_refresh_age_seconds` | Gauge | None | Seconds since last successful refresh |
+- JWKS cache exists in Story 7.1 but creates no observable spans
+- `jwks_refresh_failures` are logged as errors but not traced
+- No visibility into cache hit/miss patterns in traces
 
-### Implementation
+### Span Design
+
+```
+jwt_validation (from Story 9.1)
+└── jwks_cache (sub-span, created when key not found)
+    ├── jwks_cache.hit (if key found)
+    ├── jwks_cache.miss + jwks_cache.refresh (if key not found)
+    │   └── jwks_cache.refresh_success or jwks_cache.refresh_failure
+    └── jwks_cache.stale_accept (if cache stale but within tolerance)
+```
+
+### Implementation Pattern
 
 ```rust
-use prometheus::{register_gauge, register_counter, Gauge, Counter};
-
-static JWKS_CACHE_HITS: Counter = register_counter!(
-    "jwks_cache_hits_total",
-    "Total JWKS cache hits"
-).unwrap();
-
-static JWKS_CACHE_MISSES: Counter = register_counter!(
-    "jwks_cache_misses_total",
-    "Total JWKS cache misses (forced refresh)"
-).unwrap();
-
-static JWKS_REFRESH_FAILURES: Counter = register_counter!(
-    "jwks_refresh_failures_total",
-    "Total JWKS refresh failures"
-).unwrap();
-
-static JWKS_KEYS_COUNT: Gauge = register_gauge!(
-    "jwks_keys_count",
-    "Number of keys currently cached in JWKS cache"
-).unwrap();
-
-static JWKS_LAST_REFRESH_AGE: Gauge = register_gauge!(
-    "jwks_last_refresh_age_seconds",
-    "Seconds since last successful JWKS refresh"
-).unwrap();
-
-// In JWKS cache:
 impl JwksCache {
-    fn on_hit(&self) {
-        JWKS_CACHE_HITS.inc();
+    pub async fn get_key(&self, kid: &str) -> Option<Jwk> {
+        let span = tracing::span!(
+            tracing::Level::DEBUG,
+            "jwks_cache",
+            kid = kid,
+            route = ?"unknown" // passed from middleware
+        );
+        let _guard = span.enter();
+        
+        // Check cache
+        if let Some(key) = self.keys.read().await.get(kid) {
+            span.record("cache_hit", true);
+            span.record("cache_age_seconds", ?self.cache_age());
+            return Some(key.clone());
+        }
+        
+        span.record("cache_hit", false);
+        
+        // Background refresh triggered
+        if let Some(refresh_tx) = self.background_refresh_tx.as_ref() {
+            let _ = refresh_tx.send(RefreshRequest { kid: kid.to_string() });
+            span.record("refresh_triggered", true);
+        }
+        
+        None
     }
     
-    fn on_miss(&self) {
-        JWKS_CACHE_MISSES.inc();
-    }
-    
-    fn on_refresh_failure(&self) {
-        JWKS_REFRESH_FAILURES.inc();
-    }
-    
-    fn on_refresh_success(&self, keys_count: usize) {
-        JWKS_KEYS_COUNT.set(keys_count as f64);
-        JWKS_LAST_REFRESH_AGE.set(0.0);
-    }
-    
-    // Background refresh loop:
-    async fn background_refresh_loop(&self) {
-        loop {
-            tokio::time::sleep(Duration::from_secs(300)).await;  // 5 minutes
-            match fetch_jwks(&self.endpoint).await {
-                Ok(keys) => {
-                    self.replace_cache(keys);
-                    self.on_refresh_success(keys.len());
-                }
-                Err(e) => {
-                    warn!("JWKS refresh failed: {:?}", e);
-                    self.on_refresh_failure();
-                }
+    async fn refresh(&self) -> Result<(), JwksError> {
+        let span = tracing::span!(
+            tracing::Level::INFO,
+            "jwks_cache.refresh",
+            endpoint = self.endpoint
+        );
+        let _guard = span.enter();
+        
+        match self.fetch_jwks().await {
+            Ok(keys) => {
+                span.record("keys_count", keys.len());
+                span.record("result", "success");
+                Ok(())
             }
-            // Update last refresh age continuously
-            JWKS_LAST_REFRESH_AGE.set(
-                tokio::time::Instant::now()
-                    .duration_since(self.last_refresh)
-                    .as_secs_f64()
-            );
+            Err(e) => {
+                span.record("result", "failure");
+                span.record("error", %e);
+                tracing::warn!(
+                    event = "jwks_refresh_failure",
+                    endpoint = self.endpoint,
+                    error = %e,
+                    "JWKS refresh failed"
+                );
+                Err(e)
+            }
         }
     }
 }
 ```
 
-### Alert Thresholds
+### Span Attributes
 
-| Metric | Warning | Critical | Action |
-|--------|---------|----------|--------|
-| `jwks_cache_hit_ratio` | < 95% | < 90% | Investigate cache population |
-| `jwks_refresh_failures_total` | Rate > 0 | Rate > 5/min | Alert: JWKS endpoint unreachable |
-| `jwks_last_refresh_age_seconds` | > 300s (5 min) | > 600s (10 min) | Alert: cache stale |
-| `jwks_keys_count` | != expected | 0 | Alert: no keys cached |
+| Span | Attributes |
+|------|-----------|
+| `jwks_cache` | `kid`, `cache_hit` (bool), `cache_age_seconds` |
+| `jwks_cache.refresh` | `endpoint`, `keys_count`, `result` (success/failure), `error` |
+
+### Structured Log Format (JWKS refresh failure)
+
+```json
+{
+  "event": "jwks_refresh_failure",
+  "endpoint": "https://idam.example.com/.well-known/jwks.json",
+  "error": "connection refused",
+  "service": "identity-login-service",
+  "ts": "2026-05-16T08:30:00Z"
+}
+```
 
 ## Mermaid Diagrams
 
-### JWKS Cache Metrics Flow
+### JWKS Cache Span Tree
 
 ```mermaid
 sequenceDiagram
-    participant Request
+    participant Handler
     participant JWKS as JWKS Cache
-    participant Prometheus
-    participant Grafana
+    participant OTEL as tracing → OTEL
+    participant Endpoint
 
-    Request->>JWKS: Get key
-    alt Cache HIT
-        JWKS->>JWKS: JWKS_CACHE_HITS.inc()
-        JWKS-->>Request: key_1
-    else Cache MISS
-        JWKS->>JWKS: JWKS_CACHE_MISSES.inc()
-        JWKS->>Endpoint: GET /.well-known/jwks.json
-        Endpoint-->>JWKS: keys
-        JWKS->>JWKS: replace_cache()
-        JWKS->>JWKS: JWKS_KEYS_COUNT.set(keys.len())
-        JWKS->>JWKS: JWKS_LAST_REFRESH_AGE.set(0)
-        JWKS-->>Request: key_1
-    end
+    Handler->>JWKS: get_key(kid_1)
+    JWKS->>JWKS: span: jwks_cache
+    JWKS->>JWKS: key found in cache
+    JWKS->>OTEL: record cache_hit=true
+    JWKS-->>Handler: key_1
     
-    Note over Prometheus: Scrape every 15s
-    Prometheus->>Grafana: Time series
-    Grafana->>Grafana: Alert on hit_ratio < 95%
+    Handler->>JWKS: get_key(kid_2)
+    JWKS->>JWKS: span: jwks_cache
+    JWKS->>JWKS: key NOT found
+    JWKS->>OTEL: record cache_hit=false
+    JWKS->>JWKS: span: jwks_cache.refresh
+    JWKS->>Endpoint: GET /.well-known/jwks.json
+    Endpoint-->>JWKS: {keys: [key_1, key_2]}
+    JWKS->>OTEL: record keys_count=2, result=success
+    JWKS-->>Handler: key_2
 ```
 
-### JWKS Cache Health Dashboard
+### Cache Miss Storm (with single-flight)
 
 ```mermaid
 flowchart TD
-    A[JWKS Health Metrics] --> B[jwks_cache_hit_ratio]
-    A --> C[jwks_refresh_failures_total]
-    A --> D[jwks_keys_count]
-    A --> E[jwks_last_refresh_age_seconds]
-    
-    B --> F{Hit ratio >= 95%?}
-    F -->|Yes| G[Healthy]
-    F -->|No| H[Warning: Cache not populating]
-    
-    C --> I{Refresh failures = 0?}
-    I -->|Yes| G
-    I -->|No| J[Critical: Endpoint unreachable]
-    
-    D --> K{Keys > 0?}
-    K -->|Yes| G
-    K -->|No| J
-    
-    E --> L{Age < 300s?}
-    L -->|Yes| G
-    L -->|No| H
-```
-
-### JWKS Fetch Failure Recovery
-
-```mermaid
-flowchart TD
-    A[JWKS refresh fails] --> B{Retry?}
-    B -->|Yes| C[Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s, 60s]
-    C --> D{Max retries reached?}
-    D -->|No| B
-    D -->|Yes| E[Inc jwks_refresh_failures_total]
-    E --> F[Alert: JWKS endpoint unreachable]
-    F --> G[Use stale cache]
-    G --> H{Cache stale tolerance expired?}
-    H -->|No| I[Continue serving stale keys]
-    H -->|Yes| J[Fail all JWT validation]
-    J --> K[Alert: All JWT validation failing]
+    A[1000 concurrent requests for key X] --> B{jwks_cache span}
+    B --> C{Cache hit?}
+    C -->|No| D{In-flight?}
+    D -->|No| E[span: jwks_cache.refresh]
+    D -->|Yes| F[wait on existing refresh]
+    E --> G{Refresh succeed?}
+    G -->|Yes| H[record keys_count=N, result=success]
+    G -->|No| I[record result=failure, log WARN]
+    F --> H
+    F --> I
 ```
 
 ## OpenAPI Changes
 
-No OpenAPI changes. Metrics are internal.
+No OpenAPI changes. Spans are internal.
 
 ## Design Doc References
 
-- `design-doc.md` section 10.11: Caching Strategy -- JWKS cache metrics
-- `design-doc.md` section 10.12: Observability -- jwks_cache_hit_ratio and jwks_refresh_failures_total
+- `design-doc.md` section 10.11: Caching Strategy -- JWKS cache observability
+- BRRTRouter `otel.rs` -- span pattern
 
 ## Wiki Pages to Update/Create
 
-- `topics/topic-observability.md`: Document JWKS cache metrics
+- `topics/topic-observability.md`: JWKS cache spans
 
 ## Acceptance Criteria
 
-- [ ] `jwks_cache_hit_ratio` is tracked (derived from hits vs total requests)
-- [ ] `jwks_refresh_failures_total` counter is incremented on each failed refresh
-- [ ] `jwks_keys_count` gauge reflects current cache size
-- [ ] `jwks_last_refresh_age_seconds` gauge is updated continuously
-- [ ] Alerts configured on: hit_ratio < 95%, refresh_failures > 0, last_refresh_age > 300s, keys_count = 0
-- [ ] Unit tests verify: counter increments on hits/misses/failures, gauge values
+- [ ] `jwks_cache` span created on every key lookup
+- [ ] `jwks_cache.refresh` span created on every background or on-demand refresh
+- [ ] Span attributes record: `kid`, `cache_hit`, `cache_age_seconds`, `keys_count`, `result`, `error`
+- [ ] Refresh failures logged at WARN level with `event: "jwks_refresh_failure"`
+- [ ] Spans appear in Jaeger traces
+- [ ] No Prometheus counters for JWKS cache (use BRRTRouter's `brrtrouter_request_duration_seconds` histogram for latency)
 
 ## Dependencies
 
 - Depends on Story 7.1 (JWKS caching strategy)
+- Depends on Story 9.1 (JWT validation spans — parent span)
 
 ## Risk / Trade-offs
 
-- **Hit ratio calculation**: The hit ratio is derived from two counters (hits / (hits + misses)). This is a computed metric -- Grafana/Prometheus computes it at query time. There is no `jwks_cache_hit_ratio` gauge -- the ratio is calculated as `jwks_cache_hits_total / (jwks_cache_hits_total + jwks_cache_misses_total)`. This is the standard Prometheus pattern.
-- **Alert noise**: `jwks_refresh_failures_total` alerts on any failure. During routine network blips, this may generate false positives. Mitigation: use rate-based alerts (`rate(jwks_refresh_failures_total[5m]) > 0`) instead of absolute counts, and require sustained failures (e.g., 3 consecutive failures) before alerting.
-- **Hit ratio is a derived metric**: The hit ratio is computed at query time as `hits / (hits + misses)` — there is no direct gauge. This means the "hit ratio" metric in Grafana is a query, not a stored value. Tests must verify the underlying counters, not a computed ratio gauge.
-- **Gauge drift**: `jwks_last_refresh_age_seconds` is updated continuously in the background refresh loop. If the background task panics or stops, the gauge freezes at its last value and reports stale age. Tests must verify the gauge is updated even when background refresh fails.
-
-## Tests
-
-### Unit Tests
-
-- [ ] **jwks_cache_hits_total incremented on cache hit**: Given a JWKS cache hit for key kid_1, assert `jwks_cache_hits_total` is incremented by 1
-- [ ] **jwks_cache_misses_total incremented on cache miss**: Given a JWKS cache miss (key not found), assert `jwks_cache_misses_total` is incremented by 1
-- [ ] **jwks_refresh_failures_total incremented on fetch failure**: Given a JWKS fetch fails with a network error, assert `jwks_refresh_failures_total` is incremented by 1
-- [ ] **jwks_keys_count gauge set to number of cached keys**: Given a JWKS refresh returns 5 keys and the cache is replaced, assert `jwks_keys_count` is set to 5.0
-- [ ] **jwks_last_refresh_age_seconds reset to 0 on successful refresh**: Given a JWKS refresh succeeds, assert `jwks_last_refresh_age_seconds` is set to 0.0
-- [ ] **jwks_keys_count gauge is zero when cache is empty**: Given a JWKS cache with no keys (empty response from endpoint), assert `jwks_keys_count` is set to 0.0
-- [ ] **jwks_last_refresh_age_seconds increases over time**: Given a successful refresh at time T0, assert that at time T0 + 10s the gauge reads approximately 10.0 seconds
-- [ ] **Hit ratio calculation from counters**: Given `jwks_cache_hits_total = 950` and `jwks_cache_misses_total = 50`, assert the derived hit ratio is 95.0% (950 / (950 + 50))
-- [ ] **Counter is thread-safe (concurrent hits and misses)**: Given 1000 concurrent JWKS operations (mix of hits and misses), assert the sum of hits + misses equals 1000 — no lost increments
-- [ ] **Gauge set is idempotent**: Given `jwks_keys_count` is set to 5.0 three times in succession, assert the gauge value is 5.0 (not 15.0) — `set()` replaces, unlike `inc()`
-
-### Integration Tests (BDD-style with `rstest_bdd`)
-
-- [ ] **Scenario: Cache hit path emits correct counters**: `given` a JWKS cache with 3 keys → `when` 10 JWT validations arrive for those keys → `then` `jwks_cache_hits_total` is 10, `jwks_cache_misses_total` is 0, and `jwks_keys_count` is 3
-- [ ] **Scenario: Cache miss path triggers refresh and emits metrics**: `given` a JWKS cache with no keys → `when` a JWT validation arrives → `then` `jwks_cache_misses_total` is 1, a JWKS fetch is triggered, and after the fetch succeeds `jwks_keys_count` reflects the new key count
-- [ ] **Scenario: Refresh failure increments failure counter**: `given` the JWKS endpoint is down → `when` the background refresh loop runs → `then` `jwks_refresh_failures_total` is incremented for each failed attempt
-- [ ] **Scenario: All 6 services emit JWKS metrics independently**: `given` all 6 services have a JWKS cache → `when` they each perform JWT validations → `then` each service increments its own counters (verified by scraping each service's `/metrics` endpoint)
-- [ ] **Scenario: Refresh success resets age gauge**: `given` the last JWKS refresh was 300 seconds ago (age gauge = 300) → `when` a background refresh succeeds → `then` `jwks_last_refresh_age_seconds` is reset to 0
-- [ ] **Scenario: Metrics endpoint includes JWKS metrics**: `given` a GET request to `/metrics` on any service → `when` the response is parsed → `then` it contains `jwks_cache_hits_total`, `jwks_cache_misses_total`, `jwks_refresh_failures_total`, `jwks_keys_count`, and `jwks_last_refresh_age_seconds`
-
-### Security Regression Tests
-
-- [ ] **Metrics do not expose JWKS key material**: Assert that `jwks_keys_count` only reports the number of keys, not the key content — a compromised metrics endpoint does not leak JWKS keys
-- [ ] **Refresh failure metric cannot be spoofed by client**: Assert that `jwks_refresh_failures_total` is only incremented by the server-side background refresh loop — a client cannot trigger a refresh failure by sending a malformed request
-- [ ] **Metrics endpoint does not cause resource exhaustion**: Assert that scraping `/metrics` 10,000 times in 1 second does not significantly impact JWT validation latency — gauge reads and counter increments are O(1) and lock-free or use fine-grained locks
-- [ ] **No client input influences metric labels**: Assert that metric labels are fixed (`jwks_cache_hits_total`, `jwks_cache_misses_total`, etc.) and cannot be influenced by client-provided values — no dynamic label injection
-
-### Edge Cases
-
-- [ ] **jwks_keys_count with zero keys from endpoint**: Given the JWKS endpoint returns `{keys: []}`, assert `jwks_keys_count` is set to 0.0 (not skipped or left at previous value)
-- [ ] **jwks_last_refresh_age_seconds during initial startup**: Given the service has just started and no JWKS refresh has occurred yet, assert `jwks_last_refresh_age_seconds` reports a large value or NaN (undefined) — document the initial state
-- [ ] **Counter overflow (u64 max)**: Given `jwks_cache_hits_total` reaches `u64::MAX`, assert it saturates or wraps gracefully — at 10,000 RPS with 99% cache hit, this would take ~58 million years
-- [ ] **Gauge with negative value (impossible but defensive)**: Assert `jwks_keys_count` never goes below 0 — the implementation should enforce a minimum of 0.0 even if the cache count somehow goes negative
-- [ ] **Metrics recorded during background refresh panic**: Given the background refresh task panics, assert that previously recorded gauge values (last_refresh_age) are preserved and not reset to 0 — a panic should not corrupt metric state
-- [ ] **Metrics endpoint under high concurrent load**: Given 10,000 concurrent requests to `/metrics` while 10,000 JWT validations are happening, assert the `/metrics` endpoint completes in <50ms and metrics remain accurate
-
-### Cleanup
-
-- [ ] Metrics registry must be reset between test scenarios using `prometheus::Registry::new()` to prevent cross-test metric contamination
-- [ ] No persistent state is left by counter/gauge operations — all metrics are in-memory so no filesystem cleanup is needed
-- [ ] If tests use a real `/metrics` endpoint, ensure the HTTP server is stopped and restarted between tests to prevent stale metric state
-- [ ] Background refresh task spawned in tests must be cancelled between test scenarios — use `tokio::task::JoinHandle::abort()` to prevent the background loop from modifying metrics of subsequent tests
-- [ ] Mock JWKS endpoint must be isolated per test — each test should configure its own mock server or use different endpoint paths to prevent response pollution
+- **Span overhead**: Each JWKS cache miss creates an additional span. At 100 RPS with 10% miss rate, this is 10 spans/sec — acceptable.
+- **No hit ratio metric**: The hit ratio (hits / (hits + misses)) is NOT tracked as a counter. Use structured logs in Loki for that analysis, or calculate from `brrtrouter_requests_total` and span counts.
+- **Background refresh spans**: The background refresh loop runs independently. Its spans appear in Jaeger as separate traces (not child spans of HTTP requests). This is correct — refreshes are not HTTP request operations.
