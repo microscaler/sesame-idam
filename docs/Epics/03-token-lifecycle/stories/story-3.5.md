@@ -177,6 +177,116 @@ graph TB
     end
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-301: Logout-All Does Not Invalidate Access Tokens (CRITICAL — Hole #9 from PRS)
+
+**Risk:** Attacker retains valid access tokens for 5 minutes after logout-all
+
+The logout-all logic revokes refresh tokens (family tokens in Redis). It does NOT revoke access tokens that were ALREADY issued. An access token with 5-minute TTL remains valid for up to 5 minutes after logout-all.
+
+**Exploit path:**
+1. Attacker steals both refresh token and access token
+2. Attacker uses access token for active sessions
+3. Legitimate user calls `POST /auth/logout {logout_all: true}`
+4. Refresh tokens are revoked — attacker can't get NEW access tokens via refresh
+5. BUT: attacker's existing access token (ver=42) is still valid for up to 5 minutes
+6. Attacker exfiltrates data using the remaining valid access token
+7. Result: 5-minute window of unrevoked access after logout
+
+**Implementation requirement:**
+- On logout-all, add ALL access token jtis from the user's session to the denylist
+- OR bump the token version (Story 5.1) so the version check rejects old access tokens
+- COMPLETE revocation = refresh token revoke + access token jti denylist + version bump
+- Document: "Logout-all MUST perform all three revocation steps or risk leaving access tokens valid"
+
+### HACK-302: Logout-All Does Not Bump Token Version (CRITICAL — Hole #14 from PRS)
+
+**Risk:** Token version never bumped on logout, stale tokens persist
+
+When logout-all is called, the version is NOT bumped. This means access tokens issued BEFORE logout-all remain valid for their full TTL (5 minutes), even though the user has explicitly revoked all sessions.
+
+**Combined fix with HACK-301:**
+- logout-all MUST bump the token version (same as authz change)
+- logout-all MUST add access token JTIs to the denylist
+- This ensures IMMEDIATE revocation of all access tokens, not just refresh tokens
+
+### HACK-303: 204 No Content Prevents Attacker from Verifying Logout Success (MEDIUM)
+
+**Risk:** User cannot verify their logout was effective
+
+The 204 response prevents enumeration (attacker can't tell if token is valid). But a legitimate user who logs out cannot verify that their logout was processed. If the server crashed during logout processing, the user thinks they're safe but attacker still has valid tokens.
+
+**Implementation requirement:**
+- Add audit logging: every logout-all request MUST be logged with user_id, timestamp, and result
+- The 204 is a security trade-off — consider: return generic "logged out" for valid tokens, "token expired" for expired tokens (still doesn't confirm account existence, only token validity)
+
+### HACK-304: Family Registry Corruption Breaks Logout-All (HIGH)
+
+**Risk:** If `user:{user_id}:families` is corrupted/deleted, logout-all silently fails
+
+The logout-all depends on `user:{user_id}:families` to find all sessions. If this key is deleted (accidentally, race condition, or by an attacker with partial Redis access), logout-all iterates over an empty set and returns 204 — user believes all sessions are revoked when they're not.
+
+**Exploit path:**
+1. Attacker gains partial Redis access (misconfigured service account)
+2. Attacker executes `DEL user:{attacker_user}:families`
+3. Attacker continues using stolen tokens — not found in family registry
+4. User calls logout-all — iterates empty set — returns 204
+5. Attacker continues unimpeded
+
+**Implementation requirement:**
+- Implement family registry redundancy: maintain `user:{user_id}:families` with TTL 30 days AND store `family_id` in each `refresh:{jti}` entry
+- On logout-all, if the family registry is missing, fall back to scanning `family:*` keys (slower but safe)
+- Log when fallback scanning is triggered (indicates possible registry corruption)
+
+### HACK-305: Single Logout Leaves Other Sessions' Access Tokens Valid (MEDIUM)
+
+**Risk:** Partial logout leaves attacker with valid access tokens
+
+Single-session logout only revokes the current session's refresh token. Other sessions' refresh tokens AND access tokens remain valid.
+
+**Implementation requirement:**
+- Document clearly: "Single-session logout only affects the current session"
+- If user suspects compromise, they MUST use logout-all
+- Add UI guidance: "If you suspect compromise, log out of all sessions."
+
+### HACK-306: Logout Endpoint Can Enumerate Active Accounts (MEDIUM — documented but incomplete)
+
+**Risk:** 401 vs 204 can confirm account activity status
+
+The 204 response prevents enumeration of whether a user account exists. BUT: if the server returns 401 for an EXPIRED token but 204 for a valid token, an attacker CAN enumerate: they try tokens from a leaked database, and 204 responses indicate "active" accounts (recently used, still in token family).
+
+**Exploit path:**
+1. Attacker has database dump with user IDs and last-known tokens
+2. Attacker tries each token on `/auth/logout`
+3. 204 responses = "active" accounts (token recently used)
+4. 401 responses = "inactive" accounts (expired, revoked, or never existed)
+5. Result: attacker can distinguish active from inactive accounts
+
+**Implementation requirement:**
+- Document trade-off: "401 on invalid tokens leaks whether a token was recently used (active account) vs expired/never used (inactive). This is acceptable because expired tokens are unlikely to be in an attacker's possession."
+- Alternative: return 204 for ALL logout requests (even invalid tokens) to prevent enumeration
+
+### HACK-307: Concurrent Logout-All with Active Refresh Causes State Corruption (HIGH)
+
+**Risk:** Race between logout-all and refresh corrupts family state
+
+**Exploit path:**
+1. Legitimate user calls `POST /auth/logout {logout_all: true}`
+2. At the same time, attacker (with stolen token) calls `POST /auth/refresh {stolen_token}`
+3. Logout-all starts iterating over families and deleting tokens
+4. Refresh reads a family set that's being deleted
+5. Race condition: either the refresh succeeds (deleting an already-deleted token) or the refresh fails with corrupted state
+
+**Implementation requirement:**
+- Use Redis transactions/Lua scripts for atomic logout-all + family revocation
+- The entire logout-all operation must be atomic
+- Implement per-user lock to prevent concurrent logout-all operations
+
+---
+
 ## OpenAPI Changes
 
 Add to `openapi/idam/identity-session-service/openapi.yaml`:
