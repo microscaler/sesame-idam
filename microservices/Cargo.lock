@@ -4280,9 +4280,9 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "sea-query"
-version = "1.0.0-rc.34"
+version = "1.0.0-rc.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7e01d76c67146262612a9db50cbc4b4b3236a96a1f04f1744ef2582234187e2"
+checksum = "93948054fb2d208555a96d03d2c887591deb42ffe3210eedbd8a3234c6fb6d34"
 dependencies = [
  "chrono",
  "inherent",
@@ -4483,26 +4483,33 @@ dependencies = [
 name = "sesame_idam_api_keys"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "arc-swap",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
  "clap",
+ "config",
+ "http 1.4.0",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
  "may",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
  "rust_decimal",
+ "sea-query",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sesame-audit",
  "sesame_idam_api_keys_gen",
  "sesame_idam_database",
  "tikv-jemallocator",
+ "tracing",
  "uuid",
 ]
 
@@ -4531,26 +4538,33 @@ dependencies = [
 name = "sesame_idam_authz_core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "arc-swap",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
  "clap",
+ "config",
+ "http 1.4.0",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
  "may",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
  "rust_decimal",
+ "sea-query",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sesame-audit",
  "sesame_idam_authz_core_gen",
  "sesame_idam_database",
  "tikv-jemallocator",
+ "tracing",
  "uuid",
 ]
 
@@ -4587,26 +4601,32 @@ dependencies = [
 name = "sesame_idam_identity_login_service"
 version = "0.1.0"
 dependencies = [
- "arc-swap",
+ "anyhow",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
  "clap",
+ "config",
+ "http 1.4.0",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
  "may",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
  "rust_decimal",
+ "sea-query",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sesame-audit",
  "sesame_idam_database",
  "sesame_idam_identity_login_service_gen",
  "tikv-jemallocator",
+ "tracing",
  "uuid",
 ]
 
@@ -4635,26 +4655,33 @@ dependencies = [
 name = "sesame_idam_identity_session_service"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "arc-swap",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
  "clap",
+ "config",
+ "http 1.4.0",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
  "may",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
  "rust_decimal",
+ "sea-query",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sesame-audit",
  "sesame_idam_database",
  "sesame_idam_identity_session_service_gen",
  "tikv-jemallocator",
+ "tracing",
  "uuid",
 ]
 
@@ -4683,26 +4710,33 @@ dependencies = [
 name = "sesame_idam_identity_user_mgmt_service"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "arc-swap",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
  "clap",
+ "config",
+ "http 1.4.0",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
  "may",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
  "rust_decimal",
+ "sea-query",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sesame-audit",
  "sesame_idam_database",
  "sesame_idam_identity_user_mgmt_service_gen",
  "tikv-jemallocator",
+ "tracing",
  "uuid",
 ]
 
@@ -4745,26 +4779,33 @@ dependencies = [
 name = "sesame_idam_org_mgmt"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "arc-swap",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
  "clap",
+ "config",
+ "http 1.4.0",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
  "may",
+ "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
  "rust_decimal",
+ "sea-query",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sesame-audit",
  "sesame_idam_database",
  "sesame_idam_org_mgmt_gen",
  "tikv-jemallocator",
+ "tracing",
  "uuid",
 ]
 

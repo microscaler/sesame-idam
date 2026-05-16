@@ -1,5 +1,9 @@
 //! Entity models for identity-session-service.
 
+pub mod entity_registry {
+    include!(concat!(env!("OUT_DIR"), "/entity_registry.rs"));
+}
+
 pub mod impersonation;
 pub mod mcp_agent;
 pub mod mfa_setup;
