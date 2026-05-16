@@ -172,6 +172,121 @@ No OpenAPI changes needed for key generation (internal operation). The `/.well-k
 - `topics/topic-authorization-flow.md`: Note JWKS cache TTL (5 minutes)
 - `topics/topic-token-lifecycle.md`: (new) Document key management lifecycle
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-101: No Key Revocation Mechanism (CRITICAL — Hole #18 from PRS)
+
+**Risk:** Compromised key remains in JWKS indefinitely
+
+The design says: "After the grace period, the old key is removed from JWKS." But there's no mechanism to REVOKE a key mid-grace-period if it's compromised. The only removal path is time-based (grace period).
+
+**Exploit path:**
+1. Private signing key is compromised (memory dump, insider, backup leak)
+2. Attacker has the private key from KeyManager.current_key
+3. The attacker can forge ANY token for ANY user for ANY permission
+4. The compromised key remains in JWKS for up to 30 days (JWT_KEY_ROTATION_INTERVAL)
+5. Result: unlimited privilege escalation for 30 days
+
+**Implementation requirement:**
+- Add a `KeyManager.revoke_key(kid)` method that immediately removes a key from JWKS AND drops the private key from memory
+- Add an admin endpoint (or CLI command) to trigger immediate key revocation: `/admin/jwks/revoke`
+- Add monitoring: alert when `key.age > 7 days` (early revocation opportunity)
+- Document in Risk/Trade-offs: "Key revocation is not yet implemented. Compromised keys remain valid until the grace period expires."
+
+### HACK-102: Service Restart Generates New Key Without Revoking Old (HIGH — Hole #18 from PRS)
+
+**Risk:** Old key silently invalidated — legitimate users affected, but more importantly: no tracking of which tokens were signed by which key
+
+When the service restarts, a new key is generated and the old key is lost (in-memory only). The old key's `kid` is removed from JWKS, and ALL tokens signed by that key become unverifiable until clients fetch a new JWKS.
+
+**Exploit path (more subtle than it looks):**
+1. Attacker obtains a token signed by key `key-2026-05-01`
+2. Service restarts — new key `key-2026-05-02` is generated
+3. Old key is removed from JWKS
+4. Attacker's token is now INVALID (no matching key in JWKS)
+5. BUT: if the attacker was using this token as part of a larger attack (e.g., the only remaining valid token in a token-flood), they lose access — which is good
+6. THE REAL RISK: the old key is lost FOREVER — there's no audit trail of which tokens were signed with it, making forensic analysis impossible
+
+**Implementation requirement:**
+- Log the `kid` of every key generated, rotated, and revoked
+- Implement key persistence to a secure store (e.g., encrypted file, HSM, or KMS) — OR document this as a trade-off: "Private keys are in-memory only; loss on restart means no forensic capability and potential token invalidation"
+
+### HACK-103: No Key Size or Algorithm Enforcement on JWKS Consumers (CRITICAL — Hole #16 from PRS)
+
+**Risk:** Attacker can inject weak keys into JWKS if the JWKS endpoint is compromised
+
+The design says: "ES256 as co-default" and "RS256 is excluded." But there's no enforcement of key properties in the KeyManager:
+- No minimum key size validation
+- No algorithm validation on keys loaded from external sources
+- No validation that ES256 keys use P-256 curve (not a weaker curve)
+
+**Exploit path:**
+1. Attacker controls the JWKS endpoint (via API, config, or supply chain attack)
+2. Attacker publishes a weak key (e.g., ES256 with a different curve, or a trivially factorizable RSA key)
+3. Consumers load the weak key and validate tokens
+4. Attacker crafts tokens that pass validation with the weak key
+
+**Implementation requirement:**
+- Validate key properties in `KeyManager.add_key()`:
+  - ES256: must use P-256 curve
+  - EdDSA: must use Ed25519 (not Curve25519)
+  - Reject keys with known weak parameters (small modulus, weak curves)
+- Validate the `use` claim in JWK (must be `sig`)
+- Validate the `kid` format (must match `key-{year}-{month}-{index}`)
+- Reject keys with `x5c` (certificate chain) to prevent certificate confusion attacks
+
+### HACK-104: No Rate Limiting on JWKS Endpoint (MEDIUM)
+
+**Risk:** Attacker can flood JWKS endpoint to cause DoS or extract key information
+
+The `/.well-known/jwks.json` endpoint is publicly accessible and may be called frequently (EXTREME frequency per service-topology). An attacker can:
+- Flood the endpoint to consume CPU/memory
+- Use it to extract key fingerprints (useful for later token forgery)
+
+**Implementation requirement:**
+- Implement rate limiting on `/.well-known/jwks.json` (e.g., 100 req/min per IP)
+- Consider caching the JWKS response (in-memory) with a TTL of 5 minutes (matching JWKS cache TTL in Story 4.2)
+- Never include private key material in the JWKS response (basic, but must be enforced)
+
+### HACK-105: Key Rotation Without Coordination (MEDIUM)
+
+**Risk:** During rotation, old tokens signed by old key may fail validation if consumers don't check all keys in JWKS
+
+The design says: "During rotation, both old and new keys are available in JWKS." But if a consumer only checks the first key in the JWKS (by `kid` order, not by all keys), tokens signed by the old key during the grace period will fail validation.
+
+**Exploit path:**
+1. Attacker has a valid token signed by old key `key-2026-05-01`
+2. New key `key-2026-05-02` is added to JWKS (appears first in the list)
+3. Consumer validates against `key-2026-05-02` only
+4. Attacker's token is rejected — but the attacker can now flood with valid tokens from the new key
+5. Result: partial service disruption during rotation
+
+**Implementation requirement:**
+- Document that JWKS consumers MUST check ALL keys in the JWKS, not just the first one
+- The `kid` in the JWT header identifies which key was used — consumers should look up by `kid`, not iterate
+- Implement this in Story 4.2's JWKS validation logic
+
+### HACK-106: No HSM or Secure Key Storage (LOW — but documented)
+
+**Risk:** Private key in memory can be dumped via memory scanning, core dumps, or side-channel attacks
+
+The design explicitly states: "Private key is in-memory only." This is a reasonable trade-off for a microservice, but it means:
+- Memory scanning tools can extract the private key
+- Core dumps (if enabled) contain the private key
+- Side-channel attacks on ECDSA signing (timing, power analysis) can extract the key
+
+**Implementation requirement:**
+- Document this as a known limitation
+- Add `ulimit -l memlock` or equivalent to prevent swapping of the process memory (keep private key out of swap)
+- Disable core dumps (`ulimit -c 0`) to prevent key leakage
+- Consider HSM integration in future (Story 8.x)
+
+---
+
 ## Acceptance Criteria
 
 - [ ] A new ES256 key pair is generated at service startup
