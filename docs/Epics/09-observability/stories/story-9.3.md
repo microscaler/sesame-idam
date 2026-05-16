@@ -1,4 +1,4 @@
-# Story 9.3: Implement Authz Fallback Metrics
+# Story 9.3: Authz Fallback Observability Spans
 
 ## Epic
 
@@ -10,240 +10,180 @@ Story 9.3
 
 ## Summary
 
-Implement Prometheus metrics for authz fallback: `authz_fallback_total{route}` counting fallback calls per route, and `authz_fallback_ratio` tracking the ratio of fallback calls to total requests per route. Alert on fallback ratio spikes (indicates JWT common path is not working properly).
+Create OTEL spans for authz fallback operations using the `tracing` crate. Spans flow through BRRTRouter's existing `otel::init_logging_with_config()` into Jaeger. **DO NOT use Prometheus counters** — BRRTRouter's `brrtrouter_requests_total{path, status}` already tracks per-route request counts and authz-core call latency is visible in Jaeger traces.
 
 ## Why This Story Exists
 
-The JWT document states: "authz_fallback_total{route} -- count of fallback calls per route" and "authz_fallback_ratio -- ratio of fallback calls to total requests per route. Alert on fallback ratio spikes (indicates JWT common path is not working)." The fallback ratio is the primary indicator of whether the hybrid authorization model is achieving its goals.
+The JWT document requires observability for the hybrid authorization model. Without spans, you cannot see in Jaeger which routes trigger fallback calls, how often the fallback cache is hit vs. misses, and whether fallback calls are successful. **BRRTRouter already provides HTTP-level metrics** — this story adds authz fallback-specific diagnostic spans.
 
 ## Design Context
 
-### Metric Definitions
+### Current State
 
-| Metric | Type | Labels | Purpose |
-|--------|------|--------|---------|
-| `authz_fallback_total` | Counter | route (path pattern) | Count of online authz calls per route |
-| `authz_fallback_cache_hit_total` | Counter | route | Count of cache hits per route |
-| `authz_fallback_ratio` | Gauge | route | Fallback ratio per route (fallback / total) |
+- Authz fallback cache exists in Story 7.2 but creates no observable spans
+- Fallback cache hit/miss is not traced
+- No visibility into authz-core call success/failure patterns in traces
 
-### Implementation
+### Span Design
+
+```
+jwt_validation (from Story 9.1)
+└── authz_fallback (sub-span, created only for jwt-with-fallback routes)
+    ├── authz_fallback.cache_hit (if cached result returned)
+    └── authz_fallback.call (if authz-core called)
+        └── authz_fallback.call_success or authz_fallback.call_failure
+```
+
+### Implementation Pattern
 
 ```rust
-use prometheus::{register_counter_vec, register_gauge_vec, CounterVec, GaugeVec};
-
-static AUTHZ_FALLBACK_TOTAL: CounterVec = register_counter_vec!(
-    "authz_fallback_total",
-    "Total authz fallback calls per route",
-    &["route"]
-).unwrap();
-
-static AUTHZ_FALLBACK_CACHE_HIT: CounterVec = register_counter_vec!(
-    "authz_fallback_cache_hit_total",
-    "Total authz fallback cache hits per route",
-    &["route"]
-).unwrap();
-
-static AUTHZ_FALLBACK_RATIO: GaugeVec = register_gauge_vec!(
-    "authz_fallback_ratio",
-    "Ratio of fallback calls to total requests per route",
-    &["route"]
-).unwrap();
-
-// In the fallback handler:
-async fn handle_fallback(
-    route: &str,
-    request: &AuthorizeRequest,
-) -> Result<AuthorizeResponse, AuthError> {
-    // Check cache
-    let result = if let Some(cached) = cache.get(route, request) {
-        AUTHZ_FALLBACK_CACHE_HIT.with(&[("route", route)]).inc();
-        Ok(cached)
-    } else {
+impl AuthzFallbackHandler {
+    async fn handle(&self, req: &AuthorizeRequest) -> Result<AuthorizeResponse, AuthError> {
+        let span = tracing::span!(
+            tracing::Level::DEBUG,
+            "authz_fallback",
+            route = req.route,
+            action = req.action
+        );
+        let _guard = span.enter();
+        
+        // Check cache
+        let cache_key = generate_cache_key(&req.subject, &req.org_id, &req.action);
+        if let Some(cached) = self.cache.get(&cache_key).await {
+            span.record("cache_hit", true);
+            span.record("cached_ttl_remaining_secs", ?self.cache_ttl_remaining(&cache_key));
+            return Ok(cached);
+        }
+        
+        span.record("cache_hit", false);
+        
         // Call authz-core
-        let result = authz_client.authorize(request).await?;
-        cache.set(route, request, &result)?;
-        AUTHZ_FALLBACK_TOTAL.with(&[("route", route)]).inc();
-        Ok(result)
-    };
-    
-    // Update ratio (computed periodically, not per-request)
-    update_fallback_ratio(route);
-    
-    result
-}
-
-fn update_fallback_ratio(route: &str) {
-    let total = AUTHZ_FALLBACK_TOTAL
-        .with(&[("route", route)])
-        .get() + AUTHZ_FALLBACK_CACHE_HIT
-        .with(&[("route", route)])
-        .get();
-    
-    let fallback = AUTHZ_FALLBACK_TOTAL
-        .with(&[("route", route)])
-        .get();
-    
-    let ratio = if total > 0 {
-        fallback / total
-    } else {
-        0.0
-    };
-    
-    AUTHZ_FALLBACK_RATIO.with(&[("route", route)]).set(ratio);
+        let call_span = tracing::span!(
+            tracing::Level::INFO,
+            "authz_fallback.call",
+            route = req.route,
+            action = req.action
+        );
+        let _call_guard = call_span.enter();
+        
+        match self.authz_client.authorize(req).await {
+            Ok(result) => {
+                call_span.record("result", "success");
+                // Cache result
+                self.cache.set(&cache_key, &result, ttl).await;
+                Ok(result)
+            }
+            Err(e) => {
+                call_span.record("result", "failure");
+                call_span.record("error", %e);
+                tracing::warn!(
+                    event = "authz_fallback_call_failure",
+                    route = req.route,
+                    action = req.action,
+                    error = %e,
+                    "Authz fallback call failed"
+                );
+                Err(e)
+            }
+        }
+    }
 }
 ```
 
-### Expected Fallback Ratios by Route Type
+### Span Attributes
 
-| Route Type | Expected Fallback Ratio | Rationale |
-|------------|------------------------|-----------|
-| `jwt-only` | 0% | No fallback by design |
-| `jwt-with-fallback` | 5-20% | Fallback only when JWT claims insufficient |
-| `online-only` | 100% | Always fallback |
-| **Overall** | **< 5%** | **Target: >95% of requests handled by JWT common path** |
+| Span | Attributes |
+|------|-----------|
+| `authz_fallback` | `route`, `action`, `cache_hit` (bool), `cached_ttl_remaining_secs` |
+| `authz_fallback.call` | `route`, `action`, `result` (success/failure), `error` |
 
-### Alert Thresholds
+### Structured Log Format (fallback call failure)
 
-| Metric | Warning | Critical | Action |
-|--------|---------|----------|--------|
-| `authz_fallback_ratio` (jwt-with-fallback routes) | > 20% | > 40% | Investigate JWT common path |
-| `authz_fallback_total` (rate) | Spiking | Sustained high | Load spike on authz-core |
-| Overall fallback ratio | > 10% | > 20% | JWT common path not working |
+```json
+{
+  "event": "authz_fallback_call_failure",
+  "route": "/api/v1/identity/preferences",
+  "action": "preferences:write",
+  "error": "authz-core timeout",
+  "service": "identity-user-mgmt-service",
+  "ts": "2026-05-16T08:30:00Z"
+}
+```
 
 ## Mermaid Diagrams
 
-### Fallback Metrics Collection
+### Authz Fallback Span Tree
 
 ```mermaid
 sequenceDiagram
     participant Handler
-    participant Cache
+    participant Fallback as Authz Fallback
+    participant Cache as Redis Cache
     participant Authz as authz-core
-    participant Prometheus
-    participant Grafana
+    participant OTEL
 
-    Handler->>Cache: GET fallback:{route}
+    Handler->>Fallback: handle(request)
+    Fallback->>Fallback: span: authz_fallback
+    Fallback->>Cache: GET authz_fallback:{hash}
     alt Cache HIT
-        Cache-->>Handler: Cached result
-        Handler->>Prometheus: inc authz_fallback_cache_hit_total{route}
+        Cache-->>Fallback: {allowed: true}
+        Fallback->>OTEL: record cache_hit=true
+        Fallback-->>Handler: cached result
     else Cache MISS
-        Cache-->>Handler: nil
-        Handler->>Authz: POST /authorize
-        Authz-->>Handler: {allowed: true}
-        Handler->>Cache: SET fallback:{route} (TTL)
-        Handler->>Prometheus: inc authz_fallback_total{route}
+        Cache-->>Fallback: nil
+        Fallback->>OTEL: record cache_hit=false
+        Fallback->>Fallback: span: authz_fallback.call
+        Fallback->>Authz: POST /authorize
+        Authz-->>Fallback: {allowed: true}
+        Fallback->>OTEL: record result=success
+        Fallback->>Cache: SET with TTL
+        Fallback-->>Handler: fresh result
     end
-    
-    Handler->>Prometheus: update authz_fallback_ratio{route}
-    
-    Note over Prometheus: Scrape every 15s
-    Grafana->>Prometheus: Query fallback ratio
-    Grafana->>Grafana: Alert if ratio > 20%
 ```
 
-### Fallback Ratio by Route Type
+### Fallback Decision Flow
 
 ```mermaid
-pie title Expected Fallback Ratios
-    "jwt-only (0%)" : 30
-    "jwt-with-fallback (5-20%)" : 40
-    "online-only (100%)" : 30
-```
-
-### Fallback Ratio Trend
-
-```mermaid
-graph LR
-    A[Post-migration] --> B[Fallback ratio ~5%<br/>JWT common path working]
-    B --> C{Fallback ratio spikes to 50%?}
-    C -->|Yes| D[Alert: JWT common path not working]
-    C -->|No| B
-    
-    D --> E[Investigate: JWKS cache? Route classification?]
-    E --> F[Fix and verify ratio drops back]
-    F --> B
+flowchart TD
+    A[Request to jwt-with-fallback route] --> B[span: authz_fallback]
+    B --> C{Cache hit?}
+    C -->|Yes| D[record cache_hit=true<br/>return cached result]
+    C -->|No| E[span: authz_fallback.call]
+    E --> F{authz-core response}
+    F -->|Success| G[record result=success<br/>cache result with TTL]
+    F -->|Failure| H[record result=failure<br/>log WARN, return error]
 ```
 
 ## OpenAPI Changes
 
-No OpenAPI changes. Metrics are internal.
+No OpenAPI changes. Spans are internal.
 
 ## Design Doc References
 
-- `design-doc.md` section 10.3: Hybrid Authorization Model -- fallback metrics
-- `design-doc.md` section 10.12: Observability -- authz_fallback_total and authz_fallback_ratio
+- `design-doc.md` section 10.3: Hybrid Authorization Model -- fallback observability
+- BRRTRouter `otel.rs` -- span pattern
 
 ## Wiki Pages to Update/Create
 
-- `topics/topic-observability.md`: Document authz fallback metrics
+- `topics/topic-observability.md`: Authz fallback spans
 
 ## Acceptance Criteria
 
-- [ ] `authz_fallback_total{route}` counter is implemented per route
-- [ ] `authz_fallback_cache_hit_total{route}` counter is implemented per route
-- [ ] `authz_fallback_ratio{route}` gauge is computed per route
-- [ ] Overall fallback ratio < 5% (target: >95% JWT common path)
-- [ ] Per-route fallback ratio < 20% for jwt-with-fallback routes
-- [ ] Alerts on: overall fallback > 10%, per-route fallback > 20%
-- [ ] Unit tests verify: counter increments, ratio calculation, alert thresholds
+- [ ] `authz_fallback` span created for every jwt-with-fallback request
+- [ ] `authz_fallback.call` span created when authz-core is invoked (cache miss)
+- [ ] Span attributes record: `route`, `action`, `cache_hit`, `cached_ttl_remaining_secs`, `result`, `error`
+- [ ] Fallback call failures logged at WARN level with `event: "authz_fallback_call_failure"`
+- [ ] Spans appear in Jaeger traces
+- [ ] No Prometheus counters for fallback (BRRTRouter's `brrtrouter_requests_total` covers HTTP-level)
 
 ## Dependencies
 
 - Depends on Story 4.3 (selective online fallback)
-- Intersects with Story 9.1 (metrics infrastructure)
+- Depends on Story 7.2 (online fallback result cache)
+- Depends on Story 9.1 (JWT validation spans — parent span)
 
-## Risk / Trade-outs
+## Risk / Trade-offs
 
-- **Route label cardinality**: `authz_fallback_total{route}` creates one time series per route. With 133 routes, this creates ~133 time series. This is acceptable -- Prometheus can handle thousands of time series per metric.
-- **Ratio computation**: The ratio is computed by the service periodically (not per-request) to avoid per-request counter division. This means the ratio may be up to 15 seconds stale (scrape interval) when displayed in Grafana. For alerting purposes, this is acceptable.
-- **Baseline calibration**: The expected fallback ratio (5%) is a target based on the JWT document's assumptions. The actual ratio will depend on traffic patterns and route classification. The baseline should be established during migration (shadow mode) before production deployment.
-- **Gauge is overwritten, not incremented**: `authz_fallback_ratio` is a Gauge, not a Counter. It is set to the computed ratio value at each update interval. Tests must verify the set operation, not an increment.
-
-## Tests
-
-### Unit Tests
-
-- [ ] **authz_fallback_total incremented on cache miss**: Given a fallback handler with a cache miss, assert `authz_fallback_total{route="/preferences"}` is incremented by 1
-- [ ] **authz_fallback_cache_hit_total incremented on cache hit**: Given a fallback handler with a cache hit, assert `authz_fallback_cache_hit_total{route="/preferences"}` is incremented by 1
-- [ ] **authz_fallback_ratio computed correctly**: Given `authz_fallback_total{route}=100` and `authz_fallback_cache_hit_total{route}=900`, assert `authz_fallback_ratio{route}=0.1` (10%)
-- [ ] **authz_fallback_ratio is zero when no fallbacks**: Given `authz_fallback_total{route}=0` for a jwt-only route, assert `authz_fallback_ratio{route}=0.0`
-- [ ] **authz_fallback_ratio is 1.0 when all requests are fallbacks**: Given a 100% fallback route (online-only), assert `authz_fallback_ratio{route}=1.0`
-- [ ] **Per-route counters are independent**: Given route A has 50 fallbacks and route B has 10 fallbacks, assert `authz_fallback_total{route=A}=50` and `authz_fallback_total{route=B}=10` — no cross-contamination
-- [ ] **Ratio computation handles division by zero**: Given both counters are 0, assert `authz_fallback_ratio` is set to 0.0 (not NaN or panic)
-- [ ] **Ratio gauge set (not incremented)**: Given `authz_fallback_ratio{route}` is updated from 0.1 to 0.15, assert the gauge reads 0.15 — not 0.25 (set, not inc)
-- [ ] **Route label matches path pattern exactly**: Given a route at path `/api/v1/identity/preferences`, assert the label value is exactly `/api/v1/identity/preferences` (not trimmed, not URL-encoded)
-- [ ] **Counter is thread-safe under concurrent fallbacks**: Given 500 concurrent fallback requests, assert the sum of `authz_fallback_total` across all routes equals 500 — no lost increments
-
-### Integration Tests (BDD-style with `rstest_bdd`)
-
-- [ ] **Scenario: jwt-only route has zero fallbacks**: `given` a request to a jwt-only route (e.g., GET /users/me) → `when` the request is processed → `then` `authz_fallback_total` is 0 for that route (all handled by JWT common path)
-- [ ] **Scenario: jwt-with-fallback route has expected fallback ratio**: `given` 100 requests to a jwt-with-fallback route (PUT /preferences) → `when` the requests are processed → `then` the fallback ratio is between 5% and 20% (some calls require online authz, most are served by JWT claims)
-- [ ] **Scenario: online-only route has 100% fallback**: `given` 50 requests to an online-only route (e.g., POST /am/authorize) → `when` the requests are processed → `then` `authz_fallback_ratio` is 1.0 (all calls go to authz-core)
-- [ ] **Scenario: Cache hit reduces fallback ratio**: `given` the same request pattern hits the fallback cache → `when` repeated requests arrive within the TTL window → `then` `authz_fallback_cache_hit_total` increases while `authz_fallback_total` stays constant, driving the ratio down
-- [ ] **Scenario: Fallback ratio spikes trigger metric alert**: `given` a JWT common path failure causes all requests to fall back → `when` the overall fallback ratio exceeds 10% → `then` the `authz_fallback_ratio` metric reflects the spike and the alerting rule fires
-- [ ] **Scenario: All 6 services report fallback metrics independently**: `given` requests arrive across all 6 services → `when` the metrics are scraped → `then` each service reports its own per-route fallback counters
-- [ ] **Scenario: Metrics endpoint includes fallback metrics**: `given` a GET to `/metrics` → `when` the response is parsed → `then` it contains `authz_fallback_total{route=...}`, `authz_fallback_cache_hit_total{route=...}`, and `authz_fallback_ratio{route=...}`
-
-### Security Regression Tests
-
-- [ ] **Fallback ratio metric cannot be manipulated by client**: Assert that a client cannot influence `authz_fallback_ratio` — it is computed from server-side counters, not influenced by request content
-- [ ] **No route label injection**: Assert that route label values are derived from the server's route table and cannot be injected by client input — a client cannot create arbitrary label values like `authz_fallback_total{route="admin:drop_table"}`
-- [ ] **Fallback counter does not leak authorization decisions**: Assert that `authz_fallback_total` only counts the number of fallback calls — it does not reveal whether the fallback returned "allowed" or "denied"
-- [ ] **Metrics endpoint does not expose route enumeration to unauthenticated users**: Assert that a scraping of `/metrics` by an unauthenticated user reveals route labels but not the business data behind them — route names alone are acceptable disclosure
-
-### Edge Cases
-
-- [ ] **Fallback metric with 133 unique routes**: Given all 133 routes have at least one request, assert `authz_fallback_total` has 133 distinct `route` label values — no label collision or truncation
-- [ ] **Fallback ratio gauge with floating-point precision**: Given a fallback ratio of 1/3 (0.33333...), assert the gauge stores the correct floating-point value without precision loss that would affect alerting thresholds
-- [ ] **Counter overflow (u64 max)**: Given `authz_fallback_total{route}` reaches `u64::MAX`, assert it saturates gracefully — at 10,000 RPS this would take ~58 million years
-- [ ] **Route with special characters in path**: Given a route path like `/api/v1/auth/callback/github`, assert the label value is correctly escaped in the Prometheus text format
-- [ ] **Ratio update during counter modification**: Given a fallback ratio update runs simultaneously with a counter increment, assert no data race — the gauge read uses the current counter values at the moment of computation
-- [ ] **Fallback metric for non-existent route**: Given a request for a route not in the route policy store, assert the fallback handler either uses a default label (e.g., `route="unknown"`) or skips metrics — document the policy
-
-### Cleanup
-
-- [ ] Metrics registry must be reset between test scenarios using `prometheus::Registry::new()` to prevent cross-test metric contamination
-- [ ] No persistent state is left by counter/gauge operations — all metrics are in-memory so no filesystem cleanup is needed
-- [ ] If tests use a real `/metrics` endpoint, ensure the HTTP server is stopped and restarted between tests to prevent stale metric state
-- [ ] Mock authz-core responses must be isolated per test — each test should configure its own mock server or use different response expectations to prevent response pollution
-- [ ] Route policy store must be isolated per test — each test should use its own route classification to prevent cross-test route label contamination
+- **Span volume**: Each jwt-with-fallback request creates a span. At 100 RPS, this is 100 spans/sec — acceptable for OTEL batch exporters.
+- **No fallback ratio metric**: The fallback ratio (fallback calls / total requests) is NOT tracked as a counter. Use Jaeger to filter by `authz_fallback.call` spans and calculate ratios manually during migration.
+- **Cache TTL visibility**: `cached_ttl_remaining_secs` is a best-effort attribute — it reflects the time at span creation, not at span completion. For precise TTL tracking, use Prometheus (which we're not doing).
