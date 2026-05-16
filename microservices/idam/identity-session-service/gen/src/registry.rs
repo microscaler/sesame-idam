@@ -36,6 +36,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "step_up_verify",
+        crate::controllers::step_up_verify::StepUpVerifyController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "users_me_get",
         crate::controllers::users_me_get::UsersMeGetController,
         20480,
@@ -100,12 +106,6 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         crate::controllers::auth_refresh::AuthRefreshController,
         20480,
     );
-
-    dispatcher.register_typed_with_stack_size(
-        "step_up_verify",
-        crate::controllers::step_up_verify::StepUpVerifyController,
-        20480,
-    );
 }
 
 /// Dynamically register handlers for the provided routes using their handler names.
@@ -152,6 +152,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "admin_restore_impersonation" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::admin_restore_impersonation::AdminRestoreImpersonationController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "step_up_verify" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::step_up_verify::StepUpVerifyController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -240,14 +248,6 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_refresh" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_refresh::AuthRefreshController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "step_up_verify" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::step_up_verify::StepUpVerifyController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

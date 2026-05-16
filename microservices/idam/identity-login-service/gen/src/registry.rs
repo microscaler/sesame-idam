@@ -12,12 +12,6 @@ use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 #[allow(dead_code)]
 pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
-        "auth_forgot_password",
-        crate::controllers::auth_forgot_password::AuthForgotPasswordController,
-        20480,
-    );
-
-    dispatcher.register_typed_with_stack_size(
         "auth_login",
         crate::controllers::auth_login::AuthLoginController,
         20480,
@@ -72,20 +66,20 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
-        "oauth_authorize",
-        crate::controllers::oauth_authorize::OauthAuthorizeController,
-        24576,
-    );
-
-    dispatcher.register_typed_with_stack_size(
-        "auth_register",
-        crate::controllers::auth_register::AuthRegisterController,
+        "auth_forgot_password",
+        crate::controllers::auth_forgot_password::AuthForgotPasswordController,
         20480,
     );
 
     dispatcher.register_typed_with_stack_size(
         "auth_reset_password",
         crate::controllers::auth_reset_password::AuthResetPasswordController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "auth_register",
+        crate::controllers::auth_register::AuthRegisterController,
         20480,
     );
 
@@ -130,6 +124,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         crate::controllers::verify_phone_otp::VerifyPhoneOtpController,
         20480,
     );
+
+    dispatcher.register_typed_with_stack_size(
+        "oauth_authorize",
+        crate::controllers::oauth_authorize::OauthAuthorizeController,
+        24576,
+    );
 }
 
 /// Dynamically register handlers for the provided routes using their handler names.
@@ -149,14 +149,6 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
     for route in routes {
         // JSF P0-2: Use as_ref() for Arc<str> -> &str conversion
         match route.handler_name.as_ref() {
-            "auth_forgot_password" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::auth_forgot_password::AuthForgotPasswordController,
-                    20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
             "auth_login" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_login::AuthLoginController,
@@ -229,17 +221,9 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
-            "oauth_authorize" => {
+            "auth_forgot_password" => {
                 let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::oauth_authorize::OauthAuthorizeController,
-                    24576,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
-            "auth_register" => {
-                let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::auth_register::AuthRegisterController,
+                    crate::controllers::auth_forgot_password::AuthForgotPasswordController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -248,6 +232,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_reset_password" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_reset_password::AuthResetPasswordController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "auth_register" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::auth_register::AuthRegisterController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -305,6 +297,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::verify_phone_otp::VerifyPhoneOtpController,
                     20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "oauth_authorize" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::oauth_authorize::OauthAuthorizeController,
+                    24576,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

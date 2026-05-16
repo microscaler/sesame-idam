@@ -5,8 +5,6 @@
 
 pub mod types;
 
-pub mod auth_forgot_password;
-
 pub mod auth_login;
 
 pub mod login_dual_otp;
@@ -25,11 +23,11 @@ pub mod login_phone_otp;
 
 pub mod auth_logout;
 
-pub mod oauth_authorize;
-
-pub mod auth_register;
+pub mod auth_forgot_password;
 
 pub mod auth_reset_password;
+
+pub mod auth_register;
 
 pub mod signup_validate;
 
@@ -44,3 +42,5 @@ pub mod verify_dual_otp;
 pub mod verify_email_otp;
 
 pub mod verify_phone_otp;
+
+pub mod oauth_authorize;

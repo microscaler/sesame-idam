@@ -11,6 +11,8 @@ pub mod admin_impersonate;
 
 pub mod admin_restore_impersonation;
 
+pub mod step_up_verify;
+
 pub mod users_me_get;
 
 pub mod users_me_patch;
@@ -32,5 +34,3 @@ pub mod mcp_token;
 pub mod mcp_validate;
 
 pub mod auth_refresh;
-
-pub mod step_up_verify;

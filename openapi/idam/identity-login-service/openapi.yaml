@@ -16,9 +16,9 @@ info:
   contact:
     name: Platform / Security
 servers:
-- url: /auth
+- url: /idam/v1
   description: Login Service API
-- url: /api/v1/identity-login-service
+- url: /idam/v1
   description: Identity Login Service API
 tags:
 - name: AuthFlows
@@ -37,7 +37,7 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /login:
+  /idam/v1/auth/login:
     post:
       tags:
       - AuthFlows
@@ -137,7 +137,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call for user login
       x-brrtrouter-impl: true
-  /login/email-otp:
+  /idam/v1/auth/login/email-otp:
     post:
       tags:
       - AuthFlows
@@ -200,7 +200,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP
       x-brrtrouter-impl: true
-  /verify/email-otp:
+  /idam/v1/auth/verify/email-otp:
     post:
       tags:
       - AuthFlows
@@ -275,7 +275,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify OTP
       x-brrtrouter-impl: true
-  /login/phone-otp:
+  /idam/v1/auth/login/phone-otp:
     post:
       tags:
       - AuthFlows
@@ -332,7 +332,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to phone
       x-brrtrouter-impl: true
-  /verify/phone-otp:
+  /idam/v1/auth/verify/phone-otp:
     post:
       tags:
       - AuthFlows
@@ -402,7 +402,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify phone OTP
       x-brrtrouter-impl: true
-  /login/dual-otp:
+  /idam/v1/auth/login/dual-otp:
     post:
       tags:
       - AuthFlows
@@ -467,7 +467,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to email+phone
       x-brrtrouter-impl: true
-  /verify/dual-otp:
+  /idam/v1/auth/verify/dual-otp:
     post:
       tags:
       - AuthFlows
@@ -553,7 +553,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify dual OTP
       x-brrtrouter-impl: true
-  /register:
+  /idam/v1/auth/register:
     post:
       tags:
       - AuthFlows
@@ -627,7 +627,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call for new user registration
       x-brrtrouter-impl: true
-  /token:
+  /idam/v1/auth/token:
     post:
       tags:
       - Sessions
@@ -703,7 +703,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to refresh token or exchange OAuth code
       x-brrtrouter-impl: true
-  /forgot-password:
+  /idam/v1/auth/password/forgot:
     post:
       tags:
       - PasswordReset
@@ -771,7 +771,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to request password reset
       x-brrtrouter-impl: true
-  /reset-password:
+  /idam/v1/auth/password/reset:
     post:
       tags:
       - PasswordReset
@@ -826,7 +826,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to reset password with token
       x-brrtrouter-impl: true
-  /logout:
+  /idam/v1/auth/logout:
     post:
       tags:
       - Sessions
@@ -876,7 +876,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to logout current session
       x-brrtrouter-impl: true
-  /social/{provider}/login:
+  /idam/v1/auth/social/{provider}/login:
     get:
       tags:
       - SocialLogin
@@ -934,7 +934,7 @@ paths:
           content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to initiate OAuth login flow
-  /social/{provider}/callback:
+  /idam/v1/auth/social/{provider}/callback:
     post:
       tags:
       - SocialLogin
@@ -1009,7 +1009,7 @@ paths:
       x-consumer: external-provider
       x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not frontend
       x-brrtrouter-impl: true
-  /oauth/authorize:
+  /idam/v1/oauth/authorize:
     get:
       tags:
       - Sessions
@@ -1092,7 +1092,7 @@ paths:
           content: *id005
       x-consumer: frontend
       x-consumer-note: OAuth authorization endpoint called by frontend browser
-  /signup/validate:
+  /idam/v1/auth/signup/validate:
     get:
       tags:
       - Signup
@@ -1150,7 +1150,7 @@ paths:
           content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to validate signup data (email/username availability)
-  /login/magic-link:
+  /idam/v1/auth/login/magic-link:
     post:
       tags:
       - Passwordless
@@ -1206,7 +1206,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send magic link to email
       x-brrtrouter-impl: true
-  /login/magic-link/verify:
+  /idam/v1/auth/login/magic-link/verify:
     post:
       tags:
       - Passwordless
@@ -1270,7 +1270,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify magic link token
       x-brrtrouter-impl: true
-  /login/phone-magic-link:
+  /idam/v1/auth/login/phone-magic-link:
     post:
       tags:
       - Passwordless
@@ -1325,7 +1325,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send magic link to phone
       x-brrtrouter-impl: true
-  /login/phone-magic-link/verify:
+  /idam/v1/auth/login/phone-magic-link/verify:
     post:
       tags:
       - Passwordless

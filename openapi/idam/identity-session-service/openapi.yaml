@@ -14,9 +14,9 @@ info:
   contact:
     name: Platform / Security
 servers:
-- url: /auth
+- url: /idam/v1
   description: Session Service API
-- url: /.well-known
+- url: /idam/v1
   description: OIDC/JWKS discovery
 tags:
 - name: Sessions
@@ -33,7 +33,7 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /refresh:
+  /idam/v1/session/refresh:
     post:
       tags:
       - Sessions
@@ -117,7 +117,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to refresh access token
       x-brrtrouter-impl: true
-  /api/v1/identity/users/me:
+  /idam/v1/identity/me:
     get:
       tags:
       - Identity
@@ -242,7 +242,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to update current user profile
       x-brrtrouter-impl: true
-  /.well-known/openid-configuration:
+  /idam/v1/.well-known/openid-configuration:
     get:
       tags:
       - Discovery
@@ -278,7 +278,7 @@ paths:
           content: *id004
       x-consumer: frontend
       x-consumer-note: Public OpenID Connect discovery endpoint, no auth required
-  /.well-known/jwks.json:
+  /idam/v1/.well-known/jwks.json:
     get:
       tags:
       - Discovery
@@ -320,7 +320,7 @@ paths:
           content: *id004
       x-consumer: frontend
       x-consumer-note: Public JWKS endpoint for token verification, no auth required
-  /api/v1/identity/users/me/userinfo:
+  /idam/v1/identity/userinfo:
     get:
       tags:
       - Sessions
@@ -361,7 +361,7 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to get user info from OAuth token
-  /verify/step-up:
+  /idam/v1/auth/verify/step-up:
     post:
       tags:
       - StepUp
@@ -439,7 +439,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify step-up authentication
       x-brrtrouter-impl: true
-  /api/v1/identity/users/me/token:
+  /idam/v1/identity/me/token:
     post:
       tags:
       - TokenIssuance
@@ -502,7 +502,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin issues tokens on behalf of user'
       x-brrtrouter-impl: true
-  /mcp/token:
+  /idam/v1/mcp/token:
     post:
       tags:
       - MCP
@@ -552,7 +552,7 @@ paths:
       x-consumer: agent
       x-consumer-note: 'Agent-only: Generate token for MCP agent, never from browser'
       x-brrtrouter-impl: true
-  /mcp/token/validate:
+  /idam/v1/mcp/token/validate:
     post:
       tags:
       - MCP
@@ -601,7 +601,7 @@ paths:
       x-consumer: agent
       x-consumer-note: 'Agent-only: Validate MCP agent token, never from browser'
       x-brrtrouter-impl: true
-  /api/v1/platform/mcp/agents:
+  /idam/v1/mcp/agents:
     get:
       tags:
       - MCP
@@ -705,7 +705,7 @@ paths:
       x-consumer: agent
       x-consumer-note: 'Agent-only: Create MCP agent for user, never from browser'
       x-brrtrouter-impl: true
-  /api/v1/platform/mcp/agents/{agent_id}:
+  /idam/v1/mcp/agents/{agent_id}:
     get:
       tags:
       - MCP
@@ -788,7 +788,7 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: agent
       x-consumer-note: 'Agent-only: Delete MCP agent, never from browser'
-  /admin/impersonate:
+  /idam/v1/admin/impersonate:
     post:
       tags:
       - Impersonation
@@ -851,7 +851,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin impersonate user session'
       x-brrtrouter-impl: true
-  /admin/impersonate/restore:
+  /idam/v1/admin/impersonate/restore:
     post:
       tags:
       - Impersonation
