@@ -93,6 +93,50 @@ flowchart TD
     I --> E
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-109: HS256 Can Be Enabled in Production via Dev Mode (CRITICAL — Hole #1 from PRS)
+
+**Risk:** Attacker enables dev mode in production to use HS256, then forges tokens
+
+The story says: "Consider providing a 'dev mode' flag that allows HS256 but only in development configurations (not production)."
+
+**Exploit path:**
+1. Attacker discovers the dev mode flag (e.g., via configuration or source code)
+2. Attacker sets `DEV=true` in production (if the flag is not properly gated)
+3. The service now accepts HS256 tokens
+4. Attacker forges an HS256 token using the shared secret (if the secret is known or weak)
+5. The forged token is accepted by ALL services that share the same JWT_SECRET
+
+**Implementation requirement:**
+- The dev mode flag MUST be GATED by the build configuration: `cfg(debug_assertions)` or a separate `DEV` build feature that is NEVER compiled in production
+- Even if `DEV=true` is set in production environment variables, HS256 must be rejected
+- Document: "Dev mode HS256 support is compiled ONLY in debug builds. Production builds (release) have NO HS256 code path, regardless of configuration."
+
+### HACK-110: Deprecation Phase 2 Returns 400 Instead of 401 (MEDIUM — related to Hole #4 from PRS)
+
+**Risk:** Returning 400 (bad request) instead of 401 (unauthorized) leaks information about the deprecation
+
+The story says: "Phase 2: HS256 requests return 400 with deprecation message."
+
+**Exploit path:**
+1. Attacker knows HS256 is deprecated (Phase 2)
+2. Attacker submits an HS256 token
+3. The service returns 400 with a message like "HS256 is deprecated. Please migrate to ES256."
+4. This confirms to the attacker that HS256 was ACCEPTED in Phase 1 (it was validated, just warned about)
+5. If the service returned 401 instead, the attacker would know the token was rejected for a different reason (invalid, not deprecated)
+
+**The real risk is lower in Phase 2:** The service rejects HS256 tokens, so the attacker can't forge tokens. But the 400 response leaks information about the service's deprecation status.
+
+**Implementation requirement:**
+- Return 401 (not 400) with `algorithm_not_allowed` reason, regardless of deprecation phase
+- The deprecation warning is LOGGED server-side, not returned to the client
+- Document: "HS256 rejection returns 401 with reason `algorithm_not_allowed`, consistent with other algorithm rejections. The 400 response in Phase 2 should only apply to signing requests (creating new tokens), not validation requests (checking existing tokens)."
+
+---
+
 ## OpenAPI Changes
 
 - Remove HS256 from the list of supported signing algorithms in all OpenAPI specs
