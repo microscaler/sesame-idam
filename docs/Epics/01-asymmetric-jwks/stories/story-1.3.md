@@ -228,9 +228,223 @@ graph TB
     IS -->|serves JWKS| IU
 ```
 
-## OpenAPI Changes
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
 
-No OpenAPI changes needed for validation (internal operation). However, the OpenAPI specs should document that all protected endpoints accept `Bearer` tokens validated via JWKS, not just API keys.
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-101: JWKS Poisoning via Cache Update (CRITICAL — Hole #1 from PRS)
+
+**Risk:** Attacker replaces the legitimate JWKS with one containing their own public key, then signs tokens with the corresponding private key
+
+The story says: "On refresh failure: retain the old set." But what about a SUCCESSFUL refresh that returns a POISONED JWKS?
+
+**Exploit path:**
+1. Attacker compromises identity-session-service OR intercepts the JWKS fetch request (MITM)
+2. Attacker serves a poisoned JWKS with their own EC key (not in the original key set)
+3. Attacker generates a private key corresponding to the poisoned public key
+4. Attacker signs a JWT with their private key, setting `kid` to the poisoned key's `kid`
+5. All services that just refreshed their JWKS cache accept the attacker's token
+6. Result: Full authentication bypass across all services
+
+**Implementation requirement:**
+- The JWKS refresh MUST validate that the new key set contains AT LEAST ONE key that was also in the previous key set (anti-poisoning measure)
+- If the new JWKS contains ZERO keys from the old set → reject the refresh → retain old set
+- Log a CRITICAL alert: "JWKS refresh contains zero keys from previous set — possible poisoning"
+- Additionally: verify the JWKS response is signed (e.g., with TLS pinning or a separate HMAC)
+
+### HACK-102: JWKS Refresh Fails Open — Stale Keys Accept Forged Tokens (CRITICAL — Hole #1 from PRS)
+
+**Risk:** If identity-session-service is down, services fall back to stale JWKS, which an attacker can exploit
+
+The story says: "On JWKS fetch fails at startup: Log error, return 503, use cached keys from previous run." And: "JWKS refresh failure retains the old key set."
+
+**Exploit path:**
+1. identity-session-service goes down (DDoS, crash, or attacker takes it down)
+2. All services retain their cached JWKS keys from the last successful refresh
+3. The cached keys might be from 5 minutes ago
+4. If a key rotation happened during those 5 minutes, the cached keys are OUTDATED
+5. Any token signed with the NEW private key (current key) would be REJECTED by stale caches
+6. BUT: if the attacker controls a key from the rotation window (they caused the rotation, or intercepted the new key), they can sign tokens with it
+
+**This is partially mitigated by:**
+- Key rotation has an overlap window (current + next keys visible in JWKS)
+- The grace period keeps old keys in JWKS for a while
+
+**But what if the attacker can cause a key rotation and then keep identity-session-service down?** The services retain old cached keys that don't include the new key. The attacker signs with the new key → all services reject it → denial of service.
+
+**The real exploit is different:** What if the attacker CAUSES a key rotation, captures the new private key during rotation, and THEN takes down identity-session-service?
+
+1. Attacker triggers key rotation → new key generated
+2. Attacker exfiltrates the new private key from identity-session-service (via a vulnerability or compromised host)
+3. Attacker takes down identity-session-service
+4. Services retain old cached JWKS → they can't verify tokens signed with the new key
+5. Attacker signs tokens with the new private key → services reject them → DoS
+
+**Wait — this is self-inflicted DoS, not privilege escalation.** The attacker can't sign with the old key because they don't have the old private key (it was rotated out).
+
+**The real exploit is when the attacker has BOTH keys.** If the attacker compromises identity-session-service DURING the overlap window, they can get both the old and new private keys, then take down identity-session-service and sign tokens with either key.
+
+**Implementation requirement:**
+- The JWKS refresh MUST validate that at least one key in the new set matches a key in the old set (HACK-101)
+- But this doesn't help if the attacker has the old private key AND takes down the service
+- The only defense is: never store private keys on disk (in-memory only) and restrict access to identity-session-service
+- Document: "Private keys are NEVER stored on disk. They exist only in memory and are rotated via the KeyManager."
+
+### HACK-103: `extract_jti` Helper Bypasses Signature Validation (CRITICAL — F-002 from PRS)
+
+**Risk:** Attacker forges a JWT that passes the jti denylist check but has an invalid signature
+
+The story explicitly warns about `extract_jti`: "The existing repo's `extract_jti` helper that disables signature validation to pre-check denylists MUST be removed or deprecated."
+
+**Exploit path:**
+1. Attacker forges a JWT with any `jti` value they want (no valid signature needed)
+2. The forged JWT has `jti = "tok_existing_valid"` (a real, non-revoked jti)
+3. The validation pipeline calls `extract_jti` FIRST to check the denylist
+4. `extract_jti` extracts the `jti` WITHOUT verifying the signature
+5. The denylist check passes (`tok_existing_valid` is not revoked)
+6. The pipeline proceeds to step 5 (signature verification) and REJECTS the token
+7. BUT: some services might use `extract_jti` as a PRE-filter and skip further validation if the denylist check fails
+
+**Wait — the story says:** "Steps 6-10 operate on established trust. The `extract_jti` helper inverts this and MUST be eliminated."
+
+**The real exploit:** If `extract_jti` is used as a trust decision (step 7), and step 5 (signature verification) is SKIPPED or DEFERRED, the attacker's forged token passes.
+
+**Exploit path (deferral to a bug):**
+1. `extract_jti` is used to pre-filter denylist checks (optimization)
+2. A bug in the pipeline causes step 5 (signature verification) to be SKIPPED for some code paths
+3. Attacker forges a token with `jti = "non_revoked_jti"`
+4. `extract_jti` extracts the jti without signature → denylist check passes
+5. Step 5 is skipped due to the bug
+6. Token is ACCEPTED
+
+**Implementation requirement:**
+- REMOVE `extract_jti` from production code entirely. Do NOT retain it.
+- If retained as an optimization, it MUST be behind a feature flag `DISABLE_EXTRACT_JTI=true` by default
+- It MUST have a clear comment: "WARNING: signature validation disabled. Do NOT use as trust decision path."
+- The canonical `validate_jti` check (step 7) MUST always follow step 5 (signature verification)
+- Audit ALL code paths to ensure step 5 is NEVER skipped
+
+### HACK-104: JWKS Refresh Fails Open — Old Keys Accept Tokens Signed with Rotated Key (HIGH — related to Hole #1 from PRS)
+
+**Risk:** During key rotation, old cached keys might accept tokens signed with a NEW private key
+
+The story says: "During rotation, both old and new keys are visible." But the JWKS cache TTL is 5 minutes, and the refresh cycle is 4 minutes. If a token is signed with the NEW key (which just became active), but a service's JWKS cache still has the OLD key set, the token will be REJECTED (kid not found in cache).
+
+**This is a denial of service, not a security breach.** The token is signed with a valid key but rejected because the cache is stale.
+
+**The reverse exploit is more dangerous:** What if the service's cache has the NEW key (it was refreshed), but the NEW key is a POISONED key (HACK-101)?
+
+This is covered in HACK-101. The key takeaway: **JWKS cache staleness causes false rejections (DoS), not false accepts (security breach). The security breach comes from JWKS poisoning.**
+
+### HACK-105: Audience Mismatch Allows Cross-Service Token Reuse (HIGH — related to Hole #17 from PRS)
+
+**Risk:** Attacker uses a token intended for one service to access another service
+
+The story shows per-service audience values:
+- authz-core: `aud: ["authz-core.myapp.com"]`
+- api-keys: `aud: ["api-keys.myapp.com"]`
+- org-mgmt: `aud: ["org-mgmt.myapp.com"]`
+
+**Exploit path:**
+1. Attacker obtains a valid JWT with `aud: ["authz-core.myapp.com"]`
+2. Attacker uses this token to access the api-keys service
+3. The api-keys service validates the token's signature (valid), issuer (valid), expiry (valid)
+4. BUT: the audience check might be lenient (e.g., `aud` contains "myapp.com" instead of "api-keys.myapp.com")
+5. Result: Token intended for authz-core is accepted by api-keys
+
+**Implementation requirement:**
+- Each service MUST validate that its exact audience is in the token's `aud` claim
+- `aud: ["myapp.com"]` is NOT sufficient for a service expecting `aud: ["api-keys.myapp.com"]`
+- Document: "Each service validates its exact audience string against the token's aud claim. Partial matches are NOT accepted."
+
+### HACK-106: Clock Skew Manipulation Extends Token Validity (MEDIUM — Hole #6 from PRS)
+
+**Risk:** Attacker manipulates the system clock to accept expired tokens
+
+The story says: "exp and nbf are validated with 60-second clock skew tolerance." This means a token with `exp = now` is still accepted for 60 seconds after its expiry time.
+
+**Exploit path:**
+1. Attacker obtains a token with `exp = now - 30 seconds` (already expired by 30 seconds)
+2. Attacker sets their local system clock 30 seconds AHEAD (or the service's clock is skewed)
+3. The service calculates: `now - exp = 0 seconds (with 60s skew tolerance)` → token is accepted
+4. Result: Attacker uses an expired token
+
+**But wait:** The token's `exp` is in the token itself (signed). The service compares `exp` against its own clock. If the attacker manipulates the service's clock, ALL requests are affected, not just the attacker's.
+
+**The real exploit is different:** What if the attacker FORGES a token with `exp` far in the future?
+
+1. Attacker forges a token with `exp = now + 1 hour`
+2. The token has an INVALID signature
+3. The validation pipeline checks `exp` BEFORE signature verification (step 6 is after step 5, which is signature verification)
+4. Wait — step 6 (exp validation) comes AFTER step 5 (signature verification). So the forged token is rejected at step 5.
+
+**Unless... the attacker forges a token with a VALID signature (HACK-101) AND sets `exp` far in the future.** This is covered by HACK-101.
+
+**The real clock skew exploit is on the ISSUER side:**
+1. Attacker compromises the token issuer (identity-login-service)
+2. Issuer creates a token with `exp = now + 1 year` (instead of `now + 5 minutes`)
+3. The token has a valid signature and `exp` well in the future
+4. All services accept the token for up to 1 year
+
+**Implementation requirement:**
+- The issuer MUST enforce a MAXIMUM token lifetime (e.g., 5 minutes for access tokens, 30 days for refresh tokens)
+- The validation pipeline MUST also check `exp` against a MAXIMUM allowed lifetime (defensive validation)
+- Document: "Access tokens MUST have `exp - iat <= 300 seconds`. Tokens with longer lifetimes are rejected."
+
+### HACK-107: JWKS Cache Is Not Per-Tenant — Shared Cache Allows Cross-Tenant Token Validation (MEDIUM — Hole #5 from PRS)
+
+**Risk:** A token from Tenant A can be validated against the JWKS shared by all tenants
+
+The story shows per-service audience values but NOT per-tenant JWKS. All tenants share the same JWKS (same signing keys).
+
+**Exploit path:**
+1. Attacker has a valid token from Tenant A
+2. Attacker uses this token to access a service that serves Tenant B's requests
+3. The service validates the token's signature against the shared JWKS (valid)
+4. The service checks `aud` (matches) and `iss` (matches)
+5. The service then checks the `tenant_id` claim in the token
+6. If `tenant_id` is not checked at validation time, the token is accepted
+7. Result: Cross-tenant token reuse
+
+**But the tenant_id check happens at the authorization layer (after JWT validation).** The JWT validation only checks `typ`, `alg`, `kid`, `iss`, `aud`, `exp`, `nbf`, `jti`, and `ver`. It does NOT check `tenant_id`.
+
+**This is by design:** `tenant_id` is checked at the authorization layer, not at the JWT validation layer. The JWT validation is service-specific (audience check), but tenant-specific checks happen later.
+
+**The risk is when the authorization layer is bypassed.** For jwt-only routes, only the JWT claims are checked — and `tenant_id` is in the JWT claims. So tenant isolation relies on the `tenant_id` claim being in the JWT AND the authorization layer checking it.
+
+**Implementation requirement:**
+- The JWT MUST include the `tenant_id` claim (this is already in Story 2.4)
+- The JWT validation pipeline does NOT check `tenant_id` (it's checked at the authorization layer)
+- Document: "Tenant isolation is enforced at the authorization layer, not at the JWT validation layer. The `tenant_id` claim must be present in all JWTs and checked by every authorization handler."
+- Consider: should `tenant_id` be in the audience check? If a token is issued for Tenant A, should it be usable by a service serving Tenant B's requests? **Answer: Yes, the audience check is per-service, not per-tenant. The tenant_id claim in the JWT is the tenant isolation mechanism.**
+
+### HACK-108: JWKS Refresh Timing Creates a Security Window (MEDIUM — related to Hole #9 from PRS)
+
+**Risk:** During the 4-minute window between JWKS refreshes, services might use a key that has been rotated out
+
+The story says: "Start a background task to refresh the JWKS every 4 minutes (before TTL expires)." The cache TTL is 5 minutes.
+
+**Exploit path:**
+1. At t=0, services refresh their JWKS cache (keys A and B are visible)
+2. At t=2 minutes, identity-session-service rotates the key (new key C is generated)
+3. At t=2 minutes, JWKS now contains keys A, B, and C (overlap window)
+4. At t=4 minutes, services refresh their JWKS cache (get keys A, B, C)
+5. At t=5 minutes, identity-session-service rotates again (new key D is generated)
+6. At t=5 minutes, JWKS now contains keys A (grace), B, C, D
+7. At t=7 minutes, services refresh again (get keys B, C, D)
+8. At t=9 minutes, the grace period for key A ends — it's removed from JWKS
+9. At t=7 minutes, a service that refreshed at t=7 has keys B, C, D
+10. A token signed with key A (valid at t=6 minutes) is REJECTED by this service (key A not in cache)
+
+**This is a false rejection (DoS), not a false accept (security breach). The key was valid when the token was signed, but is no longer in the cache.**
+
+**The fix is the grace period:** Key A remains in the JWKS for a grace period after rotation, so services that haven't refreshed yet can still validate tokens signed with key A.
+
+**But what if the grace period is too short?** If the grace period is 10 minutes but the JWKS refresh cycle is 15 minutes, services might miss the grace period and reject valid tokens.
+
+**Implementation requirement:**
+- The grace period MUST be LONGER than the maximum JWKS refresh cycle (e.g., if refresh cycle is 4 minutes, grace period should be at least 10 minutes)
+- Document: "The JWKS key grace period must exceed the maximum JWKS refresh interval to ensure all services can validate tokens signed during the overlap window."
 
 Change from:
 ```yaml
