@@ -15,20 +15,20 @@ M2M API key model. Keys can be user-scoped or org-scoped. Used for server-to-ser
 
 ## Schema (from impl/ crate — api-keys)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 ||--------|------|-------|
-|| id | uuid (PK) | |
-|| key_hash | text | SHA-256 of stored key |
-|| key_prefix | varchar(16) | Human-readable prefix (e.g., "sk_live_abc") |
-|| name | varchar(255) | Key name |
-|| tenant_id | varchar(255) | **REQUIRED** — keys belong to one platform |
-|| user_id | uuid (FK -> users, nullable) | User-scoped keys |
-|| org_id | uuid (FK -> orgs, nullable) | Org-scoped keys |
-|| permissions | text (nullable) | JSON string of permissions (NOT an array column) |
-|| expires_at | timestamptz (nullable) | NULL = no expiry |
-|| active | boolean | Revocation status (not "revoked") |
-|| created_at | timestamptz | |
-|| updated_at | timestamptz | |
+| id | uuid (PK) | |
+| key_hash | text | SHA-256 of stored key |
+| key_prefix | varchar(16) | Human-readable prefix (e.g., "sk_live_abc") |
+| name | varchar(255) | Key name |
+| tenant_id | varchar(255) | **REQUIRED** — keys belong to one platform |
+| user_id | uuid (FK -> users, nullable) | User-scoped keys |
+| org_id | uuid (FK -> orgs, nullable) | Org-scoped keys |
+| permissions | text (nullable) | JSON string of permissions (NOT an array column) |
+| expires_at | timestamptz (nullable) | NULL = no expiry |
+| active | boolean | Revocation status (not "revoked") |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
 ## Key Design Decisions
 
@@ -66,7 +66,7 @@ M2M API key model. Keys can be user-scoped or org-scoped. Used for server-to-ser
 | `tenant_id` is uuid | `tenant_id` is varchar(255), not uuid | Low — type mismatch |
 | `last_used_at` column | NOT in impl | Medium — usage tracking not in DB |
 | `key_prefix` is text | `key_prefix` is varchar(16) | Low — length limit differs |
-|| No `permissions` column in wiki | EXISTS as TEXT (JSON string) | High — wiki completely missed permissions field |
-|| No `updated_at` column in wiki | EXISTS in impl | Medium |
-|| No `api_key_usage` entity | EXISTS in impl (id, key_id FK, endpoint, method, tenant_id, ip, created_at) | High — missing from wiki entirely |
-|| No `archived_api_key` entity | EXISTS in impl (id, key_hash, key_prefix, name, reason, archived_at) | High — missing from wiki entirely |
+| No `permissions` column in wiki | EXISTS as TEXT (JSON string) | High — wiki completely missed permissions field |
+| No `updated_at` column in wiki | EXISTS in impl | Medium |
+| No `api_key_usage` entity | EXISTS in impl (id, key_id FK, endpoint, method, tenant_id, ip, created_at) | High — missing from wiki entirely |
+| No `archived_api_key` entity | EXISTS in impl (id, key_hash, key_prefix, name, reason, archived_at) | High — missing from wiki entirely |

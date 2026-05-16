@@ -29,7 +29,7 @@ Tenant isolation is enforced at three layers:
 
 ## tenant_id Column Across All Services
 
-|| Service | Tables with tenant_id |
+| Service | Tables with tenant_id |
 |---------|----------------------|
 | identity-login-service | `users` |
 | identity-user-mgmt-service | `users` |
@@ -47,7 +47,7 @@ Tenant isolation is enforced at three layers:
 
 ## Drift Found (verified 2026-05-16)
 
-|| Wiki Claim | Actual Impl | Impact |
+| Wiki Claim | Actual Impl | Impact |
 |------------|-------------|--------|--------|
 | `tenants` table exists | NO TABLE EXISTS — tenant is purely logical | Critical — schema section was fabricated |
 | `POST /tenants` | Stale paths; tenant management is conceptual | Medium — no tenant CRUD endpoints |

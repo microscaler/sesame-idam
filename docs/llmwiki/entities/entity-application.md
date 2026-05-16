@@ -17,16 +17,16 @@ An application represents an OIDC client with a `client_id`, `client_secret`, an
 
 ## Schema (from impl/ crate — org-mgmt)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 ||--------|------|-------|
-|| id | uuid (PK) | |
-|| org_id | uuid (FK -> orgs) | Application is org-scoped |
-|| name | varchar(255) | Application name |
-|| client_id | varchar(64) | OIDC client identifier |
-|| client_secret | text (nullable) | OIDC client secret |
-|| redirect_uris | text (nullable) | Redirect URIs (stored as text, not array) |
-|| created_at | timestamptz | |
-|| updated_at | timestamptz | |
+| id | uuid (PK) | |
+| org_id | uuid (FK -> orgs) | Application is org-scoped |
+| name | varchar(255) | Application name |
+| client_id | varchar(64) | OIDC client identifier |
+| client_secret | text (nullable) | OIDC client secret |
+| redirect_uris | text (nullable) | Redirect URIs (stored as text, not array) |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
 ## Key Design Decisions
 

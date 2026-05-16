@@ -19,33 +19,33 @@ User session model. Sessions are per-user AND per-application — a user has sep
 
 ## Schema (from impl/ crate — identity-session-service)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 ||--------|------|-------|
-|| id | uuid (PK) | |
-|| user_id | uuid (FK -> users) | |
-|| token | text | Also cached in Redis |
-|| refresh_token | text | Also cached in Redis |
-|| expires_at | timestamptz | |
-|| ip | varchar(64, nullable) | |
-|| user_agent | text (nullable) | |
-|| mfa_verified | boolean | Step-up MFA verification flag |
-|| impersonated_by | uuid (FK -> users, nullable) | Admin user ID if impersonating |
-|| created_at | timestamptz | |
-|| updated_at | timestamptz | |
+| id | uuid (PK) | |
+| user_id | uuid (FK -> users) | |
+| token | text | Also cached in Redis |
+| refresh_token | text | Also cached in Redis |
+| expires_at | timestamptz | |
+| ip | varchar(64, nullable) | |
+| user_agent | text (nullable) | |
+| mfa_verified | boolean | Step-up MFA verification flag |
+| impersonated_by | uuid (FK -> users, nullable) | Admin user ID if impersonating |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
 ### Simplified Session Model (identity-login-service impl)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 ||--------|------|-------|
-|| id | uuid (PK) | |
-|| user_id | uuid (FK -> users) | |
-|| token | text | |
-|| refresh_token | text | |
-|| expires_at | timestamptz | |
-|| ip | varchar(64, nullable) | |
-|| user_agent | text (nullable) | |
-|| created_at | timestamptz | |
-|| updated_at | timestamptz | |
+| id | uuid (PK) | |
+| user_id | uuid (FK -> users) | |
+| token | text | |
+| refresh_token | text | |
+| expires_at | timestamptz | |
+| ip | varchar(64, nullable) | |
+| user_agent | text (nullable) | |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
 **Missing from simplified model:** `mfa_verified`, `impersonated_by`
 

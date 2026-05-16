@@ -17,14 +17,14 @@ Multi-tenant organization model. Organizations are scoped to a `tenant_id` so th
 
 ## Schema (from impl/ crate — org-mgmt)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 ||--------|------|-------|
-|| id | uuid (PK) | |
-|| name | varchar(255) | Organization name |
-|| tenant_id | varchar(255) | **REQUIRED** — orgs belong to one tenant |
-|| status | varchar(32) | Active, suspended, etc. |
-|| created_at | timestamptz | |
-|| updated_at | timestamptz | |
+| id | uuid (PK) | |
+| name | varchar(255) | Organization name |
+| tenant_id | varchar(255) | **REQUIRED** — orgs belong to one tenant |
+| status | varchar(32) | Active, suspended, etc. |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
 ## Key Design Decisions
 
@@ -38,12 +38,12 @@ Multi-tenant organization model. Organizations are scoped to a `tenant_id` so th
 
 > **NOTE:** The API endpoints below reference endpoints from the OpenAPI spec, but most are NOT yet implemented against the simplified impl model. The impl org model lacks the data structures to support SAML, SCIM, domain controls, etc.
 
-|| Feature | Status |
+| Feature | Status |
 ||---------|--------|
-|| **SCIM User Provisioning** | NOT implemented — impl org model has no SCIM data fields |
-|| **Application RBAC** | Implemented as part of org-mgmt (roles/permissions are org-scoped) |
-|| **SAML SSO** | NOT implemented — no SAML fields in impl org model |
-|| **Domain Controls** | NOT implemented — no domain fields in impl org model |
+| **SCIM User Provisioning** | NOT implemented — impl org model has no SCIM data fields |
+| **Application RBAC** | Implemented as part of org-mgmt (roles/permissions are org-scoped) |
+| **SAML SSO** | NOT implemented — no SAML fields in impl org model |
+| **Domain Controls** | NOT implemented — no domain fields in impl org model |
 
 ## API Endpoints
 

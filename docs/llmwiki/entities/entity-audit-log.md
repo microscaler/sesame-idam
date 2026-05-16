@@ -15,7 +15,7 @@ Immutable audit trail for all identity and access management operations. **Impor
 
 ## Schema: authz-core/impl/src/models/audit_event.rs
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 |--------|------|-------|
 | id | uuid (PK) | |
 | tenant_id | varchar(255) | Tenant scope |
@@ -28,7 +28,7 @@ Immutable audit trail for all identity and access management operations. **Impor
 
 ## Schema: identity-user-mgmt-service/impl/src/models/audit_event.rs
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 |--------|------|-------|
 | id | uuid (PK) | |
 | tenant_id | varchar(255) | Tenant scope |
@@ -51,7 +51,7 @@ Immutable audit trail for all identity and access management operations. **Impor
 
 ## API Endpoints (Audit)
 
-|| Service | Endpoint | Purpose |
+| Service | Endpoint | Purpose |
 |---------|----------|---------|
 | authz-core | `GET /authz/audit/events` | List audit events |
 | authz-core | `POST /authz/audit/events` | Search audit events |
@@ -69,7 +69,7 @@ Immutable audit trail for all identity and access management operations. **Impor
 
 ## Drift Found (verified 2026-05-16)
 
-|| Wiki Claim | Actual Impl | Impact |
+| Wiki Claim | Actual Impl | Impact |
 |------------|-------------|--------|--------|
 | Single audit table in org-mgmt | TWO audit tables: authz-core + identity-user-mgmt-service | Critical — wiki pointed to wrong service |
 | `user_id` uuid (FK) | authz-core: NO user_id FK; identity-user-mgmt-service: has user_id FK | Medium — only one model has FK |
