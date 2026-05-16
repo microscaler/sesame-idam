@@ -267,6 +267,123 @@ pie title Authorization Decision Complexity
     "delegated/admin (act + version + online)" : 5
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-101: Tenant ID Validation Is Not Guaranteed (CRITICAL — Hole #5 from PRS)
+
+**Risk:** Cross-tenant data exfiltration via X-Tenant-ID header manipulation
+
+The wiki says: "Tenant validation is critical: `claims.tenant_id == X-Tenant-ID` — mismatch = 401." But this is listed as a *requirement*, not a *guaranteed implementation*. The middleware must enforce this as the FIRST step, BEFORE any handler logic.
+
+**Exploit path:**
+1. Attacker obtains a valid JWT from Tenant A (log leak, XSS, etc.)
+2. Attacker sends requests with `X-Tenant-ID: Tenant B` header
+3. If middleware doesn't strictly validate `claims.tenant_id == X-Tenant-ID`, queries run against Tenant B's data
+4. RLS bridge may provide a safety net, but it is "partially-verified" and "actual RLS helper SQL is not yet in the repo"
+
+**Implementation requirement (Story 4.2, but enforced by Story 4.4 route handlers):**
+- Middleware MUST validate `claims.tenant_id == X-Tenant-ID` as the FIRST check after JWT signature validation
+- Return 401 TenantMismatch on any mismatch — do NOT proceed to handler
+- During migration from old schema (no `tenant` claim), resolve tenant from database using `sub`, then compare against header
+
+**Acceptance criterion:** "Middleware enforces `claims.tenant_id == X-Tenant-ID` for ALL routes. Mismatch returns 401 TenantMismatch before handler execution."
+
+### HACK-102: Permission Injection via JWT Claims (CRITICAL — Hole #7 from PRS)
+
+**Risk:** Privilege escalation via forged/compromised JWT
+
+The middleware validates the signature, then trusts `sx.permissions` as an authoritative list. The handler code checks `claims.sx.permissions.contains(&"email:write".to_string())`. If the signing key is compromised, or if there's a bug in the signing code, an attacker can craft a valid JWT with arbitrary permissions.
+
+**Exploit path:**
+1. Private signing key is compromised (memory dump, insider threat, server breach)
+2. Attacker crafts JWT with `sx.permissions = ["admin:all", "users:manage", "api_keys:all"]`
+3. Middleware validates signature — checks pass
+4. Handler trusts the claim and executes the sensitive action
+5. Result: full privilege escalation
+
+**Implementation requirement (HIGH-CONSEQUENCE ROUTES ONLY):**
+For the following high-consequence routes, always verify permissions against the canonical source (authz-core or database), EVEN if JWT claims suggest permission exists:
+- `admin:create_org` (create organization)
+- `org:config:update` (org configuration/SSO)
+- `admin:impersonate` (user impersonation)
+- `api_key:create` (M2M key creation)
+- `api_key:revoke` (M2M key revocation)
+- `role:assign` (role assignment/modification)
+
+The JWT claims are a "common path optimization" for the 95% of requests. But for the 5% that are high-consequence, there MUST be a canonical source verification step.
+
+**Acceptance criterion:** "For high-consequence routes (create_org, config:update, impersonate, api_key:create/revoke, role:assign), permissions are verified against authz-core or database, not solely from JWT claims."
+
+### HACK-103: User Enumeration via Path-Parameter Lookups (HIGH — Hole #11 from PRS)
+
+**Risk:** User enumeration and privacy breach
+
+The ownership check `claims.sub == request.user_id` works for `/me` endpoints (implicit user ID). But for `/api/v1/identity/users/{user_id}`, the `user_id` comes from the URL path. An attacker with a valid JWT can request any user's profile by changing the path parameter.
+
+**Exploit path:**
+1. Attacker has a valid JWT with `sub: "alice"`
+2. Attacker requests `GET /api/v1/identity/users/bob` (changing path parameter)
+3. This endpoint is `jwt-with-fallback` (Identity Resolution)
+4. Fallback calls authz-core — if authz-core allows same-org visibility, the request succeeds
+5. Attacker can enumerate all users in the org by iterating user IDs
+6. Result: user profiles (email, name, phone) exposed for all org members
+
+**Implementation requirement:**
+- Add rate limiting to user lookup endpoints to prevent enumeration (e.g., 100 req/min per user)
+- Consider removing public user lookup endpoints entirely, or restricting to admin org members only
+- Add explicit documentation: user lookups require same-org membership or admin permission
+- Consider replacing with a search endpoint that returns limited fields (names only, no PII)
+
+**Acceptance criterion:** "User lookup endpoint at `/users/{id}` enforces same-org membership or admin permission. Rate limiting prevents enumeration attacks."
+
+### HACK-104: Version Check Gated on Elevated Risk Only (HIGH — Hole #8 from PRS)
+
+**Risk:** Stale permissions on normal-risk routes
+
+The version check is gated behind `sx.risk == "elevated"` (Delegated/Admin section). Normal routes (jwt-only, jwt-with-fallback for low-risk) SKIP version checks entirely. A revoked user can still act with stale permissions on ALL normal routes for the entire token TTL (5 minutes).
+
+**Implementation requirement:**
+- Apply version checks to ALL route types, not just elevated-risk ones
+- Keep the cache optimization (version cache with 15-60s TTL) — this is the correct trade-off
+- Consider a "soft fail-open": if version cache is empty, perform a lightweight DB check instead of skipping entirely
+
+**Acceptance criterion:** "Version checks apply to ALL route types, not just elevated-risk ones. The risk classification gates MFA requirements (Story 6.3), not version validation."
+
+### HACK-105: Authz-Core as Single Point of Failure (MEDIUM — Hole #12 from PRS)
+
+**Risk:** Partial outage when authz-core is unavailable
+
+If authz-core goes down:
+- jwt-only routes continue working (reads only)
+- jwt-with-fallback routes fail (503)
+- online-only routes fail (503)
+- New logins fail (cannot enrich JWT claims)
+
+The design doesn't specify a "cache-only" degraded mode. After cache TTL expiry (5-30 seconds), all fallback-dependent routes fail.
+
+**Implementation requirement:**
+- Implement a "cache-only" fallback mode: serve from Redis cache even when authz-core is unavailable
+- Implement circuit breaker pattern: if authz-core returns >10% errors, stop calling it
+- Document degradation behavior: which routes work, which fail, and why
+- Add monitoring: alert on authz-core downtime
+
+### HACK-106: Login Endpoint No Rate Limiting (MEDIUM — Hole #6 from PRS)
+
+**Risk:** authz-core DoS via login flooding
+
+Login routes call authz-core `/principal/effective` for JWT claim enrichment. There is no rate limiting on login endpoints. An attacker can flood `/auth/login` to overwhelm authz-core.
+
+**Implementation requirement (enforced at gateway level):**
+- Add rate limiting: 10 req/min per IP for login endpoints
+- Per-IP, per-email, and per-IP:email combinations
+- Alert on login endpoint QPS exceeding threshold
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Route-specific authorization logic is internal to the handlers. The OpenAPI spec documents the API surface -- the authorization mechanism is an implementation detail.
