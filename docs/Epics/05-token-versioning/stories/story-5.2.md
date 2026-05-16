@@ -163,6 +163,209 @@ flowchart TD
     F -->|claims.ver >= cached_ver| H[Allow]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-501a: `unwrap_or(0)` Enables Silent Fail-Open (CRITICAL — Hole #8 from PRS)
+
+**Risk:** Redis down → version checks silently skipped → stale tokens accepted
+
+The `validate_version()` function uses `redis::get::<_, u64>("...").unwrap_or(0)`. When Redis is down:
+1. `GET authz_ver:{user_id}` returns error (connection refused)
+2. `unwrap_or(0)` returns 0 (default value)
+3. `claims.ver >= 0` is ALWAYS true for any valid token
+4. Version check is silently skipped — request is ALLOWED
+5. Result: ALL stale tokens with ALL permissions work when Redis is down
+
+**This is the most dangerous line of code in the entire IDAM system.** It's a 12-character chain (`unwrap_or(0)`) that negates the entire version revocation mechanism.
+
+**Exploit path (targeted DoS):**
+1. Attacker identifies the tenant's Redis instance
+2. Attacker disrupts Redis (port 6379 DoS, network partition, etc.)
+3. Version checks are bypassed for all requests
+4. Attacker uses a stale admin token (ver=42) that was revoked (ver bumped to 43)
+5. Result: full admin access for up to 5 minutes (token TTL)
+
+**Implementation requirement:**
+- `unwrap_or(0)` MUST be replaced with a FAIL-CLOSED default:
+```rust
+// WRONG: fail-open on Redis down
+let cached_ver = redis::get::<_, u64>(&format!("authz_ver:{user_id}"))
+    .unwrap_or(0);
+
+// CORRECT: fail-closed on Redis down
+let cached_ver = redis::get::<_, u64>(&format!("authz_ver:{user_id}"))
+    .map_err(|_| AuthError::VersionCheckServiceUnavailable)?;
+```
+- When Redis is unavailable, return 503 Service Unavailable (NOT 200 OK)
+- OR implement a lightweight DB fallback: read the version from PostgreSQL instead of Redis
+
+**Acceptance criterion to CHANGE:**
+- "Redis failure does not escalate privileges" → "Redis failure causes 503, NOT 200 OK with stale permissions"
+- "Missing version key defaults to 0" → "Redis unreachable causes 503 Service Unavailable"
+
+### HACK-501b: TTL Mismatch Allows Stale Tokens After Cache Expiry (HIGH — Hole #14 from PRS)
+
+**Risk:** After version cache TTL expires, stale tokens are accepted for up to 6 minutes
+
+The F-013 fix identifies this:
+- Subject version cache TTL: 15 seconds
+- Tenant version cache TTL: 60 seconds (recommended to be 5 minutes)
+- Token TTL: 5 minutes (300 seconds)
+
+After the tenant version cache TTL expires (60s), the cache is empty. The next request does `GET authz_ver:tenant:abc` → returns nil → `unwrap_or(0)` → 0 → `claims.ver >= 0` → ALLOWED.
+
+**Combined timeline:**
+1. T=0: User is admin (ver=42)
+2. T=10: Admin revokes permissions (version bumped to 43)
+3. T=60: Tenant version cache TTL expires (60s)
+4. T=60.001: Cache is empty → `unwrap_or(0)` → 0
+5. T=60-300: User's token (ver=42) works on ALL routes for 240 more seconds
+6. Result: revoked admin has access for up to 6 minutes total
+
+**The F-013 fix says to increase tenant TTL to 5 minutes.** But even with a 5-minute tenant TTL, there's a 300-second window where the cache is empty and version checks are skipped.
+
+**Implementation requirement:**
+- Implement the F-013 fix: tenant version TTL = 5 minutes (matching token TTL)
+- AND: when version cache is empty (cache miss), FAIL CLOSED rather than defaulting to 0
+```rust
+// When cache is empty AND Redis is available (TTL expired, not connection error)
+// Still check version by reading from authz-core or database
+let cached_ver = match redis::get::<_, u64>(&format!("authz_ver:tenant:{tenant_id}")) {
+    Some(ver) => ver,  // Cache hit
+    None => {
+        // Cache miss — TTL expired. Check database for authoritative version.
+        // OR fail closed (reject request until we can verify version)
+        return Err(AuthError::StaleAuthToken {
+            expected_min_version: 0,  // Require minimum version 0
+            actual_version: claims.ver,  // If claims.ver = 0, still fail
+        });
+    }
+};
+```
+- Document: "When version cache expires (TTL), the system either: (a) reads from authoritative source (DB), or (b) fails closed. NEVER defaults to 0."
+
+### HACK-501c: Jwt-Only and Jwt-With-Fallback Routes SKIP Version Check (HIGH — Hole #14 from PRS)
+
+**Risk:** Stale tokens work on ALL common-path routes indefinitely
+
+Looking at `validate_version()`:
+```rust
+RouteClass::JwtOnly | RouteClass::JwtWithFallback => {
+    // Low-risk routes: skip version check
+    Ok(())
+}
+```
+
+This means:
+- jwt-only routes NEVER check version → stale tokens work forever (until token TTL)
+- jwt-with-fallback routes NEVER check version → stale tokens work forever (until token TTL)
+- Only high-risk routes check version → this covers a tiny fraction of all routes
+
+**Combined with HACK-501a (fail-open):**
+1. Attacker has stale admin token (ver=42)
+2. Attacker hits jwt-only route (e.g., GET /api/users/me)
+3. No version check is performed → ALLOWED
+4. Attacker hits jwt-with-fallback route (e.g., PUT /api/preferences)
+5. No version check is performed → ALLOWED
+6. Result: revoked admin has access to ALL common-path routes
+
+**The fundamental problem:** The design classifies routes into "jwt-only" and "jwt-with-fallback" as "low-risk" and skips version checks. But ANY route that allows an admin to act should have a version check. There is no "low-risk" admin route.
+
+**Implementation requirement:**
+- Version check MUST be applied to ALL route types, not just high-risk
+- The `validate_version()` function should check version BEFORE checking route class:
+```rust
+pub fn validate_version(claims_ver: u64, user_id: &str) -> Result<(), AuthError> {
+    // ALWAYS check version first, regardless of route class
+    let cached_ver = redis::get::<_, u64>(&format!("authz_ver:{user_id}"))
+        .map_err(|_| AuthError::VersionCheckServiceUnavailable)?;
+    
+    if claims_ver < cached_ver {
+        return Err(AuthError::StaleAuthToken {
+            expected_min_version: cached_ver,
+            actual_version: claims_ver,
+        });
+    }
+    
+    // Version check passed — proceed to route-specific logic
+    Ok(())
+}
+```
+- "Low-risk" routes can SKIP the tenant version check (which has higher latency), but they MUST check the subject version
+
+**Acceptance criterion to CHANGE:**
+- "High-risk routes check version; low-risk routes skip it" → "ALL route types check subject version; high-risk routes also check tenant version"
+
+### HACK-501d: Subject and Tenant Version Bump Must Be Atomic (HIGH)
+
+**Risk:** Partial version bump leaves system in inconsistent state
+
+When an authz change occurs, both subject version AND tenant version must be bumped. If only the subject version is bumped (not the tenant), stale tokens may still work via tenant-level checks.
+
+**Exploit path:**
+1. Admin revokes user's permissions (subject version bumped to 43)
+2. Tenant version is NOT bumped (stays at 10)
+3. User's token (ver=42) passes subject version check (42 < 43 — DENIED)
+4. BUT if the token check only does tenant version (not subject), it passes (42 >= 10 — ALLOWED)
+5. Result: version bump is inconsistent, some checks pass, some fail
+
+**Implementation requirement:**
+- Both subject and tenant versions MUST be bumped atomically:
+```rust
+// Atomic version bump (Lua script for atomicity)
+redis.eval(
+    "local sub_ver = redis.call('INCR', KEYS[1])\nlocal ten_ver = redis.call('INCR', KEYS[2])\nredis.call('EXPIRE', KEYS[1], ARGV[1])\nredis.call('EXPIRE', KEYS[2], ARGV[2])\nreturn {sub_ver, ten_ver}",
+    vec!["authz_ver:{user_id}", "authz_ver:tenant:{tenant_id}", "15", "300"],
+)
+```
+- Document: "Authz changes MUST atomically bump both subject and tenant versions"
+
+### HACK-501e: Version Check Uses Claims.ver Against Cached Value (HIGH)
+
+**Risk:** Token version can be "gamed" by comparing against cached value only
+
+The version check compares `claims.ver >= cached_ver`. But `claims.ver` is IN THE JWT — it's signed by the issuer. An attacker who obtains the private signing key can forge a token with ANY `ver` value.
+
+**Exploit path:**
+1. Attacker obtains the private signing key (memory dump, insider threat)
+2. Attacker creates a token with `ver = 999999` (very high version)
+3. Version check: `999999 >= cached_ver` → true → ALLOWED
+4. Result: forged token with any version passes
+
+**Note:** This is fundamentally a JWT signing key compromise. The version check CANNOT prevent this — only signature validation can. But the version check SHOULD still be implemented as defense-in-depth.
+
+**Implementation requirement:**
+- Document: "Version check is defense-in-depth. The primary protection is JWT signature validation. If the signing key is compromised, the version check is bypassed. This is an acceptable trade-off because key compromise is a rare, high-severity event that requires immediate key rotation."
+
+### HACK-501f: TTL Is Hardcoded and NOT Configurable (MEDIUM)
+
+**Risk:** TTL is fixed at 15-60 seconds regardless of token TTL
+
+The TTLs are:
+- Subject version: 15 seconds
+- Tenant version: 60 seconds
+
+But the token TTL is 5 minutes (300 seconds). This means the version cache expires long before the token does, creating a 240-second window where stale tokens are accepted.
+
+**Implementation requirement:**
+- TTLs MUST be configurable and MUST be tied to the token TTL
+- Recommended: subject version TTL = token TTL / 2, tenant version TTL = token TTL
+- Document: "Version cache TTLs should be a fraction of the token TTL to minimize the stale window"
+
+### HACK-501g: No Metric for Version Check Fail-Open Events (MEDIUM)
+
+**Risk:** When version checks fail open, no alert is generated
+
+There's no metric for "version check skipped due to Redis failure." Without this, you won't know when the system is operating without version enforcement.
+
+**Implementation requirement:**
+- Add metric: `version_check_failed_total{reason: "redis_down", "cache_expired"}`
+- Alert when this metric spikes — indicates version enforcement is compromised
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Version cache is internal to the validation logic.
