@@ -195,6 +195,139 @@ stateDiagram-v2
     REVOKED --> [*]: Family cleaned up
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-301: Family ID Derivable from Stolen Token (CRITICAL — Hole #3 from PRS)
+
+**Risk:** Attacker can target specific session for tear attack
+
+The `family_id` is stored in the refresh token stored in Redis (`refresh:{jti}` hash). If an attacker obtains a refresh token, they can extract the `family_id` from the Redis entry. This allows the attacker to target a specific session rather than guessing.
+
+**Exploit path:**
+1. Attacker steals refresh token from browser (localStorage XSS)
+2. Attacker reads the refresh token's stored metadata from Redis (if they have Redis access)
+3. The `family_id` reveals which session the token belongs to
+4. Attacker waits for the legitimate user on that session to rotate
+5. Attacker replays the old token — reuse detected — entire family revoked
+6. Result: denial of service to legitimate user (forces re-auth)
+
+**Implementation requirement:**
+- Document the tear scenario: it's a feature, not a bug. When reuse is detected, BOTH attacker and legitimate user are kicked out. This is intentional.
+- Add explicit notification to legitimate user: "Your session was compromised. You must re-authenticate."
+- Consider: should the legitimate user be allowed to keep their session if they verify their identity? (i.e., "session recovery" flow)
+
+### HACK-302: Concurrent Family Revocation Race Condition (HIGH — Hole #19 from PRS)
+
+**Risk:** Race between legitimate user and attacker on family revocation
+
+The family revocation logic checks `family:{family_id}:revoked`, then adds to the set, then deletes tokens. If two threads execute concurrently:
+1. Thread 1 (legitimate user): checks revoked → false
+2. Thread 2 (attacker): checks revoked → false (race)
+3. Thread 1: deletes tokens, marks revoked, returns new token
+4. Thread 2: also deletes tokens, marks revoked, returns 401
+5. Result: legitimate user's newly-issued token is deleted — both parties kicked out
+
+**Exploit path:**
+1. Attacker floods `/refresh` with stolen token A
+2. Legitimate user also calls `/refresh` with token A
+3. Both requests arrive nearly simultaneously
+4. Both see `revoked = false` (race condition)
+5. Both try to delete the same tokens
+6. One succeeds, one gets a corrupted state
+
+**Implementation requirement:**
+- Use Redis Lua scripts or MULTI/EXEC transactions for atomic family revocation
+- The entire check-then-revoke flow MUST be atomic:
+```lua
+-- Lua script for atomic family revocation
+local revoked = redis.call('GET', KEYS[1] .. ':revoked')
+if revoked == 'true' then
+    return 1  -- Already revoked
+end
+local jti = ARGV[1]
+local family = KEYS[1]
+local tokens = redis.call('SMEMBERS', family)
+redis.call('SET', family .. ':revoked', 'true')
+for _, token_jti in ipairs(tokens) do
+    redis.call('DEL', 'refresh:' .. token_jti)
+end
+return 1
+```
+- This ensures exactly ONE thread can revoke a family, even under concurrency
+
+### HACK-303: Session Isolation NOT Enforced (MEDIUM — Hole #8 from PRS)
+
+**Risk:** Cross-session token bleed if family_id is predictable
+
+The design assumes multiple sessions are isolated by family_id. But if family_id generation is weak (e.g., sequential UUIDs or time-based), an attacker might guess family IDs for other sessions.
+
+**Exploit path:**
+1. Attacker has family_id for Session 1 (`fam_abc123`)
+2. Attacker guesses `fam_def456` (next session's family_id) if generation is predictable
+3. Attacker queries `family:fam_def456:revoked`
+4. If not revoked, attacker knows Session 2 exists but is not compromised
+5. Attacker floods Session 2's tokens to force revocation — denial of service
+
+**Implementation requirement:**
+- Ensure family_id generation uses cryptographically secure random (UUID v4 is fine)
+- Family IDs should NOT be guessable
+- Consider adding an authentication check on family lookups: only the service that created the family can revoke it
+
+### HACK-304: No Notification Mechanism for Reuse Detection (MEDIUM — Hole #5 from PRS)
+
+**Risk:** User doesn't know they're compromised
+
+The F-005 says: "the system MUST trigger cross-session notification (push notification, email, or in-app signal)." But the implementation doesn't specify HOW or WHEN this happens.
+
+**Exploit path:**
+1. Attacker steals refresh token and uses it
+2. Reuse is detected — family is revoked
+3. Legitimate user is kicked out with a 401 error
+4. But the user doesn't know WHY they're kicked out (could be server error, token expired, etc.)
+5. Result: user is confused, doesn't change password, attacker keeps trying other stolen tokens
+
+**Implementation requirement:**
+- Implement notification: when family is revoked due to reuse, send a notification to the user's registered endpoints (email, push notification, etc.)
+- The 401 response should include a clear message: "Session compromised. Please re-authenticate and consider changing your password."
+- Document the notification channel: "Email is the primary channel; push notification is optional"
+
+### HACK-305: Logout-All Does Not Invalidate Access Tokens (HIGH — Hole #9 from PRS)
+
+**Risk:** Attacker retains valid access tokens after logout-all
+
+The logout-all logic revokes refresh tokens (family tokens). But it does NOT revoke access tokens that were ALREADY issued. An access token with 5-minute TTL will remain valid for up to 5 minutes after logout-all.
+
+**Exploit path:**
+1. Attacker steals both refresh token and access token
+2. Attacker uses access token for 5 minutes
+3. Legitimate user detects compromise and calls logout-all
+4. Refresh token is revoked — attacker can't get new access tokens
+5. BUT: attacker's existing access token (issued before logout) is still valid for up to 5 minutes
+6. Result: attacker has 5 minutes of access even after logout-all
+
+**Implementation requirement:**
+- On logout-all, add ALL access token jtis from the user's session to the denylist
+- Or bump the token version (Story 5.1) so the version check (Story 3.2) rejects old access tokens
+- Document: "Access tokens are valid for their TTL even after logout-all. This is a known limitation of JWT-based systems."
+- Consider adding access token jti to the denylist on logout (see Story 3.5 for logout-all)
+
+### HACK-306: Family Set Grows Without Bound (LOW — operational)
+
+**Risk:** Redis memory exhaustion from large family sets
+
+The `family:{family_id}` set stores all jti values for a session. With daily refreshes over 30 days, it has ~30 entries. But if a user refreshes rapidly (attacker flooding with stolen token), the set can grow to thousands of entries, consuming Redis memory.
+
+**Implementation requirement:**
+- Add a maximum family set size (e.g., 100 entries per family)
+- When the limit is reached, evict the oldest entries
+- Monitor Redis memory usage for family set growth
+
+---
+
 ## OpenAPI Changes
 
 - `/auth/refresh` response: Add `reason: "family_revoked"` for reuse detection
