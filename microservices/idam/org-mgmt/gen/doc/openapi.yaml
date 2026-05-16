@@ -37,7 +37,7 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /idam/v1/organizations:
+  /organizations:
     get:
       tags:
       - Organizations
@@ -133,7 +133,7 @@ paths:
                 error_description: An unexpected error occurred
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Query/list organizations, not direct frontend'
-  /idam/v1/organizations/{org_id}:
+  /organizations/{org_id}:
     get:
       tags:
       - Organizations
@@ -293,7 +293,7 @@ paths:
           content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete organization, not direct frontend'
-  /idam/v1/organizations/{org_id}/users:
+  /organizations/{org_id}/users:
     get:
       tags:
       - Membership
@@ -431,7 +431,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Add user to organization, not direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/organizations/{org_id}/invitations:
+  /organizations/{org_id}/invitations:
     post:
       tags:
       - Membership
@@ -481,7 +481,7 @@ paths:
       x-consumer-note: 'Admin console only: Invite user to organization by email,
         not direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/organizations/{org_id}/invitations/by-id:
+  /organizations/{org_id}/invitations/by-id:
     post:
       tags:
       - Membership
@@ -530,7 +530,7 @@ paths:
       x-consumer-note: 'Admin console only: Invite existing user to organization,
         not direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/organizations/{org_id}/pending-invitations:
+  /organizations/{org_id}/pending-invitations:
     delete:
       tags:
       - Membership
@@ -586,7 +586,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Revoke pending org invite, not direct
         frontend'
-  /idam/v1/organizations/{org_id}/role-mappings:
+  /organizations/{org_id}/role-mappings:
     get:
       tags:
       - Membership
@@ -650,7 +650,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Fetch role mappings for organization,
         not direct frontend'
-  /idam/v1/organizations/{org_id}/role-mappings/subscribe:
+  /organizations/{org_id}/role-mappings/subscribe:
     put:
       tags:
       - Membership
@@ -708,7 +708,7 @@ paths:
       x-consumer-note: 'Admin console only: Subscribe org to role mapping, not direct
         frontend'
       x-brrtrouter-impl: true
-  /idam/v1/organizations/{org_id}/domains:
+  /organizations/{org_id}/domains:
     put:
       tags:
       - Organizations
@@ -765,7 +765,7 @@ paths:
       x-consumer-note: 'Admin console only: Update org domain settings, not direct
         frontend'
       x-brrtrouter-impl: true
-  /idam/v1/sso/saml/allow:
+  /sso/saml/allow:
     post:
       tags:
       - SSO
@@ -815,7 +815,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Enable SAML SSO for org, not direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/sso/saml/disable:
+  /sso/saml/disable:
     post:
       tags:
       - SSO
@@ -865,7 +865,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Disable SAML SSO for org, not direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/sso/saml/link:
+  /sso/saml/link:
     post:
       tags:
       - SSO
@@ -919,7 +919,7 @@ paths:
       x-consumer-note: 'Admin console only: Create SAML setup link for org, not direct
         frontend'
       x-brrtrouter-impl: true
-  /idam/v1/sso/saml/metadata:
+  /sso/saml/metadata:
     put:
       tags:
       - SSO
@@ -967,7 +967,7 @@ paths:
       x-consumer-note: 'Admin console only: Set SAML IdP metadata for org, not direct
         frontend'
       x-brrtrouter-impl: true
-  /idam/v1/organizations/{org_id}/oidc-metadata:
+  /organizations/{org_id}/oidc-metadata:
     post:
       tags:
       - SSO
@@ -1014,7 +1014,7 @@ paths:
       x-consumer-note: 'Admin console only: Set OIDC IdP metadata for org, not direct
         frontend'
       x-brrtrouter-impl: true
-  /idam/v1/sso/saml/enable:
+  /sso/saml/enable:
     post:
       tags:
       - SSO
@@ -1064,7 +1064,7 @@ paths:
       x-consumer-note: 'Admin console only: Enable SAML connection for org, not direct
         frontend'
       x-brrtrouter-impl: true
-  /idam/v1/sso/saml:
+  /sso/saml:
     delete:
       tags:
       - SSO
@@ -1112,7 +1112,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete SAML connection for org, not direct
         frontend'
-  /idam/v1/organizations/{org_id}/migrate-to-isolated:
+  /organizations/{org_id}/migrate-to-isolated:
     post:
       tags:
       - SSO
@@ -1165,7 +1165,7 @@ paths:
       x-consumer-note: 'Admin console only: Migrate org to isolated SAML mode, not
         direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/organizations/{org_id}/scim/groups:
+  /organizations/{org_id}/scim/groups:
     get:
       tags:
       - SSO
@@ -1221,7 +1221,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Fetch SCIM groups for org, SCIM provisioner
         only'
-  /idam/v1/organizations/{org_id}/scim/groups/{group_id}:
+  /organizations/{org_id}/scim/groups/{group_id}:
     get:
       tags:
       - SSO
@@ -1293,7 +1293,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Fetch specific SCIM group, SCIM provisioner
         only'
-  /idam/v1/applications:
+  /applications:
     get:
       tags:
       - Applications
@@ -1381,7 +1381,7 @@ paths:
       x-consumer-note: 'Admin console only: Register new application for org, not
         direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/applications/{app_id}:
+  /applications/{app_id}:
     get:
       tags:
       - Applications
@@ -1428,7 +1428,7 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get app details
-  /idam/v1/applications/{app_id}/roles:
+  /applications/{app_id}/roles:
     get:
       tags:
       - Roles
@@ -1575,7 +1575,7 @@ paths:
       x-consumer-note: 'Admin console only: Create role for application, not direct
         frontend'
       x-brrtrouter-impl: true
-  /idam/v1/applications/{app_id}/roles/{role_id}:
+  /applications/{app_id}/roles/{role_id}:
     get:
       tags:
       - Roles
@@ -1641,7 +1641,7 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get role details
-  /idam/v1/applications/{app_id}/permissions:
+  /applications/{app_id}/permissions:
     get:
       tags:
       - Permissions
@@ -1741,7 +1741,7 @@ paths:
       x-consumer-note: 'Admin console only: Create permission for application, not
         direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/applications/{app_id}/roles/{role_id}/permissions:
+  /applications/{app_id}/roles/{role_id}/permissions:
     get:
       tags:
       - Roles
@@ -1924,7 +1924,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Revoke permission from role, not direct
         frontend'
-  /idam/v1/organizations/{org_id}/webhooks:
+  /organizations/{org_id}/webhooks:
     get:
       tags:
       - Webhooks
@@ -1983,7 +1983,7 @@ paths:
           content: *id003
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: List webhooks for org, not direct frontend'
-  /idam/v1/organizations/{org_id}/webhooks/{subscription_id}:
+  /organizations/{org_id}/webhooks/{subscription_id}:
     delete:
       tags:
       - Webhooks
@@ -2041,7 +2041,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete webhook subscription, not direct
         frontend'
-  /idam/v1/organizations/{org_id}/webhooks/{subscription_id}/test:
+  /organizations/{org_id}/webhooks/{subscription_id}/test:
     post:
       tags:
       - Webhooks
@@ -2102,7 +2102,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Test webhook delivery, not direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/organizations/admin/users/{user_id}/invalidate-all-keys:
+  /organizations/admin/users/{user_id}/invalidate-all-keys:
     post:
       tags:
       - AccountSecurity
@@ -2164,7 +2164,7 @@ paths:
       x-consumer-note: 'Admin console only: Invalidate all API keys for user, not
         direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/organizations/{org_id}/scim/users:
+  /organizations/{org_id}/scim/users:
     get:
       tags:
       - SCIM
@@ -2287,7 +2287,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Create user via SCIM, SCIM provisioner only'
       x-brrtrouter-impl: true
-  /idam/v1/organizations/{org_id}/scim/users/{user_id}:
+  /organizations/{org_id}/scim/users/{user_id}:
     put:
       tags:
       - SCIM
@@ -2384,7 +2384,7 @@ paths:
           content: *id003
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Delete user via SCIM, SCIM provisioner only'
-  /idam/v1/organizations/{org_id}/users/{user_id}:
+  /organizations/{org_id}/users/{user_id}:
     delete:
       tags:
       - Membership
@@ -2446,7 +2446,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Remove user from organization, not direct
         frontend'
-  /idam/v1/organizations/{org_id}/users/{user_id}/role:
+  /organizations/{org_id}/users/{user_id}/role:
     patch:
       tags:
       - Membership

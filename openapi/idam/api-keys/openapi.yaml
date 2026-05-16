@@ -22,7 +22,7 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /idam/v1/api-keys:
+  /api-keys:
     post:
       tags:
       - APIKeys
@@ -116,7 +116,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to create API key for current user/org
       x-brrtrouter-impl: true
-  /idam/v1/api-keys/current:
+  /api-keys/current:
     get:
       tags:
       - APIKeys
@@ -213,7 +213,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to list active API keys for current user/org
-  /idam/v1/api-keys/{key_id}:
+  /api-keys/{key_id}:
     put:
       tags:
       - APIKeys
@@ -338,7 +338,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to delete own API key
-  /idam/v1/api-keys/validate:
+  /api-keys/validate:
     post:
       tags:
       - APIKeys
@@ -427,7 +427,7 @@ paths:
       x-consumer-note: 'Backend-only: Validate API key (used by backend services),
         never from browser'
       x-brrtrouter-impl: true
-  /idam/v1/api-keys/usage:
+  /api-keys/usage:
     get:
       tags:
       - APIKeys
@@ -499,7 +499,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to check usage stats for own API keys
-  /idam/v1/api-keys/validate/personal:
+  /api-keys/validate/personal:
     post:
       tags:
       - APIKeys
@@ -563,7 +563,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Validate personal API key, never from browser'
       x-brrtrouter-impl: true
-  /idam/v1/api-keys/archived:
+  /api-keys/archived:
     get:
       tags:
       - APIKeys
@@ -640,7 +640,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to list archived API keys for current user/org
-  /idam/v1/api-keys/archived/{key_id}:
+  /api-keys/archived/{key_id}:
     get:
       tags:
       - APIKeys
@@ -701,7 +701,7 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to get details of archived API key
-  /idam/v1/api-keys/import:
+  /api-keys/import:
     post:
       tags:
       - APIKeys
@@ -769,7 +769,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Bulk import API keys, not direct frontend'
       x-brrtrouter-impl: true
-  /idam/v1/api-keys/validate/org:
+  /api-keys/validate/org:
     post:
       tags:
       - APIKeys

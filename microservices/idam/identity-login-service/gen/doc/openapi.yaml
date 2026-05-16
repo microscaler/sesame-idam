@@ -37,12 +37,13 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /idam/v1/auth/login:
+  /auth/login:
     post:
       tags:
       - AuthFlows
       summary: Login with password
-      description: 'Authenticate with email+password. Returns access token and refresh token.
+      description: 'Authenticate with email+password. Returns access token and refresh
+        token.
 
         If MFA is enabled on the account, returns 202 with MFA verification flow.
 
@@ -133,11 +134,12 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call for user login
       x-brrtrouter-impl: true
-  /idam/v1/auth/login/email-otp:
+  /auth/login/email-otp:
     post:
       tags:
       - AuthFlows
@@ -200,7 +202,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP
       x-brrtrouter-impl: true
-  /idam/v1/auth/verify/email-otp:
+  /auth/verify/email-otp:
     post:
       tags:
       - AuthFlows
@@ -271,11 +273,12 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Required for resolving the user to the correct tenant context.
+        description: Tenant identifier. Required for resolving the user to the correct
+          tenant context.
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify OTP
       x-brrtrouter-impl: true
-  /idam/v1/auth/login/phone-otp:
+  /auth/login/phone-otp:
     post:
       tags:
       - AuthFlows
@@ -332,12 +335,13 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to phone
       x-brrtrouter-impl: true
-  /idam/v1/auth/verify/phone-otp:
+  /auth/verify/phone-otp:
     post:
       tags:
       - AuthFlows
       summary: Verify phone SMS OTP and complete login
-      description: 'Verifies the 6-digit SMS OTP code. On success, returns access token
+      description: 'Verifies the 6-digit SMS OTP code. On success, returns access
+        token
 
         and refresh token. Sets phone_verified=true on the user''s profile.
 
@@ -402,7 +406,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify phone OTP
       x-brrtrouter-impl: true
-  /idam/v1/auth/login/dual-otp:
+  /auth/login/dual-otp:
     post:
       tags:
       - AuthFlows
@@ -467,7 +471,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to email+phone
       x-brrtrouter-impl: true
-  /idam/v1/auth/verify/dual-otp:
+  /auth/verify/dual-otp:
     post:
       tags:
       - AuthFlows
@@ -540,7 +544,8 @@ paths:
                     email_verified: true
                     phone_verified: false
                     both_verified: false
-                    message: Email verified. Please verify your phone to complete login.
+                    message: Email verified. Please verify your phone to complete
+                      login.
               example: *id018
         '401':
           description: Unauthorized — invalid, expired, or missing credentials
@@ -553,7 +558,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify dual OTP
       x-brrtrouter-impl: true
-  /idam/v1/auth/register:
+  /auth/register:
     post:
       tags:
       - AuthFlows
@@ -627,7 +632,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call for new user registration
       x-brrtrouter-impl: true
-  /idam/v1/auth/token:
+  /auth/token:
     post:
       tags:
       - Sessions
@@ -703,12 +708,13 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to refresh token or exchange OAuth code
       x-brrtrouter-impl: true
-  /idam/v1/auth/password/forgot:
+  /auth/password/forgot:
     post:
       tags:
       - PasswordReset
       summary: Request password reset email
-      description: 'Sends a password reset email with a time-limited token to the given email.
+      description: 'Sends a password reset email with a time-limited token to the
+        given email.
 
 
 
@@ -771,12 +777,13 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to request password reset
       x-brrtrouter-impl: true
-  /idam/v1/auth/password/reset:
+  /auth/password/reset:
     post:
       tags:
       - PasswordReset
       summary: Confirm password reset with token
-      description: 'Validates the reset token from the password reset email and sets a new password.
+      description: 'Validates the reset token from the password reset email and sets
+        a new password.
 
 
 
@@ -826,7 +833,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to reset password with token
       x-brrtrouter-impl: true
-  /idam/v1/auth/logout:
+  /auth/logout:
     post:
       tags:
       - Sessions
@@ -876,7 +883,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to logout current session
       x-brrtrouter-impl: true
-  /idam/v1/auth/social/{provider}/login:
+  /auth/social/{provider}/login:
     get:
       tags:
       - SocialLogin
@@ -934,12 +941,13 @@ paths:
           content: *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to initiate OAuth login flow
-  /idam/v1/auth/social/{provider}/callback:
+  /auth/social/{provider}/callback:
     post:
       tags:
       - SocialLogin
       summary: Exchange OAuth provider callback for tokens
-      description: 'Step 2 of social login. Receives the provider''s authorization code
+      description: 'Step 2 of social login. Receives the provider''s authorization
+        code
 
         (from OAuth redirect), exchanges it for tokens, and completes login.
 
@@ -1007,14 +1015,16 @@ paths:
           description: Internal server error
           content: *id005
       x-consumer: external-provider
-      x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not frontend
+      x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not
+        frontend
       x-brrtrouter-impl: true
-  /idam/v1/oauth/authorize:
+  /oauth/authorize:
     get:
       tags:
       - Sessions
       summary: OAuth2 authorization endpoint
-      description: 'Redirects user to the Sesame login page. Compatible with `code` response type.
+      description: 'Redirects user to the Sesame login page. Compatible with `code`
+        response type.
 
         After successful login, redirects to `redirect_uri` with `code` parameter.
 
@@ -1092,12 +1102,13 @@ paths:
           content: *id005
       x-consumer: frontend
       x-consumer-note: OAuth authorization endpoint called by frontend browser
-  /idam/v1/auth/signup/validate:
+  /auth/signup/validate:
     get:
       tags:
       - Signup
       summary: Validate signup eligibility
-      description: 'Check if email/phone is allowed to register before the user starts filling forms.
+      description: 'Check if email/phone is allowed to register before the user starts
+        filling forms.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -1149,14 +1160,15 @@ paths:
           description: Internal server error
           content: *id005
       x-consumer: frontend
-      x-consumer-note: Direct browser call to validate signup data (email/username availability)
-  /idam/v1/auth/login/magic-link:
+      x-consumer-note: Direct browser call to validate signup data (email/username
+        availability)
+  /auth/login/magic-link:
     post:
       tags:
       - Passwordless
       summary: Send magic link for passwordless login
-      description: 'Sends a time-limited magic link to the user email. The user clicks the link to complete login without
-        a password.
+      description: 'Sends a time-limited magic link to the user email. The user clicks
+        the link to complete login without a password.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -1206,12 +1218,13 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send magic link to email
       x-brrtrouter-impl: true
-  /idam/v1/auth/login/magic-link/verify:
+  /auth/login/magic-link/verify:
     post:
       tags:
       - Passwordless
       summary: Verify magic link token and complete login
-      description: 'Verifies the magic link token. On success, returns access token and refresh token.
+      description: 'Verifies the magic link token. On success, returns access token
+        and refresh token.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -1270,7 +1283,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify magic link token
       x-brrtrouter-impl: true
-  /idam/v1/auth/login/phone-magic-link:
+  /auth/login/phone-magic-link:
     post:
       tags:
       - Passwordless
@@ -1325,12 +1338,13 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to send magic link to phone
       x-brrtrouter-impl: true
-  /idam/v1/auth/login/phone-magic-link/verify:
+  /auth/login/phone-magic-link/verify:
     post:
       tags:
       - Passwordless
       summary: Verify SMS magic link token and complete login
-      description: 'Verifies the SMS magic link token. On success, returns access token and refresh token.
+      description: 'Verifies the SMS magic link token. On success, returns access
+        token and refresh token.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -1552,7 +1566,8 @@ components:
           description: Always false — user must confirm via email link
         message:
           type: string
-          example: A confirmation email has been sent. Please verify your email to complete registration.
+          example: A confirmation email has been sent. Please verify your email to
+            complete registration.
     MfaRequiredResponse:
       type: object
       required:
@@ -1861,10 +1876,12 @@ components:
       properties:
         refresh_token:
           type: string
-          description: The refresh token to revoke. Required only if no Authorization header is present. If the session is
-            identified via the Bearer token in the Authorization header, this field is optional.
-      description: Request body for logout operation. Either the refresh_token in the body OR the Bearer token in the Authorization
-        header can be used to identify the session to revoke. If both are provided, the refresh_token is preferred.
+          description: The refresh token to revoke. Required only if no Authorization
+            header is present. If the session is identified via the Bearer token in
+            the Authorization header, this field is optional.
+      description: Request body for logout operation. Either the refresh_token in
+        the body OR the Bearer token in the Authorization header can be used to identify
+        the session to revoke. If both are provided, the refresh_token is preferred.
       example: *id054
     SocialCallbackRequest:
       type: object

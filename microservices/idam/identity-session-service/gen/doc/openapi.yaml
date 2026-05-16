@@ -6,7 +6,8 @@ info:
 
     Handles token refresh, user profile lookup, and OIDC/JWKS endpoints.
 
-    EXTREME frequency with LOW per-request cost (indexed DB lookups, cached static data).
+    EXTREME frequency with LOW per-request cost (indexed DB lookups, cached static
+    data).
 
     Must respond in <5ms to avoid blocking client-side navigation.
 
@@ -33,7 +34,7 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /idam/v1/session/refresh:
+  /session/refresh:
     post:
       tags:
       - Sessions
@@ -112,12 +113,13 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to refresh access token
       x-brrtrouter-impl: true
-  /idam/v1/identity/me:
+  /identity/me:
     get:
       tags:
       - Identity
@@ -242,7 +244,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to update current user profile
       x-brrtrouter-impl: true
-  /idam/v1/.well-known/openid-configuration:
+  /.well-known/openid-configuration:
     get:
       tags:
       - Discovery
@@ -278,7 +280,7 @@ paths:
           content: *id004
       x-consumer: frontend
       x-consumer-note: Public OpenID Connect discovery endpoint, no auth required
-  /idam/v1/.well-known/jwks.json:
+  /.well-known/jwks.json:
     get:
       tags:
       - Discovery
@@ -320,7 +322,7 @@ paths:
           content: *id004
       x-consumer: frontend
       x-consumer-note: Public JWKS endpoint for token verification, no auth required
-  /idam/v1/identity/userinfo:
+  /identity/userinfo:
     get:
       tags:
       - Sessions
@@ -361,12 +363,13 @@ paths:
       - *id005
       x-consumer: frontend
       x-consumer-note: Direct browser call to get user info from OAuth token
-  /idam/v1/auth/verify/step-up:
+  /auth/verify/step-up:
     post:
       tags:
       - StepUp
       summary: Step-up MFA verification
-      description: 'Re-authenticate for sensitive operations (delete account, change email, etc.). Requires current MFA enrollment.
+      description: 'Re-authenticate for sensitive operations (delete account, change
+        email, etc.). Requires current MFA enrollment.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -435,16 +438,18 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify step-up authentication
       x-brrtrouter-impl: true
-  /idam/v1/identity/me/token:
+  /identity/me/token:
     post:
       tags:
       - TokenIssuance
       summary: Issue access token
-      description: 'Programmatically create tokens for server-side flows and admin scripts. Bypasses standard login flow.
+      description: 'Programmatically create tokens for server-side flows and admin
+        scripts. Bypasses standard login flow.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -502,7 +507,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin issues tokens on behalf of user'
       x-brrtrouter-impl: true
-  /idam/v1/mcp/token:
+  /mcp/token:
     post:
       tags:
       - MCP
@@ -552,7 +557,7 @@ paths:
       x-consumer: agent
       x-consumer-note: 'Agent-only: Generate token for MCP agent, never from browser'
       x-brrtrouter-impl: true
-  /idam/v1/mcp/token/validate:
+  /mcp/token/validate:
     post:
       tags:
       - MCP
@@ -601,7 +606,7 @@ paths:
       x-consumer: agent
       x-consumer-note: 'Agent-only: Validate MCP agent token, never from browser'
       x-brrtrouter-impl: true
-  /idam/v1/mcp/agents:
+  /mcp/agents:
     get:
       tags:
       - MCP
@@ -705,7 +710,7 @@ paths:
       x-consumer: agent
       x-consumer-note: 'Agent-only: Create MCP agent for user, never from browser'
       x-brrtrouter-impl: true
-  /idam/v1/mcp/agents/{agent_id}:
+  /mcp/agents/{agent_id}:
     get:
       tags:
       - MCP
@@ -788,12 +793,13 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: agent
       x-consumer-note: 'Agent-only: Delete MCP agent, never from browser'
-  /idam/v1/admin/impersonate:
+  /admin/impersonate:
     post:
       tags:
       - Impersonation
       summary: Impersonate user
-      description: 'Admin switches to user session for debugging/support. Creates a new session for the target user.
+      description: 'Admin switches to user session for debugging/support. Creates
+        a new session for the target user.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -851,7 +857,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin impersonate user session'
       x-brrtrouter-impl: true
-  /idam/v1/admin/impersonate/restore:
+  /admin/impersonate/restore:
     post:
       tags:
       - Impersonation
@@ -943,7 +949,8 @@ components:
   schemas:
     CreateUserRequest:
       type: object
-      description: 'Creates a new user. Idempotent: if an existing user with the same email
+      description: 'Creates a new user. Idempotent: if an existing user with the same
+        email
 
         is found, returns the existing user instead of creating a duplicate.
 
@@ -960,7 +967,8 @@ components:
         email_confirmed:
           type: boolean
           default: false
-          description: 'If true, the email is considered pre-verified (no confirmation email sent).
+          description: 'If true, the email is considered pre-verified (no confirmation
+            email sent).
 
             Useful for platform-admin-created users or migrated accounts.
 
@@ -1276,8 +1284,8 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The target user to impersonate. This replaces the path parameter for security (prevents leaking user_id
-            in access logs/CDN keys)
+          description: The target user to impersonate. This replaces the path parameter
+            for security (prevents leaking user_id in access logs/CDN keys)
     ImpersonateResponse:
       type: object
       required:
@@ -1337,7 +1345,8 @@ components:
                 description: Key type (e.g. "RSA")
               kid:
                 type: string
-                description: Key ID — unique identifier for this key (used by JWT `kid` header)
+                description: Key ID — unique identifier for this key (used by JWT
+                  `kid` header)
               use:
                 type: string
                 description: Intended use of the public key (sig = signature)
@@ -1412,7 +1421,8 @@ components:
             '
         password:
           type: string
-          description: User's password (only required when logging in with email, not with phone OTP)
+          description: User's password (only required when logging in with email,
+            not with phone OTP)
         organization_id:
           type: string
           format: uuid
@@ -1662,7 +1672,8 @@ components:
           - string
           - 'null'
           maxLength: 50
-          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator", "Work phone").
+          description: 'Optional label for the TOTP factor (e.g. "Google Authenticator",
+            "Work phone").
 
             Shown in MFA management UI.
 
@@ -1673,7 +1684,8 @@ components:
         password: SecureP@ss123!
     MfaSetupResponse:
       type: object
-      description: 'Returns the TOTP provisioning URI that can be rendered as a QR code.
+      description: 'Returns the TOTP provisioning URI that can be rendered as a QR
+        code.
 
         The user must scan the QR code and enter the resulting code to complete setup.
 
@@ -1690,7 +1702,8 @@ components:
             '
         secret:
           type: string
-          description: 'Base32-encoded TOTP secret (also available in the provisioning URI).
+          description: 'Base32-encoded TOTP secret (also available in the provisioning
+            URI).
 
             Shown as a fallback if the QR code cannot be scanned.
 
@@ -1730,13 +1743,15 @@ components:
           type:
           - string
           - 'null'
-          description: 'Session ID from MFA_REQUIRED login response. Required for step 2 of login.
+          description: 'Session ID from MFA_REQUIRED login response. Required for
+            step 2 of login.
 
             '
         challenge_id:
           type: string
           nullable: true
-          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn factor type).
+          description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn
+            factor type).
 
             '
       example:
@@ -2404,7 +2419,8 @@ components:
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
-          description: Optional human-identifiable username (alphanumeric, underscore, hyphen)
+          description: Optional human-identifiable username (alphanumeric, underscore,
+            hyphen)
         picture_url:
           type: string
           nullable: true
@@ -2415,7 +2431,8 @@ components:
           additionalProperties: true
           description: 'Custom key-value metadata attached to the user.
 
-            Platform admins can set arbitrary properties; SaaS customers limited to org-scoped keys.
+            Platform admins can set arbitrary properties; SaaS customers limited to
+            org-scoped keys.
 
             '
         locked:
@@ -2436,7 +2453,8 @@ components:
           type: boolean
           description: 'Whether the user has a password set.
 
-            Users with has_password=false can only authenticate via MFA, social login, or SSO.
+            Users with has_password=false can only authenticate via MFA, social login,
+            or SSO.
 
             '
         update_password_required:
@@ -2451,7 +2469,8 @@ components:
           description: Whether any 2FA method is currently enabled for this user
         can_create_orgs:
           type: boolean
-          description: Whether this user can create new organisations (platform admin flag)
+          description: Whether this user can create new organisations (platform admin
+            flag)
         created_at:
           type: integer
           format: int64
@@ -2529,7 +2548,8 @@ components:
 
         Combines standard OIDC claims (sub, email_verified, name, preferred_username)
 
-        with identity-specific fields (user_id, first_name, last_name) and session context
+        with identity-specific fields (user_id, first_name, last_name) and session
+        context
 
         (org_id, org_name, user_role, user_permissions).
 

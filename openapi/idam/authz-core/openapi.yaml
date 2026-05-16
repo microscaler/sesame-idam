@@ -25,7 +25,7 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /idam/v1/authz/principals/roles:
+  /authz/principals/roles:
     post:
       tags:
       - Principal
@@ -148,7 +148,7 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Revoke role from principal, never from browser'
-  /idam/v1/authz/principals/attributes:
+  /authz/principals/attributes:
     post:
       tags:
       - Principal
@@ -184,7 +184,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Set attribute on principal, never from browser'
       x-brrtrouter-impl: true
-  /idam/v1/authz/principals/effective:
+  /authz/principals/effective:
     post:
       tags:
       - Principal
@@ -242,7 +242,7 @@ paths:
       x-consumer-note: 'Backend-only: Get effective permissions for principal, used
         by authz middleware'
       x-brrtrouter-impl: true
-  /idam/v1/authz/authorize:
+  /authz/authorize:
     post:
       tags:
       - Principal
@@ -307,7 +307,7 @@ paths:
       x-consumer-note: 'Backend-only: Check if principal is authorized, used by all
         backend services'
       x-brrtrouter-impl: true
-  /idam/v1/authz/audit/events:
+  /authz/audit/events:
     post:
       tags:
       - Audit
@@ -472,7 +472,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
-  /idam/v1/authz/audit/events/{id}:
+  /authz/audit/events/{id}:
     get:
       tags:
       - Audit
@@ -536,7 +536,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
-  /idam/v1/authz/audit/events/stats:
+  /authz/audit/events/stats:
     post:
       tags:
       - Audit
@@ -603,7 +603,7 @@ paths:
       security: []
       parameters:
       - *id007
-  /idam/v1/authz/audit/export:
+  /authz/audit/export:
     post:
       tags:
       - Audit
@@ -660,7 +660,7 @@ paths:
       security: []
       parameters:
       - *id007
-  /idam/v1/authz/audit/export/{export_id}:
+  /authz/audit/export/{export_id}:
     get:
       tags:
       - Audit
@@ -715,7 +715,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
-  /idam/v1/authz/audit/retention:
+  /authz/audit/retention:
     get:
       tags:
       - Audit
@@ -839,7 +839,7 @@ paths:
       security: []
       parameters:
       - *id007
-  /idam/v1/authz/audit/retention/{id}:
+  /authz/audit/retention/{id}:
     patch:
       tags:
       - Audit
@@ -998,14 +998,15 @@ components:
           description: Field used for sorting
         sort_order:
           type: string
-          enum: [asc, desc]
+          enum:
+          - asc
+          - desc
           description: Sort order (ascending or descending)
         filters:
           type: array
           items:
             type: string
           description: List of filters applied to the query
-
     ErrorResponse:
       type: object
       required:
