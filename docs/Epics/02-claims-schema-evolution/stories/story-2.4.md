@@ -150,9 +150,165 @@ flowchart TD
     G -->|Yes| H[Process request with tenant context]
 ```
 
-## OpenAPI Changes
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
 
-- `LoginResponse` schema: Add `tenant_id` field (string, UUID format)
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-241: Tenant ID Can Be Stolen via JWT Token Replay (CRITICAL — Hole #5 from PRS)
+
+**Risk:** Attacker steals a JWT and uses it to access a different tenant's data
+
+The story says: `tenant_id` is in the JWT payload (signed, not encrypted). The design doc says: "Do include `tenant_id` in JWT claims." But the JWT is NOT encrypted — it's base64url-encoded JSON. Anyone who intercepts the JWT can read the `tenant_id`.
+
+**Exploit path (tenant enumeration via stolen JWT):**
+1. Attacker compromises a user's network traffic (MITM, proxy, or log access)
+2. Attacker captures the user's JWT: `eyJhbGciOiJFUzI1NiJ9.eyJ0ZW5hbnRfaWQiOiJ0ZW5hbnRfYWJjIiwic3ViIjoidXNlcl8xMjMiLC...`
+3. The attacker decodes the JWT payload: `{"tenant_id": "tenant_abc", "sub": "user_123", ...}`
+4. The attacker now knows the exact tenant_id of the compromised user
+5. The attacker can use this tenant_id to target other users in the same tenant
+6. Result: Tenant enumeration from a stolen token
+
+**This is a design limitation:** the `tenant_id` is in the JWT payload (base64url-encoded, not encrypted). Anyone who can read the JWT can read the tenant_id.
+
+**But the risk is limited:** the `tenant_id` is already visible from the `X-Tenant-ID` header. If the attacker has intercepted the JWT, they likely also have access to the `X-Tenant-ID` header. So the JWT payload does not add significant risk beyond what's already exposed.
+
+**The real risk is different:** What if the attacker FORGES a JWT with a different `tenant_id` to access another tenant's data?
+
+**Exploit path (tenant ID forgery):**
+1. Attacker forges a JWT with `tenant_id: "tenant_abc"` and a valid signature (using a compromised key)
+2. Attacker sends the forged JWT to the service
+3. The service validates the signature → valid
+4. The service extracts `tenant_id` from the JWT → `tenant_abc`
+5. The service queries the database with `WHERE tenant_id = 'tenant_abc'`
+6. If the attacker's query targets tenant_abc's data → attacker gains access
+7. BUT: the attacker doesn't need to forge the tenant_id — they just need to forge ANY valid JWT
+
+**The tenant_id forgery is NOT a vulnerability by itself** — it's a consequence of key compromise. The real protection is the JWT signature verification.
+
+**The real exploit is different:** What if the JWT's `tenant_id` doesn't match the request's `X-Tenant-ID` header?
+
+**Exploit path (tenant mismatch via header manipulation):**
+1. Attacker has a valid JWT with `tenant_id: "tenant_abc"` (user from tenant A)
+2. Attacker modifies the `X-Tenant-ID` header to `tenant_xyz`
+3. The attacker sends the request to a service in tenant xyz
+4. The service extracts `X-Tenant-ID` from the request → `tenant_xyz`
+5. The service extracts `tenant_id` from the JWT → `tenant_abc`
+6. The service compares: `tenant_abc != tenant_xyz` → REJECT (correct, per the story)
+7. BUT: what if the service does NOT compare them? What if it only uses the JWT's tenant_id?
+8. Result: The user from tenant A accesses tenant xyz's data using their tenant A JWT
+
+**This is the CRITICAL exploit:** if the downstream service does NOT validate `claims.tenant_id == X-Tenant-ID`, a user's JWT can be used to access ANY tenant's data.
+
+**Implementation requirement:**
+- EVERY downstream service MUST validate `claims.tenant_id == X-Tenant-ID` before processing any request
+- If the service receives no `X-Tenant-ID` header, it MUST reject the request with 400
+- The validation MUST happen BEFORE any database query — the tenant_id is used to construct the WHERE clause
+- Add a middleware: "Tenant ID Validation Middleware" that runs before route handlers
+- Log a WARN entry whenever a tenant mismatch is detected: "Tenant mismatch: JWT=tenant_abc, X-Tenant-ID=tenant_xyz"
+- Document: "Every downstream service MUST validate claims.tenant_id == X-Tenant-ID. Mismatches are logged and rejected."
+
+### HACK-242: Tenant ID in JWT Is NOT Confidential — Leaks to All Token Consumers (HIGH — related to Hole #1 from PRS)
+
+**Risk:** The `tenant_id` in the JWT reveals tenant information to any service or client that can read the JWT
+
+The story acknowledges: "The JWT is signed, not encrypted. Any service that can decode the JWT can see the `tenant_id`." This is by design, but it means:
+
+**Exploit path (tenant information leakage):**
+1. Attacker gains access to a downstream service's logs (e.g., via an SSRF bug, or access to the service's debug endpoint)
+2. The service's request logs include the JWT (e.g., in the `Authorization` header)
+3. The attacker decodes the JWT and reads the `tenant_id`
+4. The attacker now knows which tenants are using the platform
+5. If the service logs multiple JWTs, the attacker can map out all tenants on the platform
+6. Result: Tenant enumeration via log analysis
+
+**But this is a general JWT risk, not specific to the tenant_id claim.** Any claim in the JWT is visible to anyone who can read the token.
+
+**The real risk is different:** What if the `tenant_id` is used in a context where it should NOT be visible?
+
+**Exploit path (tenant_id visible in URL fragments):**
+1. Attacker crafts a malicious HTML page that includes an `<img>` tag pointing to the API
+2. The browser includes the JWT in the `Authorization` header
+3. If the API returns a redirect (302) to a URL containing the JWT, the JWT (including `tenant_id`) is leaked to the redirect target
+4. Result: tenant_id leakage via redirect URLs
+
+**Implementation requirement:**
+- Consider: should `tenant_id` be in the JWT payload at all? The `X-Tenant-ID` header already carries this information.
+- Alternative: remove `tenant_id` from the JWT payload and rely solely on the `X-Tenant-ID` header
+- If `tenant_id` is retained in the JWT, it must be treated as EXPOSED INFORMATION (not confidential)
+- Document: "`tenant_id` in the JWT is NOT confidential. Any entity that can read the JWT can read the tenant_id. Treat it as public information."
+
+### HACK-243: Tenant ID Mismatch Validation Can Be Bypassed by Omitting X-Tenant-ID (CRITICAL — related to Hole #5 from PRS)
+
+**Risk:** Attacker omits the `X-Tenant-ID` header to bypass tenant validation
+
+The story shows: `validate_tenant()` checks that the JWT's `tenant_id` matches the request's `X-Tenant-ID`. But what happens if the header is MISSING?
+
+**Exploit path (missing header bypass):**
+1. Attacker sends a request without the `X-Tenant-ID` header
+2. The service extracts `X-Tenant-ID` → None
+3. The service extracts `tenant_id` from the JWT → `tenant_abc`
+4. The service calls `validate_tenant(None)`
+5. If `validate_tenant(None)` compares `tenant_abc == None` → returns `Err(JwtError::TenantMismatch)` → REJECTED (correct)
+6. BUT: what if `validate_tenant()` returns `Ok(())` when the expected tenant is `None`? (e.g., if the function treats `None` as "no tenant constraint")
+7. Result: The request is processed without tenant context, potentially exposing all tenants' data
+
+**This is the CRITICAL exploit:** if the tenant validation function does NOT handle the `None` case correctly, ALL tenants' data could be exposed.
+
+**The risk is real:** if the downstream service has a bug where it does NOT pass the `X-Tenant-ID` to the database query layer, the attacker can omit the header and access ALL data in the database (not just one tenant's data).
+
+**Implementation requirement:**
+- The `validate_tenant()` function MUST return `Err` when `expected_tenant` is `None`
+- The JWT middleware MUST reject requests without an `X-Tenant-ID` header with 400 Bad Request
+- The database layer MUST ALWAYS include `WHERE tenant_id = ?` in every query — NEVER allow queries without tenant scoping
+- Add an audit: "Search all database queries in the codebase and verify that every query includes a tenant_id WHERE clause"
+- Document: "Requests without X-Tenant-ID are rejected with 400. Database queries ALWAYS include tenant_id WHERE clause."
+
+### HACK-244: Tenant ID in JWT Is Fixed at Issue Time — Cannot Reflect Real-Time Tenant Changes (MEDIUM — related to Hole #3 from PRS)
+
+**Risk:** A user's tenant context changes (e.g., they are moved to a different tenant by an admin), but their JWT still contains the old tenant_id
+
+The story says: "A token's `tenant_id` is fixed at issue time." This is correct for a JWT — the payload is signed and cannot be changed without invalidating the signature.
+
+**Exploit path:**
+1. User A is in tenant_abc and has a valid JWT with `tenant_id: "tenant_abc"`
+2. Admin moves user A to tenant_xyz (via org management API)
+3. User A continues to use their old JWT (with `tenant_id: "tenant_abc"`)
+4. The service validates the JWT → `tenant_abc` is valid → processed
+5. The service queries the database with `WHERE tenant_id = 'tenant_abc'` → returns tenant_abc's data
+6. BUT: user A is now in tenant_xyz, so the data returned is from the WRONG tenant
+7. Result: user A sees data from their PREVIOUS tenant (tenant_abc) even though they've been moved
+
+**This is a design gap:** the user's tenant_id in the JWT is stale after a tenant move. The user must re-authenticate to get a new JWT with the updated tenant_id.
+
+**Implementation requirement:**
+- Document: "When a user's tenant changes, all existing JWTs MUST be invalidated (added to denylist)."
+- The org management API that handles tenant moves MUST trigger a version bump AND denylist ALL existing tokens for the affected user
+- The version bump ensures new tokens have the updated tenant context
+- Document: "Tenant moves trigger an immediate version bump and token denylist for the affected user."
+
+### HACK-245: Tenant ID UUID Format Can Be Manipulated via UUID Spoofing (MEDIUM — related to Hole #6 from PRS)
+
+**Risk:** Attacker crafts a JWT with a `tenant_id` that looks like a valid UUID but targets a non-existent tenant
+
+The story says: "`tenant_id` is a valid UUID format." But a UUID is just a 36-character string. An attacker can forge a UUID that doesn't correspond to any real tenant.
+
+**Exploit path:**
+1. Attacker forges a JWT with `tenant_id: "00000000-0000-0000-0000-000000000000"` (all zeros)
+2. The UUID format validation passes (it's a valid UUID)
+3. The service queries the database with `WHERE tenant_id = '00000000-0000-0000-0000-000000000000'`
+4. No results are returned (no such tenant exists) → empty result set
+5. If the service treats an empty result set as "access denied" → safe
+6. BUT: if the service treats an empty result set as "all data" (no rows found → return everything) → DANGEROUS
+
+**Implementation requirement:**
+- The service MUST verify that the `tenant_id` from the JWT corresponds to a REAL tenant in the database
+- If the tenant does not exist → reject with 401 "Invalid tenant"
+- The tenant validation MUST happen BEFORE any data query
+- Document: "The JWT's tenant_id is verified against the tenant registry. Non-existent tenants are rejected."
+
+---
+
+## OpenAPI Changes
 - No changes to request schemas needed (tenant_id is derived from `X-Tenant-ID` header)
 
 ```yaml

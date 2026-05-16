@@ -162,6 +162,99 @@ sequenceDiagram
     Note over KM: key-2026-04 dropped
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-121: JWKS Endpoint Exposed for Offline Cryptanalysis (CRITICAL — Hole #1 from PRS)
+
+**Risk:** Attacker continuously scrapes the JWKS endpoint to collect all historical public keys for offline brute-force attacks
+
+The story says: "JWKS is a public endpoint by design — this is correct. Public keys ARE public." But the attacker can use the collected public keys to:
+1. Verify tokens signed with old keys (during rotation windows)
+2. Perform timing analysis on the JWKS endpoint to detect when key rotations occur
+3. Map the key rotation schedule to understand which tokens are valid during overlap windows
+
+**Exploit path (rotation schedule mapping):**
+1. Attacker scrapes the JWKS endpoint every 10 seconds
+2. At T=0: endpoint returns `[key_A]` (only old key)
+3. At T=60: endpoint returns `[key_A, key_B]` (new key published — rotation detected)
+4. At T=300: endpoint returns `[key_B]` (old key removed — grace period ended)
+5. Attacker now knows: rotation happens every 240 seconds, grace period is 240 seconds
+6. Attacker can predict WHEN the next rotation occurs and target tokens during the overlap window
+7. Result: Attacker knows the precise window during which old keys are valid and can be used for token forgery (if they obtained the old private key)
+
+**The key insight:** The JWKS endpoint leaks the ENTIRE key lifecycle — when keys are published, when they're rotated, and when they expire. This information helps an attacker plan attacks around the rotation schedule.
+
+**Implementation requirement:**
+- Add `Cache-Control: public, max-age=300` to JWKS responses (the story already does this — CORRECT)
+- Add `ETag` header to JWKS responses so clients can use `If-None-Match` and reduce endpoint traffic
+- Alert on JWKS endpoint request rate anomalies: if a single IP requests JWKS more than 100 times per minute, BLOCK that IP
+- Consider: the JWKS endpoint should NOT reveal the grace period timing — it should publish new keys early enough that consumers pick them up via their cache, but the exact rotation timing should not be predictable
+- Document: "JWKS endpoint is public by design. Cache-Control header prevents unnecessary requests. Rate-limit anomalous scraping."
+
+### HACK-122: NGINX Rate Limit Bypass via IP Rotation (HIGH — related to Hole #5 from PRS)
+
+**Risk:** Attacker bypasses the 100 req/s NGINX rate limit using multiple IPs (e.g., from a botnet or proxy rotation)
+
+The story says: `limit_req_zone $binary_remote_addr zone=jwks_limit:10m rate=100r/s`. The `$binary_remote_addr` uses the direct client IP, which can be spoofed or rotated.
+
+**Exploit path:**
+1. Attacker rotates their IP address (e.g., using a proxy service with 1000 IPs)
+2. Each IP gets its own 100 req/s allocation
+3. Total throughput: 1000 IPs × 100 req/s = 100,000 req/s to the JWKS endpoint
+4. Even though the JSON serialization is fast, 100K req/s still generates significant load
+5. Result: DoS against the JWKS endpoint (even though public keys are "low risk")
+
+**The real risk is different:** The JWKS endpoint is served from memory (in-memory KeyManager). The JSON serialization of a JWKS document takes ~100 microseconds. At 100K req/s, that's 10 req/s × CPU. Not actually DoS.
+
+**But the real risk is:** What if an attacker sends a malformed JWKS request (e.g., with a very large `Accept` header or unusual headers) that causes the JSON serializer to behave unexpectedly?
+
+**Exploit path (header-based memory exhaustion):**
+1. Attacker sends a JWKS request with an `Accept` header containing 10MB of data
+2. If the handler tries to parse or validate this header, it may allocate significant memory
+3. At 100K req/s (bypassing rate limit), this could exhaust memory
+4. Result: DoS
+
+**Implementation requirement:**
+- The JWKS handler MUST validate the `Accept` header (or reject any `Accept` header larger than 256 bytes)
+- The JWKS handler MUST reject any request with `Content-Length` or `Transfer-Encoding` headers (GET requests should not have a body)
+- Add a global request body size limit at the NGINX level: `client_max_body_size 0` (no body for GET)
+- Add a global header size limit at the NGINX level: `large_client_header_buffers 4 8k`
+- Document: "JWKS endpoint validates request headers and rejects oversized headers or unexpected body methods."
+
+### HACK-123: JWKS Endpoint Used as a Token Verification Oracle (MEDIUM — related to Hole #4 from PRS)
+
+**Risk:** Attacker uses the JWKS endpoint to verify whether a token's `kid` is valid, enabling token enumeration
+
+The story says: "JWKS serves the current set of public signing keys." An attacker can send a JWT with a specific `kid` in the header and check if that `kid` appears in the JWKS response. If it does, the token was signed with a valid key.
+
+**Exploit path (key validity oracle):**
+1. Attacker has a forged JWT with `kid: "forged_key_xyz"`
+2. Attacker checks the JWKS endpoint: is `forged_key_xyz` in the keys array?
+3. If yes → the key is valid, and the attacker knows they need to find the corresponding private key
+4. If no → the key is not published, and the forged token will fail validation
+5. Result: The JWKS endpoint acts as a "is this key valid?" oracle, helping the attacker narrow down valid key IDs
+
+**But this is actually CORRECT behavior:** The JWKS endpoint is SUPPOSED to publish which keys are valid. This is RFC 7517 — the purpose of JWKS is to tell consumers which keys to use. The attacker using this information to plan further attacks is a normal part of security testing.
+
+**The real exploit is different:** What if the attacker can use the JWKS endpoint to determine the EXACT TIMING of key rotations?
+
+**Exploit path (key rotation timing oracle):**
+1. Attacker scrapes the JWKS endpoint continuously
+2. Attacker detects the EXACT second when a new key appears in the JWKS
+3. This tells the attacker the precise rotation timing
+4. If the attacker has a compromised private key, they know the EXACT window during which the compromised key is still valid
+5. Result: precise timing for token forgery during the overlap window
+
+**Implementation requirement:**
+- The JWKS endpoint already serves from memory with `Cache-Control: max-age=300`. This means the JWKS response is cached at the client/consumer level for 5 minutes.
+- The key insight: consumers CANNOT detect rotation faster than the 5-minute cache. So even if the attacker knows the exact rotation time, they can't act faster than 5 minutes.
+- This is an inherent trade-off: the stale tolerance (Story 7.1) allows 15-minute stale key validation, which creates a 15-minute window where forged tokens with old keys are accepted.
+- Document: "JWKS endpoint is an oracle by design (RFC 7517). Consumers cache JWKS for 5 minutes, limiting the precision of rotation detection."
+
+---
+
 ## OpenAPI Changes
 
 Add to `openapi/idam/identity-session-service/openapi.yaml`:

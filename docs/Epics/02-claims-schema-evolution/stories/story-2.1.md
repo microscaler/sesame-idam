@@ -192,6 +192,117 @@ flowchart TD
     I -->|Yes| J[Evaluate local policy<br/>from namespaced claims]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-211: Namespace URI Can Be Spoofed by a Different Issuer (CRITICAL — Hole #1 from PRS)
+
+**Risk:** Attacker forges a JWT with `https://sesame-idam.dev/claims` to inject fake authorization data
+
+The story defines `https://sesame-idam.dev/claims` as a URI-controlled namespace. Per RFC 7519, public names use "URI-controlled names to avoid collision." But RFC 7519 does NOT guarantee that a namespace URI is only used by its owner.
+
+**Exploit path:**
+1. Attacker controls a domain (e.g., `evil-claims.com`)
+2. Attacker forges a JWT signed with a known/compromised key
+3. Attacker includes in the JWT: `"https://evil-claims.com/claims": {"roles": ["admin"]}`
+4. The attacker knows this namespace is NOT Sesame's
+5. BUT: what if the service's deserialization code does NOT filter by namespace?
+6. The service deserializes the JWT into `AccessClaims` struct
+7. If the struct has a field like `pub sx: SxClaims` with `#[serde(rename = "https://sesame-idam.dev/claims")]`, then `serde` will ONLY map the `https://sesame-idam.dev/claims` key to `sx`
+8. The attacker's `evil-claims.com/claims` would be silently ignored — CORRECT
+9. BUT: what if the service's validation code iterates over ALL keys in the JWT and checks them?
+10. Result: If the validation code iterates over all top-level keys, it might find the attacker's namespace and process it incorrectly
+
+**The real exploit is different:** What if the attacker forges a JWT using the SAME `iss` claim as Sesame?
+
+**Exploit path (trusted issuer + forged namespace):**
+1. Attacker obtains a valid Sesame JWT (from a log, proxy, or data breach)
+2. The JWT has `iss: "https://idam.example.com"` and valid signature
+3. Attacker changes the JWT payload: replaces `sx.roles: ["customer"]` with `sx.roles: ["admin"]`
+4. The attacker re-signs the JWT with the COMPROMISED private key
+5. Result: Attacker has a valid JWT with admin privileges
+6. This is NOT a namespace spoofing issue — it's a key compromise issue
+
+**The namespace URI is safe FROM SPOOFING because:**
+- `serde` only maps the exact URI key to the `sx` field
+- Other URIs are silently ignored
+- The `iss` claim + signature verification prevent unauthorized issuers
+
+**But there IS a risk:** What if a different service (not Sesame) also uses `https://sesame-idam.dev/claims`?
+
+**Exploit path (namespace collision with another issuer):**
+1. An internal service at Sesame uses `https://sesame-idam.dev/claims` for its OWN purposes
+2. The JWT validation code in that service does NOT verify the `iss` claim
+3. A Sesame-issued JWT with `https://sesame-idam.dev/claims` is processed by the internal service
+4. The internal service reads `sx.roles` from the JWT and uses it for authorization
+5. Result: The internal service authorizes based on Sesame's claims, which might not be the intended behavior
+
+**Implementation requirement:**
+- The JWT validation pipeline MUST verify the `iss` claim matches the trusted issuer before processing ANY claims
+- The `iss` verification MUST happen BEFORE any namespace claim processing
+- Add a test: "JWT from untrusted issuer is rejected even if it contains valid namespace claims"
+- Document: "JWT issuer must be verified before processing namespace claims. Untrusted issuers are rejected at the signature validation step."
+
+### HACK-212: Malformed Namespace URI Causing Deserialization Errors (HIGH — related to Hole #6 from PRS)
+
+**Risk:** Attacker crafts a JWT with a malformed namespace URI that causes deserialization to panic or produce unexpected results
+
+The story shows: `#[serde(rename = "https://sesame-idam.dev/claims")]`. The key contains `://` which is unusual in JSON keys. While valid per RFC 7519, it could cause issues with some JWT libraries.
+
+**Exploit path (URI parsing error):**
+1. Attacker crafts a JWT where the namespaced key is slightly malformed: `"https://SESAME-IDAM.DEV/claims"` (uppercase)
+2. The deserializer tries to match this against the `#[serde(rename = "https://sesame-idam.dev/claims")]` attribute
+3. Since JSON keys are case-sensitive, `SESAME-IDAM.DEV` ≠ `sesame-idam.dev`
+4. The `sx` field deserializes to `None` or default values
+5. The user has no roles or permissions → `sx.roles = []`
+6. If the authorization logic treats empty roles as "no permissions" → user is denied (safe)
+7. BUT: if the authorization logic treats empty roles as "default access" → user is granted unintended access (DANGEROUS)
+
+**Exploit path (null byte in namespace URI):**
+1. Attacker crafts a JWT with key `"https://sesame-idam.dev/claims\x00"`
+2. Some JWT libraries might strip the null byte during parsing
+3. The key becomes `"https://sesame-idam.dev/claims"` (matching the serde rename)
+4. The `sx` field is populated with attacker-controlled data
+5. If the attacker controls the payload, they can inject `roles: ["admin"]`
+6. Result: Authorization bypass via null byte injection
+
+**Implementation requirement:**
+- After deserialization, validate that `sx` is `Some(...)` and that it was populated from the expected namespace URI
+- Reject JWTs where `sx` is populated but the `iss` claim doesn't match the trusted issuer
+- Add input validation: if any JWT header or claim contains null bytes (`\x00`), reject the token immediately
+- Document: "JWTs with null bytes in any claim are rejected. Null bytes are not valid in JWT claims per RFC 7519."
+
+### HACK-213: Empty `sx` Claims Treated as Default Access (CRITICAL — related to Hole #3 from PRS)
+
+**Risk:** A JWT without namespaced claims is treated as having default access instead of "no access"
+
+The story says: "Old JWTs without `ver` or namespaced claims are rejected. This is acceptable because... a 5-minute window of old tokens is acceptable during migration."
+
+**Exploit path (zero-access vs default-access confusion):**
+1. Attacker has a JWT from an unauthenticated session (no login)
+2. The JWT has valid signature (forged with a known key) but NO `sx` claims
+3. The deserializer sets `sx = None` (missing namespace)
+4. The authorization code checks: `if sx.roles.contains("admin")` → false → denied (correct)
+5. BUT: what if the authorization code checks: `if !sx.has_restriction()` → default access granted?
+6. Result: The JWT without sx claims is treated as "default access" instead of "no access"
+
+**The story says:** "Old JWTs without `ver` or namespaced claims are rejected by the version check (Epic 5)." But this only rejects JWTs without `ver`. What about JWTs that HAVE `ver` but don't have `sx`?
+
+**Exploit path (ver without sx):**
+1. Attacker forges a JWT with `ver: 42` and valid signature, but NO `sx` claims
+2. The version check passes: `42 >= cached_ver(41)` → true
+3. The authorization code reads `sx = None` → treats as "no restrictions" → grants default access
+4. Result: Attacker gains access without proper authorization claims
+
+**Implementation requirement:**
+- JWTs with `ver` MUST also have valid `sx` claims (roles, permissions)
+- If `sx` is `None` or empty, the JWT MUST be rejected (not granted default access)
+- Add a validation step: "After version check, verify `sx` is Some and contains at least one role or permission"
+- Document: "JWTs with ver claim must also have valid sx claims. JWTs without sx claims are rejected."
+
+---
+
 ## OpenAPI Changes
 
 - `LoginResponse` schema: Add `token_version` field (uint64, monotonically increasing)
