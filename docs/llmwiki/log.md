@@ -1,6 +1,36 @@
 # LLM Wiki — Session Log
 
-## [2026-05-16] Epic 5 Token Versioning & Epic 6 Delegation — Full Enrichment
+## [2026-05-16] Epic 7 Caching Strategy — Story 7.1 JWKS Cache Enrichment
+
+### Summary
+
+Completed comprehensive testing enrichment for Story 7.1 (JWKS Caching Strategy) in Epic 7. The story received individual, hand-written test sections covering Unit, Integration/BDD, Security Regression, Edge Cases, and Cleanup.
+
+### Stories Enriched
+
+| Story | File | Unit | Integration | Security | Edge | Total |
+|-------|------|------|-------------|----------|------|-------|
+| 7.1 | `Epics/07-caching-strategy/stories/story-7.1.md` | 17 | 7 | 6 | 7 | 37 |
+
+### Story 7.1 — JWKS Caching
+
+Key test areas covered:
+- **Unit:** cache hit/miss for specific kid, fallback to any valid key, stale key acceptance within tolerance, cache expiry beyond tolerance, background refresh on interval, atomic cache replacement, refresh failure not corrupting cache, empty JWKS response, max keys limit, TTL defaults, cache hit/miss/latency metrics, error logging, RwLock concurrency, async task spawning
+- **Integration:** full cache lifecycle (hit→miss→refresh), stale key + refresh trigger, key rotation during stale tolerance, multiple services sharing JWKS endpoint, unexpected JWKS format, concurrent validations during refresh, JWKS endpoint unavailable (cache continues serving)
+- **Security:** MITM poisoning prevention, stale key cannot sign with new key, clean failure when no keys, oversized JWKS OOM prevention, key material not leaked in logs, cache miss storm prevention (single-flight)
+- **Edge:** missing kid in JWKS keys, duplicate kid values, 0-second refresh interval, stale tolerance < TTL, HTTP 429 rate limiting with backoff, HTTP 500 server error, fresh start with no last_refresh
+
+### Commits
+
+- `c9a122e` — feat(stories): enrich Story 7.1 with testing requirements (Unit, Integration, Security Reg, Edge, Cleanup)
+
+### Current Epic 7 Status
+
+| Story | Testing Enriched | Wiki Updated |
+|-------|-----------------|-------------|
+| 7.1 | ✅ (committed c9a122e) | pending |
+
+---
 
 ### Summary
 
