@@ -166,9 +166,270 @@ flowchart LR
     G --> H[Audit report: agent -> user -> actions]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-601: Support Agent Role Can Be Forged via JWT Claim (CRITICAL — Hole #1 from PRS)
+
+**Risk:** Attacker forges a JWT with `roles: ["support_agent"]` to initiate impersonation
+
+The story shows: `can_impersonate()` checks `support_agent.roles.contains(&"support_agent".to_string())`. But this check runs on the SUPPORT PORTAL, not on the IDAM service. If the support portal trusts its own JWT to determine the agent's role, an attacker can forge this claim.
+
+**Exploit path:**
+1. Attacker has ANY valid JWT (e.g., from a compromised user account)
+2. Attacker forges a new JWT with `roles: ["support_agent"]`, `sub: "attacker_123"`
+3. Attacker accesses the support portal with the forged JWT
+4. Support portal checks `roles.contains("support_agent")` → true
+5. Attacker selects a target user → `can_impersonate()` returns `Ok(())`
+6. Token exchange endpoint issues an impersonation token
+7. Result: Attacker can impersonate any user in their tenant
+
+**The vulnerability exists because:**
+- The support portal trusts its OWN JWT for role checking
+- The token exchange endpoint trusts the support portal's decision
+- No additional verification of the agent's role against authz-core
+
+**Implementation requirement:**
+- `can_impersonate()` must NOT rely on the JWT's `roles` claim
+- The support portal must call authz-core `/principal/effective` to verify the agent's actual roles
+- The token exchange endpoint must ALSO verify the actor has `support_agent` role by calling authz-core
+- Document: "Impersonation eligibility is verified by authz-core, not extracted from the actor JWT."
+
+### HACK-602: Impersonation Token Can Bypass Admin Route Protection (CRITICAL — related to Hole #4 from PRS)
+
+**Risk:** Impersonation token with `act` claim still accesses admin routes
+
+The story says: "Impersonation token cannot be used for admin actions (JWT middleware rejects)." But HOW is this enforced?
+
+**Exploit path (jwt-only admin route):**
+1. Admin classifies `/api/v1/orgs/{id}/members DELETE` as `jwt-only` (incorrect classification)
+2. Attacker gets an impersonation token for user A
+3. Attacker sends DELETE request to the jwt-only admin route
+4. JWT middleware validates the token (signature, expiry, audience)
+5. The middleware checks JWT claims → user A has permission to manage members (in their JWT)
+6. Request is ALLOWED because the route is `jwt-only` and the JWT claims include the permission
+7. Result: The impersonation token accesses admin functionality through a misclassified route
+
+**This is covered by HACK-201 in Story 4.1.** The key mitigation is:
+- Admin routes MUST NEVER be classified as `jwt-only`
+- The JWT middleware should check for the presence of an `act` claim on admin routes and deny regardless of classification
+
+**Implementation requirement:**
+- On ANY route containing `/admin/`, `/orgs/`, `/roles/`, `/permissions/`, the JWT middleware MUST check for the `act` claim
+- If `act` is present → DENY with 403 "Impersonation tokens cannot access admin routes"
+- This check happens BEFORE the route classification lookup
+- Document: "Admin routes reject ALL tokens with an act claim, regardless of the route's classification."
+
+### HACK-603: Impersonation Token Can Be Used for Further Delegation (HIGH — Hole #10 from PRS)
+
+**Risk:** Attacker chains impersonation tokens to escalate privileges
+
+The story says: "Token exchange rejects if act claim present." But is this enforced at the token exchange endpoint (Story 3.4)?
+
+**Exploit path (chain delegation):**
+1. Attacker gets impersonation token for user A (with `act.sub = attacker`)
+2. Attacker calls POST `/auth/token` with:
+   - `subject_token = impersonation_token`
+   - `actor_token = attacker's own token`
+3. Token exchange validates subject token (valid signature)
+4. Token exchange checks `can_delegate()` → attacker has `support_agent` role → true
+5. Token exchange issues a NEW token with `act.sub = attacker` and subject claims from user A
+6. Attacker now has a "clean" token that carries user A's claims and has NO act claim
+7. The impersonation restriction is removed!
+
+**The story says:** "Token exchange rejects if act claim present." But the check in Story 3.4 only checks the ACTOR token, not the SUBJECT token:
+
+```rust
+pub fn can_delegate(actor_claims: &SesameAuthzClaims, target_user_id: &str) -> bool {
+    // Checks actor's roles, not subject's act claim
+}
+```
+
+**The fix:** The token exchange endpoint MUST check if the SUBJECT token has an `act` claim, and reject the exchange if it does.
+
+**Implementation requirement:**
+- The token exchange endpoint MUST check if the subject token has an `act` claim
+- If `act` is present in the subject token → REJECT with 403 "Subject token is an impersonation/delegation token and cannot be used as subject"
+- This check MUST happen before `can_delegate()` is called
+- Document: "Subject tokens with an act claim are rejected by the token exchange endpoint to prevent impersonation chains."
+
+### HACK-604: Impersonation Notification Can Be Suppressed or Delayed (HIGH — related to Hole #4 from PRS)
+
+**Risk:** Attacker impersonates a user without the user knowing
+
+The story says: "User is notified when their session is impersonated." But the implementation shows: "alice receives an in-app notification."
+
+**Exploit path (notification bypass):**
+1. Attacker impersonates user A
+2. The notification system is down, or the notification is delayed
+3. Attacker performs malicious actions (data exfiltration, permission changes)
+4. The user never knows they were impersonated
+5. By the time the notification arrives, the damage is done
+
+**Implementation requirement:**
+- The impersonation notification MUST be sent SYNCHRONOUSLY during the token exchange
+- If the notification fails (service down, network error), the impersonation MUST STILL proceed
+- BUT: the impersonation must be logged as a HIGH-PRIORITY security event with `alert_level: "notification_failed"`
+- The notification system must have a REDUNDANT channel: in-app notification + email (for critical events)
+- Document: "Impersonation notification is sent synchronously. If it fails, the impersonation proceeds but is flagged for security review."
+
+### HACK-605: Impersonation Token TTL Can Be Extended by Client (HIGH — related to Hole #6 from PRS)
+
+**Risk:** Support portal requests a longer TTL for impersonation tokens
+
+The story shows: "TTL is set server-side: 2-5 minutes." But is this enforced? Can the support portal pass a `ttl` parameter?
+
+**Exploit path:**
+1. Attacker controls the support portal (or the support portal code is compromised)
+2. Support portal requests impersonation token with `ttl: 3600` (1 hour)
+3. If the token exchange endpoint accepts the `ttl` parameter → attacker gets a 1-hour impersonation token
+4. Attacker has 1 hour to perform malicious actions with full user access
+
+**The story says:** "Impersonation token TTL cannot be extended by client: Assert that the `expires_in` for an impersonation token is set server-side and cannot be overridden by a client parameter." But this is only in the test section, not in the implementation requirements.
+
+**Implementation requirement:**
+- The token exchange endpoint MUST IGNORE any `ttl` or `expires_in` parameter from the client
+- For impersonation tokens, the TTL is HARDCODED to a maximum value (e.g., 300 seconds / 5 minutes)
+- The TTL must be configurable per tenant (e.g., `TENANT_IMPERSONATION_TTL`) but NEVER per-request
+- Document: "Impersonation token TTL is hardcoded to the configured maximum. Any client-supplied TTL parameter is ignored."
+
+### HACK-606: Attacker Can Impersonate Users in Other Tenants (CRITICAL — Hole #5 from PRS)
+
+**Risk:** Cross-tenant impersonation via org manipulation
+
+The story says: "Agent can only impersonate users in their tenant." But the check order matters:
+
+```rust
+// 2. Agent can only impersonate users in their tenant
+let target_user_tenant = user_repo.get_tenant(target_user)?;
+if target_user_tenant != support_agent.tenant_id {
+    return Err(AuthError::CrossTenantImpersonationNotAllowed);
+}
+```
+
+**Exploit path (org manipulation for cross-tenant impersonation):**
+1. Attacker creates org_123 (Tenant A) and org_456 (Tenant A)
+2. Attacker assigns themselves as support_agent to org_123
+3. Attacker manipulates the user database to place a Tenant B user in org_123
+4. `can_impersonate()` checks: `target_org = org_123`, `agent.orgs = [org_123]` → match!
+5. BUT: the tenant check happens BEFORE the org check, so: `target_tenant = Tenant B`, `agent.tenant = Tenant A` → denied
+
+**The story says the tenant check happens BEFORE the org check, which is CORRECT.** But what if a later implementation changes the order?
+
+**The real exploit is different:** What if the user's tenant is derived from their org, and the attacker controls the org mapping?
+
+**Exploit path (org-based tenant resolution):**
+1. Attacker creates org_123 in Tenant A
+2. Attacker assigns themselves as support_agent to org_123
+3. Attacker creates a user and places them in org_123
+4. If the tenant is derived from the org (Tenant A's orgs → Tenant A), the user is in Tenant A
+5. The tenant check passes: `target_tenant = Tenant A`, `agent.tenant = Tenant A` → match!
+6. The org check passes: `target_org = org_123`, `agent.orgs = [org_123]` → match!
+7. Result: Attacker can impersonate the user they created
+
+**This is actually correct behavior:** if the attacker controls the org and the user is in the same tenant, impersonation is allowed. This is the INTENDED design.
+
+**The real risk is when the org management API is compromised**, allowing the attacker to:
+- Create users in other tenants' orgs (if org management is not tenant-isolated)
+- Assign other tenants' users to their orgs (if org assignment is not tenant-isolated)
+
+**Implementation requirement:**
+- The user's tenant MUST be verified from the user database, NOT derived from the org
+- The org check must be: "agent is assigned to the target user's org IN THE TARGET USER'S TENANT"
+- Document: "Tenant verification is done from the user record, not from the org record. An org in Tenant A cannot be used to impersonate a user in Tenant B."
+
+### HACK-607: Impersonation During Password Change Creates a Security Gap (HIGH — related to Hole #3 from PRS)
+
+**Risk:** Attacker starts impersonation just before the user changes password, gaining access after the user's session is invalidated
+
+**Exploit path:**
+1. Attacker starts impersonating user A (impersonation token with TTL = 5 minutes)
+2. User A changes their password
+3. User A's own tokens are invalidated (per password change policy)
+4. BUT: the attacker's impersonation token is STILL VALID for 4 more minutes
+5. Attacker continues to impersonate user A for 4 more minutes
+6. Result: The attacker has uninterrupted access even after the user tries to revoke access
+
+**The story says:** "Agent impersonates user who then changes password: Given agent_456 is impersonating user alice → when alice changes her password → then alice's sessions are invalidated (per password change policy), but agent_456's impersonation token may still be valid until its TTL expires — this is acceptable because the impersonation token is scoped and auditable."
+
+**But "acceptable" is not "secure."** The attacker has 4 minutes of uninterrupted access.
+
+**Implementation requirement:**
+- When a user changes their password, ALL impersonation tokens for that user must be immediately revoked (added to denylist)
+- The denylist entry TTL = remaining impersonation TTL (e.g., 4 minutes)
+- Log a HIGH-PRIORITY security event: "Password changed during active impersonation — impersonation token revoked"
+- Document: "Password change revokes ALL active impersonation tokens for the affected user. This is enforced by adding the impersonation token's jti to the denylist."
+
+### HACK-608: Impersonation Audit Log Can Be Manipulated (MEDIUM — related to Hole #7 from PRS)
+
+**Risk:** Attacker modifies the audit log to cover their tracks
+
+The story says: "Impersonation audit log is tamper-proof: Assert that audit log entries are immutable — once written, they cannot be modified or deleted."
+
+**But how is immutability enforced?** If the audit log is stored in a database, an attacker with database access can modify or delete entries.
+
+**Exploit path:**
+1. Attacker gains database access (via SQL injection, compromised service, or SSH)
+2. Attacker deletes audit log entries for their impersonation sessions
+3. The security team has no record of the impersonation
+4. Result: Cover-up successful
+
+**Implementation requirement:**
+- Audit logs must be written to an immutable storage (e.g., WORM disk, append-only database)
+- Audit logs must be replicated to a separate, read-only storage (e.g., S3 with object lock)
+- Audit log integrity must be verified periodically (cryptographic hash chain)
+- Database-access privileges must be restricted: no direct write/delete to the audit log table
+- Document: "Audit logs are written to immutable, append-only storage. Direct modification or deletion is impossible. Integrity is verified via cryptographic hash chain."
+
+### HACK-609: Multiple Simultaneous Impersonations by Same Agent (MEDIUM — related to Hole #3 from PRS)
+
+**Risk:** Attacker impersonates multiple users simultaneously
+
+The story says: "behavior depends on policy." But there's no policy defined.
+
+**Exploit path:**
+1. Attacker is a support agent
+2. Attacker impersonates user A (impersonation token 1, TTL = 5 min)
+3. Attacker impersonates user B (impersonation token 2, TTL = 5 min)
+4. Attacker impersonates user C (impersonation token 3, TTL = 5 min)
+5. Attacker performs malicious actions as all three users within the 5-minute window
+6. Result: Massive data exfiltration from multiple accounts
+
+**Implementation requirement:**
+- Limit simultaneous impersonations per agent (e.g., MAX 3 concurrent impersonations)
+- If the agent already has 3 active impersonation tokens, the 4th request is DENIED
+- Track this in Redis: `impersonation:agent:{agent_id}` → count + TTL matching the impersonation TTL
+- Document: "Maximum 3 simultaneous impersonations per agent. Additional impersonation attempts are denied."
+
+### HACK-610: Impersonation Token Cannot Be Used for Step-Up MFA (LOW — related to Hole #4 from PRS)
+
+**Risk:** Attacker uses impersonation token for step-up MFA, potentially bypassing MFA requirements
+
+The story says: "Step-up MFA rejected for impersonation token." This is correct — an impersonation token should NOT be able to perform step-up MFA.
+
+**But what if the attacker FORGES a token without an `act` claim but with the impersonated user's claims?**
+
+**Exploit path:**
+1. Attacker forges a JWT with the impersonated user's claims (e.g., `sub: "user_abc"`, `roles: ["admin"]`)
+2. The token has NO `act` claim (so it doesn't look like an impersonation token)
+3. Attacker sends the forged token to a step-up MFA endpoint
+4. If the MFA endpoint only checks the user's current session status (not the token's authenticity), it might allow the step-up
+5. Result: Attacker completes step-up MFA and gets a "clean" admin token
+
+**The fix is in the step-up MFA implementation:** the MFA endpoint must verify the token's signature and check for the presence of an `act` claim.
+
+**Implementation requirement:**
+- The step-up MFA endpoint must verify the token's JWT signature
+- If the token has an `act` claim → DENY step-up (MFA requires original user token)
+- If the signature is invalid → DENY (forged token)
+- Document: "Step-up MFA requires a token without an act claim and with a valid signature."
+
+---
+
 ## OpenAPI Changes
 
-No new endpoints needed -- support impersonation uses the existing `/auth/token` token exchange endpoint (Story 6.1). However, document the impersonation-specific restrictions:
+No new endpoints needed -- support impersonation uses the existing `/auth/token` token exchange endpoint (Story 6.1).
 
 ```yaml
 components:

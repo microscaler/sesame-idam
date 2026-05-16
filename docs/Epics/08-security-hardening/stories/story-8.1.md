@@ -102,6 +102,127 @@ flowchart TD
     G --> I
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-811: typ Check Before Signature Verification Is Insufficient (CRITICAL — Hole #1 from PRS)
+
+**Risk:** A type confusion attack exploits the pipeline ordering
+
+The story says: "typ check occurs before signature verification" and the story in 1.3 shows:
+```
+1. Parse JOSE header
+2. Require typ = at+jwt  <-- BEFORE signature check
+3. Require algorithm from allow
+4. Choose key by kid from JWKS
+5. Verify signature
+```
+
+**Exploit path:**
+1. Attacker forges a JWT with `typ: "at+jwt"` and `alg: "HS256"` (not in allow-list)
+2. The typ check passes (`typ == "at+jwt"`)
+3. The algorithm check rejects HS256
+4. But what if the attacher uses `typ: "at+jwt"` with `alg: "ES256"` (valid algorithm) and a FORGED signature?
+5. The typ check passes
+6. The algorithm check passes
+7. The key lookup finds the kid
+8. The signature check FAILS (forged)
+9. Token is rejected — correct
+
+**So far, no exploit.** But what if the validation library has a BUG where step 5 is SKIPPED for some code path? Then the typ check alone would accept a forged token.
+
+**The story's ordering is CORRECT:** typ must be checked BEFORE signature to prevent unnecessary crypto work. The risk is if signature verification is ever SKIPPED, not if it's done in the right order.
+
+**The real exploit is different:** What if the typ check is implemented incorrectly?
+
+**Exploit path (typ coercion via null bytes):**
+1. Attacker crafts a JWT with `typ: "at+jwt\x00"` (null byte appended)
+2. The typ comparison uses string equality: `"at+jwt\x00" == "at+jwt"` → false → rejected
+3. BUT: if the comparison is case-insensitive or ignores null bytes → accepted
+4. Result: token with forged typ passes the check
+
+**Implementation requirement:**
+- The typ check must use EXACT string comparison (no trimming, no null byte stripping)
+- Add validation: `typ` must match `[a-zA-Z0-9+.]+` pattern (ASCII alphanumeric + `.` and `+` only)
+- Reject `typ` values containing null bytes, whitespace, or control characters
+
+### HACK-812: Refresh Token Sent as Bearer Token Is Not Caught (HIGH — related to Hole #1 from PRS)
+
+**Risk:** A refresh token (opaque string) is sent as a Bearer token and passes typ check
+
+The story says: "Refresh token: Not a JWT — Opaque string (stored in Redis)." So a refresh token sent as a Bearer token would fail JWT parsing (not a valid JWT format), not typ enforcement.
+
+**But what if the refresh token happens to be a JWT (misconfiguration or future change)?**
+
+**Exploit path:**
+1. Attacker obtains a refresh token (which is an opaque string stored in Redis)
+2. Attacker sends it as `Authorization: Bearer <refresh_token>`
+3. JWT parser tries to parse it → fails (not a valid JWT) → 401
+4. CORRECT — no exploit
+
+**But what if a future change makes refresh tokens into JWTs?** Then the typ check is essential.
+
+**Implementation requirement:**
+- Refresh tokens MUST NOT be JWTs
+- If refresh tokens are ever made into JWTs (e.g., for offline access), they MUST have `typ: "refresh+token"`
+- All services must reject tokens with `typ: "refresh+token"` as access tokens
+
+### HACK-813: typ Enforcement Bypass via Missing typ Claim (MEDIUM — related to Hole #1 from PRS)
+
+**Risk:** A JWT without the typ claim passes validation
+
+The story says: "Tokens without typ claim are rejected." But is this enforced?
+
+**Exploit path:**
+1. Attacker forges a JWT WITHOUT a `typ` header (the header only has `alg` and `kid`)
+2. The typ check: `claims.typ != Some("at+jwt".to_string())`
+3. `claims.typ` is `None` → `None != Some("at+jwt")` → `true` → rejected
+4. CORRECT — no exploit
+
+**But what if the typ check is NOT in the validation pipeline?** Then the token is accepted.
+
+**Implementation requirement:**
+- The typ check must be the FIRST validation step after header parsing
+- It must be in EVERY service's validation pipeline (all 6 services)
+- Add a test: "Verify that the typ check is present in ALL 6 services' validation logic"
+- Document: "Typ check is the first validation step. All 6 services enforce typ == 'at+jwt'."
+
+### HACK-814: typ Is Case-Sensitive But May Not Be Enforced (MEDIUM — related to Hole #6 from PRS)
+
+**Risk:** A token with `typ: "AT+JWT"` (uppercase) passes validation
+
+The story says: "typ is case-sensitive: Given a JWT with typ = 'AT+JWT' (uppercase), assert validation rejects it."
+
+**Exploit path:**
+1. Attacker forges a JWT with `typ: "AT+JWT"` or `typ: "At+Jwt"` or `typ: "at+jwt "` (trailing space)
+2. If the typ comparison is case-insensitive (`==` vs `eq_ignore_ascii_case`) → accepted
+3. Result: token with wrong typ passes
+
+**Implementation requirement:**
+- The typ comparison must use EXACT string comparison (case-sensitive, no trimming)
+- Add bounds checking: `typ` must be exactly `"at+jwt"` (no extra characters)
+- Reject `typ` values with whitespace, null bytes, or control characters
+
+### HACK-815: typ Field Type Confusion (MEDIUM — related to Hole #6 from PRS)
+
+**Risk:** A non-string typ value (number, object, array) passes parsing
+
+The story has tests for this: "JWT header with typ as non-string (JSON number)", "JWT header with typ as JSON object", "JWT header with typ as JSON array."
+
+**Exploit path:**
+1. Attacker forges a JWT with `typ: 123` (number) or `typ: true` (boolean) or `typ: []` (array)
+2. If the JSON parser does not strictly enforce `typ` as a string → accepted
+3. If the typ comparison treats non-strings as empty/missing → `Some("") != Some("at+jwt")` → rejected
+4. BUT: if the parser silently coerces `typ: 123` to `typ: "123"` and the comparison is case-insensitive → accepted
+
+**Implementation requirement:**
+- The JSON parser must STRICTLY enforce `typ` as a string type
+- If `typ` is not a string → reject with `invalid_header_type` (not `invalid_token_type`)
+- Document: "The typ field must be a JSON string. Non-string typ values cause a parse error, not a typ error."
+
+---
+
 ## OpenAPI Changes
 
 - No OpenAPI changes. `typ` is a JOSE header field, not part of the API schema.
