@@ -368,7 +368,7 @@ gen-api-keys:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_api_keys}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_api_keys}}" \
-    --package-name api_keys_service_api \
+    --package-name sesame_idam_api_keys_gen \
     --force
   echo "✅ Generated {{out_api_keys}}"
 
@@ -384,7 +384,7 @@ gen-org-mgmt:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_org_mgmt}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_org_mgmt}}" \
-    --package-name org_mgmt_service_api \
+    --package-name sesame_idam_org_mgmt_gen \
     --force
   echo "✅ Generated {{out_org_mgmt}}"
 
