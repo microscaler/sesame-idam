@@ -220,6 +220,76 @@ sequenceDiagram
     SF-->>Req2: Return result
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-001: Entitlements Hash Not Verified (CRITICAL — Hole #1 from PRS)
+
+**Risk:** Cache poisoning via Redis → tenant bleed
+
+The fallback cache serves entitlements snapshots from Redis. The JWT includes `sx.entitlements_hash`, but **the cache handler NEVER compares the hash of the fetched snapshot against this claim**. Without this verification, an attacker who can write to Redis (through any vulnerability, insider access, or cache key prediction) can poison the cache with a modified entitlements snapshot containing additional permissions. Every consumer that trusts the cache result gains those permissions — including cross-tenant privilege escalation.
+
+**Implementation requirement:** After fetching the cached entitlements snapshot from Redis, compute `blake3(snapshot_bytes)` (or SHA-256, whichever is standardized in Story 2.3) and compare against `claims.sx.entitlements_hash`. If the hash MISMATCHES, REJECT the cache entry and fall back to calling authz-core directly. Do NOT silently use the poisoned cache result.
+
+```rust
+// In the fallback cache handler — MUST be implemented:
+let cached_snapshot = redis.get(&cache_key).await?;
+let computed_hash = blake3::hash(&cached_snapshot);
+if computed_hash != claims.sx.entitlements_hash {
+    // Hash mismatch — cache is poisoned or stale. Fall through to authz-core.
+    // LOG this event as it indicates a potential attack.
+    METRICS.authz_fallback_cache_poison_attempt.inc();
+    return call_authz_core(request_body).await;
+}
+```
+
+**Why this is critical for Sesame:** The tenancy model relies on three layers of isolation (BRRTRouter middleware, SesameExecutor, RLS policies). The fallback cache operates OUTSIDE all three layers — it's a shared Redis cache. If an attacker can poison this cache, they bypass ALL three isolation layers.
+
+### HACK-002: Cache Key Does Not Include Tenant ID (CRITICAL — Hole #8 from PRS)
+
+**Risk:** Cache key collision → cross-tenant data bleed
+
+The cache key is `blake3(sub + org_id + action + resource_id)`. It does NOT include `tenant_id`. In a multi-tenant system, two different tenants with the same `sub:org_id:action:resource_id` combination would share the same cache entry, allowing tenant A's authorization result to be served to tenant B.
+
+**Fix already applied in Story 4.3:** The cache key generation function in Story 4.3 now includes `tenant_id` as the FIRST field: `blake3(tenant_id + sub + org_id + action + resource_id)`. The security regression test "Cache key differs by tenant" validates this. But ensure this change is present in the actual implementation.
+
+### HACK-003: Cache Miss Thundering Herd (HIGH — Hole #21 from PRS)
+
+**Risk:** Cache miss thundering herd DoS on authz-core
+
+When a cache TTL expires, many simultaneous requests can miss the cache and hammer authz-core. The single-flight pattern is mentioned in the code comments but NOT in the acceptance criteria. Without explicit enforcement, the single-flight implementation might be incomplete or absent.
+
+**Implementation requirement:** Implement single-flight pattern as specified: only ONE request hits authz-core for a given cache key; all other concurrent requests with the same key wait for the result. Use `tokio::sync::watch` or a HashMap with Mutex to serialize authz-core calls by cache key.
+
+**Acceptance criterion addition:** "Single-flight is implemented: when cache expires, only ONE request hits authz-core for a given cache key; others wait for the result"
+
+### HACK-004: Stale Cache Serves Results When authz-core Is Down (MEDIUM — Hole #12 from PRS)
+
+**Risk:** Partial outage amplification
+
+If authz-core is down, the fallback cache can serve stale results. But the cache TTL is 5-30 seconds, and after expiry, requests fail. The design doesn't specify a "cache-only" degraded mode.
+
+**Consideration:** When authz-core is unavailable, should stale cache entries (slightly past TTL) be served? Document the degradation behavior: "When authz-core is unavailable, serve from stale cache only. Do NOT write new cache entries during outage. Implement circuit breaker pattern to prevent repeated failed calls."
+
+### HACK-005: Cache Does Not Distinguish Authz-Core Errors (MEDIUM)
+
+**Risk:** Error results cached → false denials
+
+If authz-core returns a 500 error, should that error be cached? The current code does NOT cache failed results, which is correct. But verify that error responses (both 4xx and 5xx) are never written to the cache. A cached 500 error would cause legitimate requests to fail with 500 for the entire TTL duration.
+
+```rust
+// CORRECT: Only cache successful results
+if let Ok(ref response) = result {
+    cache.set(key, response, ttl);
+}
+// FAILED results are NOT cached
+```
+
+---
+
 ## OpenAPI Changes
 
 - `/api/v1/am/authorize` endpoint: Document the Redis cache behavior in the endpoint description
@@ -257,9 +327,13 @@ components:
 - [ ] `authz_fallback_total{route}` metric is emitted per route
 - [ ] `authz_fallback_ratio` is calculated and alerts on >5% fallback rate
 - [ ] Fallback latency is tracked: `authz_fallback_latency_ms`
-- [ ] Cache hit ratio is tracked: `authz_fallback_cache_hit_ratio`
-- [ ] Cache TTL is configurable per route (not hardcoded to 30 seconds)
-- [ ] Unit tests verify: cache hit/miss paths, single-flight behavior, fallback ratio calculation
+|- [ ] Cache hit ratio is tracked: `authz_fallback_cache_hit_ratio`
+|- [ ] Cache TTL is configurable per route (not hardcoded to 30 seconds)
+|- [ ] **Single-flight is implemented:** when cache expires, only ONE request hits authz-core for a given cache key; others wait for the result (HACK-003)
+|- [ ] **Entitlements hash verification is implemented:** after fetching cached snapshot, hash is compared against `claims.sx.entitlements_hash`; mismatch causes cache rejection and fallback to authz-core (HACK-001)
+|- [ ] **Cache key includes tenant_id:** cache key is `blake3(tenant_id + sub + org_id + action + resource_id)` — different tenants never share cache entries (HACK-002)
+|- [ ] **Error results are never cached:** authz-core error responses (4xx/5xx) are NOT written to cache (HACK-005)
+|- [ ] Unit tests verify: cache hit/miss paths, single-flight behavior, fallback ratio calculation
 
 ## Dependencies
 
