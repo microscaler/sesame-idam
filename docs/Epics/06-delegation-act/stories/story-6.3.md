@@ -314,6 +314,116 @@ components:
 - `topics/topic-token-lifecycle.md`: Document step-up MFA in token lifecycle
 - `topics/topic-mfa.md`: (new) Document MFA verification in JWT
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-901: Step-Up MFA Does NOT Invalidate Existing Access Tokens (CRITICAL — Hole #9 from PRS)
+
+**Risk:** Attacker retains valid access token after user completes MFA step-up
+
+**Exploit path (detailed):**
+1. User logs in (no MFA verified). They have a valid access token with `ver: 42` and `sx.mfa_verified = false`
+2. Attacker has the user's access token (stolen from memory, network, log, etc.)
+3. User completes step-up MFA
+4. New access token is issued with `sx.mfa_verified = true` and `ver: 42` (NOT bumped)
+5. Old refresh token is denylisted (F-006 Fix — this is correct)
+6. BUT: the attacker's stolen access token has `ver: 42` which matches the current version
+7. The attacker's token is NOT revoked — it has the correct version
+8. The attacker still has access to ALL non-MFA-protected routes
+
+**The deeper hole:** The step-up MFA only affects the MFA-verified claim, not the permissions themselves. Even with `mfa_verified: false`, the attacker still has access to non-MFA-protected routes. The MFA step-up only protects specific high-consequence actions (admin:create_org, org:config:update, etc.) — it does NOT protect the entire session.
+
+**Implementation requirement:**
+1. On step-up MFA completion, BUMP the token version (`ver` claim) — invalidates ALL existing access tokens from the session
+2. Story 5.1 says "Bumped whenever user's permissions change" — step-up MFA is effectively a privilege change for the session (the user's session is now "verified" with stronger authentication)
+3. The new access token should have `ver: 43` (bumped from 42)
+4. The attacker's token with `ver: 42` will be rejected on the next request (version mismatch, assuming Hole #8 is fixed and version checks apply to all routes)
+
+**Acceptance criterion addition:**
+- "On step-up MFA completion, the token version is bumped, invalidating all existing access tokens from the session"
+- "F-006 Fix is COMPLETIONALLY applied: old refresh token is denylisted AND token version is bumped"
+
+**Code change required in handler:**
+```rust
+// On successful step-up MFA:
+let new_ver = version_cache.bump_for_user(claims.sub).await?; // INCREMENT ver
+let new_claims = claims.clone_with_mfa_verified(true, new_ver);
+// ^^^ new_ver is the bumped version, not the same as the old ver
+```
+
+### HACK-902: Pre-MFA Token Replay Attack (CRITICAL — Hole #9 from PRS, related to F-006)
+
+**Risk:** Attacker uses refresh token to obtain MFA-verified token BEFORE step-up completes
+
+**Exploit path (detailed):**
+1. User's old refresh token is stolen (before step-up MFA)
+2. Attacker uses the stolen refresh token to obtain a new access token
+3. The attacker's access token has the user's permissions but `mfa_verified: false`
+4. User completes step-up MFA (this is where F-006 kicks in)
+5. F-006: old refresh token is denylisted
+6. BUT: the attacker already has a valid access token from step 2
+7. The attacker's token is NOT revoked — it was issued before step-up
+
+**Why F-006 alone is insufficient:** The F-006 fix only denylists the OLD REFRESH TOKEN. It does NOT revoke the access token that was ALREADY issued using that refresh token. The access token is valid until its own TTL expires (5 minutes) unless:
+- Its `jti` is in the denylist (not done — only refresh token jti is denylisted)
+- Its `ver` is bumped (not done — unless HACK-901 fix is applied)
+- Its `jti` is added to the denylist explicitly (not done)
+
+**Implementation requirement:**
+1. On step-up MFA completion:
+   a. Old refresh token jti is denylisted (F-006 — already specified)
+   b. NEW: Token version is bumped (HACK-901 — NOT currently specified)
+   c. NEW: Optionally, add ALL existing access token jtis from the session to the denylist for immediate effect
+
+**This is the COMPLETE F-006 fix:** The current F-006 is PARTIAL — it only denylists the old refresh token. The COMPLETE fix requires all three steps above.
+
+### HACK-903: Missing MFA-Verified Claim Defaults to False — But Is It? (HIGH)
+
+**Risk:** Silent MFA bypass via missing claim
+
+Story 6.3's unit test says: "Missing sx.mfa_verified defaults to false." But the `AccessClaims` struct in Story 2.2 defines `sx` as `SesameAuthzClaims`, which requires a `SesameAuthzClaims` instance (not `Option<SesameAuthzClaims>`). If the deserializer cannot find `https://sesame-idam.dev/claims` in the JWT, it will either:
+- Panic on deserialization (DoS)
+- Use a default empty struct (potential MFA bypass if the default has `mfa_verified: true`)
+
+**Implementation requirement:**
+- Ensure `SesameAuthzClaims` has `#[serde(default)]` at the struct level, so a missing `sx` namespace results in `SesameAuthzClaims { tenant: "", portal: "", roles: [], permissions: [], mfa_verified: false, ... }`
+- The `mfa_verified` default MUST be `false` — never `true`
+- Test this explicitly: "Given a JWT without `sx.mfa_verified`, assert the claim defaults to `false` (fail closed)"
+
+### HACK-904: MFA Deny Endpoint Leaks Which Actions Require MFA (LOW — but documented)
+
+**Risk:** Attacker learns the exact MFA-gated actions, enabling targeted attacks
+
+**Exploit path:**
+1. Attacker enumerates which actions require MFA by trying each one with `sx.mfa_verified = false`
+2. The 403 response reveals the exact action name (e.g., "StepUpMfaRequired for action: admin:create_org")
+3. Attacker now knows the exact list of MFA-gated actions
+
+**Implementation requirement:**
+- The 403 response should use a generic error message: "Additional verification required" — NOT listing which actions require MFA
+- Document this as a security design decision
+
+### HACK-905: Concurrent Step-Up Creates Multiple Tokens Without Version Bump Coordination (MEDIUM)
+
+**Risk:** Concurrent step-up requests create tokens with same version, allowing one to bypass MFA
+
+**Exploit path:**
+1. Two concurrent step-up MFA requests arrive from the same user
+2. Both check `ver: 42`, both succeed
+3. Both issue new tokens with `ver: 43`
+4. Both tokens have `mfa_verified: true`
+5. But between the two requests, the original refresh token may have been used and rotated by an attacker
+
+**Implementation requirement:**
+- Step-up MFA should be serialized per user — use a per-user mutex or Redis lock
+- Reject concurrent step-up requests with a clear error ("Step-up in progress, please retry")
+- Ensure the token version is bumped for EACH step-up (even concurrent ones)
+
+---
+
 ## Acceptance Criteria
 
 - [ ] JWT includes `sx.mfa_verified` boolean claim
