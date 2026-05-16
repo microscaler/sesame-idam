@@ -223,6 +223,141 @@ graph TB
     end
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-401: Tenant Validation Not Enforced BEFORE Handler (CRITICAL — Hole #5 from PRS)
+
+**Risk:** Cross-tenant data exfiltration
+
+The `validate_tenant()` function in Story 4.2 checks `claims.tenant_id != request_tenant` and returns `AuthError::TenantMismatch`. BUT this only applies to `jwt-only` routes. For `jwt-with-fallback` and `online-only` routes, the middleware returns `AuthDecision::JwtCommonPath { claims }` and passes control to the handler — the handler is responsible for tenant validation.
+
+**Exploit path:**
+1. Attacker has a valid JWT from Tenant A
+2. Attacker sends `POST /api/v1/identity/users/me` (jwt-with-fallback route)
+3. Middleware validates JWT, extracts claims, returns `JwtCommonPath`
+4. Handler does NOT check tenant — it queries by `claims.sub` only
+5. Result: attacker accesses user data from Tenant A
+
+**The real attack is more subtle:** If the BRRTRouter framework itself extracts `tenant_id` from `X-Tenant-ID` header (not from JWT claims), the middleware is safe. But if any handler falls back to JWT `claims.tenant_id` without checking the header, the tenant can be spoofed.
+
+**Implementation requirement:**
+- Ensure the BRRTRouter framework ALWAYS uses `X-Tenant-ID` header (not JWT claims) for tenant context extraction
+- Document this as an architectural requirement: "All handlers MUST use the tenant context injected by the BRRTRouter framework from `X-Tenant-ID` header — never from JWT claims directly"
+- The JWT claims `tenant_id` should ONLY be used for VALIDATION (compare against header), not for authorization decisions
+
+### HACK-402: JWT Signature Validation Is the Only Defense (CRITICAL — Hole #7 from PRS)
+
+**Risk:** If JWKS cache is poisoned or signing key compromised, ALL routes are bypassed
+
+The middleware's ONLY security check is the JWT signature. Once the signature validates, ALL claims (roles, permissions, risk level) are trusted. There is no secondary verification for any claims.
+
+**Exploit path:**
+1. Attacker obtains the private signing key (memory dump, insider threat, backup leak)
+2. Attacker crafts JWT with any roles, permissions, risk levels
+3. The JWT signature is valid
+4. ALL routes are accessible — jwt-only, jwt-with-fallback, online-only
+5. Result: full system compromise
+
+**Why this is the most critical hole:** The JWT claims system is the ENTIRE security model. Without a valid signature, nothing works. With a valid signature, everything works. There is no defense-in-depth at the claims level.
+
+**Implementation requirement:**
+- Implement JWKS cache poisoning protection (HACK-421)
+- Implement token binding (Story 8.2) to limit the impact of a stolen token
+- Implement entitlements hash verification (HACK-101) as a secondary check
+- Consider per-route canonical verification for high-consequence actions (HACK-102)
+
+### HACK-403: Missing X-Tenant-ID Header Not Rejected for jwt-with-fallback (HIGH)
+
+**Risk:** Tenant context missing → queries run without tenant isolation
+
+The `validate_tenant()` function returns `AuthError::MissingTenantId` if the header is missing. But this function is ONLY called for `jwt-only` routes (inside `evaluate_jwt_only()`). For `jwt-with-fallback` and `online-only` routes, the middleware returns `JwtCommonPath { claims }` WITHOUT calling `validate_tenant()`.
+
+**Exploit path:**
+1. Attacker sends a request to `POST /api/v1/identity/preferences` (jwt-with-fallback)
+2. Attacker includes a valid JWT from Tenant A
+3. Attacker omits the `X-Tenant-ID` header
+4. Middleware passes the request to handler (no tenant check for jwt-with-fallback)
+5. If the handler doesn't also check the tenant, queries run without tenant isolation
+6. Result: potential tenant bleed if database lacks tenant_id column or RLS
+
+**Implementation requirement:**
+- ALL routes (including jwt-with-fallback and online-only) must validate `X-Tenant-ID` is present
+- The tenant validation should happen at the BRRTRouter framework level (before any middleware or handler), NOT in the JWT middleware
+- Document this as: "Tenant context MUST be extracted from `X-Tenant-ID` header by the framework layer. JWT middleware validates consistency but does not enforce it"
+
+### HACK-404: JWKS Cache Poisoning (CRITICAL — Hole #16 from PRS)
+
+**Risk:** If JWKS cache is poisoned, attacker's forged tokens are accepted
+
+The middleware uses a JWKS cache with a 5-minute TTL. If an attacker can poison this cache (e.g., by sending a malicious JWKS endpoint URL, or by exploiting a bug in the JWKS parsing logic), all requests with tokens signed by the attacker's key will be accepted.
+
+**Exploit path:**
+1. Attacker controls the JWKS endpoint (or exploits a deserialization bug in JWKS parsing)
+2. Attacker injects their public key into the JWKS cache
+3. Attacker signs forged JWTs with their private key
+4. The middleware loads the attacker's key from cache
+5. All forged tokens are accepted as valid
+
+**Implementation requirement:**
+- Validate JWKS keys have correct key type (RSA/EC) and algorithm (RS256/ES256)
+- Reject keys with insecure parameters (e.g., small modulus < 2048 bits for RSA)
+- Implement JWKS cache poisoning detection (compare key fingerprints)
+- Log JWKS cache updates (new keys added/removed) for auditing
+
+### HACK-405: Middleware Is a Single Point of Failure (HIGH — documented but underestimated)
+
+**Risk:** If the middleware fails, ALL requests are blocked or bypassed
+
+The Risk/Trade-offs section mentions this as a trade-off, but doesn't specify the failure behavior. What happens when:
+- JWKS endpoint is unreachable → cache miss → validation fails → 503 or fail-open?
+- RoutePolicyStore is not initialized → no policy found → 503 or fail-open?
+- Memory exhaustion → middleware process dies → all requests drop?
+
+**Implementation requirement:**
+- Document EXPLICIT failure behavior for each scenario:
+  - JWKS cache miss with no cached key → fail CLOSED (reject with 503)
+  - JWKS endpoint unreachable → use cached keys if available, fail closed if not
+  - RoutePolicyStore not initialized → fail closed (reject with 503)
+  - Any unexpected error → fail closed (reject with 503)
+- NEVER fail open — a middleware failure must always reject the request
+
+### HACK-406: No Rate Limiting on JWT Validation (MEDIUM)
+
+**Risk:** Attacker can perform JWT signature validation DoS
+
+Each request to a jwt-only route triggers JWT signature validation (JWKS lookup + crypto operation). An attacker can send millions of requests with different JWTs to cause CPU exhaustion from cryptographic operations.
+
+**Implementation requirement:**
+- Add rate limiting at the framework level (before JWT validation)
+- Implement per-IP rate limiting for requests with Authorization headers
+- Reject requests that exceed the rate limit with 429 Too Many Requests
+
+### HACK-407: Token Expired but Still Processed (MEDIUM — Hole #4 from PRS)
+
+**Risk:** Expired tokens used before middleware rejects them
+
+The middleware validates `exp` and `nbf` claims. But what if the token is expired and the client is on a slow network? The client sends the token, the middleware validates it, rejects it as expired — but by then, the request has already consumed server resources.
+
+**Implementation requirement:**
+- Add token expiry check before any expensive validation (JWKS lookup, signature verification)
+- For expired tokens, reject immediately without processing
+
+### HACK-408: Claims Can Be Tampered if Signature Validation Is Skipped (LOW — but documented)
+
+**Risk:** If `extract_jti` or any helper function skips signature validation, tampered claims are accepted
+
+The security assessment (F-002) notes: "`extract_jti` disables signature validation, allowing tampered tokens." While this may be an issue in a different story, Story 4.2 should ensure that ALL code paths validate signatures — NEVER skip signature validation for any reason.
+
+**Implementation requirement:**
+- Ensure that the `jwks_client.validate()` method ALWAYS validates the signature
+- Document this as an invariant: "JWT signature validation is NEVER skipped — it is the foundational security check"
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. The middleware is internal to the routing layer. The OpenAPI spec documents the API surface -- the authorization mechanism is an implementation detail.
