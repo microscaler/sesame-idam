@@ -1,4 +1,4 @@
-# Story 9.7: Configure Alerting
+# Story 9.7: Alerting Configuration
 
 ## Epic
 
@@ -10,152 +10,74 @@ Story 9.7
 
 ## Summary
 
-Configure Prometheus alerting rules for all JWT-related metrics: invalid-token error spikes, JWKS refresh failures, fallback ratio spikes, token-size percentile growth, refresh-token reuse detection, and revocation propagation exceeding route-class SLO. Alert thresholds defined per metric.
+Configure log-based alerting in Loki/Grafana for JWT-related security events. Alerts fire on WARN/ERROR structured log events from all stories in Epic 9. **DO NOT use Prometheus alerting rules** — there are no custom Prometheus metrics for JWT observability. Use Loki log filtering for alerts.
 
 ## Why This Story Exists
 
-The JWT document states: "Sudden increases in invalid-token errors, JWKS refresh failures, fallback ratio spikes, token-size percentile growth, refresh-token reuse detection, revocation propagation exceeding route-class SLO." Without alerting, you won't know that something is wrong until users start reporting problems.
+The JWT document states: "Sudden increases in invalid-token errors, JWKS refresh failures, fallback ratio spikes, token-size percentile growth, refresh-token reuse detection, revocation propagation exceeding route-class SLO." Without alerting, you won't know that something is wrong until users start reporting problems. **BRRTRouter's existing Prometheus metrics** (`brrtrouter_requests_total`, `brrtrouter_auth_failures_total`) cover HTTP-level alerting. JWT-specific alerts come from structured logs in Loki.
 
 ## Design Context
 
-### Alert Rule Catalog
+### Current State
 
-| Alert | Metric | Condition | Severity | Action |
-|-------|--------|-----------|----------|--------|
-| InvalidTokenSpike | `rate(jwt_validation_total{result="denied"}[5m])` | > 10% of total JWT validations | CRITICAL | Page on-call |
-| JwksRefreshFailure | `jwks_refresh_failures_total` | Rate > 0 in last 5m | CRITICAL | Page on-call |
-| JwksCacheStale | `jwks_last_refresh_age_seconds` | > 300 | WARNING | Ticket for SRE |
-| FallbackRatioSpike | `authz_fallback_ratio` | > 20% for any jwt-with-fallback route | WARNING | Ticket for dev |
-| OverallFallbackSpike | `authz_fallback_total / jwt_validation_total` | > 10% overall | CRITICAL | Page on-call |
-| TokenSizeGrowth | `histogram_quantile(0.95, rate(token_size_bytes[1h]))` | > 600 bytes | WARNING | Ticket for dev |
-| TokenSizeCritical | `histogram_quantile(0.99, rate(token_size_bytes[1h]))` | > 750 bytes | CRITICAL | Page on-call |
-| RefreshTokenReuse | `rate(refresh_reuse_detected_total[5m])` | > 0 | CRITICAL | Page on-call -- possible theft |
-| RevocationPropagationSlow | `revocation_propagation_seconds` | p95 > 60 seconds | WARNING | Ticket for dev |
-| ShadowDecisionMismatch | `authz_shadow_mismatch_total` | > 0 during migration | WARNING | Investigate JWT common path |
+- No JWT-specific alerting exists
+- BRRTRouter's `/metrics` provides HTTP-level metrics (available for alerting, but JWT-specific alerts require structured logs)
+- Loki is already configured to receive structured JSON logs via OTLP
 
-### Prometheus Alerting Rules
+### Alerting Approach: Loki Log Filtering
+
+Since we use structured logs (not Prometheus counters), alerts are configured in Grafana/Loki as **log volume alerts**:
 
 ```yaml
-# prometheus/alerts/jwt-alerts.yml
-groups:
-  - name: jwt-authz-alerts
-    rules:
-      # CRITICAL: Sudden increase in invalid-token errors
-      - alert: InvalidTokenSpike
-        expr: >
-          rate(jwt_validation_total{result="denied"}[5m])
-          /
-          rate(jwt_validation_total[5m])
-          > 0.10
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "JWT validation denial rate > 10% over 5 minutes"
-          description: "Sudden spike in invalid JWT errors. Rate: {{ $value | humanizePercentage }}"
-
-      # CRITICAL: JWKS refresh failures
-      - alert: JwksRefreshFailure
-        expr: >
-          increase(jwks_refresh_failures_total[5m]) > 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "JWKS refresh failing"
-          description: "JWKS endpoint unreachable. {{ $value }} failures in last 5 minutes."
-
-      # WARNING: JWKS cache stale
-      - alert: JwksCacheStale
-        expr: >
-          jwks_last_refresh_age_seconds > 300
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "JWKS cache is stale (> 5 minutes old)"
-          description: "Last JWKS refresh was {{ $value | humanizeDuration }} ago."
-
-      # WARNING: Fallback ratio spike per route
-      - alert: FallbackRatioSpike
-        expr: >
-          authz_fallback_ratio > 0.20
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Fallback ratio > 20% for route {{ $labels.route }}"
-          description: "JWT common path may not be working. Fallback ratio: {{ $value | humanizePercentage }}"
-
-      # CRITICAL: Overall fallback ratio spike
-      - alert: OverallFallbackSpike
-        expr: >
-          rate(authz_fallback_total[5m])
-          /
-          rate(jwt_validation_total[5m])
-          > 0.10
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Overall fallback ratio > 10% over 5 minutes"
-          description: "More than 10% of requests are hitting authz-core. JWT common path is not effective."
-
-      # WARNING: Token size growing
-      - alert: TokenSizeGrowth
-        expr: >
-          histogram_quantile(0.95, rate(token_size_bytes_bucket[1h])) > 600
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Token p95 size > 600 bytes"
-          description: "JWT tokens are growing. p95: {{ $value | humanize }} bytes. Risk of header rejection."
-
-      # CRITICAL: Token size too large
-      - alert: TokenSizeCritical
-        expr: >
-          histogram_quantile(0.99, rate(token_size_bytes_bucket[1h])) > 750
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Token p99 size > 750 bytes"
-          description: "JWT tokens exceed 750 bytes. NGINX header rejection likely."
-
-      # CRITICAL: Refresh token reuse (theft indicator)
-      - alert: RefreshTokenReuse
-        expr: >
-          rate(refresh_reuse_detected_total[5m]) > 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Refresh token reuse detected -- possible token theft"
-          description: "A refresh token was used twice. This indicates a compromised token. Family has been revoked."
-
-      # WARNING: Slow revocation propagation
-      - alert: RevocationPropagationSlow
-        expr: >
-          histogram_quantile(0.95, revocation_propagation_seconds) > 60
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Revocation propagation p95 > 60 seconds"
-          description: "Time from revocation to service awareness is too high. p95: {{ $value | humanizeDuration }}"
-
-      # WARNING: Shadow decision mismatches during migration
-      - alert: ShadowDecisionMismatch
-        expr: >
-          increase(authz_shadow_mismatch_total[5m]) > 0
-        for: 1m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Shadow decision mismatch detected during migration"
-          description: "JWT common path disagrees with online authz. {{ $value }} mismatches in last 5 minutes."
+# Grafana Loki alert rule example
+# Alert: Refresh Token Reuse Detected
+# Expr: sum by (service) (count_over_time({service=~".*idam.*"} | json | event="refresh_token_reuse_detected" | line_format "{{.msg}}" | __error="" [5m]))
+# For: 1m
+# Labels: severity: critical
+# Annotations:
+#   summary: "Refresh token reuse detected — possible token theft"
+#   description: "{{ $value }} reuse events in last 5 minutes"
 ```
+
+### Alert Rule Catalog
+
+| Alert | Log Query (Loki) | Level | Severity | Action |
+|-------|------------------|-------|----------|--------|
+| TokenReuseDetected | `event="refresh_token_reuse_detected"` | WARN | CRITICAL | Page on-call — possible theft |
+| TokenRotationFailure | `event="token_rotation_failure"` | ERROR | CRITICAL | Page on-call — token system broken |
+| TokenRevocationFailure | `event="token_revocation_failure"` | ERROR | CRITICAL | Page on-call — revocation broken |
+| JwtValidationSpike | `event="jwt_validation_failed"` | ERROR | CRITICAL | Page on-call — validation failing |
+| JwtValidationDenialSpike | `event="jwt_validation_failed"` | WARN | WARNING | Ticket — denial rate rising |
+| JwksRefreshFailure | `event="jwks_refresh_failure"` | WARN | CRITICAL | Page on-call — JWKS endpoint down |
+| AuthzFallbackCallFailure | `event="authz_fallback_call_failure"` | WARN | WARNING | Ticket — authz-core unavailable |
+| ShadowMismatch | `event="shadow_mismatch"` | WARN | WARNING | Ticket — JWT claims diverge from online |
+| TokenValidationRevoked | `event="token_validation_revoked"` | WARN | WARNING | Ticket — mass revocation detected |
+| ShadowModeStillEnabled | N/A (config check) | N/A | WARNING | Ticket — shadow mode not disabled |
+
+### Alert Volume Filtering
+
+Not all WARN/ERROR logs need alerts. The filtering rule is:
+
+| Alert Level | Rate Threshold | Notification |
+|-------------|---------------|--------------|
+| CRITICAL | Any single event | Page on-call immediately |
+| WARNING (1) | > 5 events/min | Slack notification |
+| WARNING (2) | > 20 events/min | Page on-call |
+| INFO | N/A | Included in daily digest only |
+
+### CRITICAL Alerts (immediate page)
+
+- `refresh_token_reuse_detected` — **1 event = page** (token theft, family revoked)
+- `token_rotation_failure` — **1 event = page** (token system broken)
+- `token_revocation_failure` — **1 event = page** (revocation broken, security gap)
+- `jwks_refresh_failure` — **1 event = page** (JWKS down, JWT validation will fail)
+
+### WARNING Alerts (Slack first, page if sustained)
+
+- `jwt_validation_failed` — > 5/min = Slack, > 20/min = page
+- `authz_fallback_call_failure` — > 5/min = Slack, > 20/min = page
+- `shadow_mismatch` — > 0 during migration = Slack (investigate JWT claims)
+- `token_validation_revoked` — > 10/min = Slack (possible mass revocation)
 
 ### Alert Routing
 
@@ -167,60 +89,62 @@ groups:
 
 ## Mermaid Diagrams
 
-### Alert Severity Escalation
+### Alert Flow
 
 ```mermaid
 flowchart TD
-    A[Alert fired] --> B{Severity?}
-    B -->|CRITICAL| C[PagerDuty page]
-    B -->|WARNING| D[Slack notification]
-    B -->|INFO| E[Email digest]
+    A[Structured log event] --> B{Level?}
+    B -->|ERROR| C[Log to Loki]
+    B -->|WARN| D[Log to Loki]
+    B -->|INFO| E[Log to Loki]
     
-    C --> F[On-call engineer responds]
-    F --> G{Resolved?}
-    G -->|Yes| H[Close PagerDuty]
-    G -->|No| I[Escalate to senior engineer]
-    I --> F
+    C --> F[Loki: count errors/5m]
+    D --> G[Loki: count warnings/5m]
     
-    D --> J[Engineer investigates]
-    J --> K{Fix needed?}
-    K -->|Yes| L[Create ticket]
-    K -->|No| M[Monitor for escalation]
+    F --> H{> 20 errors/min?}
+    H -->|Yes| I[CRITICAL: Page on-call]
+    H -->|No| J[WARNING: Slack]
     
-    L --> N[Fix and close ticket]
-    M --> N
+    G --> K{> 5 warnings/min?}
+    K -->|Yes| J
+    K -->|No| L[Monitor, no action]
 ```
 
-### Alert Trigger Conditions
-
-```mermaid
-pie title Alert Distribution by Severity
-    "WARNING (fallback ratio, token size, propagation)" : 60
-    "CRITICAL (invalid token, JWKS failure, reuse)" : 30
-    "INFO (daily digest)" : 10
-```
-
-### Alert Monitoring Dashboard
+### Alert Decision Tree
 
 ```mermaid
 flowchart TD
-    subgraph "Prometheus Alerting"
-        A[jwt-alerts.yml rules] --> B[Prometheus evaluator]
-        B --> C{Condition met?}
-        C -->|Yes| D[Fire alert]
-        C -->|No| E[No action]
-    end
+    A[Alert triggered] --> B{Event type?}
+    B -->|reuse_detected| C[CRITICAL: Page]
+    B -->|rotation_failure| D[CRITICAL: Page]
+    B -->|revocation_failure| E[CRITICAL: Page]
+    B -->|jwks_refresh_failure| F[CRITICAL: Page]
+    B -->|jwt_validation_failed| G{Count > 5/min?}
+    B -->|shadow_mismatch| H[WARNING: Slack]
+    B -->|fallback_call_failure| I{Count > 5/min?}
     
-    subgraph "Alert Routing"
-        D --> F[CRITICAL: PagerDuty]
-        D --> G[WARNING: Slack]
-        D --> H[INFO: Email]
-    end
+    G -->|Yes| J[WARNING: Slack]
+    G -->|No| K[Monitor]
+    I -->|Yes| J
+    I -->|No| K
+```
+
+### Grafana Alert Configuration
+
+```mermaid
+flowchart TD
+    A[Loki Logs] --> B[Grafana Log Query]
+    B --> C{Filter by event field}
+    C --> D["event=refresh_token_reuse_detected"]
+    C --> E["event=token_rotation_failure"]
+    C --> F["event=jwt_validation_failed"]
     
-    subgraph "Dashboard"
-        I[Grafana: alert status] --> J["alert_count{severity}"]
-        J --> K["alert_duration{severity}"]
-    end
+    D --> G[Alert: CRITICAL]
+    E --> G
+    F --> H[Alert: WARNING]
+    
+    G --> I[PagerDuty + Slack]
+    H --> J[Slack]
 ```
 
 ## OpenAPI Changes
@@ -229,32 +153,34 @@ No OpenAPI changes. Alerting is internal to the operations layer.
 
 ## Design Doc References
 
-- `design-doc.md` section 10.12: Observability -- alerting thresholds
+- `design-doc.md` section 10.12: Observability -- alerting via Loki (not Prometheus)
+- `observability.md`: Epic 9 log-based alerting
 
 ## Wiki Pages to Update/Create
 
-- `topics/topic-observability.md`: Document alerting configuration
+- `topics/topic-observability.md`: Document log-based alerting configuration
 - `topics/topic-ops-runbook.md`: (new) Document alert response procedures
 
 ## Acceptance Criteria
 
-- [ ] All 10 alert rules are defined in Prometheus rules file
-- [ ] CRITICAL alerts route to PagerDuty + Slack #idam-incidents
-- [ ] WARNING alerts route to Slack #idam-alerts
-- [ ] INFO alerts included in daily email digest
-- [ ] Alert thresholds match the documented values in the alert catalog
-- [ ] Alert annotations include: summary, description, current metric value
-- [ ] Alerts have `for:` duration to prevent flapping
-- [ ] Grafana dashboard shows: alert_count{severity}, alert_duration{severity}
-- [ ] Runbook: each alert has a documented response procedure
+- [ ] All CRITICAL alerts (reuse, rotation failure, revocation failure, JWKS failure) page on-call on first event
+- [ ] All WARNING alerts route to Slack #idam-alerts, escalate to page if rate > 20/min
+- [ ] Loki log queries use `| json` filter to parse structured logs
+- [ ] Alert expressions use `event=` field for precise log matching
+- [ ] Alert annotations include: summary, description, current event count
+- [ ] CRITICAL alerts have `for: 1m` (no sustained violation needed — any single event is critical)
+- [ ] WARNING alerts have `for: 5m` (sustained violation required)
+- [ ] Grafana dashboard shows alert status by severity
+- [ ] Runbook documents response procedure for each alert
 
 ## Dependencies
 
-- Depends on Stories 9.1-9.5 (metrics that alerts monitor)
-- Can be implemented in parallel with other epics
+- Depends on Stories 9.1-9.6 (structured log events that alerts monitor)
+- Depends on Loki/Grafana stack being configured to receive OTLP logs
+- BRRTRouter's existing Prometheus metrics (`brrtrouter_auth_failures_total`, `brrtrouter_request_duration_seconds`) may have separate Prometheus alerting rules for HTTP-level issues
 
 ## Risk / Trade-offs
 
-- **Alert fatigue**: Too many alerts lead to alert fatigue, where engineers ignore alerts. Mitigation: only alert on things that require human intervention. Most metrics (e.g., token refresh total) do NOT need alerts -- they are for dashboards and trend analysis, not real-time notification. Only alerts on conditions that indicate system degradation or security incidents.
-- **False positives**: Alerts fire when conditions are met, even if the condition is benign (e.g., a temporary spike in invalid tokens during a client update). Mitigation: use `for:` duration (e.g., 5 minutes) to require sustained violations before alerting. Also, document each alert's expected benign triggers.
-- **PagerDuty cost**: Each CRITICAL page generates a PagerDuty notification that may include SMS/phone. This costs money and can wake engineers at night. Mitigation: only use PagerDuty for truly critical alerts that require immediate response. Use Slack for warnings.
+- **Log volume vs alert precision**: Structured logs are searchable but Loki log queries are slower than Prometheus metric queries. CRITICAL alerts on single events (reuse_detected) need instant response — Loki log queries can handle this. WARNING alerts on rate (> 5/min) may have slight delay due to Loki aggregation.
+- **Alert fatigue**: Too many warnings lead to ignored alerts. The threshold system (Slack first, page only if sustained) prevents alert fatigue for non-critical events. CRITICAL events always page because they indicate security incidents or system failures.
+- **Loki vs Prometheus for alerting**: Loki log queries are more flexible (can match on any structured field) but less performant than Prometheus metric queries. For high-volume monitoring (10,000 RPS), consider using BRRTRouter's Prometheus metrics (`brrtrouter_requests_total`, `brrtrouter_auth_failures_total`) for HTTP-level alerting, and Loki logs only for JWT-specific alerts that require structured field matching.
