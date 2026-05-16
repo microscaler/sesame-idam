@@ -13,9 +13,9 @@ info:
   contact:
     name: Platform / Security
 servers:
-- url: /api/v1/am
+- url: /idam/v1/am
   description: Authz Core API
-- url: /api/v1/authz-core
+- url: /idam/v1/authz-core
   description: Authz Core API
 tags:
 - name: Principal
@@ -25,7 +25,7 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /principals/roles:
+  /idam/v1/authz/principals/roles:
     post:
       tags:
       - Principal
@@ -148,7 +148,7 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Revoke role from principal, never from browser'
-  /principals/attributes:
+  /idam/v1/authz/principals/attributes:
     post:
       tags:
       - Principal
@@ -184,7 +184,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Set attribute on principal, never from browser'
       x-brrtrouter-impl: true
-  /principal/effective:
+  /idam/v1/authz/principals/effective:
     post:
       tags:
       - Principal
@@ -242,7 +242,7 @@ paths:
       x-consumer-note: 'Backend-only: Get effective permissions for principal, used
         by authz middleware'
       x-brrtrouter-impl: true
-  /authorize:
+  /idam/v1/authz/authorize:
     post:
       tags:
       - Principal
@@ -307,7 +307,7 @@ paths:
       x-consumer-note: 'Backend-only: Check if principal is authorized, used by all
         backend services'
       x-brrtrouter-impl: true
-  /audit/events:
+  /idam/v1/authz/audit/events:
     post:
       tags:
       - Audit
@@ -472,7 +472,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
-  /audit/events/{id}:
+  /idam/v1/authz/audit/events/{id}:
     get:
       tags:
       - Audit
@@ -536,7 +536,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
-  /audit/events/stats:
+  /idam/v1/authz/audit/events/stats:
     post:
       tags:
       - Audit
@@ -603,7 +603,7 @@ paths:
       security: []
       parameters:
       - *id007
-  /audit/export:
+  /idam/v1/authz/audit/export:
     post:
       tags:
       - Audit
@@ -660,7 +660,7 @@ paths:
       security: []
       parameters:
       - *id007
-  /audit/export/{export_id}:
+  /idam/v1/authz/audit/export/{export_id}:
     get:
       tags:
       - Audit
@@ -715,7 +715,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
-  /audit/retention:
+  /idam/v1/authz/audit/retention:
     get:
       tags:
       - Audit
@@ -839,7 +839,7 @@ paths:
       security: []
       parameters:
       - *id007
-  /audit/retention/{id}:
+  /idam/v1/authz/audit/retention/{id}:
     patch:
       tags:
       - Audit

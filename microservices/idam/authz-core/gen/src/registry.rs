@@ -78,14 +78,14 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
-        "principal_effective",
-        crate::controllers::principal_effective::PrincipalEffectiveController,
+        "set_principal_attribute",
+        crate::controllers::set_principal_attribute::SetPrincipalAttributeController,
         20480,
     );
 
     dispatcher.register_typed_with_stack_size(
-        "set_principal_attribute",
-        crate::controllers::set_principal_attribute::SetPrincipalAttributeController,
+        "principal_effective",
+        crate::controllers::principal_effective::PrincipalEffectiveController,
         20480,
     );
 
@@ -207,17 +207,17 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
-            "principal_effective" => {
+            "set_principal_attribute" => {
                 let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::principal_effective::PrincipalEffectiveController,
+                    crate::controllers::set_principal_attribute::SetPrincipalAttributeController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
-            "set_principal_attribute" => {
+            "principal_effective" => {
                 let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::set_principal_attribute::SetPrincipalAttributeController,
+                    crate::controllers::principal_effective::PrincipalEffectiveController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

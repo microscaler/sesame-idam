@@ -9,8 +9,6 @@ pub mod export_user_audit_events;
 
 pub mod get_user_event_count;
 
-pub mod oauth_logout;
-
 pub mod create_user;
 
 pub mod fetch_user_by_email;
@@ -58,3 +56,5 @@ pub mod link_social_account;
 pub mod fetch_user_oauth_tokens;
 
 pub mod fetch_fresh_oauth_token;
+
+pub mod oauth_logout;

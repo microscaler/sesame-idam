@@ -336,7 +336,7 @@ gen-identity-user-mgmt:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_identity_user_mgmt}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_identity_user_mgmt}}" \
-    --package-name identity_user_mgmt_service_service_api \
+    --package-name sesame_idam_identity_user_mgmt_service_gen \
     --force
   echo "✅ Generated {{out_identity_user_mgmt}}"
 
@@ -352,7 +352,7 @@ gen-authz-core:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_authz_core}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_authz_core}}" \
-    --package-name authz_core_service_api \
+    --package-name sesame_idam_authz_core_gen \
     --force
   echo "✅ Generated {{out_authz_core}}"
 

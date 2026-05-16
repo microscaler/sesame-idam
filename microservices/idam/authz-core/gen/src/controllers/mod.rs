@@ -25,9 +25,9 @@ pub mod update_retention_policy;
 
 pub mod authorize;
 
-pub mod principal_effective;
-
 pub mod set_principal_attribute;
+
+pub mod principal_effective;
 
 pub mod assign_principal_role;
 

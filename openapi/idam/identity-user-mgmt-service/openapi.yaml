@@ -16,9 +16,9 @@ info:
   contact:
     name: Platform / Security
 servers:
-- url: /api/v1/identity
+- url: /idam/v1/identity
   description: User Mgmt Service API
-- url: /api/v1/identity-user-mgmt-service
+- url: /idam/v1/identity-user-mgmt-service
   description: Identity User Mgmt Service API
 tags:
 - name: Users
@@ -35,7 +35,7 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /users:
+  /idam/v1/admin/users:
     post:
       tags:
       - Users
@@ -136,7 +136,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Create user account, not direct frontend'
       x-brrtrouter-impl: true
-  /users/{user_id}:
+  /idam/v1/admin/users/{user_id}:
     delete:
       tags:
       - Users
@@ -186,7 +186,7 @@ paths:
           content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete user account, not direct frontend'
-  /users/query:
+  /idam/v1/admin/users/query:
     get:
       tags:
       - Users
@@ -328,7 +328,7 @@ paths:
           content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Query/filter users, not direct frontend'
-  /users/email:
+  /idam/v1/admin/users/email:
     get:
       tags:
       - Users
@@ -397,7 +397,7 @@ paths:
           content: *id005
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Lookup user by email, not direct frontend'
-  /users/username:
+  /idam/v1/admin/users/username:
     get:
       tags:
       - Users
@@ -461,7 +461,7 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Lookup user by username, not direct frontend'
-  /users/{user_id}/employee:
+  /idam/v1/admin/users/{user_id}/employee:
     get:
       tags:
       - Users
@@ -530,7 +530,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Fetch user in employee context, not direct
         frontend'
-  /users/{user_id}/disable:
+  /idam/v1/admin/users/{user_id}/disable:
     post:
       tags:
       - PasswordSecurity
@@ -580,7 +580,7 @@ paths:
       x-consumer-note: 'Admin console only: Disable/block user account, not direct
         frontend'
       x-brrtrouter-impl: true
-  /users/{user_id}/enable:
+  /idam/v1/admin/users/{user_id}/enable:
     post:
       tags:
       - PasswordSecurity
@@ -629,7 +629,7 @@ paths:
       x-consumer-note: 'Admin console only: Enable/unblock user account, not direct
         frontend'
       x-brrtrouter-impl: true
-  /users/{user_id}/logout-all-sessions:
+  /idam/v1/admin/users/{user_id}/logout-all-sessions:
     post:
       tags:
       - Sessions
@@ -678,7 +678,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to logout all sessions for current user
       x-brrtrouter-impl: true
-  /users/{user_id}/magiclink:
+  /idam/v1/admin/users/{user_id}/magiclink:
     post:
       tags:
       - AuthFlows
@@ -727,7 +727,7 @@ paths:
       x-consumer-note: 'Admin console only: Generate magic link for another user,
         not direct frontend'
       x-brrtrouter-impl: true
-  /users/{user_id}/password:
+  /idam/v1/admin/users/{user_id}/password:
     delete:
       tags:
       - PasswordSecurity
@@ -781,7 +781,7 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Clear user password (force SSO), not direct
         frontend'
-  /users/{user_id}/email/verify:
+  /idam/v1/admin/users/{user_id}/email/verify:
     post:
       tags:
       - PasswordSecurity
@@ -826,7 +826,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify current user email
       x-brrtrouter-impl: true
-  /users/{user_id}/resend-email-confirmation:
+  /idam/v1/admin/users/{user_id}/resend-email-confirmation:
     post:
       tags:
       - PasswordSecurity
@@ -871,7 +871,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to resend email verification
       x-brrtrouter-impl: true
-  /users/{user_id}/mfa/disable:
+  /idam/v1/admin/users/{user_id}/mfa/disable:
     post:
       tags:
       - PasswordSecurity
@@ -919,7 +919,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to disable MFA for current user
       x-brrtrouter-impl: true
-  /users/{user_id}/mfa/setup:
+  /idam/v1/admin/users/{user_id}/mfa/setup:
     post:
       tags:
       - PasswordSecurity
@@ -1003,7 +1003,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to setup TOTP MFA for current user
       x-brrtrouter-impl: true
-  /users/{user_id}/mfa/verify:
+  /idam/v1/admin/users/{user_id}/mfa/verify:
     post:
       tags:
       - PasswordSecurity
@@ -1081,7 +1081,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify MFA code for current user
       x-brrtrouter-impl: true
-  /users/{user_id}/phone:
+  /idam/v1/admin/users/{user_id}/phone:
     post:
       tags:
       - PasswordSecurity
@@ -1145,7 +1145,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to setup phone number for current user
       x-brrtrouter-impl: true
-  /users/{user_id}/phone/verify:
+  /idam/v1/admin/users/{user_id}/phone/verify:
     post:
       tags:
       - PasswordSecurity
@@ -1206,7 +1206,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify phone number for current user
       x-brrtrouter-impl: true
-  /users/{user_id}/email:
+  /idam/v1/admin/users/{user_id}/email:
     put:
       tags:
       - Identity
@@ -1263,7 +1263,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to update current user email
       x-brrtrouter-impl: true
-  /users/{user_id}/social/link:
+  /idam/v1/admin/users/{user_id}/social/link:
     post:
       tags:
       - SocialLogin
@@ -1329,7 +1329,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to link social account to current user
       x-brrtrouter-impl: true
-  /users/{user_id}/social/tokens:
+  /idam/v1/admin/users/{user_id}/social/tokens:
     get:
       tags:
       - SocialLogin
@@ -1385,7 +1385,7 @@ paths:
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: frontend
       x-consumer-note: Direct browser call to fetch OAuth tokens for current user
-  /users/{user_id}/social/tokens/{provider}/refresh:
+  /idam/v1/admin/users/{user_id}/social/tokens/{provider}/refresh:
     get:
       tags:
       - SocialLogin
@@ -1440,7 +1440,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to fetch fresh OAuth token for current
         user
-  /users/migrate:
+  /idam/v1/admin/users/migrate:
     post:
       tags:
       - UserMigration
@@ -1504,7 +1504,7 @@ paths:
       x-consumer-note: 'Backend-only: Migrate user from external system, never from
         browser'
       x-brrtrouter-impl: true
-  /users/migrate-password:
+  /idam/v1/admin/users/migrate-password:
     post:
       tags:
       - UserMigration
@@ -1547,7 +1547,7 @@ paths:
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Batch migrate user passwords, never from browser'
       x-brrtrouter-impl: true
-  /oauth/logout:
+  /idam/v1/oauth/logout:
     post:
       tags:
       - Sessions
@@ -1587,7 +1587,7 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to logout OAuth session for current user
       x-brrtrouter-impl: true
-  /audit/user/events:
+  /idam/v1/admin/audit/events:
     post:
       tags:
       - UserAudit
@@ -1739,7 +1739,7 @@ paths:
           type: string
           format: uuid
           description: Tenant identifier for multi-tenant isolation
-  /audit/user/{user_id}/events/count:
+  /idam/v1/admin/audit/users/{user_id}/events/count:
     get:
       tags:
       - UserAudit
@@ -1830,7 +1830,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
-  /audit/user/{user_id}/events/compliance-export:
+  /idam/v1/admin/audit/users/{user_id}/events/compliance-export:
     post:
       tags:
       - UserAudit
