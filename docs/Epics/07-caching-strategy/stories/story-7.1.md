@@ -195,9 +195,113 @@ flowchart TD
     F --> L[Deny: no keys available]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-711: JWKS Cache Poisoning via Malicious Key Injection (CRITICAL — Hole #1 from PRS)
+
+**Risk:** Attacker injects a malicious key into the JWKS cache that signs forged tokens
+
+The story shows: `background_refresh atomically replaces cache`. If the JWKS endpoint is compromised (or the network path is MITMed), an attacker can inject a malicious public key into the JWKS response. The cache replaces the legitimate key with the attacker's key.
+
+**Exploit path:**
+1. Attacker compromises the JWKS endpoint (e.g., SQL injection, code execution, or access to the key management system)
+2. Attacker adds a malicious key to the JWKS response: `{key: malicious_key, kid: "key_1"}`
+3. The next background refresh atomically replaces the cache with the poisoned keys
+4. The service now uses the attacker's key to validate ALL tokens
+5. The attacker can sign ANY token with their private key → ALL users are compromised
+6. Result: Complete authentication bypass
+
+**Implementation requirement:**
+- The JWKS fetch MUST use TLS with certificate pinning (or at minimum TLS with standard certificate validation)
+- The JWKS endpoint URL MUST be hardcoded or come from a trusted configuration source (not from the database or user input)
+- Add a hash chain: store the hash of the previous JWKS response and verify the new response's hash is consistent with the previous one (detects unexpected changes)
+- Add rate limiting to the JWKS fetch: MAX 1 fetch per minute per service instance (prevents refresh storms from amplifying cache poisoning)
+- Document: "JWKS cache poisoning is prevented by TLS with certificate validation, hardcoded endpoint URLs, and fetch rate limiting."
+
+### HACK-712: JWKS Cache Can Be Exhausted via Key Flood (HIGH — related to Hole #1 from PRS)
+
+**Risk:** Attacker floods the JWKS endpoint with keys to exhaust cache memory
+
+The story says: `max_keys = 10`. But what if the attacker sends a JWKS response with 10,000 keys? The cache would accept the first 10 (or all 10,000 if max_keys is not enforced).
+
+**Exploit path:**
+1. Attacker controls the JWKS endpoint (or can MITM the fetch)
+2. Attacker sends a JWKS response with 10,000 keys (each ~1-2 KB)
+3. The cache stores 10,000 keys (10-20 MB of memory)
+4. If the attacker sends 100 such responses over time, the memory usage grows to 1-2 GB
+5. The service OOMs and crashes
+6. Result: Denial of service
+
+**The story says:** `max_keys = 10`. But is this enforced at the FETCH level or the STORAGE level? If it's only at storage, the attacker could still send a 10,000-key response and the cache would truncate it to 10 keys. So the exploit only works if max_keys is NOT enforced.
+
+**The real risk is different:** What if the attacker sends a JWKS response with 10 keys, each containing a VERY LARGE key (e.g., 100 KB due to malformed PEM data)?
+
+**Exploit path:**
+1. Attacker sends a JWKS response with 10 keys, each 100 KB (1 MB total)
+2. The cache stores all 10 keys (1 MB)
+3. The attacker sends 10 such responses per minute → 10 MB/min → 600 MB/hour
+4. The service eventually OOMs
+5. Result: Denial of service
+
+**Implementation requirement:**
+- Enforce max_keys at the FETCH level: reject JWKS responses with more than 10 keys
+- Enforce a MAX key size: reject any JWK that exceeds 10 KB (RSA public keys are typically 1-2 KB)
+- Enforce a MAX JWKS response size: reject JWKS documents larger than 100 KB
+- Document: "JWKS responses are limited to 10 keys, 10 KB per key, and 100 KB total. Oversized responses are rejected."
+
+### HACK-713: Stale JWKS Key Used for Token Forgery (HIGH — related to Hole #3 from PRS)
+
+**Risk:** A key that was rotated OUT of the JWKS endpoint is still in the cache and used to validate tokens
+
+The story says: `stale tolerance: 15 minutes`. This means if a key is rotated, the old key remains in the cache for 15 minutes. During this window, an attacker who obtained the old PRIVATE key can sign forged tokens.
+
+**Exploit path:**
+1. At time T, the key rotation occurs: key_1 → key_2
+2. The JWKS endpoint now only has key_2
+3. But the cache still has key_1 (because of the 15-minute stale tolerance)
+4. An attacker who obtained key_1's private key (e.g., from a backup, log, or leak) before the rotation
+5. The attacker signs a forged token with key_1
+6. The service validates the token with the stale key_1 from the cache → VALID
+7. Result: Forged token accepted during the 15-minute rotation window
+
+**This is the inherent risk of the stale tolerance design.** The trade-off is: accept stale keys for resilience vs. reject immediately for security.
+
+**Implementation requirement:**
+- Add a WARN-level log entry whenever a stale key is used for validation: "Stale key used for validation: kid=key_1, age=XXs, tolerance=15min"
+- Alert on high stale-key usage: "More than 10% of validations using stale keys — possible key rotation issue"
+- Consider reducing the stale tolerance from 15 minutes to 5 minutes (the minimum safe window for key propagation)
+- Document: "Stale key tolerance allows key_1 to validate for up to 15 minutes after rotation. Reduce to 5 minutes for higher security."
+
+### HACK-714: JWKS Endpoint DoS via Continuous Refresh (MEDIUM — related to Hole #5 from PRS)
+
+**Risk:** Attacker floods the JWKS endpoint to exhaust its resources, causing cache miss storms
+
+The story says: `background refresh every 5 minutes`. If an attacker can trigger a cache miss (e.g., by clearing the cache or by sending requests with unexpected kid values), every service will fetch from the JWKS endpoint simultaneously.
+
+**Exploit path:**
+1. Attacker clears the JWKS cache in one service instance (e.g., via a configuration endpoint or by exploiting a bug)
+2. All 6 services simultaneously fetch from the JWKS endpoint (1 HTTP request each)
+3. The JWKS endpoint receives 6 requests simultaneously
+4. If the attacker does this 100 times per second (via 100 service instances), the JWKS endpoint receives 600 requests/second
+5. The JWKS endpoint becomes overloaded and starts returning errors
+6. All services fail to validate tokens → complete authentication outage
+7. Result: Denial of service against the JWKS endpoint
+
+**But the story says:** `single-flight pattern` is NOT used for JWKS caching (only for version cache in Story 7.3). So concurrent requests do trigger concurrent JWKS fetches.
+
+**Implementation requirement:**
+- Implement a single-flight pattern for JWKS fetches (at least at the per-process level): if a fetch is already in progress, subsequent requests wait for the result
+- Add a global rate limit to JWKS fetches: MAX 1 fetch per second per service instance
+- Implement exponential backoff on fetch failure: 1s, 2s, 4s, 8s, 16s, 32s (up to a maximum of 120s)
+- Document: "JWKS fetches use single-flight deduplication and exponential backoff. Maximum 1 fetch per second per instance."
+
+---
+
 ## OpenAPI Changes
 
-No OpenAPI changes. JWKS caching is internal to the validation layer. The `/.well-known/jwks.json` endpoint is already documented in the spec.
+No OpenAPI changes. JWKS caching is internal to the validation layer.
 
 ## Design Doc References
 

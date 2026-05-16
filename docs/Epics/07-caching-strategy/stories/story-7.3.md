@@ -177,6 +177,129 @@ gantt
     next Redis lookup               :15, 0
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-731: Single-Flight Cache Can Return Stale Version After Token Revocation (CRITICAL — Hole #2 from PRS)
+
+**Risk:** An attacker's token is accepted because the version cache serves a stale version after revocation
+
+The story shows: local cache stores `(version, last_updated)` with TTL 15-60 seconds. If a user's token version is bumped (e.g., after a role change), the cache might serve the OLD version for up to 60 seconds.
+
+**Exploit path:**
+1. At T=0: User A has token with `ver=42`
+2. At T=1: Admin changes User A's role → version bumped to `43` in Redis
+3. At T=5: The version cache (TTL=60s) returns `42` (stale from local cache)
+4. At T=5: Attacker sends User A's token (`ver=42`)
+5. Service compares: `42 < 42`? NO → token is accepted!
+6. BUT: Redis has version `43` for User A → the token SHOULD be rejected
+7. Result: Stale cache causes the version check to pass when it should fail
+
+**This is a fundamental flaw in the version cache design:** if the cache TTL exceeds the version bump interval, revoked tokens will be accepted.
+
+**Exploit path (targeted cache poisoning):**
+1. Attacker knows the version cache TTL is 60 seconds
+2. Attacker performs a high-risk action (e.g., deletes a record)
+3. Admin revokes the attacker's permission → version bumped to 43
+4. Attacker immediately repeats the action
+5. The version cache returns 42 (stale) → action succeeds
+
+**Implementation requirement:**
+- The version cache TTL MUST be shorter than the time it takes for a version bump to propagate to all services (typically < 5 seconds for Redis-based version bumps)
+- OR: the version cache must always validate against Redis on the FIRST request after TTL expiry (not just on cache miss)
+- OR: use a hybrid approach: local cache for 5 seconds, then always check Redis
+- Document: "Version cache TTL must not exceed 5 seconds for user keys. Longer TTLs (60s) may only be used for tenant keys where version bumps are rare."
+
+### HACK-732: Single-Flight Pattern Can Be Abused for DoS (HIGH — related to Hole #3 from PRS)
+
+**Risk:** Attacker triggers a thundering herd by flooding unique version keys to exhaust the in-flight map
+
+The story says: `max_in_flight = 1000`. But what if the attacker sends 10,000 requests for unique user keys simultaneously?
+
+**Exploit path:**
+1. Attacker has 10,000 valid tokens for 10,000 different users (stolen from a data breach)
+2. Attacker sends 10,000 simultaneous requests to a high-risk route
+3. Each request requires a version check → each triggers a single-flight lookup
+4. The in-flight HashMap grows to 10,000 entries (10x the max_in_flight limit)
+5. Each entry holds a watch channel + string key + tokio task → significant memory usage
+6. The Redis connection pool is exhausted by 10,000 concurrent lookups
+7. Result: Service crash or degraded performance
+
+**The story says:** `max_in_flight = 1000`. But is this enforced? The code does NOT show a max_in_flight check — it just inserts into the HashMap unconditionally.
+
+**Exploit path (Redis connection pool exhaustion):**
+1. Attacker sends 1,000 requests per second for unique keys
+2. Each triggers a Redis GET → 1,000 concurrent Redis connections
+3. If Redis connection pool is 100, 900 requests queue up and time out
+4. Result: Redis connection pool exhaustion → all requests fail
+
+**Implementation requirement:**
+- Enforce max_in_flight: reject requests when the in-flight HashMap exceeds 1000 entries
+- Return a 503 Service Unavailable with `error: "too_many_version_lookups"`
+- Add a metric: `version_in_flight_total{status: "exceeded"}` when max_in_flight is exceeded
+- Implement a per-key rate limit: MAX 10 version lookups per second per key (to prevent a single user from hammering Redis)
+- Document: "Single-flight in-flight map is bounded by max_in_flight=1000. Additional lookups are rejected with 503."
+
+### HACK-733: Watch Channel Leak on Task Panic Allows Request Hijacking (HIGH — related to Hole #1 from PRS)
+
+**Risk:** A panicking spawned task leaves a watch channel that can be hijacked by a subsequent attacker-controlled lookup
+
+The story's code shows: `tokio::spawn(async move { ... result.send(ver); ... })`. If the spawned task panics, the `send` is never called.
+
+**Exploit path (watch channel hijacking):**
+1. Request 1 triggers a single-flight lookup for key X
+2. The spawned task panics (e.g., Redis connection error)
+3. Request 1's watch receiver hangs forever (no result sent)
+4. Request 2 arrives for a DIFFERENT key Y
+5. If key Y's hash happens to collide with key X's key (extremely unlikely with blake3), Request 2 might receive the wrong result
+6. More likely: Request 2's receiver hangs because the watch channel was not cleaned up
+
+**The real risk is different:** If the watch channel is never cleaned up, subsequent lookups for the same key will receive a NEW sender, but the old receivers are still hanging. This is a memory leak, not a security vulnerability.
+
+**But what if the panic causes the cache to store an incorrect value?**
+
+**Exploit path (stale version stored on partial failure):**
+1. Request 1 triggers a lookup for key X
+2. Redis returns version 42
+3. The cache is updated with `(42, now)`
+4. The task panics BEFORE sending to the watch channel
+5. Request 1 hangs forever (no result)
+6. Request 2 arrives for key X → triggers a new single-flight lookup
+7. Result: Request 1 is stuck (DoS), Request 2 gets the correct version
+
+**Implementation requirement:**
+- The spawned task MUST handle panics gracefully: wrap the Redis lookup in a `catch_unwind` or use a `Result` type
+- If the task panics, it must send an `Err` to the watch channel (not `None`)
+- Add a timeout to the watch channel receiver: if no result is received within 5 seconds, return an error
+- Document: "Watch channel receivers have a 5-second timeout. Panicking tasks are handled gracefully — waiters receive an error."
+
+### HACK-734: Version Cache Can Bypass Revocation via TTL Expiration (CRITICAL — related to Hole #2 from PRS)
+
+**Risk:** An attacker's revoked token is re-accepted after the version cache expires and Redis returns an incorrect value
+
+**Exploit path:**
+1. Attacker's token has `ver=42`
+2. Admin revokes the token → version bumped to 43 in Redis
+3. The version cache has `ver=42` (stale local cache)
+4. 15 seconds later: cache TTL expires
+5. The service does a Redis lookup → Redis returns `43`
+6. The service compares: `42 < 43`? YES → token REJECTED (correct)
+7. BUT: what if Redis is temporarily unavailable during step 5?
+8. The service treats Redis failure as `None` → defaults to version 0
+9. The service compares: `42 < 0`? NO → token ACCEPTED
+10. Result: Revoked token accepted when Redis is unavailable
+
+**This is a fail-open behavior:** when the version check fails, the token is accepted. This is dangerous because it allows revoked tokens to be re-accepted.
+
+**Implementation requirement:**
+- When Redis is unavailable, the version check MUST FAIL (token rejected), NOT pass
+- Add a `version_check_failed` metric that is incremented when Redis is unavailable
+- Alert on high `version_check_failed` rates: possible Redis outage → all tokens should be rejected until Redis recovers
+- Document: "Redis unavailability causes version check to FAIL (token rejected). Tokens are never accepted when the version check cannot be performed."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Version caching is internal to the validation logic.

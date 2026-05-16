@@ -151,9 +151,185 @@ flowchart LR
     G --> I["Cache HIT! Same key"]
 ```
 
-## OpenAPI Changes
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
 
-- `/api/v1/am/authorize` endpoint: Document cache behavior in description
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-721: Cache Poisoning via Subject Claim Injection (CRITICAL — related to Hole #1 from PRS)
+
+**Risk:** Attacker crafts a request that hashes to another user's cached authorization decision
+
+The story says: `hash of subject + org + action + resource_id`. If the attacker can control the subject claim in the JWT, they could potentially hash to an existing cache entry.
+
+**Exploit path:**
+1. The cache key is: `blake3("subject:org:action:resource_id")`
+2. Attacker has a valid JWT for `user_attacker` in `org_123`
+3. The attacker sends a request for action `preferences:update` on resource `None`
+4. The cache key is `blake3("user_attacker:org_123:preferences:update:")`
+5. This is deterministic and unique to the attacker — no collision with other users' keys
+
+**Actually, this is NOT vulnerable to cross-user cache poisoning** because the subject is in the JWT (signed and verified), so the attacker cannot claim to be `user_victim`. The cache key is different for each subject.
+
+**The real exploit is different:** What if the attacker FORGES a JWT with a subject that hashes to an existing cache entry with a favorable authorization result?
+
+**Exploit path (hash collision for authorization bypass):**
+1. User A has a cached authorization result: `{allowed: true, reason: "admin"}`
+2. The cache key is `blake3("user_A:org_123:preferences:update:")`
+3. Attacker forges a JWT with subject `user_A` (impossible without the signing key)
+4. Since the attacher cannot forge the JWT, this attack is NOT feasible
+
+**But what if the attacker can influence the subject?** What if the subject is an email address and the attacker can register an email that hashes to a favorable key?
+
+**Exploit path (email registration for hash targeting):**
+1. The attacker tries to register an email that, when hashed with `org_123:preferences:update:`, produces a cache key that collides with `user_A`'s cached result
+2. With blake3 (256-bit hash), the probability is negligible (2^-256)
+3. Result: NOT feasible
+
+**The real exploit is different:** What about WITHIN the same user? Can the attacker manipulate the cache to get a favorable result for a different action?
+
+**Exploit path (same-subject cross-action cache poisoning):**
+1. User A has a cached result for action `preferences:read` → `{allowed: true}`
+2. User A (or an attacker controlling the account) sends a request for `preferences:write`
+3. The cache key for `preferences:write` is DIFFERENT from `preferences:read` (different action)
+4. So no cache hit → authz-core is called → correct result
+
+**The REAL risk is write-after-read cache poisoning:**
+1. User A is allowed to `preferences:read` (cached for 30 seconds)
+2. User A changes their role from `customer` to `admin` (via a vulnerable API)
+3. User A sends a `preferences:write` request 10 seconds later
+4. The cache key is a MISS (different action) → authz-core is called
+5. authz-core checks the NEW role → `admin` → `{allowed: true}`
+6. Result: correct
+
+**But what if the user's permission was REVOKED (not changed)?**
+1. Admin revokes user A's permission
+2. User A had a cached `allowed: true` result from 10 seconds ago (TTL=30s)
+3. User A sends a request
+4. The cache key is a MISS (different action) → authz-core is called
+5. authz-core returns `allowed: false` → cache is updated
+6. BUT: if the cache was hit (same action, same result), the stale `allowed: true` is served
+
+**This is the write-after-read cache poisoning the story mentions in Risk/Trade-offs.**
+
+**Exploit path (stale allowed decision):**
+1. User A has a cached `{allowed: true, reason: "admin"}` for action `orders:delete` (TTL=30s)
+2. Admin revokes user A's admin permission (role removed)
+3. User A sends an `orders:delete` request
+4. The cache key `blake3("user_A:org_123:orders:delete:")` is a HIT
+5. The cached `{allowed: true}` is returned → authz-core is NOT called
+6. Result: User A deletes orders despite having admin revoked
+
+**Implementation requirement:**
+- Write-type actions (DELETE, PUT, PATCH, POST) MUST NOT be cached with `allowed: true` decisions
+- Write-type actions MUST either: (a) be excluded from caching entirely, OR (b) use a very short TTL (5 seconds)
+- Admin routes MUST NEVER use cached authorization decisions — authz-core MUST be called for every request
+- Add a metric: `authz_fallback_cache_stale_decision_total{action: "write"}` to track stale write decisions
+- Document: "Write-type actions are excluded from caching or use a 5-second TTL. Admin routes never use cached decisions."
+
+### HACK-722: Cache Key Manipulation via Request Parameter Injection (HIGH — related to Hole #6 from PRS)
+
+**Risk:** Attacker injects malicious content into the cache key parameters to cause cache entries to collide or overflow
+
+The story says: `let key_data = format!("{subject}:{org_id}:{action}:{resource_id:?}")`. If `subject`, `org_id`, `action`, or `resource_id` contain special characters (e.g., `:`, `:`, or newlines), the key_data could contain unexpected characters that affect the hash or the Redis key.
+
+**Exploit path (Redis key injection via colon):**
+1. Attacker's JWT has `sub: "user_123:admin"` (a subject containing a colon)
+2. The key_data becomes: `"user_123:admin:org_456:preferences:update:"`
+3. This is a valid Redis key — no injection
+4. But: the hash is deterministic, so the key is unique to this subject
+
+**The real risk is different:** What if the attacker can control the `action` parameter? The action is derived from the route path (not from user input), so the attacker cannot control it.
+
+**But what about `resource_id`?** If the resource_id comes from the URL path and contains special characters (e.g., `order_123:admin`), it could affect the hash.
+
+**Exploit path (resource_id hash targeting):**
+1. The attacker knows the cache key format: `blake3("user_123:org_456:orders:read:order_X")`
+2. The attacker tries different `resource_id` values to find one that hashes to a favorable cached result
+3. With blake3 (256-bit), the probability is negligible
+
+**The REAL exploit is different:** What if the `resource_id` is `None` for one request and `"order_123"` for another, but the hash doesn't distinguish between them?
+
+**Looking at the code:** `format!("{subject}:{org_id}:{action}:{resource_id:?}")` — `resource_id` uses `:?` which means:
+- `None` → `"None"`
+- `Some("order_123")` → `"Some(\"order_123\")"`
+- These are DIFFERENT strings → DIFFERENT hashes → CORRECT
+
+So the code is safe for this edge case.
+
+**The real risk is different:** What about `subject` values that contain newlines or other control characters?
+
+**Exploit path (newline in subject for log injection / cache entry confusion):**
+1. Attacker's JWT has `sub: "user_123\n"` (newline at end)
+2. The key_data becomes: `"user_123\n:org_456:orders:read:"`
+3. Redis stores this as a key with a newline character
+4. If the log aggregation pipeline splits on newlines, this could create confusion
+5. Result: Log confusion (not a security exploit per se, but could hide investigation)
+
+**Implementation requirement:**
+- Sanitize all subject, org_id, action, and resource_id values before hashing
+- Strip/control characters (ASCII < 0x20) from all input
+- Truncate extremely long values (e.g., subject > 256 chars, org_id > 128 chars)
+- Document: "Cache key inputs are sanitized to remove control characters and bounded to prevent oversized keys."
+
+### HACK-723: Cache Can Be Used for Timing Attack on Authorization (MEDIUM — related to Hole #5 from PRS)
+
+**Risk:** Attacker uses cache hit/miss timing differences to determine if a user has specific permissions
+
+The story shows: cache HIT returns immediately, cache MISS calls authz-core (slower). An attacker can measure response times to determine if a cached result exists for a given action.
+
+**Exploit path (cache timing oracle):**
+1. Attacker knows user A has an account in org_123
+2. Attacker sends a `preferences:read` request → measures response time → fast (cache HIT)
+3. Attacker sends a `orders:delete` request → measures response time → slow (cache MISS, calls authz-core)
+4. Attacker concludes: "The cache doesn't have a result for orders:delete" — meaning the user either never performed this action or the result expired
+5. Result: The attacker gains information about the user's authorization behavior
+
+**Is this useful?** Not directly for privilege escalation, but it could help an attacker map out which routes are jwt-with-fallback (slow) vs. jwt-only (fast), which helps in planning further attacks.
+
+**Implementation requirement:**
+- Add random jitter to cache hit responses to make timing indistinguishable from cache miss
+- Or: always call authz-core in parallel with cache lookup, and return the cache result if available (defeats the timing oracle but adds latency)
+- Document: "Cache hit and miss responses should have indistinguishable timing to prevent timing-based authorization enumeration."
+
+### HACK-724: Concurrent Cache Miss Creates Authorization Race Condition (HIGH — related to Hole #3 from PRS)
+
+**Risk:** Two concurrent requests for the same user/organzation/action result in a stale cached decision
+
+The story says: `concurrent requests for same cache key: 20 requests → authz-core called at most once`. But what if the authz-core result changes between the first call completing and the second request being served?
+
+**Exploit path (permission change during concurrent requests):**
+1. Admin revokes user A's permission to `orders:delete`
+2. Two requests arrive simultaneously: Request 1 and Request 2
+3. Both are cache misses → authz-core is called once → returns `{allowed: false}`
+4. The result is cached → both requests get `{allowed: false}`
+5. Result: correct — both denied
+
+**But what if the permission was GRANTED during the request?**
+1. Admin grants user A a new permission to `orders:delete`
+2. Two requests arrive simultaneously: both are cache misses
+3. Request 1: authz-core returns `{allowed: true}` → cached
+4. Request 2: cache HIT for `{allowed: true}` → served from cache
+5. Result: correct — both allowed
+
+**The real exploit is different:** What if the permission is REVOKED during the concurrent window?
+1. User A has `orders:delete` permission
+2. Admin revokes the permission
+3. Two requests arrive simultaneously (before the revocation is reflected in authz-core):
+   - Request 1: cache miss → authz-core returns `{allowed: true}` → cached
+   - Request 2: cache miss → authz-core returns `{allowed: false}` → cached (overwrites)
+   - OR: Request 2 hits the cache from Request 1 → served `{allowed: true}`
+4. Result: inconsistent — one request allowed, one denied
+
+**This is a race condition inherent to caching. The question is whether it matters for the specific use case.**
+
+**Implementation requirement:**
+- Accept that caching introduces a brief window of inconsistency (up to TTL seconds)
+- For HIGH-RISK actions (delete, admin), NEVER use cached results — always call authz-core
+- Document: "High-risk actions (DELETE, admin routes) never use cached authorization decisions."
+
+---
+
+## OpenAPI Changes
 - No changes to request/response shapes needed
 
 ```yaml
