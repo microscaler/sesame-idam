@@ -291,6 +291,8 @@ def create_microservice_deployment(name, port):
     # 3. Custom build for Tilt live updates
     # Ensures image exists (build if custom_build runs before docker-%s),
     # then push to localhost:5001 or kind load.
+    # Note: custom_build doesn't support resource_deps, so we rely on
+    # the deps list above to track the code changes that trigger rebuilds.
     custom_build(
         image_name,
         ('%s docker build-image-simple %s %s %s %s --service %s' % (
@@ -299,8 +301,9 @@ def create_microservice_deployment(name, port):
         deps=[dockerfile_template,
               'microservices/idam/%s/impl/config' % name,
               'microservices/idam/%s/gen/doc' % name,
-              'microservices/idam/%s/gen/static_site' % name],
-        resource_deps=['build-%s' % name],
+              'microservices/idam/%s/gen/static_site' % name,
+              'microservices/idam/%s/impl/src' % name,
+              'microservices/idam/%s/gen/src' % name],
         tag='tilt',
         live_update=[
             sync(artifact_path, '/app/%s' % package_name),
