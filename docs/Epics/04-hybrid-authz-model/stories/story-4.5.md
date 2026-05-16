@@ -220,6 +220,216 @@ flowchart TD
     I -->|No| G
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-451: Introspection Endpoint Allows Token Forensics (CRITICAL — Hole #5 from PRS)
+
+**Risk:** Attacker introspects ANY valid token to learn all its claims, enabling targeted attacks
+
+The story says: "Introspection requires API key authentication (client credentials)." But the response includes:
+```json
+{
+  "active": true,
+  "scope": "profile:read orders:write",
+  "client_id": "web-portal",
+  "username": null,
+  "token_type": "Bearer",
+  "exp": 1715003600,
+  "iat": 1715000000,
+  "sub": "user_abc123",
+  "aud": ["myapp.com"],
+  "iss": "https://idam.example.com",
+  "jti": "tok_abc123"
+}
+```
+
+**Exploit path (token enumeration via introspection):**
+1. Attacker obtains an API key for a resource server that has access to introspection
+2. Attacker iterates through many tokens (e.g., from logs, network captures, or leaked tokens)
+3. For each token, the attacker calls introspection with their API key
+4. They learn: the user's sub, the token's scopes, the issuing client_id, the expiration time
+5. This information enables:
+   - Targeted phishing (knowing the user's scope grants access to specific resources)
+   - Token replay (knowing the exp, they know when the token expires)
+   - Privilege escalation planning (knowing the client_id, they target that client specifically)
+
+**Implementation requirement:**
+- Introspection must only be callable by KNOWN resource servers (registered API keys)
+- API keys for introspection must have a scope: `introspect` scope is REQUIRED
+- The introspection API key must be tied to a specific resource server (client_id), and only that client can introspect tokens for its own audience
+- Document: "Introspection is restricted to registered resource servers with the 'introspect' scope. Each client can only introspect tokens where its client_id matches the token's aud claim."
+
+### HACK-452: Introspection Falls Back to Database for Unknown Tokens (HIGH — Hole #1 from PRS)
+
+**Risk:** The database fallback in `handle_introspect` can be used to enumerate valid tokens
+
+The story says: "JWT validation failed — fall back to database lookup." This means if a token is NOT in the JWKS (unknown issuer, unknown key), the endpoint falls back to a database lookup.
+
+**Exploit path (token enumeration via DB fallback):**
+1. Attacker sends many tokens with different sub values to the introspection endpoint
+2. Tokens signed with the correct JWKS key return detailed information (active=true/false, sub, aud, etc.)
+3. Tokens NOT signed with the correct JWKS key trigger the database fallback
+4. If the database returns token data → `active: true` with detailed claims
+5. If the database returns nothing → `active: false`
+6. Result: The attacker can enumerate which sub values exist in the database
+
+**But wait:** The tokens are signed with the attacker's key (not the correct JWKS key). The database lookup would fail because the token's JTI (which is random) is not in the database. So the response is always `active: false`.
+
+**The exploit only works if the attacker can forge tokens with VALID JTI values that exist in the database.** This requires:
+1. Access to the JTI database (to learn existing JTI values)
+2. The signing key (to sign tokens with those JTI values)
+
+**If the attacker has BOTH, they already have full access.** The database fallback doesn't add a new exploit path.
+
+**The real exploit is different:** What if the attacker has a VALID token (signed correctly) and wants to introspect it? They call the endpoint with their API key and the valid token → they get all the claims.
+
+**This is expected behavior:** The resource server needs to introspect tokens to validate them. The attack is that the attacker (who has the API key) can introspect ANY token, not just their own.
+
+**Implementation requirement:**
+- The introspection API key must be validated against the token's audience
+- A client with `aud: "web-portal"` can only introspect tokens where `aud` contains "web-portal"
+- If the audiences don't match → return `active: false` without revealing whether the token is valid
+
+### HACK-453: Introspection Rate Limiting Is Per-Client, Not Per-Token (HIGH — Hole #3 from PRS)
+
+**Risk:** Attacker floods the introspection endpoint with different tokens from the same API key
+
+The story says: "Rate limited to 100 requests per minute per client." This is per-API-key, not per-token.
+
+**Exploit path (introspection DoS):**
+1. Attacker has one API key for introspection
+2. Attacker sends 100 requests per minute, each with a DIFFERENT token
+3. All requests hit the same API key → rate limit is NOT exceeded (only 100 req/min, not 100 per token)
+4. The attacker successfully introspects 100 different tokens per minute
+5. Result: Token enumeration at scale
+
+**Implementation requirement:**
+- Rate limit introspection per API key (current) AND per token (new)
+- MAX 10 introspections per unique token per minute (to prevent token enumeration)
+- Track this in Redis: `introspect:token:{token_jti}` → count + TTL 60 seconds
+- If the count exceeds 10 → return 429 Too Many Requests
+
+### HACK-454: Introspection Returns Detailed Claims for Active Tokens (MEDIUM — Hole #5 from PRS)
+
+**Risk:** The introspection response reveals the token's full claim set, including sub, aud, iss, scope, client_id
+
+The RFC 7662 spec says: "The response MUST include the 'active' field, and MAY include other fields." The story includes ALL fields: sub, aud, iss, scope, client_id, exp, iat, jti, token_type.
+
+**Exploit path (PII leakage via introspection):**
+1. Attacker has an API key for introspection
+2. Attacker introspects a target user's token
+3. Response includes: `sub: "user_abc123"`, `aud: ["myapp.com"]`, `scope: "profile:read orders:write"`
+4. The attacker now knows the user's ID and their permissions
+5. If the response also included `username: "alice@example.com"` (which the story says is None for PII protection), the attacker would know the user's email
+
+**The story correctly sets `username: None` for PII protection. But it still returns `sub`, `aud`, `iss`, `scope`, `client_id`, `exp`, `iat`, `jti`.**
+
+**Implementation requirement:**
+- The introspection response MUST be limited to what the requesting client NEEDS to make an authorization decision
+- If the client is a resource server validating a token, it only needs: `active`, `scope` (if the server uses scopes), `exp` (if the server does time-based checks)
+- Fields like `sub`, `aud`, `iss`, `client_id`, `jti` are NOT needed for authorization decisions and should be omitted
+- OR: only include these fields if the client explicitly requests them (via a `include` parameter)
+- Document: "Introspection response fields are scoped to the requesting client's needs. Only 'active' is always included. 'scope' is included if the client has 'introspect:scope' permission. Other fields require explicit 'include' parameter."
+
+### HACK-455: Introspection Fallback to Database Is a Security Risk (HIGH — Hole #1 from PRS)
+
+**Risk:** The database fallback in `handle_introspect` can be used to query arbitrary tokens
+
+The story shows: "JWT validation failed — fall back to database lookup." The implementation falls back to a database lookup for unrecognized tokens.
+
+**Exploit path:**
+1. Attacker sends a token with a known sub value but an invalid signature
+2. The JWT validation fails (signature check)
+3. The handler falls back to database lookup: "Find token with sub='target_user' and exp > now"
+4. If found → `active: true` (even though the signature was invalid!)
+5. Result: The database lookup bypasses signature verification
+
+**Wait — the database lookup checks the token's JTI, not just the sub.** The JTI is random and unknown to the attacker. So the database lookup fails (no matching JTI found) → `active: false`.
+
+**But what if the attacker knows the JTI?** They could have obtained it from a previous successful introspection of the same token.
+
+**Exploit path (JTI from previous introspection):**
+1. Attacker introspects a VALID token → learns the JTI (from the response)
+2. Attacker FORGES a new token with the SAME JTI but an invalid signature
+3. JWT validation fails (signature check)
+4. Database fallback: "Find token with jti=known_jti" → found!
+5. Response: `active: true` (even though the signature is invalid!)
+
+**This is a critical exploit:** the database lookup trusts the JTI from the token, without verifying that the JTI belongs to the token in the database.
+
+**Implementation requirement:**
+- The database fallback must NOT accept tokens with invalid signatures
+- If JWT validation fails, the handler should return `active: false` immediately
+- The database fallback should ONLY be used for tokens that are recognized by the JWKS (signature valid, but the key is expired or rotated out)
+- Document: "Database fallback is ONLY used for tokens with valid signatures but unrecognized keys (e.g., rotated-out keys). Tokens with invalid signatures are ALWAYS rejected."
+
+### HACK-456: Introspection Endpoint Is Not Rate-Limited Per API Key (MEDIUM — related to Hole #3 from PRS)
+
+**Risk:** Attacker with a single API key can introspect unlimited tokens (if the rate limit is per-token, not per-key)
+
+The story says: "Rate limiter rejects excess introspections: Given 101 introspection requests from the same client within one minute, assert the 101st request returns 429." This is per-client (per-API-key).
+
+**But what if the attacker has multiple API keys?** They can bypass the per-key limit.
+
+**Implementation requirement:**
+- Rate limit introspection per unique API key
+- Additionally, rate limit per unique client IP (in case API keys are shared)
+- If an IP generates more than 500 introspection requests per minute (across all API keys), throttle ALL requests from that IP
+
+### HACK-457: Introspection Response Timing Leakage (MEDIUM — related to Hole #6 from PRS)
+
+**Risk:** The time taken to process an introspection request reveals whether the token is valid
+
+The story shows two paths:
+1. JWT validation → fast path (microseconds)
+2. Database fallback → slow path (milliseconds)
+
+An attacker can measure the response time to determine which path was taken.
+
+**Exploit path:**
+1. Attacker sends a valid token → fast path → response in ~0.1ms
+2. Attacker sends an invalid token → slow path (database lookup) → response in ~5ms
+3. Time difference reveals whether the token was valid
+
+**But wait:** the valid token triggers the fast path (JWT validation) and returns `active: true`. The invalid token triggers the slow path (database lookup) and returns `active: false`. The attacker already knows the result (active true/false). The timing difference doesn't add new information.
+
+**The real exploit is different:** What if the attacker sends a token with a VALID signature but INVALID audience?
+
+1. Token has valid signature (from attacker's own key) but wrong audience
+2. JWT validation succeeds (signature check passes)
+3. Audience check fails → return `active: false`
+4. Response time: ~0.5ms (audience check, not database lookup)
+
+**But the attacker already knows the audience is wrong.** The timing doesn't reveal new information.
+
+**Implementation requirement:**
+- Add random jitter (1-3ms) to ALL introspection responses to prevent timing side-channels
+- This is a low-priority mitigation since the timing difference doesn't reveal new attack information
+
+### HACK-458: Introspection Can Be Used for Token Harvesting (LOW — related to Hole #4 from PRS)
+
+**Risk:** Attacker collects many tokens via introspection for later replay
+
+**Exploit path:**
+1. Attacker has an API key for introspection
+2. Attacker introspects 1000 valid tokens over time
+3. For each token, the attacker learns: sub, exp, scope, client_id
+4. The attacker stores the tokens and uses them before they expire
+5. Result: The attacker has 1000 valid tokens to replay (even if the original users' tokens are revoked, the attacker's introspected copies are still valid until expiry)
+
+**But this is expected:** if a token is valid, it's valid. The introspection endpoint doesn't create or copy tokens — it reports their state. If the attacker has the token, they can use it (until it expires or is revoked).
+
+**The attack is about TOKEN REPLAY, not token COPY.** The attacker needs to have the token to use it. Introspection just tells the attacker that the token IS valid.
+
+**Implementation requirement:**
+- Log ALL introspection requests with: client_id, introspected_token_jti, result (active/inactive), timestamp
+- Alert on patterns: "Client X introspected tokens for 100 different subs in the last hour"
+- This is an audit trail, not a prevention mechanism
+
+---
+
 ## OpenAPI Changes
 
 - Add `/auth/introspect` endpoint to identity-session-service spec
