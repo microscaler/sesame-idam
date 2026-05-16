@@ -2,24 +2,16 @@ openapi: 3.1.0
 info:
   title: Login Service
   version: 1.0.0
-  description: 'Slow-path service for authentication flows.
-
-    Handles password login, registration, token exchange, password reset,
-
-    social login redirects, and OAuth2 authorization.
-
-    HIGH frequency with HIGH per-request cost (bcrypt/scrypt hashing, token signing).
-
-    CPU-bound operations limit throughput — requires vertical scaling.
-
-    '
+  description: "Slow-path service for authentication flows.\nHandles password login,\
+    \ registration, token exchange, password reset,\nsocial login redirects, and OAuth2\
+    \ authorization.\nHIGH frequency with HIGH per-request cost (bcrypt/scrypt hashing,\
+    \ token signing).\nCPU-bound operations limit throughput \u2014 requires vertical\
+    \ scaling.\n"
   contact:
     name: Platform / Security
 servers:
 - url: /idam/v1
-  description: Login Service API
-- url: /idam/v1
-  description: Identity Login Service API
+  description: IDAM API v1
 tags:
 - name: AuthFlows
   description: Authentication flows (login, register, token exchange, OTP, social)
@@ -119,7 +111,7 @@ paths:
               example: *id003
         '500':
           description: Internal server error
-          content: &id005
+          content: &id006
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
@@ -127,7 +119,7 @@ paths:
                 error: internal_error
                 error_description: An unexpected error occurred
       parameters:
-      - &id006
+      - &id007
         name: X-Tenant-ID
         in: header
         required: true
@@ -138,273 +130,6 @@ paths:
           for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call for user login
-      x-brrtrouter-impl: true
-  /auth/login/email-otp:
-    post:
-      tags:
-      - AuthFlows
-      summary: Send email OTP
-      description: 'Sends a time-limited OTP code to the user''s email address.
-
-        Used for passwordless email login and dual OTP verification.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: login_email_otp
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EmailOTPRequest'
-            examples:
-              default: &id004
-                summary: Example for login_email_otp
-                value: &id041
-                  email: alice@example.com
-            example: *id004
-      responses:
-        '200':
-          description: OTP sent successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Verification code sent to your email
-        '400':
-          description: Bad request (invalid email, account not found)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: &id009
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: unauthorized
-                error_description: Authentication required
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id006
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to send OTP
-      x-brrtrouter-impl: true
-  /auth/verify/email-otp:
-    post:
-      tags:
-      - AuthFlows
-      summary: Verify email OTP and complete login
-      description: 'Verifies the OTP code sent to the user''s email. On success, returns
-
-        access token and refresh token. This is step 2 of the email-only OTP flow.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: verify_email_otp
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EmailOTPVerifyRequest'
-            examples:
-              default: &id007
-                summary: Example for verify_email_otp
-                value: &id042
-                  email: alice@example.com
-                  code: '123456'
-            example: *id007
-      responses:
-        '200':
-          description: Email verified, tokens issued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenResponse'
-              examples:
-                default: &id008
-                  summary: Example for verify_email_otp 200
-                  value:
-                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
-                    token_type: Bearer
-                    expires_in: 900
-                    refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1vdHA
-                    refresh_token_expires_in: 2592000
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
-                    mfa_required: false
-                    id_token: null
-                    scope: openid
-              example: *id008
-        '400':
-          description: Invalid or expired code
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - &id013
-        name: X-Tenant-ID
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: Tenant identifier. Required for resolving the user to the correct
-          tenant context.
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to verify OTP
-      x-brrtrouter-impl: true
-  /auth/login/phone-otp:
-    post:
-      tags:
-      - AuthFlows
-      summary: Send phone SMS OTP
-      description: 'Sends a 6-digit SMS OTP code to the user''s phone number.
-
-        Used for passwordless phone login and dual OTP verification.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: login_phone_otp
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PhoneOTPRequest'
-            examples:
-              default: &id010
-                summary: Example for login_phone_otp
-                value: &id043
-                  phone: '+1234567890'
-            example: *id010
-      responses:
-        '200':
-          description: OTP sent successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Verification code sent to your phone
-        '400':
-          description: Bad request (invalid phone, SMS provider error)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id006
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to send OTP to phone
-      x-brrtrouter-impl: true
-  /auth/verify/phone-otp:
-    post:
-      tags:
-      - AuthFlows
-      summary: Verify phone SMS OTP and complete login
-      description: 'Verifies the 6-digit SMS OTP code. On success, returns access
-        token
-
-        and refresh token. Sets phone_verified=true on the user''s profile.
-
-        This is step 2 of the phone-only OTP flow.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: verify_phone_otp
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PhoneOTPVerifyRequest'
-            examples:
-              default: &id011
-                summary: Example for verify_phone_otp
-                value: &id044
-                  phone: '+1234567890'
-                  code: '654321'
-            example: *id011
-      responses:
-        '200':
-          description: Phone verified, tokens issued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenResponse'
-              examples:
-                default: &id012
-                  summary: Example for verify_phone_otp 200
-                  value:
-                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
-                    token_type: Bearer
-                    expires_in: 900
-                    refresh_token: cmVmcmVzaC10b2tlbi1waG9uZS1vcHQ
-                    refresh_token_expires_in: 2592000
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: true
-                    mfa_required: false
-                    id_token: null
-                    scope: openid
-              example: *id012
-        '400':
-          description: Invalid or expired code
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id013
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to verify phone OTP
       x-brrtrouter-impl: true
   /auth/login/dual-otp:
     post:
@@ -429,12 +154,12 @@ paths:
             schema:
               $ref: '#/components/schemas/DualOTPRequest'
             examples:
-              default: &id014
+              default: &id004
                 summary: Example for login_dual_otp
                 value: &id045
                   email: alice@example.com
                   phone: '+1234567890'
-            example: *id014
+            example: *id004
       responses:
         '200':
           description: OTPs sent to both channels
@@ -443,7 +168,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DualOTPResponse'
               examples:
-                default: &id015
+                default: &id005
                   summary: Example for login_dual_otp 200
                   value: &id046
                     success: true
@@ -453,7 +178,7 @@ paths:
                     phone_verified: false
                     both_verified: false
                     message: Verification codes have been sent to your email and phone
-              example: *id015
+              example: *id005
         '400':
           description: Bad request (missing email or phone, user not found)
           content:
@@ -461,60 +186,294 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: &id009
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id005
+          content: *id006
       parameters:
-      - *id006
+      - *id007
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to email+phone
       x-brrtrouter-impl: true
-  /auth/verify/dual-otp:
+  /auth/login/email-otp:
     post:
       tags:
       - AuthFlows
-      summary: Verify dual OTP codes and complete login
-      description: 'Step 2 of dual OTP verification. Accepts one or both OTP codes.
+      summary: Send email OTP
+      description: 'Sends a time-limited OTP code to the user''s email address.
 
-        User can verify email and phone in any order. On both verified, returns tokens.
+        Used for passwordless email login and dual OTP verification.
 
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: verify_dual_otp
+      operationId: login_email_otp
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DualOTPVerifyRequest'
+              $ref: '#/components/schemas/EmailOTPRequest'
             examples:
-              default: &id016
-                summary: Example for verify_dual_otp
-                value: &id047
+              default: &id008
+                summary: Example for login_email_otp
+                value: &id041
                   email: alice@example.com
-                  email_code: '123456'
-                  phone: '+1234567890'
-                  phone_code: '654321'
-            example: *id016
+            example: *id008
       responses:
         '200':
-          description: Both codes verified, tokens issued
+          description: OTP sent successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DualOTPCompleteResponse'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Verification code sent to your email
+        '400':
+          description: Bad request (invalid email, account not found)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id006
+      parameters:
+      - *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to send OTP
+      x-brrtrouter-impl: true
+  /auth/login/magic-link:
+    post:
+      tags:
+      - Passwordless
+      summary: Send magic link for passwordless login
+      description: 'Sends a time-limited magic link to the user email. The user clicks
+        the link to complete login without a password.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: magic_link_send
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MagicLinkRequest'
+            examples:
+              default: &id010
+                summary: Example for magic_link_send
+                value: &id056
+                  email: alice@example.com
+            example: *id010
+      responses:
+        '200':
+          description: Magic link sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MagicLinkResponse'
               examples:
-                default: &id017
-                  summary: Example for verify_dual_otp 200
-                  value: &id048
+                default: &id011
+                  summary: Example for magic_link_send 200
+                  value: &id057
+                    magic_link_sent: true
+                    expires_in: 900
+                    message: A magic link has been sent to your email
+              example: *id011
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id006
+      parameters:
+      - *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to send magic link to email
+      x-brrtrouter-impl: true
+  /auth/login/magic-link/verify:
+    post:
+      tags:
+      - Passwordless
+      summary: Verify magic link token and complete login
+      description: 'Verifies the magic link token. On success, returns access token
+        and refresh token.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: magic_link_verify
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MagicLinkVerifyRequest'
+            examples:
+              default: &id012
+                summary: Example for magic_link_verify
+                value: &id058
+                  token: magic-link-token-abc
+            example: *id012
+      responses:
+        '200':
+          description: Magic link verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default: &id013
+                  summary: Example for magic_link_verify 200
+                  value:
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
                     token_type: Bearer
                     expires_in: 900
-                    refresh_token: cmVmcmVzaC10b2tlbi1kdWFsLW90cA
+                    refresh_token: cmVmcmVzaC10b2tlbi1tYWdpYy1saW5r
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
+              example: *id013
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id006
+      parameters:
+      - *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify magic link token
+      x-brrtrouter-impl: true
+  /auth/login/phone-magic-link:
+    post:
+      tags:
+      - Passwordless
+      summary: Send SMS magic link for passwordless login
+      description: 'Sends a time-limited magic link via SMS to the user phone.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: sms_magic_link_send
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmsMagicLinkRequest'
+            examples:
+              default: &id014
+                summary: Example for sms_magic_link_send
+                value: &id059
+                  phone: '+1234567890'
+            example: *id014
+      responses:
+        '200':
+          description: SMS magic link sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmsMagicLinkResponse'
+              examples:
+                default: &id015
+                  summary: Example for sms_magic_link_send 200
+                  value: &id060
+                    magic_link_sent: true
+                    expires_in: 900
+                    message: A magic link has been sent to your phone
+              example: *id015
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id006
+      parameters:
+      - *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to send magic link to phone
+      x-brrtrouter-impl: true
+  /auth/login/phone-magic-link/verify:
+    post:
+      tags:
+      - Passwordless
+      summary: Verify SMS magic link token and complete login
+      description: 'Verifies the SMS magic link token. On success, returns access
+        token and refresh token.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: sms_magic_link_verify
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmsMagicLinkVerifyRequest'
+            examples:
+              default: &id016
+                summary: Example for sms_magic_link_verify
+                value: &id061
+                  token: sms-magic-token-xyz
+            example: *id016
+      responses:
+        '200':
+          description: SMS magic link verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default: &id017
+                  summary: Example for sms_magic_link_verify 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1zbXMtbWFn
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                     email: alice@example.com
@@ -525,188 +484,128 @@ paths:
                     scope: openid
               example: *id017
         '400':
-          description: Invalid or expired codes
+          description: Invalid or expired token
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '201':
-          description: Dual OTP verification successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DualOTPPartialResponse'
-              examples:
-                default: &id018
-                  summary: Example for verify_dual_otp 201
-                  value: &id049
-                    success: true
-                    email_verified: true
-                    phone_verified: false
-                    both_verified: false
-                    message: Email verified. Please verify your phone to complete
-                      login.
-              example: *id018
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
           content: *id009
         '500':
           description: Internal server error
-          content: *id005
+          content: *id006
       parameters:
-      - *id013
+      - *id007
       x-consumer: frontend
-      x-consumer-note: Direct browser call to verify dual OTP
+      x-consumer-note: Direct browser call to verify SMS magic link token
       x-brrtrouter-impl: true
-  /auth/register:
+  /auth/login/phone-otp:
     post:
       tags:
       - AuthFlows
-      summary: Register new user with email and password
-      description: 'Creates a new user account with email+password.
+      summary: Send phone SMS OTP
+      description: 'Sends a 6-digit SMS OTP code to the user''s phone number.
 
-        Returns access token immediately if email auto-verified, otherwise returns
-
-        pending-verification state requiring email confirmation.
+        Used for passwordless phone login and dual OTP verification.
 
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: auth_register
+      operationId: login_phone_otp
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterRequest'
+              $ref: '#/components/schemas/PhoneOTPRequest'
             examples:
-              default: &id019
-                summary: Example for auth_register
-                value: &id050
-                  email: newuser@example.com
-                  password: SecureP@ss123!
-                  first_name: New
-                  last_name: User
-                  username: newuser
-                  send_welcome_email: true
-            example: *id019
+              default: &id018
+                summary: Example for login_phone_otp
+                value: &id043
+                  phone: '+1234567890'
+            example: *id018
       responses:
-        '201':
-          description: User created and logged in
+        '200':
+          description: OTP sent successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenResponse'
-              examples:
-                default: &id020
-                  summary: Example for auth_register 201
-                  value:
-                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6Im5ld3VzZXJAZXhwLmNvbSJ9.sig
-                    token_type: Bearer
-                    expires_in: 900
-                    refresh_token: cmVmcmVzaC10b2tlbi1yZWdpc3Rlci1uZXc
-                    refresh_token_expires_in: 2592000
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: newuser@example.com
-                    email_verified: false
-                    phone_verified: false
-                    mfa_required: false
-                    id_token: null
-                    scope: openid
-              example: *id020
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Verification code sent to your phone
         '400':
-          description: Validation error (duplicate email, weak password)
+          description: Bad request (invalid phone, SMS provider error)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
           content: *id009
         '500':
           description: Internal server error
-          content: *id005
+          content: *id006
       parameters:
-      - *id006
+      - *id007
       x-consumer: frontend
-      x-consumer-note: Direct browser call for new user registration
+      x-consumer-note: Direct browser call to send OTP to phone
       x-brrtrouter-impl: true
-  /auth/token:
+  /auth/logout:
     post:
       tags:
       - Sessions
-      summary: Token endpoint (refresh, client_credentials, token_exchange RFC 8693)
-      description: 'OAuth2 token endpoint supporting:
+      summary: Logout (revoke refresh token)
+      description: 'Revokes the current refresh token and ends the user''s session.
 
-        - refresh_token grant: rotate refresh token, issue new access token
-
-        - client_credentials grant: M2M token for service accounts
-
-        - urn:ietf:params:oauth:grant-type:token-exchange: cross-token exchange
+        Requires BearerAuth header with a valid access token.
 
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: auth_token
-      security: []
+      operationId: auth_logout
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TokenRequest'
+              $ref: '#/components/schemas/LogoutRequest'
             examples:
-              default: &id021
-                summary: Example for auth_token
-                value: &id051
-                  grant_type: refresh_token
+              default: &id019
+                summary: Example for auth_logout
+                value: &id054
                   refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
-                  client_id: my-app
-            example: *id021
+            example: *id019
       responses:
-        '200':
-          description: Token issued or refreshed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenResponse'
-              examples:
-                default: &id022
-                  summary: Example for auth_token 200
-                  value:
-                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.nsig
-                    token_type: Bearer
-                    expires_in: 900
-                    refresh_token: bmV3LXJlZnJlc2gtdG9rZW4tYWxpY2U
-                    refresh_token_expires_in: 2592000
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
-                    mfa_required: false
-                    id_token: null
-                    scope: openid profile email
-              example: *id022
         '400':
-          description: Invalid grant type or parameters
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '204':
+          description: Logged out successfully
         '401':
-          description: Invalid or expired refresh token
+          description: Unauthorized (invalid or missing token)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
-          content: *id005
+          content: *id006
       parameters:
-      - *id006
+      - *id007
       x-consumer: frontend
-      x-consumer-note: Direct browser call to refresh token or exchange OAuth code
+      x-consumer-note: Direct browser call to logout current session
       x-brrtrouter-impl: true
   /auth/password/forgot:
     post:
@@ -727,11 +626,11 @@ paths:
             schema:
               $ref: '#/components/schemas/ForgotPasswordRequest'
             examples:
-              default: &id023
+              default: &id020
                 summary: Example for auth_forgot_password
                 value: &id052
                   email: alice@example.com
-            example: *id023
+            example: *id020
       responses:
         '200':
           description: Reset email sent (returns success regardless of email existence)
@@ -767,13 +666,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
           content: *id009
         '500':
           description: Internal server error
-          content: *id005
+          content: *id006
       parameters:
-      - *id006
+      - *id007
       x-consumer: frontend
       x-consumer-note: Direct browser call to request password reset
       x-brrtrouter-impl: true
@@ -796,12 +695,12 @@ paths:
             schema:
               $ref: '#/components/schemas/ResetPasswordRequest'
             examples:
-              default: &id024
+              default: &id021
                 summary: Example for auth_reset_password
                 value: &id053
                   token: reset-token-abc123
                   new_password: NewSecureP@ss456!
-            example: *id024
+            example: *id021
       responses:
         '200':
           description: Password reset successful
@@ -823,65 +722,240 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
           content: *id009
         '500':
           description: Internal server error
-          content: *id005
+          content: *id006
       parameters:
-      - *id006
+      - *id007
       x-consumer: frontend
       x-consumer-note: Direct browser call to reset password with token
       x-brrtrouter-impl: true
-  /auth/logout:
+  /auth/register:
     post:
       tags:
-      - Sessions
-      summary: Logout (revoke refresh token)
-      description: 'Revokes the current refresh token and ends the user''s session.
+      - AuthFlows
+      summary: Register new user with email and password
+      description: 'Creates a new user account with email+password.
 
-        Requires BearerAuth header with a valid access token.
+        Returns access token immediately if email auto-verified, otherwise returns
+
+        pending-verification state requiring email confirmation.
 
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: auth_logout
+      operationId: auth_register
+      security: []
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LogoutRequest'
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              default: &id022
+                summary: Example for auth_register
+                value: &id050
+                  email: newuser@example.com
+                  password: SecureP@ss123!
+                  first_name: New
+                  last_name: User
+                  username: newuser
+                  send_welcome_email: true
+            example: *id022
+      responses:
+        '201':
+          description: User created and logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default: &id023
+                  summary: Example for auth_register 201
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6Im5ld3VzZXJAZXhwLmNvbSJ9.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1yZWdpc3Rlci1uZXc
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: newuser@example.com
+                    email_verified: false
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
+              example: *id023
+        '400':
+          description: Validation error (duplicate email, weak password)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id006
+      parameters:
+      - *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call for new user registration
+      x-brrtrouter-impl: true
+  /auth/signup/validate:
+    get:
+      tags:
+      - Signup
+      summary: Validate signup eligibility
+      description: 'Check if email/phone is allowed to register before the user starts
+        filling forms.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: signup_validate
+      security: []
+      parameters:
+      - *id007
+      - name: email
+        in: query
+        required: false
+        schema:
+          type: string
+          format: email
+        description: Email address to validate
+      - name: phone
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^\+[1-9]\d{1,14}$
+        description: Phone number in E.164 format to validate
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupValidationResponse'
+              examples:
+                default: &id024
+                  summary: Example for signup_validate 200
+                  value: &id055
+                    allowed: true
+                    reason: null
+                    email_exists: false
+                    phone_exists: false
+                    suggested_username: alice_new
+              example: *id024
+        '400':
+          description: Bad request (invalid parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id006
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to validate signup data (email/username
+        availability)
+  /auth/social/{provider}/callback:
+    post:
+      tags:
+      - SocialLogin
+      summary: Exchange OAuth provider callback for tokens
+      description: 'Step 2 of social login. Receives the provider''s authorization
+        code
+
+        (from OAuth redirect), exchanges it for tokens, and completes login.
+
+        For GitHub: exchanges the GitHub code for user profile + access tokens.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: social_callback
+      parameters:
+      - &id033
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Required for resolving the user to the correct
+          tenant context.
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+        description: OAuth provider name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialCallbackRequest'
             examples:
               default: &id025
-                summary: Example for auth_logout
-                value: &id054
-                  refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
+                summary: Example for social_callback
+                value:
+                  code: gho_abc123xyz
+                  state: csrf-token-xyz
             example: *id025
       responses:
-        '400':
-          description: Bad request — validation error
+        '200':
+          description: OAuth flow complete, tokens issued
           content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLoginResponse'
+              examples:
+                default: &id026
+                  summary: Example for social_callback 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1zb2NpYWwtZ2l0aHVi
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid profile
+              example: *id026
+        '400':
+          description: Invalid code, state mismatch, or provider error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: &id027
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: validation_error
-                message: Request validation failed
-        '204':
-          description: Logged out successfully
-        '401':
-          description: Unauthorized (invalid or missing token)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id005
-      parameters:
-      - *id006
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to logout current session
+          content: *id006
+      x-consumer: external-provider
+      x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not
+        frontend
       x-brrtrouter-impl: true
   /auth/social/{provider}/login:
     get:
@@ -899,7 +973,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: social_login
       parameters:
-      - *id006
+      - *id007
       - name: provider
         in: path
         required: true
@@ -928,71 +1002,60 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: &id028
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: unauthorized
-                error_description: Authentication required
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id027
         '500':
           description: Internal server error
-          content: *id005
+          content: *id006
       x-consumer: frontend
       x-consumer-note: Direct browser call to initiate OAuth login flow
-  /auth/social/{provider}/callback:
+  /auth/token:
     post:
       tags:
-      - SocialLogin
-      summary: Exchange OAuth provider callback for tokens
-      description: 'Step 2 of social login. Receives the provider''s authorization
-        code
+      - Sessions
+      summary: Token endpoint (refresh, client_credentials, token_exchange RFC 8693)
+      description: 'OAuth2 token endpoint supporting:
 
-        (from OAuth redirect), exchanges it for tokens, and completes login.
+        - refresh_token grant: rotate refresh token, issue new access token
 
-        For GitHub: exchanges the GitHub code for user profile + access tokens.
+        - client_credentials grant: M2M token for service accounts
+
+        - urn:ietf:params:oauth:grant-type:token-exchange: cross-token exchange
 
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: social_callback
-      parameters:
-      - *id013
-      - name: provider
-        in: path
-        required: true
-        schema:
-          type: string
-        description: OAuth provider name
+      operationId: auth_token
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SocialCallbackRequest'
+              $ref: '#/components/schemas/TokenRequest'
             examples:
-              default: &id026
-                summary: Example for social_callback
-                value:
-                  code: gho_abc123xyz
-                  state: csrf-token-xyz
-            example: *id026
+              default: &id028
+                summary: Example for auth_token
+                value: &id051
+                  grant_type: refresh_token
+                  refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
+                  client_id: my-app
+            example: *id028
       responses:
         '200':
-          description: OAuth flow complete, tokens issued
+          description: Token issued or refreshed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SocialLoginResponse'
+                $ref: '#/components/schemas/TokenResponse'
               examples:
-                default: &id027
-                  summary: Example for social_callback 200
+                default: &id029
+                  summary: Example for auth_token 200
                   value:
-                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.nsig
                     token_type: Bearer
                     expires_in: 900
-                    refresh_token: cmVmcmVzaC10b2tlbi1zb2NpYWwtZ2l0aHVi
+                    refresh_token: bmV3LXJlZnJlc2gtdG9rZW4tYWxpY2U
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
                     email: alice@example.com
@@ -1000,23 +1063,253 @@ paths:
                     phone_verified: false
                     mfa_required: false
                     id_token: null
-                    scope: openid profile
-              example: *id027
+                    scope: openid profile email
+              example: *id029
         '400':
-          description: Invalid code, state mismatch, or provider error
+          description: Invalid grant type or parameters
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id028
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
-          content: *id005
-      x-consumer: external-provider
-      x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not
-        frontend
+          content: *id006
+      parameters:
+      - *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to refresh token or exchange OAuth code
+      x-brrtrouter-impl: true
+  /auth/verify/dual-otp:
+    post:
+      tags:
+      - AuthFlows
+      summary: Verify dual OTP codes and complete login
+      description: 'Step 2 of dual OTP verification. Accepts one or both OTP codes.
+
+        User can verify email and phone in any order. On both verified, returns tokens.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: verify_dual_otp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DualOTPVerifyRequest'
+            examples:
+              default: &id030
+                summary: Example for verify_dual_otp
+                value: &id047
+                  email: alice@example.com
+                  email_code: '123456'
+                  phone: '+1234567890'
+                  phone_code: '654321'
+            example: *id030
+      responses:
+        '200':
+          description: Both codes verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DualOTPCompleteResponse'
+              examples:
+                default: &id031
+                  summary: Example for verify_dual_otp 200
+                  value: &id048
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1kdWFsLW90cA
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: true
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
+              example: *id031
+        '400':
+          description: Invalid or expired codes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: Dual OTP verification successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DualOTPPartialResponse'
+              examples:
+                default: &id032
+                  summary: Example for verify_dual_otp 201
+                  value: &id049
+                    success: true
+                    email_verified: true
+                    phone_verified: false
+                    both_verified: false
+                    message: Email verified. Please verify your phone to complete
+                      login.
+              example: *id032
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id006
+      parameters:
+      - *id033
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify dual OTP
+      x-brrtrouter-impl: true
+  /auth/verify/email-otp:
+    post:
+      tags:
+      - AuthFlows
+      summary: Verify email OTP and complete login
+      description: 'Verifies the OTP code sent to the user''s email. On success, returns
+
+        access token and refresh token. This is step 2 of the email-only OTP flow.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: verify_email_otp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailOTPVerifyRequest'
+            examples:
+              default: &id034
+                summary: Example for verify_email_otp
+                value: &id042
+                  email: alice@example.com
+                  code: '123456'
+            example: *id034
+      responses:
+        '200':
+          description: Email verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default: &id035
+                  summary: Example for verify_email_otp 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1vdHA
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
+              example: *id035
+        '400':
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id006
+      parameters:
+      - *id033
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify OTP
+      x-brrtrouter-impl: true
+  /auth/verify/phone-otp:
+    post:
+      tags:
+      - AuthFlows
+      summary: Verify phone SMS OTP and complete login
+      description: 'Verifies the 6-digit SMS OTP code. On success, returns access
+        token
+
+        and refresh token. Sets phone_verified=true on the user''s profile.
+
+        This is step 2 of the phone-only OTP flow.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: verify_phone_otp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneOTPVerifyRequest'
+            examples:
+              default: &id036
+                summary: Example for verify_phone_otp
+                value: &id044
+                  phone: '+1234567890'
+                  code: '654321'
+            example: *id036
+      responses:
+        '200':
+          description: Phone verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default: &id037
+                  summary: Example for verify_phone_otp 200
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: cmVmcmVzaC10b2tlbi1waG9uZS1vcHQ
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: true
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
+              example: *id037
+        '400':
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id009
+        '500':
+          description: Internal server error
+          content: *id006
+      parameters:
+      - *id033
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify phone OTP
       x-brrtrouter-impl: true
   /oauth/authorize:
     get:
@@ -1036,7 +1329,7 @@ paths:
       operationId: oauth_authorize
       security: []
       parameters:
-      - *id006
+      - *id007
       - name: client_id
         in: query
         required: true
@@ -1084,7 +1377,7 @@ paths:
         description: PKCE method
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -1095,314 +1388,13 @@ paths:
         '302':
           description: Redirect to login page or back with authorization code
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
           content: *id009
         '500':
           description: Internal server error
-          content: *id005
+          content: *id006
       x-consumer: frontend
       x-consumer-note: OAuth authorization endpoint called by frontend browser
-  /auth/signup/validate:
-    get:
-      tags:
-      - Signup
-      summary: Validate signup eligibility
-      description: 'Check if email/phone is allowed to register before the user starts
-        filling forms.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: signup_validate
-      security: []
-      parameters:
-      - *id006
-      - name: email
-        in: query
-        required: false
-        schema:
-          type: string
-          format: email
-        description: Email address to validate
-      - name: phone
-        in: query
-        required: false
-        schema:
-          type: string
-          pattern: ^\+[1-9]\d{1,14}$
-        description: Phone number in E.164 format to validate
-      responses:
-        '200':
-          description: Validation result
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SignupValidationResponse'
-              examples:
-                default: &id029
-                  summary: Example for signup_validate 200
-                  value: &id055
-                    allowed: true
-                    reason: null
-                    email_exists: false
-                    phone_exists: false
-                    suggested_username: alice_new
-              example: *id029
-        '400':
-          description: Bad request (invalid parameters)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to validate signup data (email/username
-        availability)
-  /auth/login/magic-link:
-    post:
-      tags:
-      - Passwordless
-      summary: Send magic link for passwordless login
-      description: 'Sends a time-limited magic link to the user email. The user clicks
-        the link to complete login without a password.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: magic_link_send
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MagicLinkRequest'
-            examples:
-              default: &id030
-                summary: Example for magic_link_send
-                value: &id056
-                  email: alice@example.com
-            example: *id030
-      responses:
-        '200':
-          description: Magic link sent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MagicLinkResponse'
-              examples:
-                default: &id031
-                  summary: Example for magic_link_send 200
-                  value: &id057
-                    magic_link_sent: true
-                    expires_in: 900
-                    message: A magic link has been sent to your email
-              example: *id031
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id006
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to send magic link to email
-      x-brrtrouter-impl: true
-  /auth/login/magic-link/verify:
-    post:
-      tags:
-      - Passwordless
-      summary: Verify magic link token and complete login
-      description: 'Verifies the magic link token. On success, returns access token
-        and refresh token.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: magic_link_verify
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MagicLinkVerifyRequest'
-            examples:
-              default: &id032
-                summary: Example for magic_link_verify
-                value: &id058
-                  token: magic-link-token-abc
-            example: *id032
-      responses:
-        '200':
-          description: Magic link verified, tokens issued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenResponse'
-              examples:
-                default: &id033
-                  summary: Example for magic_link_verify 200
-                  value:
-                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
-                    token_type: Bearer
-                    expires_in: 900
-                    refresh_token: cmVmcmVzaC10b2tlbi1tYWdpYy1saW5r
-                    refresh_token_expires_in: 2592000
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
-                    mfa_required: false
-                    id_token: null
-                    scope: openid
-              example: *id033
-        '400':
-          description: Invalid or expired token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id006
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to verify magic link token
-      x-brrtrouter-impl: true
-  /auth/login/phone-magic-link:
-    post:
-      tags:
-      - Passwordless
-      summary: Send SMS magic link for passwordless login
-      description: 'Sends a time-limited magic link via SMS to the user phone.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: sms_magic_link_send
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SmsMagicLinkRequest'
-            examples:
-              default: &id034
-                summary: Example for sms_magic_link_send
-                value: &id059
-                  phone: '+1234567890'
-            example: *id034
-      responses:
-        '200':
-          description: SMS magic link sent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SmsMagicLinkResponse'
-              examples:
-                default: &id035
-                  summary: Example for sms_magic_link_send 200
-                  value: &id060
-                    magic_link_sent: true
-                    expires_in: 900
-                    message: A magic link has been sent to your phone
-              example: *id035
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id006
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to send magic link to phone
-      x-brrtrouter-impl: true
-  /auth/login/phone-magic-link/verify:
-    post:
-      tags:
-      - Passwordless
-      summary: Verify SMS magic link token and complete login
-      description: 'Verifies the SMS magic link token. On success, returns access
-        token and refresh token.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: sms_magic_link_verify
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SmsMagicLinkVerifyRequest'
-            examples:
-              default: &id036
-                summary: Example for sms_magic_link_verify
-                value: &id061
-                  token: sms-magic-token-xyz
-            example: *id036
-      responses:
-        '200':
-          description: SMS magic link verified, tokens issued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenResponse'
-              examples:
-                default: &id037
-                  summary: Example for sms_magic_link_verify 200
-                  value:
-                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig
-                    token_type: Bearer
-                    expires_in: 900
-                    refresh_token: cmVmcmVzaC10b2tlbi1zbXMtbWFn
-                    refresh_token_expires_in: 2592000
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: true
-                    mfa_required: false
-                    id_token: null
-                    scope: openid
-              example: *id037
-        '400':
-          description: Invalid or expired token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id006
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to verify SMS magic link token
-      x-brrtrouter-impl: true
 components:
   parameters:
     Page:
@@ -1563,7 +1555,7 @@ components:
           description: Email address (unverified)
         email_verified:
           type: boolean
-          description: Always false — user must confirm via email link
+          description: "Always false \u2014 user must confirm via email link"
         message:
           type: string
           example: A confirmation email has been sent. Please verify your email to
@@ -1764,7 +1756,7 @@ components:
           description: Current phone verification status
         both_verified:
           type: boolean
-          description: Always false — both codes still needed
+          description: "Always false \u2014 both codes still needed"
         message:
           type: string
           example: Email verified. Please verify your phone to complete login.

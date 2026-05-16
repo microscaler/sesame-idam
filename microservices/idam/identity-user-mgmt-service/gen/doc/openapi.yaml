@@ -16,10 +16,8 @@ info:
   contact:
     name: Platform / Security
 servers:
-- url: /idam/v1/identity
-  description: User Mgmt Service API
-- url: /idam/v1/identity-user-mgmt-service
-  description: Identity User Mgmt Service API
+- url: /idam/v1
+  description: IDAM API v1
 tags:
 - name: Users
   description: User lifecycle (CRUD, lookup, search, employee view)
@@ -35,1566 +33,14 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /admin/users:
-    post:
-      tags:
-      - Users
-      summary: Create user (idempotent by email)
-      description: 'Creates a new user. Idempotent if email matches existing user
-        — returns existing user.
-
-        SaaS customers must provide their own `org_id`; platform admins may omit it.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: create_user
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateUserRequest'
-            examples:
-              default: &id001
-                summary: Example for create_user
-                value:
-                  email: newuser@example.com
-                  first_name: New
-                  last_name: User
-                  phone: '+1234567890'
-                  username: newuser
-                  send_welcome_email: true
-            example: *id001
-      responses:
-        '201':
-          description: User created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-              examples:
-                default: &id002
-                  summary: Example for create_user 201
-                  value:
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: newuser@example.com
-                    email_verified: false
-                    phone_verified: false
-                    phone: '+1234567890'
-                    username: newuser
-                    first_name: New
-                    last_name: User
-                    avatar_url: null
-                    role: user
-                    is_active: true
-                    created_at: '2024-01-15T10:30:00Z'
-              example: *id002
-        '200':
-          description: User already exists (idempotent)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: &id004
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: unauthorized
-                error_description: Authentication required
-        '500':
-          description: Internal server error
-          content: &id005
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: internal_error
-                error_description: An unexpected error occurred
-      parameters:
-      - &id003
-        name: X-Tenant-ID
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Create user account, not direct frontend'
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}:
-    delete:
-      tags:
-      - Users
-      summary: Delete user (irreversible)
-      description: 'Irreversibly deletes a user account and all associated data.
-
-        Platform admin only. Users in an org can only delete themselves.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: delete_user
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '204':
-          description: User deleted
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Delete user account, not direct frontend'
-  /admin/users/query:
-    get:
-      tags:
-      - Users
-      summary: Paginated query for users with filters
-      description: 'Returns paginated list of users matching the given filters.
-
-        Platform admins can search across all users; SaaS customers can only search
-        their own org.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: query_users
-      parameters:
-      - *id003
-      - name: page
-        in: query
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 100
-          default: 20
-      - name: email_pattern
-        in: query
-        schema:
-          type: string
-        description: Email substring filter (case-insensitive)
-      - name: email_confirmed
-        in: query
-        schema:
-          type: boolean
-          nullable: true
-        description: Filter by email confirmation status
-      - name: enabled
-        in: query
-        schema:
-          type: boolean
-          nullable: true
-        description: Filter by enabled status
-      - name: disabled
-        in: query
-        schema:
-          type: boolean
-          nullable: true
-        description: Filter by disabled status
-      - name: locked
-        in: query
-        schema:
-          type: boolean
-          nullable: true
-        description: Filter by locked status
-      - name: created_after
-        in: query
-        schema:
-          type: string
-          format: date-time
-          nullable: true
-        description: Filter by creation date (inclusive)
-      - name: created_before
-        in: query
-        schema:
-          type: string
-          format: date-time
-          nullable: true
-        description: Filter by creation date (inclusive)
-      - name: signup_flow
-        in: query
-        schema:
-          type: string
-          enum:
-          - signup
-          - invite
-          - magiclink
-          - password
-          - social
-          - saml
-          nullable: true
-        description: Filter by signup method
-      responses:
-        '200':
-          description: Users found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserQueryResponse'
-              examples:
-                default: &id006
-                  summary: Example response 200 for query_users
-                  value:
-                    users:
-                    - user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                      email: alice@example.com
-                      email_verified: true
-                      phone_verified: false
-                      phone: '+1234567890'
-                      username: alice
-                      first_name: Alice
-                      last_name: Smith
-                      avatar_url: null
-                      role: user
-                      is_active: true
-                      created_at: '2024-01-01T00:00:00Z'
-                    - user_id: 42d52c27-d392-55bf-0713-5b158f4cf44e
-                      email: bob@example.com
-                      email_verified: true
-                      phone_verified: true
-                      phone: '+1987654321'
-                      username: bob
-                      first_name: Bob
-                      last_name: Jones
-                      avatar_url: https://example.com/avatars/bob.png
-                      role: admin
-                      is_active: true
-                      created_at: '2024-01-02T00:00:00Z'
-                    total: 2
-                    page: 1
-                    limit: 20
-              example: *id006
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Query/filter users, not direct frontend'
-  /admin/users/email:
-    get:
-      tags:
-      - Users
-      summary: Fetch user by email
-      description: 'Returns the user associated with the given email. No PII in URI.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: fetch_user_by_email
-      parameters:
-      - *id003
-      - name: email
-        in: query
-        required: true
-        schema:
-          type: string
-          format: email
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-              examples:
-                default: &id007
-                  summary: Example response 200 for fetch_user_by_email
-                  value:
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
-                    phone: '+1234567890'
-                    username: alice
-                    first_name: Alice
-                    last_name: Smith
-                    avatar_url: https://example.com/avatars/alice.png
-                    role: user
-                    is_active: true
-                    created_at: '2024-01-01T00:00:00Z'
-                    updated_at: '2024-01-15T10:30:00Z'
-              example: *id007
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Lookup user by email, not direct frontend'
-  /admin/users/username:
-    get:
-      tags:
-      - Users
-      summary: Fetch user by username
-      operationId: fetch_user_by_username
-      parameters:
-      - *id003
-      - name: username
-        in: query
-        required: true
-        schema:
-          type: string
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-              examples:
-                default: &id008
-                  summary: Example response 200 for fetch_user_by_username
-                  value:
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
-                    phone: '+1234567890'
-                    username: alice
-                    first_name: Alice
-                    last_name: Smith
-                    avatar_url: https://example.com/avatars/alice.png
-                    role: user
-                    is_active: true
-                    created_at: '2024-01-01T00:00:00Z'
-                    updated_at: '2024-01-15T10:30:00Z'
-              example: *id008
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Lookup user by username, not direct frontend'
-  /admin/users/{user_id}/employee:
-    get:
-      tags:
-      - Users
-      summary: Fetch user in employee mode
-      description: 'Returns user info filtered to the caller''s organisation context
-        only.
-
-        Used for B2B directory lookup — omits orgs the user is not part of.
-
-        Requires BearerAuth with org context.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: fetch_employee
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EmployeeResponse'
-              examples:
-                default: &id009
-                  summary: Example response 200 for fetch_employee
-                  value:
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    employee_id: EMP-001
-                    email: alice@example.com
-                    first_name: Alice
-                    last_name: Smith
-                    department: Engineering
-                    title: Senior Developer
-              example: *id009
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Fetch user in employee context, not direct
-        frontend'
-  /admin/users/{user_id}/disable:
-    post:
-      tags:
-      - PasswordSecurity
-      summary: Disable/block user
-      description: 'Prevents user from logging in. Platform admin or SaaS with org
-        context.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: disable_user
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          description: User disabled
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Disable/block user account, not direct
-        frontend'
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/enable:
-    post:
-      tags:
-      - PasswordSecurity
-      summary: Enable/unblock user
-      description: 'Re-enables a previously disabled user.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: enable_user
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          description: User enabled
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Enable/unblock user account, not direct
-        frontend'
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/logout-all-sessions:
-    post:
-      tags:
-      - Sessions
-      summary: Logout all user sessions
-      description: 'Invalidates all active sessions for this user. Platform admin
-        or user themselves.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: logout_all_sessions
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '204':
-          description: All sessions invalidated
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to logout all sessions for current user
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/magiclink:
-    post:
-      tags:
-      - AuthFlows
-      summary: Send magic link for login
-      description: 'Sends an email with a magic link for passwordless login.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: create_magic_link
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          description: Magic link sent
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Generate magic link for another user,
-        not direct frontend'
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/password:
-    delete:
-      tags:
-      - PasswordSecurity
-      summary: Clear password (convert to SSO-only)
-      description: 'Removes the user''s password, converting them to SSO-only authentication.
-
-        Useful when an organisation enforces SAML SSO and users should no longer use
-        email/password.
-
-        Platform admin only.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: clear_user_password
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '400':
-          description: User has no password to clear
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '204':
-          description: Password cleared successfully
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Clear user password (force SSO), not direct
-        frontend'
-  /admin/users/{user_id}/email/verify:
-    post:
-      tags:
-      - PasswordSecurity
-      summary: Verify user email
-      operationId: verify_user_email
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '200':
-          description: Email verified
-        '400':
-          description: Invalid token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to verify current user email
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/resend-email-confirmation:
-    post:
-      tags:
-      - PasswordSecurity
-      summary: Resend email confirmation
-      operationId: resend_email_confirmation
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          description: Email sent
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to resend email verification
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/mfa/disable:
-    post:
-      tags:
-      - PasswordSecurity
-      summary: Disable user 2FA
-      description: 'Disables all 2FA methods for a user. Platform admin or user themselves.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: disable_user_mfa
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          description: 2FA disabled
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to disable MFA for current user
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/mfa/setup:
-    post:
-      tags:
-      - PasswordSecurity
-      summary: Set up TOTP MFA
-      description: 'Generates a TOTP secret QR code for the user to scan with an authenticator
-        app.
-
-        Requires the user''s current password for verification.
-
-        Returns a provisioning URI that can be rendered as a QR code.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: setup_user_mfa_totp
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MfaSetupRequest'
-            examples:
-              default: &id010
-                summary: Example request for setup_user_mfa_totp
-                value:
-                  password: SecureP@ss123!
-            example: *id010
-      responses:
-        '200':
-          description: TOTP secret generated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MfaSetupResponse'
-              examples:
-                default: &id011
-                  summary: Example response 200 for setup_user_mfa_totp
-                  value:
-                    mfa_required: true
-                    secret: JBSWY3DPEHPK3PXP
-                    qr_code: data:image/png;base64,example
-                    backup_codes:
-                    - '12345678'
-                    - '87654321'
-                    - '11111111'
-                    - '22222222'
-                    - '33333333'
-              example: *id011
-        '400':
-          description: Invalid password or MFA already configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to setup TOTP MFA for current user
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/mfa/verify:
-    post:
-      tags:
-      - PasswordSecurity
-      summary: Verify MFA code
-      description: 'Verifies an MFA code for either:
-
-        1. Completing MFA setup (step 2 after setup generated QR code)
-
-        2. Completing login (step 2 of password login when MFA is required)
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: verify_user_mfa
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MfaVerifyRequest'
-            examples:
-              default: &id012
-                summary: Example request for verify_user_mfa
-                value:
-                  password: SecureP@ss123!
-                  code: '123456'
-            example: *id012
-      responses:
-        '200':
-          description: MFA verified
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenResponse'
-              examples:
-                default: &id013
-                  summary: Example response 200 for verify_user_mfa
-                  value:
-                    mfa_required: false
-                    success: true
-                    message: MFA verified successfully
-              example: *id013
-        '400':
-          description: Invalid code
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to verify MFA code for current user
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/phone:
-    post:
-      tags:
-      - PasswordSecurity
-      summary: Add phone number for user
-      description: 'Adds a phone number to the user''s profile and sends an SMS verification
-        code.
-
-        Phone must be verified before it can be used for authentication.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: setup_user_phone
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PhoneNumberRequest'
-            examples:
-              default: &id014
-                summary: Example request for setup_user_phone
-                value:
-                  phone: '+1234567890'
-            example: *id014
-      responses:
-        '200':
-          description: Phone number added, SMS code sent
-        '400':
-          description: Invalid phone number
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to setup phone number for current user
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/phone/verify:
-    post:
-      tags:
-      - PasswordSecurity
-      summary: Verify phone number
-      description: 'Verifies the phone number using the SMS OTP code.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: verify_user_phone
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PhoneVerificationRequest'
-            examples:
-              default: &id015
-                summary: Example request for verify_user_phone
-                value:
-                  phone: '+1234567890'
-                  code: '654321'
-            example: *id015
-      responses:
-        '200':
-          description: Phone number verified
-        '400':
-          description: Invalid code
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to verify phone number for current user
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/email:
-    put:
-      tags:
-      - Identity
-      summary: Change user email
-      operationId: update_user_email
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateEmailRequest'
-            examples:
-              default: &id016
-                summary: Example request for update_user_email
-                value:
-                  email: alice.j@example.com
-            example: *id016
-      responses:
-        '200':
-          description: Email updated
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to update current user email
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/social/link:
-    post:
-      tags:
-      - SocialLogin
-      summary: Link social account to user
-      description: 'Redirects user to OAuth provider to link an additional social
-        account.
-
-        Requires authentication (user must be logged in).
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: link_social_account
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LinkSocialAccountRequest'
-      responses:
-        '200':
-          description: OK - Redirect URL generated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LinkSocialAccountResponse'
-              examples:
-                default: &id017
-                  summary: Example for link_social_account 200
-                  value: &id023
-                    redirect_url: https://github.com/login/oauth/authorize?client_id=abc
-                    state: csrf-token-xyz
-              example: *id017
-        '400':
-          description: Bad Request - Invalid provider or user_id
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized - Missing or invalid authentication
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not Found - User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to link social account to current user
-      x-brrtrouter-impl: true
-  /admin/users/{user_id}/social/tokens:
-    get:
-      tags:
-      - SocialLogin
-      summary: Fetch user's OAuth tokens from providers
-      operationId: fetch_user_oauth_tokens
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenListResponse'
-              examples:
-                default: &id018
-                  summary: Example response 200 for fetch_user_oauth_tokens
-                  value:
-                    oauth_tokens:
-                    - id: 550e8400-e29b-41d4-a716-446655440001
-                      provider: github
-                      provider_user_id: '12345'
-                      scope: repo,user
-                      created_at: '2024-01-10T00:00:00Z'
-                      expires_at: null
-                    - id: 550e8400-e29b-41d4-a716-446655440002
-                      provider: google
-                      provider_user_id: '67890'
-                      scope: email,profile
-                      created_at: '2024-01-12T00:00:00Z'
-                      expires_at: '2024-07-12T00:00:00Z'
-              example: *id018
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to fetch OAuth tokens for current user
-  /admin/users/{user_id}/social/tokens/{provider}/refresh:
-    get:
-      tags:
-      - SocialLogin
-      summary: Fetch fresh token from provider
-      description: 'Refreshes an expired OAuth token for the given provider.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: fetch_fresh_oauth_token
-      parameters:
-      - *id003
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: provider
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OAuthTokenResponse'
-              examples:
-                default: &id019
-                  summary: Example response 200 for fetch_fresh_oauth_token
-                  value:
-                    token: gho_new123abc456
-                    provider: github
-                    expires_in: 3600
-              example: *id019
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to fetch fresh OAuth token for current
-        user
-  /admin/users/migrate:
-    post:
-      tags:
-      - UserMigration
-      summary: Migrate user from external auth system
-      description: 'Imports a user from another authentication system. Includes hash+salt
-        password import,
-
-        extra properties, legacy user ID mapping. Platform admin only.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: migrate_user
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MigrateUserRequest'
-            examples:
-              default: &id020
-                summary: Example request for migrate_user
-                value:
-                  source_provider: legacy
-                  source_user_id: LEG-001
-            example: *id020
-      responses:
-        '201':
-          description: User migrated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-              examples:
-                default: &id021
-                  summary: Example response 201 for migrate_user
-                  value:
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    migrated: true
-                    email: alice@example.com
-                    migrated_at: '2024-01-15T10:30:00Z'
-              example: *id021
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id003
-      x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Migrate user from external system, never from
-        browser'
-      x-brrtrouter-impl: true
-  /admin/users/migrate-password:
-    post:
-      tags:
-      - UserMigration
-      summary: Bulk migrate passwords (hash+salt)
-      description: 'Imports passwords from another system. Password hash format: $2a$14$...
-        (bcrypt).
-
-        Platform admin only.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: migrate_user_passwords
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MigratePasswordRequest'
-      responses:
-        '200':
-          description: Passwords migrated
-        '400':
-          description: Invalid hash format
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id003
-      x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Batch migrate user passwords, never from browser'
-      x-brrtrouter-impl: true
-  /oauth/logout:
-    post:
-      tags:
-      - Sessions
-      summary: OAuth2 logout endpoint
-      description: 'Invalidates the user''s session and optionally triggers post-logout
-        redirect.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: oauth_logout
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OAuthLogoutRequest'
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          description: Logout successful
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id004
-        '500':
-          description: Internal server error
-          content: *id005
-      parameters:
-      - *id003
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to logout OAuth session for current user
-      x-brrtrouter-impl: true
   /admin/audit/events:
     post:
       tags:
       - UserAudit
       summary: Get user-specific audit events
-      description: Query audit events for a specific user — login attempts, profile
-        changes, MFA enrollment, password resets, session activity. Returns paginated
-        results sorted by timestamp descending.
+      description: "Query audit events for a specific user \u2014 login attempts,\
+        \ profile changes, MFA enrollment, password resets, session activity. Returns\
+        \ paginated results sorted by timestamp descending."
       operationId: get_user_audit_events
       requestBody:
         required: true
@@ -1711,7 +157,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -1731,7 +177,7 @@ paths:
       x-brrtrouter-impl: true
       security: []
       parameters:
-      - &id022
+      - &id001
         name: X-Tenant-ID
         in: header
         required: true
@@ -1739,6 +185,73 @@ paths:
           type: string
           format: uuid
           description: Tenant identifier for multi-tenant isolation
+  /admin/audit/users/{user_id}/events/compliance-export:
+    post:
+      tags:
+      - UserAudit
+      summary: Export user's audit events (GDPR)
+      description: "Export all audit events for a specific user \u2014 required for\
+        \ GDPR Data Subject Access Requests. Returns a download URL when the export\
+        \ is ready."
+      operationId: export_user_audit_events
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User ID to export events for
+      - *id001
+      responses:
+        '200':
+          description: Export job created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  export_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  estimated_completion:
+                    type: string
+                    format: date-time
+                  download_url:
+                    type: string
+              example:
+                export_id: 6ba7b810-9dad-11d1-80b4-00c04fd430cb
+                status: pending
+                estimated_completion: '2026-05-11T14:35:00Z'
+                download_url: null
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
   /admin/audit/users/{user_id}/events/count:
     get:
       tags:
@@ -1767,7 +280,7 @@ paths:
           type: string
           format: date-time
         description: End time (ISO 8601)
-      - *id022
+      - *id001
       responses:
         '200':
           description: Event count for user
@@ -1811,7 +324,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -1830,72 +343,1548 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
-  /admin/audit/users/{user_id}/events/compliance-export:
+  /admin/users:
     post:
       tags:
-      - UserAudit
-      summary: Export user's audit events (GDPR)
-      description: Export all audit events for a specific user — required for GDPR
-        Data Subject Access Requests. Returns a download URL when the export is ready.
-      operationId: export_user_audit_events
+      - Users
+      summary: Create user (idempotent by email)
+      description: "Creates a new user. Idempotent if email matches existing user\
+        \ \u2014 returns existing user.\nSaaS customers must provide their own `org_id`;\
+        \ platform admins may omit it.\n\n\nRequires `X-Tenant-ID` header for tenant\
+        \ resolution."
+      operationId: create_user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            examples:
+              default: &id002
+                summary: Example for create_user
+                value:
+                  email: newuser@example.com
+                  first_name: New
+                  last_name: User
+                  phone: '+1234567890'
+                  username: newuser
+                  send_welcome_email: true
+            example: *id002
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              examples:
+                default: &id003
+                  summary: Example for create_user 201
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: newuser@example.com
+                    email_verified: false
+                    phone_verified: false
+                    phone: '+1234567890'
+                    username: newuser
+                    first_name: New
+                    last_name: User
+                    avatar_url: null
+                    role: user
+                    is_active: true
+                    created_at: '2024-01-15T10:30:00Z'
+              example: *id003
+        '200':
+          description: User already exists (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: &id006
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
+        '500':
+          description: Internal server error
+          content: &id007
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       parameters:
+      - &id004
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Create user account, not direct frontend'
+      x-brrtrouter-impl: true
+  /admin/users/email:
+    get:
+      tags:
+      - Users
+      summary: Fetch user by email
+      description: 'Returns the user associated with the given email. No PII in URI.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: fetch_user_by_email
+      parameters:
+      - *id004
+      - name: email
+        in: query
+        required: true
+        schema:
+          type: string
+          format: email
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              examples:
+                default: &id005
+                  summary: Example response 200 for fetch_user_by_email
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    phone: '+1234567890'
+                    username: alice
+                    first_name: Alice
+                    last_name: Smith
+                    avatar_url: https://example.com/avatars/alice.png
+                    role: user
+                    is_active: true
+                    created_at: '2024-01-01T00:00:00Z'
+                    updated_at: '2024-01-15T10:30:00Z'
+              example: *id005
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Lookup user by email, not direct frontend'
+  /admin/users/migrate:
+    post:
+      tags:
+      - UserMigration
+      summary: Migrate user from external auth system
+      description: 'Imports a user from another authentication system. Includes hash+salt
+        password import,
+
+        extra properties, legacy user ID mapping. Platform admin only.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: migrate_user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrateUserRequest'
+            examples:
+              default: &id008
+                summary: Example request for migrate_user
+                value:
+                  source_provider: legacy
+                  source_user_id: LEG-001
+            example: *id008
+      responses:
+        '201':
+          description: User migrated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              examples:
+                default: &id009
+                  summary: Example response 201 for migrate_user
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    migrated: true
+                    email: alice@example.com
+                    migrated_at: '2024-01-15T10:30:00Z'
+              example: *id009
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      parameters:
+      - *id004
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Migrate user from external system, never from
+        browser'
+      x-brrtrouter-impl: true
+  /admin/users/migrate-password:
+    post:
+      tags:
+      - UserMigration
+      summary: Bulk migrate passwords (hash+salt)
+      description: 'Imports passwords from another system. Password hash format: $2a$14$...
+        (bcrypt).
+
+        Platform admin only.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: migrate_user_passwords
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigratePasswordRequest'
+      responses:
+        '200':
+          description: Passwords migrated
+        '400':
+          description: Invalid hash format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      parameters:
+      - *id004
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Batch migrate user passwords, never from browser'
+      x-brrtrouter-impl: true
+  /admin/users/query:
+    get:
+      tags:
+      - Users
+      summary: Paginated query for users with filters
+      description: 'Returns paginated list of users matching the given filters.
+
+        Platform admins can search across all users; SaaS customers can only search
+        their own org.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: query_users
+      parameters:
+      - *id004
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: email_pattern
+        in: query
+        schema:
+          type: string
+        description: Email substring filter (case-insensitive)
+      - name: email_confirmed
+        in: query
+        schema:
+          type: boolean
+          nullable: true
+        description: Filter by email confirmation status
+      - name: enabled
+        in: query
+        schema:
+          type: boolean
+          nullable: true
+        description: Filter by enabled status
+      - name: disabled
+        in: query
+        schema:
+          type: boolean
+          nullable: true
+        description: Filter by disabled status
+      - name: locked
+        in: query
+        schema:
+          type: boolean
+          nullable: true
+        description: Filter by locked status
+      - name: created_after
+        in: query
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        description: Filter by creation date (inclusive)
+      - name: created_before
+        in: query
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        description: Filter by creation date (inclusive)
+      - name: signup_flow
+        in: query
+        schema:
+          type: string
+          enum:
+          - signup
+          - invite
+          - magiclink
+          - password
+          - social
+          - saml
+          nullable: true
+        description: Filter by signup method
+      responses:
+        '200':
+          description: Users found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserQueryResponse'
+              examples:
+                default: &id010
+                  summary: Example response 200 for query_users
+                  value:
+                    users:
+                    - user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                      email: alice@example.com
+                      email_verified: true
+                      phone_verified: false
+                      phone: '+1234567890'
+                      username: alice
+                      first_name: Alice
+                      last_name: Smith
+                      avatar_url: null
+                      role: user
+                      is_active: true
+                      created_at: '2024-01-01T00:00:00Z'
+                    - user_id: 42d52c27-d392-55bf-0713-5b158f4cf44e
+                      email: bob@example.com
+                      email_verified: true
+                      phone_verified: true
+                      phone: '+1987654321'
+                      username: bob
+                      first_name: Bob
+                      last_name: Jones
+                      avatar_url: https://example.com/avatars/bob.png
+                      role: admin
+                      is_active: true
+                      created_at: '2024-01-02T00:00:00Z'
+                    total: 2
+                    page: 1
+                    limit: 20
+              example: *id010
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Query/filter users, not direct frontend'
+  /admin/users/username:
+    get:
+      tags:
+      - Users
+      summary: Fetch user by username
+      operationId: fetch_user_by_username
+      parameters:
+      - *id004
+      - name: username
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              examples:
+                default: &id011
+                  summary: Example response 200 for fetch_user_by_username
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    phone: '+1234567890'
+                    username: alice
+                    first_name: Alice
+                    last_name: Smith
+                    avatar_url: https://example.com/avatars/alice.png
+                    role: user
+                    is_active: true
+                    created_at: '2024-01-01T00:00:00Z'
+                    updated_at: '2024-01-15T10:30:00Z'
+              example: *id011
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Lookup user by username, not direct frontend'
+  /admin/users/{user_id}:
+    delete:
+      tags:
+      - Users
+      summary: Delete user (irreversible)
+      description: 'Irreversibly deletes a user account and all associated data.
+
+        Platform admin only. Users in an org can only delete themselves.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: delete_user
+      parameters:
+      - *id004
       - name: user_id
         in: path
         required: true
         schema:
           type: string
           format: uuid
-        description: User ID to export events for
-      - *id022
       responses:
-        '200':
-          description: Export job created
+        '400':
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  export_id:
-                    type: string
-                    format: uuid
-                  status:
-                    type: string
-                  estimated_completion:
-                    type: string
-                    format: date-time
-                  download_url:
-                    type: string
+                $ref: '#/components/schemas/ErrorResponse'
               example:
-                export_id: 6ba7b810-9dad-11d1-80b4-00c04fd430cb
-                status: pending
-                estimated_completion: '2026-05-11T14:35:00Z'
-                download_url: null
+                error: validation_error
+                message: Request validation failed
+        '204':
+          description: User deleted
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Delete user account, not direct frontend'
+  /admin/users/{user_id}/disable:
+    post:
+      tags:
+      - PasswordSecurity
+      summary: Disable/block user
+      description: 'Prevents user from logging in. Platform admin or SaaS with org
+        context.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: disable_user
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
         '400':
-          description: Invalid request parameters
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          description: User disabled
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Disable/block user account, not direct
+        frontend'
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/email:
+    put:
+      tags:
+      - Identity
+      summary: Change user email
+      operationId: update_user_email
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmailRequest'
+            examples:
+              default: &id012
+                summary: Example request for update_user_email
+                value:
+                  email: alice.j@example.com
+            example: *id012
+      responses:
+        '200':
+          description: Email updated
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to update current user email
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/email/verify:
+    post:
+      tags:
+      - PasswordSecurity
+      summary: Verify user email
+      operationId: verify_user_email
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Email verified
+        '400':
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify current user email
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/employee:
+    get:
+      tags:
+      - Users
+      summary: Fetch user in employee mode
+      description: "Returns user info filtered to the caller's organisation context\
+        \ only.\nUsed for B2B directory lookup \u2014 omits orgs the user is not part\
+        \ of.\nRequires BearerAuth with org context.\n\n\nRequires `X-Tenant-ID` header\
+        \ for tenant resolution."
+      operationId: fetch_employee
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeResponse'
+              examples:
+                default: &id013
+                  summary: Example response 200 for fetch_employee
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    employee_id: EMP-001
+                    email: alice@example.com
+                    first_name: Alice
+                    last_name: Smith
+                    department: Engineering
+                    title: Senior Developer
+              example: *id013
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Fetch user in employee context, not direct
+        frontend'
+  /admin/users/{user_id}/enable:
+    post:
+      tags:
+      - PasswordSecurity
+      summary: Enable/unblock user
+      description: 'Re-enables a previously disabled user.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: enable_user
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          description: User enabled
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Enable/unblock user account, not direct
+        frontend'
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/logout-all-sessions:
+    post:
+      tags:
+      - Sessions
+      summary: Logout all user sessions
+      description: 'Invalidates all active sessions for this user. Platform admin
+        or user themselves.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: logout_all_sessions
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '204':
+          description: All sessions invalidated
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to logout all sessions for current user
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/magiclink:
+    post:
+      tags:
+      - AuthFlows
+      summary: Send magic link for login
+      description: 'Sends an email with a magic link for passwordless login.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: create_magic_link
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          description: Magic link sent
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Generate magic link for another user,
+        not direct frontend'
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/mfa/disable:
+    post:
+      tags:
+      - PasswordSecurity
+      summary: Disable user 2FA
+      description: 'Disables all 2FA methods for a user. Platform admin or user themselves.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: disable_user_mfa
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          description: 2FA disabled
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to disable MFA for current user
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/mfa/setup:
+    post:
+      tags:
+      - PasswordSecurity
+      summary: Set up TOTP MFA
+      description: 'Generates a TOTP secret QR code for the user to scan with an authenticator
+        app.
+
+        Requires the user''s current password for verification.
+
+        Returns a provisioning URI that can be rendered as a QR code.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: setup_user_mfa_totp
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaSetupRequest'
+            examples:
+              default: &id014
+                summary: Example request for setup_user_mfa_totp
+                value:
+                  password: SecureP@ss123!
+            example: *id014
+      responses:
+        '200':
+          description: TOTP secret generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaSetupResponse'
+              examples:
+                default: &id015
+                  summary: Example response 200 for setup_user_mfa_totp
+                  value:
+                    mfa_required: true
+                    secret: JBSWY3DPEHPK3PXP
+                    qr_code: data:image/png;base64,example
+                    backup_codes:
+                    - '12345678'
+                    - '87654321'
+                    - '11111111'
+                    - '22222222'
+                    - '33333333'
+              example: *id015
+        '400':
+          description: Invalid password or MFA already configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to setup TOTP MFA for current user
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/mfa/verify:
+    post:
+      tags:
+      - PasswordSecurity
+      summary: Verify MFA code
+      description: 'Verifies an MFA code for either:
+
+        1. Completing MFA setup (step 2 after setup generated QR code)
+
+        2. Completing login (step 2 of password login when MFA is required)
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: verify_user_mfa
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaVerifyRequest'
+            examples:
+              default: &id016
+                summary: Example request for verify_user_mfa
+                value:
+                  password: SecureP@ss123!
+                  code: '123456'
+            example: *id016
+      responses:
+        '200':
+          description: MFA verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default: &id017
+                  summary: Example response 200 for verify_user_mfa
+                  value:
+                    mfa_required: false
+                    success: true
+                    message: MFA verified successfully
+              example: *id017
+        '400':
+          description: Invalid code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify MFA code for current user
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/password:
+    delete:
+      tags:
+      - PasswordSecurity
+      summary: Clear password (convert to SSO-only)
+      description: 'Removes the user''s password, converting them to SSO-only authentication.
+
+        Useful when an organisation enforces SAML SSO and users should no longer use
+        email/password.
+
+        Platform admin only.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: clear_user_password
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '400':
+          description: User has no password to clear
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '204':
+          description: Password cleared successfully
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: admin-console
+      x-consumer-note: 'Admin console only: Clear user password (force SSO), not direct
+        frontend'
+  /admin/users/{user_id}/phone:
+    post:
+      tags:
+      - PasswordSecurity
+      summary: Add phone number for user
+      description: 'Adds a phone number to the user''s profile and sends an SMS verification
+        code.
+
+        Phone must be verified before it can be used for authentication.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: setup_user_phone
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneNumberRequest'
+            examples:
+              default: &id018
+                summary: Example request for setup_user_phone
+                value:
+                  phone: '+1234567890'
+            example: *id018
+      responses:
+        '200':
+          description: Phone number added, SMS code sent
+        '400':
+          description: Invalid phone number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to setup phone number for current user
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/phone/verify:
+    post:
+      tags:
+      - PasswordSecurity
+      summary: Verify phone number
+      description: 'Verifies the phone number using the SMS OTP code.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: verify_user_phone
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneVerificationRequest'
+            examples:
+              default: &id019
+                summary: Example request for verify_user_phone
+                value:
+                  phone: '+1234567890'
+                  code: '654321'
+            example: *id019
+      responses:
+        '200':
+          description: Phone number verified
+        '400':
+          description: Invalid code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to verify phone number for current user
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/resend-email-confirmation:
+    post:
+      tags:
+      - PasswordSecurity
+      summary: Resend email confirmation
+      operationId: resend_email_confirmation
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          description: Email sent
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to resend email verification
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/social/link:
+    post:
+      tags:
+      - SocialLogin
+      summary: Link social account to user
+      description: 'Redirects user to OAuth provider to link an additional social
+        account.
+
+        Requires authentication (user must be logged in).
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: link_social_account
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkSocialAccountRequest'
+      responses:
+        '200':
+          description: OK - Redirect URL generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkSocialAccountResponse'
+              examples:
+                default: &id020
+                  summary: Example for link_social_account 200
+                  value: &id023
+                    redirect_url: https://github.com/login/oauth/authorize?client_id=abc
+                    state: csrf-token-xyz
+              example: *id020
+        '400':
+          description: Bad Request - Invalid provider or user_id
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: Unauthorized - Missing or invalid authentication
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: User not found
+          description: Not Found - User not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
+          content: *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to link social account to current user
+      x-brrtrouter-impl: true
+  /admin/users/{user_id}/social/tokens:
+    get:
+      tags:
+      - SocialLogin
+      summary: Fetch user's OAuth tokens from providers
+      operationId: fetch_user_oauth_tokens
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenListResponse'
+              examples:
+                default: &id021
+                  summary: Example response 200 for fetch_user_oauth_tokens
+                  value:
+                    oauth_tokens:
+                    - id: 550e8400-e29b-41d4-a716-446655440001
+                      provider: github
+                      provider_user_id: '12345'
+                      scope: repo,user
+                      created_at: '2024-01-10T00:00:00Z'
+                      expires_at: null
+                    - id: 550e8400-e29b-41d4-a716-446655440002
+                      provider: google
+                      provider_user_id: '67890'
+                      scope: email,profile
+                      created_at: '2024-01-12T00:00:00Z'
+                      expires_at: '2024-07-12T00:00:00Z'
+              example: *id021
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to fetch OAuth tokens for current user
+  /admin/users/{user_id}/social/tokens/{provider}/refresh:
+    get:
+      tags:
+      - SocialLogin
+      summary: Fetch fresh token from provider
+      description: 'Refreshes an expired OAuth token for the given provider.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: fetch_fresh_oauth_token
+      parameters:
+      - *id004
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+              examples:
+                default: &id022
+                  summary: Example response 200 for fetch_fresh_oauth_token
+                  value:
+                    token: gho_new123abc456
+                    provider: github
+                    expires_in: 3600
+              example: *id022
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to fetch fresh OAuth token for current
+        user
+  /oauth/logout:
+    post:
+      tags:
+      - Sessions
+      summary: OAuth2 logout endpoint
+      description: 'Invalidates the user''s session and optionally triggers post-logout
+        redirect.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: oauth_logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthLogoutRequest'
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          description: Logout successful
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id006
+        '500':
+          description: Internal server error
+          content: *id007
+      parameters:
+      - *id004
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to logout OAuth session for current user
       x-brrtrouter-impl: true
-      security: []
 components:
   parameters:
     Page:
@@ -2004,13 +1993,9 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: 'For SaaS customers: required, must be their own organisation.
-
-            For platform admins: optional — if omitted, creates a platform-level user.
-
-            When present, the user is automatically added to this organisation.
-
-            '
+          description: "For SaaS customers: required, must be their own organisation.\n\
+            For platform admins: optional \u2014 if omitted, creates a platform-level\
+            \ user.\nWhen present, the user is automatically added to this organisation.\n"
       example:
         email: newuser@example.com
         email_confirmed: false

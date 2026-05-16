@@ -16,9 +16,7 @@ info:
     name: Platform / Security
 servers:
 - url: /idam/v1
-  description: Session Service API
-- url: /idam/v1
-  description: OIDC/JWKS discovery
+  description: IDAM API v1
 tags:
 - name: Sessions
   description: Session management (refresh, profile, discovery, OIDC)
@@ -34,252 +32,6 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /session/refresh:
-    post:
-      tags:
-      - Sessions
-      summary: Refresh access token
-      operationId: auth_refresh
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshRequest'
-            examples:
-              default: &id001
-                summary: Example request for auth_refresh
-                value: &id013
-                  grant_type: refresh_token
-                  refresh_token: cmVmcmVzaC10b2tlbi1zZXNzaW9u
-                  client_id: my-app
-            example: *id001
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenResponse'
-              examples:
-                default: &id002
-                  summary: Example response 200 for auth_refresh
-                  value:
-                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.nsig
-                    token_type: Bearer
-                    expires_in: 900
-                    refresh_token: bmV3LXJlZnJlc2gtdG9rZW4tc2Vzc2lvbg
-                    refresh_token_expires_in: 2592000
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
-                    mfa_required: false
-                    id_token: null
-                    scope: openid
-              example: *id002
-        '401':
-          description: Invalid or expired refresh token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Unauthorized (invalid or missing token)
-        '500':
-          description: Internal server error
-          content: &id004
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: internal_error
-                error_description: An unexpected error occurred
-      parameters:
-      - &id005
-        name: X-Tenant-ID
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to refresh access token
-      x-brrtrouter-impl: true
-  /identity/me:
-    get:
-      tags:
-      - Identity
-      summary: Current user profile
-      operationId: users_me_get
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserProfile'
-              examples:
-                default: &id003
-                  summary: Example response 200 for users_me_get
-                  value: &id017
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
-                    phone: '+1234567890'
-                    username: alice
-                    first_name: Alice
-                    last_name: Smith
-                    avatar_url: https://example.com/avatars/alice.png
-                    role: user
-                    is_active: true
-                    created_at: '2024-01-01T00:00:00Z'
-                    updated_at: '2024-01-15T10:30:00Z'
-              example: *id003
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Unauthorized (invalid or missing token)
-        '500':
-          description: Internal server error
-          content: *id004
-      parameters:
-      - *id005
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to get current user profile
-    patch:
-      tags:
-      - Identity
-      summary: Update current user profile
-      operationId: users_me_patch
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateUserProfileRequest'
-            examples:
-              default: &id006
-                summary: Example request for users_me_patch
-                value: &id016
-                  first_name: Alice
-                  last_name: Johnson
-                  avatar_url: https://example.com/avatars/alice_v2.png
-            example: *id006
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserProfile'
-              examples:
-                default: &id007
-                  summary: Example response 200 for users_me_patch
-                  value:
-                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
-                    phone: '+1234567890'
-                    username: alice
-                    first_name: Alice
-                    last_name: Johnson
-                    avatar_url: https://example.com/avatars/alice_v2.png
-                    role: user
-                    is_active: true
-                    created_at: '2024-01-01T00:00:00Z'
-                    updated_at: '2024-01-16T12:00:00Z'
-              example: *id007
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Unauthorized (invalid or missing token)
-        '500':
-          description: Internal server error
-          content: *id004
-      parameters:
-      - *id005
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to update current user profile
-      x-brrtrouter-impl: true
-  /.well-known/openid-configuration:
-    get:
-      tags:
-      - Discovery
-      summary: OIDC discovery
-      operationId: openid_configuration
-      security: []
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OpenIDConfiguration'
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: &id009
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: unauthorized
-                error_description: Authentication required
-        '500':
-          description: Internal server error
-          content: *id004
-      x-consumer: frontend
-      x-consumer-note: Public OpenID Connect discovery endpoint, no auth required
   /.well-known/jwks.json:
     get:
       tags:
@@ -289,7 +41,7 @@ paths:
       security: []
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -303,7 +55,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JWKS'
               examples:
-                default: &id008
+                default: &id001
                   summary: Example for jwks 200
                   value: &id012
                     keys:
@@ -313,28 +65,37 @@ paths:
                       alg: RS256
                       n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe
                       e: AQAB
-              example: *id008
+              example: *id001
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: &id002
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
         '500':
           description: Internal server error
-          content: *id004
+          content: &id003
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
       x-consumer: frontend
       x-consumer-note: Public JWKS endpoint for token verification, no auth required
-  /identity/userinfo:
+  /.well-known/openid-configuration:
     get:
       tags:
-      - Sessions
-      summary: User Info endpoint
-      description: 'Returns user profile claims. Requires Bearer token.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: oauth_userinfo
+      - Discovery
+      summary: OIDC discovery
+      operationId: openid_configuration
+      security: []
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -346,23 +107,141 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfile'
+                $ref: '#/components/schemas/OpenIDConfiguration'
         '401':
-          description: Unauthorized
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
+      x-consumer: frontend
+      x-consumer-note: Public OpenID Connect discovery endpoint, no auth required
+  /admin/impersonate:
+    post:
+      tags:
+      - Impersonation
+      summary: Impersonate user
+      description: 'Admin switches to user session for debugging/support. Creates
+        a new session for the target user.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: admin_impersonate
+      security:
+      - BearerAuth: []
+      parameters:
+      - &id004
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImpersonateRequest'
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          description: Impersonation successful, new session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImpersonateResponse'
+        '403':
+          description: Forbidden (not an admin)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 error: invalid_request
-                error_description: Unauthorized (invalid or missing token)
+                error_description: Forbidden (insufficient permissions)
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id002
         '500':
           description: Internal server error
-          content: *id004
+          content: *id003
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Admin impersonate user session'
+      x-brrtrouter-impl: true
+  /admin/impersonate/restore:
+    post:
+      tags:
+      - Impersonation
+      summary: Restore admin session
+      description: 'Switch back from impersonated user session to admin session.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: admin_restore_impersonation
+      security:
+      - BearerAuth: []
       parameters:
-      - *id005
-      x-consumer: frontend
-      x-consumer-note: Direct browser call to get user info from OAuth token
+      - *id004
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImpersonateRestoreRequest'
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          description: Restored to admin session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImpersonateResponse'
+        '403':
+          description: Forbidden (not impersonating or not admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Forbidden (insufficient permissions)
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Restore original session after impersonation'
+      x-brrtrouter-impl: true
   /auth/verify/step-up:
     post:
       tags:
@@ -383,15 +262,15 @@ paths:
             schema:
               $ref: '#/components/schemas/StepUpRequest'
             examples:
-              default: &id010
+              default: &id005
                 summary: Example request for step_up_verify
                 value: &id014
                   challenge_id: 550e8400-e29b-41d4-a716-446655440000
                   answer: '123456'
-            example: *id010
+            example: *id005
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -406,7 +285,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StepUpResponse'
               examples:
-                default: &id011
+                default: &id006
                   summary: Example response 200 for step_up_verify
                   value: &id015
                     access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJsZXZlbCI6ImhpZ2gifQ.sig
@@ -421,7 +300,7 @@ paths:
                     mfa_required: false
                     id_token: null
                     scope: openid profile
-              example: *id011
+              example: *id006
         '401':
           description: Unauthorized or MFA verification failed
           content:
@@ -430,7 +309,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
-          content: *id004
+          content: *id003
       parameters:
       - name: X-Tenant-ID
         in: header
@@ -442,6 +321,131 @@ paths:
           for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify step-up authentication
+      x-brrtrouter-impl: true
+  /identity/me:
+    get:
+      tags:
+      - Identity
+      summary: Current user profile
+      operationId: users_me_get
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+              examples:
+                default: &id007
+                  summary: Example response 200 for users_me_get
+                  value: &id017
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    phone: '+1234567890'
+                    username: alice
+                    first_name: Alice
+                    last_name: Smith
+                    avatar_url: https://example.com/avatars/alice.png
+                    role: user
+                    is_active: true
+                    created_at: '2024-01-01T00:00:00Z'
+                    updated_at: '2024-01-15T10:30:00Z'
+              example: *id007
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
+        '500':
+          description: Internal server error
+          content: *id003
+      parameters:
+      - *id004
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to get current user profile
+    patch:
+      tags:
+      - Identity
+      summary: Update current user profile
+      operationId: users_me_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+            examples:
+              default: &id008
+                summary: Example request for users_me_patch
+                value: &id016
+                  first_name: Alice
+                  last_name: Johnson
+                  avatar_url: https://example.com/avatars/alice_v2.png
+            example: *id008
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+              examples:
+                default: &id009
+                  summary: Example response 200 for users_me_patch
+                  value:
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    phone: '+1234567890'
+                    username: alice
+                    first_name: Alice
+                    last_name: Johnson
+                    avatar_url: https://example.com/avatars/alice_v2.png
+                    role: user
+                    is_active: true
+                    created_at: '2024-01-01T00:00:00Z'
+                    updated_at: '2024-01-16T12:00:00Z'
+              example: *id009
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
+        '500':
+          description: Internal server error
+          content: *id003
+      parameters:
+      - *id004
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to update current user profile
       x-brrtrouter-impl: true
   /identity/me/token:
     post:
@@ -464,7 +468,7 @@ paths:
               $ref: '#/components/schemas/TokenIssuanceRequest'
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -497,36 +501,29 @@ paths:
                 error: invalid_request
                 error_description: Not found
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id002
         '500':
           description: Internal server error
-          content: *id004
+          content: *id003
       parameters:
-      - *id005
+      - *id004
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Admin issues tokens on behalf of user'
       x-brrtrouter-impl: true
-  /mcp/token:
-    post:
+  /identity/userinfo:
+    get:
       tags:
-      - MCP
-      summary: Issue MCP auth token
-      description: 'Authenticate an MCP agent and issue a token for tool access.
+      - Sessions
+      summary: User Info endpoint
+      description: 'Returns user profile claims. Requires Bearer token.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: mcp_token
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/McpTokenRequest'
+      operationId: oauth_userinfo
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -535,13 +532,12 @@ paths:
                 error: validation_error
                 message: Request validation failed
         '200':
-          description: MCP token issued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/McpTokenResponse'
+                $ref: '#/components/schemas/UserProfile'
         '401':
-          description: Invalid agent credentials
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -551,61 +547,11 @@ paths:
                 error_description: Unauthorized (invalid or missing token)
         '500':
           description: Internal server error
-          content: *id004
+          content: *id003
       parameters:
-      - *id005
-      x-consumer: agent
-      x-consumer-note: 'Agent-only: Generate token for MCP agent, never from browser'
-      x-brrtrouter-impl: true
-  /mcp/token/validate:
-    post:
-      tags:
-      - MCP
-      summary: Validate MCP token
-      description: 'Validate an MCP token and return its claims.
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: mcp_validate
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/McpValidateRequest'
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '200':
-          description: Validation result
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/McpValidateResponse'
-        '401':
-          description: Invalid or expired token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Unauthorized (invalid or missing token)
-        '500':
-          description: Internal server error
-          content: *id004
-      parameters:
-      - *id005
-      x-consumer: agent
-      x-consumer-note: 'Agent-only: Validate MCP agent token, never from browser'
-      x-brrtrouter-impl: true
+      - *id004
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to get user info from OAuth token
   /mcp/agents:
     get:
       tags:
@@ -620,7 +566,7 @@ paths:
       - BearerAuth: []
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -645,9 +591,9 @@ paths:
                 error_description: Unauthorized
         '500':
           description: Internal server error
-          content: *id004
+          content: *id003
       parameters:
-      - *id005
+      - *id004
       x-consumer: agent
       x-consumer-note: 'Agent-only: List MCP agents for user, never from browser'
     post:
@@ -704,9 +650,9 @@ paths:
                 error_description: Unauthorized
         '500':
           description: Internal server error
-          content: *id004
+          content: *id003
       parameters:
-      - *id005
+      - *id004
       x-consumer: agent
       x-consumer-note: 'Agent-only: Create MCP agent for user, never from browser'
       x-brrtrouter-impl: true
@@ -720,7 +666,7 @@ paths:
       - BearerAuth: []
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -744,13 +690,13 @@ paths:
                 error: not_found
                 error_description: Agent not found
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id002
         '500':
           description: Internal server error
-          content: *id004
+          content: *id003
       parameters:
-      - *id005
+      - *id004
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: agent
       x-consumer-note: 'Agent-only: Get MCP agent details, never from browser'
@@ -763,7 +709,7 @@ paths:
       - BearerAuth: []
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -783,40 +729,36 @@ paths:
                 error: not_found
                 error_description: Agent not found
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id002
         '500':
           description: Internal server error
-          content: *id004
+          content: *id003
       parameters:
-      - *id005
+      - *id004
       description: Requires `X-Tenant-ID` header for tenant resolution.
       x-consumer: agent
       x-consumer-note: 'Agent-only: Delete MCP agent, never from browser'
-  /admin/impersonate:
+  /mcp/token:
     post:
       tags:
-      - Impersonation
-      summary: Impersonate user
-      description: 'Admin switches to user session for debugging/support. Creates
-        a new session for the target user.
+      - MCP
+      summary: Issue MCP auth token
+      description: 'Authenticate an MCP agent and issue a token for tool access.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: admin_impersonate
-      security:
-      - BearerAuth: []
-      parameters:
-      - *id005
+      operationId: mcp_token
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ImpersonateRequest'
+              $ref: '#/components/schemas/McpTokenRequest'
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -825,61 +767,47 @@ paths:
                 error: validation_error
                 message: Request validation failed
         '200':
-          description: Impersonation successful, new session created
+          description: MCP token issued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImpersonateResponse'
-        '403':
-          description: Forbidden (not an admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Forbidden (insufficient permissions)
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
+                $ref: '#/components/schemas/McpTokenResponse'
         '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
+          description: Invalid agent credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
         '500':
           description: Internal server error
-          content: *id004
-      x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Admin impersonate user session'
+          content: *id003
+      parameters:
+      - *id004
+      x-consumer: agent
+      x-consumer-note: 'Agent-only: Generate token for MCP agent, never from browser'
       x-brrtrouter-impl: true
-  /admin/impersonate/restore:
+  /mcp/token/validate:
     post:
       tags:
-      - Impersonation
-      summary: Restore admin session
-      description: 'Switch back from impersonated user session to admin session.
+      - MCP
+      summary: Validate MCP token
+      description: 'Validate an MCP token and return its claims.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: admin_restore_impersonation
-      security:
-      - BearerAuth: []
-      parameters:
-      - *id005
+      operationId: mcp_validate
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ImpersonateRestoreRequest'
+              $ref: '#/components/schemas/McpValidateRequest'
       responses:
         '400':
-          description: Bad request — validation error
+          description: "Bad request \u2014 validation error"
           content:
             application/json:
               schema:
@@ -888,28 +816,98 @@ paths:
                 error: validation_error
                 message: Request validation failed
         '200':
-          description: Restored to admin session
+          description: Validation result
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImpersonateResponse'
-        '403':
-          description: Forbidden (not impersonating or not admin)
+                $ref: '#/components/schemas/McpValidateResponse'
+        '401':
+          description: Invalid or expired token
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 error: invalid_request
-                error_description: Forbidden (insufficient permissions)
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id009
+                error_description: Unauthorized (invalid or missing token)
         '500':
           description: Internal server error
-          content: *id004
-      x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Restore original session after impersonation'
+          content: *id003
+      parameters:
+      - *id004
+      x-consumer: agent
+      x-consumer-note: 'Agent-only: Validate MCP agent token, never from browser'
+      x-brrtrouter-impl: true
+  /session/refresh:
+    post:
+      tags:
+      - Sessions
+      summary: Refresh access token
+      operationId: auth_refresh
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            examples:
+              default: &id010
+                summary: Example request for auth_refresh
+                value: &id013
+                  grant_type: refresh_token
+                  refresh_token: cmVmcmVzaC10b2tlbi1zZXNzaW9u
+                  client_id: my-app
+            example: *id010
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                default: &id011
+                  summary: Example response 200 for auth_refresh
+                  value:
+                    access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.nsig
+                    token_type: Bearer
+                    expires_in: 900
+                    refresh_token: bmV3LXJlZnJlc2gtdG9rZW4tc2Vzc2lvbg
+                    refresh_token_expires_in: 2592000
+                    user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                    email: alice@example.com
+                    email_verified: true
+                    phone_verified: false
+                    mfa_required: false
+                    id_token: null
+                    scope: openid
+              example: *id011
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Unauthorized (invalid or missing token)
+        '500':
+          description: Internal server error
+          content: *id003
+      parameters:
+      - *id004
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: frontend
+      x-consumer-note: Direct browser call to refresh access token
       x-brrtrouter-impl: true
 components:
   parameters:
@@ -1011,13 +1009,9 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: 'For SaaS customers: required, must be their own organisation.
-
-            For platform admins: optional — if omitted, creates a platform-level user.
-
-            When present, the user is automatically added to this organisation.
-
-            '
+          description: "For SaaS customers: required, must be their own organisation.\n\
+            For platform admins: optional \u2014 if omitted, creates a platform-level\
+            \ user.\nWhen present, the user is automatically added to this organisation.\n"
       example:
         email: newuser@example.com
         email_confirmed: false
@@ -1073,7 +1067,7 @@ components:
           description: Current phone verification status
         both_verified:
           type: boolean
-          description: Always false — both codes still needed
+          description: "Always false \u2014 both codes still needed"
         message:
           type: string
           example: Email verified. Please verify your phone to complete login.
@@ -1345,8 +1339,8 @@ components:
                 description: Key type (e.g. "RSA")
               kid:
                 type: string
-                description: Key ID — unique identifier for this key (used by JWT
-                  `kid` header)
+                description: "Key ID \u2014 unique identifier for this key (used by\
+                  \ JWT `kid` header)"
               use:
                 type: string
                 description: Intended use of the public key (sig = signature)
@@ -2558,7 +2552,7 @@ components:
         sub:
           type: string
           format: uuid
-          description: Subject — the user's opaque identifier (not PII)
+          description: "Subject \u2014 the user's opaque identifier (not PII)"
         email:
           type: string
           format: email

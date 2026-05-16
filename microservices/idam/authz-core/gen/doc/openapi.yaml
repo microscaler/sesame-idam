@@ -13,10 +13,8 @@ info:
   contact:
     name: Platform / Security
 servers:
-- url: /idam/v1/am
-  description: Authz Core API
-- url: /idam/v1/authz-core
-  description: Authz Core API
+- url: /idam/v1
+  description: IDAM API v1
 tags:
 - name: Principal
   description: Principal role assignment, attributes, effective rights, and authorization
@@ -25,288 +23,6 @@ security:
 - BearerAuth: []
 - ApiKeyHeader: []
 paths:
-  /authz/principals/roles:
-    post:
-      tags:
-      - Principal
-      summary: Assign role to principal
-      description: 'Assigns a role to a principal (sub) within an application, organisation,
-        and tenant scope.
-
-        SaaS customers assign roles within their own org; platform admins assign globally.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: assign_principal_role
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AssignPrincipalRoleRequest'
-            examples:
-              default: &id001
-                summary: Example for assign_principal_role
-                value:
-                  principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                  role_id: 550e8400-e29b-41d4-a716-446655440010
-                  tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
-            example: *id001
-      responses:
-        '204':
-          description: Assigned
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '404':
-          description: Application or role not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: &id002
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: unauthorized
-                error_description: Authentication required
-        '500':
-          description: Internal server error
-          content: &id003
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: internal_error
-                error_description: An unexpected error occurred
-      parameters:
-      - &id004
-        name: X-Tenant-ID
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
-      x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Assign role to principal, never from browser'
-      x-brrtrouter-impl: true
-    delete:
-      tags:
-      - Principal
-      summary: Revoke role from principal
-      operationId: revoke_principal_role
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RevokePrincipalRoleRequest'
-      responses:
-        '400':
-          description: Bad request — validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: validation_error
-                message: Request validation failed
-        '204':
-          description: Revoked
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
-        '500':
-          description: Internal server error
-          content: *id003
-      parameters:
-      - *id004
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Revoke role from principal, never from browser'
-  /authz/principals/attributes:
-    post:
-      tags:
-      - Principal
-      summary: Set attribute for principal (ABAC)
-      operationId: set_principal_attribute
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SetPrincipalAttributeRequest'
-      responses:
-        '204':
-          description: Set
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
-        '500':
-          description: Internal server error
-          content: *id003
-      parameters:
-      - *id004
-      description: Requires `X-Tenant-ID` header for tenant resolution.
-      x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Set attribute on principal, never from browser'
-      x-brrtrouter-impl: true
-  /authz/principals/effective:
-    post:
-      tags:
-      - Principal
-      summary: Get effective roles and permissions for principal
-      description: 'Returns the effective roles and permissions for a principal within
-        an application,
-
-        organisation, and tenant scope. Used by Identity service for JWT enrichment.
-
-        SaaS customers query for their own principals; platform admins query globally.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: principal_effective
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EffectiveRequest'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EffectiveResponse'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '404':
-          description: Application not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
-        '500':
-          description: Internal server error
-          content: *id003
-      parameters:
-      - *id004
-      x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Get effective permissions for principal, used
-        by authz middleware'
-      x-brrtrouter-impl: true
-  /authz/authorize:
-    post:
-      tags:
-      - Principal
-      summary: Check if principal is allowed to perform action on resource
-      description: 'Real-time authorization check. Consuming microservices call this
-        to verify
-
-        a user has permission for a specific action on a resource.
-
-        SaaS customers check within their own org; platform admins check globally.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: authorize
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthorizeRequest'
-            examples:
-              default: &id005
-                summary: Example for authorize
-                value:
-                  principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                  resource: user:123
-                  action: read
-                  tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
-            example: *id005
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthorizeResponse'
-              examples:
-                default: &id006
-                  summary: Example for authorize 200
-                  value:
-                    allowed: true
-                    reason: explicit_role_assignment
-              example: *id006
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '401':
-          description: Unauthorized — invalid, expired, or missing credentials
-          content: *id002
-        '500':
-          description: Internal server error
-          content: *id003
-      parameters:
-      - *id004
-      x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Check if principal is authorized, used by all
-        backend services'
-      x-brrtrouter-impl: true
   /authz/audit/events:
     post:
       tags:
@@ -364,7 +80,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -378,7 +94,7 @@ paths:
       x-brrtrouter-impl: true
       security: []
       parameters:
-      - &id007
+      - &id001
         name: X-Tenant-ID
         in: header
         required: true
@@ -430,7 +146,7 @@ paths:
           type: string
           format: date-time
         description: End time filter (ISO 8601)
-      - *id007
+      - *id001
       responses:
         '200':
           description: Paginated audit events
@@ -459,71 +175,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      x-brrtrouter-impl: true
-      security: []
-  /authz/audit/events/{id}:
-    get:
-      tags:
-      - Audit
-      summary: Get single audit event
-      description: Retrieve a specific audit event by its ID. Returns full event details
-        including metadata.
-      operationId: get_audit_event
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: Event identifier
-      - *id007
-      responses:
-        '200':
-          description: Audit event details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuditEvent'
-              example:
-                id: 550e8400-e29b-41d4-a716-446655440000
-                event_type: authentication
-                event_action: login_success
-                tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
-                user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
-                actor: user
-                target_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
-                target_type: user
-                severity: info
-                ip_address: 203.0.113.42
-                user_agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
-                session_id: 6ba7b810-9dad-11d1-80b4-00c04fd430ca
-                timestamp: '2026-05-11T14:30:00Z'
-        '400':
-          description: Invalid event ID format
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Event not found
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -541,8 +193,8 @@ paths:
       tags:
       - Audit
       summary: Get audit event statistics
-      description: Get aggregate statistics for audit events — counts by type, severity,
-        actor, and time range.
+      description: "Get aggregate statistics for audit events \u2014 counts by type,\
+        \ severity, actor, and time range."
       operationId: get_audit_stats
       requestBody:
         required: true
@@ -588,7 +240,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -602,7 +254,71 @@ paths:
       x-brrtrouter-impl: true
       security: []
       parameters:
-      - *id007
+      - *id001
+  /authz/audit/events/{id}:
+    get:
+      tags:
+      - Audit
+      summary: Get single audit event
+      description: Retrieve a specific audit event by its ID. Returns full event details
+        including metadata.
+      operationId: get_audit_event
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Event identifier
+      - *id001
+      responses:
+        '200':
+          description: Audit event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEvent'
+              example:
+                id: 550e8400-e29b-41d4-a716-446655440000
+                event_type: authentication
+                event_action: login_success
+                tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+                actor: user
+                target_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
+                target_type: user
+                severity: info
+                ip_address: 203.0.113.42
+                user_agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
+                session_id: 6ba7b810-9dad-11d1-80b4-00c04fd430ca
+                timestamp: '2026-05-11T14:30:00Z'
+        '400':
+          description: Invalid event ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+      security: []
   /authz/audit/export:
     post:
       tags:
@@ -645,7 +361,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -659,7 +375,7 @@ paths:
       x-brrtrouter-impl: true
       security: []
       parameters:
-      - *id007
+      - *id001
   /authz/audit/export/{export_id}:
     get:
       tags:
@@ -676,7 +392,7 @@ paths:
           type: string
           format: uuid
         description: Export job identifier
-      - *id007
+      - *id001
       responses:
         '200':
           description: Export status
@@ -696,7 +412,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -747,7 +463,7 @@ paths:
                 delete_after_days: 1095
                 created_at: '2026-01-01T00:00:00Z'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -761,7 +477,7 @@ paths:
       x-brrtrouter-impl: true
       security: []
       parameters:
-      - *id007
+      - *id001
     post:
       tags:
       - Audit
@@ -818,7 +534,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -838,7 +554,7 @@ paths:
       x-brrtrouter-impl: true
       security: []
       parameters:
-      - *id007
+      - *id001
   /authz/audit/retention/{id}:
     patch:
       tags:
@@ -854,7 +570,7 @@ paths:
           type: string
           format: uuid
         description: Policy identifier
-      - *id007
+      - *id001
       requestBody:
         required: true
         content:
@@ -886,7 +602,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -920,12 +636,12 @@ paths:
           type: string
           format: uuid
         description: Policy identifier
-      - *id007
+      - *id001
       responses:
         '204':
           description: Policy deleted
         '401':
-          description: Unauthorized — missing or invalid X-Tenant-ID header
+          description: "Unauthorized \u2014 missing or invalid X-Tenant-ID header"
           content:
             application/json:
               schema:
@@ -944,6 +660,288 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
       security: []
+  /authz/authorize:
+    post:
+      tags:
+      - Principal
+      summary: Check if principal is allowed to perform action on resource
+      description: 'Real-time authorization check. Consuming microservices call this
+        to verify
+
+        a user has permission for a specific action on a resource.
+
+        SaaS customers check within their own org; platform admins check globally.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: authorize
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeRequest'
+            examples:
+              default: &id002
+                summary: Example for authorize
+                value:
+                  principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                  resource: user:123
+                  action: read
+                  tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+            example: *id002
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizeResponse'
+              examples:
+                default: &id003
+                  summary: Example for authorize 200
+                  value:
+                    allowed: true
+                    reason: explicit_role_assignment
+              example: *id003
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: &id004
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
+        '500':
+          description: Internal server error
+          content: &id005
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
+      parameters:
+      - &id006
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context
+          for user lookup and authentication.
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Check if principal is authorized, used by all
+        backend services'
+      x-brrtrouter-impl: true
+  /authz/principals/attributes:
+    post:
+      tags:
+      - Principal
+      summary: Set attribute for principal (ABAC)
+      operationId: set_principal_attribute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPrincipalAttributeRequest'
+      responses:
+        '204':
+          description: Set
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
+      parameters:
+      - *id006
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Set attribute on principal, never from browser'
+      x-brrtrouter-impl: true
+  /authz/principals/effective:
+    post:
+      tags:
+      - Principal
+      summary: Get effective roles and permissions for principal
+      description: 'Returns the effective roles and permissions for a principal within
+        an application,
+
+        organisation, and tenant scope. Used by Identity service for JWT enrichment.
+
+        SaaS customers query for their own principals; platform admins query globally.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: principal_effective
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EffectiveRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EffectiveResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '404':
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
+      parameters:
+      - *id006
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Get effective permissions for principal, used
+        by authz middleware'
+      x-brrtrouter-impl: true
+  /authz/principals/roles:
+    post:
+      tags:
+      - Principal
+      summary: Assign role to principal
+      description: 'Assigns a role to a principal (sub) within an application, organisation,
+        and tenant scope.
+
+        SaaS customers assign roles within their own org; platform admins assign globally.
+
+
+
+        Requires `X-Tenant-ID` header for tenant resolution.'
+      operationId: assign_principal_role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignPrincipalRoleRequest'
+            examples:
+              default: &id007
+                summary: Example for assign_principal_role
+                value:
+                  principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                  role_id: 550e8400-e29b-41d4-a716-446655440010
+                  tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+            example: *id007
+      responses:
+        '204':
+          description: Assigned
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Bad request (validation error)
+        '404':
+          description: Application or role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
+      parameters:
+      - *id006
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Assign role to principal, never from browser'
+      x-brrtrouter-impl: true
+    delete:
+      tags:
+      - Principal
+      summary: Revoke role from principal
+      operationId: revoke_principal_role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokePrincipalRoleRequest'
+      responses:
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '204':
+          description: Revoked
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Not found
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id004
+        '500':
+          description: Internal server error
+          content: *id005
+      parameters:
+      - *id006
+      description: Requires `X-Tenant-ID` header for tenant resolution.
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Revoke role from principal, never from browser'
 components:
   parameters:
     Page:
@@ -1104,7 +1102,7 @@ components:
           - string
           - 'null'
           format: uuid
-          description: Organisation scope (optional — unset for user-level attributes)
+          description: "Organisation scope (optional \u2014 unset for user-level attributes)"
         tenant_id:
           type: string
           format: uuid
