@@ -228,6 +228,146 @@ Old vs New:
 - `topics/topic-jwt-schema.md`: Note PII removal and entitlements_ref
 - `topics/topic-claims-schema.md`: (new) Document entitlement snapshot format
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-201: Entitlements Hash NOT Verified Against Fetched Snapshot (CRITICAL — Hole #1 from PRS)
+
+**Risk:** Cache poisoning via Redis → full privilege escalation
+
+The `verify_entitlements_hash()` function is defined but there's no enforcement that it is CALLED. If a consumer fetches a cached snapshot from Redis and DOES NOT verify the hash, they may act on poisoned data.
+
+**Exploit path:**
+1. Attacker compromises Redis (or exploits an insider threat, or predicts cache keys)
+2. Attacker modifies the cached entitlements snapshot for user A to include `permissions: ["admin:all"]`
+3. Consumer fetches the modified snapshot from Redis
+4. Consumer DOES NOT call `verify_entitlements_hash()` — or calls it but ignores the result
+5. Consumer grants admin access to user A
+
+**Implementation requirement:**
+- `verify_entitlements_hash()` MUST be called after every Redis cache fetch
+- The function signature is correct: it takes `(snapshot, expected_hash)` and returns `AuthError::EntitlementsHashMismatch` on mismatch
+- **MUST NOT be optional** — callers must handle the error and fall back to authz-core
+- The "TODO: Invalidate cache entry and re-fetch from authz-core" in the function body MUST be implemented
+
+```rust
+fn verify_entitlements_hash(
+    snapshot: &EntitlementsSnapshot,
+    expected_hash: &str,
+) -> Result<(), AuthError> {
+    let computed = compute_sha256_canonical_json(snapshot);
+    let computed_str = format!("sha256:{}", computed);
+    if computed_str != expected_hash {
+        // Invalidate the poisoned cache entry
+        METRICS.entitlements_cache_poison_detected.inc();
+        return Err(AuthError::EntitlementsHashMismatch);
+    }
+    Ok(())
+}
+```
+
+### HACK-202: Entitlements Hash Computed Over Wrong Data (HIGH — Hole #1 from PRS)
+
+**Risk:** Hash covers partial data → false security
+
+The `entitlements_hash` is "SHA-256 of the canonical JSON representation of the entitlements snapshot." But the token also contains `sx.permissions` (a separate field). If the hash covers only the entitlements snapshot stored in Redis but NOT the `sx.permissions` array in the JWT itself, there's a disconnect.
+
+**Exploit path:**
+1. `sx.permissions` in JWT = `["user:read"]`
+2. Entitlements snapshot in Redis = `{"permissions": ["admin:all", "billing:write"]}`
+3. The hash verifies the Redis snapshot (correct)
+4. But the handler checks `sx.permissions` (from JWT) not the Redis snapshot
+5. Result: permissions in Redis say "admin", handler checks JWT claim and gets "user:read"
+6. The hash provides NO protection — it verifies the wrong data source
+
+**Implementation requirement:**
+- Decide: which data source is authoritative for permissions?
+  - Option A: Redis snapshot is authoritative, JWT `sx.permissions` is a cache hint
+  - Option B: JWT `sx.permissions` is authoritative, Redis snapshot is supplementary
+- If Option A: consumers MUST use the Redis snapshot (after hash verification) and ignore `sx.permissions`
+- If Option B: the `sx.permissions` array MUST be included in the hash computation (not just the Redis snapshot)
+- This decision MUST be documented in the story
+
+### HACK-203: Entitlements Reference Can Be Predicted (HIGH — Hole #20 from PRS)
+
+**Risk:** Attacker can enumerate entitlements snapshots
+
+The `generate_entitlements_ref()` function is deterministic: `uuid::Uuid::new_v5(NAMESPACE_SHA256, "user_id:org_id:version")`. If an attacker knows a user_id and org_id, they can compute the entitlements ref for any version.
+
+**Exploit path:**
+1. Attacker knows user_id (from URL path or JWT) and org_id (from JWT)
+2. Attacker computes `entitlements_ref` for version 1, 2, 3...
+3. Attacker queries Redis for `entitlements:{ref}` for each version
+4. Attacker finds the latest version's snapshot (which has all current permissions)
+5. Attacker reads the full permissions list (may reveal internal system structure)
+
+**Implementation requirement:**
+- Consider using a non-deterministic ref (random UUID) instead of version-based
+- OR add authentication to Redis entitlements access (only authenticated consumers can read)
+- Document: "Entitlements refs are deterministic and potentially enumerable. This is acceptable because the ref is useless without Redis access, and the snapshot is cached with a short TTL"
+
+### HACK-204: Entitlements TTL Too Long (MEDIUM — Hole #14 from PRS)
+
+**Risk:** Entitlements remain valid after permission changes
+
+The entitlements cache TTL is 30-300 seconds (configurable). A user demoted from admin to user still has `permissions: ["admin:all"]` cached for up to 300 seconds (5 minutes).
+
+**Exploit path:**
+1. User is admin with permissions cached for 300s
+2. User is demoted (ver bumped to 43)
+3. User's cached entitlements still contain `["admin:all"]` for up to 300s more
+4. The `ver` claim provides protection (if version check is deployed), but without it, the cached permissions are valid for 5 minutes
+
+**Implementation requirement:**
+- Keep TTL at 30-300s (document as a trade-off)
+- Add `entitlements:{user_id}:{version}` key pattern to allow versioned cache entries
+- Ensure the version in the JWT matches the version in the cached snapshot (cross-check)
+
+### HACK-205: PII Removal Breaks Existing Consumers (MEDIUM — operational risk)
+
+**Risk:** If PII is removed from JWT but existing consumers still expect it, they'll break
+
+The "Consumer Migration" section describes the process, but there's no migration window specified. Existing frontend SDKs may expect `email` in the JWT and will fail silently or crash.
+
+**Implementation requirement:**
+- Document the migration window: "PII will be removed from JWTs after deployment. Frontend SDKs must be updated BEFORE or SIMULTANEOUSLY with the deployment"
+- Consider a transition period where BOTH PII and entitlements_ref are present in the JWT
+- Or document: "Migration must be coordinated — PII removal is a BREAKING CHANGE for all consumers"
+
+### HACK-206: Entitlements Snapshot Contains Tenant ID — Cache Key Must Include Tenant (HIGH — Hole #8 from PRS)
+
+**Risk:** Cross-tenant entitlements bleed
+
+The entitlements snapshot format shows `"tenant": "tenant-uuid"`. If the cache key is `entitlements:{entitlements_ref}` and the ref is deterministic from `(user_id, org_id, version)`, two users from different tenants but with the same `(user_id, org_id, version)` would share the same cache entry.
+
+**Exploit path:**
+1. User A from Tenant A has `entitlements_ref = "ent_abc123"`
+2. User B from Tenant B has the same `entitlements_ref = "ent_abc123"` (same user_id, org_id, version)
+3. Both share the same Redis key `entitlements:ent_abc123`
+4. Tenant A's admin permissions are served to Tenant B's user
+
+**Implementation requirement:**
+- The cache key MUST include the tenant: `entitlements:{tenant_id}:{entitlements_ref}`
+- OR the ref generation MUST include the tenant_id: `format!("{}:{}:{}:{}", user_id, org_id, version, tenant_id)`
+- This is critical for the multi-tenant isolation model
+
+### HACK-207: Hash Algorithm Not Specified (LOW — but important)
+
+**Risk:** Hash computation algorithm is ambiguous
+
+The story says "SHA-256" in one place and "blake3" in another. The `verify_entitlements_hash()` comment says SHA-256, but the PRS (Hole #1) mentions blake3.
+
+**Implementation requirement:**
+- Standardize on ONE hash algorithm for the entire system
+- Recommend: SHA-256 (standard, well-tested, no ambiguity)
+- Document the choice: "entitlements_hash uses SHA-256 of canonical JSON"
+- Canonical JSON means: sorted keys, no whitespace, consistent number formatting
+
+---
+
 ## Acceptance Criteria
 
 - [ ] `email`, `email_verified`, `phone_number`, `phone_verified`, `first_name`, `last_name`, `name`, `preferred_username` are removed from JWT claims
