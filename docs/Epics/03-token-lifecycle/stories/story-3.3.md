@@ -150,9 +150,131 @@ flowchart TD
     I --> J[Client backs off and retries]
 ```
 
-## OpenAPI Changes
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
 
-- `LoginResponse` schema: Document the token expiry time (exp claim) in description
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-301: Zero TTL Is Live Integration Test (MEDIUM — Hole #4 from PRS)
+
+**Risk:** A misconfiguration of `JWT_ACCESS_TTL_NORMAL=0` causes ALL users' tokens to expire immediately
+
+The Edge Cases section says: "assert the token is issued with `exp = iat` (immediately expired)." But the question is: does this cause a DENIAL OF SERVICE?
+
+**Exploit path (accidental DoS):**
+1. Developer sets `JWT_ACCESS_TTL_NORMAL=0` in CI (accidental env var leak, stale config)
+2. ALL users' access tokens are issued with `exp = iat` (immediately expired)
+3. Every user login returns a token that expires before it reaches the client
+4. Result: complete service outage — every request gets 401 TokenExpired
+5. Attacker who already has a valid token gets 5 minutes (the token from before the deployment)
+
+**Implementation requirement:**
+- Add a MINIMUM TTL check: if any TTL env var is <= 60 seconds, REJECT startup with error
+```rust
+pub fn validate_ttl_configs() {
+    let min_ttl = 60;
+    if normal_ttl < min_ttl || elevated_ttl < min_ttl || admin_ttl < min_ttl {
+        panic!("JWT_ACCESS_TTL_* must be >= 60 seconds");
+    }
+}
+// Call this at startup, before accepting requests
+```
+- Add monitoring: alert on TTL configuration changes (via config hot-reload)
+
+### HACK-302: Refresh Token TTL Never Decreases (HIGH — Hole #1 from PRS)
+
+**Risk:** Refresh tokens live for 30 days even after access token is revoked
+
+An access token has 5-minute TTL. But the refresh token has 30-day TTL. If an attacker obtains a refresh token (from localStorage XSS, memory dump, etc.), they can use it for up to 30 days — even if the user's access token was revoked (version bumped, denylisted, etc.).
+
+**Exploit path:**
+1. Attacker steals refresh token from localStorage (XSS)
+2. Legitimate user is demoted (ver bumped to 43, but access token is still valid)
+3. Attacker uses the stolen refresh token to get a NEW access token
+4. The new access token has ver=43 (because version bump was applied at token issue)
+5. BUT: if version check is not deployed (Story 5.2), the attacker's token has stale permissions
+6. Result: attacker has a 30-day window of access, even after the user's permissions are revoked
+
+**Combined with HACK-501a (Story 5.1):**
+- Version check is not deployed
+- Refresh token has 30-day TTL
+- Result: attacker has 30 days of access after stealing refresh token
+
+**Implementation requirement:**
+- Consider: refresh token TTL should be SHORTER for high-privilege users
+- OR: refresh token should be bound to version (include `ver` in refresh token metadata)
+- OR: when user's permissions are revoked (version bumped), also revoke ALL refresh tokens for that user
+
+### HACK-303: All Roles Use Same 5-Minute TTL (MEDIUM — Hole #4 from PRS)
+
+**Risk:** Admin tokens have the same 5-minute window as customer tokens
+
+F-010 aligned ALL token TTLs to 5 minutes. This simplifies the configuration but means an admin with stolen access tokens has the SAME 5-minute window as a regular user.
+
+**Exploit path:**
+1. Attacker steals admin access token (5-minute TTL)
+2. Attacker performs admin actions (create_org, config:update, etc.)
+3. Admin actions may have audit logs, but the damage can be done in seconds
+4. 5 minutes is more than enough time for a determined attacker to:
+   - Create a new admin user
+   - Change org configuration
+   - Export all user data
+   - Create M2M API keys
+
+**The argument for 5-minute admin tokens:** "Step-up MFA provides the real security boundary." But step-up MFA is only enforced on the CLIENT side. An attacker who steals the token bypasses the client entirely.
+
+**Implementation requirement:**
+- Document this trade-off explicitly: "Admin tokens use the same 5-minute TTL as normal tokens. This is acceptable because (a) step-up MFA gates high-consequence actions, (b) audit logs track all admin actions, and (c) 5 minutes is short enough that most attacks require active exploitation rather than passive token theft."
+- Consider: add a configurable `JWT_ACCESS_TTL_ADMIN` that defaults to 5 minutes but can be set to 1 minute for high-security deployments
+
+### HACK-304: Token TTL Doesn't Affect Token Size Budget (LOW — related to Hole #2.5)
+
+**Risk:** Longer token TTL increases token payload size (exp is further in the future)
+
+The token size budget test (Story 2.5) checks that the JWT payload is under 8KB. A longer TTL means the `exp` claim has a larger timestamp value. For a standard 30-day refresh token, the `exp` is ~2.6M seconds from epoch. For a 5-minute access token, it's ~300 seconds. The size difference is negligible (same number of digits), but the principle matters.
+
+**Implementation requirement:**
+- No action needed — this is a non-issue for the current TTLs. Documented for completeness.
+
+### HACK-305: Token Expiry Check Can Be Manipulated via Clock Skew (MEDIUM)
+
+**Risk:** Attacker can delay requests to exploit clock skew
+
+The test says: "Token 61 seconds past expiry is rejected (past 60-second clock skew tolerance)." This means tokens that are up to 60 seconds past their `exp` are STILL accepted.
+
+**Exploit path:**
+1. Attacker has a token with `exp = T+300` (5-minute token, expires in 300 seconds)
+2. Attacker delays the request by 60 seconds (via traffic shaping, network manipulation, etc.)
+3. The token is 60 seconds past expiry
+4. Server accepts it because of the 60-second clock skew tolerance
+5. Result: token effectively has a 6-minute window instead of 5 minutes
+
+**Implementation requirement:**
+- The 60-second clock skew tolerance is a reasonable operational trade-off
+- Document: "Clock skew tolerance of 60 seconds is acceptable for operational reasons. Attackers can extend token validity by at most 60 seconds."
+- Consider: the tolerance should be asymmetric — reject tokens that are MORE than 60 seconds expired, but accept tokens that are LESS than 60 seconds early (to prevent false rejections)
+
+### HACK-306: Refresh Token Rotation Without Access Token Rotation (HIGH)
+
+**Risk:** Refresh token is rotated, but access token keeps the same exp window
+
+When a user refreshes:
+1. Old refresh token (rt_A) is invalidated
+2. New refresh token (rt_B) is issued
+3. New access token (at_B) is issued
+4. BUT: if the new access token has the same TTL as the old one, the attacker who obtained at_A can still use it for up to 5 minutes
+
+**Combined with HACK-302:**
+- If the attacker stole rt_A (30-day TTL), they can keep refreshing indefinitely
+- Each refresh gives them a new access token
+- Result: indefinite access as long as rt_A is valid (up to 30 days)
+
+**Implementation requirement:**
+- Document: "Refresh token rotation does NOT invalidate access tokens issued before the rotation. An attacker with a valid refresh token can keep obtaining new access tokens until the refresh token is revoked."
+- This is the fundamental limitation of JWT-based auth: access tokens cannot be revoked without a version check + denylist mechanism.
+
+---
+
+## OpenAPI Changes
 - No changes to request/response shapes needed -- TTL is an internal implementation detail
 
 ```yaml
