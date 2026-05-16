@@ -9,7 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 chrono = { workspace = true }
-lifeguard-migrate = { path = "../../lifeguard/lifeguard-migrate" }
+lifeguard-migrate = { workspace = true }
 
 # IDAM microservice impl crates — each provides models::entity_registry
 sesame_idam_identity_login_service = { path = "../idam/identity-login-service/impl" }

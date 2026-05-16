@@ -4728,6 +4728,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sesame_idam_migrator"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "lifeguard-migrate",
+ "sesame_idam_api_keys",
+ "sesame_idam_authz_core",
+ "sesame_idam_identity_login_service",
+ "sesame_idam_identity_session_service",
+ "sesame_idam_identity_user_mgmt_service",
+ "sesame_idam_org_mgmt",
+]
+
+[[package]]
 name = "sesame_idam_org_mgmt"
 version = "0.1.0"
 dependencies = [
