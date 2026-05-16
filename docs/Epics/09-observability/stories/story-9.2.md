@@ -213,3 +213,53 @@ No OpenAPI changes. Metrics are internal.
 
 - **Hit ratio calculation**: The hit ratio is derived from two counters (hits / (hits + misses)). This is a computed metric -- Grafana/Prometheus computes it at query time. There is no `jwks_cache_hit_ratio` gauge -- the ratio is calculated as `jwks_cache_hits_total / (jwks_cache_hits_total + jwks_cache_misses_total)`. This is the standard Prometheus pattern.
 - **Alert noise**: `jwks_refresh_failures_total` alerts on any failure. During routine network blips, this may generate false positives. Mitigation: use rate-based alerts (`rate(jwks_refresh_failures_total[5m]) > 0`) instead of absolute counts, and require sustained failures (e.g., 3 consecutive failures) before alerting.
+- **Hit ratio is a derived metric**: The hit ratio is computed at query time as `hits / (hits + misses)` — there is no direct gauge. This means the "hit ratio" metric in Grafana is a query, not a stored value. Tests must verify the underlying counters, not a computed ratio gauge.
+- **Gauge drift**: `jwks_last_refresh_age_seconds` is updated continuously in the background refresh loop. If the background task panics or stops, the gauge freezes at its last value and reports stale age. Tests must verify the gauge is updated even when background refresh fails.
+
+## Tests
+
+### Unit Tests
+
+- [ ] **jwks_cache_hits_total incremented on cache hit**: Given a JWKS cache hit for key kid_1, assert `jwks_cache_hits_total` is incremented by 1
+- [ ] **jwks_cache_misses_total incremented on cache miss**: Given a JWKS cache miss (key not found), assert `jwks_cache_misses_total` is incremented by 1
+- [ ] **jwks_refresh_failures_total incremented on fetch failure**: Given a JWKS fetch fails with a network error, assert `jwks_refresh_failures_total` is incremented by 1
+- [ ] **jwks_keys_count gauge set to number of cached keys**: Given a JWKS refresh returns 5 keys and the cache is replaced, assert `jwks_keys_count` is set to 5.0
+- [ ] **jwks_last_refresh_age_seconds reset to 0 on successful refresh**: Given a JWKS refresh succeeds, assert `jwks_last_refresh_age_seconds` is set to 0.0
+- [ ] **jwks_keys_count gauge is zero when cache is empty**: Given a JWKS cache with no keys (empty response from endpoint), assert `jwks_keys_count` is set to 0.0
+- [ ] **jwks_last_refresh_age_seconds increases over time**: Given a successful refresh at time T0, assert that at time T0 + 10s the gauge reads approximately 10.0 seconds
+- [ ] **Hit ratio calculation from counters**: Given `jwks_cache_hits_total = 950` and `jwks_cache_misses_total = 50`, assert the derived hit ratio is 95.0% (950 / (950 + 50))
+- [ ] **Counter is thread-safe (concurrent hits and misses)**: Given 1000 concurrent JWKS operations (mix of hits and misses), assert the sum of hits + misses equals 1000 — no lost increments
+- [ ] **Gauge set is idempotent**: Given `jwks_keys_count` is set to 5.0 three times in succession, assert the gauge value is 5.0 (not 15.0) — `set()` replaces, unlike `inc()`
+
+### Integration Tests (BDD-style with `rstest_bdd`)
+
+- [ ] **Scenario: Cache hit path emits correct counters**: `given` a JWKS cache with 3 keys → `when` 10 JWT validations arrive for those keys → `then` `jwks_cache_hits_total` is 10, `jwks_cache_misses_total` is 0, and `jwks_keys_count` is 3
+- [ ] **Scenario: Cache miss path triggers refresh and emits metrics**: `given` a JWKS cache with no keys → `when` a JWT validation arrives → `then` `jwks_cache_misses_total` is 1, a JWKS fetch is triggered, and after the fetch succeeds `jwks_keys_count` reflects the new key count
+- [ ] **Scenario: Refresh failure increments failure counter**: `given` the JWKS endpoint is down → `when` the background refresh loop runs → `then` `jwks_refresh_failures_total` is incremented for each failed attempt
+- [ ] **Scenario: All 6 services emit JWKS metrics independently**: `given` all 6 services have a JWKS cache → `when` they each perform JWT validations → `then` each service increments its own counters (verified by scraping each service's `/metrics` endpoint)
+- [ ] **Scenario: Refresh success resets age gauge**: `given` the last JWKS refresh was 300 seconds ago (age gauge = 300) → `when` a background refresh succeeds → `then` `jwks_last_refresh_age_seconds` is reset to 0
+- [ ] **Scenario: Metrics endpoint includes JWKS metrics**: `given` a GET request to `/metrics` on any service → `when` the response is parsed → `then` it contains `jwks_cache_hits_total`, `jwks_cache_misses_total`, `jwks_refresh_failures_total`, `jwks_keys_count`, and `jwks_last_refresh_age_seconds`
+
+### Security Regression Tests
+
+- [ ] **Metrics do not expose JWKS key material**: Assert that `jwks_keys_count` only reports the number of keys, not the key content — a compromised metrics endpoint does not leak JWKS keys
+- [ ] **Refresh failure metric cannot be spoofed by client**: Assert that `jwks_refresh_failures_total` is only incremented by the server-side background refresh loop — a client cannot trigger a refresh failure by sending a malformed request
+- [ ] **Metrics endpoint does not cause resource exhaustion**: Assert that scraping `/metrics` 10,000 times in 1 second does not significantly impact JWT validation latency — gauge reads and counter increments are O(1) and lock-free or use fine-grained locks
+- [ ] **No client input influences metric labels**: Assert that metric labels are fixed (`jwks_cache_hits_total`, `jwks_cache_misses_total`, etc.) and cannot be influenced by client-provided values — no dynamic label injection
+
+### Edge Cases
+
+- [ ] **jwks_keys_count with zero keys from endpoint**: Given the JWKS endpoint returns `{keys: []}`, assert `jwks_keys_count` is set to 0.0 (not skipped or left at previous value)
+- [ ] **jwks_last_refresh_age_seconds during initial startup**: Given the service has just started and no JWKS refresh has occurred yet, assert `jwks_last_refresh_age_seconds` reports a large value or NaN (undefined) — document the initial state
+- [ ] **Counter overflow (u64 max)**: Given `jwks_cache_hits_total` reaches `u64::MAX`, assert it saturates or wraps gracefully — at 10,000 RPS with 99% cache hit, this would take ~58 million years
+- [ ] **Gauge with negative value (impossible but defensive)**: Assert `jwks_keys_count` never goes below 0 — the implementation should enforce a minimum of 0.0 even if the cache count somehow goes negative
+- [ ] **Metrics recorded during background refresh panic**: Given the background refresh task panics, assert that previously recorded gauge values (last_refresh_age) are preserved and not reset to 0 — a panic should not corrupt metric state
+- [ ] **Metrics endpoint under high concurrent load**: Given 10,000 concurrent requests to `/metrics` while 10,000 JWT validations are happening, assert the `/metrics` endpoint completes in <50ms and metrics remain accurate
+
+### Cleanup
+
+- [ ] Metrics registry must be reset between test scenarios using `prometheus::Registry::new()` to prevent cross-test metric contamination
+- [ ] No persistent state is left by counter/gauge operations — all metrics are in-memory so no filesystem cleanup is needed
+- [ ] If tests use a real `/metrics` endpoint, ensure the HTTP server is stopped and restarted between tests to prevent stale metric state
+- [ ] Background refresh task spawned in tests must be cancelled between test scenarios — use `tokio::task::JoinHandle::abort()` to prevent the background loop from modifying metrics of subsequent tests
+- [ ] Mock JWKS endpoint must be isolated per test — each test should configure its own mock server or use different endpoint paths to prevent response pollution
