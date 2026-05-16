@@ -154,6 +154,69 @@ flowchart TD
     F -->|Failure| H[record result=failure<br/>log WARN, return error]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-931: Authz Fallback Cache Hit/Cache Miss Timing Differences Create Authorization Oracle (CRITICAL — Hole #5 from PRS)
+
+**Risk:** Attacker uses response timing differences between cache hit and cache miss to determine if a user has specific authorization decisions cached, mapping the user's authorization behavior
+
+The story shows: cache HIT returns immediately, cache MISS calls authz-core (slower). An attacker can measure response times.
+
+**Exploit path (authorization behavior profiling):**
+1. Attacker sends 100 requests to `preferences:update` → measures avg response time → fast (cache HIT, user has done this before)
+2. Attacker sends 100 requests to `orders:delete` → measures avg response time → slow (cache MISS, never done this)
+3. Attacker concludes: the user has never performed `orders:delete` but has performed `preferences:update`
+4. Result: The attacker maps the user's authorization behavior without any authorization bypass
+
+**This is a low-risk information leak but helps the attacker plan further attacks:** if the user has never accessed a route, it might mean they don't have permission (the route is not in their cached decisions), OR it means they simply haven't needed to access it yet.
+
+**Implementation requirement:**
+- Add random jitter (±50ms) to cache HIT responses to make timing indistinguishable from cache MISS
+- Or: always call authz-core in parallel with cache lookup and return the cache result if available
+- Document: "Authz fallback cache hit and miss responses have indistinguishable timing."
+
+### HACK-932: Authz Fallback Cache Key Collision via Subject Injection (HIGH — related to Hole #6 from PRS)
+
+**Risk:** Attacker crafts a request with a special `subject` value that causes the cache key hash to collide with another user's cached result
+
+The story uses `blake3::hash(key_data.as_bytes())`. Blake3 is collision-resistant (256-bit), so hash collision is negligible. But what about the key_data format?
+
+**Exploit path (cache key format injection):**
+1. The cache key is: `blake3("subject:org_id:action:resource_id:?")`
+2. If `subject` contains `:`, it becomes part of the key_data string
+3. Example: subject="user_1:admin" → key_data="user_1:admin:org_123:preferences:update:"
+4. This is NOT a collision with user_1's key because the subject includes the colon
+5. BUT: what if the attacker controls the subject and can make it match another user's subject exactly?
+6. The subject is in the JWT (signed), so the attacker cannot forge another user's subject
+7. Result: NOT vulnerable to cross-user cache key collision
+
+**The real exploit is different:** What about WITHIN the same user? Can the attacker make different actions hash to the same cache key?
+
+**Exploit path (same-user different-action collision):**
+1. User A has a cached result for action `preferences:update`
+2. User A (or attacker controlling the account) sends a request for action `preferences:read`
+3. The cache key for `preferences:read` is DIFFERENT from `preferences:update` (different action string)
+4. So no collision
+5. Result: NOT vulnerable
+
+**The real risk is different:** The cache key format uses `:` as a separator, which could be exploited if a field value contains `:`.
+
+**Exploit path (colon in subject for cache poisoning):**
+1. Attacker's JWT has subject="user_123" (valid, signed by Sesame)
+2. Attacker sends a request with org_id="org_456:admin" (contains colon)
+3. The cache key becomes: `blake3("user_123:org_456:admin:action:")`
+4. This is different from `blake3("user_123:org_456:admin:action:")` where org_456 is a separate key in the hash
+5. Result: No collision, but the cache key is unexpectedly formatted (the colon in org_id is part of the key_data)
+
+**Implementation requirement:**
+- Sanitize org_id and resource_id before hashing: remove or escape control characters
+- Validate that subject, org_id, action, and resource_id do not contain control characters (ASCII < 0x20)
+- Document: "Cache key fields are sanitized to remove control characters before hashing."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Spans are internal.

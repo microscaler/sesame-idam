@@ -286,6 +286,78 @@ flowchart TD
     G[token.revoked span] --> H[attributes: type, propagation_seconds, result]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-951: Token Lifecycle Spans Leak User Identification Patterns (CRITICAL — Hole #5 from PRS)
+
+**Risk:** Token lifecycle spans (`token.issued`, `token.refreshed`, `token.revoked`) record `user_id` and `tenant_id`, enabling user behavior profiling if an attacker gains access to Jaeger traces
+
+The story records: `user_id`, `tenant_id`, `token_version` in spans. If an attacker can see Jaeger traces, they can track a user across time.
+
+**Exploit path (user activity correlation):**
+1. Attacker gains access to Jaeger traces
+2. Attacker queries for `token.issued` spans with `user_id=user_123`
+3. The attacker sees: when the user logged in, what tenant they belong to, what version their token was
+4. At different times, the attacker queries for `token.refreshed` spans with `user_id=user_123`
+5. The attacker builds a timeline of the user's authentication activity
+6. Result: User activity profiling from observability data
+
+**This is a significant risk:** observability systems are often less protected than the application itself.
+
+**Exploit path (user enumeration via token lifecycle):**
+1. Attacker queries for `token.revoked` spans
+2. The `type` attribute reveals the revocation type: `logout`, `family_revoked`, `version_bump`
+3. If `family_revoked` → the user's entire token family was revoked → possible compromise
+4. If `version_bump` → the user's permissions changed → possible admin action against the user
+5. Result: The attacker can identify which users were targeted by admin actions
+
+**Implementation requirement:**
+- Do NOT record `user_id` in token lifecycle spans — use a hash or anonymize the user_id
+- Do NOT record `tenant_id` in token lifecycle spans — tenant context is operational, not needed for debugging
+- If `user_id` is needed for debugging, only include it in logs (not spans), and restrict log access
+- Document: "Token lifecycle spans do NOT record user_id or tenant_id. These fields are logged only to secure audit logs."
+
+### HACK-952: Revocation Propagation Span Can Be Used to Time Token Revocation (HIGH — related to Hole #3 from PRS)
+
+**Risk:** The `propagation_seconds` attribute reveals exactly how long it takes for a revocation to take effect
+
+The story records: `span.record("propagation_seconds", duration.as_secs_f64())`. An attacker can use this to time attacks around revocation propagation.
+
+**Exploit path (timing attack around revocation):**
+1. Attacker's token is revoked (e.g., by admin or password change)
+2. The `token.revoked` span records `propagation_seconds=2.5`
+3. The attacker knows: their token will be valid for up to 2.5 more seconds after revocation
+4. The attacker sends a high-value request within those 2.5 seconds
+5. If the revocation uses a Redis denylist with 5-second cache TTL, the attacker has a 2.5-second window
+6. Result: The attacker completes an action during the revocation propagation window
+
+**The story already acknowledges this:** `propagation_seconds` measures from local revocation to local awareness, NOT cross-service propagation. Cross-service propagation depends on the denylist cache TTL.
+
+**Implementation requirement:**
+- The `propagation_seconds` attribute should measure cross-service propagation (time from revocation to when ALL services have the denylist entry), not just local awareness
+- OR: remove `propagation_seconds` from the span and only include it in secure audit logs
+- Document: "Propagation measurement captures cross-service denylist propagation, not just local cache."
+
+### HACK-953: Token Validation Span Header Size Exposes Authorization Header Contents (MEDIUM — related to Hole #5 from PRS)
+
+**Risk:** The `token.validation` span records `header_size_bytes`, which correlates with the length of the Authorization header (including the token)
+
+The story records: `span.record("header_size_bytes", req.header("Authorization").len() as f64)`. The header size varies with token size (which varies with user permissions).
+
+**Exploit path (token size oracle):**
+1. Attacker sends a request and measures the `header_size_bytes` from the response (if exposed) or from the span (if they have Jaeger access)
+2. The header size correlates with the token size, which correlates with the user's permission count
+3. Result: The attacker can estimate the user's privilege level
+
+**Implementation requirement:**
+- Record `header_size_bytes` as a bucket (e.g., "under_1KB", "1-2KB", "over_2KB") instead of the exact value
+- OR: remove `header_size_bytes` from spans and only include it in secure audit logs
+- Document: "Token validation span attributes do not include exact header size."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Spans and logs are internal.

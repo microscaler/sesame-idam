@@ -170,6 +170,133 @@ flowchart TD
     H --> I
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-961: Log Field Injection via JWT Claims (CRITICAL — Hole #7 from PRS)
+
+**Risk:** Attacker crafts a JWT with a claim that has the same key name as a log field (e.g., `level`, `event`, `service`) to overwrite the log metadata
+
+The story says: "NEVER log raw access tokens or refresh tokens." But what about the structured log field names? If the attacker can inject a claim called `level`, could they change the log level?
+
+**Exploit path (log field name injection via JWT):**
+1. The structured logger builds a log entry with fields: `event`, `level`, `user_id`, `tenant_id`, `route`, `decision_source`, `result`, etc.
+2. If the logger uses the JWT claims directly in the log entry (e.g., `claims` as a JSON blob), the attacker can inject fields
+3. BUT: the attacker can ALSO inject fields if the logger merges JWT claims into the log entry at the top level
+
+**Exploit path (log level override):**
+1. Attacker forges a JWT with claim `level: "INFO"` (instead of WARN or ERROR)
+2. The logger reads the JWT claims and includes them in the structured log
+3. If the logger sets the log level from the claim (instead of from the event severity), the attacker downgrades a WARN/ERROR to INFO
+4. Result: Security events are logged at INFO level instead of WARN/ERROR, potentially being filtered out by log aggregation rules
+
+**The real exploit is different:** What if the attacker crafts a JWT where the `event` claim has the value `event: "jwt_validation"` and the logger uses this directly?
+
+**Exploit path (log event injection):**
+1. Attacker forges a JWT with a claim `event: "security_audit_success"`
+2. The structured logger includes this claim in the log entry
+3. The log entry now has TWO `event` fields: one from the middleware (e.g., `event: "jwt_validation"`) and one from the JWT claims (e.g., `event: "security_audit_success"`)
+4. If the log aggregation tool uses the FIRST `event` field, it might use the attacker's value
+5. Result: The log entry is misclassified, and security monitoring misses the event
+
+**Implementation requirement:**
+- NEVER merge JWT claims directly into the structured log entry at the top level
+- All log fields MUST be set explicitly by the middleware, not from JWT claims
+- If JWT claims need to be included in the log, they MUST be in a nested `claims` object, not at the top level
+- Add a validation step: "Verify that no JWT claim name matches a log field name"
+- Document: "Structured log fields are set explicitly by the middleware. JWT claims are NEVER merged into the log entry at the top level."
+
+### HACK-962: Structured Log Contains Subject/Issuer/Tenant Which Enables User/tenant Enumeration (HIGH — related to Hole #5 from PRS)
+
+**Risk:** The structured log includes `issuer`, `subject`, `client_id`, `session_id`, `token_id`, `token_version`, `tenant_id` — all visible in the log stream
+
+The story includes these fields in every structured log entry. If an attacker gains access to the log stream (e.g., Loki/SIEM), they can:
+1. Extract all `subject` values (user IDs)
+2. Extract all `tenant_id` values (tenant enumeration)
+3. Extract all `issuer` values (trust chain mapping)
+4. Correlate users with tenants, clients, and sessions
+
+**Exploit path (user enumeration via log analysis):**
+1. Attacker has access to Loki/SIEM (e.g., via a compromised service account)
+2. Attacker queries: `{service=~".*idam.*"} | json | "event"="jwt_validation" | table subject, tenant_id`
+3. Result: A list of all user IDs and their tenant IDs
+4. Attacker can now target specific users (e.g., platform admins, org admins)
+
+**This is the inherent risk of structured logging:** you need user context for audit trails, but that context is visible to anyone with log access.
+
+**The mitigation is access control:** restrict log stream access to authorized personnel only.
+
+**Implementation requirement:**
+- Structured log access MUST be restricted to authorized personnel via RBAC on the log aggregation system (Loki/Grafana)
+- Add a note in the design doc: "Structured logs contain user context (subject, tenant_id, session_id). Access to log streams MUST be restricted via RBAC."
+- Consider: hashing the `subject` and `tenant_id` in logs for compliance with data protection regulations (if required by the jurisdiction)
+- Document: "Structured logs contain user context. Log access is restricted via RBAC on the log aggregation system."
+
+### HACK-963: Decision Source Field Can Be Used to Probe Authorization Logic (MEDIUM — related to Hole #4 from PRS)
+
+**Risk:** The `decision_source` field reveals which authorization path was used for each request
+
+The story defines `decision_source` values: `jwt_claims`, `fallback_cached`, `fallback_online`, `denylist`, `version_mismatch`, `online_only`. An attacker can use this to map the authorization logic.
+
+**Exploit path (authorization logic mapping):**
+1. Attacker sends requests to different routes
+2. For each route, the attacker checks the `decision_source` in the structured log (if accessible)
+3. Routes with `decision_source=jwt_claims` → JWT-only routes
+4. Routes with `decision_source=fallback_cached` or `fallback_online` → jwt-with-fallback routes
+5. Routes with `decision_source=online_only` → authz-core-only routes
+6. Result: The attacker maps the authorization classification of all routes
+
+**This is useful for an attacker:** knowing which routes are jwt-only helps them identify routes that can be accessed with a forged JWT (if they can forge a valid JWT signature).
+
+**Implementation requirement:**
+- `decision_source` MUST NOT be included in logs that are accessible to attackers
+- OR: use a generic value (e.g., `decision_source=jwt_or_fallback`) instead of the specific value
+- Document: "The decision_source field in structured logs should not be accessible to untrusted parties."
+
+### HACK-964: Structured Log Volume Can Cause Log Ingestion DoS (HIGH — related to Hole #3 from PRS)
+
+**Risk:** An attacker floods the system with requests, generating massive structured log volumes that exhaust the log ingestion pipeline
+
+The story says: "At 10,000 RPS, this generates ~600,000 log lines per minute." But what if the attacker generates 100,000 RPS?
+
+**Exploit path (log ingestion DoS):**
+1. Attacker sends 100,000 requests per second to jwt-with-fallback routes
+2. Each request generates a structured log entry (INFO/WARN level)
+3. The log ingestion pipeline (Loki/Fluentd/Vector) is overwhelmed
+4. The log pipeline drops entries or becomes delayed
+5. When a REAL security event occurs (e.g., token theft), it is lost in the noise
+6. Result: The security team misses the real event because the log pipeline was DoS'd
+
+**Implementation requirement:**
+- Structured logging for successful JWT validations (INFO level) should be rate-limited: MAX 10,000 log entries per second per service
+- If the rate limit is exceeded, excess INFO-level logs are dropped (not written to the log stream)
+- WARN/ERROR-level logs are NEVER rate-limited (they are security-critical)
+- Add a metric: `structured_log_dropped_total{level: "INFO"}` to track dropped entries
+- Document: "INFO-level structured logs are rate-limited to 10,000 entries/sec. WARN/ERROR logs are never rate-limited."
+
+### HACK-965: Actor Subject Field Can Be Used to Spoof Delegation Context (MEDIUM — related to Hole #1 from PRS)
+
+**Risk:** If the attacker can forge a JWT with an `act` claim, the structured log will record the forged actor subject
+
+The story says: "Actor subject is populated when the JWT contains an `act` claim." If the attacker forges an `act` claim, the log will include the forged actor subject.
+
+**Exploit path (delegation context spoofing in logs):**
+1. Attacker forges a JWT with `act.sub = "support_agent_admin"`
+2. The attacker sends a request to an admin route
+3. The structured log records `actor_subject = "support_agent_admin"`
+4. If the log stream is accessible, the attacker can see that the request was logged as coming from "support_agent_admin"
+5. Result: The attacker can manipulate the audit trail by spoofing the actor subject in logs
+
+**The log does NOT prevent the attack:** the log records what the JWT claims say, not what the ACTUAL actor is. The real verification happens at the authz-core level (Story 4.1).
+
+**Implementation requirement:**
+- The `actor_subject` in the structured log MUST be cross-checked against the actual actor identity verified by authz-core
+- If the actor subject in the JWT does NOT match the verified actor identity from authz-core, log a WARN event: `event="actor_subject_mismatch"`
+- Document: "The actor_subject in structured logs is cross-checked against authz-core verification."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Logging is internal to the service.

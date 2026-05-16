@@ -278,6 +278,79 @@ No OpenAPI changes needed for Rust struct implementation (internal code). The Op
 - `topics/topic-token-lifecycle.md`: Document claims builder pattern
 - `topics/topic-claims-schema.md`: (new) Rust type specification
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-201: Permissions Are a Raw `Vec<String>` With No Integrity Check (CRITICAL — Hole #7 and #22 from PRS)
+
+**Risk:** If the JWT signing key is compromised, the attacker can forge permissions. While the JWT signature protects the entire payload, `sx.permissions` is a plain `Vec<String>` with no per-field hash. The `entitlements_hash` (Story 2.3) only covers the entitlements snapshot, not the permissions list.
+
+**Exploit path:**
+1. Private signing key is compromised
+2. Attacker crafts JWT with `sx.permissions = ["admin:all", "users:manage"]`
+3. The JWT signature is valid — middleware accepts it
+4. Handlers trust `sx.permissions` as authoritative
+5. Result: full privilege escalation
+
+**Implementation requirement:**
+- `SesameAuthzClaims` should include a `permissions_hash: Option<String>` field that covers the `sx.permissions` array
+- Handlers that check permissions should verify the hash before trusting the list
+- This is an additional layer of defense — the JWT signature is the PRIMARY protection, but the hash provides defense-in-depth
+
+**Structural addition to `SesameAuthzClaims`:**
+```rust
+pub struct SesameAuthzClaims {
+    pub tenant: String,
+    pub portal: String,
+    pub roles: Vec<String>,
+    pub permissions: Vec<String>,
+    pub permissions_hash: Option<String>, // NEW: covers permissions array integrity
+    pub entitlements_ref: Option<String>,
+    pub entitlements_hash: Option<String>,
+    pub risk: Option<String>,
+}
+```
+
+### HACK-202: Backward-Compatible Deserialization Can Be Abused (HIGH)
+
+**Risk:** Old-format JWTs (without `ver`, `tenant_id`, or `sx`) should be rejected, but `#[serde(default)]` on some fields could allow a partially-populated struct that bypasses validation.
+
+**Exploit path:**
+1. Attacker crafts a JWT with missing `sx` namespace (old format)
+2. `AccessClaims::validate()` checks `self.sx.tenant.is_empty()` — but if `sx` is `None` due to default deserialization, accessing `self.sx.tenant` may panic or silently pass
+3. Result: potential panic (DoS) or silent bypass
+
+**Implementation requirement:**
+- Use `#[serde(default)]` ONLY on truly optional fields (`act`, `entitlements_ref`, `entitlements_hash`, `risk`)
+- `ver`, `sid`, `sx`, and `tenant_id` MUST be required — use `Option<T>` deserialization and check for `None`
+- Validate deserialized struct BEFORE using it in authorization decisions
+
+### HACK-203: JWT Size Can Be Inflated (MEDIUM — relates to Hole #2.5)
+
+**Risk:** An attacker could submit a JWT with an extremely large `roles` or `permissions` array to cause:
+- Token size to exceed NGINX/Apache header budget → 400/413/431 errors
+- Memory exhaustion in the handler parsing the claims
+- Denial of service to legitimate users
+
+**Implementation requirement:**
+- Add size limit on `sx.permissions` and `sx.roles` arrays (e.g., max 50 entries)
+- Fail build if representative token exceeds 8KB budget (Story 2.5)
+- Validate token size before processing in JWT middleware
+
+### HACK-204: Deserialization Order Can Be Manipulated (LOW)
+
+**Risk:** Some JWT libraries deserialize fields in arbitrary order. If the builder pattern validates at `build()` time but the deserializer populates fields in a different order, there could be a window where a partially-validated struct is used.
+
+**Implementation requirement:**
+- Always call `validate()` after deserialization, before any authorization decision
+- Never trust a deserialized struct without calling `validate()` first
+- The validation order is: required fields → issuer → audience → version → tenant → risk
+
+---
+
 ## Acceptance Criteria
 
 - [ ] `ActorClaim` struct is implemented with `sub` field (RFC 8693)

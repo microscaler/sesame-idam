@@ -176,6 +176,118 @@ flowchart TD
     L --> M[Return access_token + refresh_token]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+These are specific attack vectors identified during threat modeling. Each must be considered and mitigated during implementation. If a gotcha cannot be fully mitigated, document the residual risk.
+
+### HACK-601: Token Exchange Audience Merging Missing (CRITICAL — Hole #17 from PRS)
+
+**Risk:** Cross-service token misuse — token issued for service A accepted by service B
+
+The token exchange creates a new access token with merged scopes but does NOT validate or set the `aud` claim. Story 6.1's RFC 8693 response schema includes `iss` and `iat` but NOT `aud`. The security assessment (F-003) flags this: "RFC 8693 requires `iss`, `aud`, `iat`, `exp`, `sub`, `jti` in exchanged tokens."
+
+**Exploit path:**
+1. Attacker initiates token exchange with subject token `aud: ["myapp.com"]`
+2. Actor token has `aud: ["support-portal.com"]`
+3. New token issued WITHOUT `aud` claim
+4. New token accepted by any service that doesn't check audience
+5. Result: cross-service token misuse
+
+**Implementation requirement:**
+- Add `aud` to TokenExchangeResponse schema and validation pipeline (per F-003)
+- The new token's `aud` must include the audience of the original token AND the audience of the actor token (per F-012)
+- Add `iss` and `iat` to the response JSON
+
+**Acceptance criterion addition (already present in original):**
+- "TokenExchangeResponse includes `iss`, `aud`, and `iat` claims per RFC 8693" (F-003)
+- "Audience contains both original and actor audiences" (F-012)
+
+### HACK-602: Token Exchange Does Not Validate Audience (HIGH — Hole #17 from PRS)
+
+**Risk:** Cross-service token misuse
+
+**Exploit path:** Same as HACK-601 — if `aud` is not set on the new token, any service that accepts the token without validating audience will be vulnerable.
+
+**Implementation requirement:** The audience merging logic MUST include both subject and actor audiences:
+```rust
+// NEW token's aud = subject_aud UNION actor_aud
+let mut new_aud = Vec::new();
+new_aud.extend(subject_token.aud);
+new_aud.extend(actor_token.aud.map(|a| a));
+new_aud.sort();
+new_aud.dedup();
+```
+
+### HACK-603: Cross-Org Privilege Escalation (HIGH — Hole #15 from PRS)
+
+**Risk:** Platform admin in org A can impersonate users in org B within the same tenant
+
+The `can_delegate()` function in Story 6.1:
+- `platform_admin`: can delegate ANY user in their tenant (including other orgs)
+- `org_admin`: can delegate users in same org only
+
+A platform admin in org A could exchange a token to act as a user in org B within the same tenant. This may or may not be the intended behavior.
+
+**Exploit path:**
+1. Attacker has platform admin token in org A
+2. Initiates token exchange with user from org B as subject
+3. Gets a new token with `act.sub = platform_admin (org A)` and `sub = org B user`
+4. The new token can act as org B's user, with org A's admin identity as the actor
+5. Result: cross-org privilege escalation
+
+**Implementation requirement:**
+- Add org-scoped validation to the token exchange: the actor's org must be validated against the subject's org
+- For `platform_admin` actors, add a configurable flag: `PLATFORM_ADMIN_CROSS_ORG_DELEGATION=false` (default: true, but should be configurable)
+- Document the cross-org behavior explicitly
+
+### HACK-604: act.chain Depth Not Bounded (HIGH — Hole #20 from PRS)
+
+**Risk:** Stack exhaustion / DoS via deeply nested delegation chains
+
+The token exchange supports nested delegation with `act.chain` but there is no maximum chain depth limit. An attacker can create a chain 100+ levels deep, causing:
+- JWT size to exceed header budget limits → 400/413/431 errors
+- Stack overflow or memory exhaustion during chain parsing
+
+**Exploit path:**
+1. Attacker creates nested delegation chain: tool_1 → admin_1 → user_1 → admin_2 → user_2 → ...
+2. Each level adds to the `act.chain`
+3. At 100+ levels, the chain becomes very large
+
+**Implementation requirement:**
+- Add maximum chain depth limit (e.g., 10 levels)
+- Reject token exchange requests where the `act.chain` would exceed the limit
+- Document the limit in the story
+
+### HACK-605: Token Exchange Can Bypass Login Rate Limits (MEDIUM)
+
+**Risk:** Attacker uses token exchange to circumvent login rate limiting
+
+The token exchange endpoint (`/auth/token`) accepts any valid token as the subject. An attacker who cannot use `/auth/login` due to rate limiting could instead use `/auth/token` to obtain new tokens with delegated privileges.
+
+**Exploit path:**
+1. Attacker has a valid API key (not rate-limited on login)
+2. Uses token exchange with API key as subject token
+3. Gets a new access token with delegated claims
+4. This bypasses login rate limiting
+
+**Implementation requirement:**
+- Token exchange endpoint MUST enforce the same rate limiting as the login endpoint
+- Document this in the story's risk/trade-offs section
+
+### HACK-606: No Maximum Token TTL on Exchange (MEDIUM)
+
+**Risk:** Attacker obtains a token with an excessively long TTL
+
+There is no mention of a maximum token TTL on the token exchange. If the actor token has a long TTL or no TTL, the new exchanged token could also have an excessively long TTL.
+
+**Implementation requirement:**
+- Cap the new token's `expires_in` at the minimum of: subject token TTL, actor token TTL, and a configured maximum (e.g., 300 seconds / 5 minutes)
+- This prevents an attacker from obtaining a long-lived token through token exchange
+
+---
+
 ## OpenAPI Changes
 
 Add to `openapi/idam/identity-login-service/openapi.yaml`:

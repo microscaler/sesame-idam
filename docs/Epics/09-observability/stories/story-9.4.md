@@ -260,6 +260,67 @@ flowchart TD
     H --> I
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-941: Shadow Mode as Authorization Backdoor (CRITICAL — Hole #1 from PRS)
+
+**Risk:** Shadow mode is left enabled in production, allowing an attacker to use the shadow online check as an authorization oracle
+
+The story says: "Shadow mode must be disabled after production cutover." But what if it's forgotten?
+
+**Exploit path (shadow mode enabled in production):**
+1. Shadow mode is enabled in production (accidentally or intentionally by a compromised admin)
+2. The shadow online check runs in background for every `jwt-with-fallback` route
+3. An attacker sends a request to a jwt-with-fallback route
+4. The shadow check calls authz-core and compares with the JWT decision
+5. If the JWT allows but online denies → the mismatch is logged at WARN level
+6. The attacker can monitor the shadow decision logs (if they have access to the structured log stream)
+7. Result: The attacker can determine if a specific action would be allowed by the online system, even if the JWT says it's denied
+
+**This is an authorization oracle:** the shadow mode reveals the online authorization decision without the client seeing it directly.
+
+**But wait:** the story says the shadow check is fire-and-forget and the client only sees the JWT decision. So the client cannot directly observe the shadow result.
+
+**The real exploit is different:** If the attacker has access to the structured log stream (Loki/SIEM), they can search for `shadow_mismatch` events and see the `jwt_decision` and `online_decision` fields.
+
+**Exploit path (shadow mismatch log as oracle):**
+1. Attacker has access to Loki/SIEM (e.g., via a compromised service account or log injection)
+2. Attacker searches for `event=shadow_mismatch` with `jwt_decision=allowed` and `online_decision=denied`
+3. For each route, the attacker checks if a mismatch exists: if YES, the online system would deny; if NO, the online system would allow
+4. Result: The attacker maps the online authorization system without triggering any alerts
+
+**Implementation requirement:**
+- Shadow mode MUST be disabled in production. The startup check must be enforced (not just "alert if enabled").
+- Add a hardware/software watchdog that disables shadow mode if it detects production traffic patterns
+- NEVER log `online_decision` in shadow mismatch events if the log stream is accessible to attackers
+- Document: "Shadow mode is NEVER enabled in production. If enabled, it must be detected and disabled by a watchdog."
+
+### HACK-942: Shadow Mode Increases Attack Surface by Doubling Authz-Core Calls (HIGH — related to Hole #3 from PRS)
+
+**Risk:** Shadow mode doubles the authz-core load, creating a DoS vector
+
+The story says: "Shadow mode doubles the authz-core load for jwt-with-fallback routes." An attacker can exploit this.
+
+**Exploit path (shadow-induced authz-core DoS):**
+1. Attacker enables shadow mode (if they have access to the config) OR shadow mode is already enabled
+2. Attacker sends 1000 requests per second to jwt-with-fallback routes
+3. Authz-core receives 1000 real requests + 1000 shadow requests = 2000 requests
+4. Authz-core becomes overloaded and starts returning errors
+5. The real requests fail, causing a service outage
+6. Result: DoS via shadow mode amplification
+
+**The story already mentions this as a trade-off:** "This is acceptable during migration (2 weeks) but NOT in production." The risk is that shadow mode is NOT disabled in production.
+
+**Implementation requirement:**
+- Shadow mode MUST be disabled in production via a config check that blocks startup if shadow mode is enabled
+- Add a `SHADOW_MODE_ENABLED` environment variable that defaults to `false` and can ONLY be changed via a secure config management system
+- If shadow mode is enabled in production, the service MUST refuse to start
+- Document: "Shadow mode is disabled in production. The service refuses to start if shadow mode is enabled."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Shadow mode is internal to the validation layer.

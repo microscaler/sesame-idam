@@ -159,6 +159,44 @@ flowchart TD
     F --> I
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+### HACK-921: JWKS Refresh Span Attributes Leak Key Metadata (CRITICAL — related to Hole #1 from PRS)
+
+**Risk:** The `jwks_cache.refresh` span records `keys_count` which reveals the number of active keys, helping an attacker map the key rotation schedule
+
+The story records: `span.record("keys_count", keys.len())` in the `jwks_cache.refresh` span. At each refresh, the attacker (if they can see the Jaeger traces) can count how many keys are in the JWKS.
+
+**Exploit path:**
+1. Attacker has access to Jaeger traces (e.g., via a compromised service account)
+2. Attacker queries for `jwks_cache.refresh` spans
+3. The `keys_count` attribute reveals: 2 keys (during rotation), 1 key (normal)
+4. Result: Attacker knows the key rotation state without compromising any keys
+
+**This is a low-risk information leak:** knowing the number of keys doesn't help with forgery. But combined with the JWKS endpoint (which reveals which `kid` values are published), the attacker can correlate rotation state with key identity.
+
+**Implementation requirement:**
+- Remove `keys_count` from the `jwks_cache.refresh` span attributes, OR
+- Hash the key count (record `keys_count_bucket` instead of exact count: "1-2", "3-5", "6+")
+- Document: "JWKS refresh span attributes do not include exact key counts."
+
+### HACK-922: JWKS Refresh Failure Span Can Leak Endpoint URLs (MEDIUM — related to Hole #5 from PRS)
+
+**Risk:** The `jwks_cache.refresh` span records the JWKS endpoint URL as an attribute, which is visible in Jaeger
+
+The story records: `span = tracing::span!("jwks_cache.refresh", endpoint = self.endpoint)`. The endpoint URL is a sensitive operational detail.
+
+**Exploit path:**
+1. Attacker gains access to Jaeger traces
+2. The `jwks_cache.refresh` span reveals the JWKS endpoint URL
+3. Result: Attacker knows where to target the JWKS endpoint for DoS
+
+**Implementation requirement:**
+- Truncate or hash the endpoint URL in span attributes (e.g., record only the domain, not the full URL)
+- Document: "JWKS refresh spans record only the domain, not the full URL."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Spans are internal.

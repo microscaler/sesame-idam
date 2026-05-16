@@ -147,6 +147,148 @@ flowchart TD
     H --> J[Slack]
 ```
 
+## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
+
+> **Source:** `docs/PRS_SECURITY_HARDENING.md` — Security threat model analysis
+
+### HACK-971: Alert Suppression via Controlled Token Failure Rate (CRITICAL — Hole #7 from PRS)
+
+**Risk:** Attacker carefully controls token failure rate to stay BELOW the alerting threshold, silently bypassing authorization without triggering alerts
+
+The story sets CRITICAL alert thresholds at 1 event for reuse/rotation/revocation/JWKS failure, and 5/min for JWT validation failures. But what if the attacker stays just below these thresholds?
+
+**Exploit path (below-threshold token forgery):**
+1. Attacker forges a JWT with elevated permissions
+2. Attacker sends 1 request per second (below the 5/min WARNING threshold)
+3. Each forged request fails JWT validation (signature mismatch) — 1 error per second = 60/min
+4. The alert threshold is 5/min for WARNING, 20/min for CRITICAL
+5. At 1 request/second = 60/min → CRITICAL alert fires (actually, this IS above threshold)
+6. BUT: what if the forged token passes some validation steps but fails others?
+7. Example: The forged token has a valid issuer and expiration but invalid claims
+8. The validation might still allow the request through (if the JWT common path doesn't check all claims strictly)
+9. Result: The attacker bypasses authorization with forged tokens at a rate low enough to stay below the alert threshold
+
+**The real exploit is different:** What if the attacker FORGES a token that PASSES the JWT common path (valid signature, valid issuer, valid expiration) but has INFLATED claims?
+
+This requires the attacker to have the signing key (or exploit a weak key). If the attacker has the key, they can forge tokens at ANY rate — the alert system won't detect this because the token IS valid.
+
+**Exploit path (forged token with valid signature):**
+1. Attacker obtains or guesses the JWT signing key (if HS256 is still supported, or if there's a key confusion attack)
+2. Attacker forges a token with `role: admin` claims
+3. The forged token PASSES JWT validation (valid signature, valid issuer, valid expiration)
+4. The token is allowed through without triggering any alert (it's a valid token)
+5. The only way to detect this is via shadow decisions (Story 9.4), which only run during migration
+6. Result: Silent authorization bypass with forged tokens
+
+**This is the same exploit as HACK-722 (cache poisoning via forged token).** The alert system CANNOT detect a valid token that was forged — it can only detect invalid tokens.
+
+**Implementation requirement:**
+- Alerting CANNOT detect forged tokens with valid signatures — this is a fundamental limitation
+- The PRIMARY defense is to prevent key compromise (use RS256, not HS256)
+- The SECONDARY defense is shadow decisions during migration (Story 9.4)
+- The TERTIARY defense is token version rotation (Story 5.1) — when the signing key changes, old forged tokens become invalid
+- Document: "Alerting does not and cannot detect tokens with valid signatures. Key management is the primary defense."
+
+### HACK-972: Alert Fatigue Exploitation via Synthetic Warning Flood (HIGH — related to Hole #3 from PRS)
+
+**Risk:** Attacker deliberately triggers WARNING-level alerts to create alert fatigue, causing the on-call team to ignore real CRITICAL alerts
+
+The story says: "Too many warnings lead to ignored alerts." An attacker can weaponize this.
+
+**Exploit path (alert fatigue DoS):**
+1. Attacker sends requests that trigger `jwt_validation_failed` at > 5/min (WARNING threshold)
+2. Slack alerts fire to #idam-alerts every time the threshold is exceeded
+3. The on-call team receives 50+ Slack notifications for non-critical validation failures
+4. Meanwhile, the attacker sends a single `refresh_token_reuse_detected` event (CRITICAL)
+5. The PagerDuty page fires, but the on-call team has trained themselves to ignore alerts during high-volume periods
+6. Result: The on-call team dismisses the CRITICAL alert as "just another false alarm"
+7. The attacker's token theft goes undetected
+
+**Exploit path (alert suppression via threshold manipulation):**
+1. Attacker sends requests that trigger `jwt_validation_failed` at exactly 4/min (below the 5/min WARNING threshold)
+2. Slack alerts do NOT fire (below threshold)
+3. Meanwhile, the attacker sends a `refresh_token_reuse_detected` event (CRITICAL)
+4. The PagerDuty page fires — BUT the on-call team is simultaneously receiving false alarms from other systems
+5. Result: The CRITICAL alert is delayed or dismissed
+
+**Implementation requirement:**
+- Add a "quiet period" to WARNING alerts: after a WARNING alert fires, no further WARNING alerts for the same event type for 15 minutes
+- This prevents alert flooding while still allowing CRITICAL alerts to fire immediately
+- Add a `alert_suppression_total{event: "jwt_validation_failed", reason: "quiet_period"}` metric to track suppressed alerts
+- Document: "WARNING alerts use a 15-minute quiet period to prevent alert flooding. CRITICAL alerts always fire immediately."
+
+### HACK-973: Alert Query Manipulation via Malicious Log Injection (HIGH — related to Hole #7 from PRS)
+
+**Risk:** Attacker injects a structured log with a fake `event` field to manipulate Loki's alerting queries
+
+The alerting queries use `event="refresh_token_reuse_detected"` to match log entries. If the attacker can inject logs, they can create false positives or false negatives.
+
+**Exploit path (false positive alert):**
+1. Attacker gains access to the service's logging infrastructure (e.g., via a vulnerability in the application)
+2. Attacker injects a structured log entry: `{"event": "refresh_token_reuse_detected", "user_id": "attacker_user"}`
+3. The Loki alerting query matches this injected log entry
+4. PagerDuty fires a CRITICAL alert for "token theft"
+5. The on-call team investigates, finds nothing, and dismisses the alert
+6. Meanwhile, the attacker continues their actual attack
+7. Result: The attacker creates a "boy who cried wolf" scenario, making the on-call team dismiss real alerts
+
+**Exploit path (false negative alert suppression):**
+1. Attacker injects a structured log entry with a high `event` count or manipulates the log timestamps
+2. The Loki query aggregates over the wrong time window
+3. Result: Real alerts are suppressed because the query returns an artificially high count
+
+**Implementation requirement:**
+- Structured log entries MUST include a `service_name` field that is set by the service, NOT by the JWT or request
+- The `event` field MUST be set exclusively by the middleware, never from any request data
+- Add an integrity check: if a log entry contains an `event` field that was not set by the middleware, drop the entry
+- Document: "Structured log event fields are set exclusively by the middleware. No external data can inject log event fields."
+
+### HACK-974: Shadow Mismatch Alert Can Be Used as an Authorization Oracle (MEDIUM — related to Hole #4 from PRS)
+
+**Risk:** The `shadow_mismatch` alert reveals whether a specific route uses jwt-only or jwt-with-fallback authorization, mapping the authorization system
+
+The story says: "Shadow mismatch — JWT claims diverge from online." An attacker can use the alerting channel to probe the authorization system.
+
+**Exploit path (shadow mismatch as oracle via Slack):**
+1. Attacker has access to the #idam-alerts Slack channel (e.g., via a compromised team member's account)
+2. Attacker sends requests to different routes
+3. For routes where the JWT decision and online decision diverge, a `shadow_mismatch` alert fires
+4. For routes where the JWT decision matches (or the route is jwt-only with no shadow check), NO alert fires
+5. Result: The attacker maps which routes have shadow mode enabled and which routes have jwt-only authorization
+
+**But wait:** shadow mode is only enabled during migration (Story 9.4). In production, shadow mode is disabled. So this exploit is only relevant during migration.
+
+**The real risk is different:** During migration, the `shadow_mismatch` alert reveals that the JWT claims DO NOT match the online authorization decision for a specific route. This tells the attacker that:
+1. The route uses jwt-with-fallback authorization
+2. The JWT claims are incomplete for this route
+
+This is useful information for the attacker to plan further attacks (e.g., adding missing claims to the forged JWT).
+
+**Implementation requirement:**
+- During migration, `shadow_mismatch` alerts MUST NOT include route-specific details in Slack notifications
+- OR: use a generic alert message that does not reveal which route triggered the mismatch
+- Document: "Shadow mismatch alerts in Slack do not include route-specific details."
+
+### HACK-975: Alert Configuration in Source Control Enables Attack Planning (LOW — related to Hole #5 from PRS)
+
+**Risk:** The alert configuration is stored in source control (e.g., Git), which includes the Loki query expressions and alert thresholds
+
+An attacker with access to the source code can see exactly how alerts are configured.
+
+**Exploit path (alert configuration reconnaissance):**
+1. Attacker gains read access to the source code repository
+2. The alert configuration file includes the Loki query expressions (e.g., `event="refresh_token_reuse_detected"`)
+3. The attacker learns which events trigger alerts and at what thresholds
+4. The attacker designs attacks that stay below the alert thresholds
+5. Result: The attacker can optimize their attack to avoid detection
+
+**Implementation requirement:**
+- Alert configuration is NOT sensitive information — it can be public
+- The PRIMARY defense is to design the system so that attacks are detectable even if the attacker knows the alert thresholds
+- Document: "Alert configuration is stored in source control. This is intentional for version control and review."
+
+---
+
 ## OpenAPI Changes
 
 No OpenAPI changes. Alerting is internal to the operations layer.
