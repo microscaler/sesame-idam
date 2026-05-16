@@ -56,12 +56,12 @@ fn generate_cache_key(
 ```rust
 // In config/routes.yaml:
 route_policies:
-  - path: "/api/v1/identity/preferences"
+  - path: "/admin/users/me/preferences"
     methods: ["PUT", "PATCH"]
     category: "jwt-with-fallback"
     fallback_ttl_secs: 30  # Low-risk write, 30s is acceptable
     
-  - path: "/api/v1/identity/email/upsert"
+  - path: "/admin/users/me/email"
     methods: ["PUT", "PATCH"]
     category: "jwt-with-fallback"
     fallback_ttl_secs: 15  # Data integrity needs more freshness
@@ -116,7 +116,7 @@ sequenceDiagram
         Handler-->>Client: 200 OK (from cache)
     else Cache MISS
         Cache-->>Handler: nil
-        Handler->>Authz: POST /api/v1/am/authorize {subject, org, action}
+        Handler->>Authz: POST /authz/authorize {subject, org, action}
         Authz->>Authz: Evaluate role/permission rules
         Authz-->>Handler: {allowed: true, reason: "admin"}
         Handler->>Cache: SET authz_fallback:{hash} EX 30
@@ -395,7 +395,7 @@ components:
 - [ ] **Cache size metric reflects current entry count**: Given 5 unique cache entries in Redis, assert `authz_fallback_cache_size` returns 5
 - [ ] **Authz response serialized to JSON correctly**: Given an AuthorizeResponse {allowed: true, reason: "admin"}, assert the JSON serialization preserves all fields
 - [ ] **Authz response deserialized from JSON correctly**: Given a cached JSON string, assert deserialization produces the same AuthorizeResponse struct
-- [ ] **Route policy lookup by path+method returns correct TTL**: Given path="/api/v1/identity/preferences" method="PUT", assert `get_fallback_ttl_for_route()` returns 30 seconds
+- [ ] **Route policy lookup by path+method returns correct TTL**: Given path="/admin/users/me/preferences" method="PUT", assert `get_fallback_ttl_for_route()` returns 30 seconds
 
 ### Integration Tests (BDD-style with `rstest_bdd`)
 

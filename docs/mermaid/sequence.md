@@ -99,7 +99,7 @@ flowchart TD
         HF6[Save / Cancel]
     end
 
-    H --> I[On Save → call POST/PUT /api/v1/am/roles]
+    H --> I[On Save → call POST/PUT /applications/{app_id}/roles]
     I --> C[Refresh Role List]
 ```
 

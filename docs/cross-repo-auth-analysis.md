@@ -13,7 +13,7 @@ There are **three separate but overlapping identity/auth systems** in the Micros
 - **Scope**: Platform-wide IDAM intended for the entire Microscaler ecosystem (BRRTRouter, RERP, PriceWhisperer, Hauliage, etc.)
 - **Architecture**: Two microservices — **Authentication** (identity, sessions, OIDC, JWT, token exchange) + **Authorization** (apps, roles, permissions, `principal/effective`, `authorize`)
 - **Tenancy**: Organisation > Tenant hierarchy
-- **API path**: `/api/v1/identity/*`, `/api/v1/am/*`, `/auth`
+|- **API path**: `/auth/*`, `/admin/*`, `/authz/*`, `/api-keys/*`, `/applications/*`, `/organizations/*`
 - **Source**: Derived from BRRTRouter canonical specs
 - **Status**: Zero implementation, specs only, entity model defined in HLD
 
@@ -93,7 +93,7 @@ PropelAuth sends webhooks for all identity state changes. Sesame has audit logs 
 Login, register, refresh, logout, password reset, MFA — the specs mention OIDC/JWKS but the actual endpoints are skeletal.
 
 ### Gap 5: Fragmented API Surface
-Three different path namespaces (`/api/v1/identity`, `/auth`, `/api/v1/am`) instead of a single, clear resource-based API.
+Three different path namespaces (`/api/v1/identity`, `/auth`, `/api/v1/am`) instead of a single, clear resource-based API — **FIXED**: all specs now use `/auth/`, `/authz/`, `/api-keys/`, `/organizations/`, `/applications/` consistently.
 
 ### Gap 6: No SDK / Integration Pattern
 PropelAuth provides SDKs with JWT validation middleware. Sesame has nothing.

@@ -12,7 +12,7 @@ The JWT document's core thesis: "not put all permissions in JWTs and delete onli
 
 Two auth levels are documented:
 - **Coarse-grained**: JWT claims directly -- "Is Admin?" -- "Has invoices:write?" -- Zero latency
-- **Fine-grained**: `POST /api/v1/am/authorize` with action + resource context -- ABAC rules -- Cached in Redis 30s TTL
+| **Fine-grained**: `POST /authz/authorize` with action + resource context -- ABAC rules -- Cached in Redis 30s TTL
 
 The topology design says authz-core is called on **every** consumer API request. But the login flow says it's called **once at login** for JWT enrichment. This contradiction needs resolution.
 

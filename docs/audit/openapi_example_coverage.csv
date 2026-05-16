@@ -20,13 +20,13 @@ identity-login-service,/login/magic-link/verify,POST,magic_link_verify,Yes,200,f
 identity-login-service,/login/phone-magic-link,POST,sms_magic_link_send,Yes,200,full,"request:application/json, response_200:application/json"
 identity-login-service,/login/phone-magic-link/verify,POST,sms_magic_link_verify,Yes,200,full,"request:application/json, response_200:application/json"
 identity-session-service,/refresh,POST,auth_refresh,Yes,200,full,"request:application/json, response_200:application/json"
-identity-session-service,/api/v1/identity/users/me,GET,users_me_get,No,200,partial,response_200:application/json
-identity-session-service,/api/v1/identity/users/me,PATCH,users_me_patch,Yes,200,full,"request:application/json, response_200:application/json"
+identity-session-service,/admin/users/me,GET,users_me_get,No,200,partial,response_200:application/json
+identity-session-service,/admin/users/me,PATCH,users_me_patch,Yes,200,full,"request:application/json, response_200:application/json"
 identity-session-service,/.well-known/openid-configuration,GET,openid_configuration,No,No,none,
 identity-session-service,/.well-known/jwks.json,GET,jwks,No,200,partial,response_200:application/json
-identity-session-service,/api/v1/identity/users/me/userinfo,GET,oauth_userinfo,No,No,none,
+identity-session-service,/admin/users/me/userinfo,GET,oauth_userinfo,No,No,none,
 identity-session-service,/verify/step-up,POST,step_up_verify,Yes,200,full,"request:application/json, response_200:application/json"
-identity-session-service,/api/v1/identity/users/me/token,POST,admin_issue_token,No,No,none,
+identity-session-service,/admin/users/me/token,POST,admin_issue_token,No,No,none,
 identity-session-service,/mcp/token,POST,mcp_token,No,No,none,
 identity-session-service,/mcp/token/validate,POST,mcp_validate,No,No,none,
 identity-session-service,/api/v1/platform/mcp/agents,GET,mcp_list_agents,No,No,none,
@@ -98,17 +98,17 @@ org-mgmt,/{org_id}/saml,DELETE,delete_saml,No,No,none,
 org-mgmt,/{org_id}/migrate-to-isolated,POST,migrate_org_isolated,No,No,none,
 org-mgmt,/{org_id}/scim/groups,GET,fetch_scim_groups,No,No,none,
 org-mgmt,/{org_id}/scim/groups/{group_id},GET,fetch_scim_group,No,No,none,
-org-mgmt,/api/v1/am/applications,GET,list_applications,No,No,none,
-org-mgmt,/api/v1/am/applications,POST,create_application,No,No,none,
-org-mgmt,/api/v1/am/applications/{app_id},GET,get_application,No,No,none,
-org-mgmt,/api/v1/am/applications/{app_id}/roles,GET,list_roles,No,200,partial,response_200:application/json
-org-mgmt,/api/v1/am/applications/{app_id}/roles,POST,create_role,Yes,201,full,"request:application/json, response_201:application/json"
-org-mgmt,/api/v1/am/applications/{app_id}/roles/{role_id},GET,get_role,No,200,partial,response_200:application/json
-org-mgmt,/api/v1/am/applications/{app_id}/permissions,GET,list_permissions,No,No,none,
-org-mgmt,/api/v1/am/applications/{app_id}/permissions,POST,create_permission,No,No,none,
-org-mgmt,/api/v1/am/applications/{app_id}/roles/{role_id}/permissions,GET,get_role_permissions,No,No,none,
-org-mgmt,/api/v1/am/applications/{app_id}/roles/{role_id}/permissions,POST,assign_permission_to_role,No,No,none,
-org-mgmt,/api/v1/am/applications/{app_id}/roles/{role_id}/permissions,DELETE,revoke_permission_from_role,No,No,none,
+org-mgmt,/applications,GET,list_applications,No,No,none,
+org-mgmt,/applications,POST,create_application,No,No,none,
+org-mgmt,/applications/{app_id},GET,get_application,No,No,none,
+org-mgmt,/applications/{app_id}/roles,GET,list_roles,No,200,partial,response_200:application/json
+org-mgmt,/applications/{app_id}/roles,POST,create_role,Yes,201,full,"request:application/json, response_201:application/json"
+org-mgmt,/applications/{app_id}/roles/{role_id},GET,get_role,No,200,partial,response_200:application/json
+org-mgmt,/applications/{app_id}/permissions,GET,list_permissions,No,No,none,
+org-mgmt,/applications/{app_id}/permissions,POST,create_permission,No,No,none,
+org-mgmt,/applications/{app_id}/roles/{role_id}/permissions,GET,get_role_permissions,No,No,none,
+org-mgmt,/applications/{app_id}/roles/{role_id}/permissions,POST,assign_permission_to_role,No,No,none,
+org-mgmt,/applications/{app_id}/roles/{role_id}/permissions,DELETE,revoke_permission_from_role,No,No,none,
 org-mgmt,/{org_id}/webhooks,GET,fetch_webhook_subscriptions,No,No,none,
 org-mgmt,/{org_id}/webhooks/{subscription_id},DELETE,delete_webhook_subscription,No,No,none,
 org-mgmt,/{org_id}/webhooks/{subscription_id}/test,POST,test_webhook_delivery,No,No,none,

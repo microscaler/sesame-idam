@@ -543,9 +543,9 @@ sync-specs-from-brrtrouter:
   echo "   1. Split identity login/registration/OTP → openapi/identity-login-service/"
   echo "   2. Split refresh/OIDC/JWKS → openapi/identity-session-service/"
   echo "   3. Split user CRUD/MFA/email-phone → openapi/identity-user-mgmt-service/"
-  echo "   4. Extract /api/v1/am/principals/*, /api/v1/am/authorize → openapi/authz-core/"
-  echo "   5. Extract /api/v1/am/api-keys/* → openapi/api-keys/"
-  echo "   6. Extract /orgs/*, /api/v1/am/applications/* → openapi/org-mgmt/"
+  echo "   4. Extract /authz/principals/*, /authz/authorize → openapi/authz-core/"
+  echo "   5. Extract /api-keys/* → openapi/api-keys/"
+  echo "   6. Extract /organizations/*, /applications/* → openapi/org-mgmt/"
   echo "   7. Run: just lint-openapi"
 
 # =============================================================================

@@ -386,9 +386,9 @@ They are the highest priority for filling.
 | GET | `/{org_id}/role-mappings` | `fetch_role_mappings` |
 | POST | `/{org_id}/create-saml-link` | `create_saml_link` |
 | GET | `/{org_id}/scim/groups` | `fetch_scim_groups` |
-| GET | `/api/v1/am/applications` | `list_applications` |
-| GET | `/api/v1/am/applications/{app_id}/roles` | `list_roles` |
-| GET | `/api/v1/am/applications/{app_id}/permissions` | `list_permissions` |
+| GET | `/applications` | `list_applications` |
+| GET | `/applications/{app_id}/roles` | `list_roles` |
+| GET | `/applications/{app_id}/permissions` | `list_permissions` |
 | GET | `/{org_id}/webhooks` | `fetch_webhook_subscriptions` |
 | GET | `/{org_id}/scim/users` | `scim_list_users` |
 | POST | `/{org_id}/scim/users` | `scim_create_user` |
@@ -407,10 +407,10 @@ Priority: HIGH — request examples needed for every endpoint that accepts a bod
 | Method | Path | Response Examples |
 |--------|------|------------------|
 | POST | `/refresh` | res.401.application/json |
-| GET | `/api/v1/identity/users/me` | res.401.application/json |
-| PATCH | `/api/v1/identity/users/me` | res.401.application/json |
-| GET | `/api/v1/identity/users/me/userinfo` | res.401.application/json |
-| POST | `/api/v1/identity/users/me/token` | res.403.application/json, res.404.application/json |
+| GET | `/admin/users/me` | res.401.application/json |
+| PATCH | `/admin/users/me` | res.401.application/json |
+| GET | `/admin/users/me/userinfo` | res.401.application/json |
+| POST | `/admin/users/me/token` | res.403.application/json, res.404.application/json |
 | POST | `/mcp/token` | res.401.application/json |
 | POST | `/mcp/token/validate` | res.401.application/json |
 | GET | `/api/v1/platform/mcp/agents` | res.401.application/json |
@@ -490,14 +490,14 @@ Priority: HIGH — request examples needed for every endpoint that accepts a bod
 | DELETE | `/{org_id}/saml` | res.404.application/json |
 | POST | `/{org_id}/migrate-to-isolated` | res.400.application/json, res.404.application/json |
 | GET | `/{org_id}/scim/groups/{group_id}` | res.404.application/json |
-| POST | `/api/v1/am/applications` | res.400.application/json |
-| GET | `/api/v1/am/applications/{app_id}` | res.404.application/json |
-| POST | `/api/v1/am/applications/{app_id}/roles` | res.400.application/json |
-| GET | `/api/v1/am/applications/{app_id}/roles/{role_id}` | res.404.application/json |
-| POST | `/api/v1/am/applications/{app_id}/permissions` | res.400.application/json |
-| GET | `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | res.404.application/json |
-| POST | `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | res.400.application/json, res.404.application/json |
-| DELETE | `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | res.404.application/json |
+| POST | `/applications` | res.400.application/json |
+| GET | `/applications/{app_id}` | res.404.application/json |
+| POST | `/applications/{app_id}/roles` | res.400.application/json |
+| GET | `/applications/{app_id}/roles/{role_id}` | res.404.application/json |
+| POST | `/applications/{app_id}/permissions` | res.400.application/json |
+| GET | `/applications/{app_id}/roles/{role_id}/permissions` | res.404.application/json |
+| POST | `/applications/{app_id}/roles/{role_id}/permissions` | res.400.application/json, res.404.application/json |
+| DELETE | `/applications/{app_id}/roles/{role_id}/permissions` | res.404.application/json |
 | DELETE | `/{org_id}/webhooks/{subscription_id}` | res.404.application/json |
 | POST | `/{org_id}/webhooks/{subscription_id}/test` | res.404.application/json |
 | POST | `/admin/users/{user_id}/invalidate-all-keys` | res.403.application/json |

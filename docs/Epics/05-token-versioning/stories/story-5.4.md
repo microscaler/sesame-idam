@@ -108,7 +108,7 @@ sequenceDiagram
     participant Svc2 as Service 2
     participant Cache as Local Cache
 
-    Admin->>Authz: PUT /api/v1/am/roles/{role} {new_perms}
+    Admin->>Authz: PUT /applications/{role} {new_perms}
     Authz->>Authz: Increment tenant version
     Authz->>Redis: PUBLISH authz:version_bump {"tenant_id": "tenant_abc", "new_ver": 43}
     
