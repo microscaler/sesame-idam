@@ -4,6 +4,8 @@ members = [
     "database",
     # Shared audit crate
     "idam/sesame-audit",
+    # Migration tooling
+    "migrator",
     # IDAM microservices — gen crates (generated types + handlers)
     "idam/identity-login-service/gen",
     "idam/identity-login-service/impl",
