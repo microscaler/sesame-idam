@@ -269,7 +269,7 @@ def create_microservice_deployment(name, port):
         '%s docker copy-binary %s %s %s' % (
             sesame_idam_bin, target_path, artifact_path, package_name
         ),
-        deps=[target_path, 'tooling/pyproject.toml'],
+        deps=['tooling/pyproject.toml'],
         resource_deps=['build-%s' % name],
         labels=[name],
         allow_parallel=True,
@@ -282,7 +282,7 @@ def create_microservice_deployment(name, port):
         '%s docker build-image-simple %s %s %s %s --service %s' % (
             sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
         ),
-        deps=[hash_path, artifact_path, dockerfile_template, 'tooling/pyproject.toml'],
+        deps=[dockerfile_template, 'tooling/pyproject.toml'],
         resource_deps=['build-base-image', 'copy-%s' % name],
         labels=[name],
         allow_parallel=False,
@@ -296,10 +296,11 @@ def create_microservice_deployment(name, port):
         ('%s docker build-image-simple %s %s %s %s --service %s' % (
             sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
         ) + ' && (docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (image_name, image_name)),
-        deps=[artifact_path, hash_path, dockerfile_template,
+        deps=[dockerfile_template,
               'microservices/idam/%s/impl/config' % name,
               'microservices/idam/%s/gen/doc' % name,
               'microservices/idam/%s/gen/static_site' % name],
+        resource_deps=['build-%s' % name],
         tag='tilt',
         live_update=[
             sync(artifact_path, '/app/%s' % package_name),
