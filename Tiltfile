@@ -264,20 +264,13 @@ def create_microservice_deployment(name, port):
     image_name = 'localhost:5001/sesame-idam-%s' % name
 
     # 1. Copy binary from workspace build to artifacts and create SHA256 hash
-    # NOTE: NOT using target_path in deps — it's in the build resource's ignore
-    # list (so Tilt doesn't watch microservices/target/). We rely solely on
-    # resource_deps to run after build completes.
     local_resource(
         'copy-%s' % name,
         '%s docker copy-binary %s %s %s' % (
             sesame_idam_bin, target_path, artifact_path, package_name
         ),
-        deps=[
-            'microservices/idam/%s/gen/Cargo.toml' % name,
-            'microservices/idam/%s/impl/Cargo.toml' % name,
-            'tooling/pyproject.toml',
-        ],
-        resource_deps=['build-%s' % name],  # trigger AFTER build completes
+        deps=[target_path, 'tooling/pyproject.toml'],
+        resource_deps=['build-%s' % name],
         labels=[name],
         allow_parallel=True,
     )
@@ -289,33 +282,24 @@ def create_microservice_deployment(name, port):
         '%s docker build-image-simple %s %s %s %s --service %s' % (
             sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
         ),
-        deps=[
-            dockerfile_template,  # source of truth — always exists
-            'tooling/pyproject.toml',
-        ],
+        deps=[hash_path, artifact_path, dockerfile_template, 'tooling/pyproject.toml'],
         resource_deps=['build-base-image', 'copy-%s' % name],
         labels=[name],
         allow_parallel=False,
     )
 
     # 3. Custom build for Tilt live updates
-    # NOTE: artifact_path and hash_path are NOT in deps — they're produced by
-    # `build` (via the build-image-simple command itself). Using resource_deps
-    # instead so Tilt can trigger this resource after build completes, even
-    # though the artifact files don't exist yet at Tilt startup time.
+    # Ensures image exists (build if custom_build runs before docker-%s),
+    # then push to localhost:5001 or kind load.
     custom_build(
         image_name,
         ('%s docker build-image-simple %s %s %s %s --service %s' % (
             sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
         ) + ' && (docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (image_name, image_name)),
-        deps=[
-            dockerfile_template,  # always exists
-            'tooling/pyproject.toml',
-            'microservices/idam/%s/impl/config' % name,
-            'microservices/idam/%s/gen/doc' % name,
-            'microservices/idam/%s/gen/static_site' % name,
-        ],
-        resource_deps=['build-%s' % name],  # trigger AFTER build completes
+        deps=[artifact_path, hash_path, dockerfile_template,
+              'microservices/idam/%s/impl/config' % name,
+              'microservices/idam/%s/gen/doc' % name,
+              'microservices/idam/%s/gen/static_site' % name],
         tag='tilt',
         live_update=[
             sync(artifact_path, '/app/%s' % package_name),

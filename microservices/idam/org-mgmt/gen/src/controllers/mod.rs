@@ -3,6 +3,10 @@
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
 
+pub mod query_orgs;
+
+pub mod invalidate_user_api_keys;
+
 pub mod list_applications;
 
 pub mod create_application;
@@ -25,17 +29,21 @@ pub mod assign_permission_to_role;
 
 pub mod revoke_permission_from_role;
 
-pub mod query_orgs;
-
 pub mod fetch_org;
 
 pub mod update_org;
 
 pub mod delete_org;
 
-pub mod invalidate_user_api_keys;
+pub mod allow_org_saml;
+
+pub mod create_saml_link;
+
+pub mod disallow_org_saml;
 
 pub mod update_org_domains;
+
+pub mod enable_saml;
 
 pub mod invite_user_to_org;
 
@@ -49,7 +57,9 @@ pub mod revoke_pending_invite;
 
 pub mod fetch_role_mappings;
 
-pub mod subscribe_org_to_role_mapping;
+pub mod delete_saml;
+
+pub mod set_saml_idp_metadata;
 
 pub mod fetch_scim_groups;
 
@@ -62,6 +72,8 @@ pub mod scim_create_user;
 pub mod scim_update_user;
 
 pub mod scim_delete_user;
+
+pub mod subscribe_org_to_role_mapping;
 
 pub mod fetch_users_in_org;
 
@@ -76,15 +88,3 @@ pub mod fetch_webhook_subscriptions;
 pub mod delete_webhook_subscription;
 
 pub mod test_webhook_delivery;
-
-pub mod delete_saml;
-
-pub mod allow_org_saml;
-
-pub mod disallow_org_saml;
-
-pub mod enable_saml;
-
-pub mod create_saml_link;
-
-pub mod set_saml_idp_metadata;
