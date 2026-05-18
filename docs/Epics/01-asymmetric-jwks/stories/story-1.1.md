@@ -202,7 +202,7 @@ These are specific attack vectors identified during threat modeling. Each must b
 
 When the service restarts, a new key is generated and the old key is lost (in-memory only). This is by design — `KEY_MANAGER` is a `LazyLock` re-created on each process start.
 
-- [ ] **Log the `kid` of every key generated, rotated, and revoked** — NOT implemented. `KEY_MANAGER` is `LazyLock::new()` with no logging; `activate_next_key()` sets `last_rotation` but doesn't emit audit events. Admin revocation (`admin_jwks_revoke.rs`) also lacks audit logging (it doesn't call `EMITTER.emit()`).
+- [x] **Log the `kid` of every key generated, rotated, and revoked** — **IMPLEMENTED** as `key_generated()`, `key_rotated()`, `key_revoked()`, `grace_key_expired()` in `key_manager.rs:44-117` (`audit_events` module). All emit to `AuditEmitter` via `EMITTER.emit()`.
 - [x] **Trade-off documented** — YES: documented in "Risk / Trade-offs" section: "Private keys are in-memory only; loss on restart means no forensic capability and potential token invalidation"
 
 ### HACK-103: No Key Size or Algorithm Enforcement on JWKS Consumers (CRITICAL — Hole #16 from PRS)
