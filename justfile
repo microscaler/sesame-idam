@@ -35,9 +35,116 @@ out_identity_user_mgmt  := "microservices/idam/identity-user-mgmt-service/gen"
 out_authz_core          := "microservices/idam/authz-core/gen"
 out_api_keys            := "microservices/idam/api-keys/gen"
 out_org_mgmt            := "microservices/idam/org-mgmt/gen"
-
+# Default recipe to display help
 default:
   @just --list --unsorted
+
+# =============================================================================
+# Database / Test Environment Variables
+# =============================================================================
+# Local dev: postgres forwarded to localhost:5432 (see `just port-forward`)
+# DB_HOST, DB_PORT (default 5432), DB_NAME (default sesame_idam)
+DATABASE_URL := "postgres://sesame_idam:***@127.0.0.1:5432/sesame_idam"
+
+# =============================================================================
+# Testing (nextest)
+# =============================================================================
+# Plain `cargo test` does **not** match what CI / this repo calls the "workspace suite": it ignores
+# `cargo nextest`, `.config/nextest.toml` (timeouts, `db_integration_suite` mutex), and the filters below.
+#
+# Nextest quick reference:
+#   nt / nextest-test     — workspace nextest; excludes db_integration_suite binary (fast loop)
+#   nt-workspace          — CI-parity workspace (all members except db_integration_suite binary)
+#   nt-db-suite           — serial DB integration tests only (shared Postgres safe)
+#   nt-complete           — nextest-test then nt-db-suite (typical local: all workspace members)
+#   nt-ci-parity / nt-full — nt-workspace then nt-db-suite (matches CI)
+#   nt-verbose            — same as nt but with --no-capture (full stdout/stderr)
+#   nt-unit               — unit tests only (same filter as nextest-test)
+#
+# Coverage ladder (pick one path):
+#   • Fast loop (~`just nt`):                    `just nt` or `just nextest-test`
+#   • CI workspace step only:                    `just nt-workspace`
+#   • Serial DB integration (`db_integration_suite`): `just nt-db-suite`
+#   • Typical "all Rust tests" locally:           `just nt-complete` (= nt + nt-db-suite)
+#   • **Full CI parity** (workspace + db suite): `just nt-ci-parity` or `just nt-full`
+
+# Library unit tests only (`cargo test --lib`). For broad coverage use `just nt`, `just nt-complete`, or `just nt-ci-parity`.
+test: test-unit
+
+# Run unit tests
+test-unit:
+    @echo "🧪 Running unit tests..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo test --manifest-path microservices/Cargo.toml --lib --no-fail-fast
+
+# Run unit tests with output
+test-unit-verbose:
+    @echo "🧪 Running unit tests (verbose)..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo test --manifest-path microservices/Cargo.toml --lib -- --nocapture --no-fail-fast
+
+# Workspace nextest: excludes db_integration_suite for speed (use nt-db-suite / nt-complete).
+# Note: db_integration_suite is safe in parallel with other *packages* — nextest test-group `lifeguard-shared-postgres`
+# serializes tests inside that binary only (see .config/nextest.toml).
+nextest-test:
+    @echo "🧪 Running tests with nextest (excluding DB-heavy integration binaries)..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --fail-fast --retries 1
+
+alias nt := nextest-test
+
+# Broadest automated suite aligned with CI (workspace including db_integration_suite).
+alias nt-full := nt-ci-parity
+
+# CI-parity workspace nextest (same filter as .github/workflows/ci.yaml "Run workspace tests").
+# Includes all members; requires DATABASE_URL.
+nt-workspace:
+    @echo "🧪 Running workspace nextest (CI selection: all members)..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile ci
+
+# Run tests with nextest (no capture - passes through stdout/stderr directly)
+nt-verbose:
+    @echo "🧪 Running tests with nextest (no capture - full output)..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --no-capture
+
+# Same as `nt-workspace` (alias for discoverability)
+nt-ci:
+    @just nt-workspace
+
+# Run unit tests only with nextest (same selection as nextest-test)
+nt-unit:
+    @echo "🧪 Running tests with nextest (excluding DB-heavy integration binaries)..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --fail-fast --retries 1
+
+# DB integration suite: serial (shared Postgres safe).
+nt-db-suite:
+    @echo "🧪 Running DB integration tests (serial profile)..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial --config-file .config/nextest.toml
+
+alias nt-db := nt-db-suite
+# Same as `nt-db-suite` (CI step name / copy-paste alias)
+alias db-integration-suite := nt-db-suite
+
+# Verbose output for db suite only
+nt-db-suite-verbose:
+    @echo "🧪 Running DB integration tests (serial, no-capture)..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial --config-file .config/nextest.toml --no-capture
+
+# Typical local run: fast workspace (no cluster integration crate) + serial DB suite
+nt-complete: nextest-test nt-db-suite
+    @echo "✅ Workspace + db_integration_suite complete."
+
+# Matches CI order: workspace nextest + serial db_integration_suite
+nt-ci-parity: nt-workspace nt-db-suite
+    @echo "✅ CI-parity test run complete (workspace + db_integration_suite)."
+
+# Run integration tests with nextest
+nt-integration:
+    @echo "🧪 Running integration tests with nextest..."
+    @echo "⚠️  Note: These tests require a running database connection"
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features
+
+# Run tests with standard cargo (fallback)
+test-cargo:
+    @echo "🧪 Running tests with cargo..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo test --manifest-path microservices/Cargo.toml --all -- --nocapture
 
 # =============================================================================
 # Tooling (.venv and sesame CLI) — same guard rails as RERP
