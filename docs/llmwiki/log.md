@@ -47,7 +47,30 @@ The ERD documents 41 impl models across 6 services. 17 impl models have **no cor
 | ScimUser | OpenAPI spec uses SCIM protocol format (emails array, name object, roles) — impl is a simple 7-col table |
 | WebhookSubscription | OpenAPI spec has 12 properties with delivery tracking — impl has 8 columns with `active` boolean, not `enabled` |
 
-These gaps are documented in `topic-entity-relationship-diagram.md` and `topic-data-model.md`. The OpenAPI specs need updating to match the impl reality.
+## [2026-05-17] Epics Location and Implementation Status
+
+### Summary
+
+Added epics documentation discoverability and implementation status tracking. Fresh agents were not finding `docs/Epics/` because it was never referenced in AGENTS.md or the wiki index.
+
+### Changes Made
+
+**AGENTS.md** — Added `docs/Epics/INDEX.md` to the docs catalog table with description. Added epics directory layout explanation below the table: `docs/Epics/{N}-{name}/stories/story-N.M.md` pattern, INDEX.md as canonical master index.
+
+**INDEX.md** — Added `Status` column to the epic table. Added "Implementation Status" section with:
+- Story-level status for all 9 epics (44 stories total)
+- Epic 1 Story 1.1 marked as **Implementing** — detailed file inventory: `key_manager.rs` (807 lines, Ed25519 gen/sign/verify, KeyManager with rotation/revocation/health, 11 unit tests), `controllers/jwks.rs`, `controllers/admin_jwks_revoke.rs`, `jwks_client.rs`, `main.rs`
+- All other 40 stories marked as **Design** — verified by searching impl/ for story keywords (`jwt_only`, `jwt_with_fallback`, `route_policy`, `RouteAuthCategory`, `RoutePolicyStore`, claims schema types, version cache, delegation `act` claim, caching, observability spans) — none found
+- Updated overall status from "Design phase -- no code changes" to "Story 1.1 in implementation"
+
+### Verification
+
+Searched all impl/ crates for implementation keywords. Only Epic 1 (asymmetric JWT) has code. Confirmed via: `search_files` across all impl dirs for key terms returned matches only in `identity-session-service/impl/` for key_manager, jwks, Ed25519, KeyManager. Zero matches for route classification or claims schema code.
+
+### Open Issues
+
+- Story 1.1 is "implementing" but not yet verified as compiling. No check was run that the key_manager changes integrate cleanly with the rest of identity-session-service build.
+- The INDEX.md status section will need updates whenever new stories move from design to implementing.
 
 ### Files Changed
 

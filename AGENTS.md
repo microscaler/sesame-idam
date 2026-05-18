@@ -12,7 +12,7 @@
 
 ---
 
-Strict operational rules for AI assistants and humans working in this repository. **Knowledge about how Sesame-IDAM works is in [`docs/llmwiki/`](./docs/llmwiki/), not here.** This file only holds rules the agent must obey.
+Strict operational rules for AI assistants and humans working in this repository. **Knowledge about how Sesame-IDAM works is in [`docs/llmwiki/`](./docs/llmwiki/), not here.** This file only holds rules the agent must obey. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the completion gates — every story requires compilation, pedantic linting, unit tests, and BDD E2E tests before it is considered done. No exceptions.
 
 ---
 
