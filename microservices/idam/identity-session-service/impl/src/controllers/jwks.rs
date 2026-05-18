@@ -14,8 +14,13 @@ const JWKS_CACHE_CONTROL: &str = "public, max-age=300";
 
 #[handler(JwksController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+    // Span: document the JWKS document served
+    let span = tracing::span!(tracing::Level::INFO, "jwks.document");
+    let _guard = span.enter();
+
     // Serve the current key set from the shared KeyManager
     let doc = KEY_MANAGER.jwks_document();
+    let keys_count = doc.keys.len();
 
     // Convert to serde_json::Value for the generated Response type
     let keys: Vec<serde_json::Value> = doc
@@ -25,6 +30,9 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         .collect();
 
     let resp = Response { keys };
+
+    span.record("keys_count", keys_count);
+    tracing::info!(keys_count, "JWKS document served");
 
     // Attach response metadata so the BRRTRouter runtime can inject headers.
     // The runtime reads `handler_response.headers` and adds them to the HTTP

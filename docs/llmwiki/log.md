@@ -85,5 +85,75 @@ Searched all impl/ crates for implementation keywords. Only Epic 1 (asymmetric J
 | `docs/llmwiki/entities/entity-org-membership.md` | Created — verified against impl |
 | `docs/llmwiki/entities/entity-api-key.md` | Patched — added missing entity references |
 | `docs/llmwiki/index.md` | Patched — added 7 new entities, fixed webhook status |
-| `docs/llmwiki/topics/topic-entity-relationship-diagram.md` | Updated — comprehensive ERD + all 41 impl models + OpenAPI gaps |
-| `docs/llmwiki/topics/topic-data-model.md` | Updated — full table list + 17 impl models without OpenAPI + 14 schema mismatches |
+|| `docs/llmwiki/topics/topic-entity-relationship-diagram.md` | Updated — comprehensive ERD + all 41 impl models + OpenAPI gaps |
+|| `docs/llmwiki/topics/topic-data-model.md` | Updated — full table list + 17 impl models without OpenAPI + 14 schema mismatches |
+
+## [2026-05-18] Epic 9 — Observability OTEL Spans
+
+### Summary
+
+Wired OTEL tracing spans across all 6 sesame-idam microservices following the hauliage BRRTRouter pattern. No custom Prometheus counters — all JWT/authz diagnostics flow through `tracing::span!()` into the existing `brrtrouter::otel::init_logging_with_config()` stack. Fixed a compilation error in `authz_span_middleware.rs` (`res.status.as_u16()` → `res.status`). Created comprehensive span catalog wiki page.
+
+### Changes Made
+
+**Core span files:**
+
+| File | Span | Purpose |
+|------|------|---------|
+| `key_manager.rs` | `key.generate` | Key generation at bootstrap and rotation |
+| `key_manager.rs` | `key.rotate.prepare` | Prepare next key for rotation |
+| `key_manager.rs` | `key.rotate.activate` | Promote next key to current |
+| `key_manager.rs` | `key.revoke` | Key revocation with reason tracking |
+| `key_manager.rs` | `key.health` | Health check with key count |
+| `jwks_client.rs` | `jwks.cache.refresh` | JWKS cache validation with hit/miss/cache_status |
+| `controllers/jwks.rs` | `jwks.document` | JWKS document served with key count |
+| `controllers/admin_jwks_revoke.rs` | `key.revoke.admin` | Admin revoke endpoint |
+| `controllers/auth_refresh.rs` | `token.refreshed` | Token refresh with user_id, tenant_id |
+| `controllers/admin_issue_token.rs` | `token.issued` | Admin token issuance |
+| `auth_token.rs` (login) | `token.issue` | Token issuance with grant_type |
+
+**Middleware:**
+
+| File | Span | Purpose |
+|------|------|---------|
+| `authz_span_middleware.rs` | `authz.request` | Wraps all authz-core requests (route, method, result) |
+| `main.rs` (all 6 services) | N/A | `set_extra_prometheus` for Lifeguard DB metrics in /metrics |
+
+**Controller spans (other services):**
+
+| Service | Controller | Span |
+|---------|-----------|------|
+| identity-user-mgmt | create_user.rs | `user.created` |
+| identity-user-mgmt | delete_user.rs | `user.deleted` |
+| identity-user-mgmt | disable_user.rs | `user.disabled` |
+| api-keys | create_api_key.rs | `api_key.created` |
+| api-keys | delete_api_key.rs | `api_key.deleted` |
+| org-mgmt | delete_org.rs | `org.deleted` |
+| org-mgmt | create_application.rs | `application.created` |
+
+**Wiki updates:**
+
+| File | Action |
+|------|--------|
+| `topics/topic-observability.md` | **Created** — Full OTEL span catalog with 15 span entries, attributes, security constraints, not-yet-implemented section |
+| `index.md` | Patched — Added observability topic link |
+
+**Bug fixes:**
+
+| File | Fix |
+|------|-----|
+| `authz_span_middleware.rs` | `res.status.as_u16()` → `res.status` (u16, not StatusCode) |
+
+### Compilation
+
+`cargo check --workspace`: **PASS** (0 errors)
+
+### Gaps (not yet implemented)
+
+- **Story 9.1 full sub-spans**: `jwt.typ_check`, `jwt.signature_verify`, etc. happen inside BRRTRouter's `JwksBearerProvider::validate_token()` — would require changes to BRRTRouter itself
+- **Story 9.3 authz fallback spans**: Blocked until Story 4 (hybrid authz) implementation
+- **Story 9.4 shadow decision spans**: Blocked until migration mode
+- **Story 9.5 token revocation span**: No token revocation endpoint exists yet
+- **Story 9.6 structured JWT logging**: Partial — token lifecycle controllers have spans; per-request JWT fields (issuer, subject, session_id, jti) not yet wired
+- **Story 9.7 alerting**: No Loki/Grafana alert rules created yet (spans/logs are ready for them)
+- **Controller coverage**: Only representative controllers instrumented; many CRUD read/list controllers still lack spans

@@ -4,6 +4,7 @@
 
 use sesame_idam_authz_core_gen::registry;
 mod audit;
+mod authz_span_middleware;
 
 use brrtrouter::dispatcher::Dispatcher;
 
@@ -91,6 +92,11 @@ fn main() -> io::Result<()> {
     let metrics = std::sync::Arc::new(MetricsMiddleware::new());
     dispatcher.add_middleware(metrics.clone());
 
+    // Add authz request span middleware — wraps all incoming requests
+    // with `authz.request` spans containing route, method, and result (allowed/denied).
+    let authz_span = std::sync::Arc::new(authz_span_middleware::AuthzSpanMiddleware::new());
+    dispatcher.add_middleware(authz_span);
+
     // Create memory tracking middleware
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
@@ -111,6 +117,13 @@ fn main() -> io::Result<()> {
     );
     service.set_metrics_middleware(metrics);
     service.set_memory_middleware(memory);
+
+    // Concatenate Lifeguard's prometheus text (DB metrics, pool stats) into
+    // BRRTRouter's scrape response so a single /metrics endpoint covers both
+    // the HTTP layer and the Postgres layer.
+    service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
+        lifeguard::metrics::prometheus_scrape_text()
+    })));
 
     // Port selection: PORT env var (K8s) > default 8080
     let port = std::env::var("PORT")

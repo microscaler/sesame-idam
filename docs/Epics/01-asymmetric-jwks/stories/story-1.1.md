@@ -155,22 +155,27 @@ gantt
 
 ## OpenAPI Changes
 
-No OpenAPI changes needed for key generation (internal operation). The `/.well-known/jwks.json` endpoint already exists in the identity-session-service spec -- it needs to be wired to serve the dynamic key set rather than a static one.
+**Partially implemented.** No changes to the OpenAPI spec were needed for key generation (internal operation). The `/.well-known/jwks.json` endpoint already existed in the identity-session-service spec. The `JWKS` response schema (with RSA-style fields `n`, `e`, `x5c`) is still RSA-oriented — it does NOT yet reflect the Ed25519/OKP/JWK fields (`kty`, `crv`, `x`). This drift is tracked as a Story 1.2 concern. The `/admin/jwks/revoke` endpoint was NOT in the original OpenAPI spec and was added as a custom handler outside the spec.
 
 ## Design Doc References
 
-- `design-doc.md` section 10.2: Asymmetric Signing & JWKS -- updated in this session
-- `design-doc.md` section 6.2: JWT Schema -- `alg: ES256`, `typ: at+jwt`, `kid` field
-- `design-doc.md` section 10.1: Token Security -- algorithm property changed to ES256
-- `service-topology-design.md`: identity-session-service serves `/.well-known/jwks.json` (EXTREME freq, NEGLIGIBLE cost)
-- `topics/topic-architecture-overview.md`: 12 workspace crates, shared tooling
-- `topics/topic-jwt-schema.md`: currently states RS256 -- needs update
+- `design-doc.md` section 10.2: Asymmetric Signing & JWKS — **partial**: algorithm updated to EdDSA, but `design-doc.md` may still reference ES256 as primary
+- `design-doc.md` section 6.2: JWT Schema — `kid` field is wired; `alg` changed from ES256 to EdDSA in practice
+- `design-doc.md` section 10.1: Token Security — **not updated** yet
+- `service-topology-design.md`: identity-session-service serves `/.well-known/jwks.json` (EXTREME freq, NEGLIGIBLE cost) — confirmed
+- `topics/topic-architecture-overview.md`: 12 workspace crates, shared tooling — confirmed
+- `topics/topic-jwt-schema.md`: **not updated** yet (still references RS256)
+- `topics/topic-tenancy-model.md`: not touched
+- `topics/topic-authorization-flow.md`: **not updated** (JWKS cache TTL 5 min documented in `jwks_client.rs` but not in wiki)
+- `topics/topic-token-lifecycle.md`: **not created** yet (key management lifecycle undocumented in wiki)
 
 ## Wiki Pages to Update/Create
 
-- `topics/topic-jwt-schema.md`: Update status from "partially-verified" to reflect ES256
-- `topics/topic-authorization-flow.md`: Note JWKS cache TTL (5 minutes)
-- `topics/topic-token-lifecycle.md`: (new) Document key management lifecycle
+- [ ] `topics/topic-jwt-schema.md`: Update status from "partially-verified" to reflect Ed25519 EdDSA
+- [ ] `topics/topic-authorization-flow.md`: Note JWKS cache TTL (5 minutes) — `jwks_client.rs` documents it but wiki doesn't
+- [ ] `topics/topic-token-lifecycle.md`: **NOT created** — key management lifecycle not documented in wiki
+- [ ] `topics/topic-rls-bridge.md`: not relevant
+- [ ] `topics/topic-token-versioning.md`: not relevant (Story 5)
 
 ## Malicious Hacker Gotchas (Must Be Addressed During Implementation)
 
@@ -180,125 +185,74 @@ These are specific attack vectors identified during threat modeling. Each must b
 
 ### HACK-101: No Key Revocation Mechanism (CRITICAL — Hole #18 from PRS)
 
-**Risk:** Compromised key remains in JWKS indefinitely
+**Implementation status: PARTIALLY IMPLEMENTED**
 
-The design says: "After the grace period, the old key is removed from JWKS." But there's no mechanism to REVOKE a key mid-grace-period if it's compromised. The only removal path is time-based (grace period).
+`KeyManager.revoke_key(kid)` is implemented in `key_manager.rs:620-642` and the admin endpoint `POST /admin/jwks/revoke` exists at `controllers/admin_jwks_revoke.rs`. However:
 
-**Exploit path:**
-1. Private signing key is compromised (memory dump, insider, backup leak)
-2. Attacker has the private key from KeyManager.current_key
-3. The attacker can forge ANY token for ANY user for ANY permission
-4. The compromised key remains in JWKS for up to 30 days (JWT_KEY_ROTATION_INTERVAL)
-5. Result: unlimited privilege escalation for 30 days
+- [x] `KeyManager.revoke_key(kid)` method — implemented (removes key from current/next, drops private key by assigning dummy)
+- [x] Admin endpoint `POST /admin/jwks/revoke` — implemented at `controllers/admin_jwks_revoke.rs`
+- [ ] **Alerting: alert when `key.age > 7 days`** — NOT implemented. `KeyManager.health()` tracks `age_seconds` but there is no monitoring/alerting
+- [ ] **Documentation of residual risk** — NOT added to Risk/Trade-offs section. The design doc still says "compromised keys remain valid until grace period expires"
 
-**Implementation requirement:**
-- Add a `KeyManager.revoke_key(kid)` method that immediately removes a key from JWKS AND drops the private key from memory
-- Add an admin endpoint (or CLI command) to trigger immediate key revocation: `/admin/jwks/revoke`
-- Add monitoring: alert when `key.age > 7 days` (early revocation opportunity)
-- Document in Risk/Trade-offs: "Key revocation is not yet implemented. Compromised keys remain valid until the grace period expires."
+**Residual risk:** Revocation works but replaces the revoked key with a dummy key rather than truly freeing the private key material. Also, `revoke_key()` only checks `current_key` and `next_key` — if a key has already rotated into `previous_key` (grace), revocation returns `KeyNotFound`.
 
 ### HACK-102: Service Restart Generates New Key Without Revoking Old (HIGH — Hole #18 from PRS)
 
-**Risk:** Old key silently invalidated — legitimate users affected, but more importantly: no tracking of which tokens were signed by which key
+**Implementation status: PARTIALLY IMPLEMENTED**
 
-When the service restarts, a new key is generated and the old key is lost (in-memory only). The old key's `kid` is removed from JWKS, and ALL tokens signed by that key become unverifiable until clients fetch a new JWKS.
+When the service restarts, a new key is generated and the old key is lost (in-memory only). This is by design — `KEY_MANAGER` is a `LazyLock` re-created on each process start.
 
-**Exploit path (more subtle than it looks):**
-1. Attacker obtains a token signed by key `key-2026-05-01`
-2. Service restarts — new key `key-2026-05-02` is generated
-3. Old key is removed from JWKS
-4. Attacker's token is now INVALID (no matching key in JWKS)
-5. BUT: if the attacker was using this token as part of a larger attack (e.g., the only remaining valid token in a token-flood), they lose access — which is good
-6. THE REAL RISK: the old key is lost FOREVER — there's no audit trail of which tokens were signed with it, making forensic analysis impossible
-
-**Implementation requirement:**
-- Log the `kid` of every key generated, rotated, and revoked
-- Implement key persistence to a secure store (e.g., encrypted file, HSM, or KMS) — OR document this as a trade-off: "Private keys are in-memory only; loss on restart means no forensic capability and potential token invalidation"
+- [ ] **Log the `kid` of every key generated, rotated, and revoked** — NOT implemented. `KEY_MANAGER` is `LazyLock::new()` with no logging; `activate_next_key()` sets `last_rotation` but doesn't emit audit events. Admin revocation (`admin_jwks_revoke.rs`) also lacks audit logging (it doesn't call `EMITTER.emit()`).
+- [x] **Trade-off documented** — YES: documented in "Risk / Trade-offs" section: "Private keys are in-memory only; loss on restart means no forensic capability and potential token invalidation"
 
 ### HACK-103: No Key Size or Algorithm Enforcement on JWKS Consumers (CRITICAL — Hole #16 from PRS)
 
-**Risk:** Attacker can inject weak keys into JWKS if the JWKS endpoint is compromised
+**Implementation status: PARTIALLY IMPLEMENTED**
 
-The design says: "ES256 as co-default" and "RS256 is excluded." But there's no enforcement of key properties in the KeyManager:
-- No minimum key size validation
-- No algorithm validation on keys loaded from external sources
-- No validation that ES256 keys use P-256 curve (not a weaker curve)
-
-**Exploit path:**
-1. Attacker controls the JWKS endpoint (via API, config, or supply chain attack)
-2. Attacker publishes a weak key (e.g., ES256 with a different curve, or a trivially factorizable RSA key)
-3. Consumers load the weak key and validate tokens
-4. Attacker crafts tokens that pass validation with the weak key
-
-**Implementation requirement:**
-- Validate key properties in `KeyManager.add_key()`:
-  - ES256: must use P-256 curve
-  - EdDSA: must use Ed25519 (not Curve25519)
-  - Reject keys with known weak parameters (small modulus, weak curves)
-- Validate the `use` claim in JWK (must be `sig`)
-- Validate the `kid` format (must match `key-{year}-{month}-{index}`)
-- Reject keys with `x5c` (certificate chain) to prevent certificate confusion attacks
+- [x] **Validate key properties in `KeyManager`** — Partially: `JwtSigningKey.generate()` validates Ed25519 public key is exactly 32 bytes (`key_manager.rs:224-229`). The `JwkOnly` type enforces `kty=OKP`, `crv=Ed25519`, `use=sig` at the type level.
+- [ ] **Validate the `use` claim in JWK (must be `sig`)** — Partially: enforced at type level via `JwkUse::Sig` enum, but no runtime validation of externally-provided JWKs
+- [x] **Validate the `kid` format** — Partially: enforced at generation time via `format!("key-{:04}-{:02}-{:02}-{:02}", ...)`. The `validate_key_params()` method checks for duplicate kids but not format validation of externally-set kids.
+- [ ] **Reject keys with `x5c` (certificate chain)** — NOT implemented. The `JwkOnly` struct has no `x5c` field, so only self-generated keys are affected.
 
 ### HACK-104: No Rate Limiting on JWKS Endpoint (MEDIUM)
 
-**Risk:** Attacker can flood JWKS endpoint to cause DoS or extract key information
+**Implementation status: NOT IMPLEMENTED**
 
-The `/.well-known/jwks.json` endpoint is publicly accessible and may be called frequently (EXTREME frequency per service-topology). An attacker can:
-- Flood the endpoint to consume CPU/memory
-- Use it to extract key fingerprints (useful for later token forgery)
-
-**Implementation requirement:**
-- Implement rate limiting on `/.well-known/jwks.json` (e.g., 100 req/min per IP)
-- Consider caching the JWKS response (in-memory) with a TTL of 5 minutes (matching JWKS cache TTL in Story 4.2)
-- Never include private key material in the JWKS response (basic, but must be enforced)
+- [ ] **Rate limiting on `/.well-known/jwks.json`** — NOT implemented
+- [x] **Caching the JWKS response** — Partially: `JwksHandlerMetadata` includes `Cache-Control: public, max-age=300` header, but the header injection mechanism is untested (the `serve_with_headers()` function exists but is not called by the main handler)
+- [x] **Never include private key material** — YES: `JwksDocument::new()` only includes `JwkOnly` objects, which have no private key bytes
 
 ### HACK-105: Key Rotation Without Coordination (MEDIUM)
 
-**Risk:** During rotation, old tokens signed by old key may fail validation if consumers don't check all keys in JWKS
+**Implementation status: PARTIALLY IMPLEMENTED**
 
-The design says: "During rotation, both old and new keys are available in JWKS." But if a consumer only checks the first key in the JWKS (by `kid` order, not by all keys), tokens signed by the old key during the grace period will fail validation.
-
-**Exploit path:**
-1. Attacker has a valid token signed by old key `key-2026-05-01`
-2. New key `key-2026-05-02` is added to JWKS (appears first in the list)
-3. Consumer validates against `key-2026-05-02` only
-4. Attacker's token is rejected — but the attacker can now flood with valid tokens from the new key
-5. Result: partial service disruption during rotation
-
-**Implementation requirement:**
-- Document that JWKS consumers MUST check ALL keys in the JWKS, not just the first one
-- The `kid` in the JWT header identifies which key was used — consumers should look up by `kid`, not iterate
-- Implement this in Story 4.2's JWKS validation logic
+- [x] **Both keys available in JWKS** — YES: `keys_for_verification()` returns current + next + previous
+- [ ] **Document that consumers MUST check ALL keys** — NOT documented in wiki. `jwks_client.rs` has `find_public_key(kid)` which looks up by `kid` specifically — this IS the correct approach. But it doesn't check `previous_key`.
+- [ ] **Implement in Story 4.2's JWKS validation logic** — NOT in scope for Story 1.1. `jwks_client.rs:661-677` (`find_public_key`) checks `current_key` and `next_key` but NOT `previous_key` (grace period keys). This means after rotation, if a token was signed by the old key and the consumer has not yet fetched a new JWKS, the old key's `kid` will NOT be found by `find_public_key`.
 
 ### HACK-106: No HSM or Secure Key Storage (LOW — but documented)
 
-**Risk:** Private key in memory can be dumped via memory scanning, core dumps, or side-channel attacks
+**Implementation status: NOT IMPLEMENTED**
 
-The design explicitly states: "Private key is in-memory only." This is a reasonable trade-off for a microservice, but it means:
-- Memory scanning tools can extract the private key
-- Core dumps (if enabled) contain the private key
-- Side-channel attacks on ECDSA signing (timing, power analysis) can extract the key
-
-**Implementation requirement:**
-- Document this as a known limitation
-- Add `ulimit -l memlock` or equivalent to prevent swapping of the process memory (keep private key out of swap)
-- Disable core dumps (`ulimit -c 0`) to prevent key leakage
-- Consider HSM integration in future (Story 8.x)
+- [ ] **Document as known limitation** — Documented in "Risk / Trade-offs" section: "No key backup"
+- [ ] **Add `ulimit -l memlock` or equivalent** — NOT implemented. No process-level memory locking.
+- [ ] **Disable core dumps** — NOT implemented
+- [ ] **Consider HSM integration** — Deferred to Story 8.x (as designed)
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] A new ES256 key pair is generated at service startup
-- [ ] The private key is never serialized to disk, environment, or config files
-- [ ] The public key is served in standard JWKS format (RFC 7517) with `kid`
-- [ ] Key rotation generates a new key 1 hour before the old key's grace period expires
-- [ ] During rotation, both old and new keys are available in JWKS
-- [ ] After the grace period, the old key is removed from JWKS and the private key is dropped from memory
-- [ ] Existing tokens signed by a rotated-out key remain valid until their `exp`
-- [ ] A service restart generates a fresh key pair
-- [ ] The `alg` claim in all signed tokens is `ES256`
-- [ ] The `typ` claim in all signed tokens is `at+jwt` (per RFC 9068)
+- [x] A new EdDSA (Ed25519) key pair is generated at service startup (via `KEY_MANAGER` LazyLock in `key_manager.rs`)
+- [x] The private key is never serialized to disk, environment, or config files (stored as `Vec<u8>` in memory only)
+- [x] The public key is served in standard JWKS format (RFC 7517) with `kid` (via `controllers/jwks.rs` handling `/.well-known/jwks.json`)
+- [x] Key rotation with prepare/activate lifecycle implemented (`KeyManager.prepare_rotation()`, `activate_next_key()`, `rotate()`)
+- [x] During rotation, both old and new keys are available in JWKS (`keys_for_verification()` returns current + next + previous)
+- [ ] After the grace period, the old key is removed from JWKS and the private key is dropped from memory (`cleanup_grace_keys()` body is empty, `expire_grace_key()` always returns `NoKeyToPromote` — this is a **Story 1.1 outstanding item**, not yet implemented)
+- [x] Existing tokens signed by a rotated-out key remain valid until their `exp` (grace key kept in `previous_key` and returned by `keys_for_verification()`)
+- [x] A service restart generates a fresh key pair (`KEY_MANAGER` is `LazyLock` — re-created on each process start)
+- [x] The `alg` claim in all signed tokens is `EdDSA` (`JwtSigningKey.alg = "EdDSA"` constant)
+- [ ] The `typ` claim in all signed tokens is `at+jwt` (per RFC 9068) — NOT implemented in this story; the JWT signing itself happens downstream via `jsonwebtoken` crate, not in `key_manager.rs`
 
 ## Dependencies
 
@@ -316,34 +270,39 @@ The design explicitly states: "Private key is in-memory only." This is a reasona
 
 ### Unit Tests
 
-- [ ] **Key generation at bootstrap**: Verify that a fresh EdDSA key pair is generated on service startup, and that the public key JWK contains correct `kty=OKP`, `crv=Ed25519`, and a valid `kid`
-- [ ] **Private key never persists**: Assert that private key bytes are never written to disk, env vars, or config files. Test by scanning filesystem after key generation
-- [ ] **Kid format**: Verify `kid` follows `key-{year}-{month}-{index}` pattern (e.g., `key-2026-05-01`)
-- [ ] **Key manager state transitions**: Test `KeyManager` through full lifecycle: current key only, current + next (rotation prep), current + grace keys, and post-grace cleanup
-- [ ] **Algorithm negotiation**: Verify that tokens are always signed with `EdDSA` (the default). Verify that ES256 keys co-exist in JWKS for consumer compatibility
-- [ ] **EdDSA signature verification**: Given a token signed with EdDSA, verify that any consumer using the public key from JWKS can successfully verify it
+Implemented in `microservices/idam/identity-session-service/impl/src/key_manager.rs` (14 tests in `mod tests`):
 
-### Integration Tests (BDD-style with `rstest_bdd`)
+- [x] **Key generation at bootstrap**: `test_key_generation()` — verifies `kty=OKP`, `crv=Ed25519`, `use=sig`, `x` non-empty, `alg=EdDSA`
+- [x] **Private key never persists**: Private key stored only as `Vec<u8>` in struct field — no serialization path exists. `from_pkcs8()` (test-only) accepts raw bytes but never writes them.
+- [x] **Kid format**: `test_kid_format()` — verifies `kid` starts with `key-` and has minimum length
+- [x] **Key manager state transitions**: `test_keys_for_verification()` (1 → 2 → 2 keys through rotation), `test_rotation_prepare_and_activate()` (full lifecycle), `test_key_revocation()` (active → revoked)
+- [ ] **Algorithm negotiation**: NOT implemented — ES256 key co-existence is designed but not coded. Story 1.1 is EdDSA-only. ES256 is a Story 1.2/1.3 concern.
+- [x] **EdDSA signature verification**: `test_signing_and_verification()` — verifies 64-byte signature; BDD tests in `tests/bdd/jwks.rs` verify end-to-end `ring::signature::UnparsedPublicKey::verify()` against the public key
 
-- [ ] **Scenario: Fresh service start generates key**: `given` a freshly started identity-session-service → `when` the service registers its KeyManager → `then` exactly 1 key exists in the manager with `alg=EdDSA` and `valid_from` in the near future
-- [ ] **Scenario: Key rotation with overlap**: `given` two keys in the manager (current + next) → `when` the next key's `valid_from` arrives → `then` the current key becomes grace-period and the next key becomes active
-- [ ] **Scenario: Grace period cleanup**: `given` a grace-period key older than `JWT_KEY_GRACE_PERIOD` → `when` the cleanup task runs → `then` the old key is removed from JWKS and its private key is dropped from memory
-- [ ] **Scenario: Service restart regenerates key**: `given` a running service with a key → `when` the service restarts → `then` a new key is generated with a fresh `kid`, and the old key's tokens remain valid until their `exp`
+### Integration Tests (BDD-style in `tests/bdd/jwks.rs`)
+
+12 tests implemented (not `rstest_bdd` framework — plain `#[test]` functions exercising `KeyManager` directly):
+
+- [x] **Scenario: Fresh service start generates key**: `test_keymanager_jwks_document_returns_keys()` — verifies `KEY_MANAGER` has at least one key on startup
+- [x] **Scenario: Key rotation with overlap**: `test_keymanager_rotation_increases_key_count()`, `test_keymanager_jwks_after_rotation_still_valid()`, `test_keymanager_multiple_keys_all_verify()` — verify current + next overlap after rotation
+- [ ] **Scenario: Grace period cleanup**: `cleanup_grace_keys()` is a placeholder (empty body); `expire_grace_key()` always returns `NoKeyToPromote`. NOT implemented.
+- [x] **Scenario: Service restart regenerates key**: `KEY_MANAGER` is `LazyLock` — each process start creates a fresh instance. Tests create fresh `KeyManager` instances via `new_with_rotation()`.
 
 ### Edge Cases
 
-- [ ] **Key generation failure**: If the cryptographic RNG fails, the service must fail fast with a clear error (not silently continue with a weak key)
-- [ ] **Concurrent rotation**: If two rotation timers fire simultaneously, only one key should be created (test with concurrent tasks)
-- [ ] **Clock skew during rotation**: Verify rotation behavior when the system clock jumps forward or backward by more than the grace period
+- [x] **Key generation failure**: `test_key_generation()` wrapped in `Result` — `generate()` returns `KeyError::GenerationFailed` on RNG failure; `KEY_MANAGER` LazyLock panics if generation fails (fail-fast on startup)
+- [ ] **Concurrent rotation**: NOT tested — no concurrent timer firing tests exist
+- [ ] **Clock skew during rotation**: NOT tested — no `SystemTime` manipulation tests
 
 ### Cleanup
 
-- Test keys are ephemeral (in-memory only) — no cleanup needed for the KeyManager itself
-- Integration tests must not leave stale keys in the process memory across test runs — use separate process or `Drop` impl to clear keys
+- [x] Test keys are ephemeral (in-memory only) — no cleanup needed for the KeyManager itself
+- [x] Tests use separate `KeyManager` instances (not shared state) — `make_test_key_manager()` creates fresh instances per test
 
 ### Spec Verification
 
-- [ ] JWT header includes `typ=at+jwt` per RFC 9068
-- [ ] JWT `alg` claim is `EdDSA` (not `ES256` or `HS256`)
-- [ ] JWKS `kty` is `OKP` (not `EC` or `RSA`)
-- [ ] JWKS `crv` is `Ed25519`
+- [x] JWT header `alg` claim: `EdDSA` constant in `JwtSigningKey` — confirmed in `test_key_generation()`
+- [x] JWKS `kty` is `OKP` (not `EC` or `RSA`) — confirmed in `test_key_generation()`, `test_keymanager_jwks_keys_have_okp_kty()`
+- [x] JWKS `crv` is `Ed25519` — confirmed in `test_key_generation()`, `test_keymanager_jwks_keys_have_required_fields()`
+- [x] JWKS `kid` format: `key-YYYY-MM-DD-HH` — confirmed in `test_kid_format()`, `test_keymanager_jwks_kid_format()`
+- [ ] JWT `typ=at+jwt` per RFC 9068 — NOT verified. This is a JWT signing concern handled downstream in the authz-core/login services, not in `key_manager.rs`

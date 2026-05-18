@@ -12,6 +12,14 @@ use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(CreateApplicationController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
+    // Span: application.created
+    let span = tracing::span!(
+        tracing::Level::INFO,
+        "application.created",
+        tenant_id = tracing::field::Empty,
+        result = tracing::field::Empty
+    );
+    let _guard = span.enter();
     // TODO: Implement your business logic here
     // 
     // Example: Access request data

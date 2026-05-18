@@ -115,6 +115,13 @@ fn main() -> io::Result<()> {
     service.set_metrics_middleware(metrics);
     service.set_memory_middleware(memory);
 
+    // Concatenate Lifeguard's prometheus text (DB metrics, pool stats) into
+    // BRRTRouter's scrape response so a single /metrics endpoint covers both
+    // the HTTP layer and the Postgres layer.
+    service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
+        lifeguard::metrics::prometheus_scrape_text()
+    })));
+
     // Port selection: PORT env var (K8s) > default 8080
     let port = std::env::var("PORT")
         .ok()

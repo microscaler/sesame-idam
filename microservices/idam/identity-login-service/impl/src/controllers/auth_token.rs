@@ -9,22 +9,35 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
+    // Span: track token issuance events
+    let span = tracing::span!(
+        tracing::Level::INFO,
+        "token.issue",
+        grant_type = req.inner.grant_type.as_str(),
+        user_id = tracing::field::Empty
+    );
+    let _guard = span.enter();
+
     // TODO: Exchange client credentials + grant_type for user session tokens
     // Supported grant types: refresh_token, client_credentials, urn:ietf:params:oauth:grant-type:token-exchange
 
-    match req.inner.grant_type.as_str() {
+    let user_id = match req.inner.grant_type.as_str() {
         "refresh_token" => {
             // Validate refresh token against stored sessions
             // Issue new access_token + refresh_token pair
             // Rotate refresh token (old token invalidated)
             // Log login_success audit event
+            req.inner.refresh_token.clone()
         }
         "client_credentials" => {
             // Validate client_id + client_secret
             // Issue access_token for machine-to-machine auth (no user context)
             // Store in Redis with TTL
+            String::new()
         }
         _ => {
+            span.record("result", "denied");
+            span.record("error", "unsupported_grant_type");
             return Response {
                 access_token: "".to_string(),
                 token_type: "Bearer".to_string(),
@@ -40,7 +53,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 scope: "".to_string(),
             };
         }
-    }
+    };
+
+    span.record("user_id", &user_id);
+    span.record("result", "success");
 
     // Placeholder response — replace with actual token issuance
     Response {

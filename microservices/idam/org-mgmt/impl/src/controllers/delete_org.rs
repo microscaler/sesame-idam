@@ -4,6 +4,14 @@ use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(DeleteOrgController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
+    // Span: org.deleted
+    let span = tracing::span!(
+        tracing::Level::INFO,
+        "org.deleted",
+        tenant_id = tracing::field::Empty,
+        result = tracing::field::Empty
+    );
+    let _guard = span.enter();
     use crate::audit::EMITTER;
     use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;

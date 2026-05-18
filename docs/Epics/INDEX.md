@@ -82,7 +82,7 @@ See each epic's "Design Doc Changes Needed" section for specific section-level c
 
 | Story | File | Status | Implementation Details |
 |-------|------|--------|----------------------|
-| 1.1 | `stories/story-1.1.md` | **Implementing** | `identity-session-service/impl/src/key_manager.rs` (807 lines) — `JwtSigningKey` (Ed25519 gen, sign, verify), `KeyManager` (rotation, revocation `revoke_key()`, health), `JwksDocument` (JWKS format). Handlers: `controllers/jwks.rs` (/.well-known/jwks.json), `controllers/admin_jwks_revoke.rs` (POST /admin/jwks/revoke), `jwks.rs` (handler with Cache-Control). Static `KEY_MANAGER` LazyLock. 11 unit tests. Fixes HACK-101 (immediate revocation). |
+| 1.1 | `stories/story-1.1.md` | **In Progress** | `identity-session-service/impl/src/key_manager.rs` (888 lines) — `JwtSigningKey` (Ed25519 gen via ring, sign, verify), `KeyManager` (rotation, revocation `revoke_key()`, health, find_public_key, kid counter), `JwksDocument` (JWKS format). Handlers: `controllers/jwks.rs` (/.well-known/jwks.json with Cache-Control), `controllers/admin_jwks_revoke.rs` (POST /admin/jwks/revoke). Consumer client: `jwks_client.rs` (464 lines — algorithm allow-list, per-service configs, JWKS poisoning guard, validation pipeline). Static `KEY_MANAGER` LazyLock. 26 tests (14 unit + 12 BDD-style). **Status: 12/16 acceptance criteria met.** Outstanding: grace period cleanup, JWT typ=at+jwt enforcement, concurrent rotation tests, clock skew tests, wiki updates, design doc updates. **Gates: Compilation PASS, Lint PASS, Unit tests PASS (51/51), BDD E2E partial** (tests exercise KeyManager directly, not HTTP endpoint). |
 | 1.2 | `stories/story-1.2.md` | Design | — |
 | 1.3 | `stories/story-1.3.md` | Design | — |
 | 1.4 | `stories/story-1.4.md` | Design | — |

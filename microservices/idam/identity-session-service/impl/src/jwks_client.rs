@@ -301,7 +301,7 @@ pub static ORG_MGMT_CONFIG: std::sync::LazyLock<JwksServiceConfig> =
         allowed_algorithms: vec!["EdDSA".to_string()],
     });
 
-// ─── Anti-poisoning guard ───────────────────────────────────────────────────
+// ─── Anti-poisoning guard ────────────────────────────────────────────────────
 
 /// Validate that a new JWKS set contains at least one key from the previous set.
 ///
@@ -312,12 +312,33 @@ pub static ORG_MGMT_CONFIG: std::sync::LazyLock<JwksServiceConfig> =
 /// Returns `true` if the refresh is safe (at least one overlapping key).
 #[must_use]
 pub fn validate_jwks_refresh(new_keys: &[String], old_keys: &[String]) -> bool {
+    let span = tracing::span!(
+        tracing::Level::INFO,
+        "jwks.cache.refresh",
+        keys_count = new_keys.len()
+    );
+    let _guard = span.enter();
+
     // If there is no previous set, accept (first fetch).
     if old_keys.is_empty() {
+        span.record("cache_status", "miss");
+        span.record("result", "allowed");
+        tracing::info!("jwks cache miss (first fetch)");
         return true;
     }
     // At least one kid must overlap.
-    new_keys.iter().any(|kid| old_keys.contains(kid))
+    let ok = new_keys.iter().any(|kid| old_keys.contains(kid));
+    if ok {
+        span.record("cache_status", "hit");
+        span.record("result", "allowed");
+        tracing::info!(keys_count = new_keys.len(), "jwks cache refresh OK (overlap found)");
+    } else {
+        span.record("cache_status", "miss");
+        span.record("result", "denied");
+        span.record("error", "no_overlap");
+        tracing::warn!("jwks cache refresh REJECTED (no overlap) — possible poisoning");
+    }
+    ok
 }
 
 // ─── Health check ────────────────────────────────────────────────────────────

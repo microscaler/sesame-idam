@@ -21,16 +21,33 @@ pub struct RevokeKeyResponse {
 
 #[handler(AdminRevokeKeyController)]
 pub fn handle(req: RevokeKeyRequest) -> RevokeKeyResponse {
+    // Span: track revocation events
+    let span = tracing::span!(
+        tracing::Level::INFO,
+        "key.revoke.admin",
+        kid = &req.kid
+    );
+    let _guard = span.enter();
+
     match KEY_MANAGER.revoke_key(&req.kid) {
-        Ok(()) => RevokeKeyResponse {
-            success: true,
-            kid: req.kid,
-            message: format!("Key {} revoked and removed from JWKS immediately", req.kid),
-        },
-        Err(e) => RevokeKeyResponse {
-            success: false,
-            kid: req.kid,
-            message: format!("Revocation failed: {e}"),
-        },
+        Ok(()) => {
+            tracing::info!(kid = req.kid, "admin: key revoked via admin endpoint");
+            span.record("result", "success");
+            RevokeKeyResponse {
+                success: true,
+                kid: req.kid,
+                message: "Key revoked and removed from JWKS immediately".to_string(),
+            }
+        }
+        Err(e) => {
+            tracing::warn!(kid = req.kid, error = %e, "admin: key revocation failed");
+            span.record("result", "denied");
+            span.record("error", e.to_string().as_str());
+            RevokeKeyResponse {
+                success: false,
+                kid: req.kid,
+                message: format!("Revocation failed: {e}"),
+            }
+        }
     }
 }

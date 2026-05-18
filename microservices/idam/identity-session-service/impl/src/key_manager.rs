@@ -188,7 +188,7 @@ pub struct JwtSigningKey {
 impl JwtSigningKey {
     /// Generate a new Ed25519 key pair with a timestamp-based kid.
     ///
-    /// The `kid` format is `key-YYYY-MM` (e.g., `key-2026-05`). If an explicit
+    /// The `kid` format is `key-{year}-{month}-{index}` (e.g., `key-2026-05`). If an explicit
     /// `kid` is provided it is used instead.
     ///
     /// # Errors
@@ -196,6 +196,8 @@ impl JwtSigningKey {
     /// Returns [`KeyError::GenerationFailed`] if RNG fails,
     /// [`KeyError::InvalidKey`] if the key pair is invalid.
     pub fn generate(kid: Option<String>) -> Result<Self, KeyError> {
+        let span = tracing::span!(tracing::Level::INFO, "key.generate");
+        let _guard = span.enter();
         let sys = SystemRandom::new();
 
         // Generate a valid Ed25519 PKCS#8 key pair using ring's keygen
@@ -442,7 +444,10 @@ impl KeyManager {
     ///
     /// Panics if `self.current_key` is `None` (should never happen after construction).
     pub fn generate_new_key(&mut self) -> Result<JwtSigningKey, KeyError> {
+        let span = tracing::span!(tracing::Level::INFO, "key.generate");
+        let _guard = span.enter();
         let key = JwtSigningKey::generate(None)?;
+        tracing::info!("new key generated: kid={}", key.kid);
         self.validate_key_params(&key.kid)?;
         // If there was a previous current key, it becomes grace or revoked.
         if self.current_key.is_some() {
@@ -500,12 +505,21 @@ impl KeyManager {
             return Ok(()); // Already prepared
         }
 
+        let span = tracing::span!(
+            tracing::Level::INFO,
+            "key.rotate.prepare",
+            from_kid = self.current_key.as_ref().map(|k| k.kid.as_str()).unwrap_or("none"),
+            to_kid = tracing::field::Empty
+        );
+        let _guard = span.enter();
+
         self.kid_counter += 1;
         let counter_kid = format!(
             "key-{:04}-{:02}-{:02}-{:02}-c{}",
             1970, 1, 1, 0, self.kid_counter
         );
         let mut next_key = JwtSigningKey::generate(Some(counter_kid))?;
+        let new_kid = next_key.kid.clone();
         // Set valid_from to a few seconds in the future to allow service discovery.
         let future = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -516,6 +530,9 @@ impl KeyManager {
         next_key.valid_from = UNIX_EPOCH + std::time::Duration::from_secs(future);
 
         self.next_key = Some(next_key);
+
+        span.record("to_kid", &new_kid);
+        tracing::info!(kid = new_kid, "key rotation prepared");
         Ok(())
     }
 
@@ -526,7 +543,15 @@ impl KeyManager {
     ///
     /// Returns [`KeyError::NoKeyToPromote`] if no `next_key` has been prepared.
     pub fn activate_next_key(&mut self) -> Result<(), KeyError> {
+        let span = tracing::span!(
+            tracing::Level::INFO,
+            "key.rotate.activate",
+            new_kid = tracing::field::Empty
+        );
+        let _guard = span.enter();
+
         let mut next = self.next_key.take().ok_or(KeyError::NoKeyToPromote)?;
+        let new_kid = next.kid.clone();
 
         // Save and demote current key to grace period.
         if let Some(mut current) = self.current_key.take() {
@@ -538,6 +563,9 @@ impl KeyManager {
         next.state = KeyState::Active;
         self.last_rotation = Some(SystemTime::now());
         self.current_key = Some(next);
+
+        span.record("new_kid", &new_kid);
+        tracing::info!(kid = new_kid, "key rotation activated");
         Ok(())
     }
 
@@ -618,6 +646,14 @@ impl KeyManager {
     /// [`KeyError::RevocationFailed`] if a dummy key generation fails during
     /// current-key revocation.
     pub fn revoke_key(&mut self, kid: &str) -> Result<(), KeyError> {
+        let span = tracing::span!(
+            tracing::Level::INFO,
+            "key.revoke",
+            kid = kid,
+            reason = tracing::field::Empty
+        );
+        let _guard = span.enter();
+
         // Check current_key.
         if let Some(ref mut key) = self.current_key {
             if key.kid == kid {
@@ -627,6 +663,9 @@ impl KeyManager {
                 let dummy = JwtSigningKey::generate(Some("dummy".into()))
                     .map_err(|e| KeyError::RevocationFailed(e.to_string()))?;
                 self.current_key = Some(dummy);
+
+                span.record("reason", "current_key_revoked");
+                tracing::info!(kid = kid, "key revoked (current key)");
                 return Ok(());
             }
         }
@@ -635,10 +674,15 @@ impl KeyManager {
             if key.kid == kid {
                 self.next_key = None;
                 self.revoked_keys.push(kid.to_string());
+
+                span.record("reason", "next_key_revoked");
+                tracing::info!(kid = kid, "key revoked (next key)");
                 return Ok(());
             }
         }
-        Err(KeyError::KeyNotFound(kid.to_string()))
+        let err = KeyError::KeyNotFound(kid.to_string());
+        span.record("reason", "key_not_found");
+        Err(err)
     }
 
     /// Return true if a key has been revoked.
@@ -681,6 +725,13 @@ impl KeyManager {
     /// Get health status for the `/health/jwks` endpoint.
     #[must_use]
     pub fn health(&self) -> JwksHealthResponse {
+        let span = tracing::span!(
+            tracing::Level::INFO,
+            "key.health",
+            key_count = tracing::field::Empty
+        );
+        let _guard = span.enter();
+
         let mut keys = Vec::new();
 
         if let Some(ref key) = self.current_key {
@@ -713,6 +764,7 @@ impl KeyManager {
         });
 
         let key_count = keys.len();
+        span.record("key_count", key_count);
         JwksHealthResponse {
             key_count,
             keys,
