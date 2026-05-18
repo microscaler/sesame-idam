@@ -114,6 +114,14 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "admin_jwks_revoke" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::admin_jwks_revoke::AdminRevokeKeyController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 _ => {} // fallback to gen stubs for everything else
             }
         }
