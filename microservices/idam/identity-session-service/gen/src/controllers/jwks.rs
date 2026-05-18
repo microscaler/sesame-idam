@@ -1,4 +1,13 @@
 // User-owned controller for handler 'jwks'.
+//
+// NOTE: This gen controller is a placeholder. The actual implementation
+// is in `impl/src/controllers/jwks.rs` and is registered via
+// `main.rs` after `registry::register_from_spec()`.
+//
+// To regenerate from OpenAPI spec:
+//   cargo run --manifest-path ../BRRTRouter/Cargo.toml --bin brrtrouter-gen \
+//     -- generate --spec openapi/identity-session-service/openapi.yaml \
+//     --output gen/ --package-name sesame_idam_identity_session_service
 
 use crate::handlers::jwks::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
@@ -6,43 +15,17 @@ use brrtrouter_macros::handler;
 
 #[handler(JwksController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    // Example response:
-    // {
-    //   "keys": [
-    //     {
-    //       "alg": "EdDSA",
-    //       "crv": "Ed25519",
-    //       "kid": "key-2026-05-18-12",
-    //       "kty": "OKP",
-    //       "use": "sig",
-    //       "x": "pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM"
-    //     }
-    //   ]
-    // }
-    match serde_json::from_str::<Response>(
-        r###"{
-  "keys": [
-    {
-      "alg": "EdDSA",
-      "crv": "Ed25519",
-      "kid": "key-2026-05-18-12",
-      "kty": "OKP",
-      "use": "sig",
-      "x": "pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM"
-    }
-  ]
-}"###,
-    ) {
-        Ok(parsed) => return parsed,
-        Err(e) => {
-            eprintln!("Failed to parse mock example JSON into Response: {}", e);
-            // Fallback to empty default structs below
-        }
-    }
-
+    // Placeholder - actual implementation delegates to impl controller
     Response {
         keys: vec![
-            serde_json::json!({"alg":"EdDSA","crv":"Ed25519","kid":"key-2026-05-18-12","kty":"OKP","use":"sig","x":"pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM"}),
+            serde_json::json!({
+                "alg": "EdDSA",
+                "crv": "Ed25519",
+                "kid": "placeholder",
+                "kty": "OKP",
+                "use": "sig",
+                "x": "placeholder"
+            }),
         ],
     }
 }

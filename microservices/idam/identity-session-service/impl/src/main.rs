@@ -2,8 +2,10 @@
 // This file is generated as a starting point.
 // You can modify this file freely - it will NOT be auto-regenerated.
 
+use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 use sesame_idam_identity_session_service_gen::registry;
 mod audit;
+mod controllers;
 mod key_manager;
 
 // key_manager module is registered but KeyManager is used via static KEY_MANAGER
@@ -98,9 +100,23 @@ fn main() -> io::Result<()> {
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
-    // Register handlers from generated crate
+    // F5 audit pattern: register_from_spec establishes all gen stubs first,
+    // then we override specific routes with impl controllers.
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);
+        for route in &routes {
+            match route.handler_name.as_ref() {
+                "jwks" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::jwks::JwksController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                _ => {} // fallback to gen stubs for everything else
+            }
+        }
     }
 
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
