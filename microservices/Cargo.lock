@@ -410,7 +410,7 @@ dependencies = [
  "dashmap",
  "http 1.4.0",
  "jsonschema",
- "jsonwebtoken",
+ "jsonwebtoken 10.3.0",
  "lru",
  "may",
  "may_minihttp 0.1.11 (git+https://github.com/microscaler/may_minihttp.git?branch=integration%2Fmicroscaler-fork)",
@@ -2357,6 +2357,21 @@ dependencies = [
  "serde_json",
  "unicode-general-category",
  "uuid-simd",
+]
+
+[[package]]
+name = "jsonwebtoken"
+version = "9.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a87cc7a48537badeae96744432de36f4be2b4a34a05a5ef32e9dd8a1c169dde"
+dependencies = [
+ "base64 0.22.1",
+ "js-sys",
+ "pem",
+ "ring",
+ "serde",
+ "serde_json",
+ "simple_asn1",
 ]
 
 [[package]]
@@ -4602,6 +4617,7 @@ name = "sesame_idam_identity_login_service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
@@ -4657,18 +4673,21 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "arc-swap",
+ "base64 0.22.1",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
  "clap",
  "config",
  "http 1.4.0",
+ "jsonwebtoken 9.3.1",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
  "may",
  "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
+ "ring",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
@@ -4681,6 +4700,7 @@ dependencies = [
  "sesame_idam_database",
  "sesame_idam_identity_session_service_gen",
  "tikv-jemallocator",
+ "tokio",
  "tracing",
  "uuid",
 ]

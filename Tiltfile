@@ -40,6 +40,9 @@ sesame_idam_bin = '%s/bin/sesame-idam' % brrtrouter_venv
 # Namespace
 namespace = 'sesame-idam'
 
+# Data stack: postgres/redis managed by shared-kind-cluster tilt, not this stack
+bundled_data_stack = False
+
 # ====================
 # Dynamic Architecture Detection
 # ====================

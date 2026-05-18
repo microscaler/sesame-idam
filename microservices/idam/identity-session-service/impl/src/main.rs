@@ -1,10 +1,12 @@
-
 // Implementation crate main entry point
 // This file is generated as a starting point.
 // You can modify this file freely - it will NOT be auto-regenerated.
 
 use sesame_idam_identity_session_service_gen::registry;
 mod audit;
+mod key_manager;
+
+use key_manager::KeyManager;
 
 use brrtrouter::dispatcher::Dispatcher;
 
@@ -50,7 +52,9 @@ struct Args {
 
 fn main() -> io::Result<()> {
     // Initialize structured logging
-    if let Err(e) = brrtrouter::otel::init_logging_with_config(&brrtrouter::otel::LogConfig::from_env()) {
+    if let Err(e) =
+        brrtrouter::otel::init_logging_with_config(&brrtrouter::otel::LogConfig::from_env())
+    {
         eprintln!("[logging][error] failed to init tracing subscriber: {e}");
     }
 
@@ -59,7 +63,7 @@ fn main() -> io::Result<()> {
     let config = RuntimeConfig::from_env();
     may::config().set_stack_size(config.stack_size);
     may::config().set_workers(config.may_workers);
-    
+
     // Load OpenAPI spec
     let spec_path = if args.spec.is_relative() {
         let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -67,37 +71,36 @@ fn main() -> io::Result<()> {
     } else {
         args.spec.clone()
     };
-    
+
     let spec_str = spec_path.to_str().unwrap_or_else(|| {
         eprintln!("[startup][error] OpenAPI spec path contains invalid UTF-8");
         std::process::exit(1);
     });
-    let (routes, schemes, _slug) = brrtrouter::spec::load_spec_full(spec_str)
-        .unwrap_or_else(|e| {
-            eprintln!("[startup][error] failed to load OpenAPI spec: {}", e);
-            std::process::exit(1);
-        });
-    
+    let (routes, schemes, _slug) = brrtrouter::spec::load_spec_full(spec_str).unwrap_or_else(|e| {
+        eprintln!("[startup][error] failed to load OpenAPI spec: {}", e);
+        std::process::exit(1);
+    });
+
     let router = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Router::new(routes.clone())));
     {
         let r = router.load();
         r.dump_routes();
     }
-    
+
     // Create dispatcher and middleware
     let mut dispatcher = Dispatcher::new();
     let metrics = std::sync::Arc::new(MetricsMiddleware::new());
     dispatcher.add_middleware(metrics.clone());
-    
+
     // Create memory tracking middleware
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
-    
+
     // Register handlers from generated crate
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);
     }
-    
+
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
     let mut service = AppService::new(
         router,
@@ -122,9 +125,9 @@ fn main() -> io::Result<()> {
     };
     println!("🚀 server listening on {addr}");
     let handle = HttpServer(service).start(&addr)?;
-    handle.run_until_shutdown().map_err(|e| {
-        io::Error::other(format!("Server error: {e:?}"))
-    })?;
-    
+    handle
+        .run_until_shutdown()
+        .map_err(|e| io::Error::other(format!("Server error: {e:?}")))?;
+
     Ok(())
 }
