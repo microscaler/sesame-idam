@@ -1,0 +1,17 @@
+# Clippy configuration for Sesame-IDAM
+# Database tools must never panic — enforce strict error handling.
+# Numeric thresholds align with BRRTRouter / lifeguard / microscaler-observability (JSF-inspired profile).
+
+# Note: Pedantic mode is enabled via command-line flags (-W clippy::pedantic)
+# not via this config file
+
+# --- JSF-aligned thresholds (same numbers as BRRTRouter / lifeguard clippy.toml) ---
+
+stack-size-threshold = 512000
+enum-variant-size-threshold = 256
+type-complexity-threshold = 300
+cognitive-complexity-threshold = 30
+missing-docs-in-crate-items = false
+too-many-arguments-threshold = 8
+too-many-lines-threshold = 200
+single-char-binding-names-threshold = 4

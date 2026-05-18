@@ -54,7 +54,8 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-authorization-flow](./topics/topic-authorization-flow.md) | Per-request authorization: Redis cache, role evaluation |
 ||| [topic-api-key-validation](./topics/topic-api-key-validation.md) | M2M key validation flow |
 ||| [topic-rls-bridge](./topics/topic-rls-bridge.md) | RLS helpers, session injection, database security |
-||| [topic-brrtrouter-codegen](./topics/topic-brrtrouter-codegen.md) | OpenAPI → codegen workflow, gen/ vs impl/, package naming warning |
+|||| [topic-brrtrouter-codegen](./topics/topic-brrtrouter-codegen.md) | OpenAPI → codegen workflow, gen/ vs impl/, package naming warning |
+|||| [topic-jsf-linting](./topics/jsf-linting.md) | JSF-inspired clippy profile: pedantic mode, `-D warnings`, JSF-aligned thresholds in `clippy.toml`, Phase 1 warn → Phase 2 deny plan |
 |||| [topic-data-model](./topics/topic-data-model.md) | Full ERD, key design decisions |
 |||| [topic-entity-relationship-diagram](./topics/topic-entity-relationship-diagram.md) | Comprehensive ERD reconciled from OpenAPI specs + impl model verification |
 ||| [topic-scaling-profiles](./topics/topic-scaling-profiles.md) | Per-service scaling, cache strategies |

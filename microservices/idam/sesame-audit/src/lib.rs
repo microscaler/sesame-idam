@@ -112,7 +112,7 @@ pub struct AuditEvent {
     pub id: Uuid,
     /// Event category
     pub event_type: AuditEventType,
-    /// Specific action (e.g., "login_success", "token_rotate", "user_delete")
+    /// Specific action (e.g., "`login_success`", "`token_rotate`", "`user_delete`")
     pub event_action: String,
     /// Tenant scope
     pub tenant_id: Uuid,
@@ -225,10 +225,11 @@ impl Default for AuditEmitter {
 }
 
 impl AuditEmitter {
+    #[must_use]
     pub fn new(hmac_key: Option<&[u8]>) -> Self {
         Self {
             sink: arc_swap::ArcSwap::from_pointee(Box::new(AuditLogger)),
-            hmac_key: hmac_key.map(|k| k.to_vec()),
+            hmac_key: hmac_key.map(<[u8]>::to_vec),
         }
     }
 
@@ -267,7 +268,8 @@ impl AuditEmitter {
 
 /// Helper types for common audit actions
 pub mod events {
-    use super::*;
+    use super::{AuditEmitter, AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
 
     /// Emit a login event
     pub fn login_success(
@@ -641,7 +643,8 @@ pub mod events {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{AuditEmitter, AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use uuid::Uuid;
 
     #[test]
     fn test_event_creation() {

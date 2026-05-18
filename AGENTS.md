@@ -171,7 +171,9 @@ Tests bind directly to the shared Kind PostgreSQL (namespace `data`, forwarded t
 
 ### 7. Code style + test discipline
 
-- Run `cargo fmt` + `cargo clippy -- -D warnings` before committing Rust changes.
+- Run `cargo fmt` + `just lint-rust` before committing Rust changes.
+  - `just lint-rust` runs clippy with `-D warnings -W clippy::pedantic` (pedantic mode is mandatory for security-critical code).
+  - Numeric thresholds are JSF-aligned (same as BRRTRouter / lifeguard) in `clippy.toml`: `stack-size-threshold=512000`, `cognitive-complexity-threshold=30`, `too-many-arguments-threshold=8`.
 - Run `just qa` before committing Python changes in `tooling/`.
 - Maintain test coverage for new behavior.
 
