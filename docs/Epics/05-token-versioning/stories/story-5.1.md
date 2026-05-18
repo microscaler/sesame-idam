@@ -66,7 +66,7 @@ sequenceDiagram
     participant Authz as authz-core
     participant Redis
 
-    Admin->>Authz: PUT /api/v1/am/roles/{role} {new_permissions}
+    Admin->>Authz: PUT /applications/{role} {new_permissions}
     Authz->>Authz: Update role in database
     Authz->>Redis: INCR authz_ver:{tenant_id}
     Redis-->>Authz: new_version = 43

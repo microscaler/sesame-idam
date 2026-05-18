@@ -108,10 +108,10 @@ This is the single biggest design gap: the entire tenancy model is absent from t
 |---|---|---|
 | `/` | GET | `query_orgs` |
 | `/{org_id}/users` | GET | `fetch_users_in_org` |
-| `/api/v1/am/applications` | GET | `list_applications` |
-| `/api/v1/am/applications/{app_id}/roles` | GET | `list_roles` |
-| `/api/v1/am/applications/{app_id}/permissions` | GET | `list_permissions` |
-| `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | GET | `get_role_permissions` |
+| `/applications` | GET | `list_applications` |
+| `/applications/{app_id}/roles` | GET | `list_roles` |
+| `/applications/{app_id}/permissions` | GET | `list_permissions` |
+| `/applications/{app_id}/roles/{role_id}/permissions` | GET | `get_role_permissions` |
 | `/{org_id}/role-mappings` | GET | `fetch_role_mappings` |
 | `/{org_id}/scim/groups` | GET | `fetch_scim_groups` |
 | `/{org_id}/scim/groups/{group_id}` | GET | `fetch_scim_group` |
@@ -140,7 +140,7 @@ The update schema (`UpdateApiKeyRequest`) has `required: []` and no `key_id` fie
 | `/{org_id}/add-user` | POST | `/{org_id}/users` | POST (path renamed) |
 | `/{org_id}/change-role` | POST | `/{org_id}/users/{user_id}/role` | PATCH |
 
-Other inconsistencies remain: session service uses `/api/v1/identity/users/me` while user-mgmt uses `/users/{user_id}`, and org-mgmt still uses verb-in-path patterns for several operations.
+Other inconsistencies remain: session service uses `/admin/users/me` while user-mgmt uses `/users/{user_id}`, and org-mgmt still uses verb-in-path patterns for several operations.
 
 ### 11. Duplicate Schemas Across Specs
 

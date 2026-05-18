@@ -38,9 +38,9 @@ graph TB
 
     SPA -->|/auth/*, /.well-known/*| LS
     SPA -->|/auth/refresh| SS
-    SPA -->|/api/v1/am/authorize| AC
+    SPA -->|/authz/authorize| AC
     SPA -->|/api-keys/*| AK
-    Admin -->|/organizations/*, /api/v1/am/*| OM
+    Admin -->|/organizations/*, /applications/*, /api-keys/*, /authz/*| OM
     Admin -->|/admin/users/*| UM
 
     LS -. login calls .-> AC

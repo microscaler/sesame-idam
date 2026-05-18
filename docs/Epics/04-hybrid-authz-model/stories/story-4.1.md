@@ -59,7 +59,7 @@ pub enum RouteAuthCategory {
 
 #[derive(Debug, Clone)]
 pub struct RoutePolicy {
-    pub path: String,           // e.g., "/api/v1/identity/users/me"
+    pub path: String,           // e.g., "/admin/users/me"
     pub methods: Vec<String>,   // e.g., ["GET", "POST"]
     pub category: RouteAuthCategory,
     pub description: String,     // Why this classification
@@ -76,9 +76,9 @@ I've audited the endpoint families based on the design doc and JWT document:
 
 | Path Pattern | Methods | Service | Rationale |
 |--------------|---------|---------|-----------|
-| `/api/v1/identity/users/me` | GET | identity-user-mgmt | Self-service read, ownership from JWT |
-| `/api/v1/identity/preferences` | GET | identity-user-mgmt | Self-service read |
-| `/api/v1/identity/users/me/verification-status` | GET | identity-login | Self-service read, ownership from JWT |
+| `/admin/users/me` | GET | identity-user-mgmt | Self-service read, ownership from JWT |
+| `/admin/users/me/preferences` | GET | identity-user-mgmt | Self-service read |
+| `/admin/users/me/verification-status` | GET | identity-login | Self-service read, ownership from JWT |
 | `/.well-known/openid-configuration` | GET | identity-session | Public endpoint, no authz needed |
 | `/.well-known/jwks.json` | GET | identity-session | Public endpoint, no authz needed |
 
@@ -86,32 +86,32 @@ I've audited the endpoint families based on the design doc and JWT document:
 
 | Path Pattern | Methods | Service | Cache TTL | Rationale |
 |--------------|---------|---------|-----------|-----------|
-| `/api/v1/identity/preferences` | PUT, PATCH | identity-user-mgmt | 30s | Low-risk write, business validation online |
-| `/api/v1/identity/users/me` | PUT, PATCH | identity-user-mgmt | 30s | Low-risk update, ownership from JWT |
-| `/api/v1/identity/email/upsert` | PUT | identity-user-mgmt | 15s | Data-integrity check needs freshness |
-| `/api/v1/identity/users/query` | POST | identity-user-mgmt | 15s | Admin query, ownership + tenant context |
-| `/api/v1/identity/users/{id}` | GET | identity-user-mgmt | 15s | Identity resolution, needs freshness |
-| `/api/v1/identity/email/{email}` | GET | identity-login | 15s | Identity resolution |
-| `/api/v1/identity/verification-status/{id}` | GET | identity-login | 15s | Verification check |
+| `/admin/users/me/preferences` | PUT, PATCH | identity-user-mgmt | 30s | Low-risk write, business validation online |
+| `/admin/users/me` | PUT, PATCH | identity-user-mgmt | 30s | Low-risk update, ownership from JWT |
+| `/admin/users/me/email` | PUT | identity-user-mgmt | 15s | Data-integrity check needs freshness |
+| `/admin/users/query` | POST | identity-user-mgmt | 15s | Admin query, ownership + tenant context |
+| `/admin/users/{user_id}` | GET | identity-user-mgmt | 15s | Identity resolution, needs freshness |
+| `/admin/users/email` | GET | identity-login | 15s | Identity resolution |
+| `/admin/users/{user_id}/verification-status` | GET | identity-login | 15s | Verification check |
 
 #### online-only (approx. 43 endpoints)
 
 | Path Pattern | Methods | Service | Rationale |
 |--------------|---------|---------|-----------|
-| `/api/v1/am/authorize` | POST | authz-core | Fine-grained resource check always requires online evaluation |
-| `/api/v1/am/principal/effective` | POST | authz-core | JWT claim enrichment, always online |
-| `/api/v1/am/principals/roles` | POST | authz-core | Role management, always online |
-| `/api/v1/am/principals/attributes` | POST | authz-core | ABAC attributes, always online |
-| `/api/v1/am/api-keys/validate` | POST | api-keys | Key validation always needs freshness for revocation |
-| `/api/v1/am/api-keys/validate/personal` | POST | api-keys | Personal key validation |
-| `/api/v1/am/api-keys/validate/org` | POST | api-keys | Org key validation |
-| `/api/v1/am/api-keys` | POST | api-keys | Key creation, high-sensitivity |
-| `/api/v1/am/api-keys/{id}` | DELETE | api-keys | Key revocation, always fresh |
-| `/api/v1/am/api-keys/{id}/rotate` | PUT | api-keys | Key rotation, always fresh |
-| `/orgs` | POST, PUT, DELETE | org-mgmt | Org lifecycle, always online |
-| `/orgs/{id}/members` | POST, DELETE | org-mgmt | Membership changes, always online |
-| `/api/v1/am/roles` | POST, PUT, DELETE | org-mgmt | Role management, always online |
-| `/api/v1/am/permissions` | POST, PUT, DELETE | org-mgmt | Permission management, always online |
+| `/authz/authorize` | POST | authz-core | Fine-grained resource check always requires online evaluation |
+| `/authz/principal/effective` | POST | authz-core | JWT claim enrichment, always online |
+| `/authz/principals/roles` | POST | authz-core | Role management, always online |
+| `/authz/principals/attributes` | POST | authz-core | ABAC attributes, always online |
+| `/api-keys/validate` | POST | api-keys | Key validation always needs freshness for revocation |
+| `/api-keys/validate/personal` | POST | api-keys | Personal key validation |
+| `/api-keys/validate/org` | POST | api-keys | Org key validation |
+| `/api-keys` | POST | api-keys | Key creation, high-sensitivity |
+| `/api-keys/{id}` | DELETE | api-keys | Key revocation, always fresh |
+| `/api-keys/{id}/rotate` | PUT | api-keys | Key rotation, always fresh |
+| `/organizations` | POST, PUT, DELETE | org-mgmt | Org lifecycle, always online |
+| `/organizations/{id}/members` | POST, DELETE | org-mgmt | Membership changes, always online |
+| `/applications/{app_id}/roles` | POST, PUT, DELETE | org-mgmt | Role management, always online |
+| `/applications/{app_id}/permissions` | POST, PUT, DELETE | org-mgmt | Permission management, always online |
 | All SSO/SCIM endpoints | POST, PUT, DELETE | org-mgmt | Sensitive org config, always online |
 | All webhook CRUD endpoints | POST, PUT, DELETE | org-mgmt | Webhook management |
 
@@ -129,18 +129,18 @@ The route policy configuration can be stored in:
 ```yaml
 # config/routes.yaml
 route_policies:
-  - path: "/api/v1/identity/users/me"
+  - path: "/admin/users/me"
     methods: ["GET"]
     category: "jwt-only"
     description: "Self-service read, ownership from JWT"
     
-  - path: "/api/v1/identity/preferences"
+  - path: "/admin/users/me/preferences"
     methods: ["PUT", "PATCH"]
     category: "jwt-with-fallback"
     cache_ttl_secs: 30
     description: "Low-risk write, business validation stays online"
     
-  - path: "/api/v1/am/authorize"
+  - path: "/authz/authorize"
     methods: ["POST"]
     category: "online-only"
     description: "Fine-grained resource check requires online evaluation"
@@ -201,7 +201,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Request: POST /api/v1/identity/preferences] --> B[Lookup RoutePolicy]
+    A[Request: POST /admin/users/me/preferences] --> B[Lookup RoutePolicy]
     B --> C{Policy found?}
     C -->|No| D[Default: jwt-with-fallback]
     C -->|Yes| E[Use policy.category]
@@ -269,22 +269,22 @@ The story says: "Default: jwt-with-fallback" for routes not in the config. This 
 The story shows: `get_policy(path, method)` does an exact match on `p.path == path`. But what if the implementation uses substring matching instead?
 
 **Exploit path (prefix bypass):**
-1. Admin classifies `/api/v1/identity/users/me` as `jwt-only` (self-service read)
-2. A new endpoint is added: `/api/v1/identity/users/me/export` (admin action, should be `online-only`)
+1. Admin classifies `/admin/users/me` as `jwt-only` (self-service read)
+2. A new endpoint is added: `/admin/users/me/export` (admin action, should be `online-only`)
 3. But the endpoint is NOT classified (developer forgets)
-4. Route lookup for `/api/v1/identity/users/me/export` does a prefix match → matches `/api/v1/identity/users/me`
+4. Route lookup for `/admin/users/me/export` does a prefix match → matches `/admin/users/me`
 5. The request is treated as `jwt-only` → no online fallback
 6. Attacker with a valid JWT can export ANY user's data
 
 **This exploit works because:**
-- The path `/api/v1/identity/users/me/export` STARTS WITH `/api/v1/identity/users/me`
+- The path `/admin/users/me/export` STARTS WITH `/admin/users/me`
 - If the lookup uses `starts_with()` instead of `==`, the prefix match occurs
 - Result: a sensitive admin route is treated as a public self-service route
 
 **Implementation requirement:**
 - Path matching MUST be EXACT, not prefix-based
-- Path templates like `/api/v1/identity/users/{id}` must be matched by ROUTING (e.g., `axum::Router::get("/users/:id", handler)`) and then mapped to the policy
-- The policy lookup must match the ROUTED path (e.g., `/api/v1/identity/users/{id}`), not the raw request path (`/api/v1/identity/users/123`)
+- Path templates like `/admin/users/{user_id}` must be matched by ROUTING (e.g., `axum::Router::get("/users/:id", handler)`) and then mapped to the policy
+- The policy lookup must match the ROUTED path (e.g., `/admin/users/{user_id}`), not the raw request path (`/admin/users/123`)
 - Document: "Route classification uses exact path matching on the ROUTED path (after parameter extraction), not the raw HTTP request path."
 
 ### HACK-203: YAML Configuration Can Be Tampered With (HIGH — related to Hole #7 from PRS)
@@ -297,13 +297,13 @@ The story uses a file-based YAML configuration: `config/routes.yaml`. If an atta
 1. Attacker gains write access to the file system (e.g., via a file upload vulnerability)
 2. Attacker modifies `config/routes.yaml`:
    ```yaml
-   - path: "/api/v1/identity/users/me"
+   - path: "/admin/users/me"
      methods: ["GET", "PUT", "DELETE"]
      category: "jwt-only"
      description: "All user actions are self-service"
    ```
 3. The service reloads (or restarts) and loads the modified config
-4. DELETE `/api/v1/identity/users/me` is now `jwt-only` → no online fallback
+4. DELETE `/admin/users/me` is now `jwt-only` → no online fallback
 5. Attacker with a valid JWT can DELETE themselves (or if there's a bug, other users)
 6. Result: Authentication bypass for critical admin operations
 
@@ -318,10 +318,10 @@ The story uses a file-based YAML configuration: `config/routes.yaml`. If an atta
 
 **Risk:** Only some methods are classified for a route, leaving other methods unclassified
 
-The story shows routes classified by path+method. If only GET is classified for `/api/v1/identity/users/me`, then PUT and PATCH are unclassified and default to `jwt-with-fallback`.
+The story shows routes classified by path+method. If only GET is classified for `/admin/users/me`, then PUT and PATCH are unclassified and default to `jwt-with-fallback`.
 
 **Exploit path:**
-1. Admin classifies `/api/v1/identity/users/me GET` as `jwt-only`
+1. Admin classifies `/admin/users/me GET` as `jwt-only`
 2. The developer forgets to classify PUT and PATCH for the same path
 3. PUT/PATCH default to `jwt-with-fallback` → online fallback IS called — this is actually safe
 4. BUT: if the default is changed to `jwt-only` (fail-open), the exploit works
@@ -362,8 +362,8 @@ The story's tests mention "wildcard path matching" as an edge case, but the impl
 1. Developer adds a wildcard classification: `/api/v1/** → jwt-only`
 2. This classification matches ALL sub-paths under `/api/v1/`, including:
    - `/api/v1/admin/roles` (should be `online-only`)
-   - `/api/v1/am/api-keys/{id}/rotate` (should be `online-only`)
-   - `/api/v1/am/authorize` (should be `online-only`)
+   - `/api-keys/{id}/rotate` (should be `online-only`)
+   - `/authz/authorize` (should be `online-only`)
 3. Result: ALL admin routes are treated as `jwt-only` — no online fallback
 4. Attacker with any valid JWT can access ALL admin routes
 
@@ -382,7 +382,7 @@ The story mentions: "Move to database-backed when dynamic updates are needed."
 **Exploit path:**
 1. The service is upgraded to database-backed config
 2. An attacker with access to the database modifies the route policies table
-3. Attacker changes `/api/v1/am/api-keys/{id}/rotate` from `online-only` to `jwt-only`
+3. Attacker changes `/api-keys/{id}/rotate` from `online-only` to `jwt-only`
 4. The service reloads the config and applies the change
 5. Attacker with a valid JWT can now rotate API keys without online authorization check
 
@@ -419,10 +419,10 @@ The story says: "assert the parser either rejects the file with an error or uses
 **Exploit path:**
 1. Attacker modifies the YAML to include two entries for the same path:
    ```yaml
-   - path: "/api/v1/am/api-keys"
+   - path: "/api-keys"
      methods: ["DELETE"]
      category: "jwt-only"
-   - path: "/api/v1/am/api-keys"
+   - path: "/api-keys"
      methods: ["DELETE"]
      category: "online-only"
    ```
@@ -532,18 +532,18 @@ The story uses `p.path == path` for exact matching, but the HTTP request path ha
 
 ### Security Regression Tests
 
-- [ ] **High-risk route cannot be misclassified as jwt-only**: Assert that routes for API key revocation (`DELETE /api-keys/{id}`), key rotation (`PUT /api-keys/{id}/rotate`), and org lifecycle (`DELETE /orgs/{id}`) are all classified as `online-only` — NOT `jwt-only`
+- [ ] **High-risk route cannot be misclassified as jwt-only**: Assert that routes for API key revocation (`DELETE /api-keys/{id}`), key rotation (`PUT /api-keys/{id}/rotate`), and org lifecycle (`DELETE /organizations/{id}`) are all classified as `online-only` — NOT `jwt-only`
 - [ ] **Admin routes are not jwt-only**: Assert that all admin-facing routes (role management, permission management, SCIM, SSO) are classified as `online-only` or `jwt-with-fallback` with fallback — never `jwt-only`
 - [ ] **Default classification is safe (not jwt-only)**: Assert that the default fail-safe category is `jwt-with-fallback`, NOT `jwt-only` — unknown routes should always check online
-- [ ] **Tenant-scoped routes are not jwt-only**: Assert that routes operating on tenant data (`/api/v1/identity/email/upsert`, `/api/v1/identity/users/query`) are classified as `jwt-with-fallback` with fallback to verify tenant context
+- [ ] **Tenant-scoped routes are not jwt-only**: Assert that routes operating on tenant data (`/admin/users/me/email`, `/admin/users/query`) are classified as `jwt-with-fallback` with fallback to verify tenant context
 
 ### Edge Cases
 
-- [ ] **Wildcard path matching**: Given a route policy with path pattern `/api/v1/identity/users/{id}` — assert that a request to `/api/v1/identity/users/123` matches the policy (path parameter substitution)
+- [ ] **Wildcard path matching**: Given a route policy with path pattern `/admin/users/{user_id}` — assert that a request to `/admin/users/123` matches the policy (path parameter substitution)
 - [ ] **Duplicate path+method in YAML**: Given a YAML file with two entries for the same path+method but different categories — assert the parser either rejects the file with an error or uses a deterministic first-wins rule (documented behavior)
 - [ ] **Empty route policies list**: Given a valid YAML file with `route_policies: []` (empty list) — assert the store is created with 0 policies and ALL requests fall through to the default `jwt-with-fallback`
 - [ ] **Very large classification file**: Given a YAML file with 200 route policies — assert `load_from_file()` completes within 1 second and the lookup map is built efficiently (O(1) or O(log n) lookup)
-- [ ] **Route with special characters in path**: Given a route policy with path `/api/v1/identity/users/{id}/preferences/{key}` — assert lookup with a matching request path succeeds
+- [ ] **Route with special characters in path**: Given a route policy with path `/admin/users/{user_id}/preferences/{key}` — assert lookup with a matching request path succeeds
 
 ### Cleanup
 

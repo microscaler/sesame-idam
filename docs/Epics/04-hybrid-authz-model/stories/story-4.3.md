@@ -80,10 +80,10 @@ fn generate_fallback_cache_key(request: &AuthorizeRequest) -> String {
 
 | Route | Cache TTL | Rationale |
 |-------|-----------|-----------|
-| `/api/v1/identity/preferences` PUT | 30s | Low-risk write, stale results acceptable |
-| `/api/v1/identity/email/upsert` PUT | 15s | Data integrity needs more freshness |
-| `/api/v1/identity/users/me` PUT | 30s | User update, ownership from JWT |
-| `/api/v1/identity/users/query` POST | 15s | Admin query, tenant-scoped |
+| `/admin/users/me/preferences` PUT | 30s | Low-risk write, stale results acceptable |
+| `/admin/users/me/email` PUT | 15s | Data integrity needs more freshness |
+| `/admin/users/me` PUT | 30s | User update, ownership from JWT |
+| `/admin/users/query` POST | 15s | Admin query, tenant-scoped |
 
 ## Implementation Notes
 
@@ -164,7 +164,7 @@ sequenceDiagram
     participant Cache as Redis Cache
     participant Authz as authz-core
 
-    Client->>Handler: POST /api/v1/identity/preferences {data}
+    Client->>Handler: POST /admin/users/me/preferences {data}
     Handler->>Handler: Check if JWT claims cover decision
     alt Claims cover decision
         Handler-->>Client: 200 OK (jwt_claims)
@@ -174,7 +174,7 @@ sequenceDiagram
             Cache-->>Handler: Cached result
             Handler-->>Client: 200 OK (from cache)
         else Cache MISS
-            Handler->>Authz: POST /api/v1/am/authorize {org_id, action}
+            Handler->>Authz: POST /authz/authorize {org_id, action}
             Authz->>Authz: Evaluate role/permission rules
             Authz-->>Handler: {allowed: true/false}
             Handler->>Cache: SET authz_fallback:{hash} (TTL 15-30s)
@@ -292,7 +292,7 @@ if let Ok(ref response) = result {
 
 ## OpenAPI Changes
 
-- `/api/v1/am/authorize` endpoint: Document the Redis cache behavior in the endpoint description
+- `/authz/authorize` endpoint: Document the Redis cache behavior in the endpoint description
 - No changes to request/response shapes needed
 
 ```yaml

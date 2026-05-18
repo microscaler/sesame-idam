@@ -50,6 +50,6 @@ Tenant isolation is enforced at three layers:
 || Wiki Claim | Actual Impl | Impact |
 |------------|-------------|--------|--------|
 | `tenants` table exists | NO TABLE EXISTS — tenant is purely logical | Critical — schema section was fabricated |
-| `/api/v1/am/tenants` endpoints | Stale paths; tenant management is conceptual | Medium — no tenant CRUD endpoints |
+| `POST /tenants` | Stale paths; tenant management is conceptual | Medium — no tenant CRUD endpoints |
 | `name`, `domain`, `is_active`, `deleted_at` columns | NOT in any table (no tenants table) | Medium — schema was fabricated |
 | `tenant_id` is uuid | `tenant_id` is varchar(255) in ALL services | Low — type mismatch |
