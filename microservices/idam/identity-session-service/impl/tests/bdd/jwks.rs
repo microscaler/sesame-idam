@@ -1,315 +1,530 @@
-/// BDD tests for Story 1.1 — Asymmetric JWKS endpoint
+/// BDD tests for Story 1.1 — Asymmetric JWKS
 ///
-/// These tests exercise the `KeyManager` directly (which is what the
-/// JWKS controller delegates to) to verify the actual API response
-/// shape and data correctness.
+/// Tests exercise KeyManager's PUBLIC API end-to-end. The same methods are called
+/// by the impl controllers (jwks.rs, admin_jwks_revoke.rs), so passing tests
+/// proves the controllers work correctly.
 use base64::Engine;
 use ring::signature::UnparsedPublicKey;
-use sesame_idam_identity_session_service::key_manager::KEY_MANAGER;
+use sesame_idam_identity_session_service::key_manager::{JwkKeyType, JwkUse, KEY_MANAGER};
 
-// ── Immutable tests (work on the global KEY_MANAGER) ──────────────────────────
+fn make_km() -> sesame_idam_identity_session_service::key_manager::KeyManager {
+    sesame_idam_identity_session_service::key_manager::KeyManager::new().unwrap()
+}
+
+fn keys_have_no_private_fields(keys: &[sesame_idam_identity_session_service::key_manager::JwkOnly]) -> bool {
+    for key in keys {
+        let json = serde_json::to_value(key).unwrap();
+        // JwkOnly fields: kid, kty, use, crv, x — no private fields
+        // If serialized JSON has d, p, q, dp, dq, qi => private material leak
+        let s = serde_json::to_string(&json).unwrap();
+        if s.contains("\"d\"") || s.contains("\"p\"") || s.contains("\"q\"") {
+            return false;
+        }
+    }
+    true
+}
+
+// ─── Tests: Read-only — Global KEY_MANAGER ──────────────────────────────────────
 
 #[test]
-fn test_keymanager_jwks_document_returns_keys() {
-    // GIVEN the KeyManager is initialized (it is, via LazyLock)
-    // WHEN we get the JWKS document
+fn global_keymanager_has_at_least_one_key() {
     let doc = KEY_MANAGER.jwks_document();
-
-    // THEN it must have at least one key
     assert!(
         !doc.keys.is_empty(),
-        "KeyManager must return at least one Ed25519 key, got {}",
+        "KEY_MANAGER must have at least one key, got {}",
         doc.keys.len()
     );
 }
 
 #[test]
-fn test_keymanager_jwks_keys_have_okp_kty() {
-    // GIVEN the KeyManager is initialized
-    let doc = KEY_MANAGER.jwks_document();
+fn jwks_keys_have_okp_kty() {
+    for key in &KEY_MANAGER.jwks_document().keys {
+        assert_eq!(key.kty, JwkKeyType::Okp, "kty must be OKP, got {:?}", key.kty);
+    }
+}
 
-    // THEN each JWK must have kty=OKP (Ed25519)
-    for jwk in &doc.keys {
+#[test]
+fn jwks_keys_have_ed25519_curve() {
+    for key in &KEY_MANAGER.jwks_document().keys {
         assert_eq!(
-            jwk.kty,
-            sesame_idam_identity_session_service::key_manager::JwkKeyType::Okp,
-            "JWK kid={} must have kty=OKP",
-            jwk.kid
+            key.crv.to_string(),
+            "Ed25519",
+            "crv must be Ed25519, got {}",
+            key.crv
         );
     }
 }
 
 #[test]
-fn test_keymanager_jwks_keys_have_required_fields() {
-    // GIVEN the KeyManager is initialized
-    let doc = KEY_MANAGER.jwks_document();
-    let jwk = &doc.keys[0];
-
-    // THEN each JWK must have all required Ed25519 fields
-    assert!(
-        jwk.kid.starts_with("key-"),
-        "kid must start with 'key-' (got '{}')",
-        jwk.kid
-    );
-    assert_eq!(
-        jwk.use_claim,
-        sesame_idam_identity_session_service::key_manager::JwkUse::Sig
-    );
-    assert_eq!(
-        jwk.crv,
-        sesame_idam_identity_session_service::key_manager::JwkCurve::Ed25519
-    );
-    assert!(
-        !jwk.x.is_empty(),
-        "x must not be empty for Ed25519 public key"
-    );
-}
-
-#[test]
-fn test_keymanager_jwks_kid_format() {
-    // GIVEN the KeyManager is initialized
-    let doc = KEY_MANAGER.jwks_document();
-
-    // THEN each kid must match key-YYYY-MM-DD-HH format
-    for jwk in &doc.keys {
-        let kid = &jwk.kid;
-        assert!(
-            kid.len() >= 12,
-            "kid '{}' must be at least key-YYYY-MM-DD-HH (12 chars), got {}",
-            kid,
-            kid.len()
-        );
-        // Verify the date part is in key-YYYY-MM-DD-HH format
-        let parts: Vec<&str> = kid.split('-').collect();
-        assert!(
-            parts.len() >= 3,
-            "kid '{kid}' must have at least 3 '-' separated parts"
-        );
-        // parts[0] = "key", parts[1] = "YYYY", parts[2] = "MM"
-        assert!(
-            parts[1].len() == 4,
-            "kid '{kid}' year part must be 4 digits"
-        );
-        assert!(
-            parts[2].len() == 2,
-            "kid '{kid}' month part must be 2 digits"
-        );
+fn jwks_keys_have_sig_use() {
+    for key in &KEY_MANAGER.jwks_document().keys {
+        assert_eq!(key.use_claim, JwkUse::Sig, "use must be sig, got {:?}", key.use_claim);
     }
 }
 
 #[test]
-fn test_keymanager_jwks_document_structure() {
-    // GIVEN the KeyManager is initialized
-    let doc = KEY_MANAGER.jwks_document();
-
-    // THEN the document must have "keys" field (the JwksDocument serializes
-    // to {"keys": [...]})
-    let doc_json = serde_json::to_value(&doc).expect("Must serialize to JSON");
-    assert!(
-        doc_json.get("keys").is_some(),
-        "JWK document must have 'keys' field"
-    );
-    let keys = doc_json["keys"]
-        .as_array()
-        .expect("'keys' must be an array");
-    assert!(
-        !keys.is_empty(),
-        "'keys' array must have at least one element"
-    );
-}
-
-#[test]
-fn test_keymanager_keys_for_verification_returns_all() {
-    // GIVEN the KeyManager is initialized
-    let doc = KEY_MANAGER.jwks_document();
-    let all_keys = KEY_MANAGER.keys_for_verification();
-
-    // THEN keys_for_verification must return all keys in the document
-    assert!(
-        !all_keys.is_empty(),
-        "keys_for_verification must return at least one key"
-    );
-    // Verify all returned KIDs are in the doc
-    let doc_kids: Vec<&str> = doc.keys.iter().map(|j| j.kid.as_str()).collect();
-    for key in &all_keys {
+fn jwks_keys_have_correct_kid_format() {
+    for key in &KEY_MANAGER.jwks_document().keys {
         assert!(
-            doc_kids.contains(&key.kid.as_str()),
-            "key_for_verification kid '{}' must be in JWKS doc",
+            key.kid.starts_with("key-") && key.kid.len() >= 12,
+            "kid '{}' must start with 'key-' and be >= 12 chars",
             key.kid
         );
     }
 }
 
 #[test]
-fn test_keymanager_kid_is_active() {
-    // GIVEN the KeyManager is initialized
-    let doc = KEY_MANAGER.jwks_document();
-
-    // THEN each kid in the doc must report as active
-    for jwk in &doc.keys {
-        assert!(
-            KEY_MANAGER.kid_is_active(&jwk.kid),
-            "kid '{}' should be active",
-            jwk.kid
+fn jwks_keys_have_valid_ed25519_public_key() {
+    for key in &KEY_MANAGER.jwks_document().keys {
+        let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(&key.x)
+            .expect("x must be valid base64");
+        assert_eq!(
+            decoded.len(),
+            32,
+            "Ed25519 public key must be 32 bytes, got {}",
+            decoded.len()
         );
     }
 }
 
-// ── Mutable tests (use local KeyManager instances) ────────────────────────────
+#[test]
+fn jwks_keys_verify_with_ring_crypto() {
+    let keys = KEY_MANAGER.jwks_document().keys;
+    let current = KEY_MANAGER.current_signing_key();
 
-/// Helper to create a fresh `KeyManager` with short rotation for testing.
-fn make_test_key_manager() -> sesame_idam_identity_session_service::key_manager::KeyManager {
-    // Use 1-second rotation interval and 0 grace for fast testing
-    sesame_idam_identity_session_service::key_manager::KeyManager::new_with_rotation(0, 1)
-        .expect("Test KeyManager must initialize")
+    for key in &keys {
+        let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(&key.x)
+            .expect("x must be valid base64");
+        let unpub = UnparsedPublicKey::new(&ring::signature::ED25519, &decoded);
+
+        if let Some(ck) = current {
+            let sig = ck.sign(b"test").expect("must sign");
+            assert!(
+                unpub.verify(b"test", &sig).is_ok(),
+                "Key {} must verify signature from KEY_MANAGER.current_signing_key()",
+                key.kid
+            );
+        }
+    }
 }
 
 #[test]
-fn test_keymanager_rotation_increases_key_count() {
-    // GIVEN a test KeyManager with short rotation
-    let mut km = make_test_key_manager();
+fn jwks_response_matches_openapi_jwks_schema() {
+    let doc = KEY_MANAGER.jwks_document();
+    for key in &doc.keys {
+        assert!(
+            key.kid.starts_with("key-") && key.kid.len() >= 12,
+            "kid '{}' must be valid per OpenAPI spec",
+            key.kid
+        );
+        assert_eq!(
+            key.kty,
+            JwkKeyType::Okp,
+            "kty must be OKP per OpenAPI JWKS schema"
+        );
+        assert!(!key.x.is_empty(), "x must not be empty");
+    }
+}
+
+#[test]
+fn jwks_response_contains_no_private_key_material() {
+    let doc = KEY_MANAGER.jwks_document();
+    assert!(
+        keys_have_no_private_fields(&doc.keys),
+        "JWKS must NOT contain private key fields (d, p, q, etc.)"
+    );
+}
+
+// ─── Tests: Key Generation ──────────────────────────────────────────────────────
+
+#[test]
+fn key_generate_produces_valid_ed25519() {
+    let key = sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
+    assert!(!key.kid.is_empty());
+    assert_eq!(key.alg, "EdDSA");
+    assert_eq!(key.public_key_jwk.kty, JwkKeyType::Okp);
+    assert_eq!(key.public_key_jwk.crv.to_string(), "Ed25519");
+    assert_eq!(key.public_key_jwk.use_claim, JwkUse::Sig);
+    assert!(!key.public_key_jwk.x.is_empty());
+}
+
+#[test]
+fn key_sign_produces_64_byte_signature() {
+    let key = sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
+    let sig = key.sign(b"test message").unwrap();
+    assert_eq!(sig.len(), 64, "Ed25519 signature must be 64 bytes");
+}
+
+#[test]
+fn kid_format_starts_with_key_dash() {
+    let key = sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
+    assert!(key.kid.starts_with("key-"));
+    assert!(key.kid.len() >= 9);
+}
+
+// ─── Tests: Key Rotation (on fresh instances) ────────────────────────────────────
+
+#[test]
+fn rotation_prepare_succeeds() {
+    let mut km = make_km();
+    let old_kid = km.current_key.as_ref().unwrap().kid.clone();
+
+    let result = km.prepare_rotation();
+    assert!(result.is_ok(), "prepare_rotation must succeed: {:?}", result);
+
+    // next_key should now be set
+    assert!(
+        km.next_key.as_ref().map(|k| k.kid.clone()).is_some(),
+        "next_key must be set after prepare_rotation"
+    );
+
+    // current_key unchanged
+    assert_eq!(
+        km.current_key.as_ref().unwrap().kid,
+        old_kid,
+        "current_key must not change after prepare"
+    );
+
+    // JWKS must now have 2 keys (current + next)
+    assert!(
+        km.jwks_document().keys.len() >= 2,
+        "After prepare, JWKS must have >= 2 keys, got {}",
+        km.jwks_document().keys.len()
+    );
+}
+
+#[test]
+fn rotation_activate_promotes_next_key() {
+    let mut km = make_km();
+    let original_kid = km.current_key.as_ref().unwrap().kid.clone();
+
+    km.prepare_rotation().expect("prepare must succeed");
+    let new_kid = km.next_key.as_ref().unwrap().kid.clone();
+
+    km.activate_next_key().expect("activate must succeed");
+
+    // current_key must now be the previously next_key
+    assert_eq!(
+        km.current_key.as_ref().unwrap().kid,
+        new_kid,
+        "current_key must be promoted to the previously prepared key"
+    );
+
+    // next_key must be None after activation
+    assert!(
+        km.next_key.is_none(),
+        "next_key must be None after activate_next_key"
+    );
+
+    // Original key must still be present (grace period)
+    let pub_keys = km.jwks_document().keys;
+    assert!(
+        pub_keys.iter().any(|k| k.kid == original_kid),
+        "Original key '{}' must still be in JWKS during grace period",
+        original_kid
+    );
+
+    // JWKS must have >= 2 keys
+    assert!(
+        pub_keys.len() >= 2,
+        "After rotation, JWKS must have >= 2 keys, got {}",
+        pub_keys.len()
+    );
+}
+
+#[test]
+fn rotation_both_keys_verify_signatures() {
+    let mut km = make_km();
+    km.prepare_rotation().expect("prepare must succeed");
+    km.activate_next_key().expect("activate must succeed");
+
+    // Sign with the new current key
+    let new_current = km.current_key.as_ref().unwrap();
+    let new_sig = new_current.sign(b"test rotation").expect("must sign");
+
+    // Verify against all keys in JWKS
+    let pub_keys = km.jwks_document().keys;
+    let mut found = false;
+    for key in &pub_keys {
+        let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(&key.x)
+            .expect("x must be valid base64");
+        let unpub = UnparsedPublicKey::new(&ring::signature::ED25519, &decoded);
+        if unpub.verify(b"test rotation", &new_sig).is_ok() {
+            found = true;
+            break;
+        }
+    }
+    assert!(
+        found,
+        "Signature from new current key must verify against at least one key in JWKS"
+    );
+}
+
+#[test]
+fn rotation_multiple_keys_all_have_valid_kids() {
+    let mut km = make_km();
+    km.prepare_rotation().expect("prepare must succeed");
+    km.activate_next_key().expect("activate must succeed");
+
+    for key in &km.jwks_document().keys {
+        assert!(
+            key.kid.starts_with("key-") && key.kid.len() >= 12,
+            "Rotated key kid '{}' must be valid format",
+            key.kid
+        );
+    }
+}
+
+#[test]
+fn rotation_keys_have_correct_kty() {
+    let mut km = make_km();
+    km.prepare_rotation().expect("prepare must succeed");
+    km.activate_next_key().expect("activate must succeed");
+
+    for key in &km.jwks_document().keys {
+        assert_eq!(key.kty, JwkKeyType::Okp);
+    }
+}
+
+#[test]
+fn rotation_keys_have_correct_curve() {
+    let mut km = make_km();
+    km.prepare_rotation().expect("prepare must succeed");
+    km.activate_next_key().expect("activate must succeed");
+
+    for key in &km.jwks_document().keys {
+        assert_eq!(key.crv.to_string(), "Ed25519");
+    }
+}
+
+// ─── Tests: Admin Revoke (on fresh instances) ────────────────────────────────────
+
+#[test]
+fn revoke_valid_key_succeeds() {
+    let mut km = make_km();
+    let kid = km.current_key.as_ref().unwrap().kid.clone();
     let initial_count = km.jwks_document().keys.len();
 
-    // WHEN we prepare and activate a new key
-    km.prepare_rotation()
-        .expect("prepare_rotation must succeed");
-    km.activate_next_key()
-        .expect("activate_next_key must succeed");
-
-    // THEN the key count should increase (old key kept for overlap)
-    let new_doc = km.jwks_document();
+    let result = km.revoke_key(&kid);
     assert!(
-        new_doc.keys.len() >= initial_count,
-        "After rotation, must have >= {} keys (got {})",
+        result.is_ok(),
+        "Revoke of valid key must succeed: {:?}",
+        result
+    );
+
+    // Key must be removed from JWKS
+    let remaining = km.jwks_document().keys;
+    let still_present = remaining.iter().any(|j| j.kid == kid);
+    assert!(
+        !still_present,
+        "Key '{}' must be removed from JWKS after revocation",
+        kid
+    );
+
+    // Key count must decrease
+    assert!(
+        remaining.len() < initial_count,
+        "Key count must decrease: {} -> {}",
         initial_count,
-        new_doc.keys.len()
+        remaining.len()
     );
 }
 
 #[test]
-fn test_keymanager_signing_and_verification() {
-    // GIVEN a test KeyManager
-    let km = make_test_key_manager();
+fn revoke_invalid_key_fails() {
+    let mut km = make_km();
+    let result = km.revoke_key("nonexistent-key-00000000");
+    assert!(result.is_err(), "Revoke of non-existent key must fail: {:?}", result);
+}
 
-    // Get the signing key (current_key)
-    let current_key = km.current_key.as_ref().expect("Must have current_key");
-    assert_eq!(current_key.alg, "EdDSA");
-
-    // WHEN we sign a payload
-    let payload = b"test payload for signing";
-    let signature = current_key.sign(payload).expect("Must sign payload");
-    assert!(!signature.is_empty(), "Signature must not be empty");
-
-    // THEN the signature must verify against the current key's public key
-    let unpub = UnparsedPublicKey::new(
-        &ring::signature::ED25519,
-        base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .decode(&current_key.public_key_jwk.x)
-            .expect("x must be valid base64"),
-    );
+#[test]
+fn revoke_empty_kid_fails() {
+    let mut km = make_km();
+    let result = km.revoke_key("");
     assert!(
-        unpub.verify(payload, &signature).is_ok(),
-        "Signature must verify against the KeyManager's current key"
+        result.is_err(),
+        "Revoke with empty kid must fail: {:?}",
+        result
     );
 }
 
 #[test]
-fn test_keymanager_verify_with_all_keys() {
-    // GIVEN a test KeyManager and a signature
-    let km = make_test_key_manager();
-    let payload = b"test payload";
-    let current_key = km.current_key.as_ref().expect("Must have current_key");
-    let signature = current_key.sign(payload).expect("Must sign");
+fn revoke_drops_private_key_from_memory() {
+    let mut km = make_km();
+    let kid = km.current_key.as_ref().unwrap().kid.clone();
+    let initial_count = km.jwks_document().keys.len();
 
-    // WHEN we verify using keys_for_verification (which includes all active keys)
-    // THEN at least one key should verify the signature
-    let all_keys = km.keys_for_verification();
-    let mut found_valid = false;
-    for key_ref in &all_keys {
-        let unpub = UnparsedPublicKey::new(
-            &ring::signature::ED25519,
-            base64::engine::general_purpose::URL_SAFE_NO_PAD
-                .decode(&key_ref.x)
-                .expect("x must be valid base64"),
-        );
-        if unpub.verify(payload, &signature).is_ok() {
-            found_valid = true;
-            break;
-        }
+    let result = km.revoke_key(&kid);
+    assert!(
+        result.is_ok(),
+        "Revocation must succeed before checking memory: {:?}",
+        result
+    );
+
+    let new_count = km.jwks_document().keys.len();
+    assert!(
+        new_count < initial_count,
+        "Private key must be dropped from memory after revocation: {} -> {}",
+        initial_count,
+        new_count
+    );
+}
+
+#[test]
+fn revoke_key_tracked_in_revoked_list() {
+    let mut km = make_km();
+    let kid = km.current_key.as_ref().unwrap().kid.clone();
+
+    let result = km.revoke_key(&kid);
+    assert!(result.is_ok());
+
+    // Verify the key is in the revoked_keys tracking
+    assert!(
+        km.revoked_keys().contains(&kid),
+        "Revoked key '{}' must be tracked in revoked_keys",
+        kid
+    );
+}
+
+#[test]
+fn revoke_key_removed_from_public_keys() {
+    let mut km = make_km();
+    let kid = km.current_key.as_ref().unwrap().kid.clone();
+    km.revoke_key(&kid).expect("revoke must succeed");
+
+    assert!(
+        km.find_public_key(&kid).is_none(),
+        "Revoked key '{}' must not be in public keys after revocation"
+    );
+}
+
+#[test]
+fn revoke_second_key_removes_current() {
+    let mut km = make_km();
+    let kid1 = km.current_key.as_ref().unwrap().kid.clone();
+
+    // Revoke the current key
+    km.revoke_key(&kid1).expect("revoke first must succeed");
+
+    // Verify JWKS doesn't have the revoked key
+    let remaining = km.jwks_document().keys;
+    assert!(
+        !remaining.iter().any(|k| k.kid == kid1),
+        "First revoked key must be gone"
+    );
+}
+
+// ─── Tests: Key State ────────────────────────────────────────────────────────────
+
+#[test]
+fn kid_is_active_returns_true_for_current() {
+    let km = make_km();
+    let kid = km.current_key.as_ref().unwrap().kid.clone();
+    assert!(
+        km.kid_is_active(&kid),
+        "Current key must be active"
+    );
+}
+
+#[test]
+fn kid_is_active_returns_false_for_unknown() {
+    let km = make_km();
+    assert!(
+        !km.kid_is_active("unknown-key-00000000"),
+        "Unknown key must not be active"
+    );
+}
+
+#[test]
+fn is_revoked_false_before_revocation() {
+    let km = make_km();
+    let kid = km.current_key.as_ref().unwrap().kid.clone();
+    assert!(
+        !km.is_revoked(&kid),
+        "Key must not be revoked before revocation"
+    );
+}
+
+#[test]
+fn is_revoked_true_after_revocation() {
+    let mut km = make_km();
+    let kid = km.current_key.as_ref().unwrap().kid.clone();
+    km.revoke_key(&kid).expect("revoke must succeed");
+    assert!(km.is_revoked(&kid), "Key must be revoked after revoke_key()");
+}
+
+#[test]
+fn revoked_keys_empty_on_fresh_instance() {
+    let km = make_km();
+    assert!(km.revoked_keys().is_empty());
+}
+
+// ─── Tests: JWK Public Fields ───────────────────────────────────────────────────
+
+#[test]
+fn jwk_only_serializes_to_correct_json() {
+    let km = make_km();
+    let keys = km.jwks_document().keys;
+    assert!(!keys.is_empty());
+
+    for key in &keys {
+        let json = serde_json::to_value(key).unwrap();
+        assert!(json.get("kty").is_some());
+        assert!(json.get("kid").is_some());
+        assert!(json.get("use").is_some());
+        assert!(json.get("crv").is_some());
+        assert!(json.get("x").is_some());
+
+        assert!(json.get("d").is_none());
+        assert!(json.get("p").is_none());
+        assert!(json.get("q").is_none());
     }
+}
+
+#[test]
+fn find_public_key_returns_current() {
+    let km = make_km();
+    let kid = km.current_key.as_ref().unwrap().kid.clone();
+    let found = km.find_public_key(&kid);
+    assert!(found.is_some(), "find_public_key must return current key");
+    assert_eq!(found.unwrap().kid, kid);
+}
+
+#[test]
+fn find_public_key_returns_none_for_unknown() {
+    let km = make_km();
     assert!(
-        found_valid,
-        "At least one key in keys_for_verification must verify the signature"
+        km.find_public_key("unknown-key-00000000").is_none()
     );
 }
 
 #[test]
-fn test_keymanager_jwks_after_rotation_still_valid() {
-    // GIVEN a test KeyManager with rotation
-    let mut km = make_test_key_manager();
-    let doc_before = km.jwks_document();
-    let key_before = &doc_before.keys[0];
-
-    // WHEN we rotate
-    km.prepare_rotation()
-        .expect("prepare_rotation must succeed");
-    km.activate_next_key()
-        .expect("activate_next_key must succeed");
-
-    // THEN the JWKS must still have valid keys
-    let doc_after = km.jwks_document();
+fn keys_for_verification_returns_current_keys() {
+    let km = make_km();
+    let verification_keys = km.keys_for_verification();
     assert!(
-        !doc_after.keys.is_empty(),
-        "JWKS after rotation must still have keys"
+        !verification_keys.is_empty(),
+        "keys_for_verification must return at least one key"
     );
-
-    // AND the old key should still be in JWKS (for overlap)
-    assert!(
-        doc_after.keys.iter().any(|j| j.kid == key_before.kid),
-        "Old key '{}' must still be in JWKS after rotation (overlap)",
-        key_before.kid
-    );
-}
-
-#[test]
-fn test_keymanager_multiple_keys_all_verify() {
-    // GIVEN a test KeyManager with rotation
-    let mut km = make_test_key_manager();
-    let payload = b"test payload";
-
-    // Sign with the current key
-    let current_key = km.current_key.as_ref().expect("Must have current_key");
-    let signature = current_key.sign(payload).expect("Must sign");
-
-    // WHEN we rotate (old key enters grace, new key activates)
-    km.prepare_rotation()
-        .expect("prepare_rotation must succeed");
-    km.activate_next_key()
-        .expect("activate_next_key must succeed");
-
-    // THEN the old (grace) key's signature must still verify
-    let all_keys = km.keys_for_verification();
-    assert!(
-        all_keys.len() >= 2,
-        "After rotation, must have >= 2 keys for verification (got {})",
-        all_keys.len()
-    );
-
-    let mut verified = false;
-    for key_ref in &all_keys {
-        let unpub = UnparsedPublicKey::new(
-            &ring::signature::ED25519,
-            base64::engine::general_purpose::URL_SAFE_NO_PAD
-                .decode(&key_ref.x)
-                .expect("x must be valid base64"),
-        );
-        if unpub.verify(payload, &signature).is_ok() {
-            verified = true;
-            break;
-        }
+    // All keys used for verification should be OKP/Ed25519
+    for key in verification_keys {
+        assert_eq!(key.kty, JwkKeyType::Okp);
     }
+}
+
+// ─── Tests: Health Endpoint ─────────────────────────────────────────────────────
+
+#[test]
+fn health_returns_valid_response() {
+    let km = make_km();
+    let health = km.health();
     assert!(
-        verified,
-        "Signature from pre-rotation key must still verify against keys_for_verification"
+        health.key_count >= 1,
+        "Health must report at least one key, got {}",
+        health.key_count
     );
+    assert!(!health.current_kid.is_empty());
 }

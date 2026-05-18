@@ -1,6 +1,6 @@
-/// Authz request tracing middleware — wraps every incoming request with
-/// an `authz.request` span and records whether the request was allowed
-/// or denied based on the response status.
+//! Authz request tracing middleware — wraps every incoming request with
+//! an `authz.request` span and records whether the request was allowed
+//! or denied based on the response status.
 
 use std::time::Duration;
 

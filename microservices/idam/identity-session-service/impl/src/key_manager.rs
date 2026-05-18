@@ -508,7 +508,7 @@ impl KeyManager {
         let span = tracing::span!(
             tracing::Level::INFO,
             "key.rotate.prepare",
-            from_kid = self.current_key.as_ref().map(|k| k.kid.as_str()).unwrap_or("none"),
+            from_kid = self.current_key.as_ref().map_or("none", |k| k.kid.as_str()),
             to_kid = tracing::field::Empty
         );
         let _guard = span.enter();
