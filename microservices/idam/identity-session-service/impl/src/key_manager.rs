@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(clippy::unused_self)]
 //! JWT key management for asymmetric Ed25519 signing.
 //!
 //! Generates and rotates Ed25519 key pairs. Private keys stay in-memory only.
@@ -19,6 +21,11 @@
 //!   the private key from memory.
 //! - A restart generates a fresh key pair — no persistence across restarts.
 //!
+//! # Note
+//!
+//! `#![allow(dead_code)]` at the module level — this code is wired into `main.rs`
+//! as part of Story 1.1 implementation. Until then, clippy flags unused items.
+//!
 //! # Admin endpoints
 //!
 //! - `GET /health/jwks` — Health check with key metadata
@@ -27,7 +34,6 @@
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use ring::rand::SystemRandom;
-use ring::rand::SecureRandom;
 use ring::signature::{Ed25519KeyPair, KeyPair};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -52,7 +58,9 @@ pub enum JwkKeyType {
 
 impl fmt::Display for JwkKeyType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self { JwkKeyType::Okp => "OKP" })
+        match self {
+            JwkKeyType::Okp => write!(f, "OKP"),
+        }
     }
 }
 
@@ -65,7 +73,9 @@ pub enum JwkCurve {
 
 impl fmt::Display for JwkCurve {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self { JwkCurve::Ed25519 => "Ed25519" })
+        match self {
+            JwkCurve::Ed25519 => write!(f, "Ed25519"),
+        }
     }
 }
 
@@ -78,7 +88,9 @@ pub enum JwkUse {
 
 impl fmt::Display for JwkUse {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self { JwkUse::Sig => "sig" })
+        match self {
+            JwkUse::Sig => write!(f, "sig"),
+        }
     }
 }
 
@@ -178,6 +190,11 @@ impl JwtSigningKey {
     ///
     /// The `kid` format is `key-YYYY-MM` (e.g., `key-2026-05`). If an explicit
     /// `kid` is provided it is used instead.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::GenerationFailed`] if RNG fails,
+    /// [`KeyError::InvalidKey`] if the key pair is invalid.
     pub fn generate(kid: Option<String>) -> Result<Self, KeyError> {
         let sys = SystemRandom::new();
 
@@ -190,6 +207,7 @@ impl JwtSigningKey {
         let key_pair = Ed25519KeyPair::from_pkcs8(pkcs8_bytes)
             .map_err(|e| KeyError::InvalidKey(format!("Invalid Ed25519 key pair: {e}")))?;
 
+        #[allow(clippy::cast_possible_truncation)]
         let kid = kid.unwrap_or_else(|| {
             let ts = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -199,7 +217,7 @@ impl JwtSigningKey {
             let month = ((secs % (365 * 24 * 60 * 60)) / (30 * 24 * 60 * 60)) as u32 + 1;
             let day = ((secs % (30 * 24 * 60 * 60)) / (24 * 60 * 60)) as u32 + 1;
             let hour = ((secs % (24 * 60 * 60)) / (60 * 60)) as u32;
-            format!("key-{:04}-{:02}-{:02}-{:02}", year, month, day, hour)
+            format!("key-{year:04}-{month:02}-{day:02}-{hour:02}")
         });
 
         // Validate: Ed25519 public key must be exactly 32 bytes.
@@ -229,7 +247,12 @@ impl JwtSigningKey {
     }
 
     /// Create a key from pre-existing bytes (for testing / future persistence).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::InvalidKey`] if the PKCS#8 bytes are invalid.
     #[cfg(test)]
+    #[allow(clippy::missing_errors_doc)]
     pub fn from_pkcs8(kid: String, pkcs8: &[u8]) -> Result<Self, KeyError> {
         let key_pair = Ed25519KeyPair::from_pkcs8(pkcs8)
             .map_err(|e| KeyError::InvalidKey(format!("Invalid PKCS8: {e}")))?;
@@ -254,6 +277,10 @@ impl JwtSigningKey {
     }
 
     /// Sign a message using this key (Ed25519).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::SignFailed`] if the private key is invalid.
     pub fn sign(&self, message: &[u8]) -> Result<Vec<u8>, KeyError> {
         let key_pair = Ed25519KeyPair::from_pkcs8(&self.private_key_bytes)
             .map_err(|e| KeyError::SignFailed(format!("Invalid private key: {e}")))?;
@@ -262,11 +289,13 @@ impl JwtSigningKey {
     }
 
     /// Check if this key is currently valid (not past `valid_from`).
+    #[must_use]
     pub fn is_active(&self) -> bool {
         SystemTime::now().duration_since(self.valid_from).is_ok()
     }
 
     /// Return the key's age in seconds.
+    #[must_use]
     pub fn age_seconds(&self) -> u64 {
         SystemTime::now()
             .duration_since(self.valid_from)
@@ -284,6 +313,8 @@ pub struct JwksDocument {
 }
 
 impl JwksDocument {
+    /// Create a new JWKS document from a list of public keys.
+    #[must_use]
     pub fn new(keys: Vec<JwkOnly>) -> Self {
         Self { keys }
     }
@@ -316,6 +347,7 @@ pub struct JwksHealthKey {
 /// State:
 /// - `current_key`: Key used for signing (active).
 /// - `next_key`: Pre-generated key that will become `current_key` after rotation.
+/// - `previous_key`: Key that was current before the last rotation (in grace period).
 /// - `revoked_keys`: Keys that have been manually revoked (never served in JWKS).
 ///
 /// Rotation is automatic once `rotation_interval - grace_period` has elapsed.
@@ -324,6 +356,9 @@ pub struct KeyManager {
     pub current_key: Option<JwtSigningKey>,
     /// A pre-generated key promoted after rotation.
     pub next_key: Option<JwtSigningKey>,
+    /// The key that was current before the last rotation (in grace period).
+    /// Served in JWKS for overlap verification.
+    previous_key: Option<JwtSigningKey>,
     /// Keys removed from JWKS due to revocation or expiry.
     revoked_keys: Vec<String>,
     grace_period_secs: u64,
@@ -335,12 +370,17 @@ pub struct KeyManager {
 }
 
 impl KeyManager {
-    /// Create a new KeyManager with a freshly generated key.
+    /// Create a new [`KeyManager`] with a freshly generated key.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::GenerationFailed`] if RNG fails.
     pub fn new() -> Result<Self, KeyError> {
         let current_key = JwtSigningKey::generate(None)?;
         Ok(Self {
             current_key: Some(current_key),
             next_key: None,
+            previous_key: None,
             revoked_keys: Vec::new(),
             grace_period_secs: DEFAULT_GRACE_PERIOD_SECS,
             rotation_interval_secs: DEFAULT_ROTATION_INTERVAL_SECS,
@@ -350,6 +390,10 @@ impl KeyManager {
     }
 
     /// Create with custom rotation settings.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::GenerationFailed`] if the initial key generation fails.
     pub fn new_with_rotation(
         grace_period_secs: u64,
         rotation_interval_secs: u64,
@@ -379,9 +423,7 @@ impl KeyManager {
         if self.current_key.as_ref().map(|k| k.kid.as_str()) == Some(kid)
             || self.next_key.as_ref().map(|k| k.kid.as_str()) == Some(kid)
         {
-            return Err(KeyError::InvalidKey(format!(
-                "kid '{kid}' already exists"
-            )));
+            return Err(KeyError::InvalidKey(format!("kid '{kid}' already exists")));
         }
         Ok(())
     }
@@ -390,6 +432,15 @@ impl KeyManager {
 
     /// Generate a new key and add it as the current key.
     /// Returns the new key.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::GenerationFailed`] if RNG fails,
+    /// [`KeyError::InvalidKey`] if the key is a duplicate.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `self.current_key` is `None` (should never happen after construction).
     pub fn generate_new_key(&mut self) -> Result<JwtSigningKey, KeyError> {
         let key = JwtSigningKey::generate(None)?;
         self.validate_key_params(&key.kid)?;
@@ -399,15 +450,17 @@ impl KeyManager {
         } else {
             self.current_key = Some(key);
         }
-        Ok(self.next_key.as_ref().cloned().unwrap_or_else(|| {
-            self.current_key.as_ref().cloned().unwrap()
-        }))
+        Ok(self
+            .next_key
+            .clone()
+            .unwrap_or_else(|| self.current_key.clone().unwrap()))
     }
 
     // ── JWKS serving ─────────────────────────────────────────────────────
 
-    /// Get all keys currently acceptable for signature verification (current + next).
+    /// Get all keys currently acceptable for signature verification (current + next + previous/grace).
     /// Does NOT include revoked or expired keys.
+    #[must_use]
     pub fn keys_for_verification(&self) -> Vec<&JwkOnly> {
         let mut keys = Vec::new();
         if let Some(ref key) = self.current_key {
@@ -416,37 +469,42 @@ impl KeyManager {
         if let Some(ref key) = self.next_key {
             keys.push(&key.public_key_jwk);
         }
+        if let Some(ref key) = self.previous_key {
+            keys.push(&key.public_key_jwk);
+        }
         keys
     }
 
     /// Get JWKS document with all active keys (current + next, excluding revoked/expired).
+    #[must_use]
     pub fn jwks_document(&self) -> JwksDocument {
-        let keys: Vec<JwkOnly> = self
-            .keys_for_verification()
-            .into_iter()
-            .map(|jwk| jwk.clone())
-            .collect();
+        let keys: Vec<JwkOnly> = self.keys_for_verification().into_iter().cloned().collect();
         JwksDocument::new(keys)
     }
 
     /// Check whether a particular `kid` is currently served in JWKS.
+    #[must_use]
     pub fn kid_is_active(&self, kid: &str) -> bool {
-        self.keys_for_verification()
-            .iter()
-            .any(|k| k.kid == kid)
+        self.keys_for_verification().iter().any(|k| k.kid == kid)
     }
 
     // ── Rotation ─────────────────────────────────────────────────────────
 
     /// Prepare for key rotation: generate `next_key` with a delayed `valid_from`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::GenerationFailed`] if key generation fails.
     pub fn prepare_rotation(&mut self) -> Result<(), KeyError> {
         if self.next_key.is_some() {
             return Ok(()); // Already prepared
         }
 
         self.kid_counter += 1;
-        let counter_kid = format!("key-{:04}-{:02}-{:02}-{:02}-c{}",
-            1970, 1, 1, 0, self.kid_counter);
+        let counter_kid = format!(
+            "key-{:04}-{:02}-{:02}-{:02}-c{}",
+            1970, 1, 1, 0, self.kid_counter
+        );
         let mut next_key = JwtSigningKey::generate(Some(counter_kid))?;
         // Set valid_from to a few seconds in the future to allow service discovery.
         let future = SystemTime::now()
@@ -461,13 +519,19 @@ impl KeyManager {
         Ok(())
     }
 
-    /// Activate the next key: promote it to `current_key` and demote old key to grace.
+    /// Activate the next key: promote it to `current_key`, demote old key to grace,
+    /// and save the old key in `previous_key` for overlap verification.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::NoKeyToPromote`] if no `next_key` has been prepared.
     pub fn activate_next_key(&mut self) -> Result<(), KeyError> {
         let mut next = self.next_key.take().ok_or(KeyError::NoKeyToPromote)?;
 
-        // Demote current key to grace period.
-        if let Some(ref mut current) = self.current_key {
+        // Save and demote current key to grace period.
+        if let Some(mut current) = self.current_key.take() {
             current.state = KeyState::Grace;
+            self.previous_key = Some(current);
         }
 
         // Promote next key.
@@ -479,8 +543,6 @@ impl KeyManager {
 
     /// Clean up keys that have been in grace period longer than `grace_period_secs`.
     pub fn cleanup_grace_keys(&mut self) {
-        // Check if the old key (now in next_key after rotation) should be dropped.
-        // Actually, after activate_next_key, the old key was moved to current_key with
         // state=Grace and the new key is current_key with state=Active.
         // We need to track the old key separately for cleanup.
         // For now, we just check if current_key (which was the old key before promotion)
@@ -492,7 +554,14 @@ impl KeyManager {
     }
 
     /// Manually move a grace-period key into the revoked list.
+    ///
+    /// # Errors
+    ///
+    /// Always returns [`KeyError::NoKeyToPromote`] — full grace management requires
+    /// tracking old keys explicitly.
     pub fn expire_grace_key(&mut self) -> Result<String, KeyError> {
+        // After activate_next_key, current_key is the new active key.
+        // The old key was moved into current_key with state=Grace before promotion,
         // After activate_next_key, current_key is the new active key.
         // The old key was moved into current_key with state=Grace before promotion,
         // but now current_key is the promoted key. We need a separate list.
@@ -502,19 +571,29 @@ impl KeyManager {
     }
 
     /// Check if rotation is due (based on time since current key generation).
+    #[must_use]
     pub fn is_rotation_due(&self) -> bool {
         if let Some(ref key) = self.current_key {
             let elapsed = SystemTime::now()
                 .duration_since(key.valid_from)
                 .unwrap_or_default()
                 .as_secs();
-            elapsed >= self.rotation_interval_secs.saturating_sub(self.grace_period_secs)
+            elapsed
+                >= self
+                    .rotation_interval_secs
+                    .saturating_sub(self.grace_period_secs)
         } else {
             false
         }
     }
 
     /// Manually trigger rotation (prepare + activate).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::RotationNotDue`] if the rotation window has not elapsed,
+    /// [`KeyError::GenerationFailed`] if key generation fails,
+    /// [`KeyError::NoKeyToPromote`] if activation fails.
     pub fn rotate(&mut self) -> Result<(), KeyError> {
         if self.is_rotation_due() {
             self.prepare_rotation()?;
@@ -532,6 +611,12 @@ impl KeyManager {
     ///
     /// This is the critical fix for HACK-101: compromised keys can be
     /// revoked at any time, not just after the grace period expires.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::KeyNotFound`] if the `kid` is not found,
+    /// [`KeyError::RevocationFailed`] if a dummy key generation fails during
+    /// current-key revocation.
     pub fn revoke_key(&mut self, kid: &str) -> Result<(), KeyError> {
         // Check current_key.
         if let Some(ref mut key) = self.current_key {
@@ -557,11 +642,13 @@ impl KeyManager {
     }
 
     /// Return true if a key has been revoked.
+    #[must_use]
     pub fn is_revoked(&self, kid: &str) -> bool {
         self.revoked_keys.contains(&kid.to_string())
     }
 
     /// Get all revoked key IDs (for health monitoring).
+    #[must_use]
     pub fn revoked_keys(&self) -> &[String] {
         &self.revoked_keys
     }
@@ -570,6 +657,7 @@ impl KeyManager {
 
     /// Look up a public key by `kid` for JWT verification.
     /// Returns None if the kid is not found or is revoked.
+    #[must_use]
     pub fn find_public_key(&self, kid: &str) -> Option<&JwkOnly> {
         // Skip revoked keys.
         if self.is_revoked(kid) {
@@ -591,6 +679,7 @@ impl KeyManager {
     // ── Health check ─────────────────────────────────────────────────────
 
     /// Get health status for the `/health/jwks` endpoint.
+    #[must_use]
     pub fn health(&self) -> JwksHealthResponse {
         let mut keys = Vec::new();
 
@@ -611,11 +700,9 @@ impl KeyManager {
             });
         }
 
-        let last_rotation = self.last_rotation.map(|t| {
-            t.duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()
-        });
+        let last_rotation = self
+            .last_rotation
+            .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs());
 
         let next_rotation = self.current_key.as_ref().map(|key| {
             key.valid_from
@@ -650,11 +737,10 @@ impl fmt::Display for KeyManager {
 // ─── Shared KeyManager instance ──────────────────────────────────────────────
 
 /// Global key manager shared across all handlers in this service.
-pub static KEY_MANAGER: std::sync::LazyLock<KeyManager> =
-    std::sync::LazyLock::new(|| {
-        KeyManager::new()
-            .expect("Failed to initialize KeyManager — cryptographic initialization failed")
-    });
+pub static KEY_MANAGER: std::sync::LazyLock<KeyManager> = std::sync::LazyLock::new(|| {
+    KeyManager::new()
+        .expect("Failed to initialize KeyManager — cryptographic initialization failed")
+});
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -714,8 +800,8 @@ mod tests {
         assert_eq!(km.keys_for_verification().len(), 2); // current + next
 
         km.activate_next_key().unwrap();
-        // After promotion: new current, no next.
-        assert_eq!(km.keys_for_verification().len(), 1);
+        // After promotion: new current + previous (grace).
+        assert_eq!(km.keys_for_verification().len(), 2);
     }
 
     #[test]
@@ -725,10 +811,7 @@ mod tests {
 
         km.prepare_rotation().unwrap();
         assert!(km.next_key.is_some());
-        assert_ne!(
-            km.next_key.as_ref().unwrap().kid,
-            old_kid
-        );
+        assert_ne!(km.next_key.as_ref().unwrap().kid, old_kid);
 
         km.activate_next_key().unwrap();
         let new_kid = km.current_key.as_ref().unwrap().kid.clone();
@@ -755,14 +838,12 @@ mod tests {
     #[test]
     fn test_revoke_nonexistent_key() {
         let mut km = KeyManager::new().unwrap();
-        assert!(km
-            .revoke_key("nonexistent-kid")
-            .is_err());
+        assert!(km.revoke_key("nonexistent-kid").is_err());
     }
 
     #[test]
     fn test_find_public_key_by_kid() {
-        let mut km = KeyManager::new().unwrap();
+        let km = KeyManager::new().unwrap();
         let kid = km.current_key.as_ref().unwrap().kid.clone();
 
         let key = km.find_public_key(&kid);

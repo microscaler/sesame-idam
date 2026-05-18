@@ -27,8 +27,10 @@ pub struct DbSplashMeta {
 
 fn load_pool_config() -> (DatabaseConfig, DbSplashMeta) {
     let db_host = std::env::var("DB_HOST").unwrap_or_else(|_| {
-        std::env::var("KUBERNETES_SERVICE_HOST")
-            .map_or_else(|_| "localhost".to_string(), |_| "postgres.data.svc.cluster.local".to_string())
+        std::env::var("KUBERNETES_SERVICE_HOST").map_or_else(
+            |_| "localhost".to_string(),
+            |_| "postgres.data.svc.cluster.local".to_string(),
+        )
     });
     let db_port = std::env::var("DB_PORT").unwrap_or_else(|_| "5432".to_string());
     let db_user = std::env::var("DB_USER").unwrap_or_else(|_| "sesame_idam".to_string());

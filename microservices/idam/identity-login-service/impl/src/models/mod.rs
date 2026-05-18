@@ -4,6 +4,6 @@
 pub mod entity_registry {
     include!(concat!(env!("OUT_DIR"), "/entity_registry.rs"));
 }
-pub mod otp_token;
 pub mod magic_link_token;
+pub mod otp_token;
 pub mod social_credential;

@@ -1,11 +1,10 @@
-
 // Implementation for handler 'jwks'
 // Serves Ed25519 public keys in JWKS format (RFC 7517).
 // Includes Cache-Control and security headers.
 
+use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::jwks::{Request, Response};
-use brrtrouter::typed::TypedHandlerRequest;
 
 use crate::key_manager::KEY_MANAGER;
 

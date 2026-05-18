@@ -1,5 +1,11 @@
 //! Identity session service — library target for migrator access.
 
-pub mod key_manager;
+// Suppressed for macro-generated code (LifeRecord derive + entity_registry.rs build output)
+#![allow(clippy::pub_underscore_fields)]
+#![allow(clippy::needless_raw_string_hashes)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::uninlined_format_args)]
 pub mod jwks_client;
+pub mod key_manager;
 pub mod models;

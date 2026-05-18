@@ -6,7 +6,7 @@ use sesame_idam_identity_session_service_gen::registry;
 mod audit;
 mod key_manager;
 
-use key_manager::KeyManager;
+// key_manager module is registered but KeyManager is used via static KEY_MANAGER
 
 use brrtrouter::dispatcher::Dispatcher;
 
@@ -76,14 +76,16 @@ fn main() -> io::Result<()> {
         eprintln!("[startup][error] OpenAPI spec path contains invalid UTF-8");
         std::process::exit(1);
     });
-    let (routes, schemes, _slug) = brrtrouter::spec::load_spec_full(spec_str).unwrap_or_else(|e| {
-        eprintln!("[startup][error] failed to load OpenAPI spec: {}", e);
-        std::process::exit(1);
-    });
+    let (routes, schemes, _): (_, _, _) = brrtrouter::spec::load_spec_full(spec_str)
+        .unwrap_or_else(|e| {
+            eprintln!("[startup][error] failed to load OpenAPI spec: {e}");
+            std::process::exit(1);
+        });
 
-    let router = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Router::new(routes.clone())));
+    let router_arc =
+        std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Router::new(routes.clone())));
     {
-        let r = router.load();
+        let r = router_arc.load();
         r.dump_routes();
     }
 
@@ -103,7 +105,7 @@ fn main() -> io::Result<()> {
 
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
     let mut service = AppService::new(
-        router,
+        router_arc,
         dispatcher,
         schemes,
         spec_path.clone(),

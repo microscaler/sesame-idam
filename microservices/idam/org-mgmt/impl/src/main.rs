@@ -1,4 +1,3 @@
-
 // Implementation crate main entry point
 // This file is generated as a starting point.
 // You can modify this file freely - it will NOT be auto-regenerated.
@@ -23,7 +22,7 @@ use std::path::PathBuf;
 
 // Use jemalloc as the global allocator for better memory performance.
 // This is gated behind the "jemalloc" feature (enabled by default).
-// Disable this feature if brrtrouter is providing jemalloc via its own "jemalloc" feature,
+// Disable this feature if brrtrouter_arc is providing jemalloc via its own "jemalloc" feature,
 // or if you want to use the system allocator: `cargo build --no-default-features`
 #[cfg(feature = "jemalloc")]
 use tikv_jemallocator::Jemalloc;
@@ -50,7 +49,9 @@ struct Args {
 
 fn main() -> io::Result<()> {
     // Initialize structured logging
-    if let Err(e) = brrtrouter::otel::init_logging_with_config(&brrtrouter::otel::LogConfig::from_env()) {
+    if let Err(e) =
+        brrtrouter::otel::init_logging_with_config(&brrtrouter::otel::LogConfig::from_env())
+    {
         eprintln!("[logging][error] failed to init tracing subscriber: {e}");
     }
 
@@ -59,7 +60,7 @@ fn main() -> io::Result<()> {
     let config = RuntimeConfig::from_env();
     may::config().set_stack_size(config.stack_size);
     may::config().set_workers(config.may_workers);
-    
+
     // Load OpenAPI spec
     let spec_path = if args.spec.is_relative() {
         let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -67,40 +68,41 @@ fn main() -> io::Result<()> {
     } else {
         args.spec.clone()
     };
-    
+
     let spec_str = spec_path.to_str().unwrap_or_else(|| {
         eprintln!("[startup][error] OpenAPI spec path contains invalid UTF-8");
         std::process::exit(1);
     });
-    let (routes, schemes, _slug) = brrtrouter::spec::load_spec_full(spec_str)
+    let (routes, schemes, _): (_, _, _) = brrtrouter::spec::load_spec_full(spec_str)
         .unwrap_or_else(|e| {
-            eprintln!("[startup][error] failed to load OpenAPI spec: {}", e);
+            eprintln!("[startup][error] failed to load OpenAPI spec: {e}");
             std::process::exit(1);
         });
-    
-    let router = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Router::new(routes.clone())));
+
+    let router_arc =
+        std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Router::new(routes.clone())));
     {
-        let r = router.load();
+        let r = router_arc.load();
         r.dump_routes();
     }
-    
+
     // Create dispatcher and middleware
     let mut dispatcher = Dispatcher::new();
     let metrics = std::sync::Arc::new(MetricsMiddleware::new());
     dispatcher.add_middleware(metrics.clone());
-    
+
     // Create memory tracking middleware
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
-    
+
     // Register handlers from generated crate
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);
     }
-    
+
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
     let mut service = AppService::new(
-        router,
+        router_arc,
         dispatcher,
         schemes,
         spec_path.clone(),
@@ -122,9 +124,9 @@ fn main() -> io::Result<()> {
     };
     println!("🚀 server listening on {addr}");
     let handle = HttpServer(service).start(&addr)?;
-    handle.run_until_shutdown().map_err(|e| {
-        io::Error::other(format!("Server error: {e:?}"))
-    })?;
-    
+    handle
+        .run_until_shutdown()
+        .map_err(|e| io::Error::other(format!("Server error: {e:?}")))?;
+
     Ok(())
 }

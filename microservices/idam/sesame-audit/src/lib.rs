@@ -259,8 +259,7 @@ impl AuditEmitter {
         use hmac::{Hmac, Mac};
         use sha2::Sha256;
 
-        let mut mac = Hmac::<Sha256>::new_from_slice(key)
-            .expect("HMAC can take key of any size");
+        let mut mac = Hmac::<Sha256>::new_from_slice(key).expect("HMAC can take key of any size");
         mac.update(message.as_bytes());
         hex::encode(mac.finalize().into_bytes())
     }
@@ -268,7 +267,7 @@ impl AuditEmitter {
 
 /// Helper types for common audit actions
 pub mod events {
-    use super::{AuditEmitter, AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use super::{AuditActor, AuditEmitter, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
     /// Emit a login event
@@ -407,12 +406,7 @@ pub mod events {
     }
 
     /// Emit a user deletion event
-    pub fn user_deleted(
-        emitter: &AuditEmitter,
-        tenant_id: Uuid,
-        user_id: Uuid,
-        actor_id: Uuid,
-    ) {
+    pub fn user_deleted(emitter: &AuditEmitter, tenant_id: Uuid, user_id: Uuid, actor_id: Uuid) {
         let mut event = AuditEvent::new(
             AuditEventType::UserManagement,
             "user_deleted",
@@ -594,12 +588,7 @@ pub mod events {
     }
 
     /// Emit a token revocation event
-    pub fn token_revoked(
-        emitter: &AuditEmitter,
-        tenant_id: Uuid,
-        user_id: Uuid,
-        session_id: Uuid,
-    ) {
+    pub fn token_revoked(emitter: &AuditEmitter, tenant_id: Uuid, user_id: Uuid, session_id: Uuid) {
         let mut event = AuditEvent::new(
             AuditEventType::SessionManagement,
             "token_revoked",
@@ -643,7 +632,7 @@ pub mod events {
 
 #[cfg(test)]
 mod tests {
-    use super::{AuditEmitter, AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use super::{AuditActor, AuditEmitter, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
     #[test]

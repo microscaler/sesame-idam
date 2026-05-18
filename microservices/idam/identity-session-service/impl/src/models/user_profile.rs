@@ -2,6 +2,7 @@ use lifeguard_derive::{LifeModel, LifeRecord};
 use serde::{Deserialize, Serialize};
 
 /// Extended user profile metadata separate from auth credentials.
+#[allow(clippy::pub_underscore_fields)]
 #[derive(Clone, Debug, Serialize, Deserialize, LifeModel, LifeRecord)]
 #[table_name = "user_profiles"]
 #[schema_name = "sesame_idam"]

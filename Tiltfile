@@ -418,6 +418,46 @@ local_resource(
 )
 
 # ====================
+# BDD Test Suite
+# ====================
+# Run BDD integration tests against all 6 microservices. Requires PostgreSQL and
+# Redis to be running (started by the shared-kind-cluster Tilt or dev-up).
+# Usage: `tilt trigger sesame-idam-bdd-tests` (manual trigger).
+# Pass TEST_DATABASE_URL / TEST_REDIS_URL as Tilt env vars or rely on justfile defaults.
+local_resource(
+    'sesame-idam-bdd-tests',
+    '''set -e
+echo "=== Sesame-IDAM BDD Tests (all 6 services) ==="
+cd microservices
+export DATABASE_URL="postgres://sesame_idam:dev_password_change_in_prod@127.0.0.1:5432/sesame_idam"
+export TEST_DATABASE_URL="postgres://sesame_idam:dev_password_change_in_prod@127.0.0.1:5432/sesame_idam"
+export TEST_REPLICA_URL="postgres://sesame_idam:dev_password_change_in_prod@127.0.0.1:5432/sesame_idam"
+export TEST_REDIS_URL="redis://127.0.0.1:6379"
+cargo nextest run --workspace --all-features --no-fail-fast --retries 1
+''',
+    deps=[
+        './microservices/idam/identity-login-service/impl/src',
+        './microservices/idam/identity-login-service/impl/tests',
+        './microservices/idam/identity-session-service/impl/src',
+        './microservices/idam/identity-session-service/impl/tests',
+        './microservices/idam/identity-user-mgmt-service/impl/src',
+        './microservices/idam/identity-user-mgmt-service/impl/tests',
+        './microservices/idam/authz-core/impl/src',
+        './microservices/idam/authz-core/impl/tests',
+        './microservices/idam/api-keys/impl/src',
+        './microservices/idam/api-keys/impl/tests',
+        './microservices/idam/org-mgmt/impl/src',
+        './microservices/idam/org-mgmt/impl/tests',
+        './microservices/Cargo.toml',
+    ],
+    ignore=['./microservices/target'],
+    labels=['testing'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    allow_parallel=True,
+)
+
+# ====================
 # Per-Service Resources
 # ====================
 for name in DISCOVERED_SERVICES:

@@ -89,16 +89,10 @@ fn write_service_migrations(
                 );
             }
             Ok(EmissionOutcome::Skipped) => {
-                println!(
-                    "⏭️  Skipped identical schema for {}: {}",
-                    service_name, table_name
-                );
+                println!("⏭️  Skipped identical schema for {service_name}: {table_name}");
             }
             Err(e) => {
-                eprintln!(
-                    "❌ Failed to write migration for {}.{}: {}",
-                    service_name, table_name, e
-                );
+                eprintln!("❌ Failed to write migration for {service_name}.{table_name}: {e}");
             }
         }
     }
@@ -112,6 +106,7 @@ fn main() {
     let run_timestamp = Utc::now().format("%Y%m%d%H%M%S").to_string();
 
     #[derive(Clone)]
+    #[allow(clippy::items_after_statements)]
     struct Row {
         service: &'static str,
         table: String,
@@ -194,20 +189,23 @@ fn main() {
         .map(|r| (r.table.clone(), r.sql.clone()))
         .collect();
 
-    eprintln!("DEBUG: {} tables total", pairs.len());
+    eprintln!(
+        "DEBUG: {tables_total} tables total",
+        tables_total = pairs.len()
+    );
     for (name, sql) in &pairs {
-        eprintln!("  Table: {}", name);
+        eprintln!("  Table: {name}");
         // Look for REFERENCES in SQL
         if let Some(ref_start) = sql.to_lowercase().find("references") {
             let snippet = &sql[ref_start..std::cmp::min(ref_start + 100, sql.len())];
-            eprintln!("    REFERENCES: {}", snippet);
+            eprintln!("    REFERENCES: {snippet}");
         }
     }
 
     let ordered = match order_migrations_by_foreign_key_sql(pairs) {
         Ok(o) => o,
         Err(e) => {
-            eprintln!("❌ FK ordering failed: {}", e);
+            eprintln!("❌ FK ordering failed: {e}");
             std::process::exit(1);
         }
     };
@@ -229,7 +227,7 @@ fn main() {
             "📋 Wrote {}",
             migrations_root.join("apply_order.txt").display()
         ),
-        Err(e) => eprintln!("⚠️ Could not write apply_order.txt: {}", e),
+        Err(e) => eprintln!("⚠️ Could not write apply_order.txt: {e}"),
     }
 
     // Seed order — FK-aware, so dependent tables are populated first.
@@ -245,7 +243,7 @@ fn main() {
         let seed_order_path = seeds_root.join("seed_order.txt");
         match write_seed_order_file(&migrations_root, &seeds_root, &seed_files, &seed_order_path) {
             Ok(()) => println!("🌱 Wrote {}", seed_order_path.display()),
-            Err(e) => eprintln!("⚠️ Could not write seed_order.txt: {}", e),
+            Err(e) => eprintln!("⚠️ Could not write seed_order.txt: {e}"),
         }
     }
 }

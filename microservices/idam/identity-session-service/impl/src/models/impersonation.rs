@@ -2,6 +2,7 @@ use lifeguard_derive::{LifeModel, LifeRecord};
 use serde::{Deserialize, Serialize};
 
 /// Records an admin impersonation session.
+#[allow(clippy::pub_underscore_fields)]
 #[derive(Clone, Debug, Serialize, Deserialize, LifeModel, LifeRecord)]
 #[table_name = "impersonations"]
 #[schema_name = "sesame_idam"]

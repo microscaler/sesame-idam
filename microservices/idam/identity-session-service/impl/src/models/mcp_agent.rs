@@ -2,6 +2,7 @@ use lifeguard_derive::{LifeModel, LifeRecord};
 use serde::{Deserialize, Serialize};
 
 /// MCP (Model Context Protocol) agent configuration per user.
+#[allow(clippy::pub_underscore_fields)]
 #[derive(Clone, Debug, Serialize, Deserialize, LifeModel, LifeRecord)]
 #[table_name = "mcp_agents"]
 #[schema_name = "sesame_idam"]

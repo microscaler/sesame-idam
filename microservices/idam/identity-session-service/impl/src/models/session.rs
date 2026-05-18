@@ -2,6 +2,7 @@ use lifeguard_derive::{LifeModel, LifeRecord};
 use serde::{Deserialize, Serialize};
 
 /// Active or expired authentication session with refresh tokens and impersonation metadata.
+#[allow(clippy::pub_underscore_fields)]
 #[derive(Clone, Debug, Serialize, Deserialize, LifeModel, LifeRecord)]
 #[table_name = "sessions"]
 #[schema_name = "sesame_idam"]

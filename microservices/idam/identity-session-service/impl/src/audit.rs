@@ -4,5 +4,6 @@
 use sesame_audit::AuditEmitter;
 
 /// Global audit emitter shared across all handlers in this service.
+#[allow(dead_code)]
 pub static EMITTER: std::sync::LazyLock<AuditEmitter> =
     std::sync::LazyLock::new(|| AuditEmitter::new(None));
