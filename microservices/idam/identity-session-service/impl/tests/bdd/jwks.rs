@@ -30,7 +30,7 @@ fn keys_have_no_private_fields(
 
 #[test]
 fn global_keymanager_has_at_least_one_key() {
-    let doc = KEY_MANAGER.jwks_document();
+    let doc = KEY_MANAGER.read().unwrap().jwks_document();
     assert!(
         !doc.keys.is_empty(),
         "KEY_MANAGER must have at least one key, got {}",
@@ -40,7 +40,7 @@ fn global_keymanager_has_at_least_one_key() {
 
 #[test]
 fn jwks_keys_have_okp_kty() {
-    for key in &KEY_MANAGER.jwks_document().keys {
+    for key in &KEY_MANAGER.read().unwrap().jwks_document().keys {
         assert_eq!(
             key.kty,
             JwkKeyType::Okp,
@@ -52,7 +52,7 @@ fn jwks_keys_have_okp_kty() {
 
 #[test]
 fn jwks_keys_have_ed25519_curve() {
-    for key in &KEY_MANAGER.jwks_document().keys {
+    for key in &KEY_MANAGER.read().unwrap().jwks_document().keys {
         assert_eq!(
             key.crv.to_string(),
             "Ed25519",
@@ -64,7 +64,7 @@ fn jwks_keys_have_ed25519_curve() {
 
 #[test]
 fn jwks_keys_have_sig_use() {
-    for key in &KEY_MANAGER.jwks_document().keys {
+    for key in &KEY_MANAGER.read().unwrap().jwks_document().keys {
         assert_eq!(
             key.use_claim,
             JwkUse::Sig,
@@ -76,7 +76,7 @@ fn jwks_keys_have_sig_use() {
 
 #[test]
 fn jwks_keys_have_correct_kid_format() {
-    for key in &KEY_MANAGER.jwks_document().keys {
+    for key in &KEY_MANAGER.read().unwrap().jwks_document().keys {
         assert!(
             key.kid.starts_with("key-") && key.kid.len() >= 12,
             "kid '{}' must start with 'key-' and be >= 12 chars",
@@ -87,7 +87,7 @@ fn jwks_keys_have_correct_kid_format() {
 
 #[test]
 fn jwks_keys_have_valid_ed25519_public_key() {
-    for key in &KEY_MANAGER.jwks_document().keys {
+    for key in &KEY_MANAGER.read().unwrap().jwks_document().keys {
         let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(&key.x)
             .expect("x must be valid base64");
@@ -102,8 +102,9 @@ fn jwks_keys_have_valid_ed25519_public_key() {
 
 #[test]
 fn jwks_keys_verify_with_ring_crypto() {
-    let keys = KEY_MANAGER.jwks_document().keys;
-    let current = KEY_MANAGER.current_signing_key();
+    let binding = KEY_MANAGER.read().unwrap();
+    let keys = binding.jwks_document().keys;
+    let current = binding.current_signing_key();
 
     for key in &keys {
         let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
@@ -124,7 +125,7 @@ fn jwks_keys_verify_with_ring_crypto() {
 
 #[test]
 fn jwks_response_matches_openapi_jwks_schema() {
-    let doc = KEY_MANAGER.jwks_document();
+    let doc = KEY_MANAGER.read().unwrap().jwks_document();
     for key in &doc.keys {
         assert!(
             key.kid.starts_with("key-") && key.kid.len() >= 12,
@@ -142,7 +143,7 @@ fn jwks_response_matches_openapi_jwks_schema() {
 
 #[test]
 fn jwks_response_contains_no_private_key_material() {
-    let doc = KEY_MANAGER.jwks_document();
+    let doc = KEY_MANAGER.read().unwrap().jwks_document();
     assert!(
         keys_have_no_private_fields(&doc.keys),
         "JWKS must NOT contain private key fields (d, p, q, etc.)"

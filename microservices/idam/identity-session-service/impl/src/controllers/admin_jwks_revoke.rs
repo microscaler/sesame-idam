@@ -5,23 +5,67 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
+use crate::key_manager::KeyError;
+
+use crate::key_manager::KEY_MANAGER;
+
 use sesame_idam_identity_session_service_gen::handlers::admin_jwks_revoke::{Request, Response};
 
 #[handler(AdminRevokeKeyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let kid = req.data.kid.clone();
-    // Span: track revocation events
     let span = tracing::span!(tracing::Level::INFO, "key.revoke.admin", kid = &kid);
     let _guard = span.enter();
 
-    // TODO: Call KEY_MANAGER.revoke_key(&kid) — requires interior mutability
-    // on KEY_MANAGER (currently &mut self but KEY_MANAGER is immutable static)
+    let result = match KEY_MANAGER.write() {
+        Ok(mut guard) => guard
+            .revoke_key(&kid)
+            .map_err(|e| {
+                tracing::error!(error = ?e, "KEY_MANAGER.revoke_key failed");
+                e
+            }),
+        Err(poison) => {
+            tracing::error!(error = ?poison, "KEY_MANAGER write lock poisoned");
+            Err(KeyError::RevocationFailed("lock poisoned".to_string()))
+        }
+    };
 
-    tracing::info!(kid = kid, "admin: key revoke request received (stub)");
-    span.record("result", "success");
-    Response {
-        kid: Some(kid),
-        message: Some("Key revocation requires mutable KEY_MANAGER access (stub)".to_string()),
-        success: Some(true),
+    match result {
+        Ok(_) => {
+            tracing::info!(kid = &kid, "admin: key revoked successfully");
+            span.record("result", "success");
+            Response {
+                kid: Some(kid),
+                message: Some("Key revoked successfully".to_string()),
+                success: Some(true),
+            }
+        }
+        Err(KeyError::KeyNotFound(_)) => {
+            tracing::warn!(kid = &kid, "admin: revocation requested for unknown key");
+            span.record("result", "key_not_found");
+            Response {
+                kid: Some(kid),
+                message: Some("Key not found".to_string()),
+                success: Some(false),
+            }
+        }
+        Err(KeyError::RevocationFailed(msg)) => {
+            tracing::warn!(kid = &kid, error = &msg, "admin: revocation failed");
+            span.record("result", "revocation_failed");
+            Response {
+                kid: Some(kid),
+                message: Some(format!("Key revocation failed: {msg}")),
+                success: Some(false),
+            }
+        }
+        Err(e) => {
+            tracing::error!(kid = &kid, error = ?e, "admin: revocation failed unexpectedly");
+            span.record("result", "error");
+            Response {
+                kid: Some(kid),
+                message: Some(format!("Revocation failed: {e}")),
+                success: Some(false),
+            }
+        }
     }
 }

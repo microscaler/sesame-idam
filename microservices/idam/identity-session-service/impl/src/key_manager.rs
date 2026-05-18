@@ -914,9 +914,11 @@ impl fmt::Display for KeyManager {
 // ─── Shared KeyManager instance ──────────────────────────────────────────────
 
 /// Global key manager shared across all handlers in this service.
-pub static KEY_MANAGER: std::sync::LazyLock<KeyManager> = std::sync::LazyLock::new(|| {
-    KeyManager::new()
-        .expect("Failed to initialize KeyManager — cryptographic initialization failed")
+pub static KEY_MANAGER: std::sync::LazyLock<std::sync::RwLock<KeyManager>> = std::sync::LazyLock::new(|| {
+    std::sync::RwLock::new(
+        KeyManager::new()
+            .expect("Failed to initialize KeyManager — cryptographic initialization failed")
+    )
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

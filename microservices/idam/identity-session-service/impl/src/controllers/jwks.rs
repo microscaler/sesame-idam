@@ -23,7 +23,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     let span = tracing::span!(tracing::Level::INFO, "jwks.document");
     let _guard = span.enter();
 
-    let doc = KEY_MANAGER.jwks_document();
+    let doc = KEY_MANAGER.read().unwrap().jwks_document();
     let keys_count = doc.keys.len();
 
     let keys: Vec<serde_json::Value> = doc
@@ -42,7 +42,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
 
 /// Build JWKS response with headers (standalone, for testing).
 pub fn serve_with_headers() -> (Response, std::collections::HashMap<String, String>) {
-    let doc = KEY_MANAGER.jwks_document();
+    let doc = KEY_MANAGER.read().unwrap().jwks_document();
     let keys: Vec<serde_json::Value> = doc
         .keys
         .into_iter()
