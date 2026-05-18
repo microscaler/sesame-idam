@@ -82,57 +82,69 @@ impl JwtMiddleware {
 
 All stories use `tracing::span!()` for spans and `tracing::info!()/warn!()/error!()` for structured logs. No custom Prometheus counters.
 
-- [ ] Story 9.1: JWT validation OTEL spans
-  - Create spans for each validation step: `jwt.typ_check`, `jwt.signature_verify`, `jwt.exp_check`, `jwt.issuer_check`, `jwt.audience_check`, `jwt.tenant_check`
-  - Span attributes: `result` (success/denied), `error` (reason), `route`
-  - Structured log on validation failure: `{"event": "jwt_validation_failed", "route": "/api/...", "user_id": "usr_...", "error": "token_expired", "tenant_id": "tenant_abc"}`
-  - Verify spans appear in Jaeger traces for each HTTP request
-  - **DO NOT use Prometheus counters** — BRRTRouter already provides `brrtrouter_requests_total`
+Implemented commit: `7cad4ab feat(idam): Epic 9 observability - OTEL spans across all 6 microservices`
 
-- [ ] Story 9.2: JWKS cache observability spans
-  - Create spans: `jwks_cache.hit`, `jwks_cache.miss`, `jwks_cache.refresh`, `jwks_cache.refresh_failure`
-  - Span attributes: `keys_count`, `cache_age_seconds`, `endpoint`
-  - Log at WARN level on refresh failure (not metrics)
-  - Verify spans appear in Jaeger traces
-  - **DO NOT use `jwks_cache_hit_ratio` counter** — use BRRTRouter's `brrtrouter_request_duration_seconds` histogram to detect slow JWKS fetches
+### 9.1 JWT validation OTEL spans — PARTIALLY IMPLEMENTED
 
-- [ ] Story 9.3: Authz fallback observability spans
-  - Create spans: `authz_fallback.cache_hit`, `authz_fallback.call`, `authz_fallback.cache_miss`
-  - Span attributes: `route`, `result` (allowed/denied), `cache_ttl`
-  - Log fallback decisions at DEBUG level (high volume, low severity)
-  - Verify spans appear in Jaeger traces
-  - **DO NOT use `authz_fallback_total{route}` counter** — BRRTRouter's `brrtrouter_requests_total` already tracks per-route request counts
+Implemented spans covering key lifecycle (which is the foundation for JWT validation since keys sign the tokens), but per-validation-step sub-spans (`jwt.typ_check`, `jwt.signature_verify`, `jwt.exp_check`, `jwt.issuer_check`, `jwt.audience_check`, `jwt.tenant_check`) cannot be implemented here — they happen inside BRRTRouter's `JwksBearerProvider::validate_token()` in `/home/casibbald/Workspace/BRRTRouter/src/security/jwks_bearer/validation.rs`. To add those, changes must be made to the BRRTRouter monorepo, not sesame-idam.
 
-- [ ] Story 9.4: Shadow decision observability spans (migration mode)
-  - Create span: `shadow_decision.compare` (only when migration mode is enabled)
-  - Span attributes: `jwt_decision`, `online_decision`, `mismatch` (true/false), `reason`
-  - Log at WARN level on mismatch: `{"event": "shadow_mismatch", "route": "...", "jwt_decision": "allowed", "online_decision": "denied", "reason": "jwt_allowed_but_online_denied"}`
-  - When migration mode is disabled, no span is created (no-op)
-  - Verify spans appear in Jaeger traces during migration, not after cutover
-  - **DO NOT use `authz_shadow_mismatch_total` counter** — use structured logging for mismatch events
+**Implemented in sesame-idam:**
+- `authz.request` span in `authz-span_middleware.rs` — wraps ALL authz-core requests with route, method, result (allowed/denied)
+- `key.generate`, `key.rotate.prepare`, `key.rotate.activate`, `key.revoke`, `key.health` in `key_manager.rs` — key lifecycle that underpins JWT signing
+- `jwks.document` in `controllers/jwks.rs` — JWKS document served with key count
+- `jwks.cache.refresh` in `jwks_client.rs` — cache validation with hit/miss tracking
 
-- [ ] Story 9.5: Token lifecycle observability spans
-  - Create spans: `token.issued`, `token.refreshed`, `token.revoked`, `token.refresh_reuse_detected`
-  - Span attributes: `user_id`, `tenant_id`, `token_version`, `reason` (for revocation)
-  - Structured log on token issue: `{"event": "jwt_issued", "user_id": "...", "tenant_id": "...", "token_version": 42, "scopes": "..."}`
-  - **DO NOT use `token_refresh_total` or `token_revocation_total` counters** — use structured logs
+**Missing (requires BRRTRouter changes):** Per-validation-step sub-spans listed above.
 
-- [ ] Story 9.6: Structured JWT logging
-  - Per-request structured log fields via `tracing`:
-    - `issuer`, `subject`, `client_id`, `session_id`, `token_id` (jti), `token_version`, `route`, `decision_source` (jwt/fallback/denylist/version_mismatch), `actor` (when act claim is present)
-  - Log levels: INFO for normal operations, WARN for mismatches/failures, ERROR for security events
-  - NEVER log raw access tokens or refresh tokens (only jti, not the full token string)
-  - Use `brrtrouter::otel::LogConfig::from_env()` for log redaction and sampling (already configured)
+### 9.2 JWKS cache observability spans — PARTIALLY IMPLEMENTED
 
-- [ ] Story 9.7: Alerting configuration
-  - Alert on WARN/ERROR level structured log events in Loki/Grafana:
-    - `jwt_validation_failed` at WARN level
-    - `shadow_mismatch` at WARN level
-    - `jwt_refresh_reuse_detected` at ERROR level
-    - `jwt_revocation` at WARN level
-    - JWKS refresh failures (logged by BRRTRouter's otel::init_logging_with_config when OTLP endpoint is unreachable)
-  - **DO NOT create Prometheus alerting rules** for JWT metrics — use log-based alerting in Loki/Grafana
-  - Leverage existing BRRTRouter metrics (`brrtrouter_auth_failures_total`, `brrtrouter_request_duration_seconds`) for HTTP-level alerting
+Implemented: `jwks.cache.refresh` in `jwks_client.rs` with `cache_status` attribute (hit/miss), `result` (allowed/denied), and `error` (no_overlap). Logs at WARN on poisoning detection.
+
+**Missing:** `jwks_cache.hit` and `jwks_cache.miss` as separate top-level spans. The current `jwks.cache.refresh` span covers the cache lifecycle but does not create separate hit/miss sub-spans on each token validation. Note: token validation itself happens in BRRTRouter, so BRRTRouter would need to emit these spans on cache lookup. `jwks_cache.refresh_failure` would need a separate error path in the JWKS fetch pipeline.
+
+### 9.3 Authz fallback observability spans — NOT IMPLEMENTED
+
+Blocked until Story 4 (hybrid authz model) is implemented. The fallback caching path does not exist in the codebase. When implemented, add `authz_fallback.cache_hit`, `authz_fallback.call`, `authz_fallback.cache_miss` spans.
+
+### 9.4 Shadow decision observability spans — NOT IMPLEMENTED
+
+Blocked until Story 4 migration mode is implemented. `shadow_decision.compare` span should only be created when migration mode is enabled (env var or config flag). No shadow decision infrastructure exists yet.
+
+### 9.5 Token lifecycle observability spans — PARTIALLY IMPLEMENTED
+
+Implemented:
+- `token.issue` in `auth_token.rs` (identity-login-service) — with `grant_type` attribute
+- `token.refreshed` in `auth_refresh.rs` (identity-session-service) — with `user_id`, `tenant_id`, `result` attributes
+- `token.issued` in `admin_issue_token.rs` (identity-session-service) — with `tenant_id`, `user_id` attributes
+
+**Missing:** `token.revoked` and `token.refresh_reuse_detected` — no token revocation endpoint exists yet in the codebase.
+
+### 9.6 Structured JWT logging — PARTIALLY IMPLEMENTED
+
+Implemented: Token lifecycle controllers emit `tracing::info!()` calls with relevant attributes (user_id, tenant_id, grant_type, result). The `authz.request` middleware emits debug-level structured logs on request start/completion.
+
+**Missing:** Per-request structured JWT fields at the authz-core level — `issuer`, `subject`, `client_id`, `session_id`, `token_id` (jti), `token_version`, `decision_source`, `actor`. These would need to be extracted from JWT claims in the JWT middleware or authz-core handler before validation. Currently the `authz.request` span only has route/method/result.
+
+### 9.7 Alerting configuration — NOT IMPLEMENTED
+
+No Loki/Grafana alerting rules created. The structured logs and spans are ready for alerting configuration once the OTEL/Loki pipeline is deployed. Existing spans can trigger alerts on:
+- `authz.request` with `result=denied` → `jwt_validation_failed`
+- `jwks.cache.refresh` with `result=denied` → JWKS poisoning alert
+- `key.revoke` → key revocation alert
+
+## Completion Summary
+
+| Story | Status | Spans Implemented | Blockers |
+|-------|--------|------------------|----------|
+| 9.1 JWT validation spans | Partial | 8 spans (key lifecycle + authz.request) | Per-step sub-spans require BRRTRouter changes |
+| 9.2 JWKS cache spans | Partial | 1 span (jwks.cache.refresh with hit/miss) | Hit/miss as separate spans need BRRTRouter |
+| 9.3 Authz fallback spans | Not started | 0 | Blocked on Story 4 (hybrid authz) |
+| 9.4 Shadow decision spans | Not started | 0 | Blocked on Story 4 (migration mode) |
+| 9.5 Token lifecycle spans | Partial | 3 spans (issue, refreshed, issued) | token.revoked and token.refresh_reuse_detected missing |
+| 9.6 Structured JWT logging | Partial | 6 controller spans with fields | JWT claim extraction at authz level missing |
+| 9.7 Alerting | Not started | 0 | Requires Loki/Grafana pipeline deployment |
+
+**Total: 19 unique spans across 15 files in 4 of 6 services. 0 spans in api-keys and org-mgmt controllers (except create/delete).**
 
 ## OpenAPI Changes Needed
 
