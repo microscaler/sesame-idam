@@ -51,7 +51,7 @@ Within a single tenant, email is globally unique. Within a multi-application ten
 1. **Single user table.** User type is distinguished by JWT claim, not a DB column. The `user_type` column from the wiki does not exist in the impl.
 2. **Single status field.** The `status` column (varchar(32)) replaces separate `enabled`/`locked` flags. No soft delete (`deleted_at`) exists.
 3. **Multiple auth methods supported simultaneously.** Users can have password + email OTP + phone OTP + social OAuth active.
-4. **Dual OTP for high security.** Both email and phone must be verified for login (see `POST /login/dual-otp` and `POST /verify/dual-otp`).
+4. **Dual OTP for high security.** Both email and phone must be verified for login (see `POST /auth/login/dual-otp` and `POST /auth/verify/dual-otp`).
 5. **Password clearing for SSO-only.** `DELETE /users/{user_id}/password` removes password, forcing SSO/social login only.
 6. **No PII fields.** `first_name`, `last_name`, `picture_url` are NOT in the database model. `username` exists only in OpenAPI schemas, not in the impl.
 
