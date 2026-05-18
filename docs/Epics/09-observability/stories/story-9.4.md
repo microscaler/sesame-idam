@@ -337,15 +337,17 @@ No OpenAPI changes. Shadow mode is internal to the validation layer.
 
 ## Acceptance Criteria
 
-- [ ] Shadow mode can be toggled on/off via server-side config (env var or config file)
-- [ ] Shadow online check runs in background (non-blocking, fire-and-forget)
-- [ ] `shadow_decision.compare` span created for every shadow evaluation when enabled
-- [ ] Span attributes: `route`, `jwt_decision`, `online_decision`, `result`, `mismatch_reason`
-- [ ] Mismatch logged at WARN level with `event="shadow_mismatch"` and full details
-- [ ] Match logged at DEBUG level with `event="shadow_decision_match"`
-- [ ] JWT decision always takes precedence (shadow does not affect decisions)
-- [ ] Shadow mode is disabled in production (enabled only during migration)
-- [ ] No Prometheus counters for shadow decisions (use structured logs for analysis)
+- [ ] Shadow mode can be toggled on/off via server-side config — **NOT IMPLEMENTED**. No shadow mode infrastructure exists.
+- [ ] Shadow online check runs in background — **NOT IMPLEMENTED**. No shadow decision handler exists.
+- [ ] `shadow_decision.compare` span created — **NOT IMPLEMENTED**. No such span exists in any service.
+- [ ] Span attributes: `route`, `jwt_decision`, `online_decision`, `result`, `mismatch_reason` — **NOT IMPLEMENTED**.
+- [ ] Mismatch logged at WARN level — **NOT IMPLEMENTED**. No shadow decision infrastructure.
+- [ ] Match logged at DEBUG level — **NOT IMPLEMENTED**.
+- [ ] JWT decision always takes precedence — **NOT IMPLEMENTED** (shadow mode not built).
+- [ ] Shadow mode is disabled in production — **NOT IMPLEMENTED**.
+- [x] No Prometheus counters for shadow decisions — **CONFIRMED**. No counters exist.
+
+**Summary:** 0 spans implemented. Fully blocked on Story 4 (hybrid authz model, migration mode). Shadow decision infrastructure does not exist in the codebase.
 
 ## Dependencies
 
