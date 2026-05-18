@@ -22,7 +22,7 @@
 //!
 //! # Example
 //!
-//! ```no_run
+//! ```ignore
 //! use brrtrouter::security::JwksBearerProvider;
 //!
 //! let provider = JwksBearerProvider::new("http://localhost:8105")

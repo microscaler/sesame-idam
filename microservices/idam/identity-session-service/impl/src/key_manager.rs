@@ -41,9 +41,6 @@ const DEFAULT_ROTATION_INTERVAL_SECS: u64 = 30 * 24 * 60 * 60;
 /// Default grace period: 1 hour. Old keys remain in JWKS during this window.
 const DEFAULT_GRACE_PERIOD_SECS: u64 = 60 * 60;
 
-/// Ed25519 private key is 114 bytes (32 seed + 32 public + 50 pkcs8 header).
-const ED25519_PKCS8_LEN: usize = 114;
-
 // ─── JWK types ───────────────────────────────────────────────────────────────
 
 /// JWK key type (OKP for Ed25519).
@@ -184,9 +181,14 @@ impl JwtSigningKey {
     pub fn generate(kid: Option<String>) -> Result<Self, KeyError> {
         let sys = SystemRandom::new();
 
-        let mut buf = [0u8; ED25519_PKCS8_LEN];
-        sys.fill(&mut buf)
-            .map_err(|_| KeyError::GenerationFailed("RNG failure".into()))?;
+        // Generate a valid Ed25519 PKCS#8 key pair using ring's keygen
+        let pkcs8_doc = Ed25519KeyPair::generate_pkcs8(&sys)
+            .map_err(|e| KeyError::GenerationFailed(format!("Key generation failed: {e}")))?;
+        let pkcs8_bytes = pkcs8_doc.as_ref();
+
+        // Parse the generated key pair from the valid PKCS#8 document
+        let key_pair = Ed25519KeyPair::from_pkcs8(pkcs8_bytes)
+            .map_err(|e| KeyError::InvalidKey(format!("Invalid Ed25519 key pair: {e}")))?;
 
         let kid = kid.unwrap_or_else(|| {
             let ts = SystemTime::now()
@@ -195,11 +197,10 @@ impl JwtSigningKey {
             let secs = ts.as_secs();
             let year = 1970 + (secs / (365 * 24 * 60 * 60)) as u32;
             let month = ((secs % (365 * 24 * 60 * 60)) / (30 * 24 * 60 * 60)) as u32 + 1;
-            format!("key-{:04}-{:02}", year, month)
+            let day = ((secs % (30 * 24 * 60 * 60)) / (24 * 60 * 60)) as u32 + 1;
+            let hour = ((secs % (24 * 60 * 60)) / (60 * 60)) as u32;
+            format!("key-{:04}-{:02}-{:02}-{:02}", year, month, day, hour)
         });
-
-        let key_pair = Ed25519KeyPair::from_pkcs8(&buf)
-            .map_err(|e| KeyError::InvalidKey(format!("Invalid Ed25519 key pair: {e}")))?;
 
         // Validate: Ed25519 public key must be exactly 32 bytes.
         let public_key_bytes = key_pair.public_key().as_ref();
@@ -223,7 +224,7 @@ impl JwtSigningKey {
             valid_from: SystemTime::now(),
             state: KeyState::Active,
             public_key_jwk,
-            private_key_bytes: buf.to_vec(),
+            private_key_bytes: pkcs8_bytes.to_vec(),
         })
     }
 
@@ -329,6 +330,8 @@ pub struct KeyManager {
     rotation_interval_secs: u64,
     /// Track last rotation time for health reporting.
     last_rotation: Option<SystemTime>,
+    /// Monotonic counter for guaranteed-unique kid generation.
+    kid_counter: u64,
 }
 
 impl KeyManager {
@@ -342,6 +345,7 @@ impl KeyManager {
             grace_period_secs: DEFAULT_GRACE_PERIOD_SECS,
             rotation_interval_secs: DEFAULT_ROTATION_INTERVAL_SECS,
             last_rotation: None,
+            kid_counter: 0,
         })
     }
 
@@ -440,7 +444,10 @@ impl KeyManager {
             return Ok(()); // Already prepared
         }
 
-        let mut next_key = JwtSigningKey::generate(None)?;
+        self.kid_counter += 1;
+        let counter_kid = format!("key-{:04}-{:02}-{:02}-{:02}-c{}",
+            1970, 1, 1, 0, self.kid_counter);
+        let mut next_key = JwtSigningKey::generate(Some(counter_kid))?;
         // Set valid_from to a few seconds in the future to allow service discovery.
         let future = SystemTime::now()
             .duration_since(UNIX_EPOCH)
