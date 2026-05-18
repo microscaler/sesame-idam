@@ -570,32 +570,49 @@ impl KeyManager {
     }
 
     /// Clean up keys that have been in grace period longer than `grace_period_secs`.
+    ///
+    /// After `activate_next_key()`, the old key is stored in `previous_key` with
+    /// `state = Grace`. This method checks if that key has exceeded the grace period
+    /// and removes it from JWKS, dropping the private key from memory.
+    ///
+    /// This is called periodically (e.g., on service startup or via a background job)
+    /// to prevent memory leaks from accumulated grace keys.
     pub fn cleanup_grace_keys(&mut self) {
-        // state=Grace and the new key is current_key with state=Active.
-        // We need to track the old key separately for cleanup.
-        // For now, we just check if current_key (which was the old key before promotion)
-        // has exceeded grace period. But after promotion, current_key is the new active key.
-        //
-        // The old key was the PREVIOUS current_key. We need to store it.
-        // For this simplified implementation, we drop grace keys after activation.
-        // In production, you'd keep a Vec of expired keys and clean them up.
+        if let Some(ref mut grace_key) = self.previous_key {
+            let age = SystemTime::now()
+                .duration_since(grace_key.valid_from)
+                .unwrap_or_default()
+                .as_secs();
+
+            if age > self.grace_period_secs {
+                let kid = grace_key.kid.clone();
+                tracing::info!(
+                    kid = &kid,
+                    age_secs = age,
+                    grace_period_secs = self.grace_period_secs,
+                    "grace key expired, removing from JWKS and dropping private key"
+                );
+                self.previous_key = None;
+            }
+        }
     }
 
-    /// Manually move a grace-period key into the revoked list.
+    /// Manually expire a grace-period key, removing it from JWKS and dropping
+    /// the private key from memory.
     ///
     /// # Errors
     ///
-    /// Always returns [`KeyError::NoKeyToPromote`] — full grace management requires
-    /// tracking old keys explicitly.
+    /// Returns [`KeyError::NoKeyToPromote`] if there is no grace key to expire.
     pub fn expire_grace_key(&mut self) -> Result<String, KeyError> {
-        // After activate_next_key, current_key is the new active key.
-        // The old key was moved into current_key with state=Grace before promotion,
-        // After activate_next_key, current_key is the new active key.
-        // The old key was moved into current_key with state=Grace before promotion,
-        // but now current_key is the promoted key. We need a separate list.
-        // For now, this is a no-op placeholder — full grace management requires
-        // tracking old keys explicitly.
-        Err(KeyError::NoKeyToPromote)
+        let Some(mut grace_key) = self.previous_key.take() else {
+            return Err(KeyError::NoKeyToPromote);
+        };
+
+        let kid = grace_key.kid.clone();
+        tracing::info!(kid = &kid, "manually expiring grace key");
+
+        // The private key bytes are dropped when grace_key goes out of scope.
+        Ok(kid)
     }
 
     /// Check if rotation is due (based on time since current key generation).

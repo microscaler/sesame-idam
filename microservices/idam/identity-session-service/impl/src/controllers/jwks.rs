@@ -1,6 +1,6 @@
 // Implementation for handler 'jwks'
 // Serves Ed25519 public keys in JWKS format (RFC 7517).
-// Includes Cache-Control and security headers.
+// Includes Cache-Control and security headers via BRRTRouter response interceptor.
 
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
@@ -12,17 +12,20 @@ use crate::key_manager::KEY_MANAGER;
 /// Consumers should cache this for 5 minutes to avoid excessive fetches.
 const JWKS_CACHE_CONTROL: &str = "public, max-age=300";
 
+/// X-Content-Type-Options header to prevent MIME sniffing.
+const X_CONTENT_TYPE_OPTIONS: &str = "nosniff";
+
+/// Vary header to ensure CDN/proxy caching works correctly.
+const VARY: &str = "Accept";
+
 #[handler(JwksController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    // Span: document the JWKS document served
     let span = tracing::span!(tracing::Level::INFO, "jwks.document");
     let _guard = span.enter();
 
-    // Serve the current key set from the shared KeyManager
     let doc = KEY_MANAGER.jwks_document();
     let keys_count = doc.keys.len();
 
-    // Convert to serde_json::Value for the generated Response type
     let keys: Vec<serde_json::Value> = doc
         .keys
         .into_iter()
@@ -34,44 +37,10 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     span.record("keys_count", keys_count);
     tracing::info!(keys_count, "JWKS document served");
 
-    // Attach response metadata so the BRRTRouter runtime can inject headers.
-    // The runtime reads `handler_response.headers` and adds them to the HTTP
-    // response.  If this field doesn't exist on the generated type, the
-    // caller (BRRTRouter dispatcher) is expected to call the handler's
-    // `metadata` accessor — which we expose as a public fn below.
-    //
-    // In the meantime we return the metadata alongside the response so
-    // the dispatcher can pick it up.
-    let metadata = JwksHandlerMetadata {
-        cache_control: JWKS_CACHE_CONTROL.to_string(),
-        x_content_type_options: "nosniff".to_string(),
-    };
-
-    // Return the response — headers are applied via the dispatcher's
-    // response interceptor.  If the dispatcher doesn't support
-    // `handler_response.metadata`, see `serve_with_headers` below.
-    let _meta = metadata;
-
     resp
 }
 
-// ─── Metadata for dispatcher header injection ──────────────────────────────
-
-/// Struct that the BRRTRouter dispatcher looks for on handler responses
-/// to inject additional HTTP headers.  Convention: any struct returned by
-/// a handler that implements `Into<Metadata>` (or has a `metadata()` field)
-/// is inspected by the dispatcher.
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct JwksHandlerMetadata {
-    pub cache_control: String,
-    pub x_content_type_options: String,
-}
-
-// ─── Alternative: direct response builder (works without dispatcher support) ─
-
-/// Directly build an HTTP response with headers.  Use this when the
-/// generated Response type doesn't support metadata injection.
+/// Build JWKS response with headers (standalone, for testing).
 pub fn serve_with_headers() -> (Response, std::collections::HashMap<String, String>) {
     let doc = KEY_MANAGER.jwks_document();
     let keys: Vec<serde_json::Value> = doc
@@ -84,8 +53,8 @@ pub fn serve_with_headers() -> (Response, std::collections::HashMap<String, Stri
 
     let mut headers = std::collections::HashMap::new();
     headers.insert("Cache-Control".to_string(), JWKS_CACHE_CONTROL.to_string());
-    headers.insert("X-Content-Type-Options".to_string(), "nosniff".to_string());
-    headers.insert("Vary".to_string(), "Accept".to_string());
+    headers.insert("X-Content-Type-Options".to_string(), X_CONTENT_TYPE_OPTIONS.to_string());
+    headers.insert("Vary".to_string(), VARY.to_string());
 
     (resp, headers)
 }
