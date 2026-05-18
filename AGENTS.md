@@ -89,19 +89,28 @@ just sync-specs-from-brrtrouter  # Copy canonical specs from BRRTRouter
 
 ### Build
 
-```
-cargo check --workspace           # From microservices/
-cargo build --workspace           # From microservices/
-cargo test --workspace            # From microservices/
-```
+| Build commands |
+|---|---|
+| `cargo check --workspace` | Build check from microservices/ |
+| `cargo build --workspace` | Build from microservices/ |
+| `cargo test --workspace` | Test from microservices/ |
 
-### Serve (echo handlers)
+### Testing (nextest)
 
-```
-just serve-identity-login [addr]  # Default 0.0.0.0:8101
-just serve-authz-core [addr]      # Default 0.0.0.0:8102
-# ... (similar for all 6 services)
-```
+The workspace uses `cargo nextest` for test execution with configuration in `.config/nextest.toml`.
+
+| Command | What it does |
+|---------|-------------|
+| `just nt` / `just nextest-test` | Fast loop — workspace tests with `--fail-fast --retries 1` |
+| `just nt-workspace` | CI-parity workspace (full `--profile ci`) |
+| `just nt-verbose` | Same as nt but `--no-capture` (full stdout/stderr) |
+| `just nt-unit` | Unit tests only (same filter as nextest-test) |
+| `just nt-complete` | nt + nt-db-suite (typical local: all workspace members) |
+| `just nt-ci-parity` | CI-parity: nt-workspace + nt-db-suite |
+| `just nt-integration` | Integration tests with nextest |
+| `just test-cargo` | Fallback: plain `cargo test --all -- --nocapture` |
+
+**CRITICAL: `just nt` must pass before committing.** All 48+ tests must compile and run clean. Empty `common/mod.rs` files (doc comments only, no actual code) will fail with "expected item after doc comment" — use `//` comments instead of `///` when there's no item to document. Smoke tests must use `#[test]`, not `#[rstest_bdd::bdd]` (rstest-bdd v0.5.0 does not export `bdd` or `Scenario`).
 
 ### Dev environment
 
