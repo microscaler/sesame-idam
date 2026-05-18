@@ -1,331 +1,114 @@
 # LLM Wiki — Session Log
 
-## [2026-05-16] Epic 9 Observability — Full Rewrite to OTEL Spans
+## [2026-05-16] Entity Relationship Diagram — Comprehensive Audit
 
 ### Summary
 
-**Critical rewrite of Epic 9.** The original stories built snowflake Prometheus counters (`jwt_validation_total`, `authz_fallback_total`, `token_refresh_total`, `authz_shadow_mismatch_total`, etc.) that duplicate what BRRTRouter already provides via `MetricsMiddleware` (`brrtrouter_requests_total`, `brrtrouter_request_duration_seconds`, `brrtrouter_auth_failures_total`). 
+Complete audit of the Sesame-IDAM entity relationship diagram by reconciling the wiki entity pages against the actual OpenAPI specs (6 services, 119+ endpoints) and the Lifeguard impl models in the `impl/` crates.
 
-Following the hauliage observability pattern, all stories were rewritten to use the `tracing` crate for OTEL spans and structured logs — they flow through `brrtrouter::otel::init_logging_with_config()` into Jaeger via OTLP. Alerting uses Loki log-based queries instead of Prometheus alerting rules.
+### Key Findings
 
-**Hauliage pattern recap:**
-- Metrics: BRRTRouter `MetricsMiddleware` → Prometheus text on `/metrics` — NO custom counters
-- Traces: `tracing::span!()` → `tracing-opentelemetry` → OTLP → Jaeger
-- Logs: JSON structured logs via OTLP → Loki
-- Health: BRRTRouter provides `/health` out of the box
+**14 entities verified against impl models:**
 
-### Stories Enriched
+| Entity | Status | Drift Found |
+|--------|--------|-------------|
+| User | corrected | 8 fields removed (user_type, first_name, username, etc. not in impl) |
+| Organization | corrected | 24+ fields removed, impl has only 6 columns |
+| Session | corrected | Renamed columns (session_token→token), removed tenant_id/revoked, added MFA/impersonation |
+| API Key | corrected | Added permissions field, renamed revoked→active, removed metadata |
+| Role | corrected | Removed inheritance (parent_role_id), removed is_system, tenant_id |
+| Permission | corrected | Added org_id, resource, action columns; fixed scope from app→org |
+| Application | corrected | Fixed scope from tenant→org, added OIDC fields (client_id, client_secret, redirect_uris) |
+| MFA Setup | corrected | Renamed entity, added second service model, fixed field names |
+| Audit Event | corrected | Split into two models (authz-core + identity-user-mgmt-service) |
 
-| Story | Change | Unit | Integration | Security | Edge | Total |
-|-------|--------|------|-------------|----------|------|-------|
-| 9.1 | Rewritten to OTEL spans for JWT validation | 9 | 7 | 4 | 6 | 26 |
-| 9.2 | Rewritten to OTEL spans for JWKS cache | — | — | — | — | — |
-| 9.3 | Rewritten to OTEL spans for authz fallback | 10 | 7 | 4 | 6 | 27 |
-| 9.4 | Rewritten to OTEL spans + structured logs for shadow decisions | 10 | 6 | 4 | 7 | 27 |
-| 9.5 | Rewritten to OTEL spans + structured logs for token lifecycle | — | — | — | — | — |
-| 9.6 | Already correct (structured logging) — enriched with tests | 8 | 7 | 4 | 5 | 24 |
-| 9.7 | Rewritten from Prometheus rules to Loki log-based alerting | — | — | — | — | — |
+**Entities removed from entity list:**
+- `entity-tenant.md` — No `tenants` table exists; tenant is a logical boundary via `tenant_id` columns
 
-Note: Stories 9.2, 9.3, and 9.5 had their design doc rewritten (Prometheus → OTEL). Testing sections for 9.1, 9.3, 9.4, and 9.6 were enriched. Story 9.7 was rewritten for log-based alerting.
+**New ERD created:**
+- `docs/llmwiki/topics/topic-entity-relationship-diagram.md` — Comprehensive ERD with all 40+ tables, foreign key relationships, and service ownership
 
-### Key Design Decisions
+### API Path Corrections
 
-1. **NO Prometheus counters for JWT observability** — BRRTRouter's `brrtrouter_requests_total{path, status}` and `brrtrouter_auth_failures_total` cover HTTP-level observability
-2. **OTEL spans via `tracing` crate** — JWT validation steps become named spans visible in Jaeger
-3. **Structured logs via Loki** — Security events logged at correct levels (INFO/WARN/ERROR) with `event` field for filtering
-4. **Log-based alerting** — Grafana/Loki log queries match on `event=` field for JWT-specific alerts; BRRTRouter Prometheus metrics for HTTP-level alerts
-5. **Token size monitoring** — NOT tracked as Prometheus histogram; measured in Jaeger span attributes instead
-6. **Shadow decisions** — `shadow_decision.compare` span only when migration mode enabled; DEBUG log for hits, WARN log for mismatches
+All entity pages updated with current OpenAPI endpoint paths:
+- `POST /auth/login` (not `POST /login`)
+- `POST /auth/verify/step-up` (not `POST /verify/step-up`)
+- `POST /admin/impersonate` (not `POST /admin/users/{user_id}/impersonate`)
+- `GET /identity/me` (not `GET /api/v1/identity/users/me`)
+- `POST /identity/me/token` (not `POST /api/v1/identity/users/me/token`)
+- `POST /mcp/token` (new endpoint)
+- `POST /admin/users` (not `POST /users`)
+- `POST /applications` (not `POST /api/v1/am/applications`)
 
-### Commits
+### Entity Changes by Service
 
-- `ea87b2a` — docs(observability): rewrite all Epic 9 stories to OTEL spans — no snowflake Prometheus counters, follow hauliage BRRTRouter pattern
+**identity-login-service (5 models):**
+- `users` — Simplified: 10 columns (was documented as 20+)
+- `sessions` — Simplified: no mfa_verified/impersonated_by
+- `social_credentials` — New entity
+- `otp_tokens` — New entity
+- `magic_link_tokens` — New entity
 
-### Current Epic 9 Status
+**identity-session-service (6 models):**
+- `sessions` — Full model: includes mfa_verified, impersonated_by
+- `tokens` — New entity (access/refresh token tracking)
+- `impersonations` — New entity
+- `mfa_setup` — Duplicate of identity-user-mgmt-service MFA
+- `user_profiles` — Extended profile metadata
+- `mcp_agents` — MCP agent configuration
 
-| Story | Testing Enriched | Wiki Updated |
-|-------|-----------------|-------------|
-| 9.1 | ✅ (otel spans + 26 tests) | pending |
-| 9.2 | ✅ (otel spans design) | pending |
-| 9.3 | ✅ (otel spans + 27 tests) | pending |
-| 9.4 | ✅ (otel spans + 27 tests) | pending |
-| 9.5 | ✅ (otel spans + structured logs) | pending |
-| 9.6 | ✅ (structured logging + 24 tests) | pending |
-| 9.7 | ✅ (Loki log-based alerting) | pending |
+**identity-user-mgmt-service (7 models):**
+- `users` — Same as identity-login-service
+- `mfa_setup` — Duplicate of identity-session-service
+- `email_verifications` — New entity
+- `social_accounts` — Duplicate of social_credentials
+- `employees` — Employee metadata
+- `audit_event` — Richer than authz-core version
+- `mfa_setup` — TOTP MFA setup
 
----
+**authz-core (5 models):**
+- `audit_event` — Lightweight audit
+- `audit_retention_policy` — New entity
+- `authorization` — ABAC-style records
+- `role_assignment` — Principal role assignments
+- `principal_attribute` — Custom user attributes
 
-## [2026-05-16] Epic 7 Caching Strategy — Story 7.1 JWKS Cache Enrichment
+**api-keys (3 models):**
+- `api_key` — API keys with permissions as JSON text
+- `api_key_usage` — Usage tracking
+- `archived_api_key` — Revoked keys
 
-### Summary
+**org-mgmt (12 models):**
+- `org` — Simplified: 6 columns (was documented as 30+)
+- `org_membership` — New entity (was missing from original ERD)
+- `org_invite` — Pending invitations
+- `org_domain` — Verified domains
+- `role` — Flat roles (no inheritance)
+- `permission` — Org-scoped with resource/action columns
+- `role_permission` — Bridge table
+- `application` — OIDC client within org
+- `saml_connection` — SAML IdP config
+- `scim_user` — SCIM provisioned users
+- `webhook_subscription` — Webhook endpoints
 
-Completed comprehensive testing enrichment for Story 7.1 (JWKS Caching Strategy) in Epic 7. The story received individual, hand-written test sections covering Unit, Integration/BDD, Security Regression, Edge Cases, and Cleanup.
+### Files Changed
 
-### Stories Enriched
-
-| Story | File | Unit | Integration | Security | Edge | Total |
-|-------|------|------|-------------|----------|------|-------|
-| 7.1 | `Epics/07-caching-strategy/stories/story-7.1.md` | 17 | 7 | 6 | 7 | 37 |
-
-### Story 7.1 — JWKS Caching
-
-Key test areas covered:
-- **Unit:** cache hit/miss for specific kid, fallback to any valid key, stale key acceptance within tolerance, cache expiry beyond tolerance, background refresh on interval, atomic cache replacement, refresh failure not corrupting cache, empty JWKS response, max keys limit, TTL defaults, cache hit/miss/latency metrics, error logging, RwLock concurrency, async task spawning
-- **Integration:** full cache lifecycle (hit→miss→refresh), stale key + refresh trigger, key rotation during stale tolerance, multiple services sharing JWKS endpoint, unexpected JWKS format, concurrent validations during refresh, JWKS endpoint unavailable (cache continues serving)
-- **Security:** MITM poisoning prevention, stale key cannot sign with new key, clean failure when no keys, oversized JWKS OOM prevention, key material not leaked in logs, cache miss storm prevention (single-flight)
-- **Edge:** missing kid in JWKS keys, duplicate kid values, 0-second refresh interval, stale tolerance < TTL, HTTP 429 rate limiting with backoff, HTTP 500 server error, fresh start with no last_refresh
-
-### Commits
-
-- `c9a122e` — feat(stories): enrich Story 7.1 with testing requirements (Unit, Integration, Security Reg, Edge, Cleanup)
-
-### Current Epic 7 Status
-
-| Story | Testing Enriched | Wiki Updated |
-|-------|-----------------|-------------|
-| 7.1 | ✅ (committed c9a122e) | pending |
-
----
-
-### Summary
-
-Completed comprehensive testing enrichment for all stories in Epic 5 (Token Versioning) and Epic 6 (Delegation/Act). Each story received individual, hand-written test sections covering Unit, Integration/BDD, Security Regression, Edge Cases, and Cleanup.
-
-### Stories Enriched
-
-| Story | File | Unit | Integration | Security | Edge | Total |
-|-------|------|------|-------------|----------|------|-------|
-| 5.1 | `Epics/05-token-versioning/stories/story-5.1.md` | 22 | 8 | 5 | 7 | 42 |
-| 5.2 | `Epics/05-token-versioning/stories/story-5.2.md` | 28 | 10 | 6 | 8 | 52 |
-| 5.3 | `Epics/05-token-versioning/stories/story-5.3.md` | 26 | 10 | 7 | 8 | 51 |
-| 5.4 | `Epics/05-token-versioning/stories/story-5.4.md` | 29 | 10 | 7 | 9 | 56 |
-| 5.5 | `Epics/05-token-versioning/stories/story-5.5.md` | 31 | 10 | 7 | 8 | 56 |
-| 6.1 | `Epics/06-delegation-act/stories/story-6.1.md` | 58 | 17 | 12 | 11 | 98 |
-| 6.2 | `Epics/06-delegation-act/stories/story-6.2.md` | 33 | 14 | 12 | 10 | 69 |
-| 6.3 | `Epics/06-delegation-act/stories/story-6.3.md` | 43 | 14 | 12 | 11 | 80 |
-
-### Epic 5 — Token Versioning
-
-**Story 5.1 (ver claim):** Tests cover JWT payload claim verification (uint64 type, not string), Redis version tracking (GET defaults to 0, INCR atomicity, SET with correct TTL), version bump on authz changes, fail-open on Redis unavailability, sid uniqueness.
-
-**Story 5.2 (version cache):** Tests cover 15s subject TTL vs 60s tenant TTL, version comparison (claims.ver >= cached_ver), route classification gating (jwt-only skips, high-risk checks both), cache miss defaults, concurrent INCR atomicity, service restart survival, TTL expiry reset.
-
-**Story 5.3 (jti denylist):** Tests cover denylist add with TTL matching token exp, local LRU cache hit/miss behavior, Redis lookup fallback, auto-expire via Redis TTL, denylist NOT checked for jwt-only/jwt-with-fallback routes, metrics emission, cache capacity eviction, parallel coexistence of entries.
-
-**Story 5.4 (push invalidation):** Tests cover Redis pub/sub subscribe on startup, message parse/extract, local cache update on event receipt (subject vs tenant keys), reconnection after disconnect, missed event handling (fire-and-forget), multiple sequential events, metrics (version_bump_total, revocation_propagation_seconds), malformed event handling, concurrent event thread safety.
-
-**Story 5.5 (version mismatch):** Tests cover HTTP 401 response format, WWW-Authenticate header, Retry-After header and JSON body, gap-based retry_after calculation (1-10 → 300s, >100 → 0s), client refresh-and-retry flow, large gap immediate re-auth, jwt-only routes bypass, metrics recording.
-
-### Epic 6 — Delegation/Act
-
-**Story 6.1 (RFC 8693 Token Exchange):** Tests cover RFC 8693 compliance (grant_type validation, subject_token parsing for JWT/API key/refresh token, actor_token optional), can_delegate logic (platform_admin, org_admin same/different org, service_account delegate:*), scope intersection (3-way: subject ∩ requested ∩ actor), act claim inclusion/exclusion, act.chain for nested delegation, tenant match validation, F-003 (iss/aud/iat in response), F-012 (merged audiences), F-021 (CSRF documentation), metrics emission.
-
-**Story 6.2 (Support Impersonation):** Tests cover support_agent role requirement, cross-tenant blocking, org assignment validation, impersonation token structure (act claim, impersonated_by, impersonation_scope), admin action denial, token exchange denial, short TTL (2-5 min), audit log writing, user notification, role revocation mid-impersonation, password change during impersonation.
-
-**Story 6.3 (Step-Up MFA):** Tests cover sx.mfa_verified claim, 6 MFA-protected actions (admin:create_org, org:config:update, admin:impersonate, api_key:create, api_key:revoke, role:assign), /auth/step-up/mfa endpoint validation, mfa_type strength (F-016: SMS blocked for high-consequence, TOTP/WebAuthn allowed), F-006 fix (old refresh token denylisted on step-up), TOTP time window, rate limiting, WebAuthn device registration.
-
-### Wiki Pages Created
-
-| File | Change |
+| File | Action |
 |------|--------|
-| `topics/topic-token-versioning.md` | **Created.** Documents ver claim design, version storage in Redis, version validation flow, TTL strategy, version bump on authz change, version mismatch handling |
-| `topics/topic-delegation.md` | **Created.** Documents RFC 8693 token exchange, act claim structure, delegation chain, actor can_delegate logic, support impersonation flow, step-up MFA, mfa_type strength requirements |
-| `topics/topic-mfa.md` | **Created.** Documents sx.mfa_verified claim, step-up MFA flow, mfa_type strength table, F-006 refresh token invalidation, F-016 SMS restriction |
+| `docs/llmwiki/topics/topic-entity-relationship-diagram.md` | Created — comprehensive ERD |
+| `docs/llmwiki/entities/entity-user.md` | Corrected — 10 columns, 48 endpoints |
+| `docs/llmwiki/entities/entity-organization.md` | Corrected — 6 columns, 43 endpoints |
+| `docs/llmwiki/entities/entity-session.md` | Corrected — two session models |
+| `docs/llmwiki/entities/entity-api-key.md` | Corrected — added permissions, fixed status |
+| `docs/llmwiki/entities/entity-role.md` | Corrected — removed inheritance |
+| `docs/llmwiki/entities/entity-permission.md` | Corrected — org-scoped with resource/action |
+| `docs/llmwiki/entities/entity-application.md` | Corrected — org-scoped, OIDC fields |
+| `docs/llmwiki/entities/entity-mfa-device.md` | Corrected — two identical models |
+| `docs/llmwiki/entities/entity-audit-log.md` | Corrected — two separate models |
+| `docs/llmwiki/entities/entity-tenant.md` | Kept (for reference, but marked as logical only) |
+| `docs/llmwiki/topics/topic-data-model.md` | Not yet updated — still shows old ERD |
+| `docs/llmwiki/index.md` | Updated — status changes, new ERD topic |
 
 ### Commits
 
-- `72edd2f` — docs(wiki): create topic-token-versioning.md with ver claim design, version storage, validation flow, TTL strategy
-- `84894cb` — feat(stories): enrich Epic 6 stories with testing requirements (Story 6.1, 6.2, 6.3)
-- `b5142b1` — feat(stories): enrich Story 5.5 with testing requirements
-- `5ac7899` — feat(stories): enrich Story 5.4 with testing requirements
-- `2265725` — feat(stories): enrich Story 5.3 with testing requirements
-- `0ea8359` — feat(stories): enrich Story 5.2 with testing requirements
-- `b2566e8` — feat(stories): enrich Story 5.1 with testing requirements
-
-### Current Epic 5 Status
-
-| Story | Testing Enriched | Wiki Updated |
-|-------|-----------------|-------------|
-| 5.1 | ✅ (committed b2566e8) | topic-token-versioning ✅ |
-| 5.2 | ✅ (committed 0ea8359) | topic-token-versioning ✅ |
-| 5.3 | ✅ (committed 2265725) | topic-token-versioning ✅ |
-| 5.4 | ✅ (committed 5ac7899) | topic-token-versioning ✅ |
-| 5.5 | ✅ (committed b5142b1) | topic-token-versioning ✅ |
-
-### Current Epic 6 Status
-
-| Story | Testing Enriched | Wiki Updated |
-|-------|-----------------|-------------|
-| 6.1 | ✅ (committed 84894cb) | topic-delegation ✅ |
-| 6.2 | ✅ (committed 84894cb) | topic-delegation ✅ |
-| 6.3 | ✅ (committed 84894cb) | topic-mfa ✅ |
-
----
-
-## [2026-05-16] Epic 4 Hybrid Authz — Story 4.4, 4.5 Enrichment + Wiki Update
-
-### Summary
-
-Continued enrichment of Epic 4 (Hybrid Authorization Model) stories. Enriched Story 4.4 (Route-Specific Authorization Decisions) and Story 4.5 (RFC 7662 Introspection) with comprehensive testing sections. Updated wiki pages to reflect the complete hybrid model.
-
-### Stories Enriched
-
-| Story | File | New Test Sections |
-|-------|------|------------------|
-| 4.4 | `Epics/04-hybrid-authz-model/stories/story-4.4.md` | Unit (21 tests), Integration (9 scenarios), Security Reg (6 tests), Edge (7 tests), Cleanup (7 items) |
-| 4.5 | `Epics/04-hybrid-authz-model/stories/story-4.5.md` | Unit (11 tests), Integration (9 scenarios), Security Reg (6 tests), Edge (7 tests), Cleanup (7 items) |
-
-### Story 4.4 — Route-Specific Authorization Decisions
-
-Key test areas covered:
-- **Self-service reads:** ownership check pass/fail (claims.sub == user_id)
-- **Self-service writes:** ownership + business validation trigger/skip
-- **Identity resolution:** tenant validation, permission check, always-online data-integrity
-- **API key lifecycle:** tenant mismatch, revocation, valid key acceptance
-- **Delegated actions:** act claim presence, version mismatch, normal risk skip
-- **Route classification:** login routes NOT in middleware, read routes as jwt-only, identity as hybrid
-- **Security:** login routes cannot be used as JWT authz entry points, ownership claim forgery, act claim privilege escalation prevention, email upsert always verifies via authz-core
-
-### Story 4.5 — RFC 7662 Introspection
-
-Key test areas covered:
-- **Active/inactive responses:** valid JWT, expired, revoked, invalid signature
-- **PII protection:** username field always None in introspection response
-- **Authz:** API key required (not Bearer), rate limiting, enumeration prevention
-- **Edge cases:** empty token, oversized token (>64KB), malformed JOSE, concurrent same-token
-- **Cross-issuer fallback:** JWT from unknown issuer falls back to DB lookup
-
-### Wiki Updates
-
-| File | Change |
-|------|--------|
-| `topics/topic-hybrid-authz.md` | **Created.** 6-section hybrid model doc: route categories, middleware, route-specific decisions, selective fallback, RFC 7662 introspection, caches |
-| `topics/topic-authorization-flow.md` | **Rewritten.** Expanded from ~60 lines to ~300 lines. Added: hybrid model overview, route classification table, JWT middleware, route-specific decisions (Story 4.4), selective fallback (Story 4.3), RFC 7662 (Story 4.5), cache strategy, performance impact |
-| `topics/topic-login-flow.md` | **Updated.** Added 2 key points: login routes NOT protected by JWT authz, and hybrid post-login model |
-| `index.md` | **Updated.** Added topic-hybrid-authz entry to Topics table |
-
-### Commits
-
-- `b7560de` — docs(wiki): update authorization-flow and login-flow with Epic 4 hybrid authz model
-- `236e2b0` — feat(stories): enrich Story 4.5 with testing requirements
-- `0cf925a` — feat(stories): enrich Story 4.4 with testing requirements
-
-### Current Epic 4 Status
-
-| Story | Testing Enriched | Wiki Updated |
-|-------|-----------------|-------------|
-| 4.1 | ✅ (committed 2198fc1) | topic-authorization-flow ✅ |
-| 4.2 | ✅ (committed 2198fc1) | topic-authorization-flow ✅ |
-| 4.3 | ✅ (committed 2198fc1) | topic-authorization-flow ✅ |
-| 4.4 | ✅ (committed 0cf925a) | topic-authorization-flow ✅, topic-hybrid-authz ✅ |
-| 4.5 | ✅ (committed 236e2b0) | topic-hybrid-authz ✅ |
-
----
-
-## [2026-05-15] Tiltfile Configmap Fix — Namespace + binary_name
-
-### Summary
-
-All 6 sesame-idam pods were stuck in `ContainerCreating` because the Tiltfile was missing two critical elements that prevented Helm from creating ConfigMaps:
-
-1. **`binary_name` undefined variable** — `create_microservice_deployment()` referenced `binary_name` on line 304 (live_update sync path) but never defined it. Starlark crash.
-2. **Missing `k8s_yaml('k8s/microservices/namespace.yaml')`** — namespace `sesame-idam` didn't exist when Tilt tried to apply Helm manifests, so configmaps were never created.
-
-Hauliage has both of these. Sesame-IDAM's Tiltfile rewrite missed them.
-
-### Root Cause Analysis
-
-**Error 1 — Starlark crash:**
-```
-ERROR: Tiltfile:304:45: undefined: binary_name (did you mean image_name?)
-```
-Line 304 in the old Tiltfile: `sync(artifact_path, '/app/%s' % binary_name)` — the hauliage pattern defines `binary_name = name.replace('-', '_')` at the top of `create_microservice_deployment()`, but sesame-idam didn't. This caused Tilt to crash when processing `custom_build` for each service, preventing k8s_yaml from ever being applied.
-
-**Error 2 — Namespace missing:**
-```
-ERROR: namespaces "sesame-idam" not found
-```
-The Tiltfile had no `k8s_yaml('k8s/microservices/namespace.yaml')` call. Hauliage creates this at module level in the Data Infrastructure section. Without it, Helm couldn't create ConfigMaps in a non-existent namespace.
-
-**Consequence:** Helm templates rendered correctly (`helm template` works fine), but Tilt never applied them to the cluster. Pods were created (via `k8s_resource` auto-creation) but failed to mount configmaps (`configmap "org-mgmt-config" not found`).
-
-### Fix Applied
-
-```python
-# In create_microservice_deployment(), alongside package_name:
-binary_name = name.replace('-', '_')
-
-# In Data Infrastructure section:
-k8s_yaml('k8s/microservices/namespace.yaml')
-```
-
-### Verification
-
-All 6 pods Running, all 6 configmaps created, all returning HTTP 200 on `/health`:
-- org-mgmt (8104) — 200 ✅
-- authz-core (8102) — 200 ✅
-- api-keys (8103) — 200 ✅
-- identity-login-service (8101) — 200 ✅
-- identity-session-service (8105) — 200 ✅
-- identity-user-mgmt-service (8106) — 200 ✅
-
-### Files Updated
-
-- `Tiltfile` — added `binary_name` variable + `k8s_yaml('k8s/microservices/namespace.yaml')`
-- `docs/PRD-SEASAME-AUDIT-REMEDIATION.md` — added section 6b documenting the issues and resolution
-
----
-
-## [2026-05-14] Phase 0b: Tiltfile Lint Path Fix + Wiki Update
-
-### Summary
-
-Fixed the Tiltfile `create_microservice_lint()` and `create_microservice_gen()` functions to use full YAML file paths (`openapi/idam/<service>/openapi.yaml`) instead of directory paths. Also updated the llmwiki to reflect the current correct state of sesame-idam infrastructure.
-
-### Tiltfile Fixes
-
-- `create_microservice_lint()`: Changed `--spec ./openapi/idam/%s` to `--spec ./openapi/idam/%s/openapi.yaml` (brrtrouter-gen needs the file path, not the directory)
-- `create_microservice_lint() deps`: Changed `./openapi/idam/%s` to `./openapi/idam/%s/openapi.yaml`
-- `create_microservice_gen() deps`: Changed `./openapi/idam/%s` to `./openapi/idam/%s/openapi.yaml`
-
-### Wiki Updates
-
-| File | Change |
-|------|--------|
-| `index.md` | Updated topic-architecture-overview description to note `cargo check --workspace` passes |
-| `topics/topic-remediation-plan.md` | Phase 0 and Phase 1 marked ✅ Completed; build warnings documented; acceptance criteria updated |
-| `topics/topic-build-infrastructure.md` | Status → verified; added build status table; Phase 2 items moved to "Planned" |
-| `topics/topic-package-naming-convention.md` | Status → verified; documented final naming table; removed "target" section since fix is complete |
-| `topics/topic-tiltfile-architecture.md` | Status → verified; documented current Tiltfile architecture and design decisions |
-| `topics/topic-brrtrouter-codegen.md` | Fixed duplicate OpenAPI layout section; noted `openapi/idam/` nesting |
-
-### Current Build State
-
-- `cargo check --workspace` — ✅ 0 errors, 31 warnings
-- `cargo test --workspace` — ✅ 5 tests (4 unit + 1 doc)
-- `brrtrouter-gen lint` — ✅ All 6 specs pass (authz-core + identity-user-mgmt-service fixed)
-- Tiltfile — ✅ Validated Starlark syntax, all path refs corrected
-
-### OpenAPI Lint Fixes
-
-Fixed `operation_id_casing` errors in 2 specs:
-
-| Spec | Issues Fixed |
-|------|-------------|
-| `authz-core` | 10 operationIds (camelCase → snake_case) + added missing `PaginatedResponse` schema |
-| `identity-user-mgmt-service` | 3 operationIds (getUserAuditEvents, exportUserAuditEvents, getUserEventCount → snake_case) |
-
-### Codegen State After Fixes
-
-All 18 camelCase operationIds now use snake_case convention. All specs define all referenced schemas.
-
----
-
-## [2026-05-14] Sesame-IDAM Structural Audit — Wiki Updated from PRD
-
-### Summary
-
-
-[... content preserved from original ...]
-
----
+- `1e195de` — docs(wiki): add comprehensive ERD from OpenAPI + impl model audit

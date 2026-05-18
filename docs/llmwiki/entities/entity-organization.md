@@ -1,7 +1,7 @@
 ---
 title: Organization Entity
-status: partially-verified
-updated: 2026-01-22
+status: verified
+updated: 2026-05-16
 sources: [openapi/org-mgmt/openapi.yaml]
 ---
 
@@ -13,106 +13,106 @@ Owned by: **org-mgmt** (consumed by api-keys for org data in validation)
 
 Multi-tenant organization model. Organizations are scoped to a `tenant_id` so the same org name can exist in different tenants without conflict.
 
-Each org supports: SAML SSO, OIDC, SCIM user provisioning, webhooks, application/role/permission RBAC, and domain-based auto-join.
+**Note:** The impl model is significantly simplified compared to the design spec. Most features from the design doc (SAML, SCIM, domain controls, password rotation, seat management) are NOT yet in the impl model.
 
-## Schema (from design-doc.md + OpenAPI)
+## Schema (from impl/ crate — org-mgmt)
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid (PK) | |
-| name | text | |
-| slug | text (UK per tenant) | |
-| logo_url | text (nullable) | |
-| domain | text (nullable) | Single domain for auto-join |
-| domains | text[] | Multiple domains |
-| domain_auto_join | boolean | Auto-join on domain match |
-| domain_restrict | boolean | Restrict signups to domain |
-| password_rotation_enabled | boolean | Password rotation policy |
-| password_rotation_history_size | integer | |
-| password_rotation_period | integer | |
-| max_users | integer (nullable) | NULL = unlimited seats |
-| metadata | jsonb | Custom org metadata |
-| is_saml_configured | boolean | |
-| is_saml_in_test_mode | boolean | |
-| can_setup_saml | boolean | |
-| isolated | boolean | Org isolation flag |
-| sso_trust_level | text | SSO trust level |
-| legacy_org_id | text (nullable) | Migration from legacy system |
-| tenant_id | uuid (FK) | **REQUIRED** — orgs belong to one tenant |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
-| deleted_at | timestamptz | Soft delete |
+|| Column | Type | Notes |
+||--------|------|-------|
+|| id | uuid (PK) | |
+|| name | varchar(255) | Organization name |
+|| tenant_id | varchar(255) | **REQUIRED** — orgs belong to one tenant |
+|| status | varchar(32) | Active, suspended, etc. |
+|| created_at | timestamptz | |
+|| updated_at | timestamptz | |
 
 ## Key Design Decisions
 
 1. **Per-tenant scoping.** The `tenant_id` column means orgs with the same name can exist across different tenants.
-2. **Seat management.** `max_users` is nullable — NULL means unlimited.
-3. **Domain controls.** `domain_auto_join` and `domain_restrict` control email-based org access.
-4. **SSO settings.** SAML configuration stored per-org in the same table.
-5. **Org personas.** Three org types: platform (SaaS operator), provider (service deliverer), consumer (service recipient). `org_type` in JWT determines access rules.
-6. **SCIM provisioning.** Full SCIM 2.0 user provisioning for enterprise SSO integration.
+2. **Impl is simplified.** The actual impl model has only 6 columns (id, name, tenant_id, status, created_at, updated_at). Most design features (SAML, SCIM, domains, password rotation, seat limits, metadata) are NOT implemented yet.
+3. **Single status field.** `status` (varchar(32)) replaces feature flags like `is_saml_configured`, `isolated`, etc.
+4. **No soft delete.** `deleted_at` column does not exist in the impl.
+5. **tenant_id is varchar(255), not uuid.** Type mismatch from wiki (wiki said uuid).
 
 ## New Features (from PropelAuth gap closure)
 
-| Feature | Description |
-|---------|-------------|
-| **SCIM User Provisioning** | `POST/PUT/DELETE /{org_id}/scim/users/{id}` — Enterprise user provisioning |
-| **API Key Invalidation** | `POST /admin/users/{user_id}/invalidate-all-keys` — Invalidate keys on block/delete |
-| **Application RBAC** | Full application/role/permission management under `/{org_id}/applications` |
+> **NOTE:** The API endpoints below reference endpoints from the OpenAPI spec, but most are NOT yet implemented against the simplified impl model. The impl org model lacks the data structures to support SAML, SCIM, domain controls, etc.
+
+|| Feature | Status |
+||---------|--------|
+|| **SCIM User Provisioning** | NOT implemented — impl org model has no SCIM data fields |
+|| **Application RBAC** | Implemented as part of org-mgmt (roles/permissions are org-scoped) |
+|| **SAML SSO** | NOT implemented — no SAML fields in impl org model |
+|| **Domain Controls** | NOT implemented — no domain fields in impl org model |
 
 ## API Endpoints
 
+> **NOTE:** Org CRUD endpoints (`/`, `/{org_id}` GET/PUT/DELETE) are implemented against the simplified impl model. Most other endpoints (SCIM, SAML, webhooks, domain controls, role mappings) reference the OpenAPI spec — implementations may use the impl model as-is or extend it.
+
 | Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/` | GET | List organizations |
-| `/{org_id}` | GET | Get organization |
-| `/{org_id}` | PUT | Update organization |
-| `/{org_id}` | DELETE | Delete organization |
-| `/{org_id}/users` | GET | List users in org |
-| `/{org_id}/users` | POST | Add user to org |
-| `/{org_id}/users` | DELETE | Remove user from org |
-| `/{org_id}/users/{user_id}/role` | PATCH | Change user role in org |
-| `/{org_id}/invite-user` | POST | Invite user by email |
-| `/{org_id}/invite-user-by-id` | POST | Invite existing user |
-| `/{org_id}/role-mappings` | GET | Get role mappings |
-| `/{org_id}/pending-invites` | DELETE | Revoke pending invites |
-| `/{org_id}/subscribe-role-mapping` | PUT | Subscribe to role mapping |
-| `/{org_id}/domains` | PUT | Update org domains |
-| `/{org_id}/saml` | DELETE | Remove SAML config |
-| `/{org_id}/saml-metadata` | PUT | Update SAML metadata |
-| `/{org_id}/allow-saml` | POST | Enable SAML |
-| `/{org_id}/disallow-saml` | POST | Disable SAML |
-| `/{org_id}/enable-saml` | POST | Enable SAML SSO |
-| `/{org_id}/create-saml-link` | POST | Create SAML link |
-| `/{org_id}/oidc-metadata` | POST | Configure OIDC metadata |
-| `/{org_id}/migrate-to-isolated` | POST | Migrate to isolated mode |
-| `/{org_id}/scim/groups` | GET | List SCIM groups |
-| `/{org_id}/scim/groups/{group_id}` | GET | Get SCIM group |
-| `/{org_id}/scim/users` | GET | List SCIM users |
-| `/{org_id}/scim/users` | POST | Create SCIM user |
-| `/{org_id}/scim/users/{user_id}` | PUT | Update SCIM user |
-| `/{org_id}/scim/users/{user_id}` | DELETE | Delete SCIM user |
-| `/{org_id}/webhooks` | GET | List webhooks |
-| `/{org_id}/webhooks/{subscription_id}` | DELETE | Delete webhook |
-| `/{org_id}/webhooks/{subscription_id}/test` | POST | Test webhook |
-| `/api/v1/am/applications` | GET | List applications |
-| `/api/v1/am/applications` | POST | Create application |
-| `/api/v1/am/applications/{app_id}` | GET | Get application |
-| `/api/v1/am/applications/{app_id}/roles` | GET | List roles |
-| `/api/v1/am/applications/{app_id}/roles` | POST | Create role |
-| `/api/v1/am/applications/{app_id}/roles/{role_id}` | GET | Get role |
-| `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | GET | List role permissions |
-| `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | POST | Assign permission |
-| `/api/v1/am/applications/{app_id}/roles/{role_id}/permissions` | DELETE | Revoke permission |
-| `/api/v1/am/applications/{app_id}/permissions` | GET | List permissions |
-| `/api/v1/am/applications/{app_id}/permissions` | POST | Create permission |
-| `/admin/users/{user_id}/invalidate-all-keys` | POST | Invalidate all user API keys |
+| Service | Endpoint | Purpose |
+|---------|----------|---------|
+| org-mgmt | `GET /applications` | List applications |
+| org-mgmt | `POST /applications` | Register application |
+| org-mgmt | `GET /applications/{app_id}` | Get application by id |
+| org-mgmt | `GET /applications/{app_id}/permissions` | List permissions for application |
+| org-mgmt | `POST /applications/{app_id}/permissions` | Create permission for application |
+| org-mgmt | `GET /applications/{app_id}/roles` | List roles for application |
+| org-mgmt | `POST /applications/{app_id}/roles` | Create role for application |
+| org-mgmt | `GET /applications/{app_id}/roles/{role_id}` | Get role by id |
+| org-mgmt | `GET /applications/{app_id}/roles/{role_id}/permissions` | Get permissions for role |
+| org-mgmt | `POST /applications/{app_id}/roles/{role_id}/permissions` | Assign permission to role |
+| org-mgmt | `DELETE /applications/{app_id}/roles/{role_id}/permissions` | Revoke permission from role |
+| org-mgmt | `GET /organizations` | Query for organisations |
+| org-mgmt | `POST /organizations/admin/users/{user_id}/invalidate-all-keys` | Invalidate all API keys for user |
+| org-mgmt | `GET /organizations/{org_id}` | Fetch organisation by ID |
+| org-mgmt | `PUT /organizations/{org_id}` | Update organisation |
+| org-mgmt | `DELETE /organizations/{org_id}` | Delete organisation |
+| org-mgmt | `PUT /organizations/{org_id}/domains` | Update organisation domain settings |
+| org-mgmt | `POST /organizations/{org_id}/invitations` | Invite user to organisation by email |
+| org-mgmt | `POST /organizations/{org_id}/invitations/by-id` | Invite existing user to organisation |
+| org-mgmt | `POST /organizations/{org_id}/migrate-to-isolated` | Migrate organisation to isolated SAML mode |
+| org-mgmt | `POST /organizations/{org_id}/oidc-metadata` | Set OIDC IdP metadata for organisation |
+| org-mgmt | `DELETE /organizations/{org_id}/pending-invitations` | Revoke pending organisation invite |
+| org-mgmt | `GET /organizations/{org_id}/role-mappings` | Fetch custom role mappings for organisation |
+| org-mgmt | `PUT /organizations/{org_id}/role-mappings/subscribe` | Subscribe organisation to a role mapping |
+| org-mgmt | `GET /organizations/{org_id}/scim/groups` | Fetch SCIM groups for organisation |
+| org-mgmt | `GET /organizations/{org_id}/scim/groups/{group_id}` | Fetch a specific SCIM group |
+| org-mgmt | `GET /organizations/{org_id}/scim/users` | List SCIM users in org |
+| org-mgmt | `POST /organizations/{org_id}/scim/users` | Create SCIM user in org |
+| org-mgmt | `PUT /organizations/{org_id}/scim/users/{user_id}` | Update SCIM user in org |
+| org-mgmt | `DELETE /organizations/{org_id}/scim/users/{user_id}` | Delete SCIM user from org |
+| org-mgmt | `GET /organizations/{org_id}/users` | Fetch users in organisation |
+| org-mgmt | `POST /organizations/{org_id}/users` | Add user to organisation |
+| org-mgmt | `DELETE /organizations/{org_id}/users/{user_id}` | Remove user from organisation |
+| org-mgmt | `PATCH /organizations/{org_id}/users/{user_id}/role` | Change user role in organisation |
+| org-mgmt | `GET /organizations/{org_id}/webhooks` | Fetch organisation webhook subscriptions |
+| org-mgmt | `DELETE /organizations/{org_id}/webhooks/{subscription_id}` | Delete webhook subscription |
+| org-mgmt | `POST /organizations/{org_id}/webhooks/{subscription_id}/test` | Test webhook delivery |
+| org-mgmt | `DELETE /sso/saml` | Delete SAML connection |
+| org-mgmt | `POST /sso/saml/allow` | Allow organisation to set up SAML SSO |
+| org-mgmt | `POST /sso/saml/disable` | Disallow organisation from using SAML SSO |
+| org-mgmt | `POST /sso/saml/enable` | Enable SAML connection for organisation |
+| org-mgmt | `POST /sso/saml/link` | Create SAML connection setup link |
+| org-mgmt | `PUT /sso/saml/metadata` | Set SAML IdP metadata for organisation |
 
 ## Code Anchors
 
 - `microservices/idam/org-mgmt/impl/src/models/` — Lifeguard entity definition
 - `openapi/org-mgmt/openapi.yaml` — Org CRUD API
 
-## Gaps / Drift
+## Drift Found (verified 2026-05-16)
 
-> **Open:** Verify actual Lifeguard model. SCIM user endpoints and API key invalidation are newly added to specs.
+| Wiki Claim | Actual Impl | Impact |
+|------------|-------------|--------|
+| 30+ org columns (slug, logo_url, domains, SAML fields, etc.) | Only 6 columns: id, name, tenant_id, status, created_at, updated_at | Critical — impl is dramatically simplified |
+| `slug`, `logo_url`, `domain`, `domains` | NOT in impl | High — domain-based features not supported |
+| `domain_auto_join`, `domain_restrict` | NOT in impl | High — auto-join not implemented |
+| `password_rotation_*` fields | NOT in impl | Medium |
+| `max_users` seat management | NOT in impl | Medium |
+| `metadata` jsonb | NOT in impl | Medium |
+| `is_saml_*`, `can_setup_saml`, `isolated`, `sso_trust_level` | NOT in impl | High — SAML/isolation not implemented |
+| `legacy_org_id` | NOT in impl | Low |
+| `deleted_at` soft delete | NOT in impl | Medium |
+| `status` column | EXISTS but was NOT in wiki | High — wiki was completely missing this field |
+| `tenant_id` is uuid | `tenant_id` is varchar(255), not uuid | Low — type mismatch |

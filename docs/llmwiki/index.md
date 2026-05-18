@@ -16,17 +16,16 @@ Data structures and database entities across all 6 microservices.
 
 | Page | Service | Status |
 |------|---------|--------|
-| [entity-user](./entities/entity-user.md) | identity-login-service | partially-verified |
-| [entity-organization](./entities/entity-organization.md) | org-mgmt | partially-verified |
-| [entity-session](./entities/entity-session.md) | identity-session-service | partially-verified |
-| [entity-api-key](./entities/entity-api-key.md) | api-keys | partially-verified |
-| [entity-role](./entities/entity-role.md) | org-mgmt | partially-verified |
-| [entity-permission](./entities/entity-permission.md) | org-mgmt | partially-verified |
-| [entity-application](./entities/entity-application.md) | org-mgmt | partially-verified |
-| [entity-mfa-device](./entities/entity-mfa-device.md) | identity-user-mgmt-service | partially-verified |
-| [entity-audit-log](./entities/entity-audit-log.md) | all services | partially-verified |
-|| [entity-tenant](./entities/entity-tenant.md) | all services | partially-verified |
-| [entity-webhook](./entities/entity-webhook.md) | org-mgmt | partially-verified |
+|| [entity-user](./entities/entity-user.md) | identity-login-service | verified |
+|| [entity-organization](./entities/entity-organization.md) | org-mgmt | verified |
+|| [entity-session](./entities/entity-session.md) | identity-session-service | verified |
+|| [entity-api-key](./entities/entity-api-key.md) | api-keys | verified |
+|| [entity-role](./entities/entity-role.md) | org-mgmt | verified |
+|| [entity-permission](./entities/entity-permission.md) | org-mgmt | verified |
+|| [entity-application](./entities/entity-application.md) | org-mgmt | verified |
+|| [entity-mfa-device](./entities/entity-mfa-device.md) | identity-user-mgmt-service | verified |
+|| [entity-audit-log](./entities/entity-audit-log.md) | all services | verified |
+|| [entity-webhook](./entities/entity-webhook.md) | org-mgmt | partially-verified |
 
 ## Topics
 
@@ -49,7 +48,8 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-api-key-validation](./topics/topic-api-key-validation.md) | M2M key validation flow |
 ||| [topic-rls-bridge](./topics/topic-rls-bridge.md) | RLS helpers, session injection, database security |
 ||| [topic-brrtrouter-codegen](./topics/topic-brrtrouter-codegen.md) | OpenAPI → codegen workflow, gen/ vs impl/, package naming warning |
-||| [topic-data-model](./topics/topic-data-model.md) | Full ERD, key design decisions |
+|||| [topic-data-model](./topics/topic-data-model.md) | Full ERD, key design decisions |
+|||| [topic-entity-relationship-diagram](./topics/topic-entity-relationship-diagram.md) | Comprehensive ERD reconciled from OpenAPI specs + impl model verification |
 ||| [topic-scaling-profiles](./topics/topic-scaling-profiles.md) | Per-service scaling, cache strategies |
 ||| [topic-openapi-convention](./topics/topic-openapi-convention.md) | Spec layout, schema duplication convention |
 ||| [topic-inter-service-deps](./topics/topic-inter-service-deps.md) | Only dependency: login → authz-core at login |
