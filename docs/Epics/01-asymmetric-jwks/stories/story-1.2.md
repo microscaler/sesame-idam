@@ -10,7 +10,26 @@ Story 1.2
 
 ## Summary
 
-Implement the `/.well-known/jwks.json` endpoint that serves the current set of public signing keys in standard JWKS format (RFC 7517). The endpoint is near-static (cached, NEGLIGIBLE cost per topology design) and includes the `kid` for key identification by validating services.
+Wire up the `/.well-known/jwks.json` endpoint to serve live Ed25519 public keys from `KeyManager` in standard JWKS format (RFC 7517). Replace the current hardcoded mock with the real implementation, add Cache-Control headers, and implement rate limiting on the public endpoint.
+
+## Current State
+
+**The endpoint exists but serves dead code.** The impl controller (`impl/controllers/jwks.rs`) calls `KEY_MANAGER.jwks_document()` but is never compiled — `impl/src/lib.rs` never declares `pub mod controllers;`. The gen controller (`gen/controllers/jwks.rs`) returns a hardcoded mock key `{"keys":[{"kid":"key-2026-05-18-12",...}]}`. This is what the running service actually serves.
+
+### What's Already Written (Dead Code)
+
+- `impl/controllers/jwks.rs`: Calls `KEY_MANAGER.jwks_document()`, builds `Response { keys }` from all keys in the manager
+- `impl/controllers/mod.rs`: Declares `pub mod jwks;` (so the module is listed)
+- `serve_with_headers()` helper: Returns `(Response, HashMap<String, String>)` with Cache-Control, X-Content-Type-Options, Vary headers
+
+### What's NOT Done (Blocking)
+
+1. **Impl controller never wired**: `impl/lib.rs` and `impl/main.rs` never declare `mod controllers;` — the impl controller is dead code
+2. **Gen mock is live**: BRRTRouter registry routes through `gen::controllers::jwks::JwksController` (the mock)
+3. **No HTTP headers**: The header constants exist but are never applied to responses
+4. **No rate limiting**: Story 1.1 deferred this to Story 1.2
+5. **No HTTP BDD tests**: Tests exercise KeyManager directly, not the actual HTTP endpoint
+6. **ES256 co-default**: Story 1.1 deferred this — key generation needs ES256 support
 
 ## Why This Story Exists
 
@@ -25,7 +44,7 @@ The JWT document recommends publishing discovery metadata and a JWKS document so
 - `identity-session-service` already declares `/.well-known/jwks.json` in its OpenAPI spec
 - The service is classified as EXTREME frequency, NEGLIGIBLE per-request cost
 - The generated runtime has `JwksBearerProvider` which serves JWKS for validation
-- Currently the endpoint likely serves a static key or the development fallback
+- Currently the endpoint serves a hardcoded mock (not the KeyManager)
 
 ### JWKS Format (RFC 7517)
 
@@ -52,74 +71,48 @@ The JWT document recommends publishing discovery metadata and a JWKS document so
 - `alg` indicates the intended algorithm
 - `kid` identifies which key to use for verification (matches `kid` in JWT header)
 
-## Implementation Notes
+## Implementation Plan
 
-### Endpoint Path
+### Step 1: Wire the Impl Controller (CRITICAL — blocking)
 
-`GET /.well-known/jwks.json`
+The impl controller exists but is never compiled. Two approaches:
 
-### Cache Behavior
+**Approach A (simpler):** Add `mod controllers;` to `impl/lib.rs` so the controller is compiled into the impl crate. Then the `#[handler(JwksController)]` macro in the impl crate will generate the controller struct that the registry will pick up.
 
-The JWKS response is near-static and served from memory:
-- The entire JWKS document is built from the current `KeyManager` state
-- No database queries required
-- Response is served directly from the in-memory key set
-- HTTP `Cache-Control: public, max-age=300` (5 minutes, matches JWKS cache TTL from design doc section 10.11)
+**Approach B (cleaner):** Modify the gen controller to delegate to the impl controller. The gen controller currently has a `#[handler(JwksController)]` that returns hardcoded data. Replace it to call `crate::controllers::jwks::handle()`.
 
-### Rate Limiting (F-009 Fix)
+**Recommendation: Approach A.** BRRTRouter's codegen pattern already uses `#[handler(JwksController)]` in both gen and impl. The registry in `registry.rs` references `crate::controllers::jwks::JwksController`. In the impl crate's context, this would resolve to the impl controller if the module is declared.
 
-> **Note:** This is a **Deferred Item from Story 1.1**. Story 1.1 identified the risk but does not implement rate limiting; Story 1.2 owns this requirement.
+### Step 2: Apply Response Headers
 
-The JWKS endpoint is public and has no authentication. Without rate limiting, an attacker could:
-- Send hundreds of requests/second to exhaust NGINX worker connections
-- Force repeated JSON serialization, consuming CPU
-- Amplify a DoS against identity-session-service
+The `serve_with_headers()` function builds headers into a HashMap, but the actual handler doesn't apply them. Wire the Cache-Control, X-Content-Type-Options, and Vary headers to the response. This may require a BRRTRouter response interceptor or middleware.
 
-**Rate limit configuration:**
-- 100 requests/second per IP (global, not per-route)
-- Return 429 Too Many Requests when exceeded
-- Log rate limit violations for security monitoring
-- Implement using NGINX `limit_req` or application-level middleware (e.g., `tower_http::limit::RateLimitLayer`)
+### Step 3: Rate Limiting
 
-**NGINX rate limit config:**
-```nginx
-limit_req_zone $binary_remote_addr zone=jwks_limit:10m rate=100r/s;
+Story 1.1 deferred rate limiting to this story. The JWKS endpoint is public and has no authentication.
 
-location /.well-known/jwks.json {
-    limit_req zone=jwks_limit burst=50 nodelay;
-    ...
-}
-```
+- **Target:** 100 requests/second per IP (global)
+- **Return 429** when exceeded
+- **Log violations** for monitoring
+- **Implementation:** Use `tower_http::limit::RateLimitLayer` or NGINX-level `limit_req`
+- **Note:** This may require NGINX config changes (handled by infra)
 
-**Acceptance criteria:** This story must implement the above rate limiting. Without it, the JWKS endpoint is vulnerable to DoS (see HACK-121 in Story 1.1).
+### Step 4: HTTP BDD Tests
 
-### Key Set Construction
+Add real HTTP tests against the live endpoint:
 
-On each request:
-1. Clone the current `KeyManager` state
-2. Build JWKS JSON from all keys currently in the manager (current, next, and any in grace period)
-3. Return JSON response
+- `given` service with 1 key → `GET /.well-known/jwks.json` → `then` 200 OK with valid JWKS
+- `given` 3 keys (current + next + grace) → `GET /.well-known/jwks.json` → `then` 3 entries
+- `then` Cache-Control header is exactly `public, max-age=300`
+- `then` zero DB queries executed
+- `then` Content-Type is `application/json`
+- `then` no private key material (`d` field) present
 
-This ensures:
-- The JWKS always contains at least one valid key
-- During rotation, both old and new keys are visible
-- After grace period, only the current key is visible
+### Step 5: ES256 Co-Default (Deferred from Story 1.1)
 
-### Response Headers
+Story 1.1 deferred ES256 support. The KeyManager currently only generates Ed25519 keys. Add ES256 key generation as a co-default alongside EdDSA. This may be a separate story or part of this one depending on scope.
 
-| Header | Value | Reason |
-|--------|-------|--------|
-| `Content-Type` | `application/json` | Standard for JWKS |
-| `Cache-Control` | `public, max-age=300` | 5-minute cache, matches JWKS cache TTL |
-| `X-Content-Type-Options` | `nosniff` | Prevent MIME sniffing |
-| `Vary` | `Accept` | Support future content negotiation |
-
-### Content Size
-
-Expected response size: ~500 bytes per key. With 1-2 keys during normal operation and 2-3 during rotation, the response is well under 2KB. This fits comfortably within:
-- NGINX default `client_header_buffer_size`: 1KB (JWKS is served, not requested, so this applies to request headers, not response)
-- Apache `LimitRequestFieldSize`: 8190 bytes (same, applies to requests)
-- The response body is not subject to these limits -- only request headers are
+**Recommendation:** Defer ES256 co-default to Story 1.3 (per the deferred items table in Story 1.1). Story 1.2 focuses on making the EdDSA JWKS endpoint live.
 
 ## Mermaid Diagrams
 
@@ -263,6 +256,18 @@ The story says: "JWKS serves the current set of public signing keys." An attacke
 
 ## OpenAPI Changes
 
+The endpoint `/.well-known/jwks.json` is already defined in the OpenAPI spec with:
+- `operationId: jwks`
+- `security: []` (no auth required)
+- Response schema: `#/components/schemas/JWKS`
+
+The spec needs these refinements:
+1. Add `JsonWebKey` schema reference (currently uses inline object schema)
+2. Add `description` field to the endpoint
+3. Add examples for all response codes
+
+### Updated OpenAPI Spec
+
 Add to `openapi/idam/identity-session-service/openapi.yaml`:
 
 ```yaml
@@ -270,7 +275,7 @@ paths:
   /.well-known/jwks.json:
     get:
       summary: JSON Web Key Set
-      operationId: getJwks
+      operationId: jwks
       description: |
         Returns the current set of public signing keys in JWKS format (RFC 7517).
         Use this endpoint to validate JWT signatures. Keys may include current,
@@ -288,6 +293,41 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/JsonWebKey'
+              examples:
+                default:
+                  summary: Example JWKS with EdDSA key
+                  value:
+                    keys:
+                    - kty: OKP
+                      kid: key-2026-05-18-12
+                      use: sig
+                      alg: EdDSA
+                      crv: Ed25519
+                      x: pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM
+        '400':
+          description: "Bad request — validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized — invalid, expired, or missing credentials"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 ```
 
 Add new schema:
@@ -297,7 +337,7 @@ components:
   schemas:
     JsonWebKey:
       type: object
-      required: [kty, kid, alg, crv, x, y]
+      required: [kty, kid, alg, crv, x]
       properties:
         kty:
           type: string
@@ -317,6 +357,9 @@ components:
         y:
           type: string
           description: Y coordinate (base64url-encoded, EC only)
+        use:
+          type: string
+          description: Intended use (sig, enc)
 ```
 
 ## Design Doc References
@@ -334,19 +377,22 @@ components:
 
 ## Acceptance Criteria
 
-- [ ] `GET /.well-known/jwks.json` returns valid JWKS JSON (RFC 7517)
-- [ ] Response includes all current and grace-period keys
-- [ ] Each key includes `kty`, `kid`, `alg`, `crv`, and coordinate fields
-- [ ] Response includes `Cache-Control: public, max-age=300`
-- [ ] During key rotation, both old and new keys appear in the JWKS
-- [ ] After the grace period, the old key is removed from the JWKS
-- [ ] Response size is under 2KB (1-2 keys normal, 2-3 during rotation)
-- [ ] Response is served from in-memory key set (no database queries)
-- [ ] The endpoint has NEGLIGIBLE per-request cost (served from memory)
+- [ ] **Wiring**: The endpoint returns live keys from `KeyManager`, not hardcoded mock data
+- [ ] **Live response**: `GET /.well-known/jwks.json` returns valid JWKS JSON (RFC 7517)
+- [ ] **Response includes all current and grace-period keys**
+- [ ] **Each key includes `kty`, `kid`, `alg`, `crv`, and coordinate fields**
+- [ ] **Response includes `Cache-Control: public, max-age=300`**
+- [ ] **During key rotation, both old and new keys appear in the JWKS**
+- [ ] **After the grace period, the old key is removed from the JWKS**
+- [ ] **Response size is under 2KB (1-2 keys normal, 2-3 during rotation)**
+- [ ] **Response is served from in-memory key set (no database queries)**
+- [ ] **The endpoint has NEGLIGIBLE per-request cost (served from memory)**
+- [ ] **Rate limiting is implemented (100 req/s per IP)**
+- [ ] **ES256 co-default: ES256 keys can be generated alongside EdDSA** (if in scope)
 
 ## Dependencies
 
-- Depends on Story 1.1 (key generation and KeyManager)
+- Depends on Story 1.1 (key generation and KeyManager) — **Story 1.1 is implemented**
 - Required by Story 1.3 (other services fetch JWKS to validate tokens)
 
 ## Risk / Trade-offs
@@ -396,3 +442,52 @@ components:
 
 - [ ] OpenAPI spec defines `GET /.well-known/jwks.json` with 200 response containing `JsonWebKey` schema
 - [ ] `JsonWebKey` schema has required fields: `kty`, `kid`, `alg`, `crv`, and coordinate fields
+- [ ] `429` response code is documented for rate limiting
+
+## Implementation Notes
+
+### Wiring the Impl Controller
+
+The impl controller (`impl/controllers/jwks.rs`) is currently dead code. It needs to be wired so the running service uses it instead of the gen mock.
+
+**Approach A (add module to lib.rs):**
+1. Add `pub mod controllers;` to `impl/src/lib.rs`
+2. The `#[handler(JwksController)]` macro in the impl controller will generate a `JwksController` struct
+3. The registry needs to resolve to this impl controller instead of the gen mock
+
+**Approach B (replace gen controller):**
+1. Replace the gen controller's hardcoded mock with a delegation to the impl controller
+2. Add a dependency from gen to impl (or vice versa)
+
+**Recommendation:** Approach A — add `pub mod controllers;` to `impl/lib.rs` and verify the registry resolves correctly.
+
+### Rate Limiting Implementation
+
+Options:
+1. **NGINX-level** (`limit_req`): Simple, effective, no code changes. Config goes into NGINX ingress config.
+2. **Application-level** (`tower_http::limit::RateLimitLayer`): More flexible, works without NGINX config changes.
+3. **Hybrid**: Both — NGINX for hard limit, app for graceful degradation.
+
+**Recommendation:** Start with NGINX-level (simpler, less code, tested in production NGINX). Application-level middleware can be added later if needed.
+
+## Open Questions
+
+1. Does BRRTRouter support response header modification via middleware, or do we need to set headers in the handler directly?
+2. Should the JWKS endpoint include an `updated_at` timestamp for better client-side caching decisions?
+3. Is ES256 co-default in scope for this story, or should it be deferred to Story 1.3?
+
+**Decision:** ES256 co-default is deferred to Story 1.3. This story focuses on making the EdDSA JWKS endpoint live with rate limiting.
+
+## Deferral / Cross-References
+
+Deferred to other stories (see bidirectional references):
+
+| Deferred Item | Target Story | Reason |
+|---|---|---|
+| ES256 co-default | Story 1.3 | EdDSA-only for this story |
+| Rate limiting | **This story** | Story 1.1 deferred to here |
+| `typ=at+jwt` enforcement | Story 8.1 | Signing, not validation |
+| HSM integration | Story 8.3 | Hardware storage is separate hardening |
+| Alerting on key.age > 7 days | Story 9.x (Observability) | Alerting is observability epic concern |
+
+Bidirectional cross-references added to Stories 1.1, 1.2, 1.3, 8.1, 8.3.
