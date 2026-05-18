@@ -10,6 +10,7 @@ pub mod step_up_verify;
 pub mod admin_impersonate;
 pub mod admin_restore_impersonation;
 pub mod admin_issue_token;
+pub mod admin_jwks_revoke;
 pub mod mcp_token;
 pub mod mcp_validate;
 pub mod mcp_list_agents;
