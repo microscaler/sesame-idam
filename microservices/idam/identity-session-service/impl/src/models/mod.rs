@@ -6,7 +6,6 @@ pub mod entity_registry {
 
 pub mod impersonation;
 pub mod mcp_agent;
-pub mod mfa_setup;
 pub mod session;
 pub mod token;
 pub mod user_profile;
