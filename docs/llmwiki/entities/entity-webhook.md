@@ -15,7 +15,7 @@ Webhook subscription model for organizations. Subscribes an organization to rece
 
 ## Schema (from impl/ crate — org-mgmt)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 |--------|------|-------|
 | id | uuid (PK) | |
 | org_id | uuid (FK -> orgs) | Webhook belongs to an org |
@@ -28,7 +28,7 @@ Webhook subscription model for organizations. Subscribes an organization to rece
 
 ## API Endpoints
 
-|| Endpoint | Method | Purpose |
+| Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/organizations/{org_id}/webhooks` | GET | List webhook subscriptions |
 | `/organizations/{org_id}/webhooks/{subscription_id}` | DELETE | Delete webhook subscription |
@@ -43,7 +43,7 @@ Webhook subscription model for organizations. Subscribes an organization to rece
 
 ## Drift Found (verified 2026-05-16)
 
-|| Wiki Claim | Actual Impl | Impact |
+| Wiki Claim | Actual Impl | Impact |
 |------------|-------------|--------|--------|
 | Two tables (WebhookEndpoint + WebhookDelivery) | Single table: `webhook_subscriptions` | High — WebhookDelivery doesn't exist |
 | `events` is `text[]` | `events` is VARCHAR/text | Medium — array type wrong |

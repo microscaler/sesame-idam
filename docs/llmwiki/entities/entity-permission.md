@@ -15,16 +15,16 @@ Permission model. Permissions are per-application and referenced by roles via Ro
 
 ## Schema (from impl/ crate — org-mgmt)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 ||--------|------|-------|
-|| id | uuid (PK) | |
-|| org_id | uuid (FK -> orgs) | Permission is org-scoped |
-|| name | varchar(255) | e.g., "invoices:write" |
-|| description | text (nullable) | |
-|| resource | varchar(255) | Resource identifier |
-|| action | varchar(255) | Action identifier |
-|| created_at | timestamptz | |
-|| updated_at | timestamptz | |
+| id | uuid (PK) | |
+| org_id | uuid (FK -> orgs) | Permission is org-scoped |
+| name | varchar(255) | e.g., "invoices:write" |
+| description | text (nullable) | |
+| resource | varchar(255) | Resource identifier |
+| action | varchar(255) | Action identifier |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
 ## Key Design Decisions
 

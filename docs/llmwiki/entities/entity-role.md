@@ -17,21 +17,21 @@ Role model. Roles are scoped to organizations (org-scoped). No inheritance or hi
 
 ## Schema (from impl/ crate — org-mgmt)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 ||--------|------|-------|
-|| id | uuid (PK) | |
-|| org_id | uuid (FK -> orgs) | Role is org-scoped |
-|| name | varchar(255) | Internal name |
-|| description | text (nullable) | |
-|| created_at | timestamptz | |
-|| updated_at | timestamptz | |
+| id | uuid (PK) | |
+| org_id | uuid (FK -> orgs) | Role is org-scoped |
+| name | varchar(255) | Internal name |
+| description | text (nullable) | |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
 ## RolePermission Association
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 ||--------|------|-------|
-|| role_id | uuid (FK -> roles, PK composite) | |
-|| permission_id | uuid (FK -> permissions, PK composite) | |
+| role_id | uuid (FK -> roles, PK composite) | |
+| permission_id | uuid (FK -> permissions, PK composite) | |
 
 ## Key Design Decisions
 

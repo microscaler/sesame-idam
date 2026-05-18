@@ -15,7 +15,7 @@ Multi-factor authentication device/model. Supports TOTP setup, verification, and
 
 ## Schema (from impl/ crate — both services)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 |--------|------|-------|
 | id | uuid (PK) | |
 | user_id | uuid (FK -> users) | |
@@ -34,7 +34,7 @@ Multi-factor authentication device/model. Supports TOTP setup, verification, and
 
 ## API Endpoints
 
-|| Service | Endpoint | Purpose |
+| Service | Endpoint | Purpose |
 |---------|----------|---------|
 | identity-user-mgmt-service | `POST /admin/users/{user_id}/mfa/setup` | Set up TOTP MFA |
 | identity-user-mgmt-service | `POST /admin/users/{user_id}/mfa/verify` | Verify MFA code |
@@ -43,7 +43,7 @@ Multi-factor authentication device/model. Supports TOTP setup, verification, and
 
 ## Drift Found (verified 2026-05-16)
 
-|| Wiki Claim | Actual Impl | Impact |
+| Wiki Claim | Actual Impl | Impact |
 |------------|-------------|--------|--------|
 | Entity named `mfa_device` | Actual model is `mfa_setup` in TWO services | High — renaming needed |
 | `label` column | NOT in impl (no label field) | Medium — wiki overstates |

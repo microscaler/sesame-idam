@@ -17,18 +17,18 @@ Users support multiple authentication methods: password, email OTP, phone OTP, d
 
 ## Schema (from impl/ crate — identity-login-service)
 
-|| Column | Type | Notes |
+| Column | Type | Notes |
 ||--------|------|-------|
-|| id | uuid (PK) | |
-|| email | varchar(255) | Email address |
-|| password_hash | text | Bcrypt/scrypt hash |
-|| tenant_id | varchar(255) | **REQUIRED** — partitions data per tenant |
-|| email_verified | boolean | Email confirmed via OTP or link |
-|| phone | varchar(64, nullable) | Phone number |
-|| phone_verified | boolean | Phone confirmed via SMS OTP |
-|| status | varchar(32) | Active, suspended, etc. (replaces enabled/locked) |
-|| created_at | timestamptz | |
-|| updated_at | timestamptz | |
+| id | uuid (PK) | |
+| email | varchar(255) | Email address |
+| password_hash | text | Bcrypt/scrypt hash |
+| tenant_id | varchar(255) | **REQUIRED** — partitions data per tenant |
+| email_verified | boolean | Email confirmed via OTP or link |
+| phone | varchar(64, nullable) | Phone number |
+| phone_verified | boolean | Phone confirmed via SMS OTP |
+| status | varchar(32) | Active, suspended, etc. (replaces enabled/locked) |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
 ## Multi-Tenancy
 
@@ -38,11 +38,11 @@ Within a single tenant, email is globally unique. Within a multi-application ten
 
 ## Auth Method Flags
 
-|| Field | Description |
+| Field | Description |
 ||-------|-------------|
-|| `email_verified` | Email address confirmed (via OTP or link) |
-|| `phone_verified` | Phone number confirmed (via SMS OTP) |
-|| `status` | Active, suspended, etc. (single status field replaces separate enabled/locked flags) |
+| `email_verified` | Email address confirmed (via OTP or link) |
+| `phone_verified` | Phone number confirmed (via SMS OTP) |
+| `status` | Active, suspended, etc. (single status field replaces separate enabled/locked flags) |
 
 **Note:** `has_password`, `first_name`, `last_name`, `username`, `picture_url`, `extra_properties`, `deleted_at` are NOT in the impl model. `username` appears only in OpenAPI request/response schemas, not in the database.
 
