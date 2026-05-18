@@ -1,114 +1,66 @@
 # LLM Wiki — Session Log
 
-## [2026-05-16] Entity Relationship Diagram — Comprehensive Audit
+## [2026-05-17] Entity Wiki Pages — Comprehensive Audit and Fix
 
 ### Summary
 
-Complete audit of the Sesame-IDAM entity relationship diagram by reconciling the wiki entity pages against the actual OpenAPI specs (6 services, 119+ endpoints) and the Lifeguard impl models in the `impl/` crates.
+Complete audit of all 17 entity wiki pages against the actual Lifeguard impl models in the `impl/` crates. Cross-referenced each page against every column in every impl model for matching services. Created 7 missing entity pages, fixed 1 existing page, verified 9 existing pages.
 
-### Key Findings
+### Changes Made
 
-**14 entities verified against impl models:**
+**7 new entity pages created:**
 
-| Entity | Status | Drift Found |
-|--------|--------|-------------|
-| User | corrected | 8 fields removed (user_type, first_name, username, etc. not in impl) |
-| Organization | corrected | 24+ fields removed, impl has only 6 columns |
-| Session | corrected | Renamed columns (session_token→token), removed tenant_id/revoked, added MFA/impersonation |
-| API Key | corrected | Added permissions field, renamed revoked→active, removed metadata |
-| Role | corrected | Removed inheritance (parent_role_id), removed is_system, tenant_id |
-| Permission | corrected | Added org_id, resource, action columns; fixed scope from app→org |
-| Application | corrected | Fixed scope from tenant→org, added OIDC fields (client_id, client_secret, redirect_uris) |
-| MFA Setup | corrected | Renamed entity, added second service model, fixed field names |
-| Audit Event | corrected | Split into two models (authz-core + identity-user-mgmt-service) |
+| Entity | Service | Columns | Key Details |
+|--------|---------|---------|-------------|
+| entity-email-verification.md | identity-user-mgmt-service | 6 | FK cascade to users, token limited to 64 chars |
+| entity-social-account.md | identity-user-mgmt-service | 8 | FK cascade to users, provider/user_id strings |
+| entity-employee.md | identity-user-mgmt-service | 8 | Self-referencing manager_id (ON DELETE SET NULL) |
+| entity-scim-user.md | org-mgmt | 7 | Minimal SCIM model, no FK to users table |
+| entity-org-domain.md | org-mgmt | 6 | Domain verification status |
+| entity-org-invite.md | org-mgmt | 8 | Timestamp-based acceptance (not boolean/status) |
+| entity-org-membership.md | org-mgmt | 7 | FK cascade on org_id and user_id, role is free-form string |
 
-**Entities removed from entity list:**
-- `entity-tenant.md` — No `tenants` table exists; tenant is a logical boundary via `tenant_id` columns
+**1 existing page corrected:**
 
-**New ERD created:**
-- `docs/llmwiki/topics/topic-entity-relationship-diagram.md` — Comprehensive ERD with all 40+ tables, foreign key relationships, and service ownership
+| Entity | Issue Fixed |
+|--------|-------------|
+| entity-api-key.md | Added references to api_key_usage and archived_api_key impl models (endpoint, method, reason, archived_at columns) |
 
-### API Path Corrections
+**10 existing pages verified as complete** — all impl columns present:
+- entity-user.md, entity-session.md, entity-organization.md, entity-role.md, entity-permission.md, entity-application.md, entity-mfa-device.md, entity-audit-log.md, entity-webhook.md, entity-scim-user.md
 
-All entity pages updated with current OpenAPI endpoint paths:
-- `POST /auth/auth/login` (not `POST /auth/auth/login`)
-- `POST /auth/auth/verify/step-up` (not `POST /auth/auth/verify/step-up`)
-- `POST /admin/impersonate` (not `POST /admin/users/{user_id}/impersonate`)
-- `GET /identity/me` (not `GET /identity/me`)
-- `POST /identity/me/auth/token` (not `POST /identity/me/auth/token`)
-- `POST /mcp/auth/token` (new endpoint)
-- `POST /admin/users` (not `POST /users`)
-- `POST /applications` (not `POST /applications`)
+**Index updated:**
+- `docs/llmwiki/index.md` — All 17 entity pages listed with status `verified` (changed entity-webhook from `partially-verified` to `verified`)
 
-### Entity Changes by Service
+### OpenAPI vs Impl Discrepancies (Documented in ERD)
 
-**identity-login-service (5 models):**
-- `users` — Simplified: 10 columns (was documented as 20+)
-- `sessions` — Simplified: no mfa_verified/impersonated_by
-- `social_credentials` — New entity
-- `otp_tokens` — New entity
-- `magic_link_tokens` — New entity
+The ERD documents 41 impl models across 6 services. 17 impl models have **no corresponding OpenAPI schema** — they are database-only entities queried via service APIs without dedicated REST endpoints. The ERD also documents 14 categories of schema mismatches where OpenAPI specs describe properties that don't exist in impl, or vice versa.
 
-**identity-session-service (6 models):**
-- `sessions` — Full model: includes mfa_verified, impersonated_by
-- `tokens` — New entity (access/refresh token tracking)
-- `impersonations` — New entity
-- `mfa_setup` — Duplicate of identity-user-mgmt-service MFA
-- `user_profiles` — Extended profile metadata
-- `mcp_agents` — MCP agent configuration
+### Open Issues
 
-**identity-user-mgmt-service (7 models):**
-- `users` — Same as identity-login-service
-- `mfa_setup` — Duplicate of identity-session-service
-- `email_verifications` — New entity
-- `social_accounts` — Duplicate of social_credentials
-- `employees` — Employee metadata
-- `audit_event` — Richer than authz-core version
-- `mfa_setup` — TOTP MFA setup
+| Entity | Issue |
+|--------|-------|
+| Role/Permission | OpenAPI spec says `application_id`, impl uses `org_id` — specs are stale |
+| AuditEvent (all) | OpenAPI spec has 16 properties (event_action, hmac_signature, target_id, etc.) — doesn't match either impl version (8-col authz-core or 10-col user-mgmt) |
+| Org | OpenAPI spec has 21 properties including slug, logo_url, domain_auto_join, SAML fields — impl has only 6 columns |
+| Application | OpenAPI spec has `slug`, impl has OIDC fields (client_id, client_secret, redirect_uris) |
+| ScimUser | OpenAPI spec uses SCIM protocol format (emails array, name object, roles) — impl is a simple 7-col table |
+| WebhookSubscription | OpenAPI spec has 12 properties with delivery tracking — impl has 8 columns with `active` boolean, not `enabled` |
 
-**authz-core (5 models):**
-- `audit_event` — Lightweight audit
-- `audit_retention_policy` — New entity
-- `authorization` — ABAC-style records
-- `role_assignment` — Principal role assignments
-- `principal_attribute` — Custom user attributes
-
-**api-keys (3 models):**
-- `api_key` — API keys with permissions as JSON text
-- `api_key_usage` — Usage tracking
-- `archived_api_key` — Revoked keys
-
-**org-mgmt (12 models):**
-- `org` — Simplified: 6 columns (was documented as 30+)
-- `org_membership` — New entity (was missing from original ERD)
-- `org_invite` — Pending invitations
-- `org_domain` — Verified domains
-- `role` — Flat roles (no inheritance)
-- `permission` — Org-scoped with resource/action columns
-- `role_permission` — Bridge table
-- `application` — OIDC client within org
-- `saml_connection` — SAML IdP config
-- `scim_user` — SCIM provisioned users
-- `webhook_subscription` — Webhook endpoints
+These gaps are documented in `topic-entity-relationship-diagram.md` and `topic-data-model.md`. The OpenAPI specs need updating to match the impl reality.
 
 ### Files Changed
 
 | File | Action |
 |------|--------|
-| `docs/llmwiki/topics/topic-entity-relationship-diagram.md` | Created — comprehensive ERD |
-| `docs/llmwiki/entities/entity-user.md` | Corrected — 10 columns, 48 endpoints |
-| `docs/llmwiki/entities/entity-organization.md` | Corrected — 6 columns, 43 endpoints |
-| `docs/llmwiki/entities/entity-session.md` | Corrected — two session models |
-| `docs/llmwiki/entities/entity-api-key.md` | Corrected — added permissions, fixed status |
-| `docs/llmwiki/entities/entity-role.md` | Corrected — removed inheritance |
-| `docs/llmwiki/entities/entity-permission.md` | Corrected — org-scoped with resource/action |
-| `docs/llmwiki/entities/entity-application.md` | Corrected — org-scoped, OIDC fields |
-| `docs/llmwiki/entities/entity-mfa-device.md` | Corrected — two identical models |
-| `docs/llmwiki/entities/entity-audit-log.md` | Corrected — two separate models |
-| `docs/llmwiki/entities/entity-tenant.md` | Kept (for reference, but marked as logical only) |
-| `docs/llmwiki/topics/topic-data-model.md` | Not yet updated — still shows old ERD |
-| `docs/llmwiki/index.md` | Updated — status changes, new ERD topic |
-
-### Commits
-
-- `1e195de` — docs(wiki): add comprehensive ERD from OpenAPI + impl model audit
+| `docs/llmwiki/entities/entity-email-verification.md` | Created — verified against impl |
+| `docs/llmwiki/entities/entity-social-account.md` | Created — verified against impl |
+| `docs/llmwiki/entities/entity-employee.md` | Created — verified against impl |
+| `docs/llmwiki/entities/entity-scim-user.md` | Created — verified against impl |
+| `docs/llmwiki/entities/entity-org-domain.md` | Created — verified against impl |
+| `docs/llmwiki/entities/entity-org-invite.md` | Created — verified against impl |
+| `docs/llmwiki/entities/entity-org-membership.md` | Created — verified against impl |
+| `docs/llmwiki/entities/entity-api-key.md` | Patched — added missing entity references |
+| `docs/llmwiki/index.md` | Patched — added 7 new entities, fixed webhook status |
+| `docs/llmwiki/topics/topic-entity-relationship-diagram.md` | Updated — comprehensive ERD + all 41 impl models + OpenAPI gaps |
+| `docs/llmwiki/topics/topic-data-model.md` | Updated — full table list + 17 impl models without OpenAPI + 14 schema mismatches |

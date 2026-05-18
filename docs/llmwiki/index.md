@@ -16,16 +16,23 @@ Data structures and database entities across all 6 microservices.
 
 | Page | Service | Status |
 |------|---------|--------|
-|| [entity-user](./entities/entity-user.md) | identity-login-service | verified |
-|| [entity-organization](./entities/entity-organization.md) | org-mgmt | verified |
-|| [entity-session](./entities/entity-session.md) | identity-session-service | verified |
-|| [entity-api-key](./entities/entity-api-key.md) | api-keys | verified |
-|| [entity-role](./entities/entity-role.md) | org-mgmt | verified |
-|| [entity-permission](./entities/entity-permission.md) | org-mgmt | verified |
-|| [entity-application](./entities/entity-application.md) | org-mgmt | verified |
-|| [entity-mfa-device](./entities/entity-mfa-device.md) | identity-user-mgmt-service | verified |
-|| [entity-audit-log](./entities/entity-audit-log.md) | all services | verified |
-|| [entity-webhook](./entities/entity-webhook.md) | org-mgmt | partially-verified |
+| [entity-user](./entities/entity-user.md) | identity-login-service | verified |
+| [entity-organization](./entities/entity-organization.md) | org-mgmt | verified |
+| [entity-session](./entities/entity-session.md) | identity-session-service | verified |
+| [entity-api-key](./entities/entity-api-key.md) | api-keys | verified |
+| [entity-role](./entities/entity-role.md) | org-mgmt | verified |
+| [entity-permission](./entities/entity-permission.md) | org-mgmt | verified |
+| [entity-application](./entities/entity-application.md) | org-mgmt | verified |
+| [entity-mfa-device](./entities/entity-mfa-device.md) | identity-user-mgmt-service | verified |
+| [entity-audit-log](./entities/entity-audit-log.md) | all services | verified |
+| [entity-webhook](./entities/entity-webhook.md) | org-mgmt | verified |
+| [entity-email-verification](./entities/entity-email-verification.md) | identity-user-mgmt-service | verified |
+| [entity-social-account](./entities/entity-social-account.md) | identity-user-mgmt-service | verified |
+| [entity-employee](./entities/entity-employee.md) | identity-user-mgmt-service | verified |
+| [entity-scim-user](./entities/entity-scim-user.md) | org-mgmt | verified |
+| [entity-org-domain](./entities/entity-org-domain.md) | org-mgmt | verified |
+| [entity-org-invite](./entities/entity-org-invite.md) | org-mgmt | verified |
+| [entity-org-membership](./entities/entity-org-membership.md) | org-mgmt | verified |
 
 ## Topics
 
