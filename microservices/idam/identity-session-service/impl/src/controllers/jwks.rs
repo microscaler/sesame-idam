@@ -53,7 +53,10 @@ pub fn serve_with_headers() -> (Response, std::collections::HashMap<String, Stri
 
     let mut headers = std::collections::HashMap::new();
     headers.insert("Cache-Control".to_string(), JWKS_CACHE_CONTROL.to_string());
-    headers.insert("X-Content-Type-Options".to_string(), X_CONTENT_TYPE_OPTIONS.to_string());
+    headers.insert(
+        "X-Content-Type-Options".to_string(),
+        X_CONTENT_TYPE_OPTIONS.to_string(),
+    );
     headers.insert("Vary".to_string(), VARY.to_string());
 
     (resp, headers)

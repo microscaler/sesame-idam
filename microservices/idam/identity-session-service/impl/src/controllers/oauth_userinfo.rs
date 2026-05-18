@@ -3,29 +3,41 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::oauth_userinfo::{Request, Response};
 
 #[handler(OauthUserinfoController)]
-pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
     use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
+    let tenant_id = _req.data.x_tenant_id.clone();
+
     let mut event = AuditEvent::new(
         AuditEventType::SessionManagement,
         "oauth_userinfo_accessed",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::ServiceAccount,
-        req.inner
-            .ip_address
-            .clone()
-            .unwrap_or_else(|| "127.0.0.1".to_string()),
+        "127.0.0.1".to_string(),
     );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    event.metadata = serde_json::json!({ "client_id": req.inner.client_id }).into();
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
 
     Response {
-        success: req.inner.success.unwrap_or(false),
-        error: req.inner.error.clone().unwrap_or_default(),
-        claims: req.inner.claims.clone().unwrap_or_default(),
+        email: None,
+        email_verified: None,
+        first_name: None,
+        last_name: None,
+        name: None,
+        org_id: None,
+        org_name: None,
+        phone_number: None,
+        phone_verified: None,
+        picture_url: None,
+        preferred_username: None,
+        properties: None,
+        sub: None,
+        updated_at: None,
+        user_id: None,
+        user_permissions: None,
+        user_role: None,
+        username: None,
     }
 }

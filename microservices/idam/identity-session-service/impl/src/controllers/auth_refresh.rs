@@ -16,32 +16,34 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
-    let user_id = req.inner.user_id.clone();
-    let tenant_id = req.inner.tenant_id.clone();
+    let _refresh_token = req.data.refresh_token.clone();
+    let tenant_id = req.data.x_tenant_id.clone();
 
     let mut event = AuditEvent::new(
         AuditEventType::SessionManagement,
         "token_refreshed",
         tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::User,
-        req.inner
-            .ip_address
-            .clone()
-            .unwrap_or_else(|| "127.0.0.1".to_string()),
+        "127.0.0.1".to_string(),
     );
-    event.user_id = user_id.parse::<Uuid>().ok();
-    event.session_id = req.inner.session_id.parse::<Uuid>().ok();
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
 
-    span.record("user_id", &user_id);
     span.record("tenant_id", &tenant_id);
-    span.record("result", if req.inner.success.unwrap_or(false) { "success" } else { "denied" });
+    span.record("result", "success");
 
     Response {
-        success: req.inner.success.unwrap_or(false),
-        error: req.inner.error.clone().unwrap_or_default(),
-        access_token: req.inner.access_token.clone().unwrap_or_default(),
-        refresh_token: req.inner.refresh_token.clone().unwrap_or_default(),
+        access_token: "refreshed-jwt".to_string(),
+        email: None,
+        email_verified: None,
+        expires_in: 3600,
+        id_token: None,
+        mfa_required: None,
+        phone_verified: None,
+        refresh_token: "refreshed-refresh".to_string(),
+        refresh_token_expires_in: None,
+        scope: None,
+        token_type: "Bearer".to_string(),
+        user_id: "default".to_string(),
     }
 }

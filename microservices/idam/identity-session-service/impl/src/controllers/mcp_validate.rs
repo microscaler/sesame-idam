@@ -6,15 +6,16 @@ use sesame_idam_identity_session_service_gen::handlers::mcp_validate::{Request, 
 
 #[handler(McpValidateController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    let token = req.inner.token;
+    let _token = req.data.token.clone();
 
     // TODO: Look up token in Redis
     // TODO: Check expiration
     // TODO: Return validation result
 
     Response {
-        valid: true,
-        agent_id: "agent-xxx".to_string(),
+        agent_id: None,
+        expires_at: None,
         permissions: None,
+        valid: true,
     }
 }

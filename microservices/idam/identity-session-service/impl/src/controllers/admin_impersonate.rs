@@ -6,9 +6,8 @@ use sesame_idam_identity_session_service_gen::handlers::admin_impersonate::{Requ
 
 #[handler(AdminImpersonateController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    let user_id = req.inner.user_id;
-    let admin_user_id = req.inner.admin_user_id;
-    let application_id = req.inner.application_id;
+    let user_id = req.data.user_id;
+    let admin_user_id = req.data.actor_user_id;
 
     // TODO: Verify admin_user_id is a platform admin
     // TODO: Verify user exists and is not deleted
@@ -16,11 +15,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Store impersonation metadata in Redis for restore
 
     Response {
-        user_id: user_id,
-        session_id: "impersonation-session-id".to_string(),
         access_token: "impersonated-jwt".to_string(),
+        impersonated_user_id: user_id,
+        original_user_id: admin_user_id,
         refresh_token: "impersonated-refresh".to_string(),
-        is_impersonation: true,
-        impersonated_by: admin_user_id,
     }
 }

@@ -6,15 +6,17 @@ use sesame_idam_identity_session_service_gen::handlers::mcp_token::{Request, Res
 
 #[handler(McpTokenController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    let api_key = req.inner.api_key;
+    let _agent_id = req.data.agent_id.clone();
+    let _credential = req.data.credential.clone();
 
-    // TODO: Validate API key against api-keys service
+    // TODO: Validate credential against api-keys service
     // TODO: Create MCP session
     // TODO: Issue short-lived MCP token
 
     Response {
-        token: "mcp-token-xxx".to_string(),
-        expires_in: 300, // 5 minutes
-        token_type: "mcp".to_string(),
+        access_token: "mcp-token-xxx".to_string(),
+        expires_in: None,
+        scope: None,
+        token_type: None,
     }
 }

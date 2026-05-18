@@ -3,26 +3,36 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::openid_configuration::{Request, Response};
 
 #[handler(OpenidConfigurationController)]
-pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
     use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
 
     let mut event = AuditEvent::new(
         AuditEventType::System,
         "openid_configuration_accessed",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        uuid::Uuid::nil(),
         AuditActor::ServiceAccount,
-        req.inner
-            .ip_address
-            .clone()
-            .unwrap_or_else(|| "127.0.0.1".to_string()),
+        "127.0.0.1".to_string(),
     );
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
 
     Response {
-        success: true,
-        configuration: "{}".to_string(),
+        authorization_endpoint: None,
+        code_challenge_methods_supported: None,
+        grant_types_supported: None,
+        id_token_signing_alg_values_supported: None,
+        issuer: None,
+        jwks_uri: None,
+        registration_endpoint: None,
+        response_modes_supported: None,
+        response_types_supported: None,
+        scopes_supported: None,
+        subject_types_supported: None,
+        token_endpoint: None,
+        userinfo_encryption_alg_values_supported: None,
+        userinfo_encryption_enc_values_supported: None,
+        userinfo_endpoint: None,
+        userinfo_signing_alg_values_supported: None,
     }
 }

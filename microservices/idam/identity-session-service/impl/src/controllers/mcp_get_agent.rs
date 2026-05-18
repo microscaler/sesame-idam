@@ -3,28 +3,29 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::mcp_get_agent::{Request, Response};
 
 #[handler(McpGetAgentController)]
-pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
     use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
+    let tenant_id = _req.data.x_tenant_id.clone();
+
     let mut event = AuditEvent::new(
         AuditEventType::SessionManagement,
         "mcp_agent_accessed",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::User,
-        req.inner
-            .ip_address
-            .clone()
-            .unwrap_or_else(|| "127.0.0.1".to_string()),
+        "127.0.0.1".to_string(),
     );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    event.metadata = serde_json::json!({ "agent_id": req.inner.agent_id }).into();
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
 
     Response {
-        success: req.inner.success.unwrap_or(false),
-        error: req.inner.error.clone().unwrap_or_default(),
+        active: false,
+        agent_id: "agent-xxx".to_string(),
+        created_at: "2024-01-01T00:00:00Z".to_string(),
+        description: None,
+        name: "default-agent".to_string(),
+        updated_at: "2024-01-01T00:00:00Z".to_string(),
     }
 }

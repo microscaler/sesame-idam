@@ -16,8 +16,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
-    let tenant_id = req.inner.tenant_id.clone();
-    let user_id = req.inner.user_id.clone();
+    let tenant_id = req.data.x_tenant_id.clone();
+    let user_id = req.data.user_id.clone();
 
     let mut event = AuditEvent::new(
         AuditEventType::SessionManagement,
@@ -35,8 +35,17 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     span.record("result", "success");
 
     Response {
-        success: req.inner.success.unwrap_or(false),
-        error: req.inner.error.clone().unwrap_or_default(),
-        access_token: req.inner.access_token.clone().unwrap_or_default(),
+        access_token: req.data.scope.clone(),
+        email: None,
+        email_verified: None,
+        expires_in: 3600,
+        id_token: None,
+        mfa_required: None,
+        phone_verified: None,
+        refresh_token: "default-refresh".to_string(),
+        refresh_token_expires_in: None,
+        scope: Some(req.data.scope.clone()),
+        token_type: "Bearer".to_string(),
+        user_id,
     }
 }
