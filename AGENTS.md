@@ -40,8 +40,10 @@ Working on identity-login-service entity? Read `entities/entity-*.md` for that s
 | [`docs/design-doc.md`](./docs/design-doc.md) | System-level design (architecture, data model, API surface). Keep current. |
 | [`docs/service-topology-design.md`](./docs/service-topology-design.md) | Service split rationale and scaling profiles. |
 | [`docs/sesame-idam-complete.md`](./docs/sesame-idam-complete.md) | Vision, developer contract, integration patterns. |
+| [`docs/Epics/INDEX.md`](./docs/Epics/INDEX.md) | 9-epic implementation plan with 44 stories across 9 dirs. Status column tracks design vs implementation state. |
 
 Forward-looking planning (`PRD_*.md`, `ROADMAP.md`) stays at the `docs/` root.
+Epics and stories are in `docs/Epics/{N}-{name}/` (e.g., `docs/Epics/01-asymmetric-jwks/`). Each epic dir contains an overview doc and a `stories/` subdir with individual story files. INDEX.md is the canonical master index.
 
 ---
 
