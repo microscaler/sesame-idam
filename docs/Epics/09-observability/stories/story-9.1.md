@@ -276,11 +276,16 @@ No OpenAPI changes. Spans are internal to the middleware layer.
 ## Acceptance Criteria
 
 - [ ] Top-level `jwt_validation` span is created for every JWT validation
-- [ ] Sub-spans record result of each validation step (typ, signature, exp, issuer, audience, tenant)
-- [ ] Span attributes match the design: `route`, `method`, `result`, `error`, step booleans
-- [ ] Structured log at WARN level when validation fails (event field present)
-- [ ] Spans appear in Jaeger traces (verified when `OTEL_EXPORTER_OTLP_ENDPOINT` is set)
-- [ ] No Prometheus counters are used (BRRTRouter metrics cover HTTP-level observability)
+- [x] `authz.request` span wraps ALL authz-core requests with `route`, `method`, `result` (allowed/denied) — implemented in `authz_span_middleware.rs`
+- [x] Key lifecycle spans implemented: `key.generate`, `key.rotate.prepare`, `key.rotate.activate`, `key.revoke`, `key.health` in `key_manager.rs` — foundation for JWT signing observability
+- [x] JWKS spans implemented: `jwks.document` in `controllers/jwks.rs`, `jwks.cache.refresh` in `jwks_client.rs`
+- [ ] Sub-spans record result of each validation step (typ, signature, exp, issuer, audience, tenant) — **BLOCKED**: validation steps happen inside BRRTRouter's `JwksBearerProvider::validate_token()` at `/home/casibbald/Workspace/BRRTRouter/src/security/jwks_bearer/validation.rs` — requires BRRTRouter changes
+- [ ] Span attributes match the design: step booleans (`typ_valid`, `sig_valid`, etc.) — blocked on per-validation sub-spans
+- [x] No Prometheus counters are used (BRRTRouter metrics cover HTTP-level observability)
+- [ ] Structured log at WARN level when validation fails (event field present) — blocked on per-validation sub-spans
+- [ ] Spans appear in Jaeger traces (verified when `OTEL_EXPORTER_OTLP_ENDPOINT` is set) — infrastructure dependency
+
+**Summary:** 8 spans implemented (`authz.request` + 5 key lifecycle + `jwks.document` + `jwks.cache.refresh`). Per-validation-step sub-spans blocked on BRRTRouter changes.
 
 ## Dependencies
 
