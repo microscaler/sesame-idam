@@ -1,5 +1,9 @@
 //! Entity models for org-mgmt service.
 
+pub mod entity_registry {
+    include!(concat!(env!("OUT_DIR"), "/entity_registry.rs"));
+}
+
 pub mod application;
 pub mod org;
 pub mod org_domain;
