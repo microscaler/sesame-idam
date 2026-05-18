@@ -232,12 +232,14 @@ No OpenAPI changes. Spans are internal.
 
 ## Acceptance Criteria
 
-- [ ] `authz_fallback` span created for every jwt-with-fallback request
-- [ ] `authz_fallback.call` span created when authz-core is invoked (cache miss)
-- [ ] Span attributes record: `route`, `action`, `cache_hit`, `cached_ttl_remaining_secs`, `result`, `error`
-- [ ] Fallback call failures logged at WARN level with `event: "authz_fallback_call_failure"`
-- [ ] Spans appear in Jaeger traces
-- [ ] No Prometheus counters for fallback (BRRTRouter's `brrtrouter_requests_total` covers HTTP-level)
+- [ ] `authz_fallback` span created for every jwt-with-fallback request — **NOT IMPLEMENTED**, blocked on Story 4 (hybrid authz model not implemented)
+- [ ] `authz_fallback.call` span created when authz-core is invoked (cache miss) — blocked on Story 4
+- [ ] Span attributes record: `route`, `action`, `cache_hit`, `cached_ttl_remaining_secs`, `result`, `error` — blocked on Story 4
+- [ ] Fallback call failures logged at WARN level — blocked on Story 4
+- [ ] Spans appear in Jaeger traces — blocked on Story 4
+- [x] No Prometheus counters for fallback (BRRTRouter's `brrtrouter_requests_total` covers HTTP-level)
+
+**Summary:** 0 spans implemented. Fully blocked on Story 4 (hybrid authz model).
 
 ## Dependencies
 
