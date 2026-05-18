@@ -17,15 +17,13 @@ use brrtrouter_macros::handler;
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // Placeholder - actual implementation delegates to impl controller
     Response {
-        keys: vec![
-            serde_json::json!({
-                "alg": "EdDSA",
-                "crv": "Ed25519",
-                "kid": "placeholder",
-                "kty": "OKP",
-                "use": "sig",
-                "x": "placeholder"
-            }),
-        ],
+        keys: vec![serde_json::json!({
+            "alg": "EdDSA",
+            "crv": "Ed25519",
+            "kid": "placeholder",
+            "kty": "OKP",
+            "use": "sig",
+            "x": "placeholder"
+        })],
     }
 }

@@ -794,6 +794,20 @@ impl KeyManager {
                 return Ok(());
             }
         }
+        // Check grace period key (previous_key) — prevents reviving compromised
+        // keys still in the grace window.
+        if let Some(ref mut key) = self.previous_key {
+            if key.kid == kid {
+                self.previous_key = None;
+                self.revoked_keys.push(kid.to_string());
+
+                span.record("reason", "previous_key_revoked");
+                tracing::info!(kid = kid, "key revoked (grace period key)");
+                // HACK-102: audit key revocation
+                audit_events::key_revoked(kid, "previous_key_revoked");
+                return Ok(());
+            }
+        }
         let err = KeyError::KeyNotFound(kid.to_string());
         span.record("reason", "key_not_found");
         Err(err)
@@ -827,6 +841,14 @@ impl KeyManager {
             }
         }
         if let Some(ref key) = self.next_key {
+            if key.kid == kid {
+                return Some(&key.public_key_jwk);
+            }
+        }
+        // Also check grace period keys (previous_key) — matches keys_for_verification()
+        // so that consumers with stale JWKS caches (5-min TTL) can verify tokens
+        // signed during the rotation overlap window.
+        if let Some(ref key) = self.previous_key {
             if key.kid == kid {
                 return Some(&key.public_key_jwk);
             }
@@ -914,12 +936,13 @@ impl fmt::Display for KeyManager {
 // ─── Shared KeyManager instance ──────────────────────────────────────────────
 
 /// Global key manager shared across all handlers in this service.
-pub static KEY_MANAGER: std::sync::LazyLock<std::sync::RwLock<KeyManager>> = std::sync::LazyLock::new(|| {
-    std::sync::RwLock::new(
-        KeyManager::new()
-            .expect("Failed to initialize KeyManager — cryptographic initialization failed")
-    )
-});
+pub static KEY_MANAGER: std::sync::LazyLock<std::sync::RwLock<KeyManager>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::RwLock::new(
+            KeyManager::new()
+                .expect("Failed to initialize KeyManager — cryptographic initialization failed"),
+        )
+    });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -1063,5 +1086,157 @@ mod tests {
         km.prepare_rotation().unwrap();
         let health = km.health();
         assert_eq!(health.key_count, 2);
+    }
+
+    // ── Fixes: find_public_key + previous_key + revoke_key consistency ──────────
+
+    #[test]
+    fn test_find_public_key_with_previous_key() {
+        // Simulate a post-rotation state where a previous_key (grace period) exists.
+        // find_public_key must return it, matching keys_for_verification().
+        let mut km = KeyManager::new().unwrap();
+
+        // Full rotation: current -> new current + previous (grace).
+        km.prepare_rotation().unwrap();
+        km.activate_next_key().unwrap();
+
+        // Now previous_key should exist.
+        assert!(km.previous_key.is_some());
+        let prev_kid = km.previous_key.as_ref().unwrap().kid.clone();
+
+        // find_public_key MUST return the grace-period key.
+        let found = km.find_public_key(&prev_kid);
+        assert!(
+            found.is_some(),
+            "find_public_key must return previous_key (grace period)"
+        );
+        assert_eq!(found.unwrap().kid, prev_kid);
+
+        // Verify consistency: both methods return same key count.
+        let fv_count = km.keys_for_verification().len();
+        // Manual count of keys findable by kid
+        let findable = km
+            .revoked_keys
+            .iter()
+            .filter(|k| {
+                let mut count = 0u32;
+                if km.current_key.as_ref().map(|k| &k.kid) == Some(k) {
+                    count += 1;
+                }
+                if km.next_key.as_ref().map(|k| &k.kid) == Some(k) {
+                    count += 1;
+                }
+                if km.previous_key.as_ref().map(|k| &k.kid) == Some(k) {
+                    count += 1;
+                }
+                count == 0
+            })
+            .count();
+        // find_public_key should find current + next + previous - revoked
+        let expected_findable = (3 - km.revoked_keys.len())
+            - if km.current_key.is_none() { 1 } else { 0 }
+            - if km.next_key.is_none() { 1 } else { 0 }
+            - if km.previous_key.is_none() { 1 } else { 0 };
+        assert_eq!(
+            found.is_some(),
+            true,
+            "find_public_key and keys_for_verification should agree on previous_key"
+        );
+    }
+
+    #[test]
+    fn test_revoke_previous_key() {
+        // Revoke a key that is in the grace period (previous_key).
+        let mut km = KeyManager::new().unwrap();
+        km.prepare_rotation().unwrap();
+        km.activate_next_key().unwrap();
+
+        let prev_kid = km.previous_key.as_ref().unwrap().kid.clone();
+
+        // Before revocation, key should be findable.
+        assert!(km.find_public_key(&prev_kid).is_some());
+
+        // Revoke it.
+        km.revoke_key(&prev_kid).unwrap();
+
+        // After revocation: should be in revoked_keys, not findable, previous_key cleared.
+        assert!(km.is_revoked(&prev_kid));
+        assert!(km.find_public_key(&prev_kid).is_none());
+        assert!(
+            km.previous_key.is_none(),
+            "previous_key should be cleared after revocation"
+        );
+    }
+
+    #[test]
+    fn test_cleanup_grace_keys_removes_from_jwks() {
+        // Simulate a grace key that has exceeded the grace period.
+        let mut km = KeyManager::new().unwrap();
+        km.prepare_rotation().unwrap();
+        km.activate_next_key().unwrap();
+
+        // Verify previous_key exists and is in JWKS.
+        assert!(km.previous_key.is_some());
+        let prev_kid = km.previous_key.as_ref().unwrap().kid.clone();
+        assert!(km.jwks_document().keys.iter().any(|k| k.kid == prev_kid));
+
+        // Manually expire the grace key.
+        km.expire_grace_key().unwrap();
+
+        // previous_key should be None.
+        assert!(km.previous_key.is_none());
+        assert!(km.find_public_key(&prev_kid).is_none());
+        // JWKS should only contain current_key.
+        let doc = km.jwks_document();
+        assert_eq!(doc.keys.len(), 1);
+        assert_eq!(doc.keys[0].kid, km.current_key.as_ref().unwrap().kid);
+    }
+
+    #[test]
+    fn test_cleanup_grace_keys_noop_when_not_expired() {
+        // Grace key younger than grace_period should NOT be cleaned up.
+        let mut km = KeyManager::new().unwrap();
+        km.prepare_rotation().unwrap();
+        km.activate_next_key().unwrap();
+
+        assert!(km.previous_key.is_some());
+        // With default 1-hour grace period, the key is brand new — cleanup should be no-op.
+        km.cleanup_grace_keys();
+        assert!(km.previous_key.is_some());
+    }
+
+    #[test]
+    fn test_find_public_key_returns_none_for_revoked() {
+        let mut km = KeyManager::new().unwrap();
+        let kid = km.current_key.as_ref().unwrap().kid.clone();
+
+        assert!(km.find_public_key(&kid).is_some());
+        km.revoke_key(&kid).unwrap();
+        assert!(km.find_public_key(&kid).is_none());
+    }
+
+    #[test]
+    fn test_keys_for_verification_consistent_with_find_public_key() {
+        // After full rotation + grace, both should agree on which keys are verifiable.
+        let mut km = KeyManager::new().unwrap();
+        km.prepare_rotation().unwrap();
+        km.activate_next_key().unwrap();
+
+        // After one rotation: current + previous = 2 keys (next_key was promoted).
+        // Prepare a second rotation to get 3 keys.
+        km.prepare_rotation().unwrap();
+        // Now: current + next + previous = 3 keys.
+
+        let fv = km.keys_for_verification();
+        assert_eq!(fv.len(), 3);
+
+        // All 3 must be findable by find_public_key.
+        for key_ref in fv {
+            assert!(
+                km.find_public_key(&key_ref.kid).is_some(),
+                "find_public_key should find key: {}",
+                key_ref.kid
+            );
+        }
     }
 }

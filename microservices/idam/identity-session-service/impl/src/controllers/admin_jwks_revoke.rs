@@ -18,12 +18,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let _guard = span.enter();
 
     let result = match KEY_MANAGER.write() {
-        Ok(mut guard) => guard
-            .revoke_key(&kid)
-            .map_err(|e| {
-                tracing::error!(error = ?e, "KEY_MANAGER.revoke_key failed");
-                e
-            }),
+        Ok(mut guard) => guard.revoke_key(&kid).map_err(|e| {
+            tracing::error!(error = ?e, "KEY_MANAGER.revoke_key failed");
+            e
+        }),
         Err(poison) => {
             tracing::error!(error = ?poison, "KEY_MANAGER write lock poisoned");
             Err(KeyError::RevocationFailed("lock poisoned".to_string()))

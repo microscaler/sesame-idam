@@ -5,9 +5,9 @@
 // hook, NOT in controllers/handlers. The handler returns a typed Response
 // struct (pure data). Headers are an HTTP protocol concern handled by middleware.
 
+use brrtrouter::dispatcher::HandlerRequest;
 use brrtrouter::dispatcher::HandlerResponse;
 use brrtrouter::middleware::Middleware;
-use brrtrouter::dispatcher::HandlerRequest;
 use std::time::Duration;
 
 /// Cache-Control header for JWKS responses.
@@ -24,12 +24,7 @@ const VARY: &str = "Accept";
 pub struct JwksHeadersMiddleware;
 
 impl Middleware for JwksHeadersMiddleware {
-    fn after(
-        &self,
-        req: &HandlerRequest,
-        res: &mut HandlerResponse,
-        _latency: Duration,
-    ) {
+    fn after(&self, req: &HandlerRequest, res: &mut HandlerResponse, _latency: Duration) {
         // Only apply to the JWKS endpoint path.
         // Use ends_with for prefix safety (handles /, /v1/, /api/v1/, etc.)
         // and prevents false positives (e.g. ".well-known/jwks.json.bak")
