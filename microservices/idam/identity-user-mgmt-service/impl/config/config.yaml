@@ -2,6 +2,13 @@
 # Adjust values per environment and reload/restart the app.
 
 security:
+  jwks:
+    BearerAuth:
+      jwks_url: "http://identity-session-service:8105/.well-known/jwks.json"
+      iss: "https://idam.example.com"
+      aud: "myapp.com"
+      leeway_secs: 60
+      cache_ttl_secs: 300
   api_keys:
     ApiKeyHeader:
       key: "test123"

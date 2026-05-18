@@ -13,10 +13,14 @@ use brrtrouter::router::Router;
 
 use brrtrouter::runtime_config::RuntimeConfig;
 
+use brrtrouter::security::JwksBearerProvider;
+
 use brrtrouter::server::AppService;
 
 use brrtrouter::server::HttpServer;
 use clap::Parser;
+use std::collections::HashMap;
+use std::fs;
 use std::io;
 use std::path::PathBuf;
 
@@ -30,6 +34,53 @@ use tikv_jemallocator::Jemalloc;
 #[cfg(feature = "jemalloc")]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+// Application config structs — mirror gen/main.rs so impl loads the same config.
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+struct AppConfig {
+    port: Option<u16>,
+    security: Option<SecurityConfig>,
+    http: Option<HttpConfig>,
+    cors: Option<CorsConfig>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+struct SecurityConfig {
+    jwks: Option<HashMap<String, JwksSchemeConfig>>,
+    api_keys: Option<HashMap<String, ApiKeyConfig>>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+struct JwksSchemeConfig {
+    jwks_url: String,
+    iss: Option<String>,
+    aud: Option<String>,
+    leeway_secs: Option<u64>,
+    cache_ttl_secs: Option<u64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+struct ApiKeyConfig {
+    key: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+struct HttpConfig {
+    keep_alive: Option<bool>,
+    timeout_secs: Option<u64>,
+    max_requests: Option<u64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+struct CorsConfig {
+    origins: Option<Vec<String>>,
+    allowed_headers: Option<Vec<String>>,
+    allowed_methods: Option<Vec<String>>,
+    allow_credentials: Option<bool>,
+    expose_headers: Option<Vec<String>>,
+    max_age: Option<u32>,
+}
 
 #[derive(Parser)]
 struct Args {
@@ -111,6 +162,73 @@ fn main() -> io::Result<()> {
     );
     service.set_metrics_middleware(metrics);
     service.set_memory_middleware(memory);
+
+    // Load application config for security initialization
+    let app_config: AppConfig = match fs::read_to_string(&args.config) {
+        Ok(s) => match serde_yaml::from_str::<AppConfig>(&s) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                eprintln!(
+                    "[config][error] Failed to parse {}: {}",
+                    args.config.display(),
+                    e
+                );
+                return Err(io::Error::other(format!(
+                    "Invalid configuration file {}: {}",
+                    args.config.display(),
+                    e
+                )));
+            }
+        },
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            println!(
+                "[config] {} not found; continuing with defaults",
+                args.config.display()
+            );
+            AppConfig::default()
+        }
+        Err(e) => {
+            return Err(io::Error::other(format!(
+                "Failed to read configuration file {}: {}",
+                args.config.display(),
+                e
+            )));
+        }
+    };
+
+    // Wire JwksBearerProvider for bearer auth schemes from config.yaml
+    // This mirrors the security initialization in gen/main.rs so the impl
+    // uses real JWKS-based JWT validation instead of the mock providers.
+    {
+        let sec_cfg = app_config.security.as_ref();
+        for (scheme_name, _scheme) in service.security_schemes.clone() {
+            // Check for per-scheme JWKS config
+            if let Some(jwks_map) = sec_cfg.and_then(|s| s.jwks.as_ref()) {
+                if let Some(jwks) = jwks_map.get(&scheme_name) {
+                    let mut p = JwksBearerProvider::new(&jwks.jwks_url);
+                    if let Some(iss) = jwks.iss.as_deref() {
+                        p = p.issuer(iss);
+                    }
+                    if let Some(aud) = jwks.aud.as_deref() {
+                        p = p.audience(aud);
+                    }
+                    if let Some(leeway) = jwks.leeway_secs {
+                        p = p.leeway(leeway);
+                    }
+                    if let Some(ttl) = jwks.cache_ttl_secs {
+                        p = p.cache_ttl(std::time::Duration::from_secs(ttl));
+                    }
+                    println!(
+                        "[auth] register JwksBearerProvider scheme={} jwks_url={} iss={:?} aud={:?}",
+                        scheme_name, jwks.jwks_url, jwks.iss, jwks.aud
+                    );
+                    service.register_security_provider(&scheme_name, std::sync::Arc::new(p));
+                    continue;
+                }
+            }
+            // Fallback: skip this scheme (no JWKS config defined)
+        }
+    }
 
     // Concatenate Lifeguard's prometheus text (DB metrics, pool stats) into
     // BRRTRouter's scrape response so a single /metrics endpoint covers both
