@@ -61,6 +61,20 @@ pub struct AdminIssueTokenResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AdminJwksRevokeRequest {
+    pub kid: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AdminJwksRevokeResponse {
+    pub kid: String,
+
+    pub message: String,
+
+    pub success: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AdminRestoreImpersonationRequest {
     pub admin_user_id: String,
 }
@@ -650,6 +664,20 @@ pub struct ResetPasswordRequest {
     pub new_password: String,
 
     pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RevokeKeyRequest {
+    pub kid: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RevokeKeyResponse {
+    pub kid: String,
+
+    pub message: String,
+
+    pub success: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

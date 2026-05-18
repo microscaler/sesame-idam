@@ -11,6 +11,8 @@ pub mod admin_impersonate;
 
 pub mod admin_restore_impersonation;
 
+pub mod admin_jwks_revoke;
+
 pub mod step_up_verify;
 
 pub mod users_me_get;

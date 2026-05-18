@@ -36,6 +36,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "admin_jwks_revoke",
+        crate::controllers::admin_jwks_revoke::AdminJwksRevokeController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "step_up_verify",
         crate::controllers::step_up_verify::StepUpVerifyController,
         20480,
@@ -152,6 +158,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "admin_restore_impersonation" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::admin_restore_impersonation::AdminRestoreImpersonationController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "admin_jwks_revoke" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::admin_jwks_revoke::AdminJwksRevokeController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

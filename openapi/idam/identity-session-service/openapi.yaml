@@ -28,6 +28,8 @@ tags:
   description: Programmatic token creation (admin/server-side)
 - name: MCP
   description: Model Context Protocol authentication
+- name: KeyManagement
+  description: JWT signing key lifecycle (generate, rotate, revoke)
 security:
 - BearerAuth: []
 - ApiKeyHeader: []
@@ -116,6 +118,79 @@ paths:
           content: *id003
       x-consumer: frontend
       x-consumer-note: Public OpenID Connect discovery endpoint, no auth required
+  /admin/jwks/revoke:
+    post:
+      tags:
+      - KeyManagement
+      summary: Revoke a JWT signing key
+      description: |
+        Immediately revoke a JWT signing key by `kid`. The key is removed from JWKS
+        and its private key is dropped from memory.
+
+        This is the critical fix for HACK-101: compromised keys can be revoked
+        at any time, not just after the grace period expires.
+
+        Requires admin authorization via Bearer token.
+      operationId: admin_jwks_revoke
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Tenant identifier. Routes the request to the correct tenant context.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeKeyRequest'
+      responses:
+        '200':
+          description: Key revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokeKeyResponse'
+        '400':
+          description: "Bad request — invalid kid"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Request validation failed
+        '403':
+          description: Forbidden (not an admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Forbidden (insufficient permissions)
+        '404':
+          description: Key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_request
+                error_description: Key not found
+        '401':
+          description: "Unauthorized — invalid, expired, or missing credentials"
+          content: *id002
+        '500':
+          description: Internal server error
+          content: *id003
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: Admin key management'
+      x-brrtrouter-impl: true
   /admin/impersonate:
     post:
       tags:
@@ -945,6 +1020,32 @@ components:
       in: header
       name: X-API-KEY
   schemas:
+    RevokeKeyRequest:
+      type: object
+      description: Request to revoke a JWT signing key by `kid`.
+      required:
+      - kid
+      properties:
+        kid:
+          type: string
+          description: The key ID of the signing key to revoke.
+          example: "key-2026-05-18-12"
+    RevokeKeyResponse:
+      type: object
+      description: Response from key revocation request.
+      properties:
+        success:
+          type: boolean
+          description: Whether the revocation was successful.
+          example: true
+        kid:
+          type: string
+          description: The key ID that was revoked.
+          example: "key-2026-05-18-12"
+        message:
+          type: string
+          description: Human-readable status message.
+          example: "Key revoked and removed from JWKS immediately"
     CreateUserRequest:
       type: object
       description: 'Creates a new user. Idempotent: if an existing user with the same

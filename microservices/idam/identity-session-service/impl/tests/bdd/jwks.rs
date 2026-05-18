@@ -397,7 +397,8 @@ fn revoke_key_removed_from_public_keys() {
 
     assert!(
         km.find_public_key(&kid).is_none(),
-        "Revoked key '{}' must not be in public keys after revocation"
+        "Revoked key '{}' must not be in public keys after revocation",
+        kid
     );
 }
 

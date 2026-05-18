@@ -506,7 +506,7 @@ gen-identity-session:
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
     --spec "$(cd - >/dev/null && pwd)/{{spec_identity_session}}" \
     --output "$(cd - >/dev/null && pwd)/{{out_identity_session}}" \
-    --package-name identity_session_service_service_api \
+    --package-name sesame_idam_identity_session_service_gen \
     --force
   echo "✅ Generated {{out_identity_session}}"
 

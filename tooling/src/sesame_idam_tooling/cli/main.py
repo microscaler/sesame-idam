@@ -251,7 +251,9 @@ def patched_regenerate_service(
         print(f"❌ OpenAPI spec not found: {spec_path}")
         return 1
 
-    package_name = _regenerate._gen_package_name(project_root, service_name)
+    # Sesame-IDAM uses a custom naming convention: sesame_idam_{service}_gen
+    # (not the default BRRTRouter {snake}_service_api).
+    package_name = f"sesame_idam_{service_name}_gen"
 
     if brrtrouter_path is None:
         brrtrouter_path = _regenerate.discover_brrtrouter_root(project_root)
