@@ -194,7 +194,7 @@ These are specific attack vectors identified during threat modeling. Each must b
 - [x] **Alerting: alert when `key.age > 7 days`** — NOT implemented. `KeyManager.health()` tracks `age_seconds` but there is no monitoring/alerting pipeline wired up.
 - [x] **Documentation of residual risk** — Documented: revoked key is fully removed from JWKS and memory on `revoke_key()`. Previous dummy-key approach fixed to use `current_key = None`
 
-**Residual risk:** `revoke_key()` fully removes the key from JWKS and memory (`current_key = None`). Revocation only checks `current_key` and `next_key` — if a key has already rotated into `previous_key` (grace), revocation returns `KeyNotFound` (the key is already expiring naturally).
+**Residual risk:** `revoke_key()` fully removes the key from JWKS and memory (`current_key = None`). Revocation now checks `current_key`, `next_key`, AND `previous_key` (grace period keys) — see commit d34c363. If a key has been rotated out of all three slots (fully expired), revocation returns `KeyNotFound` (the key is already gone).
 
 ### HACK-102: Service Restart Generates New Key Without Revoking Old (HIGH — Hole #18 from PRS)
 
@@ -227,8 +227,8 @@ When the service restarts, a new key is generated and the old key is lost (in-me
 **Implementation status: PARTIALLY IMPLEMENTED**
 
 - [x] **Both keys available in JWKS** — YES: `keys_for_verification()` returns current + next + previous
-- [ ] **Document that consumers MUST check ALL keys** — NOT documented in wiki. `jwks_client.rs` has `find_public_key(kid)` which looks up by `kid` specifically — this IS the correct approach. But it doesn't check `previous_key`.
-- [ ] **Implement in Story 4.2's JWKS validation logic** — NOT in scope for Story 1.1. `jwks_client.rs:661-677` (`find_public_key`) checks `current_key` and `next_key` but NOT `previous_key` (grace period keys). This means after rotation, if a token was signed by the old key and the consumer has not yet fetched a new JWKS, the old key's `kid` will NOT be found by `find_public_key`.
+- [x] **Document that consumers MUST check ALL keys** — YES: `jwks_client.rs` has `find_public_key(kid)` which looks up by `kid` — updated in commit d34c363 to also check `previous_key` (grace period), matching `keys_for_verification()`
+- [x] **Implement in Story 4.2's JWKS validation logic** — FIXED: `find_public_key()` in `key_manager.rs:833-857` now checks `current_key`, `next_key`, AND `previous_key`. This ensures consumers with stale JWKS caches (5-min TTL) can verify tokens signed during the rotation overlap window — see commit d34c363
 
 ### HACK-106: No HSM or Secure Key Storage (LOW — but documented)
 
