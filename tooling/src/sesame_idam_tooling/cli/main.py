@@ -253,7 +253,10 @@ def patched_regenerate_service(
 
     # Sesame-IDAM uses a custom naming convention: sesame_idam_{service}_gen
     # (not the default BRRTRouter {snake}_service_api).
-    package_name = f"sesame_idam_{service_name}_gen"
+    # Replace dashes with underscores so Cargo accepts the package name
+    # (Cargo forbids dashes in package identifiers).
+    safe_name = service_name.replace("-", "_")
+    package_name = f"sesame_idam_{safe_name}_gen"
 
     if brrtrouter_path is None:
         brrtrouter_path = _regenerate.discover_brrtrouter_root(project_root)

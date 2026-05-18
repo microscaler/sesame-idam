@@ -7,6 +7,7 @@ use sesame_idam_identity_session_service_gen::registry;
 mod audit;
 mod controllers;
 mod key_manager;
+mod middleware;
 
 // key_manager module is registered but KeyManager is used via static KEY_MANAGER
 
@@ -95,6 +96,11 @@ fn main() -> io::Result<()> {
     let mut dispatcher = Dispatcher::new();
     let metrics = std::sync::Arc::new(MetricsMiddleware::new());
     dispatcher.add_middleware(metrics.clone());
+
+    // JWKS headers middleware: injects Cache-Control, X-Content-Type-Options, Vary headers
+    // on the /.well-known/jwks.json endpoint
+    let jwks_headers = std::sync::Arc::new(middleware::jwks_headers::JwksHeadersMiddleware);
+    dispatcher.add_middleware(jwks_headers);
 
     // Create memory tracking middleware
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
