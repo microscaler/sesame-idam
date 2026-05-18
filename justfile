@@ -12,6 +12,8 @@
 
 set shell := ["bash", "-uc"]
 
+set dotenv-load := true
+
 # BRRTRouter repo path (sibling of seasame-idam)
 # Override with: BRRTRouter_DIR=/path/to/BRRTRouter just lint-openapi
 brrtrouter_dir := "../BRRTRouter"
@@ -44,7 +46,20 @@ default:
 # =============================================================================
 # Local dev: postgres forwarded to localhost:5432 (see `just port-forward`)
 # DB_HOST, DB_PORT (default 5432), DB_NAME (default sesame_idam)
-DATABASE_URL := "postgres://sesame_idam:***@127.0.0.1:5432/sesame_idam"
+
+# Port config (same env-var pattern as lifeguard)
+LIFEGUARD_PG_PORT := env_var_or_default("LIFEGUARD_PG_PORT", "5432")
+LIFEGUARD_REPLICA_PORT := env_var_or_default("LIFEGUARD_REPLICA_PORT", "6544")
+LIFEGUARD_REDIS_PORT := env_var_or_default("LIFEGUARD_REDIS_PORT", "6545")
+LIFEGUARD_REPLICA2_PORT := env_var_or_default("LIFEGUARD_REPLICA2_PORT", "6546")
+
+# Primary URL for app code + migrate CLIs (same as TEST_DATABASE_URL for Kind)
+DATABASE_URL := TEST_DATABASE_URL
+
+# Test env vars: matches lifeguard's nextest-test recipe env export pattern
+TEST_DATABASE_URL := "postgres://sesame_idam:***@127.0.0.1:" + LIFEGUARD_PG_PORT + "/sesame_idam"
+TEST_REPLICA_URL := "postgres://sesame_idam:***@127.0.0.1:" + LIFEGUARD_REPLICA_PORT + "/sesame_idam"
+TEST_REDIS_URL := "redis://127.0.0.1:" + LIFEGUARD_REDIS_PORT
 
 # =============================================================================
 # Testing (nextest)
@@ -74,19 +89,19 @@ test: test-unit
 # Run unit tests
 test-unit:
     @echo "🧪 Running unit tests..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo test --manifest-path microservices/Cargo.toml --lib --no-fail-fast
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo test --manifest-path microservices/Cargo.toml --lib --no-fail-fast
 
 # Run unit tests with output
 test-unit-verbose:
     @echo "🧪 Running unit tests (verbose)..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo test --manifest-path microservices/Cargo.toml --lib -- --nocapture --no-fail-fast
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo test --manifest-path microservices/Cargo.toml --lib -- --nocapture --no-fail-fast
 
 # Workspace nextest: excludes db_integration_suite for speed (use nt-db-suite / nt-complete).
 # Note: db_integration_suite is safe in parallel with other *packages* — nextest test-group `lifeguard-shared-postgres`
 # serializes tests inside that binary only (see .config/nextest.toml).
 nextest-test:
     @echo "🧪 Running tests with nextest (excluding DB-heavy integration binaries)..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --fail-fast --retries 1
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --fail-fast --retries 1
 
 alias nt := nextest-test
 
@@ -97,12 +112,12 @@ alias nt-full := nt-ci-parity
 # Includes all members; requires DATABASE_URL.
 nt-workspace:
     @echo "🧪 Running workspace nextest (CI selection: all members)..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile ci
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile ci
 
 # Run tests with nextest (no capture - passes through stdout/stderr directly)
 nt-verbose:
     @echo "🧪 Running tests with nextest (no capture - full output)..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --no-capture
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --no-capture
 
 # Same as `nt-workspace` (alias for discoverability)
 nt-ci:
@@ -110,13 +125,13 @@ nt-ci:
 
 # Run unit tests only with nextest (same selection as nextest-test)
 nt-unit:
-    @echo "🧪 Running tests with nextest (excluding DB-heavy integration binaries)..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --fail-fast --retries 1
+    @echo "🧪 Running unit tests only with nextest (same selection as nextest-test)..."
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --fail-fast --retries 1
 
 # DB integration suite: serial (shared Postgres safe).
 nt-db-suite:
     @echo "🧪 Running DB integration tests (serial profile)..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial --config-file .config/nextest.toml
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial --config-file .config/nextest.toml
 
 alias nt-db := nt-db-suite
 # Same as `nt-db-suite` (CI step name / copy-paste alias)
@@ -125,7 +140,7 @@ alias db-integration-suite := nt-db-suite
 # Verbose output for db suite only
 nt-db-suite-verbose:
     @echo "🧪 Running DB integration tests (serial, no-capture)..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial --config-file .config/nextest.toml --no-capture
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial --config-file .config/nextest.toml --no-capture
 
 # Typical local run: fast workspace (no cluster integration crate) + serial DB suite
 nt-complete: nextest-test nt-db-suite
@@ -139,12 +154,12 @@ nt-ci-parity: nt-workspace nt-db-suite
 nt-integration:
     @echo "🧪 Running integration tests with nextest..."
     @echo "⚠️  Note: These tests require a running database connection"
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features
 
 # Run tests with standard cargo (fallback)
 test-cargo:
     @echo "🧪 Running tests with cargo..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{DATABASE_URL}} cargo test --manifest-path microservices/Cargo.toml --all -- --nocapture
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo test --manifest-path microservices/Cargo.toml --all -- --nocapture
 
 # =============================================================================
 # Tooling (.venv and sesame CLI) — same guard rails as RERP
@@ -391,7 +406,7 @@ check:
 # Lints only the impl crates + database + audit + migrator.
 lint-rust:
     @echo "🔍 Linting Rust workspace..."
-    @cd microservices && cargo clippy --all-targets --all-features \
+    @cd microservices && cargo clippy --all-targets --all-features --no-deps \
       -p sesame_idam_database \
       -p sesame-audit \
       -p sesame_idam_migrator \
