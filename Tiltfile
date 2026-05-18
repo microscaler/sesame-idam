@@ -298,12 +298,13 @@ def create_microservice_deployment(name, port):
         ('%s docker build-image-simple %s %s %s %s --service %s' % (
             sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
         ) + ' && (docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (image_name, image_name)),
-        deps=[dockerfile_template,
-              'microservices/idam/%s/impl/config' % name,
-              'microservices/idam/%s/gen/doc' % name,
-              'microservices/idam/%s/gen/static_site' % name,
-              'microservices/idam/%s/impl/src' % name,
-              'microservices/idam/%s/gen/src' % name],
+    deps=[dockerfile_template,
+          'build_artifacts',
+          'microservices/idam/%s/impl/config' % name,
+          'microservices/idam/%s/gen/doc' % name,
+          'microservices/idam/%s/gen/static_site' % name,
+          'microservices/idam/%s/impl/src' % name,
+          'microservices/idam/%s/gen/src' % name],
         tag='tilt',
         live_update=[
             sync(artifact_path, '/app/%s' % package_name),
@@ -337,6 +338,61 @@ def create_microservice_deployment(name, port):
 # Redis and PostgreSQL are managed by shared-kind-cluster's Tilt.
 # Do NOT stand up data infrastructure here — let the shared cluster own it.
 k8s_yaml('k8s/microservices/namespace.yaml')
+
+# ====================
+# Per-Service Resources
+# ====================
+
+# ====================
+# Database Init & Migration
+# ====================
+# Local resource to bootstrap the Sesame-IDAM database role, schema, apply
+# Lifeguard migration SQL files, and seed data.
+# Usage: `tilt trigger sesame-idam-db-init` (manual trigger — runs once on a
+# fresh cluster or after `sesame-idam-migrate` regenerates migration SQL).
+local_resource(
+    'sesame-idam-db-init',
+    'chmod +x ./scripts/setup-db.sh && ./scripts/setup-db.sh',
+    deps=['./scripts/setup-db.sh'],
+    labels=['data'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=True,
+)
+
+# Ad-hoc: regenerate SQL under migrations/ + apply_order.txt from Lifeguard
+# entity registries. Does NOT connect to PostgreSQL — only writes files.
+# Requires Rust toolchain.
+local_resource(
+    'sesame-idam-migrate',
+    'cd microservices && cargo run -p sesame_idam_migrator',
+    deps=[
+        './microservices/migrator',
+        './microservices/idam/identity-login-service/impl/src/models',
+        './microservices/idam/identity-session-service/impl/src/models',
+        './microservices/idam/identity-user-mgmt-service/impl/src/models',
+        './microservices/idam/authz-core/impl/src/models',
+        './microservices/idam/api-keys/impl/src/models',
+        './microservices/idam/org-mgmt/impl/src/models',
+        './microservices/Cargo.toml',
+    ],
+    ignore=['./microservices/target'],
+    labels=['data'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    allow_parallel=True,
+)
+
+# Apply ./migrations/*.sql in apply_order.txt order via kubectl exec to
+# deployment/postgres-primary (database sesame_idam).
+local_resource(
+    'sesame-idam-apply-migrations',
+    'SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 chmod +x ./scripts/setup-db.sh && ./scripts/setup-db.sh',
+    deps=['./scripts/setup-db.sh', './migrations/apply_order.txt'],
+    labels=['data'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    allow_parallel=True,
+)
 
 # ====================
 # Per-Service Resources

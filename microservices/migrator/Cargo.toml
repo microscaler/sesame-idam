@@ -1,0 +1,20 @@
+[package]
+name = "sesame_idam_migrator"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "sesame_idam_migrator"
+path = "src/main.rs"
+
+[dependencies]
+chrono = { workspace = true }
+lifeguard-migrate = { path = "../../lifeguard/lifeguard-migrate" }
+
+# IDAM microservice impl crates — each provides models::entity_registry
+sesame_idam_identity_login_service = { path = "../idam/identity-login-service/impl" }
+sesame_idam_identity_session_service = { path = "../idam/identity-session-service/impl" }
+sesame_idam_identity_user_mgmt_service = { path = "../idam/identity-user-mgmt-service/impl" }
+sesame_idam_authz_core = { path = "../idam/authz-core/impl" }
+sesame_idam_api_keys = { path = "../idam/api-keys/impl" }
+sesame_idam_org_mgmt = { path = "../idam/org-mgmt/impl" }
