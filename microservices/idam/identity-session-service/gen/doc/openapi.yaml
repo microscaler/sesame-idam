@@ -59,13 +59,13 @@ paths:
                   summary: Example for jwks 200
                   value: &id012
                     keys:
-                    - kty: RSA
-                      kid: default
+                    - kty: OKP
+                      kid: key-2026-05-18-12
                       use: sig
-                      alg: RS256
-                      n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe
-                      e: AQAB
-              example: *id001
+                      alg: EdDSA
+                      crv: Ed25519
+                      x: pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM
+              example: *id012
         '401':
           description: "Unauthorized \u2014 invalid, expired, or missing credentials"
           content: &id002
@@ -1330,51 +1330,34 @@ components:
             - kid
             - use
             - alg
-            - n
-            - e
-            - x5c
+            - crv
+            - x
             properties:
               kty:
                 type: string
-                description: Key type (e.g. "RSA")
+                description: Key type (OKP = Octet Pair for Ed25519)
               kid:
                 type: string
-                description: "Key ID \u2014 unique identifier for this key (used by\
-                  \ JWT `kid` header)"
+                description: "Key ID — unique identifier for this key (used by JWT `kid` header)"
               use:
                 type: string
                 description: Intended use of the public key (sig = signature)
               alg:
                 type: string
-                description: Intended algorithm for using the key (e.g. "RS256")
-              n:
+                description: Intended algorithm for using the key (EdDSA for Ed25519)
+              crv:
                 type: string
-                description: RSA modulus (base64url-encoded)
-              e:
+                description: Curve name (Ed25519)
+              x:
                 type: string
-                description: RSA exponent (base64url-encoded)
-              x5c:
-                type: array
-                items:
-                  type: string
-                description: 'X.509 certificate chain (base64url-encoded DER).
-
-                  Enables certificate pinning and trust anchor validation.
-
-                  '
-              x5t:
-                type: string
-                nullable: true
-                description: X.509 certificate thumbprint (base64url-encoded SHA-1)
+                description: The public key value (base64url-encoded 32-byte Ed25519 public key)
             example:
-              kty: RSA
-              kid: sesame-prod-2025-01
+              kty: OKP
+              kid: key-2026-05-18-12
               use: sig
-              alg: RS256
-              n: 0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2in...
-              e: AQAB
-              x5c:
-              - MIIDdTCCAl2gAwIBAgITBn+USII9N7z2GPaVWCQDIQ...
+              alg: EdDSA
+              crv: Ed25519
+              x: pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM
       example: *id012
     LinkSocialAccountRequest:
       type: object

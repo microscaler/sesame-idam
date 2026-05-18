@@ -10,12 +10,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // {
     //   "keys": [
     //     {
-    //       "alg": "RS256",
-    //       "e": "AQAB",
-    //       "kid": "default",
-    //       "kty": "RSA",
-    //       "n": "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe",
-    //       "use": "sig"
+    //       "alg": "EdDSA",
+    //       "crv": "Ed25519",
+    //       "kid": "key-2026-05-18-12",
+    //       "kty": "OKP",
+    //       "use": "sig",
+    //       "x": "pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM"
     //     }
     //   ]
     // }
@@ -23,12 +23,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         r###"{
   "keys": [
     {
-      "alg": "RS256",
-      "e": "AQAB",
-      "kid": "default",
-      "kty": "RSA",
-      "n": "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe",
-      "use": "sig"
+      "alg": "EdDSA",
+      "crv": "Ed25519",
+      "kid": "key-2026-05-18-12",
+      "kty": "OKP",
+      "use": "sig",
+      "x": "pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM"
     }
   ]
 }"###,
@@ -42,7 +42,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
 
     Response {
         keys: vec![
-            serde_json::json!({"alg":"RS256","e":"AQAB","kid":"default","kty":"RSA","n":"0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbApbghMi8nF-_S0AI4-eJad0a30iV3-V2XN0b4g9S1_Hk09HM5y1nVAGTovsJ34vcEe","use":"sig"}),
+            serde_json::json!({"alg":"EdDSA","crv":"Ed25519","kid":"key-2026-05-18-12","kty":"OKP","use":"sig","x":"pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM"}),
         ],
     }
 }
