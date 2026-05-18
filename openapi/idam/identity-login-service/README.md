@@ -20,14 +20,14 @@ curl http://localhost:???/health
 
 Authentication flows (login, register, token exchange, OTP, social)
 
-- `POST /login`
-- `POST /login/dual-otp`
-- `POST /login/email-otp`
-- `POST /login/phone-otp`
+- `POST /auth/login`
+- `POST /auth/login/dual-otp`
+- `POST /auth/login/email-otp`
+- `POST /auth/login/phone-otp`
 - `POST /register`
-- `POST /verify/dual-otp`
-- `POST /verify/email-otp`
-- `POST /verify/phone-otp`
+- `POST /auth/verify/dual-otp`
+- `POST /auth/verify/email-otp`
+- `POST /auth/verify/phone-otp`
 
 ### PasswordReset
 
@@ -40,31 +40,31 @@ Forgot/reset password flows
 
 Passwordless magic link authentication
 
-- `POST /login/magic-link`
-- `POST /login/magic-link/verify`
-- `POST /login/phone-magic-link`
-- `POST /login/phone-magic-link/verify`
+- `POST /auth/login/magic-link`
+- `POST /auth/login/magic-link/verify`
+- `POST /auth/login/phone-magic-link`
+- `POST /auth/login/phone-magic-link/verify`
 
 ### Sessions
 
 Token management and session lifecycle
 
 - `GET /oauth/authorize`
-- `POST /logout`
-- `POST /token`
+- `POST /auth/logout`
+- `POST /auth/token`
 
 ### Signup
 
 Pre-registration validation
 
-- `GET /signup/validate`
+- `GET /auth/signup/validate`
 
 ### SocialLogin
 
 OAuth provider login redirects (GitHub, Google, SAML)
 
-- `GET /social/{provider}/login`
-- `POST /social/{provider}/callback`
+- `GET /auth/social/{provider}/login`
+- `POST /auth/social/{provider}/callback`
 
 ## Schemas (29)
 

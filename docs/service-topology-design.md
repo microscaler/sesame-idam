@@ -34,10 +34,10 @@ insufficient because:
 |---------|-------------|-----------|-------|----------------|
 | **identity-login-service / identity-session-service / identity-user-mgmt-service** | `openapi/identity-login-service/
 identity-session-service/
-identity-user-mgmt-service/` (3 separate specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/api/v1/identity/*`, `/.well-known/*` | 8101 | HIGH: refresh + users/me = read-heavy, fast DB |
-| **authz-core** | `openapi/authz-core/openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | 8102 | EXTREME: called on EVERY consumer API request |
-| **api-keys** | `openapi/api-keys/openapi.yaml` | `/api/v1/am/api-keys/*` | 8103 | HIGH: M2M validation = hash lookup, independently spiky |
-| **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | 8104 | LOW: admin-heavy, near-zero scaling pressure |
+identity-user-mgmt-service/` (3 separate specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/admin/users/*`, `/.well-known/*` | 8101 | HIGH: refresh + users/me = read-heavy, fast DB |
+| **authz-core** | `openapi/authz-core/openapi.yaml` | `/authz/authorize`, `/authz/principals/*` | 8102 | EXTREME: called on EVERY consumer API request |
+| **api-keys** | `openapi/api-keys/openapi.yaml` | `/api-keys/*` | 8103 | HIGH: M2M validation = hash lookup, independently spiky |
+| **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/organizations/*`, `/applications/*` | 8104 | LOW: admin-heavy, near-zero scaling pressure |
 
 ## Architecture Diagram
 
@@ -99,7 +99,7 @@ sequenceDiagram
     IA->>PG: query user by email
     PG-->>IA: user + password_hash
     IA->>IA: verify password hash
-    IA->>AC: POST /principal/effective {user_id, org_id}
+    IA->>AC: POST /authz/principals/effective {user_id, org_id}
     AC->>PG: resolve roles + permissions
     PG-->>AC: effective roles + permissions
     AC-->>IA: effective claims
@@ -120,7 +120,7 @@ sequenceDiagram
     participant Redis as Redis Cache
     participant PG as PostgreSQL
 
-    Consumer->>AC: POST /api/v1/am/authorize<br/>Authorization: Bearer <JWT><br/>{sub, org_id, action: "invoice:write"}
+    Consumer->>AC: POST /authz/authorize<br/>Authorization: Bearer <JWT><br/>{sub, org_id, action: "invoice:write"}
 
     AC->>Redis: cache lookup (sub + org_id + action)
 
@@ -184,10 +184,10 @@ sequenceDiagram
 | Path | Service | Per-Request Cost | Cache Strategy |
 |------|---------|-----------------|----------------|
 | `POST /auth/refresh` | identity-login-service / identity-session-service / identity-user-mgmt-service | MEDIUM (DB lookup + JWT sign) | Redis session cache |
-| `GET /api/v1/identity/users/me` | identity-login-service / identity-session-service / identity-user-mgmt-service | LOW (indexed lookup) | Redis (5s TTL) |
-| `POST /api/v1/am/authorize` | authz-core | MEDIUM (role evaluation) | Redis (30s TTL) |
-| `POST /api/v1/am/api-keys/validate/personal` | api-keys | LOW (hash lookup) | Redis (no need — hash lookup is fast) |
-| `POST /api/v1/am/api-keys/validate/org` | api-keys | LOW-MEDIUM (hash + org lookup) | Redis (5s TTL) |
+| `GET /identity/me` | identity-login-service / identity-session-service / identity-user-mgmt-service | LOW (indexed lookup) | Redis (5s TTL) |
+| `POST /authz/authorize` | authz-core | MEDIUM (role evaluation) | Redis (30s TTL) |
+| `POST /api-keys/validate/personal` | api-keys | LOW (hash lookup) | Redis (no need — hash lookup is fast) |
+| `POST /api-keys/validate/org` | api-keys | LOW-MEDIUM (hash + org lookup) | Redis (5s TTL) |
 | `GET /.well-known/openid-configuration` | identity-login-service / identity-session-service / identity-user-mgmt-service | NEGLIGIBLE | Static (never expires) |
 | `GET /.well-known/jwks.json` | identity-login-service / identity-session-service / identity-user-mgmt-service | NEGLIGIBLE | Static (rotate on key rotation) |
 
@@ -197,18 +197,18 @@ sequenceDiagram
 |------|---------|-----------------|
 | `POST /auth/login` | identity-login-service / identity-session-service / identity-user-mgmt-service | HIGH (password hash + email) |
 | `GET /oauth/userinfo` | identity-login-service / identity-session-service / identity-user-mgmt-service | LOW (JWT verify) |
-| `POST /api/v1/am/principal/effective` | authz-core | HIGH (resolves hierarchy) |
-| `GET /api/v1/am/principals/roles` | authz-core | LOW |
-| `GET /api/v1/am/principals/attributes` | authz-core | LOW |
+| `POST /authz/principals/effective` | authz-core | HIGH (resolves hierarchy) |
+| `GET /authz/principals/roles` | authz-core | LOW |
+| `GET /authz/principals/attributes` | authz-core | LOW |
 
 ### LOW Frequency (<100 req/s)
 
 | Path | Service |
 |------|---------|
-| All `POST/PUT/DELETE /orgs/*` | org-mgmt |
-| All `POST/PUT/DELETE /orgs/{org_id}/users` | org-mgmt |
+| All `POST/PUT/DELETE /organizations/*` | org-mgmt |
+| All `POST/PUT/DELETE /organizations/{org_id}/users` | org-mgmt |
 | All SSO/SAML/SCIM endpoints | org-mgmt |
-| All `POST/PUT/DELETE /api/v1/am/applications/*` | org-mgmt |
+| All `POST/PUT/DELETE /applications/*` | org-mgmt |
 | User CRUD (PATCH/DELETE) | identity-login-service / identity-session-service / identity-user-mgmt-service |
 | MFA setup/verify | identity-login-service / identity-session-service / identity-user-mgmt-service |
 | Phone setup/verify | identity-login-service / identity-session-service / identity-user-mgmt-service |
@@ -230,7 +230,7 @@ graph LR
 ```
 
 The **only** cross-service dependency is identity-login-service / identity-session-service / identity-user-mgmt-service calling authz-core's
-`/principal/effective` endpoint at login time to populate JWT claims. This is a
+`/authz/principals/effective` endpoint at login time to populate JWT claims. This is a
 fire-and-forget call during session creation — not on the hot path of subsequent
 requests. After the JWT is issued, it is self-contained.
 
@@ -318,7 +318,7 @@ identity-user-mgmt-service/
 │   └── user-mgmt-service.yaml    # User CRUD, account security, email/phone verify
 ├── authz-core/openapi.yaml       # authorize, principal/effective, roles, attributes
 ├── api-keys/openapi.yaml         # api-keys CRUD, api-keys/validate (all variants)
-└── org-mgmt/openapi.yaml         # /orgs/*, applications, roles, permissions, SSO/SCIM
+└── org-mgmt/openapi.yaml         # /organizations/*, applications, roles, permissions, SSO/SCIM
 ```
 
 | **Application** | `openapi/idam/org-mgmt/openapi.yaml` | Application/tenant management, roles, permissions, applications |
@@ -326,21 +326,21 @@ identity-user-mgmt-service/
 
 ### Schema ownership per service
 
-|| Schema | Service | Used by Others? |
+| Schema | Service | Used by Others? |
 ||--------|---------|----------------|
-|| `User` | identity-login-service | Yes (org-mgmt returns user snapshots) |
-|| `UserProfile` | identity-login-service | Yes (returned from authz-core principal endpoints) |
-|| `LoginRequest/Response` | identity-login-service | No |
-|| `TokenResponse` | identity-login-service | No |
-|| `MfaFactor/MfaSetupRequest/Response` | identity-login-service | No |
-|| `OpenIDConfiguration/JWKS` | identity-session-service | No |
-|| `Org` | org-mgmt | Yes (returned from api-keys validation) |
-|| `AuthorizeRequest/Response` | authz-core | No |
-|| `EffectiveRequest/Response` | authz-core | No |
-|| `Application` | org-mgmt | Yes (tenant boundary, returned in responses) |
-|| `Role/Permission` | org-mgmt | No |
-|| `ApiKey/ApiKeyValidationResponse` | api-keys | No |
-|| `ScimGroup` | org-mgmt | No |
+| `User` | identity-login-service | Yes (org-mgmt returns user snapshots) |
+| `UserProfile` | identity-login-service | Yes (returned from authz-core principal endpoints) |
+| `LoginRequest/Response` | identity-login-service | No |
+| `TokenResponse` | identity-login-service | No |
+| `MfaFactor/MfaSetupRequest/Response` | identity-login-service | No |
+| `OpenIDConfiguration/JWKS` | identity-session-service | No |
+| `Org` | org-mgmt | Yes (returned from api-keys validation) |
+| `AuthorizeRequest/Response` | authz-core | No |
+| `EffectiveRequest/Response` | authz-core | No |
+| `Application` | org-mgmt | Yes (tenant boundary, returned in responses) |
+| `Role/Permission` | org-mgmt | No |
+| `ApiKey/ApiKeyValidationResponse` | api-keys | No |
+| `ScimGroup` | org-mgmt | No |
 
 Shared schemas are duplicated in each consuming spec's `components/schemas` section. This
 is intentional — each OpenAPI spec must be self-contained for BRRTRouter codegen to work.

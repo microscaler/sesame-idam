@@ -14,7 +14,7 @@ Client → POST /auth/login {email, password} →
   identity-login-service:
     1. Query PG: user by email
     2. Verify password hash (bcrypt/scrypt)
-    3. Call authz-core POST /principal/effective {user_id, org_id}
+    3. Call authz-core POST /authz/principals/effective {user_id, org_id}
        authz-core:
          a. Query PG: resolve roles + permissions
          b. Return effective claims
@@ -35,21 +35,21 @@ Client → POST /auth/login {email, password} →
 
 | Variant | Flow |
 |---------|------|
-| **Email+Password** | `POST /login` → `POST /token` (if MFA required) |
-| **Email OTP** | `POST /login/email-otp` → `POST /verify/email-otp` |
-| **Phone OTP** | `POST /login/phone-otp` → `POST /verify/phone-otp` |
-| **Dual OTP** | `POST /login/dual-otp` → `POST /verify/dual-otp` (email + phone) |
-| **Social OAuth** | `GET /social/{provider}/login` → redirect → `POST /social/{provider}/callback` |
-| **Email Magic Link** | `POST /login/magic-link` → click link → `POST /login/magic-link/verify` |
-| **SMS Magic Link** | `POST /login/phone-magic-link` → click link → `POST /login/phone-magic-link/verify` |
+| **Email+Password** | `POST /auth/login` → `POST /auth/token` (if MFA required) |
+| **Email OTP** | `POST /auth/login/email-otp` → `POST /auth/verify/email-otp` |
+| **Phone OTP** | `POST /auth/login/phone-otp` → `POST /auth/verify/phone-otp` |
+| **Dual OTP** | `POST /auth/login/dual-otp` → `POST /auth/verify/dual-otp` (email + phone) |
+| **Social OAuth** | `GET /auth/social/{provider}/login` → redirect → `POST /auth/social/{provider}/callback` |
+| **Email Magic Link** | `POST /auth/login/magic-link` → click link → `POST /auth/login/magic-link/verify` |
+| **SMS Magic Link** | `POST /auth/login/phone-magic-link` → click link → `POST /auth/login/phone-magic-link/verify` |
 
 ## New Auth Flows (from PropelAuth gap closure)
 
 | Feature | Endpoints | Description |
 |---------|-----------|-------------|
-| **Signup Validation** | `GET /signup/validate` | Pre-registration validation before form submission |
-| **Step-Up MFA** | `POST /verify/step-up` | Re-authenticate for sensitive operations |
-| **Direct Token Issuance** | `POST /api/v1/identity/users/me/token` | Admin issues tokens programmatically |
+| **Signup Validation** | `GET /auth/signup/validate` | Pre-registration validation before form submission |
+| **Step-Up MFA** | `POST /auth/verify/step-up` | Re-authenticate for sensitive operations |
+| **Direct Token Issuance** | `POST /identity/me/token` | Admin issues tokens programmatically |
 | **MCP Auth** | `POST /mcp/token`, `POST /mcp/token/validate` | Model Context Protocol authentication |
 
 ## Code Anchors

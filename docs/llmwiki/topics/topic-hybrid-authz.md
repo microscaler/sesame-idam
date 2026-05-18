@@ -27,13 +27,13 @@ The classification is stored in a RoutePolicyStore loaded at startup. Default fa
 
 | Path Pattern | Methods | Category |
 |--------------|---------|----------|
-| `/api/v1/identity/users/me` | GET | jwt-only |
-| `/api/v1/identity/preferences` | GET | jwt-only |
-| `/api/v1/identity/preferences` | PUT, PATCH | jwt-with-fallback |
-| `/api/v1/identity/users/me` | PUT, PATCH | jwt-with-fallback |
-| `/api/v1/identity/email/upsert` | PUT | jwt-with-fallback |
-| `/api/v1/am/authorize` | POST | online-only |
-| `/api/v1/am/principal/effective` | POST | online-only |
+| `/identity/me` | GET | jwt-only |
+| `/identity/me` | GET | jwt-only |
+| `/identity/me` | PUT, PATCH | jwt-with-fallback |
+| `/identity/me` | PUT, PATCH | jwt-with-fallback |
+| `PUT /admin/users/{user_id}/email` | PUT | jwt-with-fallback |
+| `/authz/authorize` | POST | online-only |
+| `/authz/principals/effective` | POST | online-only |
 | All API key CRUD | POST/PUT/DELETE | online-only |
 | All org lifecycle | POST/PUT/DELETE | online-only |
 

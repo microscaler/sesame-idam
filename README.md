@@ -101,12 +101,12 @@ graph TB
 
 | Service | Base Path | Frequency | Purpose |
 |---------|-----------|-----------|---------|
-| **identity-login-service** | `/auth/login`, `/auth/register`, `/auth/logout`, `/social/*`, `/oauth/authorize` | HIGH | Email/password login, social OAuth, email/phone OTP, dual OTP, magic links, registration |
-| **identity-session-service** | `/auth/refresh`, `/.well-known/openid-configuration`, `/.well-known/jwks.json` | HIGH | Token refresh, OIDC discovery, JWKS endpoint |
-| **identity-user-mgmt-service** | `/api/v1/identity/users/*`, `/api/v1/identity/users/{id}/mfa/*`, `/api/v1/identity/users/{id}/email/*`, `/api/v1/identity/users/{id}/phone/*`, `/api/v1/identity/users/{id}/social/*` | HIGH | User CRUD, MFA setup/verify, email/phone verification, social link management, migration |
-| **authz-core** | `/api/v1/am/authorize`, `/api/v1/am/principal/*`, `/api/v1/am/principals/*` | EXTREME | Per-request authorization, principal/effective, role evaluation, attribute management |
-| **api-keys** | `/api/v1/am/api-keys/*` | HIGH | API key lifecycle, validation (personal + org), rotation, archival |
-| **org-mgmt** | `/orgs/*`, `/api/v1/am/applications/*` | LOW | Org lifecycle, memberships, SSO/SCIM, roles, permissions, applications, webhooks |
+| **identity-login-service** | `/auth/login`, `/auth/register`, `/auth/logout`, `/auth/social/*`, `/oauth/authorize` | HIGH | Email/password login, social OAuth, email/phone OTP, dual OTP, magic links, registration |
+| **identity-session-service** | `/session/refresh`, `/.well-known/openid-configuration`, `/.well-known/jwks.json` | HIGH | Token refresh, OIDC discovery, JWKS endpoint |
+| **identity-user-mgmt-service** | `/admin/users/*`, `/admin/users/{user_id}/mfa/*`, `/admin/users/{user_id}/email/*`, `/admin/users/{user_id}/phone/*`, `/admin/users/{user_id}/social/*` | HIGH | User CRUD, MFA setup/verify, email/phone verification, social link management, migration |
+| **authz-core** | `/authz/authorize`, `/authz/principals/*` | EXTREME | Per-request authorization, principal/effective, role evaluation, attribute management |
+| **api-keys** | `/api-keys/*` | HIGH | API key lifecycle, validation (personal + org), rotation, archival |
+| **org-mgmt** | `/organizations/*`, `/applications/*` | LOW | Org lifecycle, memberships, SSO/SCIM, roles, permissions, applications, webhooks |
 
 ---
 

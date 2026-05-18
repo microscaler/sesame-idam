@@ -119,10 +119,10 @@ graph TB
 
 | Service | OpenAPI Specs | Base Path | Frequency | Cost | Responsibility |
 |---------|--------------|-----------|-----------|------|----------------|
-| **identity-login-service** | `openapi/identity-login-service/` (3 separate specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/api/v1/identity/*`, `/.well-known/*` | HIGH | Mixed (DB lookups + JWT signing) | Login, register, refresh, logout, MFA, password reset, OIDC discovery, JWKS, user CRUD, sessions, token exchange (RFC 8693) |
-| **authz-core** | `openapi/authz-core/openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | EXTREME (every consumer API request) | LOW (cached) | Real-time authorization checks, principal/effective resolution, role/permission evaluation |
-| **api-keys** | `openapi/api-keys/openapi.yaml` | `/api/v1/am/api-keys/*` | HIGH (independently spiky) | LOW (hash lookup) | API key lifecycle, validation (personal + org variants), rotation, revocation |
-| **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | LOW (admin-heavy) | MEDIUM (CRUD + external SSO) | Org/tenant CRUD, memberships, invitations, SSO/SAML/SCIM, roles, permissions, applications, webhooks |
+| **identity-login-service** | `openapi/identity-login-service/` (3 separate specs: `openapi.yaml`, `login-service.yaml`, `session-service.yaml`, `user-mgmt-service.yaml`) | `/auth/*`, `/admin/users/*`, `/.well-known/*` | HIGH | Mixed (DB lookups + JWT signing) | Login, register, refresh, logout, MFA, password reset, OIDC discovery, JWKS, user CRUD, sessions, token exchange (RFC 8693) |
+| **authz-core** | `openapi/authz-core/openapi.yaml` | `/authz/authorize`, `/authz/principals/*` | EXTREME (every consumer API request) | LOW (cached) | Real-time authorization checks, principal/effective resolution, role/permission evaluation |
+| **api-keys** | `openapi/api-keys/openapi.yaml` | `/api-keys/*` | HIGH (independently spiky) | LOW (hash lookup) | API key lifecycle, validation (personal + org variants), rotation, revocation |
+| **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/organizations/*`, `/applications/*` | LOW (admin-heavy) | MEDIUM (CRUD + external SSO) | Org/tenant CRUD, memberships, invitations, SSO/SAML/SCIM, roles, permissions, applications, webhooks |
 
 **Why six services?**
 
@@ -145,7 +145,7 @@ graph LR
     style OM fill:#27AE60
 ```
 
-The **only** cross-service dependency is identity-login-service calling authz-core's `/principal/effective` endpoint at login time to populate JWT claims. After the JWT is issued, it is self-contained. `api-keys` and `org-mgmt` are fully independent.
+The **only** cross-service dependency is identity-login-service calling authz-core's `/authz/principals/effective` endpoint at login time to populate JWT claims. After the JWT is issued, it is self-contained. `api-keys` and `org-mgmt` are fully independent.
 
 ---
 
@@ -492,7 +492,7 @@ All endpoints are under `/api/v1`. The API is split across six services.
 
 ### 6.1 Service: identity-login-service
 
-Base path: `/auth/*`, `/api/v1/identity/*`, `/.well-known/*`
+Base path: `/auth/*`, `/admin/users/*`, `/.well-known/*`
 
 Split into 3 separate specs for independent implementation:
 
@@ -502,18 +502,18 @@ Split into 3 separate specs for independent implementation:
 |--------|------|---------|
 | POST | `/auth/login` | Login with password |
 | POST | `/auth/register` | Idempotent user create/lookup |
-| POST | `/auth/login/oauth/github` | OAuth GitHub login |
-| POST | `/auth/login/oauth/github/callback` | OAuth GitHub callback |
+| POST | `/auth/social/{provider}/login` | OAuth GitHub login |
+| POST | `/auth/social/{provider}/login/callback` | OAuth GitHub callback |
 | POST | `/auth/token/exchange` | Token exchange (RFC 8693) |
-| POST | `/auth/password/reset/request` | Send password reset email |
-| POST | `/auth/password/reset/confirm` | Confirm password reset |
-| POST | `/auth/mfa/verify` | Verify MFA code |
+| POST | `/auth/password/forgot` | Send password reset email |
+| POST | `/auth/password/reset` | Confirm password reset |
+| POST | `/auth/verify/step-up` | Verify MFA code |
 
 #### Sub-service: session-service (EXTREME freq / LOW cost)
 
 | Method | Path | Summary |
 |--------|------|---------|
-| POST | `/auth/refresh` | Refresh access token |
+| POST | `/session/refresh` | Refresh access token |
 | GET | `/.well-known/openid-configuration` | OIDC discovery |
 | GET | `/.well-known/jwks.json` | JWKS for JWT verification |
 | POST | `/auth/logout` | Revoke session |
@@ -522,11 +522,11 @@ Split into 3 separate specs for independent implementation:
 
 | Method | Path | Summary |
 |--------|------|---------|
-| POST | `/api/v1/identity/users` | Create user (idempotent) |
-| GET | `/api/v1/identity/users/me` | Get current user |
-| POST | `/api/v1/identity/users/lookup` | Lookup user by email |
-| POST | `/api/v1/identity/users/email/verify` | Verify email |
-| POST | `/api/v1/identity/users/phone/verify` | Verify phone |
+| POST | `/admin/users` | Create user (idempotent) |
+| GET | `/identity/me` | Get current user |
+| POST | `/admin/users/lookup` | Lookup user by email |
+| POST | `/admin/users/email/verify` | Verify email |
+| POST | `/admin/users/phone/verify` | Verify phone |
 
 #### Sub-service: openapi.yaml (combined auth flows)
 
@@ -534,40 +534,40 @@ Contains the full identity-login-service API surface as a single spec for refere
 
 ### 6.2 Service: authz-core
 
-Base path: `/api/v1/am/authorize`, `/api/v1/am/principal/*`
+Base path: `/authz/authorize`, `/authz/principals/*`
 
 | Method | Path | Summary |
 |--------|------|---------|
-| POST | `/api/v1/am/authorize` | Authorization check |
-| POST | `/api/v1/am/principal/effective` | Resolve user's effective permissions |
-| GET | `/api/v1/am/principals/roles` | List principal roles |
-| GET | `/api/v1/am/principals/attributes` | List principal attributes |
+| POST | `/authz/authorize` | Authorization check |
+| POST | `/authz/principals/effective` | Resolve user's effective permissions |
+| GET | `/authz/principals/roles` | List principal roles |
+| GET | `/authz/principals/attributes` | List principal attributes |
 
 ### 6.3 Service: api-keys
 
-Base path: `/api/v1/am/api-keys/*`
+Base path: `/api-keys/*`
 
 | Method | Path | Summary |
 |--------|------|---------|
-| POST | `/api/v1/am/api-keys` | Create API key (M2M / service account) |
-| POST | `/api/v1/am/api-keys/validate/personal` | Validate personal API key |
-| POST | `/api/v1/am/api-keys/validate/org` | Validate org API key |
-| PUT | `/api/v1/am/api-keys/{id}/rotate` | Rotate API key |
-| DELETE | `/api/v1/am/api-keys/{id}` | Revoke API key |
+| POST | `/api-keys` | Create API key (M2M / service account) |
+| POST | `/api-keys/validate/personal` | Validate personal API key |
+| POST | `/api-keys/validate/org` | Validate org API key |
+| PUT | `/api-keys/{id}/rotate` | Rotate API key |
+| DELETE | `/api-keys/{id}` | Revoke API key |
 
 ### 6.4 Service: org-mgmt
 
-Base path: `/orgs/*`, `/api/v1/am/applications/*`
+Base path: `/organizations/*`, `/applications/*`
 
 #### User Management
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/platform/users` | List users (paginated, filterable by email) |
-| GET | `/api/v1/platform/users/{userId}` | Get user details |
-| PUT | `/api/v1/platform/users/{userId}` | Update user (metadata, properties) |
-| DELETE | `/api/v1/platform/users/{userId}` | Deactivate user (soft delete) |
-| POST | `/api/v1/platform/users/{userId}/impersonate` | Impersonate user (returns their JWT) |
+| GET | `/admin/users` | List users (paginated, filterable by email) |
+| GET | `/admin/users/{userId}` | Get user details |
+| PUT | `/admin/users/{userId}` | Update user (metadata, properties) |
+| DELETE | `/admin/users/{userId}` | Deactivate user (soft delete) |
+| POST | `/admin/users/{userId}/impersonate` | Impersonate user (returns their JWT) |
 
 #### Organization & Membership Management
 
@@ -575,28 +575,28 @@ Base path: `/orgs/*`, `/api/v1/am/applications/*`
 |--------|------|-------------|
 | GET | `/orgs` | List all organizations (paginated) |
 | POST | `/orgs` | Create an organization |
-| GET | `/orgs/{orgId}` | Get organization details |
-| PUT | `/orgs/{orgId}` | Update organization (name, settings) |
-| DELETE | `/orgs/{orgId}` | Deactivate organization |
-| GET | `/orgs/{orgId}/members` | List all members of an organization |
-| POST | `/orgs/{orgId}/members` | Add member to organization |
-| PUT | `/orgs/{orgId}/members/{userId}` | Change member role |
-| DELETE | `/orgs/{orgId}/members/{userId}` | Remove member from organization |
+| GET | `/organizations/{orgId}` | Get organization details |
+| PUT | `/organizations/{orgId}` | Update organization (name, settings) |
+| DELETE | `/organizations/{orgId}` | Deactivate organization |
+| GET | `/organizations/{orgId}/members` | List all members of an organization |
+| POST | `/organizations/{orgId}/members` | Add member to organization |
+| PUT | `/organizations/{orgId}/members/{userId}` | Change member role |
+| DELETE | `/organizations/{orgId}/members/{userId}` | Remove member from organization |
 
 #### Role & Permission Management
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/am/applications` | List applications |
-| GET | `/api/v1/am/roles` | List all roles (filtered by application) |
-| POST | `/api/v1/am/roles` | Create role |
-| PUT | `/api/v1/am/roles/{roleId}` | Update role |
-| DELETE | `/api/v1/am/roles/{roleId}` | Deactivate role |
-| GET | `/api/v1/am/permissions` | List all permissions |
-| POST | `/api/v1/am/permissions` | Create permission |
-| PUT | `/api/v1/am/permissions/{permissionId}` | Update permission |
-| DELETE | `/api/v1/am/permissions/{permissionId}` | Deactivate permission |
-| GET | `/api/v1/platform/permissions/check` | Check if user has permission |
+| GET | `/applications` | List applications |
+| GET | `/applications/{app_id}/roles` | List all roles (filtered by application) |
+| POST | `/applications/{app_id}/roles` | Create role |
+| PUT | `/applications/{app_id}/roles/{roleId}` | Update role |
+| DELETE | `/applications/{app_id}/roles/{roleId}` | Deactivate role |
+| GET | `/applications/{app_id}/permissions` | List all permissions |
+| POST | `/applications/{app_id}/permissions` | Create permission |
+| PUT | `/applications/{app_id}/permissions/{permissionId}` | Update permission |
+| DELETE | `/applications/{app_id}/permissions/{permissionId}` | Deactivate permission |
+| GET | `/authz/authorize` | Check if user has permission |
 
 ### 6.5 OpenID Connect
 
@@ -699,7 +699,7 @@ sequenceDiagram
     PG-->>App: Filtered rows (only user's org)
 ```
 
-**The key insight: the application reads the JWT and makes decisions from it. It never calls Sesame for permission checks during normal request handling.** The `/api/v1/am/authorize` endpoint is only used for admin interfaces or for checking permissions that may have changed since the last login.
+**The key insight: the application reads the JWT and makes decisions from it. It never calls Sesame for permission checks during normal request handling.** The `/authz/authorize` endpoint is only used for admin interfaces or for checking permissions that may have changed since the last login.
 
 ---
 
@@ -922,7 +922,7 @@ sequenceDiagram
     IA->>PG: Query user by email
     PG-->>IA: User record + password_hash
     IA->>IA: Verify password hash (bcrypt/argon2)
-    IA->>AC: POST /principal/effective<br/>{user_id, org_id}
+    IA->>AC: POST /authz/principals/effective<br/>{user_id, org_id}
     AC->>PG: Resolve roles + permissions
     PG-->>AC: Effective roles & permissions
     AC-->>IA: Effective claims
@@ -940,7 +940,7 @@ sequenceDiagram
     participant Redis as Redis Cache
     participant PG as PostgreSQL
 
-    Consumer->>AC: POST /api/v1/am/authorize<br/>Authorization: Bearer *** {org_id, permission: "invoice:write"}
+    Consumer->>AC: POST /authz/authorize<br/>Authorization: Bearer *** {org_id, permission: "invoice:write"}
 
     AC->>Redis: Cache lookup<br/>(sub + org_id + permission)
 

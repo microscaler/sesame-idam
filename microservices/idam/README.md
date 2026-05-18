@@ -8,9 +8,9 @@
 | Service | OpenAPI | Base Path | Port | Frequency | Cost | Responsibility |
 |---------|---------|-----------|------|-----------|------|----------------|
 | **identity-auth** | `openapi/identity-auth/` (4 sub-specs) | `/auth/*`, `/.well-known/*` | 8001 | HIGH | Mixed | Login, register, refresh, logout, MFA, password reset, OIDC, JWKS, user CRUD, sessions, token exchange (RFC 8693) |
-| **authz-core** | `openapi/authz-core/openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | 8002 | EXTREME | LOW | Per-request authorization checks, principal/effective resolution, role/permission evaluation |
-| **api-keys** | `openapi/api-keys/openapi.yaml` | `/api/v1/am/api-keys/*` | 8003 | HIGH | LOW | API key lifecycle, validation (personal + org variants), rotation, revocation |
-| **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | 8004 | LOW | MEDIUM | Org/tenant CRUD, memberships, invitations, SSO/SAML/SCIM, roles, permissions, applications, webhooks |
+| **authz-core** | `openapi/authz-core/openapi.yaml` | `/authz/authorize`, `/authz/principals/*` | 8002 | EXTREME | LOW | Per-request authorization checks, principal/effective resolution, role/permission evaluation |
+| **api-keys** | `openapi/api-keys/openapi.yaml` | `/api-keys/*` | 8003 | HIGH | LOW | API key lifecycle, validation (personal + org variants), rotation, revocation |
+| **org-mgmt** | `openapi/org-mgmt/openapi.yaml` | `/organizations/*`, `/applications/*` | 8004 | LOW | MEDIUM | Org/tenant CRUD, memberships, invitations, SSO/SAML/SCIM, roles, permissions, applications, webhooks |
 
 ### inter-service dependencies
 

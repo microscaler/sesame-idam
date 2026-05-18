@@ -27,24 +27,24 @@ curl http://localhost:???/health
 
 
 
-- `GET /api/v1/identity/users/me`
-- `PATCH /api/v1/identity/users/me`
+- `GET /identity/me`
+- `PATCH /identity/me`
 
 ### Impersonation
 
 Admin user session switching
 
-- `POST /admin/users/{user_id}/impersonate`
-- `POST /admin/users/{user_id}/impersonate/restore`
+- `POST /admin/impersonate`
+- `POST /admin/impersonate/restore`
 
 ### MCP
 
 Model Context Protocol authentication
 
-- `DELETE /api/v1/platform/mcp/agents/{agent_id}`
-- `GET /api/v1/platform/mcp/agents`
-- `GET /api/v1/platform/mcp/agents/{agent_id}`
-- `POST /api/v1/platform/mcp/agents`
+- `DELETE /mcp/agents/{agent_id}`
+- `GET /mcp/agents`
+- `GET /mcp/agents/{agent_id}`
+- `POST /mcp/agents`
 - `POST /mcp/token`
 - `POST /mcp/token/validate`
 
@@ -52,20 +52,20 @@ Model Context Protocol authentication
 
 Session management (refresh, profile, discovery, OIDC)
 
-- `GET /api/v1/identity/users/me/userinfo`
+- `GET /identity/userinfo`
 - `POST /refresh`
 
 ### StepUp
 
 Multi-factor re-authentication for sensitive operations
 
-- `POST /verify/step-up`
+- `POST /auth/verify/step-up`
 
 ### TokenIssuance
 
 Programmatic token creation (admin/server-side)
 
-- `POST /api/v1/identity/users/me/token`
+- `POST /identity/me/token`
 
 ## Schemas (56)
 

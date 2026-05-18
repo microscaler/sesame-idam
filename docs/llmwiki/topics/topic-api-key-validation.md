@@ -28,14 +28,14 @@ M2M Client → POST /api-keys/validate/personal {api_key: "sk_..."} →
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/v1/am/api-keys` | POST | Create API key |
-| `/api/v1/am/api-keys/{id}` | GET/PATCH/DELETE | Manage key |
-| `/api/v1/am/api-keys/validate` | POST | Validate any API key |
-| `/api/v1/am/api-keys/validate/personal` | POST | Validate personal key |
-| `/api/v1/am/api-keys/validate/org` | POST | Validate org-scoped key |
-| `/api/v1/am/api-keys/archived` | GET | Fetch expired/revoked keys |
-| `/api/v1/am/api-keys/usage` | GET | Usage statistics |
-| `/api/v1/am/api-keys/import` | POST | Import from third-party |
+| `/api-keys` | POST | Create API key |
+| `/api-keys/{id}` | GET/PATCH/DELETE | Manage key |
+| `/api-keys/validate` | POST | Validate any API key |
+| `/api-keys/validate/personal` | POST | Validate personal key |
+| `/api-keys/validate/org` | POST | Validate org-scoped key |
+| `/api-keys/archived` | GET | Fetch expired/revoked keys |
+| `/api-keys/usage` | GET | Usage statistics |
+| `/api-keys/import` | POST | Import from third-party |
 
 ## Code Anchors
 

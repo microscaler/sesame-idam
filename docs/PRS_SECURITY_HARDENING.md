@@ -217,11 +217,11 @@ The wiki says: "Tenant validation is critical: `claims.tenant_id == X-Tenant-ID`
 
 **Target:** Login flow + Story 4.4
 
-Login routes "CREATE trust, not evaluate it." They are not protected by JWT middleware. But the login handler calls `authz-core /principal/effective` for JWT claim enrichment (Story 4.4, Login, Callback, OTP section).
+Login routes "CREATE trust, not evaluate it." They are not protected by JWT middleware. But the login handler calls `authz-core /authz/principals/effective` for JWT claim enrichment (Story 4.4, Login, Callback, OTP section).
 
 **Exploit Path (Detailed):**
 1. Attacker floods `/auth/login` with valid credentials (or valid password guesses from a credential stuffing attack)
-2. Each login triggers an authz-core call: `POST /api/v1/am/principal/effective {user_id, org_id}`
+2. Each login triggers an authz-core call: `POST /authz/principals/effective {user_id, org_id}`
 3. authz-core resolves roles + permissions from PostgreSQL (EXPENSIVE — involves multiple queries, role inheritance chain walking, permission aggregation)
 4. Since login routes are excluded from JWT middleware (Story 4.4 explicitly states "Login routes are NOT protected by JWT common-path authz"), there is no JWT-based rate limiting
 5. Result: **authz-core DoS via login flooding** — the authz-core service becomes overwhelmed
@@ -237,7 +237,7 @@ Login routes "CREATE trust, not evaluate it." They are not protected by JWT midd
 1. Add rate limiting to the login endpoint itself (e.g., 10 requests/minute per IP) at the gateway level (NGINX/API Gateway)
 2. Consider a "login throttle" in identity-login-service: per-IP, per-email, and per-IP:email combinations
 3. Document the rate limit policy in Story 4.4's login route section
-4. Consider caching the `/principal/effective` result in Redis for recently-authenticated users (1-5 minute TTL) to reduce load during login floods
+4. Consider caching the `/authz/principals/effective` result in Redis for recently-authenticated users (1-5 minute TTL) to reduce load during login floods
 5. Add monitoring: alert on login endpoint QPS exceeding threshold (indicates potential DoS)
 
 ---
@@ -295,12 +295,12 @@ The version check is gated behind `sx.risk == "elevated"` (from Story 4.4's dele
 2. Attacker's permissions are revoked (admin changes role from `admin` to `user`)
 3. Version is bumped in Redis: `authz_ver:{sub}` = 43
 4. Attacker's token has `ver: 42`
-5. Attacker makes requests to jwt-only routes (e.g., `GET /api/v1/identity/users/me`, `GET /api/v1/identity/preferences`)
+5. Attacker makes requests to jwt-only routes (e.g., `GET /identity/me`, `GET /identity/me`)
 6. Version check is SKIPPED because `sx.risk != "elevated"`
 7. Attacker's stale token is accepted for the ENTIRE token TTL (5 minutes)
 8. During those 5 minutes, the attacker has admin-level access on jwt-only routes
 
-**Even more concerning:** jwt-with-fallback routes for low-risk writes (e.g., `PUT /api/v1/identity/preferences`) also SKIP version checks. Only delegated/admin routes with `sx.risk == "elevated"` check the version.
+**Even more concerning:** jwt-with-fallback routes for low-risk writes (e.g., `PUT /identity/me`) also SKIP version checks. Only delegated/admin routes with `sx.risk == "elevated"` check the version.
 
 **Impact:** Permission changes are effective only on elevated-risk routes. Normal operations continue with stale permissions. The version bump mechanism is PARTIALLY BROKEN — it only works for the subset of endpoints classified as elevated-risk.
 
@@ -359,7 +359,7 @@ The JWT document discusses performance extensively but rate limiting is barely m
 
 3. **Email OTP / Phone OTP:** Sending unlimited OTPs costs money (SMS) and enables phishing (email). No rate limit is specified.
 
-4. **Token refresh (`/auth/refresh`):** No rate limit. Attacker can hammer refresh with stolen tokens. Each refresh triggers a Redis lookup and potentially an authz-core call (if version check is enabled).
+4. **Token refresh (`/session/refresh`):** No rate limit. Attacker can hammer refresh with stolen tokens. Each refresh triggers a Redis lookup and potentially an authz-core call (if version check is enabled).
 
 5. **Step-up MFA:** 10 req/min is mentioned in Story 6.3's security considerations, but the acceptance criteria don't include rate limit enforcement. The unit tests mention "MFA code rate limiting: Given 10 failed MFA attempts in 1 minute, assert the 11th attempt is rate-limited (returns 429 Too Many Requests)" — but this is a test, not a guaranteed implementation.
 
@@ -390,19 +390,19 @@ The JWT document discusses performance extensively but rate limiting is barely m
 
 **Target:** Story 4.4, Self-Service Reads
 
-The ownership check is: `claims.sub == request.user_id`. For `GET /api/v1/identity/users/me`, the user_id is implicit (it's the JWT subject). But for `GET /api/v1/identity/users/{user_id}`, the user_id comes from the URL path.
+The ownership check is: `claims.sub == request.user_id`. For `GET /identity/me`, the user_id is implicit (it's the JWT subject). But for `GET /admin/users/{user_id}`, the user_id comes from the URL path.
 
 **Exploit Path (Detailed):**
 1. Attacker has a valid JWT with `sub: "alice"` and permissions to view profiles
-2. Attacker requests `GET /api/v1/identity/users/bob` (changing the path parameter)
+2. Attacker requests `GET /admin/users/bob` (changing the path parameter)
 3. The ownership check `claims.sub == request.user_id` fails for this path
-4. BUT: `/api/v1/identity/users/{id}` is classified as `jwt-with-fallback` (Story 4.4, Identity Resolution section)
+4. BUT: `/admin/users/{user_id}` is classified as `jwt-with-fallback` (Story 4.4, Identity Resolution section)
 5. The fallback calls authz-core for authorization
 6. If authz-core allows user A to view user B's profile (e.g., same org), the request succeeds
 7. An attacker can enumerate all users in the org by iterating user IDs
 8. Result: **user enumeration and privacy breach**
 
-**Why this is particularly dangerous:** The `jwt-with-fallback` classification means the endpoint is designed to work for same-org visibility. An attacker with a valid JWT can enumerate all users in their org by requesting `GET /api/v1/identity/users/{id}` for every possible UUID. This is not a vulnerability in the authorization logic — it's a consequence of the endpoint being designed for org-scoped visibility.
+**Why this is particularly dangerous:** The `jwt-with-fallback` classification means the endpoint is designed to work for same-org visibility. An attacker with a valid JWT can enumerate all users in their org by requesting `GET /admin/users/{user_id}` for every possible UUID. This is not a vulnerability in the authorization logic — it's a consequence of the endpoint being designed for org-scoped visibility.
 
 **Impact:** User enumeration and privacy breach. The ownership check is only effective for `/me` endpoints. Arbitrary user lookups rely on authz-core, which may allow same-org visibility. This means:
 - An attacker can discover all users in their org
@@ -410,7 +410,7 @@ The ownership check is: `claims.sub == request.user_id`. For `GET /api/v1/identi
 - An attacker can correlate user IDs across systems (if user IDs are stable identifiers)
 
 **Fix:**
-1. Add explicit documentation that `/api/v1/identity/users/{user_id}` requires the same org membership or admin permission
+1. Add explicit documentation that `/admin/users/{user_id}` requires the same org membership or admin permission
 2. Add rate limiting to user lookup endpoints to prevent enumeration (e.g., 100 req/min per user)
 3. Consider removing public user lookup endpoints entirely — replace with a search endpoint that returns only a limited subset of fields (e.g., just names, no email/phone)
 4. Add to Story 4.4 acceptance criteria: "User lookup endpoint returns 403 Forbidden if the requested user is not in the same org and the caller is not an admin"
@@ -428,7 +428,7 @@ The entire hybrid model depends on authz-core being available for fallback route
 1. **jwt-only routes continue working** (good — they only need JWT validation)
 2. **jwt-with-fallback routes fail** (503 — they need authz-core for the fallback path)
 3. **online-only routes fail** (503 — they always need authz-core)
-4. **New logins fail** (authz-core `/principal/effective` is unavailable — identity-login-service cannot enrich JWT claims)
+4. **New logins fail** (authz-core `/authz/principals/effective` is unavailable — identity-login-service cannot enrich JWT claims)
 5. **New tokens cannot be issued** (no login means no new tokens)
 6. **Refresh tokens still work** (for existing tokens — JWT validation is local)
 
@@ -692,7 +692,7 @@ The token exchange supports nested delegation with `act.chain` (Story 6.1: "Nest
 The wiki mentions "Single-flight pattern: only one request hits authz-core for a given cache key; others wait for the result." But this is not specified in Story 4.3's implementation details or acceptance criteria.
 
 **Exploit Path (Detailed):**
-1. The fallback cache TTL expires for a popular endpoint (e.g., `PUT /api/v1/identity/preferences`)
+1. The fallback cache TTL expires for a popular endpoint (e.g., `PUT /identity/me`)
 2. 1000 requests arrive simultaneously
 3. Without single-flight, all 1000 requests call authz-core simultaneously (thundering herd)
 4. authz-core becomes overwhelmed, causing slow responses or timeouts
@@ -797,7 +797,7 @@ An attacker with a stolen access token combines multiple holes:
 ### Scenario B: The "Login Flood + authz-core DoS" Attack
 
 An attacker floods the login endpoint with valid credentials:
-1. Each login triggers authz-core `/principal/effective` (Hole 6: no login rate limiting)
+1. Each login triggers authz-core `/authz/principals/effective` (Hole 6: no login rate limiting)
 2. authz-core becomes overwhelmed
 3. All jwt-with-fallback and online-only routes fail (Hole 12: authz-core SPOF)
 4. Only jwt-only routes work (graceful degradation)
@@ -824,7 +824,7 @@ An attacker with a platform admin token in org A:
 - `docs/Epics/01-asymmetric-jwks/stories/story-1.1.md` through `story-1.4.md`
 - `docs/Epics/02-claims-schema-evolution/claims.md`
 - `docs/Epics/02-claims-schema-evolution/stories/story-2.2.md`
-- `docs/Epics/03-token-lifecycle/tokens.md`
+- `docs/Epics/03-token-lifecycle/auth/tokens.md`
 - `docs/Epics/03-token-lifecycle/stories/story-3.1.md`
 - `docs/Epics/04-hybrid-authz-model/hybrid.md`
 - `docs/Epics/04-hybrid-authz-model/stories/story-4.3.md`
@@ -947,7 +947,7 @@ The alert system generates WARNING alerts for `jwt_validation_failed` when rate 
 
 Add to the table above (Priority column):
 
-|| Priority | Hole | Effort | Blocker For | Related F-Code |
+| Priority | Hole | Effort | Blocker For | Related F-Code |
 |----------|------|--------|-------------|-------------|----------------|
 | P1 | #23 Observability data leakage | Low | Story 9.1-9.6 | All | — |
 | P1 | #24 Alert system blind to forged tokens | Low | Story 9.7 | All | — |
@@ -958,7 +958,7 @@ Add to the table above (Priority column):
 
 ## Summary of Additional Observability/Alerting Holes (Added 2026-05-16)
 
-|| # | Hole | Impact | Difficulty | Target Stories |
+| # | Hole | Impact | Difficulty | Target Stories |
 |---|------|--------|----------|-------------|----------------|
 | 23 | Structured logging data leakage | User/tenant/authorization reconnaissance | Easy | 9.1, 9.5, 9.6 |
 | 24 | Alert system blind to forged tokens | Unauthorized access with forged tokens | Trivial | 9.7 |

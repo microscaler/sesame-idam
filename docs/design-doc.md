@@ -105,12 +105,12 @@ Sesame-IDAM is **six independent Rust microservices**, not a monolith. This spli
 
 | Service | Base Path | Frequency | Per-Request Cost | Scale Profile |
 |---------|-----------|-----------|-----------------|---------------|
-| **identity-login-service** | `/auth/login`, `/auth/register`, `/social/*`, `/oauth/authorize`, OTP endpoints | HIGH | Medium-High (password hashing, DB writes, JWT signing) | Scales with auth events — login spikes, social OAuth traffic |
-| **identity-session-service** | `/auth/refresh`, `/.well-known/openid-configuration`, `/.well-known/jwks.json` | HIGH | Low (cache hit / static response) | Scales with active sessions — steady state |
-| **identity-user-mgmt-service** | `/api/v1/identity/users/*`, MFA, email/phone, social links, migration | MEDIUM | Medium (DB reads/writes) | Scales with admin operations and user profile changes |
-| **authz-core** | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | EXTREME | Low-Medium (cache hit, role evaluation) | Scales with every authenticated request — highest volume |
-| **api-keys** | `/api/v1/am/api-keys/*` | MEDIUM | Low-Medium (DB validation, cache) | Scales with M2M service traffic |
-| **org-mgmt** | `/orgs/*`, `/api/v1/am/applications/*`, SCIM, webhooks | LOW | High (complex org operations, external SSO) | Scales with org lifecycle events — low volume, high complexity |
+| **identity-login-service** | `/auth/login`, `/auth/register`, `/auth/social/*`, `/oauth/authorize`, OTP endpoints | HIGH | Medium-High (password hashing, DB writes, JWT signing) | Scales with auth events — login spikes, social OAuth traffic |
+| **identity-session-service** | `/session/refresh`, `/.well-known/openid-configuration`, `/.well-known/jwks.json` | HIGH | Low (cache hit / static response) | Scales with active sessions — steady state |
+| **identity-user-mgmt-service** | `/admin/users/*`, MFA, email/phone, social links, migration | MEDIUM | Medium (DB reads/writes) | Scales with admin operations and user profile changes |
+| **authz-core** | `/authz/authorize`, `/authz/principals/*` | EXTREME | Low-Medium (cache hit, role evaluation) | Scales with every authenticated request — highest volume |
+| **api-keys** | `/api-keys/*` | MEDIUM | Low-Medium (DB validation, cache) | Scales with M2M service traffic |
+| **org-mgmt** | `/organizations/*`, `/applications/*`, SCIM, webhooks | LOW | High (complex org operations, external SSO) | Scales with org lifecycle events — low volume, high complexity |
 
 This gives us independent scaling units. During a login surge, only `identity-login-service` needs more capacity. During a per-request authorization storm, only `authz-core` scales. `identity-session-service` can be sized purely on active session counts.
 
@@ -196,25 +196,25 @@ The **only** cross-service dependency is `identity-login-service` calling authz-
 
 The primary authentication entry point. Handles all user-facing login, registration, and social OAuth flows.
 
-**Base paths:** `/auth/login`, `/auth/register`, `/auth/logout`, `/auth/token`, `/social/*`, `/oauth/authorize`, OTP endpoints
+**Base paths:** `/auth/login`, `/auth/register`, `/auth/logout`, `/auth/token`, `/auth/social/*`, `/oauth/authorize`, OTP endpoints
 
 | Sub-area | Endpoints | Frequency | Cost |
 |----------|-----------|-----------|------|
 | **Password Login** | `/auth/login`, `/auth/token` | HIGH | HIGH (password hash + JWT sign) |
-| **Social OAuth** | `/social/{provider}/login`, `/social/{provider}/callback` | HIGH | HIGH (external IdP + JWT sign) |
+| **Social OAuth** | `/auth/social/{provider}/login`, `/auth/social/{provider}/callback` | HIGH | HIGH (external IdP + JWT sign) |
 | **Email OTP** | `/auth/login/email-otp`, `/auth/verify/email-otp` | MEDIUM | MEDIUM (email send + JWT sign) |
 | **Phone OTP** | `/auth/login/phone-otp`, `/auth/verify/phone-otp` | MEDIUM | MEDIUM (SMS send + JWT sign) |
 | **Dual OTP** | `/auth/login/dual-otp`, `/auth/verify/dual-otp` | LOW | HIGH (2x channel + JWT sign) |
 | **Session Init** | `/auth/register`, `/auth/forgot-password`, `/auth/reset-password` | MEDIUM | MEDIUM (DB writes) |
-| **Magic Link** | `/api/v1/identity/users/{id}/magiclink` | LOW | LOW-MEDIUM (email send) |
+| **Magic Link** | `/admin/users/{user_id}/magiclink` | LOW | LOW-MEDIUM (email send) |
 
 **Key endpoints:**
 - `POST /auth/login` — email/password login, returns enriched JWT
 - `POST /auth/register` — idempotent user creation with email/password
 - `POST /auth/login/email-otp` — passwordless email OTP flow
 - `POST /auth/login/dual-otp` — simultaneous email + phone OTP for high-security
-- `POST /social/{provider}/login` — initiate social OAuth (redirect)
-- `POST /social/{provider}/callback` — exchange OAuth code for tokens
+- `POST /auth/social/{provider}/login` — initiate social OAuth (redirect)
+- `POST /auth/social/{provider}/callback` — exchange OAuth code for tokens
 - `POST /oauth/authorize` — authorization code flow for OIDC SPAs
 
 **Storage:** PostgreSQL (users, sessions), Redis (session cache, OTP tokens)
@@ -230,15 +230,15 @@ Token lifecycle and OIDC discovery. Handles refresh, logout, and JWKS/OIDC endpo
 | **Token Refresh** | `/auth/refresh` | EXTREME | LOW (DB lookup + rotate + sign) |
 | **OIDC Discovery** | `/.well-known/openid-configuration` | EXTREME | NEGLIGIBLE (static) |
 | **JWKS** | `/.well-known/jwks.json` | EXTREME | NEGLIGIBLE (cached key set) |
-| **Session Info** | `GET /api/v1/identity/users/me` | HIGH | LOW (cached profile) |
-| **Session Update** | `PATCH /api/v1/identity/users/me` | LOW | MEDIUM (DB write) |
+| **Session Info** | `GET /identity/me` | HIGH | LOW (cached profile) |
+| **Session Update** | `PATCH /identity/me` | LOW | MEDIUM (DB write) |
 | **Logout** | `/auth/logout` | MEDIUM | LOW (token revocation) |
 
 **Key endpoints:**
 - `POST /auth/refresh` — rotate refresh token, issue new access token
 - `GET /.well-known/openid-configuration` — OIDC discovery document
 - `GET /.well-known/jwks.json` — public key set for JWT verification
-- `GET /api/v1/identity/users/me` — current user profile (from token or session)
+- `GET /identity/me` — current user profile (from token or session)
 
 **Storage:** PostgreSQL (refresh tokens), Redis (session cache, JWKS cache)
 
@@ -246,24 +246,24 @@ Token lifecycle and OIDC discovery. Handles refresh, logout, and JWKS/OIDC endpo
 
 Admin-facing user lifecycle management. Handles user CRUD, MFA, email/phone verification, social link management, and migration.
 
-**Base paths:** `/api/v1/identity/users/*`, `/api/v1/identity/users/{id}/mfa/*`, `/api/v1/identity/users/{id}/email/*`, `/api/v1/identity/users/{id}/phone/*`, `/api/v1/identity/users/{id}/social/*`
+**Base paths:** `/admin/users/*`, `/admin/users/{user_id}/mfa/*`, `/admin/users/{user_id}/email/*`, `/admin/users/{user_id}/phone/*`, `/admin/users/{user_id}/social/*`
 
 | Sub-area | Endpoints | Frequency | Cost |
 |----------|-----------|-----------|------|
-| **User CRUD** | `POST/GET/PUT/DELETE /api/v1/identity/users`, `GET /api/v1/identity/users/query` | MEDIUM | MEDIUM (DB reads/writes) |
-| **Email Mgmt** | `PUT /api/v1/identity/users/{id}/email`, verify, resend confirmation | MEDIUM | MEDIUM (DB + email) |
-| **Phone Mgmt** | `POST /api/v1/identity/users/{id}/phone`, verify | LOW | MEDIUM (DB + SMS) |
-| **MFA** | `POST/DELETE /api/v1/identity/users/{id}/mfa/*`, verify | MEDIUM | MEDIUM (DB + TOTP setup) |
-| **Social Links** | `POST/GET /api/v1/identity/users/{id}/social/*`, refresh tokens | LOW | MEDIUM (external IdP + DB) |
+| **User CRUD** | `POST/GET/PUT/DELETE /admin/users`, `GET /admin/users/query` | MEDIUM | MEDIUM (DB reads/writes) |
+| **Email Mgmt** | `PUT /admin/users/{user_id}/email`, verify, resend confirmation | MEDIUM | MEDIUM (DB + email) |
+| **Phone Mgmt** | `POST /admin/users/{user_id}/phone`, verify | LOW | MEDIUM (DB + SMS) |
+| **MFA** | `POST/DELETE /admin/users/{user_id}/mfa/*`, verify | MEDIUM | MEDIUM (DB + TOTP setup) |
+| **Social Links** | `POST/GET /admin/users/{user_id}/social/*`, refresh tokens | LOW | MEDIUM (external IdP + DB) |
 | **Account Actions** | disable, enable, logout-all, clear-password, migrate | LOW | LOW-MEDIUM |
 
 **Key endpoints:**
-- `POST /api/v1/identity/users` — create user (admin)
-- `GET /api/v1/identity/users/query` — paginated user search with filters
-- `POST /api/v1/identity/users/{id}/mfa/setup` — TOTP setup
-- `POST /api/v1/identity/users/{id}/mfa/verify` — MFA verification
-- `POST /api/v1/identity/users/migrate` — bulk password migration
-- `POST /api/v1/identity/users/{id}/social/link` — link OAuth account
+- `POST /admin/users` — create user (admin)
+- `GET /admin/users/query` — paginated user search with filters
+- `POST /admin/users/{user_id}/mfa/setup` — TOTP setup
+- `POST /admin/users/{user_id}/mfa/verify` — MFA verification
+- `POST /admin/users/migrate` — bulk password migration
+- `POST /admin/users/{user_id}/social/link` — link OAuth account
 
 **Storage:** PostgreSQL (users, MFA secrets, social tokens)
 
@@ -271,14 +271,14 @@ Admin-facing user lifecycle management. Handles user CRUD, MFA, email/phone veri
 
 Real-time authorization evaluation. Called on every consumer API request for fine-grained permission checks.
 
-**Base paths:** `/api/v1/am/authorize`, `/api/v1/am/principal/*`
+**Base paths:** `/authz/authorize`, `/authz/principals/*`
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/v1/am/authorize` | POST | Per-request authorization check |
-| `/api/v1/am/principal/effective` | POST | Resolve user's effective roles + permissions |
-| `/api/v1/am/principals/roles` | POST | Assign/revoke principal roles |
-| `/api/v1/am/principals/attributes` | POST | Set principal attributes (ABAC) |
+| `/authz/authorize` | POST | Per-request authorization check |
+| `/authz/principals/effective` | POST | Resolve user's effective roles + permissions |
+| `/authz/principals/roles` | POST | Assign/revoke principal roles |
+| `/authz/principals/attributes` | POST | Set principal attributes (ABAC) |
 
 **Authorization model:**
 - **Coarse-grained checks** (e.g., "is Admin?", "has invoices:write?") — answered from JWT claims directly, zero latency
@@ -290,18 +290,18 @@ Real-time authorization evaluation. Called on every consumer API request for fin
 
 M2M authentication for services and CLI tools. Independent from user-facing authentication.
 
-**Base path:** `/api/v1/am/api-keys/*`
+**Base path:** `/api-keys/*`
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/v1/am/api-keys` | POST | Create API key |
-| `/api/v1/am/api-keys/{id}` | GET/PATCH/DELETE | Manage key |
-| `/api/v1/am/api-keys/validate` | POST | Validate any API key |
-| `/api/v1/am/api-keys/validate/personal` | POST | Validate personal (user-scoped) key |
-| `/api/v1/am/api-keys/validate/org` | POST | Validate org-scoped key |
-| `/api/v1/am/api-keys/archived` | GET | Fetch expired/revoked keys |
-| `/api/v1/am/api-keys/usage` | GET | Fetch usage statistics |
-| `/api/v1/am/api-keys/import` | POST | Import keys from third-party systems |
+| `/api-keys` | POST | Create API key |
+| `/api-keys/{id}` | GET/PATCH/DELETE | Manage key |
+| `/api-keys/validate` | POST | Validate any API key |
+| `/api-keys/validate/personal` | POST | Validate personal (user-scoped) key |
+| `/api-keys/validate/org` | POST | Validate org-scoped key |
+| `/api-keys/archived` | GET | Fetch expired/revoked keys |
+| `/api-keys/usage` | GET | Fetch usage statistics |
+| `/api-keys/import` | POST | Import keys from third-party systems |
 
 **Validation flow:** Simple hash comparison (SHA-256 of stored key). Extremely fast CPU. Returns user + org context if valid.
 
@@ -309,14 +309,14 @@ M2M authentication for services and CLI tools. Independent from user-facing auth
 
 Organisation lifecycle, membership, SSO/SCIM, application/role/permission definitions.
 
-**Base paths:** `/orgs/*`, `/api/v1/am/applications/*`
+**Base paths:** `/organizations/*`, `/applications/*`
 
 | Area | Endpoints | Frequency |
 |------|-----------|-----------|
-| **Orgs** | `POST/GET/PUT/DELETE /orgs`, `/orgs/{id}/members`, `/orgs/{id}/pending-invites` | LOW |
+| **Orgs** | `POST/GET/PUT/DELETE /orgs`, /organizations/{org_id}/members`, /organizations/{org_id}/pending-invites` | LOW |
 | **SSO/SCIM** | SAML/OIDC configuration per org, SCIM groups | LOW |
-| **Applications** | `POST/GET /api/v1/am/applications`, roles/permissions per application | LOW |
-| **Webhooks** | `POST/GET/PUT/DELETE /orgs/{id}/webhooks`, test delivery | LOW |
+| **Applications** | `POST/GET /applications`, roles/permissions per application | LOW |
+| **Webhooks** | `POST/GET/PUT/DELETE /organizations/{org_id}/webhooks`, test delivery | LOW |
 
 **Org settings** (new, May 5, 2026):
 - Password rotation: `password_rotation_enabled`, `password_rotation_history_size`, `password_rotation_period`
@@ -610,14 +610,14 @@ flowchart TD
     B -->|Yes| D[Show app content]
     C --> E{Auth method?}
     E -->|Password| F[POST /auth/login<br/>X-Tenant-ID: header]
-    E -->|Magic link| G[POST /auth/magic-link<br/>X-Tenant-ID: header]
+    E -->|Magic link| G[POST /auth/login/magic-link<br/>X-Tenant-ID: header]
     E -->|Social| H[Redirect to provider<br/>X-Tenant-ID: header]
     E -->|SSO| I[Redirect to IdP<br/>X-Tenant-ID: header]
     E -->|API key| J[POST /api-keys/validate<br/>tenant-scoped key]
     F --> K{Valid?}
     K -->|No| L[Show error]
     K -->|Yes| M[Check MFA]
-    M -->|Required| N[POST /auth/mfa/verify]
+    M -->|Required| N[POST /auth/login/dual-otp]
     N --> O{Valid?}
     O -->|No| L
     O -->|Yes| P[Sign enriched JWT]
@@ -966,7 +966,7 @@ sequenceDiagram
     participant AC as authz-core
     participant Redis as Redis Cache
     participant PG as PostgreSQL
-    Consumer->>AC: POST /api/v1/am/authorize<br/>Authorization: Bearer *** {org_id, action: \"invoice:write\"}
+    Consumer->>AC: POST /authz/authorize<br/>Authorization: Bearer *** {org_id, action: \"invoice:write\"}
     AC->>Redis: Cache lookup<br/>(sub + org_id + action)
     alt Cache HIT
         Redis-->>AC: Cached result
@@ -1079,7 +1079,7 @@ graph LR
 
 ### 10.1 Token Security
 
-|| Property | Detail ||
+| Property | Detail ||
 |----------|--------||
 | **Algorithm** | ES256 (ECDSA + P-256 + SHA-256) or EdDSA (Ed25519) |
 | **Key management** | Public keys served via `/.well-known/jwks.json`, rotated on schedule with overlapping validity windows |
@@ -1146,7 +1146,7 @@ Sesame supports RFC 8693 token exchange for delegation:
 
 ### 10.6 Password Security
 
-|| Property | Detail ||
+| Property | Detail ||
 |----------|--------||
 | **Hashing** | Argon2id with tuned parameters (configurable cost) |
 | **Rotation** | Per-org settings: `password_rotation_enabled`, `history_size` (1-24), `period` (default 30 days) |
@@ -1155,7 +1155,7 @@ Sesame supports RFC 8693 token exchange for delegation:
 
 ### 10.7 MFA
 
-|| Feature | Detail ||
+| Feature | Detail ||
 |---------|--------||
 | **TOTP** | QR code provisioning, 6-digit codes |
 | **WebAuthn** | Hardware security keys, biometric |
@@ -1164,7 +1164,7 @@ Sesame supports RFC 8693 token exchange for delegation:
 
 ### 10.8 API Key Security
 
-|| Property | Detail ||
+| Property | Detail ||
 |----------|--------||
 | **Storage** | SHA-256 hash of key (never stored plaintext) |
 | **Prefix** | Full key shown only at creation time |
@@ -1205,7 +1205,7 @@ sequenceDiagram
 
 ### 10.10 Webhook Security
 
-|| Property | Detail ||
+| Property | Detail ||
 |----------|--------||
 | **Signing** | HMAC-SHA256(payload, secret) in `X-Signature-256` header |
 | **Secret** | Configurable per webhook, stored encrypted |
@@ -1321,13 +1321,13 @@ At any given moment, a user operates within **ONE** org context. When a user bel
 
 ### 13.4 org_type Trust Boundary
 
-`org_type` must never appear in URI paths (e.g., `/provider-orgs/`) because URIs are client-controlled and mutable. It flows exclusively via JWT claim, set by the identity service at token generation. This is the same trust model as `user_type`.
+`org_type` must never appear in URI paths (e.g., `/org-mgmt/`) because URIs are client-controlled and mutable. It flows exclusively via JWT claim, set by the identity service at token generation. This is the same trust model as `user_type`.
 
 ---
 
 ## 14. Future Work
 
-|| Area | Status | Notes ||
+| Area | Status | Notes ||
 |------|--------|-------||
 | **JWT claims evolution** | Epic 2 | Namespaced claims, entitlements_ref, PII removal -- see `docs/Epics/02-claims-schema-evolution/` ||
 | **Asymmetric signing (ES256/EdDSA)** | Epic 1 | Move from HS256 to asymmetric with JWKS -- see `docs/Epics/01-asymmetric-jwks/JWT.md` ||

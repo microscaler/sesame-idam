@@ -8,9 +8,9 @@
 | Service | Directory | Spec Files | Base Path | Port |
 |---------|-----------|------------|-----------|------|
 | **identity-auth** | `openapi/identity-auth/` | `openapi.yaml` (canonical), `identity-login-service/openapi.yaml`, `identity-session-service/openapi.yaml`, `identity-user-mgmt-service/openapi.yaml` | `/auth/*`, `/.well-known/*` | 8101 |
-| **authz-core** | `openapi/authz-core/` | `openapi.yaml` | `/api/v1/am/authorize`, `/api/v1/am/principal/*` | 8102 |
-| **api-keys** | `openapi/api-keys/` | `openapi.yaml` | `/api/v1/am/api-keys/*` | 8103 |
-| **org-mgmt** | `openapi/org-mgmt/` | `openapi.yaml` | `/orgs/*`, `/api/v1/am/applications/*` | 8104 |
+| **authz-core** | `openapi/authz-core/` | `openapi.yaml` | `/authz/authorize`, `/authz/principals/*` | 8102 |
+| **api-keys** | `openapi/api-keys/` | `openapi.yaml` | `/api-keys/*` | 8103 |
+| **org-mgmt** | `openapi/org-mgmt/` | `openapi.yaml` | `/organizations/*`, `/applications/*` | 8104 |
 
 ## identity-auth (combined + sub-specs)
 
@@ -18,9 +18,9 @@ The identity-auth service has a **canonical combined spec** (`identity-auth/open
 
 | Sub-spec | File | Endpoints |
 |----------|------|-----------|
-| **identity-login-service** | `identity-login-service/openapi.yaml` | `/auth/login`, `/auth/register`, `/auth/login/oauth/github`, `/auth/token/exchange`, `/auth/password/reset/*`, `/auth/mfa/verify` |
-| **identity-session-service** | `identity-session-service/openapi.yaml` | `/auth/refresh`, `/.well-known/openid-configuration`, `/.well-known/jwks.json`, `/auth/logout` |
-| **identity-user-mgmt-service** | `identity-user-mgmt-service/openapi.yaml` | `/api/v1/identity/users`, `/api/v1/identity/users/me`, `/api/v1/identity/users/lookup`, email/phone verify |
+| **identity-login-service** | `identity-login-service/openapi.yaml` | `/auth/login`, `/auth/register`, `/auth/social/{provider}/login`, `/auth/token`, `/auth/password/forgot, /auth/password/reset`, `/auth/verify/*` |
+| **identity-session-service** | `identity-session-service/openapi.yaml` | `/session/refresh`, `/.well-known/openid-configuration`, `/.well-known/jwks.json`, `/auth/logout` |
+| **identity-user-mgmt-service** | `identity-user-mgmt-service/openapi.yaml` | `/admin/users`, `/identity/me`, `/admin/users/email, /admin/users/username, /admin/users/query` |
 | **combined** | `identity-auth/openapi.yaml` | Full combined spec for reference/codegen (all identity-auth endpoints) |
 
 > **Note:** The combined spec (`identity-auth/openapi.yaml`) is the one fed to BRRTRouter codegen. The sub-specs are independent, self-contained copies for navigation — they do not lint independently (BRRTRouter does not yet support sub-spec linting).
