@@ -6,6 +6,7 @@
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::uninlined_format_args)]
+mod audit;
 pub mod jwks_client;
 pub mod key_manager;
 pub mod models;

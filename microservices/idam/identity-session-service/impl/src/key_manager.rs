@@ -39,6 +39,83 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Audit event types for key management operations.
+/// HACK-102: All key lifecycle events must be audit-logged for tamper-evident audit trails.
+pub mod audit_events {
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
+
+    /// Emit a key generation event.
+    pub fn key_generated(kid: &str) {
+        let mut event = AuditEvent::new(
+            AuditEventType::System,
+            "key_generated",
+            uuid::Uuid::default(),
+            AuditActor::System,
+            "internal",
+        );
+        event.target_id = Some(uuid::Uuid::default());
+        event.target_type = Some("jwt_signing_key".to_string());
+        event.metadata = Some(serde_json::json!({ "kid": kid }));
+        event.severity = Some(AuditSeverity::Info);
+        EMITTER.emit(&mut event);
+    }
+
+    /// Emit a key rotation event.
+    pub fn key_rotated(old_kid: &str, new_kid: &str) {
+        let mut event = AuditEvent::new(
+            AuditEventType::System,
+            "key_rotated",
+            uuid::Uuid::default(),
+            AuditActor::System,
+            "internal",
+        );
+        event.metadata = Some(serde_json::json!({
+            "from_kid": old_kid,
+            "to_kid": new_kid
+        }));
+        event.severity = Some(AuditSeverity::Info);
+        EMITTER.emit(&mut event);
+    }
+
+    /// Emit a key revocation event.
+    pub fn key_revoked(kid: &str, reason: &str) {
+        let mut event = AuditEvent::new(
+            AuditEventType::System,
+            "key_revoked",
+            uuid::Uuid::default(),
+            AuditActor::Admin,
+            "internal",
+        );
+        event.target_id = Some(uuid::Uuid::default());
+        event.target_type = Some("jwt_signing_key".to_string());
+        event.metadata = Some(serde_json::json!({
+            "kid": kid,
+            "reason": reason
+        }));
+        event.severity = Some(AuditSeverity::Critical);
+        EMITTER.emit(&mut event);
+    }
+
+    /// Emit a grace key cleanup event.
+    pub fn grace_key_expired(kid: &str, age_secs: u64) {
+        let mut event = AuditEvent::new(
+            AuditEventType::System,
+            "grace_key_expired",
+            uuid::Uuid::default(),
+            AuditActor::System,
+            "internal",
+        );
+        event.target_type = Some("jwt_signing_key".to_string());
+        event.metadata = Some(serde_json::json!({
+            "kid": kid,
+            "age_secs": age_secs
+        }));
+        event.severity = Some(AuditSeverity::Info);
+        EMITTER.emit(&mut event);
+    }
+}
+
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 /// Default rotation interval: 30 days.
@@ -449,6 +526,8 @@ impl KeyManager {
         let key = JwtSigningKey::generate(None)?;
         tracing::info!("new key generated: kid={}", key.kid);
         self.validate_key_params(&key.kid)?;
+        // HACK-102: audit key generation
+        audit_events::key_generated(&key.kid);
         // If there was a previous current key, it becomes grace or revoked.
         if self.current_key.is_some() {
             self.next_key = Some(key);
@@ -533,6 +612,13 @@ impl KeyManager {
 
         span.record("to_kid", &new_kid);
         tracing::info!(kid = new_kid, "key rotation prepared");
+        // HACK-102: audit key rotation preparation
+        let old_kid = self
+            .current_key
+            .as_ref()
+            .map(|k| k.kid.as_str())
+            .unwrap_or("none");
+        audit_events::key_rotated(old_kid, &new_kid);
         Ok(())
     }
 
@@ -554,9 +640,13 @@ impl KeyManager {
         let new_kid = next.kid.clone();
 
         // Save and demote current key to grace period.
-        if let Some(mut current) = self.current_key.take() {
+        if let Some(ref current) = self.current_key {
+            let old_kid = current.kid.clone();
+            let mut current = current.clone();
             current.state = KeyState::Grace;
             self.previous_key = Some(current);
+            // HACK-102: audit key rotation activation
+            audit_events::key_rotated(&old_kid, &new_kid);
         }
 
         // Promote next key.
@@ -592,6 +682,8 @@ impl KeyManager {
                     grace_period_secs = self.grace_period_secs,
                     "grace key expired, removing from JWKS and dropping private key"
                 );
+                // HACK-102: audit grace key expiry
+                audit_events::grace_key_expired(&kid, age);
                 self.previous_key = None;
             }
         }
@@ -604,12 +696,14 @@ impl KeyManager {
     ///
     /// Returns [`KeyError::NoKeyToPromote`] if there is no grace key to expire.
     pub fn expire_grace_key(&mut self) -> Result<String, KeyError> {
-        let Some(mut grace_key) = self.previous_key.take() else {
+        let Some(grace_key) = self.previous_key.take() else {
             return Err(KeyError::NoKeyToPromote);
         };
 
         let kid = grace_key.kid.clone();
         tracing::info!(kid = &kid, "manually expiring grace key");
+        // HACK-102: audit manual grace key expiry
+        audit_events::grace_key_expired(&kid, grace_key.age_seconds());
 
         // The private key bytes are dropped when grace_key goes out of scope.
         Ok(kid)
@@ -683,6 +777,8 @@ impl KeyManager {
 
                 span.record("reason", "current_key_revoked");
                 tracing::info!(kid = kid, "key revoked (current key)");
+                // HACK-102: audit key revocation
+                audit_events::key_revoked(kid, "current_key_revoked");
                 return Ok(());
             }
         }
@@ -694,6 +790,8 @@ impl KeyManager {
 
                 span.record("reason", "next_key_revoked");
                 tracing::info!(kid = kid, "key revoked (next key)");
+                // HACK-102: audit key revocation
+                audit_events::key_revoked(kid, "next_key_revoked");
                 return Ok(());
             }
         }
