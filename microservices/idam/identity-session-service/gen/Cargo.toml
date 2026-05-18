@@ -14,8 +14,13 @@ jemalloc = ["tikv-jemallocator"]
 # Gen crates expose request/response types in handlers/types.rs that are only constructed
 # in the impl crate (via serde). When CI runs clippy -p <gen> -- -D warnings, those types
 # are reported as dead code unless we allow it here.
+# Additionally, generated BRRTRouter structs may use capitalized acronyms (e.g. `JWKS`)
+# which trigger clippy::upper_case_acronyms — we suppress since this is generated code.
 [lints.rust]
 dead_code = "allow"
+
+[lints.clippy]
+upper_case_acronyms = "allow"
 
 [dependencies]
 # NOTE: Additional dependencies can be configured via brrtrouter-dependencies.toml

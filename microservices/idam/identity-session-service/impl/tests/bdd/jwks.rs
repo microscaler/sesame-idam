@@ -11,7 +11,9 @@ fn make_km() -> sesame_idam_identity_session_service::key_manager::KeyManager {
     sesame_idam_identity_session_service::key_manager::KeyManager::new().unwrap()
 }
 
-fn keys_have_no_private_fields(keys: &[sesame_idam_identity_session_service::key_manager::JwkOnly]) -> bool {
+fn keys_have_no_private_fields(
+    keys: &[sesame_idam_identity_session_service::key_manager::JwkOnly],
+) -> bool {
     for key in keys {
         let json = serde_json::to_value(key).unwrap();
         // JwkOnly fields: kid, kty, use, crv, x — no private fields
@@ -39,7 +41,12 @@ fn global_keymanager_has_at_least_one_key() {
 #[test]
 fn jwks_keys_have_okp_kty() {
     for key in &KEY_MANAGER.jwks_document().keys {
-        assert_eq!(key.kty, JwkKeyType::Okp, "kty must be OKP, got {:?}", key.kty);
+        assert_eq!(
+            key.kty,
+            JwkKeyType::Okp,
+            "kty must be OKP, got {:?}",
+            key.kty
+        );
     }
 }
 
@@ -58,7 +65,12 @@ fn jwks_keys_have_ed25519_curve() {
 #[test]
 fn jwks_keys_have_sig_use() {
     for key in &KEY_MANAGER.jwks_document().keys {
-        assert_eq!(key.use_claim, JwkUse::Sig, "use must be sig, got {:?}", key.use_claim);
+        assert_eq!(
+            key.use_claim,
+            JwkUse::Sig,
+            "use must be sig, got {:?}",
+            key.use_claim
+        );
     }
 }
 
@@ -141,7 +153,8 @@ fn jwks_response_contains_no_private_key_material() {
 
 #[test]
 fn key_generate_produces_valid_ed25519() {
-    let key = sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
+    let key =
+        sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
     assert!(!key.kid.is_empty());
     assert_eq!(key.alg, "EdDSA");
     assert_eq!(key.public_key_jwk.kty, JwkKeyType::Okp);
@@ -152,14 +165,16 @@ fn key_generate_produces_valid_ed25519() {
 
 #[test]
 fn key_sign_produces_64_byte_signature() {
-    let key = sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
+    let key =
+        sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
     let sig = key.sign(b"test message").unwrap();
     assert_eq!(sig.len(), 64, "Ed25519 signature must be 64 bytes");
 }
 
 #[test]
 fn kid_format_starts_with_key_dash() {
-    let key = sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
+    let key =
+        sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
     assert!(key.kid.starts_with("key-"));
     assert!(key.kid.len() >= 9);
 }
@@ -172,7 +187,11 @@ fn rotation_prepare_succeeds() {
     let old_kid = km.current_key.as_ref().unwrap().kid.clone();
 
     let result = km.prepare_rotation();
-    assert!(result.is_ok(), "prepare_rotation must succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "prepare_rotation must succeed: {:?}",
+        result
+    );
 
     // next_key should now be set
     assert!(
@@ -337,7 +356,11 @@ fn revoke_valid_key_succeeds() {
 fn revoke_invalid_key_fails() {
     let mut km = make_km();
     let result = km.revoke_key("nonexistent-key-00000000");
-    assert!(result.is_err(), "Revoke of non-existent key must fail: {:?}", result);
+    assert!(
+        result.is_err(),
+        "Revoke of non-existent key must fail: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -424,10 +447,7 @@ fn revoke_second_key_removes_current() {
 fn kid_is_active_returns_true_for_current() {
     let km = make_km();
     let kid = km.current_key.as_ref().unwrap().kid.clone();
-    assert!(
-        km.kid_is_active(&kid),
-        "Current key must be active"
-    );
+    assert!(km.kid_is_active(&kid), "Current key must be active");
 }
 
 #[test]
@@ -454,7 +474,10 @@ fn is_revoked_true_after_revocation() {
     let mut km = make_km();
     let kid = km.current_key.as_ref().unwrap().kid.clone();
     km.revoke_key(&kid).expect("revoke must succeed");
-    assert!(km.is_revoked(&kid), "Key must be revoked after revoke_key()");
+    assert!(
+        km.is_revoked(&kid),
+        "Key must be revoked after revoke_key()"
+    );
 }
 
 #[test]
@@ -497,9 +520,7 @@ fn find_public_key_returns_current() {
 #[test]
 fn find_public_key_returns_none_for_unknown() {
     let km = make_km();
-    assert!(
-        km.find_public_key("unknown-key-00000000").is_none()
-    );
+    assert!(km.find_public_key("unknown-key-00000000").is_none());
 }
 
 #[test]

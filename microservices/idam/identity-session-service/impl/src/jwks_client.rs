@@ -331,7 +331,10 @@ pub fn validate_jwks_refresh(new_keys: &[String], old_keys: &[String]) -> bool {
     if ok {
         span.record("cache_status", "hit");
         span.record("result", "allowed");
-        tracing::info!(keys_count = new_keys.len(), "jwks cache refresh OK (overlap found)");
+        tracing::info!(
+            keys_count = new_keys.len(),
+            "jwks cache refresh OK (overlap found)"
+        );
     } else {
         span.record("cache_status", "miss");
         span.record("result", "denied");

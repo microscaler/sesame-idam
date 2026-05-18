@@ -406,6 +406,7 @@ impl JwksDocument {
 pub struct JwksHealthResponse {
     pub keys: Vec<JwksHealthKey>,
     pub key_count: usize,
+    pub current_kid: String,
     pub last_rotation: Option<String>,
     pub next_rotation_estimate: Option<String>,
 }
@@ -768,12 +769,10 @@ impl KeyManager {
         // Check current_key.
         if let Some(ref mut key) = self.current_key {
             if key.kid == kid {
-                key.state = KeyState::Grace; // Will be cleaned up
                 self.revoked_keys.push(kid.to_string());
-                // Drop private key: re-assign a dummy key so the real one is freed.
-                let dummy = JwtSigningKey::generate(Some("dummy".into()))
-                    .map_err(|e| KeyError::RevocationFailed(e.to_string()))?;
-                self.current_key = Some(dummy);
+                // Drop private key entirely — revoke removes the key, doesn't replace it.
+                // The service can generate a new key via generate_new_key() if needed.
+                self.current_key = None;
 
                 span.record("reason", "current_key_revoked");
                 tracing::info!(kid = kid, "key revoked (current key)");
@@ -835,6 +834,12 @@ impl KeyManager {
         None
     }
 
+    /// Get the currently active signing key (for verification/crypto ops).
+    #[must_use]
+    pub fn current_signing_key(&self) -> Option<&JwtSigningKey> {
+        self.current_key.as_ref()
+    }
+
     // ── Health check ─────────────────────────────────────────────────────
 
     /// Get health status for the `/health/jwks` endpoint.
@@ -880,7 +885,12 @@ impl KeyManager {
 
         let key_count = keys.len();
         span.record("key_count", key_count);
+        let current_kid = self
+            .current_key
+            .as_ref()
+            .map_or("".to_string(), |k| k.kid.clone());
         JwksHealthResponse {
+            current_kid,
             key_count,
             keys,
             last_rotation: last_rotation.map(|t| t.to_string()),
