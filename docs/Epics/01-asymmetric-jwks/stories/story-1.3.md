@@ -14,7 +14,11 @@ Wire all 6 services (identity-login-service, identity-session-service, identity-
 
 ## Why This Story Exists
 
+> **Cross-reference:** Story 1.1 deferred ES256 co-default algorithm support to this story and Story 1.2. See Story 1.1's "Deferred Items" section.
+
 The JWT document flags "shared-secret blast radius" as a critical security issue. With HS256, every validating service also has the signing key. With JWKS-based validation, only the identity-login-service holds the private key; all other services use only the public key. This story wires the existing `JwksBearerProvider` runtime support to all services.
+
+> **Also cross-references:** Story 8.1 (typ enforcement), Story 1.2 (ES256 co-default algorithm support in JWKS), and Story 4.2 (hybrid authorization model) are all related to this story's validation pipeline.
 
 ## Design Context
 

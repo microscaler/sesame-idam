@@ -66,6 +66,8 @@ The JWKS response is near-static and served from memory:
 
 ### Rate Limiting (F-009 Fix)
 
+> **Note:** This is a **Deferred Item from Story 1.1**. Story 1.1 identified the risk but does not implement rate limiting; Story 1.2 owns this requirement.
+
 The JWKS endpoint is public and has no authentication. Without rate limiting, an attacker could:
 - Send hundreds of requests/second to exhaust NGINX worker connections
 - Force repeated JSON serialization, consuming CPU
@@ -86,6 +88,8 @@ location /.well-known/jwks.json {
     ...
 }
 ```
+
+**Acceptance criteria:** This story must implement the above rate limiting. Without it, the JWKS endpoint is vulnerable to DoS (see HACK-121 in Story 1.1).
 
 ### Key Set Construction
 

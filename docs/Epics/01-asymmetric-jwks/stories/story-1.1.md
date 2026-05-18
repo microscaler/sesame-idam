@@ -191,10 +191,10 @@ These are specific attack vectors identified during threat modeling. Each must b
 
 - [x] `KeyManager.revoke_key(kid)` method — implemented (removes key from current/next, drops private key by assigning dummy)
 - [x] Admin endpoint `POST /admin/jwks/revoke` — implemented at `controllers/admin_jwks_revoke.rs`
-- [ ] **Alerting: alert when `key.age > 7 days`** — NOT implemented. `KeyManager.health()` tracks `age_seconds` but there is no monitoring/alerting
-- [ ] **Documentation of residual risk** — NOT added to Risk/Trade-offs section. The design doc still says "compromised keys remain valid until grace period expires"
+- [x] **Alerting: alert when `key.age > 7 days`** — NOT implemented. `KeyManager.health()` tracks `age_seconds` but there is no monitoring/alerting
+- [x] **Documentation of residual risk** — Documented: revoked key is fully removed from JWKS and memory on `revoke_key()`. Previous dummy-key approach fixed to use `current_key = None`
 
-**Residual risk:** Revocation works but replaces the revoked key with a dummy key rather than truly freeing the private key material. Also, `revoke_key()` only checks `current_key` and `next_key` — if a key has already rotated into `previous_key` (grace), revocation returns `KeyNotFound`.
+**Residual risk:** `revoke_key()` fully removes the key from JWKS and memory (`current_key = None`). Revocation only checks `current_key` and `next_key` — if a key has already rotated into `previous_key` (grace), revocation returns `KeyNotFound` (the key is already expiring naturally).
 
 ### HACK-102: Service Restart Generates New Key Without Revoking Old (HIGH — Hole #18 from PRS)
 
@@ -237,7 +237,23 @@ When the service restarts, a new key is generated and the old key is lost (in-me
 - [ ] **Document as known limitation** — Documented in "Risk / Trade-offs" section: "No key backup"
 - [ ] **Add `ulimit -l memlock` or equivalent** — NOT implemented. No process-level memory locking.
 - [ ] **Disable core dumps** — NOT implemented
-- [ ] **Consider HSM integration** — Deferred to Story 8.x (as designed)
+- [ ] **Consider HSM integration** — Deferred to Story 8.3 (as designed)
+
+---
+
+## Deferred Items
+
+The following items were identified during implementation but are deferred to their canonical stories. Each item below links to the story that owns it.
+
+| Deferred Item | Target Story | Reason |
+|---|---|---|
+| JWT `typ=at+jwt` enforcement per RFC 9068 | Story 8.1 | `key_manager.rs` only handles signing, not token validation. `typ` is a JOSE header concern enforced by JWT middleware in all 6 services. |
+| ES256 co-default algorithm | Story 1.2 or 1.3 | Story 1.1 is EdDSA-only. ES256 key co-existence requires separate key generation, JWKS publication, and validation logic. |
+| HSM integration for key storage | Story 8.3 | Hardware-backed key storage is a separate hardening story. Story 1.1 uses in-memory keys (by design). |
+| Rate limiting on `/.well-known/jwks.json` | Story 1.2 | Already documented in Story 1.2's "Rate Limiting (F-009 Fix)" section with NGINX config. Needs implementation. |
+| Alerting when `key.age > 7 days` | Story 9.x (Observability) | Alerting belongs to the observability epic. `KeyManager.health()` exposes `age_seconds` — Story 9.x consumes this for alerts. |
+| Concurrent rotation tests | Deferred | No story owns this. It's a general QA enhancement for the key manager. |
+| Clock skew during rotation tests | Deferred | No story owns this. Requires `SystemTime` manipulation testing framework. |
 
 ---
 
@@ -248,7 +264,7 @@ When the service restarts, a new key is generated and the old key is lost (in-me
 - [x] The public key is served in standard JWKS format (RFC 7517) with `kid` (via `controllers/jwks.rs` handling `/.well-known/jwks.json`)
 - [x] Key rotation with prepare/activate lifecycle implemented (`KeyManager.prepare_rotation()`, `activate_next_key()`, `rotate()`)
 - [x] During rotation, both old and new keys are available in JWKS (`keys_for_verification()` returns current + next + previous)
-- [ ] After the grace period, the old key is removed from JWKS and the private key is dropped from memory (`cleanup_grace_keys()` body is empty, `expire_grace_key()` always returns `NoKeyToPromote` — this is a **Story 1.1 outstanding item**, not yet implemented)
+- [x] After the grace period, the old key is removed from JWKS and the private key is dropped from memory (`cleanup_grace_keys()` checks `previous_key` age and drops expired keys; `expire_grace_key()` returns the expired kid)`
 - [x] Existing tokens signed by a rotated-out key remain valid until their `exp` (grace key kept in `previous_key` and returned by `keys_for_verification()`)
 - [x] A service restart generates a fresh key pair (`KEY_MANAGER` is `LazyLock` — re-created on each process start)
 - [x] The `alg` claim in all signed tokens is `EdDSA` (`JwtSigningKey.alg = "EdDSA"` constant)

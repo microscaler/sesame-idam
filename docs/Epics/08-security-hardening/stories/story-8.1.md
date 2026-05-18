@@ -14,6 +14,8 @@ Enforce the JWT `typ` (type) claim as `at+jwt` (access token) in all JWT validat
 
 ## Why This Story Exists
 
+> **Cross-reference:** Story 1.1 deferred the JWT `typ=at+jwt` enforcement to this story. See Story 1.1's "Deferred Items" section.
+
 RFC 7519 defines the `typ` header parameter for JWTs. Sesame specifies `typ: at+jwt` for access tokens. Without type enforcement, a service might accidentally accept a different token type (refresh token, self-issued ID token) as an access token, bypassing authorization checks. The JWT document explicitly states: "Enforce `typ` claim in all services -- this is a baseline security requirement."
 
 ## Design Context

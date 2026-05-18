@@ -14,6 +14,8 @@ Implement comprehensive security audit logging for all JWT operations: issuance,
 
 ## Why This Story Exists
 
+> **Cross-reference:** Story 1.1 deferred HSM/key storage hardening to this story (and other Epic 8 stories). See Story 1.1's "Deferred Items" section.
+
 The JWT document identifies security audit logging as critical: "Log all JWT issuance, validation failures, version bumps, revocations, and delegation events. Include issuer, subject, actor, scopes, decision_source in every log entry." Without audit logging, security incidents cannot be investigated and compliance requirements cannot be met.
 
 ## Design Context
