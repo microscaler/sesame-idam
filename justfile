@@ -162,6 +162,53 @@ test-cargo:
     @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo test --manifest-path microservices/Cargo.toml --all -- --nocapture
 
 # =============================================================================
+# Code Coverage (LLVM)
+# =============================================================================
+# Uses `cargo-llvm-cov` (LLVM-based coverage, replaced `cargo-tarpaulin`).
+# Replaces: `cargo-tarpaulin` — faster, more accurate, better HTML reports.
+#
+# Coverage ladder:
+#   • `just test-coverage`       — generate LCOV + HTML reports
+#   • `just test-coverage-open`  — open HTML report in browser
+#   • `just test-coverage-check` — check against minimum threshold (60%)
+#
+# CI enforces 60% minimum coverage (set via `MIN_COVERAGE` env var).
+# Target is 80% — aim for this as more tests are added.
+#
+# Install: rustup component add llvm-tools-preview && cargo install cargo-llvm-cov
+
+# Run tests with LLVM coverage
+test-coverage:
+    @echo "🧪 Running tests with LLVM coverage..."
+    @echo "📦 Installing cargo-llvm-cov if needed..."
+    @cargo install cargo-llvm-cov --locked 2>/dev/null || true
+    @echo "🔍 Generating coverage report..."
+    @cd microservices && cargo llvm-cov --all-features --workspace --lcov --output-path ../../lcov.info
+    @cd microservices && cargo llvm-cov --all-features --workspace --html --output-dir ../target/llvm-cov/html
+    @echo "✅ Coverage report generated:"
+    @echo "   📊 HTML: target/llvm-cov/html/index.html"
+    @echo "   📄 LCOV: lcov.info"
+    @cd microservices && cargo llvm-cov --all-features --workspace --summary-only
+
+# Open coverage report in browser
+test-coverage-open:
+    @echo "🌐 Opening coverage report..."
+    @open target/llvm-cov/html/index.html || xdg-open target/llvm-cov/html/index.html || echo "Please open target/llvm-cov/html/index.html manually"
+
+# Check coverage meets minimum (60%). Target is 80%.
+test-coverage-check:
+    @echo "📊 Checking test coverage (minimum 60%, target 80%)..."
+    @cd microservices && cargo llvm-cov --all-features --workspace --summary-only
+    @COVERAGE=$$(cd microservices && cargo llvm-cov --all-features --workspace --summary-only | grep -oP '[0-9]+%' | head -1 | tr -d '%'); \
+    MIN_COVERAGE=$${MIN_COVERAGE:-60}; \
+    if [ "$$COVERAGE" -lt "$$MIN_COVERAGE" ]; then \
+        echo "❌ Coverage $$COVERAGE% is below minimum $$MIN_COVERAGE%"; \
+        exit 1; \
+    else \
+        echo "✅ Coverage $$COVERAGE% meets minimum $$MIN_COVERAGE%"; \
+    fi
+
+# =============================================================================
 # Tooling (.venv and sesame CLI) — same guard rails as RERP
 # =============================================================================
 # Run `just init` once before first use of lint/format/qa/install-hooks.

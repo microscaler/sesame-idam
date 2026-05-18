@@ -1,0 +1,26 @@
+# Dependabot — version updates (security alerts are handled separately in repo Settings → Security).
+# Cargo workspace root: microservices/ (see microservices/Cargo.toml).
+# Weekly Monday schedule, with labels for triage.
+version: 2
+updates:
+  # Rust/Cargo workspace dependencies
+  - package-ecosystem: cargo
+    directory: /microservices
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 15
+    labels:
+      - dependencies
+      - rust
+
+  # GitHub Actions (CI workflows)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - github-actions
