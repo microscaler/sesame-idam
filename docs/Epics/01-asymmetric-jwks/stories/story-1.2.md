@@ -14,6 +14,8 @@ Implement the `/.well-known/jwks.json` endpoint that serves the current set of p
 
 ## Why This Story Exists
 
+> **Cross-reference:** Story 1.1 deferred ES256 co-default algorithm support to this story and Story 1.2. Story 1.1 deferred rate limiting on `/.well-known/jwks.json` directly to this story (already documented in its "Rate Limiting (F-009 Fix)" section). See Story 1.1's "Deferred Items" section for the full list.
+
 The JWT document recommends publishing discovery metadata and a JWKS document so resource servers can validate tokens locally (RFC 8414 + OIDC Discovery). The generated runtime already supports `JwksBearerProvider` with issuer, audience, leeway, and cache TTL configuration. This story wires that runtime support to serve dynamic keys.
 
 ## Design Context
