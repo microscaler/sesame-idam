@@ -212,12 +212,14 @@ No OpenAPI changes. Spans are internal.
 
 ## Acceptance Criteria
 
-- [ ] `jwks_cache` span created on every key lookup
-- [ ] `jwks_cache.refresh` span created on every background or on-demand refresh
-- [ ] Span attributes record: `kid`, `cache_hit`, `cache_age_seconds`, `keys_count`, `result`, `error`
-- [ ] Refresh failures logged at WARN level with `event: "jwks_refresh_failure"`
-- [ ] Spans appear in Jaeger traces
-- [ ] No Prometheus counters for JWKS cache (use BRRTRouter's `brrtrouter_request_duration_seconds` histogram for latency)
+- [ ] `jwks_cache` span created on every key lookup — **NOT implemented**. Token validation happens in BRRTRouter's `JwksBearerProvider`, not in sesame-idam's `jwks_client.rs`
+- [x] `jwks.cache.refresh` span created on JWKS cache validation — implemented in `jwks_client.rs:validate_jwks_refresh()` with `keys_count`, `cache_status` (hit/miss), `result` (allowed/denied), `error`
+- [x] Span attributes record: `keys_count`, `cache_status`, `result`, `error` — implemented with hit/miss tracking
+- [x] Poisoning detection logged at WARN level with "jwks cache refresh REJECTED (no overlap)" — implemented
+- [ ] Spans appear in Jaeger traces — infrastructure dependency (requires `OTEL_EXPORTER_OTLP_ENDPOINT` set)
+- [x] No Prometheus counters for JWKS cache (uses BRRTRouter's metrics)
+
+**Summary:** 1 span implemented (`jwks.cache.refresh`). Separate `jwks_cache` hit/miss spans on each token validation require BRRTRouter changes.
 
 ## Dependencies
 

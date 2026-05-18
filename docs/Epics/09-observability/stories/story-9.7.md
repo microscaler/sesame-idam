@@ -305,15 +305,17 @@ No OpenAPI changes. Alerting is internal to the operations layer.
 
 ## Acceptance Criteria
 
-- [ ] All CRITICAL alerts (reuse, rotation failure, revocation failure, JWKS failure) page on-call on first event
-- [ ] All WARNING alerts route to Slack #idam-alerts, escalate to page if rate > 20/min
-- [ ] Loki log queries use `| json` filter to parse structured logs
-- [ ] Alert expressions use `event=` field for precise log matching
-- [ ] Alert annotations include: summary, description, current event count
-- [ ] CRITICAL alerts have `for: 1m` (no sustained violation needed — any single event is critical)
-- [ ] WARNING alerts have `for: 5m` (sustained violation required)
-- [ ] Grafana dashboard shows alert status by severity
-- [ ] Runbook documents response procedure for each alert
+- [ ] CRITICAL alerts (reuse, rotation failure, revocation failure, JWKS failure) page on-call — **NOT IMPLEMENTED**. No Grafana/Loki alerting rules exist.
+- [ ] WARNING alerts route to Slack — **NOT IMPLEMENTED**.
+- [ ] Loki log queries use `| json` filter — **NOT IMPLEMENTED**.
+- [ ] Alert expressions use `event=` field — **NOT IMPLEMENTED**.
+- [ ] Alert annotations include summary/description — **NOT IMPLEMENTED**.
+- [ ] CRITICAL alerts have `for: 1m` — **NOT IMPLEMENTED**.
+- [ ] WARNING alerts have `for: 5m` — **NOT IMPLEMENTED**.
+- [ ] Grafana dashboard shows alert status — **NOT IMPLEMENTED**.
+- [ ] Runbook documents response procedure — **NOT IMPLEMENTED**.
+
+**Summary:** 0/9 criteria met. Alerting requires Grafana/Loki pipeline deployment which is an infrastructure dependency, not a code change in sesame-idam. The structured logs and spans from Stories 9.1-9.6 are ready for alerting configuration once the pipeline is deployed.
 
 ## Dependencies
 

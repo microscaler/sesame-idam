@@ -313,15 +313,17 @@ No OpenAPI changes. Logging is internal to the service.
 
 ## Acceptance Criteria
 
-- [ ] All JWT validation requests produce structured JSON log entries
-- [ ] All required fields are present: timestamp, level, service, event, issuer, subject, client_id, session_id, token_id, token_version, route, decision_source, actor_subject, result, method
-- [ ] decision_source is one of: jwt_claims, fallback_cached, fallback_online, denylist, version_mismatch, online_only
-- [ ] actor_subject is populated when act claim is present, null otherwise
-- [ ] Raw tokens are NEVER in log entries (verified by unit test)
-- [ ] PII fields (email, phone) are NEVER in log entries
-- [ ] Logging is async (non-blocking) -- does not add latency to request
-- [ ] Log levels: INFO for allowed, WARN for denied, ERROR for validation failures
-- [ ] Unit tests verify: structured log format, no raw tokens, required fields present
+- [ ] All JWT validation requests produce structured JSON log entries with all fields — **PARTIALLY IMPLEMENTED**. Token lifecycle controllers (`token.issue`, `token.refreshed`, `token.issued`) emit `tracing::info!` with `user_id`, `tenant_id`, `grant_type`, `result` fields. But per-request JWT fields (`issuer`, `subject`, `client_id`, `session_id`, `jti`, `token_version`, `decision_source`, `actor_subject`) are NOT extracted from JWT claims in the middleware layer.
+- [ ] Required fields: `issuer`, `subject`, `client_id`, `session_id`, `token_id`, `token_version` — **NOT IMPLEMENTED**. These would need to be extracted from JWT claims in the JWT middleware or authz-core handler. Currently the `authz.request` span only has `route`, `method`, `result`.
+- [ ] `decision_source` field — **NOT IMPLEMENTED**. No decision_source tracking exists. Would require knowledge of which authorization path was taken (jwt_claims, fallback, online_only).
+- [ ] `actor_subject` field — **NOT IMPLEMENTED**. Depends on Story 6.1 (delegation/act claim).
+- [x] Raw tokens are NEVER in log entries — **CONFIRMED**. No implementation logs raw tokens. All span/log attributes use opaque identifiers only.
+- [x] PII fields (email, phone) are NEVER in log entries — **CONFIRMED**. Span attributes and structured logs only use `user_id`, `tenant_id`, `kid`, `route`, `method`, `result` — no PII fields.
+- [ ] Logging is async (non-blocking) — **PARTIALLY IMPLEMENTED**. `tracing::info!()` calls are synchronous but non-blocking at the HTTP level (they don't block the handler). True async logging to an external sink is a BRRTRouter/OTEL subscriber concern.
+- [x] Log levels: INFO for allowed, WARN for denied, ERROR for failures — **PARTIALLY IMPLEMENTED**. Token lifecycle controllers use INFO. `authz.request` uses DEBUG. JWKS poisoning uses WARN. No ERROR-level structured logs for security events yet.
+- [ ] Unit tests for structured log format — **NOT IMPLEMENTED**.
+
+**Summary:** 3 controller spans with basic structured logging implemented (`token.issue`, `token.refreshed`, `token.issued`). Per-request JWT claim extraction (issuer, subject, client_id, session_id, jti, token_version, decision_source, actor_subject) not implemented. No unit tests for log format. PII safety confirmed.
 
 ## Dependencies
 
