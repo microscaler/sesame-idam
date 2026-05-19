@@ -1,13 +1,23 @@
-// Implementation crate main entry point
-// This file is generated as a starting point.
-// You can modify this file freely - it will NOT be auto-regenerated.
+/// Implementation crate entry point for identity-session-service.
+///
+/// This service manages JWT signing keys (Ed25519), serves the JWKS endpoint,
+/// and handles key rotation lifecycle. It is the authoritative JWKS source for
+/// all other Sesame-IDAM consumer services.
+///
+/// The service is already modularized with:
+/// - `key_manager` — JWT signing key generation, rotation, and storage
+/// - `controllers` — endpoint handlers (JWKS, admin revoke)
+/// - `middleware` — custom middleware (JWKS headers)
+/// - `audit` — global audit event emitter
 
 use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 use sesame_idam_identity_session_service_gen::registry;
 mod audit;
+mod config;
 mod controllers;
 mod key_manager;
 mod middleware;
+mod security;
 
 // key_manager module is registered but KeyManager is used via static KEY_MANAGER
 
@@ -144,6 +154,27 @@ fn main() -> io::Result<()> {
     );
     service.set_metrics_middleware(metrics);
     service.set_memory_middleware(memory);
+
+    // Load application config and initialize security providers.
+    // identity-session-service is the JWKS issuer — it doesn't consume JWTs from
+    // itself, so security init is optional. Other consumer services use the
+    // same init_security() to validate JWTs against this service's JWKS.
+    match config::load_config(&args.config) {
+        Ok(app_config) => {
+            if app_config.security.is_some() {
+                if let Err(e) = security::init_security(&app_config, &mut service) {
+                    eprintln!("[config][error] security init failed: {e}");
+                    return Err(io::Error::other(format!("Security init failed: {e}")));
+                }
+            } else {
+                println!("[config] no security config; using service defaults");
+            }
+        }
+        Err(e) => {
+            eprintln!("[config][error] {e}");
+            return Err(io::Error::other(e));
+        }
+    }
 
     // Concatenate Lifeguard's prometheus text (DB metrics, pool stats) into
     // BRRTRouter's scrape response so a single /metrics endpoint covers both

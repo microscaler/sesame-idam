@@ -1,33 +1,9 @@
-// Implementation crate main entry point
-// This file is generated as a starting point.
-// You can modify this file freely - it will NOT be auto-regenerated.
-
-use sesame_idam_api_keys_gen::registry;
-mod audit;
-
-use brrtrouter::dispatcher::Dispatcher;
-
-use brrtrouter::middleware::MetricsMiddleware;
-
-use brrtrouter::router::Router;
-
-use brrtrouter::runtime_config::RuntimeConfig;
-
-use brrtrouter::security::JwksBearerProvider;
-
-use brrtrouter::server::AppService;
-
-use brrtrouter::server::HttpServer;
-use clap::Parser;
-use std::collections::HashMap;
-use std::fs;
-use std::io;
-use std::path::PathBuf;
+/// Application entry point.
+///
+/// Loads configuration, initializes the security chain (JwksBearerProvider),
+/// registers middleware and handlers, and runs the BRRTRouter HTTP server.
 
 // Use jemalloc as the global allocator for better memory performance.
-// This is gated behind the "jemalloc" feature (enabled by default).
-// Disable this feature if brrtrouter is providing jemalloc via its own "jemalloc" feature,
-// or if you want to use the system allocator: `cargo build --no-default-features`
 #[cfg(feature = "jemalloc")]
 use tikv_jemallocator::Jemalloc;
 
@@ -35,52 +11,24 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-// Application config structs — mirror gen/main.rs so impl loads the same config.
+mod audit;
+mod config;
+mod security;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct AppConfig {
-    port: Option<u16>,
-    security: Option<SecurityConfig>,
-    http: Option<HttpConfig>,
-    cors: Option<CorsConfig>,
-}
+use config::load_config;
+use security::init_security;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct SecurityConfig {
-    jwks: Option<HashMap<String, JwksSchemeConfig>>,
-    api_keys: Option<HashMap<String, ApiKeyConfig>>,
-}
+use sesame_idam_api_keys_gen::registry;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct JwksSchemeConfig {
-    jwks_url: String,
-    iss: Option<String>,
-    aud: Option<String>,
-    leeway_secs: Option<u64>,
-    cache_ttl_secs: Option<u64>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct ApiKeyConfig {
-    key: Option<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct HttpConfig {
-    keep_alive: Option<bool>,
-    timeout_secs: Option<u64>,
-    max_requests: Option<u64>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct CorsConfig {
-    origins: Option<Vec<String>>,
-    allowed_headers: Option<Vec<String>>,
-    allowed_methods: Option<Vec<String>>,
-    allow_credentials: Option<bool>,
-    expose_headers: Option<Vec<String>>,
-    max_age: Option<u32>,
-}
+use brrtrouter::dispatcher::Dispatcher;
+use brrtrouter::middleware::MetricsMiddleware;
+use brrtrouter::router::Router;
+use brrtrouter::runtime_config::RuntimeConfig;
+use brrtrouter::server::AppService;
+use brrtrouter::server::HttpServer;
+use clap::Parser;
+use std::io;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 struct Args {
@@ -163,70 +111,21 @@ fn main() -> io::Result<()> {
     service.set_metrics_middleware(metrics);
     service.set_memory_middleware(memory);
 
-    // Load application config for security initialization
-    let app_config: AppConfig = match fs::read_to_string(&args.config) {
-        Ok(s) => match serde_yaml::from_str::<AppConfig>(&s) {
-            Ok(cfg) => cfg,
-            Err(e) => {
-                eprintln!(
-                    "[config][error] Failed to parse {}: {}",
-                    args.config.display(),
-                    e
-                );
-                return Err(io::Error::other(format!(
-                    "Invalid configuration file {}: {}",
-                    args.config.display(),
-                    e
-                )));
+    // Load application config and initialize security providers.
+    match load_config(&args.config) {
+        Ok(app_config) => {
+            if app_config.security.is_some() {
+                if let Err(e) = init_security(&mut service, &app_config) {
+                    eprintln!("[config][error] security init failed: {e}");
+                    return Err(std::io::Error::other(format!("Security init failed: {e}")));
+                }
+            } else {
+                println!("[config] no security config; using service defaults");
             }
-        },
-        Err(e) if e.kind() == io::ErrorKind::NotFound => {
-            println!(
-                "[config] {} not found; continuing with defaults",
-                args.config.display()
-            );
-            AppConfig::default()
         }
         Err(e) => {
-            return Err(io::Error::other(format!(
-                "Failed to read configuration file {}: {}",
-                args.config.display(),
-                e
-            )));
-        }
-    };
-
-    // Wire JwksBearerProvider for bearer auth schemes from config.yaml
-    // This mirrors the security initialization in gen/main.rs so the impl
-    // uses real JWKS-based JWT validation instead of the mock providers.
-    {
-        let sec_cfg = app_config.security.as_ref();
-        for (scheme_name, _scheme) in service.security_schemes.clone() {
-            // Check for per-scheme JWKS config
-            if let Some(jwks_map) = sec_cfg.and_then(|s| s.jwks.as_ref()) {
-                if let Some(jwks) = jwks_map.get(&scheme_name) {
-                    let mut p = JwksBearerProvider::new(&jwks.jwks_url);
-                    if let Some(iss) = jwks.iss.as_deref() {
-                        p = p.issuer(iss);
-                    }
-                    if let Some(aud) = jwks.aud.as_deref() {
-                        p = p.audience(aud);
-                    }
-                    if let Some(leeway) = jwks.leeway_secs {
-                        p = p.leeway(leeway);
-                    }
-                    if let Some(ttl) = jwks.cache_ttl_secs {
-                        p = p.cache_ttl(std::time::Duration::from_secs(ttl));
-                    }
-                    println!(
-                        "[auth] register JwksBearerProvider scheme={} jwks_url={} iss={:?} aud={:?}",
-                        scheme_name, jwks.jwks_url, jwks.iss, jwks.aud
-                    );
-                    service.register_security_provider(&scheme_name, std::sync::Arc::new(p));
-                    continue;
-                }
-            }
-            // Fallback: skip this scheme (no JWKS config defined)
+            eprintln!("[config][error] {e}");
+            return Err(std::io::Error::other(e));
         }
     }
 

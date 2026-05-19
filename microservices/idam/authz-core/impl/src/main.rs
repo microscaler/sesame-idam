@@ -1,34 +1,12 @@
-// Implementation crate main entry point
-// This file is generated as a starting point.
-// You can modify this file freely - it will NOT be auto-regenerated.
-
-use sesame_idam_authz_core_gen::registry;
-mod audit;
-mod authz_span_middleware;
-
-use brrtrouter::dispatcher::Dispatcher;
-
-use brrtrouter::middleware::MetricsMiddleware;
-
-use brrtrouter::router::Router;
-
-use brrtrouter::runtime_config::RuntimeConfig;
-
-use brrtrouter::security::JwksBearerProvider;
-
-use brrtrouter::server::AppService;
-
-use brrtrouter::server::HttpServer;
-use clap::Parser;
-use std::collections::HashMap;
-use std::fs;
-use std::io;
-use std::path::PathBuf;
+/// Application entry point.
+///
+/// Loads configuration, initializes the security chain (JwksBearerProvider),
+/// registers middleware and handlers, and runs the BRRTRouter HTTP server.
+///
+/// The service is a pure stateless authorization gate — it does not store
+/// any state beyond what the JWKS client caches in memory.
 
 // Use jemalloc as the global allocator for better memory performance.
-// This is gated behind the "jemalloc" feature (enabled by default).
-// Disable this feature if brrtrouter is providing jemalloc via its own "jemalloc" feature,
-// or if you want to use the system allocator: `cargo build --no-default-features`
 #[cfg(feature = "jemalloc")]
 use tikv_jemallocator::Jemalloc;
 
@@ -36,128 +14,102 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-// Application config structs — mirror gen/main.rs so impl loads the same config.
+mod audit;
+mod authz_span_middleware;
+mod config;
+mod security;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct AppConfig {
-    port: Option<u16>,
-    security: Option<SecurityConfig>,
-    http: Option<HttpConfig>,
-    cors: Option<CorsConfig>,
-}
+use sesame_idam_authz_core_gen::registry;
+use std::path::PathBuf;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct SecurityConfig {
-    jwks: Option<HashMap<String, JwksSchemeConfig>>,
-    api_keys: Option<HashMap<String, ApiKeyConfig>>,
-}
+use brrtrouter::dispatcher::Dispatcher;
+use brrtrouter::middleware::MetricsMiddleware;
+use brrtrouter::router::Router;
+use brrtrouter::runtime_config::RuntimeConfig;
+use brrtrouter::server::AppService;
+use brrtrouter::spec::{RouteMeta, SecurityScheme};
+use brrtrouter::server::HttpServer;
+use clap::Parser;
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct JwksSchemeConfig {
-    jwks_url: String,
-    iss: Option<String>,
-    aud: Option<String>,
-    leeway_secs: Option<u64>,
-    cache_ttl_secs: Option<u64>,
-}
+use audit::EMITTER;
+use config::load_config;
+use security::init_security;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct ApiKeyConfig {
-    key: Option<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct HttpConfig {
-    keep_alive: Option<bool>,
-    timeout_secs: Option<u64>,
-    max_requests: Option<u64>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-struct CorsConfig {
-    origins: Option<Vec<String>>,
-    allowed_headers: Option<Vec<String>>,
-    allowed_methods: Option<Vec<String>>,
-    allow_credentials: Option<bool>,
-    expose_headers: Option<Vec<String>>,
-    max_age: Option<u32>,
-}
-
+/// Command-line arguments.
 #[derive(Parser)]
+#[command(name = "authz-core", about = "Stateless authorization gate for Sesame-IDAM")]
 struct Args {
+    /// Path to the OpenAPI spec file.
     #[arg(short, long, default_value = "./doc/openapi.yaml")]
     spec: PathBuf,
+
+    /// Directory for static file serving.
     #[arg(long)]
     static_dir: Option<PathBuf>,
+
+    /// Directory for serving the OpenAPI documentation.
     #[arg(long, default_value = "./doc")]
     doc_dir: PathBuf,
+
+    /// Enable hot-reload of the OpenAPI spec.
     #[arg(long, default_value_t = false)]
     hot_reload: bool,
+
+    /// Test API key (for development).
     #[arg(long)]
     test_api_key: Option<String>,
+
+    /// Path to the application configuration file.
     #[arg(long, default_value = "./config/config.yaml")]
     config: PathBuf,
 }
 
-fn main() -> io::Result<()> {
-    // Initialize structured logging
-    if let Err(e) =
-        brrtrouter::otel::init_logging_with_config(&brrtrouter::otel::LogConfig::from_env())
-    {
+fn main() -> std::io::Result<()> {
+    // Initialize structured logging.
+    if let Err(e) = brrtrouter::otel::init_logging_with_config(&brrtrouter::otel::LogConfig::from_env()) {
         eprintln!("[logging][error] failed to init tracing subscriber: {e}");
     }
 
     let args = Args::parse();
-    // Configure coroutine stack size
-    let config = RuntimeConfig::from_env();
-    may::config().set_stack_size(config.stack_size);
-    may::config().set_workers(config.may_workers);
 
-    // Load OpenAPI spec
-    let spec_path = if args.spec.is_relative() {
-        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        base.join(args.spec)
-    } else {
-        args.spec.clone()
-    };
+    // Configure coroutine stack size from environment.
+    let runtime_config = RuntimeConfig::from_env();
+    may::config().set_stack_size(runtime_config.stack_size);
+    may::config().set_workers(runtime_config.may_workers);
 
-    let spec_str = spec_path.to_str().unwrap_or_else(|| {
-        eprintln!("[startup][error] OpenAPI spec path contains invalid UTF-8");
-        std::process::exit(1);
-    });
-    let (routes, schemes, _): (_, _, _) = brrtrouter::spec::load_spec_full(spec_str)
-        .unwrap_or_else(|e| {
-            eprintln!("[startup][error] failed to load OpenAPI spec: {e}");
-            std::process::exit(1);
-        });
+    // Load OpenAPI spec and extract routes.
+    let spec_path = resolve_spec_path(&args.spec);
+    let (routes, schemes, _) = load_spec(&spec_path);
 
-    let router_arc =
-        std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Router::new(routes.clone())));
+    // Create the router.
+    let router_arc = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Router::new(routes.clone())));
     {
         let r = router_arc.load();
         r.dump_routes();
     }
 
-    // Create dispatcher and middleware
+    // Build the dispatcher with middleware.
     let mut dispatcher = Dispatcher::new();
     let metrics = std::sync::Arc::new(MetricsMiddleware::new());
     dispatcher.add_middleware(metrics.clone());
 
-    // Add authz request span middleware — wraps all incoming requests
-    // with `authz.request` spans containing route, method, and result (allowed/denied).
+    // Authz request tracing middleware.
     let authz_span = std::sync::Arc::new(authz_span_middleware::AuthzSpanMiddleware::new());
     dispatcher.add_middleware(authz_span);
 
-    // Create memory tracking middleware
+    // Memory tracking middleware with background monitor.
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
-    // Register handlers from generated crate
+    // Register generated handlers from the spec.
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);
     }
 
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
+
+    // Build the application service.
     let mut service = AppService::new(
         router_arc,
         dispatcher,
@@ -169,81 +121,31 @@ fn main() -> io::Result<()> {
     service.set_metrics_middleware(metrics);
     service.set_memory_middleware(memory);
 
-    // Load application config for security initialization
-    let app_config: AppConfig = match fs::read_to_string(&args.config) {
-        Ok(s) => match serde_yaml::from_str::<AppConfig>(&s) {
-            Ok(cfg) => cfg,
-            Err(e) => {
-                eprintln!(
-                    "[config][error] Failed to parse {}: {}",
-                    args.config.display(),
-                    e
-                );
-                return Err(io::Error::other(format!(
-                    "Invalid configuration file {}: {}",
-                    args.config.display(),
-                    e
-                )));
+    // Load application config and initialize security providers.
+    match load_config(&args.config) {
+        Ok(app_config) => {
+            if app_config.security.is_some() {
+                if let Err(e) = init_security(&mut service, &app_config) {
+                    eprintln!("[config][error] security init failed: {e}");
+                    return Err(std::io::Error::other(format!("Security init failed: {e}")));
+                }
+            } else {
+                println!("[config] no security config; using service defaults");
             }
-        },
-        Err(e) if e.kind() == io::ErrorKind::NotFound => {
-            println!(
-                "[config] {} not found; continuing with defaults",
-                args.config.display()
-            );
-            AppConfig::default()
         }
         Err(e) => {
-            return Err(io::Error::other(format!(
-                "Failed to read configuration file {}: {}",
-                args.config.display(),
-                e
-            )));
-        }
-    };
-
-    // Wire JwksBearerProvider for bearer auth schemes from config.yaml
-    // This mirrors the security initialization in gen/main.rs so the impl
-    // uses real JWKS-based JWT validation instead of the mock providers.
-    {
-        let sec_cfg = app_config.security.as_ref();
-        for (scheme_name, _scheme) in service.security_schemes.clone() {
-            // Check for per-scheme JWKS config
-            if let Some(jwks_map) = sec_cfg.and_then(|s| s.jwks.as_ref()) {
-                if let Some(jwks) = jwks_map.get(&scheme_name) {
-                    let mut p = JwksBearerProvider::new(&jwks.jwks_url);
-                    if let Some(iss) = jwks.iss.as_deref() {
-                        p = p.issuer(iss);
-                    }
-                    if let Some(aud) = jwks.aud.as_deref() {
-                        p = p.audience(aud);
-                    }
-                    if let Some(leeway) = jwks.leeway_secs {
-                        p = p.leeway(leeway);
-                    }
-                    if let Some(ttl) = jwks.cache_ttl_secs {
-                        p = p.cache_ttl(std::time::Duration::from_secs(ttl));
-                    }
-                    println!(
-                        "[auth] register JwksBearerProvider scheme={} jwks_url={} iss={:?} aud={:?}",
-                        scheme_name, jwks.jwks_url, jwks.iss, jwks.aud
-                    );
-                    service.register_security_provider(&scheme_name, std::sync::Arc::new(p));
-                    continue;
-                }
-            }
-            // Fallback: skip this scheme (no JWKS config defined)
+            eprintln!("[config][error] {e}");
+            return Err(std::io::Error::other(e));
         }
     }
 
-    // Concatenate Lifeguard's prometheus text (DB metrics, pool stats) into
-    // BRRTRouter's scrape response so a single /metrics endpoint covers both
-    // the HTTP layer and the Postgres layer.
+    // Inject Lifeguard's prometheus text (DB metrics, pool stats) into
+    // BRRTRouter's /metrics scrape response for a unified endpoint.
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
         lifeguard::metrics::prometheus_scrape_text()
     })));
 
-    // Port selection: PORT env var (K8s) > default 8080
+    // Port selection: PORT env var (K8s) > default 8080.
     let port = std::env::var("PORT")
         .ok()
         .and_then(|p| p.parse::<u16>().ok())
@@ -254,10 +156,32 @@ fn main() -> io::Result<()> {
         format!("0.0.0.0:{port}")
     };
     println!("🚀 server listening on {addr}");
+
     let handle = HttpServer(service).start(&addr)?;
-    handle
-        .run_until_shutdown()
-        .map_err(|e| io::Error::other(format!("Server error: {e:?}")))?;
+    handle.run_until_shutdown().map_err(|e| std::io::Error::other(format!("Server error: {e:?}")))?;
 
     Ok(())
+}
+
+/// Resolve the OpenAPI spec path — relative paths are joined to the crate root.
+fn resolve_spec_path(spec: &PathBuf) -> PathBuf {
+    if spec.is_relative() {
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        base.join(spec)
+    } else {
+        spec.clone()
+    }
+}
+
+/// Load and parse the OpenAPI spec, exiting on any error.
+fn load_spec(spec_path: &PathBuf) -> (Vec<RouteMeta>, HashMap<String, SecurityScheme>, PathBuf) {
+    let spec_str = spec_path.to_str().unwrap_or_else(|| {
+        eprintln!("[startup][error] OpenAPI spec path contains invalid UTF-8");
+        std::process::exit(1);
+    });
+    let (routes, schemes, _) = brrtrouter::spec::load_spec_full(spec_str).unwrap_or_else(|e| {
+        eprintln!("[startup][error] failed to load OpenAPI spec: {e}");
+        std::process::exit(1);
+    });
+    (routes, schemes, spec_path.clone())
 }
