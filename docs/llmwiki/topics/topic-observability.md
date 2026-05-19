@@ -1,156 +1,172 @@
----
-title: Topic - Observability (OTEL Spans)
-status: partially-verified
-updated: 2026-05-18
-sources: [key_manager.rs, jwks_client.rs, authz_span_middleware.rs, controllers/*]
----
+# Observability — OTEL Spans, Structured Logging & Alerting
 
-# Observability — OTEL Span Catalog
+## Summary
 
-> **Status:** Epic 9 implementation in progress. Core key lifecycle and JWKS spans are live. Controllers in identity-session-service are instrumented. Other services have partial coverage.
+Sesame-IDAM uses BRRTRouter's existing OTEL tracing and structured logging stack. JWT validation and token lifecycle events are instrumented with `tracing::span!()` and `tracing::info!()/warn!()/error!()` calls. These flow through `tracing-opentelemetry` into Jaeger when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. **No custom Prometheus counters are used** — BRRTRouter's `MetricsMiddleware` already provides `brrtrouter_requests_total`, `brrtrouter_request_duration_seconds`, `brrtrouter_auth_failures_total`, and `brrtrouter_active_requests` on `/metrics`.
 
-## How It Works
+**DO NOT build snowflake metrics. Reuse hauliage's OTEL stack.**
 
-All 6 sesame-idam services initialize OTEL tracing via `brrtrouter::otel::init_logging_with_config()` in their `main()`. Spans flow through `tracing-opentelemetry` into the OTLP exporter when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. In dev (no endpoint), spans are discarded — `tracing` calls still work.
+## OTEL Span Catalog
 
-**No custom Prometheus counters for JWT/authz observability** — BRRTRouter's `MetricsMiddleware` already provides `brrtrouter_requests_total`, `brrtrouter_request_duration_seconds`, and `brrtrouter_auth_failures_total` on `/metrics`. JWT-specific diagnostics go through `tracing::span!()`.
+### JWT Validation & Authorization (Epic 9.1)
 
-The `set_extra_prometheus` patch merges Lifeguard DB metrics into the same `/metrics` endpoint for a unified scrape target.
+| Span | Service | File | Attributes | Level |
+|------|---------|------|------------|-------|
+| `authz.request` | authz-core | `impl/src/authz_span_middleware.rs` | `route`, `method`, `result` (allowed/denied), `status` (on denial) | INFO |
 
-## Span Catalog
+**Note:** Per-validation-step sub-spans (`jwt.typ_check`, `jwt.signature_verify`, `jwt.exp_check`, `jwt.issuer_check`, `jwt.audience_check`, `jwt.tenant_check`) **require BRRTRouter changes** — they happen inside `JwksBearerProvider::validate_token()` at `/home/casibbald/Workspace/BRRTRouter/src/security/jwks_bearer/validation.rs`.
 
-### Key Management (`key_manager.rs`)
+### Key Lifecycle (Epic 9.1 — foundation for JWT signing observability)
 
-| Span | Level | Attributes | When |
-|------|-------|-----------|------|
-| `key.generate` | INFO | `kid` (recorded after generation) | New key generated at bootstrap or via `generate_new_key()` |
-| `key.rotate.prepare` | INFO | `from_kid`, `to_kid` | Key rotation preparation (`prepare_rotation()`) |
-| `key.rotate.activate` | INFO | `new_kid` | Key rotation activation (`activate_next_key()`) |
-| `key.revoke` | INFO | `kid`, `reason` | Key revocation (`revoke_key()`) — records `current_key_revoked`, `next_key_revoked`, or `key_not_found` |
-| `key.health` | INFO | `key_count` | Health check endpoint (`/health/jwks`) |
+| Span | Service | File | Attributes | Level |
+|------|---------|------|------------|-------|
+| `key.generate` | identity-session-service | `impl/src/key_manager.rs` | (key gen parameters) | INFO |
+| `key.rotate.prepare` | identity-session-service | `impl/src/key_manager.rs` | (rotation params) | INFO |
+| `key.rotate.activate` | identity-session-service | `impl/src/key_manager.rs` | (activation params) | INFO |
+| `key.revoke` | identity-session-service | `impl/src/key_manager.rs` | `kid` | INFO |
+| `key.health` | identity-session-service | `impl/src/key_manager.rs` | (health check result) | INFO |
+| `key.revoke.admin` | identity-session-service | `impl/src/controllers/admin_jwks_revoke.rs` | `kid` | INFO |
 
-**Structured logs:**
-- `tracing::info!(kid = ..., "key rotation prepared")` on rotation prepare
-- `tracing::info!(kid = ..., "key rotation activated")` on rotation activate
-- `tracing::info!(kid = ..., "key revoked (current key)")` on current key revocation
-- `tracing::info!(kid = ..., "key revoked (next key)")` on next key revocation
+### JWKS Document & Cache (Epic 9.1, 9.2)
 
-### JWKS (`controllers/jwks.rs`)
+| Span | Service | File | Attributes | Level |
+|------|---------|------|------------|-------|
+| `jwks.document` | identity-session-service | `impl/src/controllers/jwks.rs` | (key count info) | INFO |
+| `jwks.cache.refresh` | identity-session-service | `impl/src/jwks_client.rs` | `cache_status` (hit/miss), `result` (allowed/denied), `error` | INFO |
 
-| Span | Level | Attributes | When |
-|------|-------|-----------|------|
-| `jwks.document` | INFO | `keys_count` | Serving `/.well-known/jwks.json` |
+**Note:** Separate `jwks_cache.hit` and `jwks_cache.miss` as top-level spans on each token validation require BRRTRouter changes.
 
-**Structured log:** `tracing::info!(keys_count, "JWKS document served")`
+### Token Lifecycle (Epic 9.5)
 
-### JWKS Cache (`jwks_client.rs`)
+| Span | Service | File | Attributes | Level |
+|------|---------|------|------------|-------|
+| `token.issue` | identity-login-service | `impl/src/controllers/auth_token.rs` | `grant_type` | INFO |
+| `token.refreshed` | identity-session-service | `impl/src/controllers/auth_refresh.rs` | `user_id`, `tenant_id`, `result` | INFO |
+| `token.issued` | identity-session-service | `impl/src/controllers/admin_issue_token.rs` | `tenant_id`, `user_id` | INFO |
 
-| Span | Level | Attributes | When |
-|------|-------|-----------|------|
-| `jwks.cache.refresh` | INFO | `keys_count`, `cache_status` (hit/miss), `result` (allowed/denied), `error` | `validate_jwks_refresh()` — validates new JWKS against cached keys |
+**Missing:** `token.revoked` and `token.refresh_reuse_detected` — no token revocation endpoint exists yet in the codebase.
 
-- `cache_status = "miss"` on first fetch (no previous cache)
-- `cache_status = "hit"` on successful refresh with overlapping keys
-- `cache_status = "miss"`, `result = "denied"` on poisoning detection (no overlap)
+### Controller-Level Spans (Epic 9.x baseline)
 
-**Structured logs:**
-- `tracing::info!("jwks cache miss (first fetch)")` on first fetch
-- `tracing::info!(keys_count = ..., "jwks cache refresh OK (overlap found)")` on successful refresh
-- `tracing::warn!("jwks cache refresh REJECTED (no overlap)")` on poisoning detection
+| Span | Service | File | Purpose |
+|------|---------|------|---------|
+| `create_user` | identity-user-mgmt-service | `impl/src/controllers/create_user.rs` | User creation tracking |
+| `delete_user` | identity-user-mgmt-service | `impl/src/controllers/delete_user.rs` | User deletion tracking |
+| `disable_user` | identity-user-mgmt-service | `impl/src/controllers/disable_user.rs` | User disable tracking |
+| `create_application` | org-mgmt | `impl/src/controllers/create_application.rs` | App creation tracking |
+| `delete_org` | org-mgmt | `impl/src/controllers/delete_org.rs` | Org deletion tracking |
+| `create_api_key` | api-keys | `impl/src/controllers/create_api_key.rs` | API key creation tracking |
+| `delete_api_key` | api-keys | `impl/src/controllers/delete_api_key.rs` | API key deletion tracking |
 
-### Admin JWKS Revoke (`controllers/admin_jwks_revoke.rs`)
+## Structured Logging
 
-| Span | Level | Attributes | When |
-|------|-------|-----------|------|
-| `key.revoke.admin` | INFO | `kid`, `result` (success/denied), `error` | Admin POST `/admin/jwks/revoke` |
+### Token Lifecycle Events
 
-**Structured logs:**
-- `tracing::info!(kid = ..., "admin: key revoked via admin endpoint")` on success
-- `tracing::warn!(kid = ..., error = %e, "admin: key revocation failed")` on failure
+| Event | Level | Fields |
+|-------|-------|--------|
+| `token_issued` | INFO | `user_id`, `tenant_id`, `grant_type` |
+| `token_refreshed` | INFO | `user_id`, `tenant_id`, `result` |
+| `jwks_cache_refresh_failure` | WARN | Poisoning detection with "JWKS cache refresh REJECTED" |
+| `authz request started` | DEBUG | `route`, `method` |
+| `authz request completed` | DEBUG | `route`, `method`, `status`, `result` |
 
-### Authz Request (`authz_span_middleware.rs`)
+### Security Events
 
-| Span | Level | Attributes | When |
-|------|-------|-----------|------|
-| `authz.request` | INFO | `route`, `method`, `result` (allowed/denied), `status` (on denied) | Every request to authz-core |
+| Event | Level | Fields |
+|-------|-------|--------|
+| JWT validation failures | WARN | `route`, `user_id`, `error` (planned for per-validation spans) |
+| JWKS poisoning | WARN | `error`, `cache_status` |
+| Token theft indicators | WARN (planned) | `user_id` (when refresh reuse detected endpoint exists) |
 
-Registered as middleware in `authz-core/impl/src/main.rs` — wraps ALL incoming requests with a span that records `result = "allowed"` or `"denied"` based on HTTP status.
+## What Is NOT Implemented (Blocked)
 
-**Structured logs:**
-- `tracing::debug!(route = ..., method = ..., "authz request started")` in `before()`
-- `tracing::debug!(route = ..., method = ..., status, result = ..., "authz request completed")` in `after()`
+### Blocked on BRRTRouter Changes
+- Per-validation-step sub-spans: `jwt.typ_check`, `jwt.signature_verify`, `jwt.exp_check`, `jwt.issuer_check`, `jwt.audience_check`, `jwt.tenant_check`
+- `jwks_cache.hit` and `jwks_cache.miss` as separate spans per token validation
+- `token.validation` span as child of `jwt_validation`
+- Token size budget measurement in spans
 
-### Token Lifecycle
+### Blocked on Story 4 (Hybrid Authz Model)
+- `authz_fallback.cache_hit`, `authz_fallback.call`, `authz_fallback.cache_miss` spans
+- `shadow_decision.compare` span (migration mode only)
+- `decision_source` field in structured logs (`jwt_claims`, `fallback_cached`, `fallback_online`, `denylist`, `version_mismatch`, `online_only`)
+- Per-request structured JWT logging with claim fields (`issuer`, `subject`, `client_id`, `session_id`, `token_id`, `token_version`, `actor_subject`)
 
-| Span | Level | Attributes | When |
-|------|-------|-----------|------|
-| `token.issue` | INFO | `grant_type`, `user_id`, `result` (success/denied) | Token issuance in `auth_token.rs` (identity-login-service) |
-| `token.refreshed` | INFO | `user_id`, `tenant_id`, `result` (success/denied) | Token refresh in `auth_refresh.rs` (identity-session-service) |
-| `token.issued` | INFO | `tenant_id`, `user_id`, `result` (success) | Admin token issuance in `admin_issue_token.rs` (identity-session-service) |
+### Blocked on Infrastructure
+- `token.revoked` and `token.refresh_reuse_detected` spans (endpoint doesn't exist yet)
+- Alerting rules in Loki/Grafana (Story 9.7 — requires Loki/Grafana pipeline deployment)
 
-### Other Services (basic coverage)
+## Security Constraints on Observability Data
 
-| Span | Level | Service | When |
-|------|-------|---------|------|
-| `user.created` | INFO | identity-user-mgmt | `create_user.rs` |
-| `user.deleted` | INFO | identity-user-mgmt | `delete_user.rs` |
-| `user.disabled` | INFO | identity-user-mgmt | `disable_user.rs` |
-| `api_key.created` | INFO | api-keys | `create_api_key.rs` |
-| `api_key.deleted` | INFO | api-keys | `delete_api_key.rs` |
-| `org.deleted` | INFO | org-mgmt | `delete_org.rs` |
-| `application.created` | INFO | org-mgmt | `create_application.rs` |
+### PII Safety — NEVER Log These
+- Email, phone, or name fields in span attributes or structured logs
+- Raw JWT tokens (access or refresh)
+- Full JWT payload contents
 
-**Note:** Only representative controllers in each service have spans. Many controllers (especially CRUD list/read operations) do not yet have spans — these can be added on demand.
+### What IS Logged (Safe Fields)
+- `user_id` (opaque identifier, not email/phone)
+- `tenant_id` (for routing/debugging)
+- `jti` (token ID, not full token)
+- `kid` (key ID for key management)
+- Validation result booleans (`typ_valid`, `sig_valid`, etc.)
 
-## Not Yet Implemented
+### Span Attribute Security
+- Span attributes contain only validation result booleans and metadata
+- No raw JWT claims (roles, permissions) in attributes
+- No PII fields anywhere in spans or logs
 
-### Story 9.1: Full JWT validation sub-spans
-The story proposes sub-spans `jwt.typ_check`, `jwt.signature_verify`, `jwt.exp_check`, `jwt.issuer_check`, `jwt.audience_check`, `jwt.tenant_check`. These validation steps happen inside BRRTRouter's `JwksBearerProvider::validate_token()` in the BRRTRouter library itself (`/home/casibbald/Workspace/BRRTRouter/src/security/jwks_bearer/validation.rs`). Adding sub-spans would require changes to BRRTRouter, not sesame-idam. The current coverage is:
-- `authz.request` span wraps the entire request in authz-core (EXTREME frequency service)
-- `jwks.cache.refresh` span covers JWKS cache validation
-- Key management spans cover key lifecycle events
+## Alerting (Planned — Story 9.7)
 
-### Story 9.3: Authz fallback spans
-Blocked until Story 4 (hybrid authorization model) is implemented.
+Alerts use Loki log filtering (NOT Prometheus) since there are no custom Prometheus counters for JWT observability.
 
-### Story 9.4: Shadow decision spans
-Blocked until migration mode is implemented.
+| Alert | Log Query | Severity | Response |
+|-------|-----------|----------|----------|
+| TokenReuseDetected | `event="refresh_token_reuse_detected"` | CRITICAL | Page on-call |
+| TokenRotationFailure | `event="token_rotation_failure"` | CRITICAL | Page on-call |
+| JwtValidationSpike | `event="jwt_validation_failed"` | CRITICAL/WARNING | Page/Slack |
+| JwksRefreshFailure | `event="jwks_refresh_failure"` | CRITICAL | Page on-call |
+| ShadowMismatch | `event="shadow_mismatch"` | WARNING | Slack |
 
-### Story 9.5: Token revocation span
-Not yet implemented — no token revocation endpoint exists in current code.
+## Integration Pattern (How It Works)
 
-### Story 9.6: Structured JWT logging
-Partial — token lifecycle controllers have `tracing::info!` calls with relevant fields. JWT validation failures are logged at DEBUG level by `authz.request`. Missing: per-request structured logs with `issuer`, `subject`, `client_id`, `session_id`, `jti`, `token_version`, `decision_source`, `actor` fields.
+```
+Request arrives
+  -> BRRTRouter MetricsMiddleware: brrtrouter_requests_total{path, status}
+  -> AuthzSpanMiddleware: span!(\"authz.request\", route, method)
+  -> JWT validation in JwksBearerProvider (BRRTRouter) — spans TBD
+  -> Controller handler: domain-specific spans (token.issued, key.revoke, etc.)
+  -> Response recorded in authz.request span result attribute
+  -> All tracing calls flow through tracing-opentelemetry -> OTLP -> Jaeger
+  -> All tracing logs flow through OTLP -> Loki for alerting
+```
 
-### Story 9.7: Alerting configuration
-No alerting rules created yet. The structured logs and spans are ready for Loki/Grafana alerting:
-- `jwt_validation_failed` — would trigger from `authz.request` span `result=denied` 
-- `shadow_mismatch` — would trigger from shadow decision span when implemented
-- `jwks cache refresh REJECTED` — already logged as WARN
+## Key Implementation Pattern
 
-## Security Constraints
+```rust
+// This is the ONLY approach for Epic 9. DO NOT use prometheus::register_counter!.
+// Just tracing::span!() and tracing::info!()/warn!()/error!().
 
-- Span attributes NEVER include PII (email, phone, name)
-- Span attributes NEVER include raw JWT tokens or full payloads
-- Only fields: `kid`, `user_id`, `tenant_id`, `route`, `method`, `result`, `error`, `keys_count`, `grant_type`
-- Structured logs include `kid` for key events, `user_id`/`tenant_id` for token events
+let span = tracing::span!(
+    tracing::Level::INFO,
+    \"jwt_validation\",
+    route = req.path(),
+    method = %req.method()
+);
+let _guard = span.enter();
 
-## Files with Tracing
+// ... validation logic ...
 
-| File | Spans |
-|------|-------|
-| `identity-session-service/impl/src/key_manager.rs` | key.generate, key.rotate.prepare, key.rotate.activate, key.revoke, key.health |
-| `identity-session-service/impl/src/jwks_client.rs` | jwks.cache.refresh |
-| `identity-session-service/impl/src/controllers/jwks.rs` | jwks.document |
-| `identity-session-service/impl/src/controllers/admin_jwks_revoke.rs` | key.revoke.admin |
-| `identity-session-service/impl/src/controllers/auth_refresh.rs` | token.refreshed |
-| `identity-session-service/impl/src/controllers/admin_issue_token.rs` | token.issued |
-| `identity-login-service/impl/src/controllers/auth_token.rs` | token.issue |
-| `authz-core/impl/src/authz_span_middleware.rs` | authz.request |
-| `identity-user-mgmt-service/impl/src/controllers/create_user.rs` | user.created |
-| `identity-user-mgmt-service/impl/src/controllers/delete_user.rs` | user.deleted |
-| `identity-user-mgmt-service/impl/src/controllers/disable_user.rs` | user.disabled |
-| `api-keys/impl/src/controllers/create_api_key.rs` | api_key.created |
-| `api-keys/impl/src/controllers/delete_api_key.rs` | api_key.deleted |
-| `org-mgmt/impl/src/controllers/delete_org.rs` | org.deleted |
-| `org-mgmt/impl/src/controllers/create_application.rs` | application.created |
+span.record(\"result\", \"success\"); // or \"denied\"
+span.record(\"error\", %e); // only when denied
+```
+
+## References
+
+- [Epic 9: Observability & Monitoring](../../Epics/09-observability/observability.md)
+- [Story 9.1: JWT Validation OTEL Spans](../../Epics/09-observability/stories/story-9.1.md)
+- [Story 9.2: JWKS Cache Observability Spans](../../Epics/09-observability/stories/story-9.2.md)
+- [Story 9.3: Authz Fallback Observability Spans](../../Epics/09-observability/stories/story-9.3.md)
+- [Story 9.4: Shadow Decision Observability Spans](../../Epics/09-observability/stories/story-9.4.md)
+- [Story 9.5: Token Lifecycle Observability Spans](../../Epics/09-observability/stories/story-9.5.md)
+- [Story 9.6: Structured JWT Logging](../../Epics/09-observability/stories/story-9.6.md)
+- [Story 9.7: Alerting Configuration](../../Epics/09-observability/stories/story-9.7.md)

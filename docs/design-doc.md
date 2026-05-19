@@ -1223,23 +1223,64 @@ sequenceDiagram
 
 ### 10.12 Observability
 
-**Required metrics:**
+Sesame-IDAM uses BRRTRouter's existing OTEL tracing and structured logging stack. JWT validation steps become OTEL spans visible in Jaeger; JWT diagnostics become structured logs flowing to Loki. **No custom Prometheus counters are built** — BRRTRouter's `MetricsMiddleware` already provides `brrtrouter_requests_total`, `brrtrouter_request_duration_seconds`, `brrtrouter_auth_failures_total`, and `brrtrouter_active_requests` on `/metrics`. All observability uses `tracing::span!()` and `tracing::info!()/warn!()/error!()` calls that flow through `tracing-opentelemetry` into OTLP.
 
-| Metric | Why it matters |
-|---|---|
-| `jwt_validation_total{result,reason}` | Shows whether failures spike by expiry, signature, issuer, audience, or type |
-| `jwt_validation_latency_ms` | Measures common-path cost |
-| `jwks_cache_hit_ratio` and `jwks_refresh_failures_total` | Detects key-discovery issues |
-| `authz_fallback_total{route}` and `authz_fallback_ratio` | Tells you whether the common path is really local |
-| `authz_shadow_mismatch_total{route}` | Essential during migration (compare online vs local decisions) |
-| `token_refresh_total`, `refresh_reuse_detected_total`, `refresh_rotation_failures_total` | Detects session and replay problems |
-| `token_revocation_total`, `revocation_propagation_seconds` | Measures how revocation actually behaves |
-| `token_size_bytes` and `authorization_header_size_bytes` | Prevents gradual token bloat |
-| `denylist_lookup_latency_ms` and `version_lookup_latency_ms` | Detects hidden central bottlenecks |
+**Implementation pattern:**
 
-**Structured logs** (NEVER log raw access tokens): issuer, subject, client_id, session_id, token_id, token_version, route, decision_source (`jwt`, `fallback`, `denylist`, `version_mismatch`), actor subject when `act` is present.
+```rust
+let span = tracing::span!(
+    tracing::Level::INFO,
+    "jwt_validation",
+    route = req.path(),
+    method = %req.method()
+);
+let _guard = span.enter();
+// ... validation logic ...
+span.record("result", "success"); // or "denied"
+span.record("error", %e); // only when denied
+```
 
-**Alerts**: Sudden increases in invalid-token errors, JWKS refresh failures, fallback ratio spikes, token-size percentile growth, refresh-token reuse detection, revocation propagation exceeding route-class SLO.
+**Span catalog:**
+
+| Span | Service | File | Purpose |
+|------|---------|------|---------|
+| `authz.request` | authz-core | `impl/src/authz_span_middleware.rs` | Wraps every authz-core request with `route`, `method`, `result` (allowed/denied) |
+| `key.generate` | identity-session-service | `impl/src/key_manager.rs` | Key lifecycle — key generation events |
+| `key.rotate.prepare` | identity-session-service | `impl/src/key_manager.rs` | Key rotation — prepare phase |
+| `key.rotate.activate` | identity-session-service | `impl/src/key_manager.rs` | Key rotation — activation phase |
+| `key.revoke` | identity-session-service | `impl/src/key_manager.rs` | Key lifecycle — revocation |
+| `key.health` | identity-session-service | `impl/src/key_manager.rs` | Key health check |
+| `key.revoke.admin` | identity-session-service | `impl/src/controllers/admin_jwks_revoke.rs` | Admin JWKS revoke endpoint |
+| `jwks.document` | identity-session-service | `impl/src/controllers/jwks.rs` | JWKS document served with key count |
+| `jwks.cache.refresh` | identity-session-service | `impl/src/jwks_client.rs` | Cache validation with hit/miss tracking, poisoning detection |
+| `token.issue` | identity-login-service | `impl/src/controllers/auth_token.rs` | Token issuance with `grant_type` |
+| `token.refreshed` | identity-session-service | `impl/src/controllers/auth_refresh.rs` | Token refresh with `user_id`, `tenant_id`, `result` |
+| `token.issued` | identity-session-service | `impl/src/controllers/admin_issue_token.rs` | Admin token issuance with `tenant_id`, `user_id` |
+
+**Blocked spans (require external changes):**
+
+| Span | Blocked By | Purpose |
+|------|-----------|---------|
+| Per-validation sub-spans (`jwt.typ_check`, `jwt.signature_verify`, `jwt.exp_check`, `jwt.issuer_check`, `jwt.audience_check`, `jwt.tenant_check`) | BRRTRouter — `JwksBearerProvider::validate_token()` in validation.rs | Per-step validation diagnostics |
+| `jwks_cache.hit`, `jwks_cache.miss` | BRRTRouter — cache lookup in validation.rs | Separate hit/miss spans on each token validation |
+| `authz_fallback.cache_hit`, `authz_fallback.call`, `authz_fallback.cache_miss` | Story 4 (hybrid authz) — fallback caching not implemented | Fallback observability |
+| `shadow_decision.compare` | Story 4 — migration mode not implemented | Shadow decision mismatch tracking |
+| `token.revoked`, `token.refresh_reuse_detected` | Story 3 (token lifecycle) — revocation endpoint not implemented | Token lifecycle completeness |
+
+**Structured logging:**
+
+- Token lifecycle controllers emit `tracing::info!()` with `user_id`, `tenant_id`, `grant_type`, `result`
+- `authz.request` middleware emits debug-level logs on request start/completion
+- JWKS poisoning detection logged at WARN level
+- Raw tokens and PII (email, phone, name) are NEVER in logs or spans
+
+**Alerting (planned — Story 9.7):**
+
+Alert rules use Loki log filtering (not Prometheus) for JWT-specific events:
+- CRITICAL: `refresh_token_reuse_detected`, `token_rotation_failure`, `token_revocation_failure`, `jwks_refresh_failure` — page on-call
+- WARNING: `jwt_validation_failed` (>5/min = Slack, >20/min = page), `shadow_mismatch` — Slack
+
+See `docs/Epics/09-observability/observability.md` and `docs/llmwiki/topics/topic-observability.md` for the full span catalog.
 
 ---
 
