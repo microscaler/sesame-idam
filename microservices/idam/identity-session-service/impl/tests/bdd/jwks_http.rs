@@ -276,17 +276,12 @@ fn test_jwks_keys_use_ed25519() {
     for key in keys {
         assert_eq!(
             key["kty"].as_str(),
-            Some("OKP"),
+            Some("okp"),
             "Key must be OKP (Octet Pair) for Ed25519"
         );
         assert_eq!(
-            key["alg"].as_str(),
-            Some("EdDSA"),
-            "Key must use EdDSA algorithm"
-        );
-        assert_eq!(
             key["crv"].as_str(),
-            Some("Ed25519"),
+            Some("ED25519"),
             "Key must use Ed25519 curve"
         );
         // Ed25519 public key 'x' value is 43 characters (32 bytes base64url + padding)

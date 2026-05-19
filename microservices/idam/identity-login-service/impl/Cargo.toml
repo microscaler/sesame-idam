@@ -63,3 +63,8 @@ lifeguard-migrate = { workspace = true }
 rstest = "0.21"
 rstest-bdd = "0.5.0"
 rstest-bdd-macros = "0.5.0"
+
+base64 = { workspace = true }
+ring = { workspace = true }
+sesame_idam_identity_session_service = { path = "../../identity-session-service/impl" }
+
