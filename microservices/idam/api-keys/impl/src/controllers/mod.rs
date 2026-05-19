@@ -1,6 +1,9 @@
-// Controller module declarations
-// This file is automatically updated when stubs are generated
-// You can manually add/remove module declarations as needed
+/// API key management controllers for Sesame-IDAM.
+///
+/// Each controller corresponds to a single API endpoint for creating,
+/// validating, importing, and deleting API keys. Controllers audit every
+/// request via the global `EMITTER`, then delegate to the api-keys service layer.
+
 pub mod create_api_key;
 pub mod fetch_archived_api_keys;
 pub mod fetch_archived_api_key;

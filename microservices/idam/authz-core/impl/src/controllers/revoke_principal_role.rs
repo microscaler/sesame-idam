@@ -1,6 +1,6 @@
+use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::revoke_principal_role::{Request, Response};
-use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(RevokePrincipalRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {

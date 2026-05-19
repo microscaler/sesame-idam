@@ -1,6 +1,8 @@
-// Controller module declarations
-// This file is automatically updated when stubs are generated
-// You can manually add/remove module declarations as needed
+/// Controller handlers for User lifecycle management (CRUD, MFA, email/phone).
+///
+/// Each controller corresponds to a single API endpoint. Controllers audit every
+/// request via the global `EMITTER`, then delegate to the service layer.
+
 pub mod create_user;
 pub mod fetch_user_by_email;
 pub mod migrate_user;

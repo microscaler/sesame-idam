@@ -1,6 +1,8 @@
-// Controller module declarations
-// This file is automatically updated when stubs are generated
-// You can manually add/remove module declarations as needed
+/// Controller handlers for Organization management (SSO/SCIM, webhooks, roles).
+///
+/// Each controller corresponds to a single API endpoint. Controllers audit every
+/// request via the global `EMITTER`, then delegate to the service layer.
+
 pub mod list_applications;
 pub mod create_application;
 pub mod get_application;
@@ -38,7 +40,7 @@ pub mod subscribe_org_to_role_mapping;
 pub mod fetch_users_in_org;
 pub mod fetch_webhook_subscriptions;
 pub mod delete_webhook_subscription;
-pub mod test_webhook_delivery;pub mod invalidate_user_api_keys;
+pub mod test_webhook_delivery;
 pub mod scim_create_user;
 pub mod scim_delete_user;
 pub mod scim_list_users;

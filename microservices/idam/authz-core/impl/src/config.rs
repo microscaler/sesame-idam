@@ -24,6 +24,13 @@
 /// cors:
 ///   origins: ["https://myapp.com"]
 /// ```
+///
+/// # Design rationale
+///
+/// Config structs are duplicated across all 6 services. This avoids
+/// circular dependencies between services and allows each service to
+/// run without a config file (falling back to `Default`).
+
 use std::collections::HashMap;
 
 /// Top-level application configuration.
@@ -54,7 +61,7 @@ pub struct SecurityConfig {
 /// JWKS-based JWT validation configuration for a single security scheme.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct JwksSchemeConfig {
-    /// URL of the JWKS endpoint.
+    /// URL of the JWKS endpoint (e.g. `http://identity-session-service:8105/.well-known/jwks.json`).
     pub jwks_url: String,
     /// Expected `iss` (issuer) claim. If omitted, no issuer check.
     pub iss: Option<String>,
@@ -103,10 +110,9 @@ pub struct CorsConfig {
 
 /// Load configuration from a YAML file.
 ///
-/// # Errors
-///
-/// Returns `Ok` with defaults on `NotFound`. Other errors indicate
-/// a parse or read failure and should be treated as fatal.
+/// Returns `Ok` with defaults on `NotFound` — the service starts successfully
+/// without a config file. Other errors indicate a parse or read failure
+/// and should be treated as fatal.
 pub fn load_config(path: &std::path::PathBuf) -> Result<AppConfig, String> {
     match std::fs::read_to_string(path) {
         Ok(s) => serde_yaml::from_str::<AppConfig>(&s)

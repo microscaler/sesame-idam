@@ -1,6 +1,8 @@
-// Controller module declarations
-// This file is automatically updated when stubs are generated
-// You can manually add/remove module declarations as needed
+/// Controller handlers for Session management (JWT, refresh, OIDC, JWKS, step-up, impersonation, MCP).
+///
+/// Each controller corresponds to a single API endpoint. Controllers audit every
+/// request via the global `EMITTER`, then delegate to the service layer.
+
 pub mod admin_impersonate;
 pub mod admin_issue_token;
 pub mod admin_jwks_revoke;

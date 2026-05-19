@@ -1,6 +1,8 @@
-// Controller module declarations
-// This file is automatically updated when stubs are generated
-// You can manually add/remove module declarations as needed
+/// Controller handlers for Authentication (login, register, social OAuth, OTP, passwordless).
+///
+/// Each controller corresponds to a single API endpoint. Controllers audit every
+/// request via the global `EMITTER`, then delegate to the service layer.
+
 pub mod auth_forgot_password;
 pub mod auth_login;
 pub mod login_dual_otp;

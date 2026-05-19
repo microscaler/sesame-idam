@@ -1,11 +1,11 @@
+use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::set_principal_attribute::{Request, Response};
-use brrtrouter::typed::TypedHandlerRequest;
 
 #[handler(SetPrincipalAttributeController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity}
     use uuid::Uuid;
 
     // Emit audit event: attribute updated
