@@ -2,6 +2,13 @@ use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::assign_principal_role::{Request, Response};
 
+/// Assign a role to a principal within a tenant context.
+///
+/// Emits an `role_assigned` audit event and returns success.
+///
+/// TODO: In production, this validates role existence, stores the
+/// assignment, invalidates cached effective permissions, and clears
+/// the Redis cache for the user's principal evaluation.
 #[handler(AssignPrincipalRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

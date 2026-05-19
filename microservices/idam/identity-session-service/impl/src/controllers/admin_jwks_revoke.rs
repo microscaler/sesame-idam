@@ -1,16 +1,22 @@
-// Admin handler: POST /admin/jwks/revoke
-// Immediately revoke a key by `kid`. Removes from JWKS and drops private key.
-// Implements HACK-101 fix: compromised keys can be revoked at any time.
+/// Admin handler: POST /admin/jwks/revoke
+/// Immediately revoke a key by `kid`. Removes from JWKS and drops private key.
+/// Implements HACK-101 fix: compromised keys can be revoked at any time.
 
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
+use sesame_idam_identity_session_service_gen::handlers::admin_jwks_revoke::{Request, Response};
 
 use crate::key_manager::KeyError;
 
 use crate::key_manager::KEY_MANAGER;
 
-use sesame_idam_identity_session_service_gen::handlers::admin_jwks_revoke::{Request, Response};
-
+/// Revoke a JWKS key by its `kid`.
+///
+/// Looks up the key in the key manager's current + next + previous slots.
+/// If found, removes it from JWKS and drops the private key from memory.
+///
+/// Returns success on revoke, `key_not_found` if the kid doesn't match
+/// any live or grace key, or `revocation_failed` for lock/other errors.
 #[handler(AdminRevokeKeyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let kid = req.data.kid.clone();

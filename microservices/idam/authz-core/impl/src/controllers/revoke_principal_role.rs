@@ -2,6 +2,13 @@ use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::revoke_principal_role::{Request, Response};
 
+/// Revoke a role from a principal within a tenant context.
+///
+/// Emits an `role_revoked` audit event and returns success.
+///
+/// TODO: In production, this removes the role assignment from the database,
+/// invalidates cached effective permissions, and forces re-evaluation on
+/// the next authorization check.
 #[handler(RevokePrincipalRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
