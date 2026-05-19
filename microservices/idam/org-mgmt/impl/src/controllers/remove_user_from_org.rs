@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_gen::handlers::remove_user_from_org::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Remove User From Org.
 #[handler(RemoveUserFromOrgController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

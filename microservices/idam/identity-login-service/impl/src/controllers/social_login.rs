@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::social_login::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Social Login.
 #[handler(SocialLoginController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

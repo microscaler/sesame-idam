@@ -14,6 +14,7 @@ use sesame_idam_org_mgmt_gen::handlers::types::WebhookSubscription;
 
 
 
+/// Handler for Fetch Webhook Subscriptions.
 #[handler(FetchWebhookSubscriptionsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Implement your business logic here

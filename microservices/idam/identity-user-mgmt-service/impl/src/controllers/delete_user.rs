@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_user_mgmt_service_gen::handlers::delete_user::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Delete User.
 #[handler(DeleteUserController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // Span: user.deleted

@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::login_email_otp::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Login Email Otp.
 #[handler(LoginEmailOtpController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_user_mgmt_service_gen::handlers::verify_user_phone::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Verify User Phone.
 #[handler(VerifyUserPhoneController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

@@ -4,6 +4,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_service_gen::handlers::invalidate_user_api_keys::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Invalidate User Api Keys.
 #[handler(InvalidateUserApiKeysController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let user_id = req.inner.user_id;

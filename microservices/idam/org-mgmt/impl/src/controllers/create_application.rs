@@ -10,6 +10,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 
 
 
+/// Handler for Create Application.
 #[handler(CreateApplicationController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // Span: application.created

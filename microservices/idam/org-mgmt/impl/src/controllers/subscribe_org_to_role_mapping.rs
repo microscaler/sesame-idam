@@ -10,6 +10,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 
 
 
+/// Handler for Subscribe Org To Role Mapping.
 #[handler(SubscribeOrgToRoleMappingController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Implement your business logic here

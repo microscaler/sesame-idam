@@ -2,6 +2,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_api_keys_gen::handlers::validate_org_api_key::{Request, Response};
 
+/// Handler for Validate Org Api Key.
 #[handler(ValidateOrgApiKeyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

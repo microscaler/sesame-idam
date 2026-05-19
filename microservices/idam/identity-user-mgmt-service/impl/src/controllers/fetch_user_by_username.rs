@@ -10,6 +10,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 
 
 
+/// Handler for Fetch User By Username.
 #[handler(FetchUserByUsernameController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Implement your business logic here

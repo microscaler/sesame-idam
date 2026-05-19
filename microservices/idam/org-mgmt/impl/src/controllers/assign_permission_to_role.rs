@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_gen::handlers::assign_permission_to_role::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Assign Permission To Role.
 #[handler(AssignPermissionToRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

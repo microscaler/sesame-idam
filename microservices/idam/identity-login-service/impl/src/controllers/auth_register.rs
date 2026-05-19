@@ -3,6 +3,7 @@ use brrtrouter_macros::handler;
 use brrtrouter::typed::TypedHandlerRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::{Request, Response};
 
+/// Handler for Auth Register.
 #[handler(AuthRegisterController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

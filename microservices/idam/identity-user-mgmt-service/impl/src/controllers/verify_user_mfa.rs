@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_user_mgmt_service_gen::handlers::verify_user_mfa::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Verify User Mfa.
 #[handler(VerifyUserMfaController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

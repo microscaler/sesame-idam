@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_gen::handlers::enable_saml::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Enable Saml.
 #[handler(EnableSamlController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

@@ -10,6 +10,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 
 
 
+/// Handler for Migrate User.
 #[handler(MigrateUserController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Implement your business logic here

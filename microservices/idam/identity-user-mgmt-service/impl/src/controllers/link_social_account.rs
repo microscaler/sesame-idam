@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_user_mgmt_service_gen::handlers::link_social_account::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Link Social Account.
 #[handler(LinkSocialAccountController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

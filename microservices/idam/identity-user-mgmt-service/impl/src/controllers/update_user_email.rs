@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_user_mgmt_service_gen::handlers::update_user_email::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Update User Email.
 #[handler(UpdateUserEmailController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_gen::handlers::invite_user_to_org::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Invite User To Org.
 #[handler(InviteUserToOrgController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

@@ -14,6 +14,7 @@ use sesame_idam_org_mgmt_gen::handlers::types::ScimGroup;
 
 
 
+/// Handler for Fetch Scim Groups.
 #[handler(FetchScimGroupsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Implement your business logic here

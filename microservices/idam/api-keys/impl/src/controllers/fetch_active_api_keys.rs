@@ -2,6 +2,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_api_keys_gen::handlers::fetch_active_api_keys::{Request, Response};
 
+/// Handler for Fetch Active Api Keys.
 #[handler(FetchActiveApiKeysController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

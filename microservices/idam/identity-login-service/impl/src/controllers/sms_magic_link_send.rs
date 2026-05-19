@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::sms_magic_link_send::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Sms Magic Link Send.
 #[handler(SmsMagicLinkSendController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_logout::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Auth Logout.
 #[handler(AuthLogoutController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_user_mgmt_service_gen::handlers::setup_user_mfa_totp::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Setup User Mfa Totp.
 #[handler(SetupUserMfaTotpController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

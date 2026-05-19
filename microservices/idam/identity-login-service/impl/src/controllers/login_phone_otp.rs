@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::login_phone_otp::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Login Phone Otp.
 #[handler(LoginPhoneOtpController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

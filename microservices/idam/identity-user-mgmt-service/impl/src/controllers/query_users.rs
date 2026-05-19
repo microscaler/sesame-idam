@@ -14,6 +14,7 @@ use sesame_idam_identity_user_mgmt_service_gen::handlers::types::UserQueryItem;
 
 
 
+/// Handler for Query Users.
 #[handler(QueryUsersController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Implement your business logic here

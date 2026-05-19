@@ -4,6 +4,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_service_gen::handlers::scim_update_user::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Scim Update User.
 #[handler(ScimUpdateUserController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let org_id = req.inner.org_id;

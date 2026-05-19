@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_gen::handlers::create_saml_link::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Create Saml Link.
 #[handler(CreateSamlLinkController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

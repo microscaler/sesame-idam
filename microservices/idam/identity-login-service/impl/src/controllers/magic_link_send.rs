@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::magic_link_send::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Magic Link Send.
 #[handler(MagicLinkSendController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

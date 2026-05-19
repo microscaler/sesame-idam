@@ -2,6 +2,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_api_keys_gen::handlers::delete_api_key::{Request, Response};
 
+/// Handler for Delete Api Key.
 #[handler(DeleteApiKeyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // Span: api_key.deleted

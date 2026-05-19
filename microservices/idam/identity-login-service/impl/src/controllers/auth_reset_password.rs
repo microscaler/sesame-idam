@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_reset_password::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Auth Reset Password.
 #[handler(AuthResetPasswordController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

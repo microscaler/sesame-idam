@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::verify_email_otp::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Verify Email Otp.
 #[handler(VerifyEmailOtpController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

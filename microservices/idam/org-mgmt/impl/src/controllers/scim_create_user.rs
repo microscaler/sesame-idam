@@ -4,6 +4,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_service_gen::handlers::scim_create_user::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Scim Create User.
 #[handler(ScimCreateUserController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let org_id = req.inner.org_id;

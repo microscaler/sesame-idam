@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_forgot_password::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Auth Forgot Password.
 #[handler(AuthForgotPasswordController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
