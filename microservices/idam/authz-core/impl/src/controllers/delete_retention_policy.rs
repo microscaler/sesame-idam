@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::delete_retention_policy::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Delete Retention Policy — deletes an audit log retention policy..
 #[handler(DeleteRetentionPolicyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

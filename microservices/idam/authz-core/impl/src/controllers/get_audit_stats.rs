@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::get_audit_stats::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Get Audit Stats — returns audit event statistics..
 #[handler(GetAuditStatsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

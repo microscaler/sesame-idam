@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::list_retention_policies::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for List Retention Policies — lists all retention policies..
 #[handler(ListRetentionPoliciesController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

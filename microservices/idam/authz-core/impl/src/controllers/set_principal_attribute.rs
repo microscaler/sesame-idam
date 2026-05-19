@@ -2,6 +2,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::set_principal_attribute::{Request, Response};
 
+/// Handler for Set Principal Attribute — sets a metadata attribute on a principal..
 #[handler(SetPrincipalAttributeController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

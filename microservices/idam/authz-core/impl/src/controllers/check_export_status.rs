@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::check_export_status::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Check Export Status — exports audit events from the org..
 #[handler(CheckExportStatusController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;

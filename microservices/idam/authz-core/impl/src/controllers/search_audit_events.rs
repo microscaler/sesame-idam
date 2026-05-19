@@ -2,6 +2,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::search_audit_events::{Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 
+/// Handler for Search Audit Events — searches audit events across the tenant..
 #[handler(SearchAuditEventsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
