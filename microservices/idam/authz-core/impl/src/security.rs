@@ -6,10 +6,9 @@
 /// This module mirrors the security initialization in `gen/main.rs` so
 /// the impl crate uses real JWKS-based validation instead of the mock
 /// providers that the generated code ships with.
-
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use brrtrouter::security::JwksBearerProvider;
 use brrtrouter::server::AppService;
@@ -34,13 +33,13 @@ pub fn init_security(
 ) -> std::result::Result<(), String> {
     let sec_cfg = app_config.security.as_ref();
     let mut schemes = service.security_schemes.clone();
-    
+
     for (scheme_name, _scheme) in schemes.drain() {
         // Check for per-scheme JWKS config
         if let Some(jwks_map) = sec_cfg.and_then(|s| s.jwks.as_ref()) {
             if let Some(jwks) = jwks_map.get(&scheme_name) {
                 let mut provider = JwksBearerProvider::new(&jwks.jwks_url);
-                
+
                 if let Some(iss) = jwks.iss.as_deref() {
                     provider = provider.issuer(iss);
                 }
@@ -53,7 +52,7 @@ pub fn init_security(
                 if let Some(ttl) = jwks.cache_ttl_secs {
                     provider = provider.cache_ttl(std::time::Duration::from_secs(ttl));
                 }
-                
+
                 println!(
                     "[auth] register JwksBearerProvider scheme={} jwks_url={} iss={:?} aud={:?}",
                     scheme_name, jwks.jwks_url, jwks.iss, jwks.aud
@@ -64,6 +63,6 @@ pub fn init_security(
         }
         // Fallback: skip this scheme (no JWKS config defined)
     }
-    
+
     Ok(())
 }

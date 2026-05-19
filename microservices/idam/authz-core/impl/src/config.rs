@@ -30,7 +30,6 @@
 /// Config structs are duplicated across all 6 services. This avoids
 /// circular dependencies between services and allows each service to
 /// run without a config file (falling back to `Default`).
-
 use std::collections::HashMap;
 
 /// Top-level application configuration.

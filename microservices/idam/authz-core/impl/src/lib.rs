@@ -10,4 +10,6 @@
 #![allow(clippy::missing_panics_doc)] // build script panic docs are auto-generated
 //! Authz core — library target for migrator access.
 
+pub mod audit;
+pub mod controllers;
 pub mod models;
