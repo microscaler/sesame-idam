@@ -1,3 +1,4 @@
+/// Handler for MCP Create Agent — creates a new MCP (Model Context Protocol) agent..
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::mcp_create_agent::{Request, Response};

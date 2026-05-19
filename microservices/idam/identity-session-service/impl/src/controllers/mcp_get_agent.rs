@@ -1,3 +1,4 @@
+/// Handler for MCP Get Agent — retrieves details of an MCP agent..
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::mcp_get_agent::{Request, Response};

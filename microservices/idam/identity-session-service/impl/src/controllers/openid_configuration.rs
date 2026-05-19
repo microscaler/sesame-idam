@@ -1,3 +1,4 @@
+/// Handler for OpenID Configuration — returns the OpenID Connect provider configuration..
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::openid_configuration::{Request, Response};

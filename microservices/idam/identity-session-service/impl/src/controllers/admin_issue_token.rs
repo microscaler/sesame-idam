@@ -1,3 +1,4 @@
+/// Handler for Admin Issue Token — admin issues an access token for a user.
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::admin_issue_token::{Request, Response};

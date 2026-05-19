@@ -1,3 +1,4 @@
+/// Handler for MCP Delete Agent — deletes an MCP agent..
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::mcp_delete_agent::{Request, Response};

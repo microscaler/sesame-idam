@@ -1,3 +1,4 @@
+/// Handler for Step Up Verify — verifies step-up authentication (MFA)..
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::step_up_verify::{Request, Response};

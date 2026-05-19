@@ -1,3 +1,4 @@
+/// Handler for Users Me Patch — updates the authenticated user's profile..
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::users_me_patch::{Request, Response};

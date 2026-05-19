@@ -1,3 +1,4 @@
+/// Handler for Auth Refresh — refreshes an access token using a refresh token..
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::auth_refresh::{Request, Response};

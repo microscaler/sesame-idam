@@ -1,3 +1,4 @@
+/// Handler for MCP List Agents — lists all MCP agents for the tenant..
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::mcp_list_agents::{Request, Response};

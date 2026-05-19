@@ -1,3 +1,4 @@
+/// Handler for OAuth Userinfo — returns OAuth user information..
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::oauth_userinfo::{Request, Response};
