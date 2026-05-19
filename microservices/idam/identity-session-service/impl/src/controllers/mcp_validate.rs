@@ -1,3 +1,4 @@
+/// Handler for MCP Validate — validates an MCP (Model Context Protocol) auth token.
 // Implementation stub for handler 'mcp_validate'
 // Validate MCP auth token
 use brrtrouter::typed::TypedHandlerRequest;

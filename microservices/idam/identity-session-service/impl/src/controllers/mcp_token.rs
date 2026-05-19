@@ -1,3 +1,5 @@
+/// Handler for MCP Token — issues a short-lived MCP (Model Context Protocol)
+/// auth token for agent access.
 // Implementation stub for handler 'mcp_token'
 // Issue MCP (Model Context Protocol) auth token
 use brrtrouter::typed::TypedHandlerRequest;

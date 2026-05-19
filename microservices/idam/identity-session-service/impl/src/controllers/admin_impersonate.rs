@@ -1,3 +1,9 @@
+/// Handler for Admin Impersonate.
+///
+/// Creates an impersonation session for an admin to act as another user.
+/// Verifies the actor is a platform admin, creates an impersonation session
+/// with copied user session, and stores impersonation metadata in Redis
+/// for later restore via `admin_restore_impersonation`.
 // Implementation stub for handler 'admin_impersonate'
 // Admin impersonate another user
 use brrtrouter::typed::TypedHandlerRequest;
