@@ -4555,6 +4555,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "arc-swap",
+ "base64 0.22.1",
  "brrtrouter",
  "brrtrouter_macros",
  "chrono",
@@ -4567,6 +4568,7 @@ dependencies = [
  "may",
  "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
+ "ring",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
@@ -4578,6 +4580,7 @@ dependencies = [
  "sesame-audit",
  "sesame_idam_authz_core_gen",
  "sesame_idam_database",
+ "sesame_idam_identity_session_service",
  "tikv-jemallocator",
  "tracing",
  "uuid",
