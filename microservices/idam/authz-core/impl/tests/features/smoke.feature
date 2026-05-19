@@ -1,9 +1,13 @@
-Feature: authz-core healthcheck
+Feature: authz-core smoke test
   As a developer
-  I want to verify the service is running
+  I want to verify the service handler is operational
 
-  @smoke
-  Scenario: Service healthcheck
-    Given the service is running
-    When I check the health endpoint
-    Then I should receive a 200 OK
+  Scenario: Service handler returns valid response
+    Given the authz-core service is running
+    When I call the authorize endpoint with a valid request
+    Then the response body has field "allowed" set to true
+
+  Scenario: Response structure is valid
+    Given the authz-core service is running
+    When I call the authorize endpoint with a valid request
+    Then the response body has field "allowed"

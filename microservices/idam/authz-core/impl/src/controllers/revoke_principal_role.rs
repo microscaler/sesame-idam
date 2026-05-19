@@ -15,13 +15,20 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::events;
 
     // Emit audit event: role revocation
-    if let (Ok(tenant_id), Ok(org_id), Ok(user_id), Ok(app_id)) = (
-        req.inner.tenant_id.parse(),
-        req.inner.org_id.as_deref().and_then(|s| s.parse().ok()),
-        req.inner.user_id.parse(),
-        req.inner.app_id.parse(),
+    // Note: RevokePrincipalRoleRequest has no tenant_id field, use x_tenant_id header
+    if let (Ok(tenant_id), Ok(user_id), Ok(app_id)) = (
+        req.data.x_tenant_id.parse(),
+        req.data.user_id.parse(),
+        req.data.app_id.parse(),
     ) {
-        events::role_revoked(&EMITTER, tenant_id, org_id, user_id, app_id, &req.inner.role);
+        events::role_revoked(
+            &EMITTER,
+            tenant_id,
+            uuid::Uuid::default(), // No org_id in revoke request
+            user_id,
+            app_id,
+            &req.data.role,
+        );
     }
 
     // In a production implementation, this would:
@@ -29,5 +36,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // 2. Invalidate cached effective permissions
     // 3. Force re-evaluation on next authorization check
 
-    Response {}
+    Response {
+        error: String::new(),
+        error_description: None,
+    }
 }

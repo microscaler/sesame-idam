@@ -10,7 +10,6 @@
 ///
 /// Uses the brrtrouter HandlerRequest/HandlerResponse channel pattern (same as
 /// jwks_http.rs in identity-session-service).
-
 use base64::Engine;
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
@@ -244,12 +243,8 @@ fn test_wrong_algorithm_rejected() {
 #[test]
 fn test_jwt_without_kid_rejected() {
     let km = KEY_MANAGER.read().unwrap();
-    let key_pair = km
-        .current_signing_key()
-        .expect("Key must exist");
-    let signature = key_pair
-        .sign(b"{}")
-        .expect("sign must succeed");
+    let key_pair = km.current_signing_key().expect("Key must exist");
+    let signature = key_pair.sign(b"{}").expect("sign must succeed");
 
     let header = serde_json::json!({
         "alg": "EdDSA",
@@ -423,8 +418,7 @@ fn test_jwks_key_available_for_validation() {
         "Key must have a non-empty kid"
     );
     assert!(
-        key.public_key_jwk
-            .kty
+        key.public_key_jwk.kty
             == sesame_idam_identity_session_service::key_manager::JwkKeyType::Okp,
         "Key must be OKP (Ed25519)"
     );

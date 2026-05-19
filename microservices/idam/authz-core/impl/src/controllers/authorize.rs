@@ -1,3 +1,7 @@
+use brrtrouter::typed::TypedHandlerRequest;
+use brrtrouter_macros::handler;
+use sesame_idam_authz_core_gen::handlers::authorize::{Request, Response};
+
 /// Authorization controller handler.
 ///
 /// Evaluates whether a principal (user) is allowed to perform an action
@@ -14,14 +18,21 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let mut event = AuditEvent::new(
         AuditEventType::Authorization,
         "authorization_check",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        req.data
+            .tenant_id
+            .as_deref()
+            .unwrap_or_default()
+            .parse::<Uuid>()
+            .unwrap_or_default(),
         AuditActor::ServiceAccount,
         "internal".to_string(),
     );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    event.org_id = req.inner.org_id.to_string().parse::<Uuid>().ok();
+    event.user_id = req.data.user_id.parse::<Uuid>().ok();
+    if let Some(ref val) = req.data.org_id {
+        event.org_id = val.to_string().parse::<Uuid>().ok();
+    }
     event.metadata =
-        serde_json::json!({ "action": req.inner.action, "resource": req.inner.resource }).into();
+        serde_json::json!({ "action": req.data.action, "resource": req.data.resource }).into();
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
 

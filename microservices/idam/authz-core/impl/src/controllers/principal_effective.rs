@@ -18,20 +18,22 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let mut event = AuditEvent::new(
         AuditEventType::Authorization,
         "effective_permissions",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        req.data.tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::ServiceAccount,
         "internal".to_string(),
     );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    event.org_id = req.inner.org_id.to_string().parse::<Uuid>().ok();
-    event.metadata = serde_json::json!({ "include_inherited": req.inner.include_inherited }).into();
+    event.user_id = req.data.user_id.parse::<Uuid>().ok();
+    if let Some(ref val) = req.data.org_id {
+        event.org_id = val.to_string().parse::<Uuid>().ok();
+    }
+    event.metadata = serde_json::json!({ "include_inherited": req.data.include_inherited }).into();
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
 
     Response {
-        attributes: None,
+        attributes: Some(serde_json::json!({})),
         permissions: vec![],
         roles: vec![],
-        user_id: "".to_string(),
+        user_id: req.data.user_id,
     }
 }
