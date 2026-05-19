@@ -110,3 +110,20 @@ Story 1.1 implementation files in `microservices/idam/identity-session-service/i
 - `controllers/admin_jwks_revoke.rs` — Admin revoke endpoint (POST /admin/jwks/revoke)
 - `jwks_client.rs` — JWKS client (consumed by other services)
 - `main.rs` — Wires up `key_manager` module and `KeyManager` import
+
+All 6 consumer services were modularised on 2026-05-19. Each service now has a consistent layout:
+
+- `impl/src/main.rs` — Entry point (~120-160 lines): logging → config → router → dispatcher → middleware → registry → security init → lifeguard prometheus → port → server startup
+- `impl/src/config.rs` — Config structs (`AppConfig`, `SecurityConfig`, `JwksSchemeConfig`, `ApiKeyConfig`, `HttpConfig`, `CorsConfig`) + `load_config()` returning `Result<AppConfig, String>`
+- `impl/src/security.rs` — `init_security(&mut AppService, &AppConfig)` that registers `JwksBearerProvider` per-scheme from config.yaml
+
+Services modularised:
+
+| Service | main.rs lines | New modules |
+|---------|--------------|-------------|
+| `identity-session-service` | 173 → ~156 | `config.rs`, `security.rs` (already had `controllers`, `key_manager`, `middleware`) |
+| `identity-login-service` | 258 → ~146 | `config.rs`, `security.rs` |
+| `identity-user-mgmt-service` | 258 → ~146 | `config.rs`, `security.rs` |
+| `org-mgmt` | 258 → ~146 | `config.rs`, `security.rs` |
+| `api-keys` | 258 → ~156 | `config.rs`, `security.rs` |
+| `authz-core` | 263 → ~120 | `config.rs`, `security.rs` (also had `audit.rs`, `authz_span_middleware.rs`) |
