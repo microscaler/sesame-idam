@@ -4100,9 +4100,11 @@ version = "0.25.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e46922bd01fefcfdcf58d9cd626da082bb2cde27211920dacfde6b2ecf9a35b"
 dependencies = [
+ "arc-swap",
  "async-trait",
  "bytes 1.11.1",
  "combine",
+ "futures",
  "futures-util",
  "itoa",
  "percent-encoding",
@@ -4111,6 +4113,7 @@ dependencies = [
  "sha1_smol",
  "socket2 0.5.10",
  "tokio",
+ "tokio-retry",
  "tokio-util",
  "url",
 ]
@@ -4979,6 +4982,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "sesame-jwt-common-path"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "brrtrouter",
+ "chrono",
+ "prometheus 0.13.4",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sesame-common",
+ "sha2 0.10.9",
+ "thiserror 1.0.69",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "sesame_idam_api_keys"
 version = "0.1.0"
 dependencies = [
@@ -5124,6 +5145,7 @@ dependencies = [
  "may",
  "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
+ "prometheus 0.13.4",
  "ring",
  "rstest",
  "rstest-bdd",
@@ -5134,6 +5156,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sesame-audit",
+ "sesame-jwt-common-path",
  "sesame_idam_database",
  "sesame_idam_identity_login_service_gen",
  "sesame_idam_identity_session_service",
@@ -5958,6 +5981,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
 dependencies = [
  "native-tls",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-retry"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40f644c762e9d396831ae2f8935c954b0d758c4532e924bead0f666d0c1c8640"
+dependencies = [
+ "pin-project-lite",
+ "rand 0.10.1",
  "tokio",
 ]
 

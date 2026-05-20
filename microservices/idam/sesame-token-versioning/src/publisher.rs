@@ -253,7 +253,6 @@ mod tests {
 
     #[test]
     fn test_parse_signed_message_empty_parts() {
-        let _secret = test_hmac_secret();
         let result = parse_signed_message("|");
         assert!(result.is_err());
         assert!(result

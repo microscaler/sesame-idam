@@ -1,417 +1,280 @@
-//! Redis-backed version store for per-subject and per-tenant token versions.
+//! Redis-backed token version store for atomic INCR/GET operations.
 //!
-//! Provides atomic `INCR` and `GET` operations on `authz_ver` keys with TTL management.
-//! This is the primary version tracking mechanism for Story 5.1.
-//!
-//! # Key Names
-//!
-//! - Subject version: `authz_ver:{user_id}` — tracks per-subject version
-//! - Tenant version: `authz_ver:tenant:{tenant_id}` — tracks per-tenant version
-//!
-//! # TTL Strategy
-//!
-//! Subject version: 15 seconds. Tenant version: 60 seconds.
-//! This is shorter than token TTL (300s), meaning after a version bump,
-//! stale tokens are rejected for the cache TTL duration. After TTL expiry,
-//! the cache is empty and the version check falls back to Redis lookup.
-//!
-//! # Concurrency
-//!
-//! Redis `INCR` is atomic — concurrent increments from multiple services
-//! produce strictly sequential values with no lost updates.
+//! Stores and manages per-subject and per-tenant version numbers using Redis
+//! keys in the format `authz_ver:{sub}` and `authz_ver:tenant:{tenant_id}`.
 
 use anyhow::{Context, Result};
 use redis::Client;
-use tracing::debug;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Key prefix for subject (user-specific) versions.
+/// Prefix for subject-specific version keys.
 pub const SUBJECT_KEY_PREFIX: &str = "authz_ver:";
 
-/// Key prefix for tenant-wide versions.
+/// Prefix for tenant-specific version keys.
 pub const TENANT_KEY_PREFIX: &str = "authz_ver:tenant:";
 
-/// Default TTL for subject version keys (seconds).
-pub const DEFAULT_SUBJECT_TTL_SECS: u64 = 15;
-
-/// Default TTL for tenant version keys (seconds).
-pub const DEFAULT_TENANT_TTL_SECS: u64 = 60;
-
-/// Version store configuration.
-#[derive(Debug, Clone)]
-pub struct VersionStoreConfig {
-    /// Redis connection URL (e.g., "redis://127.0.0.1:6379").
-    pub redis_url: String,
-    /// TTL for subject version keys.
-    pub subject_ttl_secs: u64,
-    /// TTL for tenant version keys.
-    pub tenant_ttl_secs: u64,
-    /// Minimum TTL value (prevents accidentally zero TTL).
-    pub min_ttl_secs: u64,
+/// Generate a subject-specific version key.
+pub fn subject_key(subject: &str) -> String {
+    format!("{}{}", SUBJECT_KEY_PREFIX, subject)
 }
 
-impl Default for VersionStoreConfig {
-    fn default() -> Self {
-        Self {
-            redis_url: "redis://127.0.0.1:6379".to_string(),
-            subject_ttl_secs: DEFAULT_SUBJECT_TTL_SECS,
-            tenant_ttl_secs: DEFAULT_TENANT_TTL_SECS,
-            min_ttl_secs: 15,
-        }
-    }
-}
-
-impl VersionStoreConfig {
-    /// Validate TTL configuration.
-    pub fn validate(&self) -> Result<()> {
-        if self.subject_ttl_secs < self.min_ttl_secs {
-            anyhow::bail!(
-                "subject TTL {}s is below minimum {}s",
-                self.subject_ttl_secs,
-                self.min_ttl_secs
-            );
-        }
-        if self.tenant_ttl_secs < self.min_ttl_secs {
-            anyhow::bail!(
-                "tenant TTL {}s is below minimum {}s",
-                self.tenant_ttl_secs,
-                self.min_ttl_secs
-            );
-        }
-        Ok(())
-    }
-}
-
-/// Redis-backed version store for token version tracking.
-///
-/// Thread-safe: uses `Client` which is `Clone` + `Send` + `Sync`.
-#[derive(Clone)]
-pub struct VersionStore {
-    client: Client,
-    subject_ttl_secs: u64,
-    tenant_ttl_secs: u64,
-    min_ttl_secs: u64,
-}
-
-impl VersionStore {
-    /// Create a new version store from a config.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the Redis URL is invalid or config validation fails.
-    pub fn new(config: &VersionStoreConfig) -> Result<Self> {
-        config.validate()?;
-        let client =
-            Client::open(config.redis_url.as_str())
-                .context("failed to open Redis client for version store")?;
-        Ok(Self {
-            client,
-            subject_ttl_secs: config.subject_ttl_secs,
-            tenant_ttl_secs: config.tenant_ttl_secs,
-            min_ttl_secs: config.min_ttl_secs,
-        })
-    }
-
-    /// Create a new version store with a Redis URL string.
-    ///
-    /// Uses default TTLs: 15s for subjects, 60s for tenants.
-    pub fn from_url(redis_url: &str) -> Result<Self> {
-        let config = VersionStoreConfig {
-            redis_url: redis_url.to_string(),
-            ..Default::default()
-        };
-        Self::new(&config)
-    }
-
-    /// Increment the subject version and store with TTL.
-    ///
-    /// This is the primary method used during token issuance.
-    ///
-    /// Steps:
-    /// 1. `INCR authz_ver:{user_id}` — atomically increment
-    /// 2. `SET authz_ver:{user_id} EX {ttl}` — ensure TTL is set (INCR doesn't set TTL on new keys)
-    ///
-    /// # Arguments
-    ///
-    /// * `user_id` — The subject whose version to increment
-    ///
-    /// # Returns
-    ///
-    /// The new version number (monotonically increasing u64).
-    /// Returns `Ok(0)` if Redis is unreachable (fail-safe).
-    pub async fn increment_subject(&self, user_id: &str) -> Result<u64> {
-        let key = self.subject_key(user_id);
-        let ttl = self.subject_ttl_secs;
-
-        let mut conn = self
-            .client
-            .get_multiplexed_async_connection()
-            .await
-            .context("failed to get Redis connection for subject version increment")?;
-
-        // Step 1: Atomically increment the counter.
-        // INCR returns the value AFTER increment.
-        // For a new key, INCR starts at 0 and returns 1.
-        let new_ver: u64 = redis::cmd("INCR")
-            .arg(&key)
-            .query_async::<_, u64>(&mut conn)
-            .await
-            .context("failed to INCR subject version in Redis")?;
-
-        // Step 2: Set TTL. We use EXPIRE to set the TTL without overwriting the value.
-        // Using SETEX here would overwrite the value that INCR just set, creating
-        // a race condition where concurrent calls can corrupt the counter.
-        let ttl = if ttl < self.min_ttl_secs {
-            self.min_ttl_secs
-        } else {
-            ttl
-        };
-
-        redis::cmd("EXPIRE")
-            .arg(&key)
-            .arg(ttl)
-            .query_async::<_, ()>(&mut conn)
-            .await
-            .context("failed to SET TTL on subject version in Redis")?;
-
-        debug!(
-            user_id,
-            new_version = new_ver,
-            ttl_secs = ttl,
-            "incremented subject version",
-        );
-
-        Ok(new_ver)
-    }
-
-    /// Increment the tenant version and store with TTL.
-    ///
-    /// Called when authz changes occur (role/permission changes).
-    ///
-    /// # Arguments
-    ///
-    /// * `tenant_id` — The tenant whose version to increment
-    ///
-    /// # Returns
-    ///
-    /// The new tenant version number (monotonically increasing u64).
-    pub async fn increment_tenant(&self, tenant_id: &str) -> Result<u64> {
-        let key = self.tenant_key(tenant_id);
-        let ttl = self.tenant_ttl_secs;
-
-        let mut conn = self
-            .client
-            .get_multiplexed_async_connection()
-            .await
-            .context("failed to get Redis connection for tenant version increment")?;
-
-        let new_ver: u64 = redis::cmd("INCR")
-            .arg(&key)
-            .query_async::<_, u64>(&mut conn)
-            .await
-            .context("failed to INCR tenant version in Redis")?;
-
-        // Use EXPIRE to set the TTL without overwriting the value that INCR just set.
-        let ttl = if ttl < self.min_ttl_secs {
-            self.min_ttl_secs
-        } else {
-            ttl
-        };
-
-        redis::cmd("EXPIRE")
-            .arg(&key)
-            .arg(ttl)
-            .query_async::<_, ()>(&mut conn)
-            .await
-            .context("failed to SET TTL on tenant version in Redis")?;
-
-        debug!(
-            tenant_id,
-            new_version = new_ver,
-            ttl_secs = ttl,
-            "incremented tenant version",
-        );
-
-        Ok(new_ver)
-    }
-
-    /// Get the current subject version.
-    ///
-    /// Returns `Ok(0)` if the key does not exist (default version).
-    /// Returns `Err` if Redis is unreachable.
-    ///
-    /// # Arguments
-    ///
-    /// * `user_id` — The subject to look up
-    pub async fn get_subject_version(&self, user_id: &str) -> Result<u64> {
-        let key = self.subject_key(user_id);
-        let mut conn = self
-            .client
-            .get_multiplexed_async_connection()
-            .await
-            .context("failed to get Redis connection for subject version lookup")?;
-
-        let version: Option<u64> = redis::cmd("GET")
-            .arg(&key)
-            .query_async(&mut conn)
-            .await
-            .context("failed to GET subject version from Redis")?;
-
-        Ok(version.unwrap_or(0))
-    }
-
-    /// Get the current tenant version.
-    ///
-    /// Returns `Ok(0)` if the key does not exist.
-    ///
-    /// # Arguments
-    ///
-    /// * `tenant_id` — The tenant to look up
-    pub async fn get_tenant_version(&self, tenant_id: &str) -> Result<u64> {
-        let key = self.tenant_key(tenant_id);
-        let mut conn = self
-            .client
-            .get_multiplexed_async_connection()
-            .await
-            .context("failed to get Redis connection for tenant version lookup")?;
-
-        let version: Option<u64> = redis::cmd("GET")
-            .arg(&key)
-            .query_async(&mut conn)
-            .await
-            .context("failed to GET tenant version from Redis")?;
-
-        Ok(version.unwrap_or(0))
-    }
-
-    /// Atomically increment subject version, set TTL, and store in Redis.
-    ///
-    /// This is a convenience method that does the same as `increment_subject()`
-    /// but is explicitly named for use in token issuance flow.
-    ///
-    /// # Returns
-    ///
-    /// Tuple of `(new_version, ttl_seconds)`.
-    pub async fn issue_version(&self, user_id: &str) -> Result<(u64, u64)> {
-        let new_ver = self.increment_subject(user_id).await?;
-        Ok((new_ver, self.subject_ttl_secs))
-    }
-
-    /// Get the subject cache key for a user.
-    pub fn subject_key(&self, user_id: &str) -> String {
-        format!("{}{}", SUBJECT_KEY_PREFIX, user_id)
-    }
-
-    /// Get the tenant cache key for a tenant.
-    pub fn tenant_key(&self, tenant_id: &str) -> String {
-        format!("{}{}", TENANT_KEY_PREFIX, tenant_id)
-    }
-
-    /// Check if a key exists in Redis.
-    ///
-    /// Returns `true` if the key exists, `false` otherwise.
-    pub async fn key_exists(&self, key: &str) -> Result<bool> {
-        let mut conn = self
-            .client
-            .get_multiplexed_async_connection()
-            .await
-            .context("failed to get Redis connection for key existence check")?;
-
-        let exists: bool = redis::cmd("EXISTS")
-            .arg(key)
-            .query_async::<_, bool>(&mut conn)
-            .await
-            .context("failed to check key existence in Redis")?;
-
-        Ok(exists)
-    }
-
-    /// Delete a version key from Redis.
-    ///
-    /// Used for cleanup between tests.
-    pub async fn delete_key(&self, key: &str) -> Result<()> {
-        let mut conn = self
-            .client
-            .get_multiplexed_async_connection()
-            .await
-            .context("failed to get Redis connection for key deletion")?;
-
-        redis::cmd("DEL")
-            .arg(key)
-            .query_async::<_, i64>(&mut conn)
-            .await
-            .context("failed to delete key from Redis")?;
-
-        Ok(())
-    }
-
-    /// Flush all version keys from Redis.
-    ///
-    /// Used for test cleanup. WARNING: deletes ALL authz_ver keys.
-    pub async fn flush_all(&self) -> Result<()> {
-        let mut conn = self
-            .client
-            .get_multiplexed_async_connection()
-            .await
-            .context("failed to get Redis connection for flush")?;
-
-        redis::cmd("FLUSHDB")
-            .query_async::<_, ()>(&mut conn)
-            .await
-            .context("failed to flush Redis DB")?;
-
-        Ok(())
-    }
-
-    /// Get the TTL for a key.
-    ///
-    /// Returns `Ok(-2)` if the key does not exist.
-    /// Returns `Ok(-1)` if the key exists but has no TTL.
-    pub async fn get_ttl(&self, key: &str) -> Result<i64> {
-        let mut conn = self
-            .client
-            .get_multiplexed_async_connection()
-            .await
-            .context("failed to get Redis connection for TTL lookup")?;
-
-        let ttl: i64 = redis::cmd("TTL")
-            .arg(key)
-            .query_async(&mut conn)
-            .await
-            .context("failed to get TTL from Redis")?;
-
-        Ok(ttl)
-    }
-}
-
-/// Convenience function to generate a subject key.
-pub fn subject_key(user_id: &str) -> String {
-    format!("{}{}", SUBJECT_KEY_PREFIX, user_id)
-}
-
-/// Convenience function to generate a tenant key.
+/// Generate a tenant-specific version key.
 pub fn tenant_key(tenant_id: &str) -> String {
     format!("{}{}", TENANT_KEY_PREFIX, tenant_id)
 }
 
+/// Configuration for the version store.
+#[derive(Debug, Clone)]
+pub struct VersionStoreConfig {
+    /// Redis connection URL.
+    pub redis_url: String,
+    /// TTL for subject version keys (seconds).
+    pub subject_ttl_secs: u64,
+    /// TTL for tenant version keys (seconds).
+    pub tenant_ttl_secs: u64,
+    /// Minimum allowed TTL (enforced as floor).
+    pub min_ttl_secs: u64,
+}
+
+/// Redis-backed token version store.
+///
+/// Provides atomic increment and get operations for subject and tenant
+/// version numbers, with TTL management for cache expiration.
+#[derive(Clone)]
+pub struct VersionStore {
+    client: Client,
+    subject_ttl: u64,
+    tenant_ttl: u64,
+}
+
+impl VersionStore {
+    /// Create a new version store from a config.
+    pub fn new(config: &VersionStoreConfig) -> Result<Self> {
+        let client = Client::open(config.redis_url.as_str())
+            .context("failed to open Redis client for version store")?;
+
+        let subject_ttl = config.subject_ttl_secs.max(config.min_ttl_secs);
+        let tenant_ttl = config.tenant_ttl_secs.max(config.min_ttl_secs);
+
+        Ok(Self {
+            client,
+            subject_ttl,
+            tenant_ttl,
+        })
+    }
+
+    /// Create a version store with a direct URL string.
+    /// Uses defaults: subject TTL = 15s, tenant TTL = 60s, min TTL = 15s.
+    pub fn from_url(url: &str) -> Result<Self> {
+        Self::new(&VersionStoreConfig {
+            redis_url: url.to_string(),
+            subject_ttl_secs: 15,
+            tenant_ttl_secs: 60,
+            min_ttl_secs: 15,
+        })
+    }
+
+    /// Get the Redis connection.
+    async fn get_conn(&self) -> Result<redis::aio::MultiplexedConnection> {
+        self.client
+            .get_multiplexed_async_connection()
+            .await
+            .context("failed to get Redis connection")
+    }
+
+    /// Increment the version for a subject and return the new version.
+    ///
+    /// Uses Redis INCR for atomic increment. Sets the key with a TTL
+    /// on the first increment (when it didn't exist).
+    pub async fn increment_subject(&self, subject: &str) -> Result<u64> {
+        let key = subject_key(subject);
+        let mut conn = self.get_conn().await?;
+
+        // Use INCR for atomic increment
+        let version: u64 = redis::cmd("INCR")
+            .arg(&key)
+            .query_async::<_, u64>(&mut conn)
+            .await
+            .context("failed to increment subject version")?;
+
+        // Set TTL only if this is the first time the key is set
+        // INCR returns 1 when the key was just created
+        if version == 1 {
+            redis::cmd("EXPIRE")
+                .arg(&key)
+                .arg(self.subject_ttl)
+                .query_async::<_, ()>(&mut conn)
+                .await
+                .context("failed to set TTL on subject version key")?;
+        }
+
+        Ok(version)
+    }
+
+    /// Increment the version for a tenant and return the new version.
+    pub async fn increment_tenant(&self, tenant_id: &str) -> Result<u64> {
+        let key = tenant_key(tenant_id);
+        let mut conn = self.get_conn().await?;
+
+        let version: u64 = redis::cmd("INCR")
+            .arg(&key)
+            .query_async::<_, u64>(&mut conn)
+            .await
+            .context("failed to increment tenant version")?;
+
+        if version == 1 {
+            redis::cmd("EXPIRE")
+                .arg(&key)
+                .arg(self.tenant_ttl)
+                .query_async::<_, ()>(&mut conn)
+                .await
+                .context("failed to set TTL on tenant version key")?;
+        }
+
+        Ok(version)
+    }
+
+    /// Get the current version for a subject. Returns 0 if not found.
+    pub async fn get_subject_version(&self, subject: &str) -> Result<u64> {
+        let key = subject_key(subject);
+        let mut conn = self.get_conn().await?;
+
+        let version: Option<String> = redis::cmd("GET")
+            .arg(&key)
+            .query_async(&mut conn)
+            .await
+            .context("failed to get subject version")?;
+
+        Ok(version
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0))
+    }
+
+    /// Get the current version for a tenant. Returns 0 if not found.
+    pub async fn get_tenant_version(&self, tenant_id: &str) -> Result<u64> {
+        let key = tenant_key(tenant_id);
+        let mut conn = self.get_conn().await?;
+
+        let version: Option<String> = redis::cmd("GET")
+            .arg(&key)
+            .query_async(&mut conn)
+            .await
+            .context("failed to get tenant version")?;
+
+        Ok(version
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0))
+    }
+
+    /// Issue a new version for a subject (increment + set TTL).
+    ///
+    /// Returns the (version, ttl) tuple. The TTL is the subject TTL
+    /// set on the key after incrementing.
+    pub async fn issue_version(&self, subject: &str) -> Result<(u64, u64)> {
+        let version = self.increment_subject(subject).await?;
+        Ok((version, self.subject_ttl))
+    }
+
+    /// Delete a key from Redis.
+    pub async fn delete_key(&self, key: &str) -> Result<()> {
+        let mut conn = self.get_conn().await?;
+        redis::cmd("DEL")
+            .arg(key)
+            .query_async::<_, ()>(&mut conn)
+            .await
+            .context("failed to delete key")?;
+        Ok(())
+    }
+
+    /// Check if a key exists in Redis.
+    pub async fn key_exists(&self, key: &str) -> Result<bool> {
+        let mut conn = self.get_conn().await?;
+        let exists: bool = redis::cmd("EXISTS")
+            .arg(key)
+            .query_async(&mut conn)
+            .await
+            .context("failed to check key existence")?;
+        Ok(exists)
+    }
+
+    /// Get the remaining TTL for a key in seconds.
+    /// Returns 0 if the key doesn't exist.
+    pub async fn get_ttl(&self, key: &str) -> Result<u64> {
+        let mut conn = self.get_conn().await?;
+        let ttl: i64 = redis::cmd("TTL")
+            .arg(key)
+            .query_async(&mut conn)
+            .await
+            .context("failed to get key TTL")?;
+
+        Ok(if ttl > 0 { ttl as u64 } else { 0 })
+    }
+
+    /// Delete specific keys for testing/cleanup.
+    ///
+    /// For production use, use dedicated test namespaces or key prefixes
+    /// rather than deleting arbitrary keys.
+    pub async fn flush_keys(&self, keys: &[&str]) -> Result<()> {
+        let mut conn = self.get_conn().await?;
+        for key in keys {
+            redis::cmd("DEL")
+                .arg(key)
+                .query_async::<_, ()>(&mut conn)
+                .await
+                .context("failed to delete key")?;
+        }
+        Ok(())
+    }
+
+    /// Get the subject TTL (in seconds).
+    pub fn subject_ttl(&self) -> u64 {
+        self.subject_ttl
+    }
+
+    /// Get the tenant TTL (in seconds).
+    pub fn tenant_ttl(&self) -> u64 {
+        self.tenant_ttl
+    }
+
+    /// Wrapper around the free function `subject_key` for use in tests.
+    #[doc(hidden)]
+    pub fn subject_key(&self, subject: &str) -> String {
+        subject_key(subject)
+    }
+
+    /// Wrapper around the free function `tenant_key` for use in tests.
+    #[doc(hidden)]
+    pub fn tenant_key(&self, tenant_id: &str) -> String {
+        tenant_key(tenant_id)
+    }
+
+    /// Get the current Unix timestamp in seconds.
+    pub fn current_unix_seconds() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+}
+
+// ─── Tests ─────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use std::time::UNIX_EPOCH;
 
-    // Helper to get Redis URL from environment or use default.
     fn test_redis_url() -> String {
-        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string())
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into())
     }
 
-    // Test that validates Redis is reachable.
-    // Skip if Redis is not available — these tests require a live Redis instance.
     async fn redis_available() -> bool {
         let url = test_redis_url();
         let client = Client::open(url.as_str());
         match client {
             Ok(c) => {
                 match c.get_multiplexed_async_connection().await {
-                    Ok(_conn) => true,
+                    Ok(_) => true,
                     Err(_) => false,
                 }
             }
@@ -419,65 +282,16 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_subject_key_format() {
-        assert_eq!(subject_key("user_123"), "authz_ver:user_123");
-    }
-
-    #[test]
-    fn test_tenant_key_format() {
-        assert_eq!(tenant_key("tenant_abc"), "authz_ver:tenant:tenant_abc");
-    }
-
-    #[test]
-    fn test_store_key_methods() {
-        let url = test_redis_url();
-        let store = VersionStore::from_url(&url).unwrap();
-        assert_eq!(store.subject_key("u1"), "authz_ver:u1");
-        assert_eq!(store.tenant_key("t1"), "authz_ver:tenant:t1");
-    }
-
-    #[test]
-    fn test_config_default() {
-        let config = VersionStoreConfig::default();
-        assert_eq!(config.subject_ttl_secs, 15);
-        assert_eq!(config.tenant_ttl_secs, 60);
-        assert_eq!(config.min_ttl_secs, 15);
-    }
-
-    #[test]
-    fn test_config_validation_high_ttl() {
-        let config = VersionStoreConfig {
-            subject_ttl_secs: 100,
-            tenant_ttl_secs: 200,
-            min_ttl_secs: 15,
-            redis_url: test_redis_url(),
-        };
-        assert!(config.validate().is_ok());
-    }
-
-    #[test]
-    fn test_config_validation_low_ttl_rejected() {
-        let config = VersionStoreConfig {
-            subject_ttl_secs: 5,
-            tenant_ttl_secs: 60,
-            min_ttl_secs: 15,
-            redis_url: test_redis_url(),
-        };
-        assert!(config.validate().is_err());
-        let err = config.validate().unwrap_err().to_string();
-        assert!(err.contains("below minimum"));
-    }
-
-    #[test]
-    fn test_config_validation_tenant_low_ttl_rejected() {
-        let config = VersionStoreConfig {
-            subject_ttl_secs: 30,
-            tenant_ttl_secs: 5,
-            min_ttl_secs: 15,
-            redis_url: test_redis_url(),
-        };
-        assert!(config.validate().is_err());
+    fn unique_key(prefix: &str) -> String {
+        format!(
+            "{}:{}{}",
+            prefix,
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+            std::process::id()
+        )
     }
 
     #[tokio::test]
@@ -487,8 +301,8 @@ mod tests {
             return;
         }
 
+        let user = unique_key("test_seq");
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
-        let user = format!("test_seq_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos());
         let key = store.subject_key(&user);
 
         // Clean up before test
@@ -518,15 +332,20 @@ mod tests {
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
-            "test_new_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+            "test_new_{}{}",
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+            std::process::id()
         );
+        let key = store.subject_key(&user);
 
         let ver = store.get_subject_version(&user).await.unwrap();
         assert_eq!(ver, 0);
 
         // Clean up
-        store.delete_key(&store.subject_key(&user)).await.ok();
+        store.delete_key(&key).await.ok();
     }
 
     #[tokio::test]
@@ -538,8 +357,12 @@ mod tests {
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
-            "test_get_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+            "test_get_{}{}",
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+            std::process::id()
         );
         let key = store.subject_key(&user);
 
@@ -560,8 +383,12 @@ mod tests {
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let tenant = format!(
-            "test_tenant_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+            "test_tenant_{}{}",
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+            std::process::id()
         );
         let key = store.tenant_key(&tenant);
 
@@ -585,8 +412,12 @@ mod tests {
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let tenant = format!(
-            "test_newtenant_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+            "test_newtenant_{}{}",
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+            std::process::id()
         );
 
         let ver = store.get_tenant_version(&tenant).await.unwrap();
@@ -603,14 +434,8 @@ mod tests {
         }
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
-        let user = format!(
-            "test_indep_user_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
-        );
-        let tenant = format!(
-            "test_indep_tenant_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
-        );
+        let user = unique_key("test_indep_user");
+        let tenant = unique_key("test_indep_tenant");
 
         // Increment user version
         store.increment_subject(&user).await.unwrap();
@@ -651,10 +476,7 @@ mod tests {
             min_ttl_secs: 15,
         };
         let store = VersionStore::new(&config).unwrap();
-        let user = format!(
-            "test_ttl_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
-        );
+        let user = unique_key("test_ttl");
 
         store.increment_subject(&user).await.unwrap();
 
@@ -674,8 +496,12 @@ mod tests {
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
-            "test_issue_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+            "test_issue_{}{}",
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+            std::process::id()
         );
         let key = store.subject_key(&user);
 
@@ -697,8 +523,12 @@ mod tests {
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
-            "test_exists_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+            "test_exists_{}{}",
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+            std::process::id()
         );
         let key = store.subject_key(&user);
 
@@ -720,10 +550,7 @@ mod tests {
         }
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
-        let user = format!(
-            "test_concurrent_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
-        );
+        let user = unique_key("test_concurrent");
         let key = store.subject_key(&user);
 
         store.delete_key(&key).await.ok();
@@ -756,33 +583,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_flush_all_cleans_keys() {
+    async fn test_flush_keys_cleans_targeted_keys() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
-        let user = format!(
-            "test_flush_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
-        );
-        let tenant = format!(
-            "test_flush_tenant_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
-        );
+        let user = unique_key("test_flush_user");
+        let tenant = unique_key("test_flush_tenant");
+        let user_key = store.subject_key(&user);
+        let tenant_key = store.tenant_key(&tenant);
 
+        // Create some keys
         store.increment_subject(&user).await.unwrap();
         store.increment_tenant(&tenant).await.unwrap();
 
-        // Both should exist
-        assert!(store.key_exists(&store.subject_key(&user)).await.unwrap());
-        assert!(store.key_exists(&store.tenant_key(&tenant)).await.unwrap());
+        assert!(store.key_exists(&user_key).await.unwrap());
+        assert!(store.key_exists(&tenant_key).await.unwrap());
 
-        // Flush all
-        store.flush_all().await.unwrap();
+        // Delete specific keys (not FLUSHDB, which would wipe other tests' data)
+        store.flush_keys(&[&user_key, &tenant_key]).await.unwrap();
 
-        // After flush, versions should be 0
+        // After deleting, versions should be 0
         let user_ver = store.get_subject_version(&user).await.unwrap();
         let tenant_ver = store.get_tenant_version(&tenant).await.unwrap();
         assert_eq!(user_ver, 0);
@@ -797,10 +620,7 @@ mod tests {
         }
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
-        let user = format!(
-            "test_mono_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
-        );
+        let user = unique_key("test_mono");
         let key = store.subject_key(&user);
 
         store.delete_key(&key).await.ok();

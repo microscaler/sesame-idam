@@ -28,6 +28,8 @@ members = [
     "idam/authz-core/impl",
     "idam/org-mgmt/gen",
     "idam/org-mgmt/impl",
+    # Shared JWT common-path middleware (Epic 4.2)
+    "idam/sesame-jwt-common-path",
 ]
 resolver = "2"
 
@@ -38,6 +40,7 @@ edition = "2021"
 [workspace.dependencies]
 sesame_audit = { package = "sesame-audit", path = "idam/sesame-audit" }
 sesame_token_versioning = { package = "sesame_token_versioning", path = "idam/sesame-token-versioning" }
+sesame_jwt_common_path = { package = "sesame-jwt-common-path", path = "idam/sesame-jwt-common-path" }
 sesame_denylist = { package = "sesame-denylist", path = "idam/sesame-denylist" }
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
 brrtrouter = { path = "../../BRRTRouter", default-features = false }
@@ -60,7 +63,7 @@ tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 jsonwebtoken = "9.3"
 ring = "0.17"
 base64 = { version = "0.22", features = ["alloc"] }
-redis = { version = "0.25", features = ["aio", "tokio-comp"] }
+redis = { version = "0.25", features = ["aio", "tokio-comp", "connection-manager"] }
 sha2 = "0.10"
 prometheus = "0.13"
 thiserror = "1.0"
