@@ -489,7 +489,7 @@ mod tests {
 
         // First call — cache miss
         let result = cache
-            .get_or_insert("ent_1", |_| async { Ok(snap.clone()) })
+            .get_or_insert("ent_1", || async { Ok::<EntitlementSnapshot, String>(snap.clone()) })
             .await;
         assert!(result.is_ok());
         let first = result.unwrap();
@@ -502,7 +502,7 @@ mod tests {
         let result = cache
             .get_or_insert(
                 "ent_1",
-                |_| {
+                || {
                     let called = fetch_called_clone.clone();
                     async move {
                         called.store(true, Ordering::Relaxed);
@@ -527,7 +527,7 @@ mod tests {
         let result = cache
             .get_or_insert(
                 "ent_2",
-                |_| {
+                || {
                     let called = fetch_called_clone.clone();
                     async move {
                         called.store(true, Ordering::Relaxed);
@@ -554,7 +554,7 @@ mod tests {
         let cache = EntitlementSnapshotCache::new(CacheConfig::default());
 
         let result = cache
-            .get_or_insert("ent_3", |_| async {
+            .get_or_insert("ent_3", || async {
                 Err("fetch failed".to_string())
             })
             .await;
@@ -603,7 +603,7 @@ mod tests {
         );
 
         let result = cache
-            .get_or_insert("ent_large", |_| async { Ok(snap) })
+            .get_or_insert("ent_large", || async { Ok::<EntitlementSnapshot, String>(snap) })
             .await;
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -639,7 +639,7 @@ mod tests {
             cache
                 .get_or_insert(
                     &format!("ent_{}", i),
-                    |_| async move { Ok(snap) },
+                    || async move { Ok(snap) },
                 )
                 .await
                 .unwrap();
@@ -653,7 +653,7 @@ mod tests {
             vec![Permission::new("read", "docs")],
         );
         cache
-            .get_or_insert("ent_4", |_| async { Ok(snap4) })
+            .get_or_insert("ent_4", || async { Ok::<EntitlementSnapshot, String>(snap4) })
             .await
             .unwrap();
 
@@ -663,7 +663,7 @@ mod tests {
         let result = cache
             .get_or_insert(
                 "ent_0",
-                |_| async { Err("should have been evicted".to_string()) },
+                || async { Err("should have been evicted".to_string()) },
             )
             .await;
         assert!(result.is_err());
@@ -672,7 +672,7 @@ mod tests {
         let result = cache
             .get_or_insert(
                 "ent_1",
-                |_| async { Err("should still be cached".to_string()) },
+                || async { Err("should still be cached".to_string()) },
             )
             .await;
         assert!(result.is_ok());
@@ -691,7 +691,7 @@ mod tests {
             vec![Permission::new("read", "docs")],
         );
         cache
-            .get_or_insert("ent_inv", |_| async { Ok(snap) })
+            .get_or_insert("ent_inv", || async { Ok::<EntitlementSnapshot, String>(snap) })
             .await
             .unwrap();
         assert_eq!(cache.len().await, 1);
@@ -719,7 +719,7 @@ mod tests {
             cache
                 .get_or_insert(
                     &format!("ent_{}", i),
-                    |_| async move { Ok(snap) },
+                    || async move { Ok(snap) },
                 )
                 .await
                 .unwrap();
@@ -745,7 +745,7 @@ mod tests {
         );
 
         let result = cache
-            .get_or_insert("ent_empty", |_| async { Ok(snap) })
+            .get_or_insert("ent_empty", || async { Ok::<EntitlementSnapshot, String>(snap) })
             .await;
         assert!(result.is_ok());
         assert!(result.unwrap().permissions.is_empty());
@@ -762,7 +762,7 @@ mod tests {
             vec![Permission::new("read", "docs")],
         );
         cache
-            .get_or_insert("ent_1", |_| async { Ok(snap) })
+            .get_or_insert("ent_1", || async { Ok::<EntitlementSnapshot, String>(snap) })
             .await
             .unwrap();
         assert!(!cache.is_empty().await);
@@ -778,7 +778,7 @@ mod tests {
         );
 
         let result = cache
-            .get_or_insert("ent_üñíçödé", |_| async { Ok(snap) })
+            .get_or_insert("ent_üñíçödé", || async { Ok::<EntitlementSnapshot, String>(snap) })
             .await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap().user_id, "u1");

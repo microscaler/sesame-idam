@@ -10,7 +10,7 @@ pub mod publisher;
 pub mod subscriber;
 pub mod version_store;
 
-pub use events::VersionBumpEvent;
+pub use events::{BumpReason, VersionBumpEvent};
 pub use publisher::VersionBumpPublisher;
 pub use subscriber::VersionBumpSubscriber;
 pub use version_store::{VersionStore, VersionStoreConfig, subject_key, tenant_key};

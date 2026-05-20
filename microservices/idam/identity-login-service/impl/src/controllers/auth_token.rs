@@ -6,6 +6,9 @@ use brrtrouter::typed::TypedHandlerRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_token::{Request, Response};
 use std::collections::HashSet;
 
+/// Token versioning module for per-subject version tracking (Story 5.1)
+use sesame_token_versioning::VersionStore;
+
 // ─── Constants ───────────────────────────────────────────────────────────
 
 /// Maximum impersonation TTL (HACK-605): 5 minutes
@@ -582,6 +585,12 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
     use uuid::Uuid;
     use std::time::{SystemTime, UNIX_EPOCH};
     
+
+    // Story 5.1: Initialize VersionStore for Redis-backed version tracking
+    let store = VersionStore::from_url("redis://127.0.0.1:6379").unwrap_or_else(|e| {
+        tracing::error!(error = %e, "Failed to create VersionStore");
+        panic!("VersionStore initialization failed in production");
+    });
     // 1. Subject token is required
     let subject_token = req.subject_token.as_ref().ok_or(ErrorResponse {
         error: "invalid_request".to_string(),
@@ -697,8 +706,8 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
         &jti,
         now,
         token_ttl,
-        0,    // Story 5.1: version from Redis (default 0 for token exchange)
-        &jti, // Story 5.1: session ID (uses jti as placeholder in exchange flow)
+        store.increment_subject(&subject_claims.sub).await.unwrap_or(1), // Story 5.1: version from VersionStore
+        &jti, // Story 5.1: session ID (uses jti as identifier)
     );
     let new_refresh_token = build_refresh_token(&subject_claims, &jti, now);
     
@@ -1017,8 +1026,8 @@ mod tests {
             org_id: Some("org_123".to_string()),
             scope: "profile:read orders:read".to_string(),
             roles: vec!["customer".to_string()],
-            ver: None,
-            sid: None,
+
+
             has_act: false,
             act_chain: vec![],
         };
@@ -1040,8 +1049,8 @@ mod tests {
             org_id: Some("org_123".to_string()),
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
-            ver: None,
-            sid: None,
+
+
             has_act: false,
             act_chain: vec![],
         };

@@ -9,9 +9,12 @@
 mod audit;
 pub mod config;
 pub mod controllers;
-pub mod jwks_client;
 pub mod jwt;
+pub mod jwks_client;
 pub mod key_manager;
 pub mod models;
 // Redis client and helpers for refresh token rotation
 pub mod redis;
+pub mod security;
+// Token rotation service layer (Story 3.1)
+pub mod services;
