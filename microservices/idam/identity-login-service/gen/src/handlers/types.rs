@@ -55,6 +55,8 @@ pub struct AuthLoginResponse {
 
     pub token_type: String,
 
+    pub token_version: i32,
+
     pub user_id: String,
 }
 
@@ -114,6 +116,8 @@ pub struct AuthRegisterResponse {
     pub scope: String,
 
     pub token_type: String,
+
+    pub token_version: i32,
 
     pub user_id: String,
 }
@@ -178,6 +182,8 @@ pub struct AuthTokenResponse {
     pub scope: String,
 
     pub token_type: String,
+
+    pub token_version: i32,
 
     pub user_id: String,
 }
@@ -422,6 +428,8 @@ pub struct MagicLinkVerifyResponse {
 
     pub token_type: String,
 
+    pub token_version: i32,
+
     pub user_id: String,
 }
 
@@ -574,6 +582,8 @@ pub struct SmsMagicLinkVerifyResponse {
 
     pub token_type: String,
 
+    pub token_version: i32,
+
     pub user_id: String,
 }
 
@@ -688,6 +698,8 @@ pub struct TokenResponse {
 
     pub token_type: String,
 
+    pub token_version: i32,
+
     pub user_id: String,
 }
 
@@ -765,6 +777,8 @@ pub struct VerifyEmailOtpResponse {
 
     pub token_type: String,
 
+    pub token_version: i32,
+
     pub user_id: String,
 }
 
@@ -800,6 +814,8 @@ pub struct VerifyPhoneOtpResponse {
     pub scope: String,
 
     pub token_type: String,
+
+    pub token_version: i32,
 
     pub user_id: String,
 }

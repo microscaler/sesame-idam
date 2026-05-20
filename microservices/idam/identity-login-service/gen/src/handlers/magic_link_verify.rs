@@ -63,6 +63,10 @@ pub struct Response {
     #[serde(rename = "token_type")]
     pub token_type: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "token_version")]
+    pub token_version: Option<i32>,
+
     #[serde(rename = "user_id")]
     pub user_id: String,
 }

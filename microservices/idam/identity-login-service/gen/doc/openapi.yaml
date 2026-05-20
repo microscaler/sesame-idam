@@ -1567,6 +1567,11 @@ components:
           example:
           - org:admin
           - billing:read
+        token_version:
+          type: integer
+          format: int64
+          description: Monotonically increasing token version (for revocation). Each token issue increments this value. Used by consumers to detect stale permissions.
+          example: 42
       example: *id039
     PendingEmailVerificationResponse:
       type: object

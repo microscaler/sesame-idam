@@ -5,6 +5,23 @@ security:
   api_keys:
     ApiKeyHeader:
       key: "test123"
+
+# JWT token TTL configuration (Story 3.3)
+# All access tokens use 5-minute (300s) TTL after F-010 alignment.
+# Environment variables override these values:
+#   JWT_ACCESS_TTL_NORMAL, JWT_ACCESS_TTL_ELEVATED,
+#   JWT_ACCESS_TTL_ADMIN, JWT_ACCESS_TTL_PLATFORM,
+#   JWT_REFRESH_TTL_DAYS, JWT_ADMIN_REFRESH_TTL_DAYS
+jwt:
+  access_token:
+    normal_ttl_secs: 300
+    elevated_ttl_secs: 300
+    admin_ttl_secs: 300
+    platform_ttl_secs: 300
+  refresh_token:
+    normal_ttl_days: 30
+    admin_ttl_days: 7
+
 http:
   keep_alive: true
   timeout_secs: 5

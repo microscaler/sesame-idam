@@ -38,6 +38,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
+sesame_common = { package = "sesame-common", path = "idam/common" }
 sesame_audit = { package = "sesame-audit", path = "idam/sesame-audit" }
 sesame_token_versioning = { package = "sesame_token_versioning", path = "idam/sesame-token-versioning" }
 sesame_jwt_common_path = { package = "sesame-jwt-common-path", path = "idam/sesame-jwt-common-path" }

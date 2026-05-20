@@ -27,11 +27,96 @@
 //! - Expired tokens are rejected immediately without processing
 //! - All validation errors are logged for security auditing
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::OnceLock;
+use std::time::SystemTime;
 
 use brrtrouter::dispatcher::HandlerRequest;
 
-use crate::auth_decision::{AuthDecision, AuthError};
+use crate::auth_decision::{AuthError};
+
+/// Prometheus token_size_bytes histogram — registered once, shared across requests.
+static TOKEN_SIZE_HISTOGRAM: OnceLock<prometheus::Histogram> = OnceLock::new();
+
+/// Register the token_size_bytes histogram in the global Prometheus registry.
+///
+/// Returns a `&'static Histogram` that callers use to record measurements.
+/// This is idempotent: subsequent calls return the same instance.
+///
+/// IMPORTANT: Call this once at application startup (e.g. in the service main).
+/// If not called, `token_size_histogram()` returns `None` and metrics are dropped.
+pub fn register_token_size_metrics() -> &'static prometheus::Histogram {
+    TOKEN_SIZE_HISTOGRAM.get_or_init(|| {
+        prometheus::register(
+            prometheus::Histogram::with_opts(
+                prometheus::HistogramOpts::new(
+                    "sesame_jwt_token_size_bytes",
+                    "Size of JWT tokens in bytes (unencoded payload JSON)",
+                )
+                .buckets(vec![
+                    100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 750.0,
+                    800.0, 900.0, 1000.0, 1500.0, 2000.0, 5000.0,
+                ]),
+            )
+            .expect("Failed to register sesame_jwt_token_size_bytes histogram"),
+        )
+    })
+}
+
+/// Get the registered token_size_bytes histogram (if metrics were registered).
+fn token_size_histogram() -> Option<&'static prometheus::Histogram> {
+    TOKEN_SIZE_HISTOGRAM.get()
+}
+
+/// Log a warning when the JWT payload exceeds the warning threshold.
+///
+/// HACK-250: Warning threshold is TOKEN_SIZE_WARNING_BYTES (500 bytes).
+/// At this point the token is still within budget but close enough to merit attention.
+pub fn log_token_size_warning(payload_size: usize) {
+    let warning_threshold = sesame_common::jwt::TOKEN_SIZE_WARNING_BYTES;
+    if payload_size > warning_threshold {
+        // Use the prometheus crate's logging (stderr) since we don't have full tracing.
+        eprintln!(
+            "WARNING [jwt-token-size] JWT payload size {} bytes exceeds {}-byte warning threshold",
+            payload_size, warning_threshold
+        );
+    }
+}
+
+/// Log a critical alert when the JWT payload exceeds the maximum budget.
+///
+/// HACK-250: Hard budget is MAX_TOKEN_SIZE_BYTES (750 bytes).
+/// Tokens over this threshold risk exceeding NGINX's default 1KB header buffer.
+pub fn log_token_size_alert(payload_size: usize) {
+    let max_bytes = sesame_common::jwt::MAX_TOKEN_SIZE_BYTES;
+    eprintln!(
+        "ALERT [jwt-token-size] JWT payload size {} bytes EXCEEDS {}-byte maximum budget! \
+         This token may exceed NGINX's 1KB client_header_buffer_size and cause 414 errors.",
+        payload_size, max_bytes
+    );
+}
+
+/// Check and log JWT token size against configured thresholds.
+///
+/// Records the size to the prometheus histogram (if registered) and logs
+/// warnings/alerts based on the thresholds defined in sesame_common::jwt.
+///
+/// This function is non-blocking: all logging/registry actions are fire-and-forget.
+pub fn check_token_size_and_log(claims: &sesame_common::AccessClaims) {
+    let payload_size = claims.json_payload_size();
+
+    // Record to prometheus histogram (no-op if not registered)
+    if let Some(hist) = token_size_histogram() {
+        hist.observe(payload_size as f64);
+    }
+
+    // Log warnings for tokens approaching the budget
+    log_token_size_warning(payload_size);
+
+    // Log alerts for tokens exceeding the maximum budget
+    if payload_size > sesame_common::jwt::MAX_TOKEN_SIZE_BYTES {
+        log_token_size_alert(payload_size);
+    }
+}
 use sesame_common::{AccessClaims, ALLOWED_ISSUERS, EXPECTED_AUDIENCES, VALID_RISK_VALUES};
 
 /// Extract the Bearer token from the Authorization header.

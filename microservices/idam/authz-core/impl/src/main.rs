@@ -34,6 +34,7 @@ use std::collections::HashMap;
 
 use audit::EMITTER;
 use config::load_config;
+use push_invalidator::PublisherWrapper;
 use security::init_security;
 
 /// Command-line arguments.

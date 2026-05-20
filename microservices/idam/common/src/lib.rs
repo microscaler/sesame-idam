@@ -11,7 +11,5 @@ pub mod jwt;
 pub mod middleware;
 
 pub use jwt::{
-    AccessClaims, ActorClaim, EntitlementsSnapshot, JwtError, JwtValidationError,
-    SesameAuthzClaims, generate_entitlements_ref, compute_entitlements_hash,
-    verify_entitlements_hash,
+    AccessClaims, ActorClaim, JwtError, JwtValidationError, SesameAuthzClaims,
 };
