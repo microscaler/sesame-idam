@@ -2,8 +2,16 @@
 members = [
     # Database layer (shared across all services)
     "database",
+    # Shared JWT claims crate
+    "idam/common",
     # Shared audit crate
     "idam/sesame-audit",
+    # Shared token versioning (Redis + pub/sub for push invalidation)
+    "idam/sesame-token-versioning",
+    # Shared denylist cache (JTI revocation caching)
+    "idam/sesame-denylist",
+    # Shared entitlement snapshot cache
+    "idam/sesame-entitlement-cache",
     # Migration tooling
     "migrator",
     # IDAM microservices — gen crates (generated types + handlers)
@@ -29,6 +37,8 @@ edition = "2021"
 
 [workspace.dependencies]
 sesame_audit = { package = "sesame-audit", path = "idam/sesame-audit" }
+sesame_token_versioning = { package = "sesame_token_versioning", path = "idam/sesame-token-versioning" }
+sesame_denylist = { package = "sesame-denylist", path = "idam/sesame-denylist" }
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
 brrtrouter = { path = "../../BRRTRouter", default-features = false }
 brrtrouter_macros = { path = "../../BRRTRouter/brrtrouter_macros" }
@@ -49,7 +59,25 @@ clap = { version = "4.5", features = ["derive"] }
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 jsonwebtoken = "9.3"
 ring = "0.17"
-base64 = "0.22"
+base64 = { version = "0.22", features = ["alloc"] }
+redis = "0.25"
+sha2 = "0.10"
+prometheus = "0.13"
+thiserror = "1.0"
+regex = "1.10"
+futures = "0.3"
+dashmap = "5.5"
+rand = "0.8"
+tokio = { version = "1", features = ["full"] }
+metrics = "0.22"
+hex = "0.4"
+hmac = "0.12"
+once_cell = "1.19"
+
+# DPoP (RFC 9449) — Ed25519 and P-256 key support
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+ed25519-zebra = "4"
+p256 = { version = "0.13", features = ["ecdsa"] }
 
 # Database
 lifeguard = { path = "../../lifeguard" }
