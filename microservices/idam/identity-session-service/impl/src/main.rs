@@ -12,8 +12,9 @@
 use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 use sesame_idam_identity_session_service_gen::registry;
 mod audit;
-mod config;
+pub mod config;
 mod controllers;
+mod jwt;
 mod key_manager;
 mod middleware;
 mod security;

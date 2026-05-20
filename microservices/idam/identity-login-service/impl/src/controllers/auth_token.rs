@@ -44,6 +44,10 @@ pub struct SubjectClaims {
     pub org_id: Option<String>,
     pub scope: String,
     pub roles: Vec<String>,
+    /// Token version per Story 5.1 (monotonically increasing per subject)
+    pub ver: Option<u64>,
+    /// Session ID per Story 5.1 (identifies which session this token belongs to)
+    pub sid: Option<String>,
     /// Whether the subject token already has an act claim
     /// (HACK-603: prevent impersonation chains)
     pub has_act: bool,
@@ -351,6 +355,8 @@ fn parse_subject_token(token: &str) -> Result<SubjectClaims, ErrorResponse> {
         org_id: None,
         scope: "profile:read orders:read orders:write".to_string(),
         roles: vec!["customer".to_string()],
+        ver: None,   // No version info in fallback
+        sid: None,   // No session info in fallback
         has_act: false,
         act_chain: vec![],
     })
@@ -453,12 +459,22 @@ fn parse_jwt_claims(payload_str: &str) -> Result<SubjectClaims, ErrorResponse> {
         })
         .unwrap_or_default();
     
+    // Story 5.1: Extract token version (ver) and session ID (sid)
+    let ver = value.get("ver").and_then(|v| v.as_u64());
+    
+    let sid = value
+        .get("sid")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    
     Ok(SubjectClaims {
         sub,
         tenant,
         org_id,
         scope,
         roles,
+        ver,
+        sid,
         has_act,
         act_chain,
     })
@@ -674,7 +690,16 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
         300
     };
     
-    let new_access_token = build_access_token(&subject_claims, &actor_claims, &merged_scopes, &jti, now, token_ttl);
+    let new_access_token = build_access_token(
+        &subject_claims,
+        &actor_claims,
+        &merged_scopes,
+        &jti,
+        now,
+        token_ttl,
+        0,    // Story 5.1: version from Redis (default 0 for token exchange)
+        &jti, // Story 5.1: session ID (uses jti as placeholder in exchange flow)
+    );
     let new_refresh_token = build_refresh_token(&subject_claims, &jti, now);
     
     Ok(TokenExchangeResult {
@@ -697,6 +722,8 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
 }
 
 /// Build a new access token JWT.
+///
+/// Story 5.1: Includes `ver` (token version) and `sid` (session ID) claims.
 fn build_access_token(
     subject: &SubjectClaims,
     actor: &ActorClaim,
@@ -704,6 +731,8 @@ fn build_access_token(
     jti: &str,
     now: i64,
     ttl: i32,
+    token_version: u64,
+    session_id: &str,
 ) -> String {
     use uuid::Uuid;
     
@@ -715,6 +744,10 @@ fn build_access_token(
     payload.insert("exp".into(), serde_json::json!(now + (ttl as i64)));
     payload.insert("jti".into(), serde_json::json!(jti));
     payload.insert("tenant_id".into(), serde_json::json!(subject.tenant));
+    
+    // Story 5.1: Include ver (token version) and sid (session ID) in every access token
+    payload.insert("ver".into(), serde_json::json!(token_version));
+    payload.insert("sid".into(), serde_json::json!(session_id));
     
     // Scope
     if !merged_scopes.is_empty() {
@@ -984,6 +1017,8 @@ mod tests {
             org_id: Some("org_123".to_string()),
             scope: "profile:read orders:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1005,6 +1040,8 @@ mod tests {
             org_id: Some("org_123".to_string()),
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
