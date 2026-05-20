@@ -60,7 +60,7 @@ tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 jsonwebtoken = "9.3"
 ring = "0.17"
 base64 = { version = "0.22", features = ["alloc"] }
-redis = "0.25"
+redis = { version = "0.25", features = ["aio", "tokio-comp"] }
 sha2 = "0.10"
 prometheus = "0.13"
 thiserror = "1.0"

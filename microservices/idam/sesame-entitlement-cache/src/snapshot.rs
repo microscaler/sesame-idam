@@ -5,7 +5,6 @@
 
 use serde::{Deserialize, Serialize};
 
-
 /// A single permission (action on a resource).
 ///
 /// Represents one grant in the ACL — e.g., "read:documents" or "admin:users".
@@ -149,20 +148,9 @@ impl EntitlementSnapshot {
         self.complexity.default_ttl_seconds()
     }
 
-    /// Get the serialized size of this snapshot in bytes (approximate).
-    ///
-    /// This is used for ACL size validation to prevent memory exhaustion
-    /// (HACK-752). The value is an estimate based on serde_json serialization.
+    /// Get the estimated serialized size in bytes (JSON).
     pub fn serialized_size_bytes(&self) -> usize {
-        // Serialize to JSON and return the byte length
-        match serde_json::to_string(self) {
-            Ok(json) => json.len(),
-            Err(_) => {
-                // Fallback estimate if serialization fails
-                self.user_id.len() + self.org_id.len() + self.computed_at.len()
-                    + self.permissions.len() * 50 // rough per-permission cost
-            }
-        }
+        serde_json::to_string(self).map(|s| s.len()).unwrap_or(0)
     }
 }
 

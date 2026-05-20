@@ -224,6 +224,8 @@ impl EntitlementSnapshotCache {
             if let Some(entry) = state.entries.get(&cache_key) {
                 if entry.expires_at > std::time::Instant::now() {
                     entry.access_count.fetch_add(1, Ordering::Relaxed);
+                    // Clone snapshot while holding the read lock, then release before metrics update
+                    let cloned_snapshot = entry.snapshot.clone();
                     drop(state);
 
                     self.hits_counter.inc();
@@ -232,9 +234,8 @@ impl EntitlementSnapshotCache {
                         "entitlement cache HIT for ref={}",
                         truncate_ref(entitlements_ref)
                     );
-                    return Ok(entry.snapshot.clone());
+                    return Ok(cloned_snapshot);
                 }
-                // Expired — fall through to fetch
             }
         }
 
