@@ -206,23 +206,23 @@ impl VersionStore {
 
         let new_ver: u64 = redis::cmd("INCR")
             .arg(&key)
-            .query_async(&mut conn)
+            .query_async::<_, u64>(&mut conn)
             .await
             .context("failed to INCR tenant version in Redis")?;
 
+        // Use EXPIRE to set the TTL without overwriting the value that INCR just set.
         let ttl = if ttl < self.min_ttl_secs {
             self.min_ttl_secs
         } else {
             ttl
         };
 
-        redis::cmd("SETEX")
+        redis::cmd("EXPIRE")
             .arg(&key)
             .arg(ttl)
-            .arg(new_ver)
             .query_async::<_, ()>(&mut conn)
             .await
-            .context("failed to SET tenant version TTL in Redis")?;
+            .context("failed to SET TTL on tenant version in Redis")?;
 
         debug!(
             tenant_id,
@@ -405,7 +405,7 @@ mod tests {
 
     // Test that validates Redis is reachable.
     // Skip if Redis is not available — these tests require a live Redis instance.
-    async fn redis_available().await -> bool {
+    async fn redis_available() -> bool {
         let url = test_redis_url();
         let client = Client::open(url.as_str());
         match client {

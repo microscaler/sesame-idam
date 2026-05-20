@@ -130,71 +130,54 @@ impl EntitlementSnapshotCache {
     pub fn new(config: CacheConfig) -> Self {
         let registry = Registry::new();
 
-        let hits_counter = prometheus::register(
-            IntCounter::new(
-                "entitlement_cache_hits_total",
-                "Total cache hits for entitlement snapshots",
-            )
-            .unwrap(),
-            &registry,
+        let hits_counter = IntCounter::new(
+            "entitlement_cache_hits_total",
+            "Total cache hits for entitlement snapshots",
         )
         .unwrap();
+        registry.register(Box::new(hits_counter.clone())).unwrap();
 
-        let misses_counter = prometheus::register(
-            IntCounter::new(
-                "entitlement_cache_misses_total",
-                "Total cache misses for entitlement snapshots",
-            )
-            .unwrap(),
-            &registry,
+        let misses_counter = IntCounter::new(
+            "entitlement_cache_misses_total",
+            "Total cache misses for entitlement snapshots",
         )
         .unwrap();
+        registry.register(Box::new(misses_counter.clone())).unwrap();
 
-        let evictions_counter = prometheus::register(
-            IntCounter::new(
-                "entitlement_cache_evicted_total",
-                "Total evicted entries from entitlement cache",
-            )
-            .unwrap(),
-            &registry,
+        let evictions_counter = IntCounter::new(
+            "entitlement_cache_evicted_total",
+            "Total evicted entries from entitlement cache",
         )
         .unwrap();
+        registry.register(Box::new(evictions_counter.clone())).unwrap();
 
-        let cache_size_gauge = prometheus::register(
-            IntGauge::new(
-                "entitlement_cache_size",
-                "Current number of entries in the entitlement cache",
-            )
-            .unwrap(),
-            &registry,
+        let cache_size_gauge = IntGauge::new(
+            "entitlement_cache_size",
+            "Current number of entries in the entitlement cache",
         )
         .unwrap();
+        registry.register(Box::new(cache_size_gauge.clone())).unwrap();
 
-        let cache_memory_gauge = prometheus::register(
-            IntGauge::new(
-                "entitlement_cache_memory_bytes",
-                "Total memory usage of cached ACL snapshots in bytes",
-            )
-            .unwrap(),
-            &registry,
+        let cache_memory_gauge = IntGauge::new(
+            "entitlement_cache_memory_bytes",
+            "Total memory usage of cached ACL snapshots in bytes",
         )
         .unwrap();
+        registry.register(Box::new(cache_memory_gauge.clone())).unwrap();
 
-        let acls_too_large_counter = prometheus::register(
-            IntCounter::new(
-                "entitlement_cache_acls_too_large_total",
-                "ACL snapshots rejected for exceeding size limit",
-            )
-            .unwrap(),
-            &registry,
+        let acls_too_large_counter = IntCounter::new(
+            "entitlement_cache_acls_too_large_total",
+            "ACL snapshots rejected for exceeding size limit",
         )
         .unwrap();
+        registry.register(Box::new(acls_too_large_counter.clone())).unwrap();
 
         Self {
             state: RwLock::new(CacheState {
                 entries: HashMap::new(),
                 access_order: HashMap::new(),
                 next_order: 0,
+                evictions: 0,
             }),
             config,
             hits_counter,

@@ -1558,13 +1558,13 @@ mod tests {
             .unwrap();
 
         // Confirm zero cross-tenant identity
-        assert_eq!(haul_iage_claims.tenant_id, "hauliage-uuid");
+        assert_eq!(hauliage_claims.tenant_id, "hauliage-uuid");
         assert_eq!(rerp_claims.tenant_id, "rerp-uuid");
-        assert_ne!(haul_iage_claims.tenant_id, rerp_claims.tenant_id);
+        assert_ne!(hauliage_claims.tenant_id, rerp_claims.tenant_id);
 
         // Each JWT should only validate for its own tenant
-        assert!(haul_iage_claims.validate_tenant("hauliage-uuid").is_ok());
-        assert!(haul_iage_claims.validate_tenant("rerp-uuid").is_err());
+        assert!(hauliage_claims.validate_tenant("hauliage-uuid").is_ok());
+        assert!(hauliage_claims.validate_tenant("rerp-uuid").is_err());
         assert!(rerp_claims.validate_tenant("rerp-uuid").is_ok());
         assert!(rerp_claims.validate_tenant("hauliage-uuid").is_err());
     }

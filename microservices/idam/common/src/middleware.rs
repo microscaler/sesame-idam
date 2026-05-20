@@ -1160,19 +1160,28 @@ mod tests {
 
     #[test]
     fn test_all_error_reasons_are_distinct() {
+        let e1 = AuthError::JwtValidationError("x".into());
+        let e2 = AuthError::TenantMismatch { expected: "x".into(), actual: "x".into() };
+        let e3 = AuthError::MissingRole { required_role: "x".into() };
+        let e4 = AuthError::MissingPermission { required_permission: "x".into() };
+        let e5 = AuthError::UserTypeMismatch { expected: "x".into(), actual: "x".into() };
+        let e6 = AuthError::RiskLevelTooHigh { required: "x".into(), actual: "x".into() };
+        let e7 = AuthError::PolicyEvaluationError("x".into());
+        let e8 = AuthError::JwksValidationFailed("x".into());
+
         let reasons: Vec<&str> = vec![
             AuthError::MissingToken.reason(),
             AuthError::InvalidTokenFormat.reason(),
-            AuthError::JwtValidationError("x".into()).reason(),
+            e1.reason(),
             AuthError::PolicyNotFound.reason(),
-            AuthError::TenantMismatch { expected: "x".into(), actual: "x".into() }.reason(),
+            e2.reason(),
             AuthError::MissingTenantId.reason(),
-            AuthError::MissingRole { required_role: "x".into() }.reason(),
-            AuthError::MissingPermission { required_permission: "x".into() }.reason(),
-            AuthError::UserTypeMismatch { expected: "x".into(), actual: "x".into() }.reason(),
-            AuthError::RiskLevelTooHigh { required: "x".into(), actual: "x".into() }.reason(),
-            AuthError::PolicyEvaluationError("x".into()).reason(),
-            AuthError::JwksValidationFailed("x".into()).reason(),
+            e3.reason(),
+            e4.reason(),
+            e5.reason(),
+            e6.reason(),
+            e7.reason(),
+            e8.reason(),
         ];
         let unique: std::collections::HashSet<&str> = reasons.iter().copied().collect();
         assert_eq!(
