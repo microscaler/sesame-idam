@@ -52,7 +52,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         mfa_required: None,
         phone_verified: None,
         refresh_token: "default-refresh".to_string(),
-        refresh_token_expires_in: Some(refresh_ttl_secs as i64),
+        refresh_token_expires_in: Some(refresh_ttl_secs as i32),
         scope: Some(req.data.scope.clone()),
         token_type: "Bearer".to_string(),
         user_id,

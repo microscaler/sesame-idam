@@ -182,29 +182,23 @@ impl AuthError {
     /// # Example
     ///
     /// ```
-    /// use crate::auth_error::{handle_version_mismatch, AuthError};
+    /// use crate::auth_error::AuthError;
     ///
     /// // Token is current
-    /// assert!(handle_version_mismatch(42, 42).is_ok());
-    /// assert!(handle_version_mismatch(45, 42).is_ok());
+    /// assert!(AuthError::handle_version_mismatch(42, 42).is_ok());
+    /// assert!(AuthError::handle_version_mismatch(45, 42).is_ok());
     ///
     /// // Token is stale
-    /// match handle_version_mismatch(50, 42) {
+    /// match AuthError::handle_version_mismatch(45, 42) {
     ///     Err(AuthError::StaleAuthToken { retry_after, .. }) => {
     ///         assert_eq!(retry_after, 300); // small gap
     ///     }
     ///     _ => panic!("expected StaleAuthToken"),
     /// }
     /// ```
-    /// Handle a version mismatch detection and return the appropriate error.
     ///
     /// Records metrics for the version mismatch event (mismatch total,
     /// gap size label) and the cache lookup latency.
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(())` if `claims_ver >= cached_ver` (token is current)
-    /// - `Err(AuthError::StaleAuthToken)` if `claims_ver < cached_ver`
     pub fn handle_version_mismatch(cached_ver: u64, claims_ver: u64) -> Result<(), AuthError> {
         let (gap_size, retry_after) = Self::calculate_retry_after(cached_ver, claims_ver);
 

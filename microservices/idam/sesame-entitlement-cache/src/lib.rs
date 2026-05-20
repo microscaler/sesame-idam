@@ -265,7 +265,7 @@ impl EntitlementSnapshotCache {
         let ttl = self.calculate_ttl(&snapshot);
 
         // 5. Insert into cache
-        self.insert_entry(cache_key, snapshot, serialized_size, ttl)
+        self.insert_entry(cache_key.clone(), snapshot.clone(), serialized_size, ttl)
             .await;
 
         self.misses_counter.inc();
@@ -327,9 +327,10 @@ impl EntitlementSnapshotCache {
             access_count: AtomicU64::new(0),
         };
 
-        state.entries.insert(cache_key.clone(), entry);
-        state.access_order.insert(cache_key, state.next_order);
+        let order = state.next_order;
         state.next_order += 1;
+        state.entries.insert(cache_key.clone(), entry);
+        state.access_order.insert(cache_key, order);
     }
 
     /// Calculate the TTL for a snapshot based on its complexity and risk level.

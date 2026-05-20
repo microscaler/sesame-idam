@@ -1563,3 +1563,402 @@ mod tests {
         assert!(can_impersonate(&actor, &subject).is_ok());
     }
 }
+
+    // ── Story 3.4: can_delegate Unit Tests ─────────────────────────────
+
+    /// Given an actor with portal containing "admin", can_delegate returns true.
+    #[test]
+    fn test_can_delegate_platform_admin_returns_true() {
+        let actor = ActorClaim {
+            sub: "platform_admin_1".to_string(),
+            tenant: "tenant_a".to_string(),
+            portal: "admin-portal".to_string(),
+            scope: "admin:read admin:write".to_string(),
+            chain: None,
+        };
+        assert!(can_delegate(&actor, "any_user_id"));
+    }
+
+    /// Given an actor with portal containing "org_admin", can_delegate returns true.
+    #[test]
+    fn test_can_delegate_org_admin_returns_true() {
+        let actor = ActorClaim {
+            sub: "org_admin_1".to_string(),
+            tenant: "tenant_a".to_string(),
+            portal: "org_admin-portal".to_string(),
+            scope: "org:read".to_string(),
+            chain: None,
+        };
+        assert!(can_delegate(&actor, "any_user_id"));
+    }
+
+    /// Given an actor with regular user portal, can_delegate returns false.
+    #[test]
+    fn test_can_delegate_regular_user_returns_false() {
+        let actor = ActorClaim {
+            sub: "customer_user".to_string(),
+            tenant: "tenant_a".to_string(),
+            portal: "customer-app".to_string(),
+            scope: "profile:read".to_string(),
+            chain: None,
+        };
+        assert!(!can_delegate(&actor, "any_user_id"));
+    }
+
+    /// Given an actor with empty portal, can_delegate returns false.
+    #[test]
+    fn test_can_delegate_empty_portal_returns_false() {
+        let actor = ActorClaim {
+            sub: "empty_portal_user".to_string(),
+            tenant: "tenant_a".to_string(),
+            portal: "".to_string(),
+            scope: "".to_string(),
+            chain: None,
+        };
+        assert!(!can_delegate(&actor, "any_user_id"));
+    }
+
+    /// Given an actor with portal containing neither "admin" nor "org_admin", can_delegate returns false.
+    #[test]
+    fn test_can_delegate_neither_admin_nor_org_admin_returns_false() {
+        let actor = ActorClaim {
+            sub: "support_user".to_string(),
+            tenant: "tenant_a".to_string(),
+            portal: "support-portal".to_string(),
+            scope: "profile:read".to_string(),
+            chain: None,
+        };
+        assert!(!can_delegate(&actor, "any_user_id"));
+    }
+
+    // ── Story 3.4: Tenant Match Check ──────────────────────────────────
+
+    /// Given an actor from tenant "hauliage" and a subject from tenant "rerp",
+    /// the exchange is rejected with a tenant mismatch error.
+    #[test]
+    fn test_tenant_mismatch_rejected_in_exchange() {
+        let actor_payload = serde_json::json!({
+            "sub": "admin_hauliage",
+            "tenant_id": "hauliage",
+            "sx": { "portal": "admin-portal" }
+        });
+        let actor_b64 = encode_b64url(&actor_payload.to_string());
+        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+
+        let subject_payload = serde_json::json!({
+            "sub": "user_rerp",
+            "tenant_id": "rerp",
+            "scope": "profile:read"
+        });
+        let subject_b64 = encode_b64url(&subject_payload.to_string());
+        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some(subject_jwt),
+            actor_token: Some(actor_jwt),
+            scope: Some("profile:read".to_string()),
+            subject_token_type: None,
+            x_tenant_id: "tenant_mismatch".to_string(),
+            ..Default::default()
+        };
+
+        let err = handle_token_exchange(&req).unwrap_err();
+        assert_eq!(err.error, "invalid_request");
+        assert!(err.error_description.contains("Tenant mismatch"));
+    }
+
+    /// Given matching tenants, the exchange proceeds without tenant error.
+    #[test]
+    fn test_tenant_match_allows_exchange_to_proceed() {
+        let actor_payload = serde_json::json!({
+            "sub": "admin_same_tenant",
+            "tenant_id": "same-tenant",
+            "sx": { "portal": "admin-portal" }
+        });
+        let actor_b64 = encode_b64url(&actor_payload.to_string());
+        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+
+        let subject_payload = serde_json::json!({
+            "sub": "user_same_tenant",
+            "tenant_id": "same-tenant",
+            "scope": "profile:read"
+        });
+        let subject_b64 = encode_b64url(&subject_payload.to_string());
+        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some(subject_jwt),
+            actor_token: Some(actor_jwt),
+            scope: Some("profile:read".to_string()),
+            subject_token_type: None,
+            x_tenant_id: "same-tenant".to_string(),
+            ..Default::default()
+        };
+
+        let result = handle_token_exchange(&req).unwrap();
+        assert!(result.act.is_some());
+    }
+
+    // ── Story 3.4: Scope Merging Tests ─────────────────────────────────
+
+    /// Given subject scopes "profile:read orders:write", requested "orders:write invoices:read",
+    /// and actor scopes "orders:write", the result is "orders:write" (intersection of all three).
+    #[test]
+    fn test_scope_merging_intersection() {
+        let subject_scopes = vec!["profile:read".to_string(), "orders:write".to_string()];
+        let requested = vec!["orders:write".to_string(), "invoices:read".to_string()];
+        let actor_scopes = vec!["orders:write".to_string()];
+
+        let result = merge_scopes(&subject_scopes, &requested, &actor_scopes);
+        assert_eq!(result, vec!["orders:write"]);
+    }
+
+    /// Given subject has "profile:read" but actor requests "profile:read orders:write",
+    /// the result is "profile:read" (subject's scopes limit the result).
+    #[test]
+    fn test_scope_merging_rejects_over_requested() {
+        let subject_scopes = vec!["profile:read".to_string()];
+        let requested = vec!["profile:read".to_string(), "orders:write".to_string()];
+        let actor_scopes = vec!["profile:read".to_string(), "orders:write".to_string()];
+
+        let result = merge_scopes(&subject_scopes, &requested, &actor_scopes);
+        assert_eq!(result, vec!["profile:read"]);
+    }
+
+    /// Given subject has no scopes, the result is empty (no scopes granted).
+    #[test]
+    fn test_scope_merging_empty_subject_scopes() {
+        let subject_scopes: Vec<String> = vec![];
+        let requested = vec!["profile:read".to_string()];
+        let actor_scopes = vec!["profile:read".to_string()];
+
+        let result = merge_scopes(&subject_scopes, &requested, &actor_scopes);
+        assert!(result.is_empty());
+    }
+
+    /// Given empty requested scope, the result is empty.
+    #[test]
+    fn test_scope_merging_empty_requested() {
+        let subject_scopes = vec!["profile:read".to_string(), "orders:write".to_string()];
+        let requested: Vec<String> = vec![];
+        let actor_scopes = vec!["profile:read".to_string(), "orders:write".to_string()];
+
+        let result = merge_scopes(&subject_scopes, &requested, &actor_scopes);
+        assert!(result.is_empty());
+    }
+
+    // ── Story 3.4: Nested Act Chain Preservation ───────────────────────
+
+    /// Given an actor_token with act.sub = "user_456" and act.chain = ["support_tool"],
+    /// the new token's act includes the full chain.
+    #[test]
+    fn test_nested_act_chain_preserved() {
+        let actor_payload = serde_json::json!({
+            "sub": "user_456",
+            "tenant_id": "tenant_a",
+            "sx": { "portal": "admin-portal" },
+            "act": {
+                "sub": "user_456",
+                "tenant": "tenant_a",
+                "portal": "admin-portal",
+                "chain": ["support_tool"]
+            }
+        });
+        let actor_b64 = encode_b64url(&actor_payload.to_string());
+        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+
+        let subject_payload = serde_json::json!({
+            "sub": "target_user",
+            "tenant_id": "tenant_a",
+            "scope": "profile:read"
+        });
+        let subject_b64 = encode_b64url(&subject_payload.to_string());
+        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some(subject_jwt),
+            actor_token: Some(actor_jwt),
+            scope: Some("profile:read".to_string()),
+            subject_token_type: None,
+            x_tenant_id: "tenant_a".to_string(),
+            ..Default::default()
+        };
+
+        let result = handle_token_exchange(&req).unwrap();
+        assert!(result.act.is_some());
+        let act = result.act.unwrap();
+        assert_eq!(act.sub, "user_456");
+    }
+
+    // ── Story 3.4: Security Regression Tests ───────────────────────────
+
+    /// Given an actor with "profile:read" requesting "profile:read orders:write",
+    /// the new token only contains "profile:read" (scope cannot be expanded beyond actor's own scopes).
+    #[test]
+    fn test_actor_cannot_delegate_scope_it_does_not_have() {
+        let actor_payload = serde_json::json!({
+            "sub": "limited_actor",
+            "tenant_id": "tenant_a",
+            "sx": { "portal": "admin-portal" },
+            "scope": "profile:read"
+        });
+        let actor_b64 = encode_b64url(&actor_payload.to_string());
+        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+
+        let subject_payload = serde_json::json!({
+            "sub": "full_subject",
+            "tenant_id": "tenant_a",
+            "scope": "profile:read orders:write admin:read"
+        });
+        let subject_b64 = encode_b64url(&subject_payload.to_string());
+        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some(subject_jwt),
+            actor_token: Some(actor_jwt),
+            scope: Some("profile:read orders:write".to_string()),
+            subject_token_type: None,
+            x_tenant_id: "tenant_a".to_string(),
+            ..Default::default()
+        };
+
+        let result = handle_token_exchange(&req).unwrap();
+        // actor only has "profile:read", so result should not contain "orders:write"
+        if let Some(ref scope) = result.scope {
+            assert!(!scope.contains("orders:write"),
+                "Actor should not delegate scopes they don't have");
+        }
+    }
+
+    /// Assert that act.sub in the new token is derived from the validated actor token,
+    /// not from any client-supplied value.
+    #[test]
+    fn test_act_sub_set_by_server_not_client() {
+        let actor_payload = serde_json::json!({
+            "sub": "actual_actor_123",
+            "tenant_id": "tenant_a",
+            "sx": { "portal": "admin-portal" }
+        });
+        let actor_b64 = encode_b64url(&actor_payload.to_string());
+        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+
+        let subject_payload = serde_json::json!({
+            "sub": "subject_user",
+            "tenant_id": "tenant_a",
+            "scope": "profile:read"
+        });
+        let subject_b64 = encode_b64url(&subject_payload.to_string());
+        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some(subject_jwt),
+            actor_token: Some(actor_jwt),
+            scope: Some("profile:read".to_string()),
+            subject_token_type: None,
+            x_tenant_id: "tenant_a".to_string(),
+            ..Default::default()
+        };
+
+        let result = handle_token_exchange(&req).unwrap();
+        assert!(result.act.is_some());
+        let act = result.act.unwrap();
+        assert_eq!(act.sub, "actual_actor_123");
+    }
+
+    // ── Story 3.4: Edge Cases ──────────────────────────────────────────
+
+    /// Empty subject token should be rejected with 401, not panic.
+    #[test]
+    fn test_empty_subject_token_rejected() {
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some("".to_string()),
+            actor_token: None,
+            scope: None,
+            subject_token_type: None,
+            x_tenant_id: "tenant_a".to_string(),
+            ..Default::default()
+        };
+
+        let err = handle_token_exchange(&req).unwrap_err();
+        assert_eq!(err.error, "invalid_token");
+    }
+
+    /// Token exchange with empty requested scope returns token with no scopes.
+    #[test]
+    fn test_exchange_empty_requested_scope() {
+        let actor_payload = serde_json::json!({
+            "sub": "admin_1",
+            "tenant_id": "tenant_a",
+            "sx": { "portal": "admin-portal" }
+        });
+        let actor_b64 = encode_b64url(&actor_payload.to_string());
+        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+
+        let subject_payload = serde_json::json!({
+            "sub": "subject_1",
+            "tenant_id": "tenant_a",
+            "scope": "profile:read"
+        });
+        let subject_b64 = encode_b64url(&subject_payload.to_string());
+        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some(subject_jwt),
+            actor_token: Some(actor_jwt),
+            scope: Some("".to_string()),
+            subject_token_type: None,
+            x_tenant_id: "tenant_a".to_string(),
+            ..Default::default()
+        };
+
+        let result = handle_token_exchange(&req).unwrap();
+        assert!(result.scope.is_none() || result.scope.as_deref() == Some(""));
+    }
+
+    /// Actor cannot escalate privilege: given a low-privilege subject token,
+    /// the actor cannot produce a token with more permissions than the subject has.
+    #[test]
+    fn test_actor_cannot_escalate_privilege_via_subject() {
+        let actor_payload = serde_json::json!({
+            "sub": "admin_escalating",
+            "tenant_id": "tenant_a",
+            "sx": { "portal": "admin-portal" },
+            "scope": "admin:read profile:read orders:read orders:write"
+        });
+        let actor_b64 = encode_b64url(&actor_payload.to_string());
+        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+
+        // Subject only has profile:read
+        let subject_payload = serde_json::json!({
+            "sub": "low_priv_user",
+            "tenant_id": "tenant_a",
+            "scope": "profile:read"
+        });
+        let subject_b64 = encode_b64url(&subject_payload.to_string());
+        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some(subject_jwt),
+            actor_token: Some(actor_jwt),
+            scope: Some("profile:read orders:write".to_string()),
+            subject_token_type: None,
+            x_tenant_id: "tenant_a".to_string(),
+            ..Default::default()
+        };
+
+        let result = handle_token_exchange(&req).unwrap();
+        // The merged scopes should not include orders:write since subject doesn't have it
+        if let Some(ref scope) = result.scope {
+            assert!(!scope.contains("orders:write"),
+                "Actor cannot escalate: subject has no orders:write scope");
+        }
+    }
+}

@@ -17,6 +17,10 @@ once_cell = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 brrtrouter = { workspace = true, default-features = false, optional = true }
 tokio = { workspace = true, features = ["sync"], optional = true }
+blake3 = { workspace = true, optional = true }
+redis = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+arc-swap = { workspace = true, optional = true }
 
 [features]
 default = []

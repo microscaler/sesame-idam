@@ -651,9 +651,10 @@ impl brrtrouter::middleware::Middleware for BrrtJwtMiddleware {
         };
 
         // 4. Evaluate policy.
+        let method_str = req.method.as_str();
         let decision = match self.inner.evaluate(
-            req.path(),
-            req.method(),
+            &req.path,
+            method_str,
             tenant_header,
             &claims,
         ) {
