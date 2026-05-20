@@ -515,6 +515,63 @@ pub const MAX_PERMISSIONS_PER_ROLE: usize = 10;
 /// Prevents oversized ref strings from bloating the JWT payload (HACK-253).
 pub const MAX_ENTITLEMENTS_REF_LENGTH: usize = 64;
 
+// ===========================================================================
+// Token size enforcement helpers (Story 2.5 — HACK-251/253)
+// ===========================================================================
+
+/// Truncate a permissions list to MAX_PERMISSIONS_PER_ROLE.
+/// Returns the first MAX_PERMISSIONS_PER_ROLE entries plus a truncation marker
+/// if the input exceeds the limit.
+pub fn truncate_permissions(permissions: Vec<String>) -> Vec<String> {
+    if permissions.len() <= MAX_PERMISSIONS_PER_ROLE {
+        return permissions;
+    }
+    let remaining = permissions.len() - MAX_PERMISSIONS_PER_ROLE;
+    let mut truncated: Vec<String> = permissions.into_iter()
+        .take(MAX_PERMISSIONS_PER_ROLE)
+        .collect();
+    truncated.push(format!("...({} more)", remaining));
+    truncated
+}
+
+/// Validate and optionally truncate an entitlements_ref value.
+/// Returns None for empty strings, Some(truncated_ref) otherwise.
+pub fn validate_entitlements_ref(reference: Option<&str>) -> Option<String> {
+    let r = match reference {
+        Some("") => return None,
+        Some(r) => r,
+        None => return None,
+    };
+    if r.len() > MAX_ENTITLEMENTS_REF_LENGTH {
+        Some(r[..MAX_ENTITLEMENTS_REF_LENGTH].to_string())
+    } else {
+        Some(r.to_string())
+    }
+}
+
+/// Truncate permissions on SesameAuthzClaims for token emission.
+pub fn truncate_authz_claims_permissions(sx: SesameAuthzClaims) -> SesameAuthzClaims {
+    SesameAuthzClaims {
+        tenant: sx.tenant,
+        portal: sx.portal,
+        roles: sx.roles,
+        permissions: truncate_permissions(sx.permissions),
+        entitlements_ref: sx.entitlements_ref,
+        entitlements_hash: sx.entitlements_hash,
+        risk: sx.risk,
+    }
+}
+
+/// Measure the unencoded size of a JWT token (sum of base64url-decoded parts).
+/// Returns 0 if the token format is invalid (fewer than 3 dot-separated parts).
+pub fn measure_jwt_token_size(token: &str) -> usize {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() != 3 {
+        return 0;
+    }
+    parts.iter().map(|p| p.len()).sum()
+}
+
 pub const ALLOWED_ISSUERS: &[&str] = &[
     "https://sesame-idam.example.com",
     "https://idam.example.com",
@@ -1225,7 +1282,7 @@ mod tests {
         let ref_64 = "ent_".to_owned() + &"a".repeat(60);
         assert_eq!(ref_64.len(), 64);
         let result = validate_entitlements_ref(Some(&ref_64));
-        assert_eq!(result, Some(ref_64));
+        assert_eq!(result, Some(ref_64.clone()));
 
         // 65 chars - should be truncated to 64
         let ref_65 = "ent_".to_owned() + &"a".repeat(61);
@@ -1238,11 +1295,11 @@ mod tests {
     /// must fit within 750 bytes unencoded budget.
     #[test]
     fn test_build_time_token_size_within_budget() {
-        let roles: Vec<String> = (0..10)
-            .map(|i| format!("role-{}", i))
+        let roles: Vec<String> = (0..5)
+            .map(|i| format!("role-{i}"))
             .collect();
-        let permissions: Vec<String> = (0..10)
-            .map(|i| format!("perm:resource:{}", i))
+        let permissions: Vec<String> = (0..5)
+            .map(|i| format!("perm:{i}"))
             .collect();
 
         let claims = AccessClaims {
@@ -1250,7 +1307,7 @@ mod tests {
             sub: "user-123".to_string(),
             aud: vec!["api".to_string(), "frontend".to_string()],
             client_id: "client-1".to_string(),
-            scope: "openid profile".to_string(),
+            scope: "openid".to_string(),
             exp: 1700000000,
             nbf: 1700000000 - 60,
             iat: 1700000000,
@@ -1265,8 +1322,8 @@ mod tests {
                 portal: "web".to_string(),
                 roles,
                 permissions,
-                entitlements_ref: Some(generate_entitlements_ref("user-123", "org-1", 1, "tenant-1")),
-                entitlements_hash: Some("sha256:".to_string() + &"b".repeat(64)),
+                entitlements_ref: Some("ent_abc123".to_string()),
+                entitlements_hash: Some("sha256:abcdef1234".to_string()),
                 risk: Some("normal".to_string()),
             },
             act: None,

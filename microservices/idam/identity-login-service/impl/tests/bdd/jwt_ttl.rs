@@ -7,6 +7,7 @@ use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
 use http::Method;
 use std::sync::Arc;
+use std::time::Duration;
 
 use sesame_idam_identity_login_service_gen::handlers::auth_token::{Request, Response};
 use sesame_idam_identity_login_service::jwt::ttl::{
