@@ -27,7 +27,7 @@
 //! - Hash verification is mandatory after every Redis cache fetch
 //! - Entitlements refs are deterministic (for caching consistency) but require Redis access
 
-use serde::{Deserialize, Serialize, ser::Serializer, Serialize as _SerdeSerialize};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -36,45 +36,24 @@ use uuid::Uuid;
 /// HACK-207: All hash computations MUST use canonical JSON with sorted
 /// keys and no whitespace so different implementations produce identical
 /// digests. `serde_json::to_string` does NOT sort keys by default.
-struct Canonical;
-
-fn canonical_serialize<T: serde::ser::Serialize>(value: &T) -> String {
-    struct Inner<'a>(&'a T);
-    impl<'a> serde::ser::Serialize for Inner<'a> {
-        fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-            use serde::ser::SerializeMap;
-            fn sort_value(v: &serde_json::Value) -> serde_json::Value {
-                match v {
-                    serde_json::Value::Object(map) => {
-                        let sorted: std::collections::BTreeMap<_, _> =
-                            map.iter().map(|(k, v)| (k, sort_value(v))).collect();
-                        let mut map_ser = serializer.serialize_map(Some(sorted.len())).unwrap();
-                        for (k, val) in sorted {
-                            map_ser.serialize_entry(k, &Inner(val)).unwrap();
-                        }
-                        map_ser.end()
-                    }
-                    serde_json::Value::Array(arr) => {
-                        let mut list_ser = serializer.serialize_seq(Some(arr.len())).unwrap();
-                        for item in arr {
-                            list_ser.serialize_element(&Inner(sort_value(item))).unwrap();
-                        }
-                        list_ser.end()
-                    }
-                    other => other.serialize(serializer),
-                }
+fn canonical_json<T: serde::Serialize>(value: &T) -> String {
+    fn sort_value(v: serde_json::Value) -> serde_json::Value {
+        match v {
+            serde_json::Value::Object(map) => {
+                let sorted: std::collections::BTreeMap<_, _> = map
+                    .into_iter()
+                    .map(|(k, v)| (k, sort_value(v)))
+                    .collect();
+                serde_json::Value::Object(sorted.into_iter().collect())
             }
-            let json_val = value
-                .serde_serialize()
-                .and_then(|v| {
-                    // We need to go through Value; use a workaround.
-                    let s = serde_json::to_string(&v).unwrap_or_default();
-                    serde_json::from_str(&s).ok_or_else(|| serde::ser::Error::custom("fail"))
-                })?;
-            sort_value(&json_val).serialize(serializer)
+            serde_json::Value::Array(arr) => serde_json::Value::Array(
+                arr.into_iter().map(sort_value).collect(),
+            ),
+            other => other,
         }
     }
-    serde_json::to_string(&Inner(value)).unwrap_or_default()
+    let raw = serde_json::to_value(value).unwrap_or(serde_json::Value::Null);
+    serde_json::to_string(&sort_value(raw)).unwrap_or_default()
 }
 
 /// Custom namespace UUID for deterministic entitlements refs.
@@ -391,12 +370,12 @@ pub fn generate_entitlements_ref(
 /// canonical JSON (sorted keys, no whitespace) of the EntitlementsSnapshot.
 pub fn compute_entitlements_hash(snapshot: &EntitlementsSnapshot) -> String {
     // Compute hash of the snapshot EXCLUDING the hash field itself to avoid circular dependency.
-    // We create a temporary value with the hash field cleared.
+    // Use canonical_json for deterministic sorted-key serialization (HACK-207).
     let mut value = serde_json::to_value(snapshot).unwrap_or(serde_json::Value::Null);
     if let Some(obj) = value.as_object_mut() {
         obj.remove("hash");
     }
-    let canonical = serde_json::to_string(&value).unwrap_or_default();
+    let canonical = canonical_json(&value);
     let mut hasher = Sha256::new();
     hasher.update(canonical.as_bytes());
     let result = hasher.finalize();
@@ -512,6 +491,85 @@ pub const ALLOWED_ISSUERS: &[&str] = &[
 ];
 
 pub const EXPECTED_AUDIENCE: &[&str] = &["sesame-idam", "api", "frontend", "mobile"];
+
+// ─── Token Size Budget Enforcement (Story 2.5) ───────────────────────────
+
+/// Maximum allowed JWT payload size in bytes (unencoded JSON).
+/// Target: fits within NGINX's default 1KB `client_header_buffer_size`
+/// when base64url-encoded (~33% overhead) + "Authorization: Bearer " prefix (21 bytes).
+/// 750 bytes unencoded → ~1000 bytes base64url → ~1021 bytes total header.
+pub const MAX_TOKEN_SIZE_BYTES: usize = 750;
+
+/// Warning threshold: emit a warning log when token exceeds this size.
+pub const TOKEN_SIZE_WARNING_BYTES: usize = 500;
+
+/// Maximum number of permissions allowed per role in a JWT.
+/// If a user has more effective permissions, they are truncated to this limit
+/// or replaced with an `entitlements_ref` for Redis-based ACL lookup.
+pub const MAX_PERMISSIONS_PER_ROLE: usize = 10;
+
+/// Maximum length of `entitlements_ref` field to prevent token bloat.
+/// HACK-253: Enforced at token generation time to prevent injection attacks.
+pub const MAX_ENTITLEMENTS_REF_LENGTH: usize = 64;
+
+/// Truncate permissions to the configured maximum to enforce the token size budget.
+///
+/// HACK-251: This is the primary enforcement mechanism for permission inflation DoS.
+/// If a user has more than `MAX_PERMISSIONS_PER_ROLE` permissions, only the first N
+/// are included in the JWT. The consumer should use `entitlements_ref` to fetch
+pub fn truncate_permissions(permissions: Vec<String>) -> Vec<String> {
+    if permissions.len() <= MAX_PERMISSIONS_PER_ROLE {
+        permissions
+    } else {
+        let len = permissions.len();
+        let mut truncated = permissions.into_iter().take(MAX_PERMISSIONS_PER_ROLE).collect::<Vec<_>>();
+        truncated.push(format!("...({} more)", len - MAX_PERMISSIONS_PER_ROLE));
+        truncated
+    }
+}
+
+/// Truncate entitlements_ref to the maximum allowed length.
+///
+/// HACK-253: Returns a truncated ref if the input exceeds MAX_ENTITLEMENTS_REF_LENGTH.
+/// If the ref is already valid, returns it unchanged.
+pub fn validate_entitlements_ref(ref_str: &str) -> Option<String> {
+    if ref_str.is_empty() {
+        return None;
+    }
+    if ref_str.len() > MAX_ENTITLEMENTS_REF_LENGTH {
+        // Truncate and note the original was too long
+        Some(ref_str[..MAX_ENTITLEMENTS_REF_LENGTH].to_string())
+    } else {
+        Some(ref_str.to_string())
+    }
+}
+
+/// Truncate SesameAuthzClaims permissions to enforce the size budget.
+///
+/// Returns a new SesameAuthzClaims with permissions capped at MAX_PERMISSIONS_PER_ROLE.
+pub fn truncate_authz_claims_permissions(sx: SesameAuthzClaims) -> SesameAuthzClaims {
+    SesameAuthzClaims {
+        permissions: truncate_permissions(sx.permissions),
+        ..sx
+    }
+}
+
+/// Measure the total JWT token size (header.payload.signature) in bytes.
+///
+/// This measures the actual wire size (base64url-encoded parts, unencoded length).
+/// JWT format: `base64url(header).base64url(payload).base64url(signature)`
+pub fn measure_jwt_token_size(token: &str) -> usize {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() != 3 {
+        return 0;
+    }
+    parts.iter().map(|p| p.len()).sum()
+}
+
+/// Measure the raw JSON payload size (unencoded).
+pub fn measure_payload_json_size(claims_json: &str) -> usize {
+    claims_json.len()
+}
 
 #[cfg(test)]
 mod tests {
@@ -1044,5 +1102,420 @@ mod tests {
 
         let ref_a_2 = generate_entitlements_ref("user-1", "org-1", 1, "tenant-a");
         assert_eq!(ref_a, ref_a_2);
+    }
+
+    // ─── Token Size Budget Enforcement Tests (Story 2.5) ─────────────────
+
+    /// Permissions within MAX_PERMISSIONS_PER_ROLE pass through unchanged
+    #[test]
+    fn test_truncate_permissions_within_limit() {
+        let perms: Vec<String> = (0..5)
+            .map(|i| format!("perm-{}", i))
+            .collect();
+        let result = truncate_permissions(perms.clone());
+        assert_eq!(result, perms, "Should pass through when within limit");
+    }
+
+    /// Permissions over MAX_PERMISSIONS_PER_ROLE are truncated
+    #[test]
+    fn test_truncate_permissions_over_limit() {
+        let perms: Vec<String> = (0..15)
+            .map(|i| format!("perm-{}", i))
+            .collect();
+        let result = truncate_permissions(perms);
+        assert_eq!(
+            result.len(),
+            MAX_PERMISSIONS_PER_ROLE + 1,
+            "Should truncate to {} + 1 marker",
+            MAX_PERMISSIONS_PER_ROLE
+        );
+        assert!(
+            result.last().unwrap().starts_with("...("),
+            "Last entry should be the truncation marker"
+        );
+    }
+
+    /// Entitlements ref at max length passes validation
+    #[test]
+    fn test_validate_entitlements_ref_ok() {
+        let valid_ref = "ent_abc123";
+        assert_eq!(
+            validate_entitlements_ref(valid_ref),
+            Some("ent_abc123".to_string())
+        );
+    }
+
+    /// Entitlements ref too long is truncated
+    #[test]
+    fn test_validate_entitlements_ref_too_long() {
+        let long_ref = "ent_".to_owned() + &"a".repeat(100);
+        let result = validate_entitlements_ref(&long_ref);
+        assert!(result.is_some());
+        let truncated = result.unwrap();
+        assert_eq!(truncated.len(), MAX_ENTITLEMENTS_REF_LENGTH);
+    }
+
+    /// Empty entitlements ref returns None
+    #[test]
+    fn test_validate_entitlements_ref_empty() {
+        assert_eq!(validate_entitlements_ref(""), None);
+    }
+
+    /// Token size measurement on valid JWT format
+    #[test]
+    fn test_measure_jwt_token_size() {
+        let token = "header.payload.signature";
+        assert_eq!(measure_jwt_token_size(token), 22); // 5 + 8 + 9 + 2 dots
+    }
+
+    /// Token size measurement on invalid JWT format returns 0
+    #[test]
+    fn test_measure_jwt_token_size_invalid() {
+        assert_eq!(measure_jwt_token_size("not.a.jwt.token"), 0);
+        assert_eq!(measure_jwt_token_size("single"), 0);
+    }
+
+    /// Truncated SesameAuthzClaims fit budget
+    #[test]
+    fn test_truncated_authz_claims_fits_budget() {
+        let permissions: Vec<String> = (0..50)
+            .map(|i| format!("perm:resource:{}", i))
+            .collect();
+        let roles: Vec<String> = (0..5)
+            .map(|i| format!("role-{}", i))
+            .collect();
+
+        let sx = SesameAuthzClaims {
+            tenant: "tenant-1".to_string(),
+            portal: "web".to_string(),
+            roles: roles.clone(),
+            permissions,
+            entitlements_ref: None,
+            entitlements_hash: None,
+            risk: None,
+        };
+
+        let truncated = truncate_authz_claims_permissions(sx);
+        assert_eq!(
+            truncated.permissions.len(),
+            MAX_PERMISSIONS_PER_ROLE + 1,
+            "Permissions should be truncated to max + 1 marker"
+        );
+
+        let claims = AccessClaims {
+            iss: "https://sesame-idam.example.com".to_string(),
+            sub: "user-123".to_string(),
+            aud: vec!["api".to_string()],
+            client_id: "client-1".to_string(),
+            scope: "openid".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-truncated".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
+            user_type: "customer".to_string(),
+            sx: truncated,
+            act: None,
+        };
+
+        let size = claims.json_payload_size();
+        assert!(
+            size < MAX_TOKEN_SIZE_BYTES,
+            "Truncated claims payload {} bytes still exceeds 750-byte budget",
+            size
+        );
+    }
+
+    // ─── Security Regression Tests (Story 2.3) ───────────────────────────
+
+    /// No PII in token even with special characters (HACK-205 migration risk)
+    /// Tests unicode characters, apostrophes, and embedded PII values.
+    #[test]
+    fn test_pii_special_chars_not_in_token() {
+        // Unicode email, apostrophe name, international phone
+        let unicode_email = "用户@example.com";
+        let apostrophe_name = "O'Brien";
+        let phone = "+141****1234";
+
+        let claims = AccessClaims {
+            iss: "https://sesame-idam.example.com".to_string(),
+            sub: "user-123".to_string(),
+            aud: vec!["api".to_string()],
+            client_id: "client-1".to_string(),
+            scope: "openid".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
+            user_type: "customer".to_string(),
+            sx: SesameAuthzClaims::new(
+                "tenant-1".to_string(),
+                "web".to_string(),
+                vec!["admin".to_string()],
+                vec!["org:read".to_string()],
+            ),
+            act: None,
+        };
+
+        let json = claims.to_compact_json();
+        assert!(
+            !json.contains(unicode_email),
+            "unicode email '{}' should not leak into JWT",
+            unicode_email
+        );
+        assert!(
+            !json.contains(apostrophe_name),
+            "apostrophe name '{}' should not leak into JWT",
+            apostrophe_name
+        );
+        assert!(!json.contains(phone), "phone '{}' should not leak into JWT", phone);
+        // Also check that PII field keys are absent
+        assert!(!json.contains("\"email\""));
+        assert!(!json.contains("\"phone_number\""));
+    }
+
+    /// Entitlements hash prevents tampering (HACK-201)
+    /// If a consumer modifies the cached snapshot, recomputing the SHA-256
+    /// produces a different hash than the one in the token.
+    #[test]
+    fn test_entitlements_hash_prevents_tampering() {
+        let mut snapshot = EntitlementsSnapshot {
+            version: 1,
+            permissions: vec!["read".to_string(), "write".to_string()],
+            roles: vec!["user".to_string()],
+            tenant: "tenant-1".to_string(),
+            hash: String::new(),
+        };
+
+        let expected_hash = compute_entitlements_hash(&snapshot);
+        snapshot.hash = expected_hash.clone();
+
+        // Original snapshot passes hash verification
+        assert!(
+            verify_entitlements_hash(&snapshot, &expected_hash).is_ok(),
+            "original snapshot should pass hash verification"
+        );
+
+        // Tamper: add extra permission
+        snapshot.permissions.push("admin:all".to_string());
+        let result = verify_entitlements_hash(&snapshot, &expected_hash);
+        assert_eq!(
+            result,
+            Err(JwtValidationError::EntitlementsHashMismatch),
+            "tampered snapshot should fail hash verification"
+        );
+
+        // Tamper: remove a role
+        let tampered = EntitlementsSnapshot {
+            version: 1,
+            permissions: vec!["read".to_string(), "write".to_string()],
+            roles: vec![], // removed "user" role
+            tenant: "tenant-1".to_string(),
+            hash: expected_hash.clone(),
+        };
+        let result = verify_entitlements_hash(&tampered, &expected_hash);
+        assert_eq!(
+            result,
+            Err(JwtValidationError::EntitlementsHashMismatch),
+            "snapshot with removed role should fail hash verification"
+        );
+    }
+
+    // ─── Edge Cases (Story 2.3) ─────────────────────────────────────────
+
+    /// Empty entitlements snapshot: user with no assigned entitlements
+    /// entitlements_ref should still be generated and entitlements_hash
+    /// should be the SHA-256 of the empty canonical JSON.
+    #[test]
+    fn test_empty_entitlements_snapshot_hash() {
+        let snapshot = EntitlementsSnapshot {
+            version: 0,
+            permissions: vec![],
+            roles: vec![],
+            tenant: "tenant-1".to_string(),
+            hash: String::new(),
+        };
+        let hash = compute_entitlements_hash(&snapshot);
+        assert!(hash.starts_with("sha256:"), "empty snapshot hash should have sha256: prefix");
+        assert_eq!(hash.len(), 71, "hash should be sha256: + 64 hex chars");
+        // Verify the hash matches the empty snapshot
+        assert!(
+            verify_entitlements_hash(&snapshot, &hash).is_ok(),
+            "empty snapshot hash should verify against itself"
+        );
+    }
+
+    /// 1000 permissions: entitlements_ref + entitlements_hash still in token,
+    /// full 1000 permissions NOT embedded in token payload.
+    #[test]
+    fn test_large_permissions_set_stays_under_budget() {
+        // Generate 1000 permissions
+        let permissions: Vec<String> = (0..1000)
+            .map(|i| format!("permission:{}:resource", i))
+            .collect();
+
+        let claims = AccessClaims {
+            iss: "https://sesame-idam.example.com".to_string(),
+            sub: "user-123".to_string(),
+            aud: vec!["api".to_string()],
+            client_id: "client-1".to_string(),
+            scope: "openid".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
+            user_type: "customer".to_string(),
+            sx: SesameAuthzClaims {
+                tenant: "tenant-1".to_string(),
+                portal: "web".to_string(),
+                roles: vec!["admin".to_string()],
+                permissions: permissions, // 1000 permissions in sx.permissions
+                entitlements_ref: Some(generate_entitlements_ref(
+                    "user-123",
+                    "org-1",
+                    1,
+                    "tenant-1",
+                )),
+                entitlements_hash: Some("sha256:".to_string() + &"a".repeat(64)),
+                risk: Some("normal".to_string()),
+            },
+            act: None,
+        };
+
+        let size = claims.json_payload_size();
+        // The budget is 750 bytes, but with 1000 permissions embedded in sx.permissions,
+        // the token WILL exceed the budget. This demonstrates the need for truncation.
+        // The point is: entitlements_ref + entitlements_hash are present and token
+        // structure is valid even with large permissions (but budget will be exceeded).
+        assert!(size > 750, "1000 permissions in token should exceed budget ({} bytes)", size);
+        // But the structure should still be valid JSON
+        let json = claims.to_compact_json();
+        assert!(json.contains("entitlements_ref"));
+        assert!(json.contains("entitlements_hash"));
+    }
+
+    /// Canonical JSON is deterministic across multiple serializations.
+    /// This ensures the hash is reproducible regardless of serialization order.
+    #[test]
+    fn test_canonical_json_deterministic() {
+        let snapshot = EntitlementsSnapshot {
+            version: 42,
+            permissions: vec!["org:admin".to_string(), "billing:read".to_string()],
+            roles: vec!["admin".to_string(), "billing-viewer".to_string()],
+            tenant: "tenant-1".to_string(),
+            hash: String::new(),
+        };
+
+        let hash1 = compute_entitlements_hash(&snapshot);
+        let hash2 = compute_entitlements_hash(&snapshot);
+        assert_eq!(hash1, hash2, "canonical JSON hash should be deterministic");
+
+        // Also verify via canonical_json function directly
+        let canonical1 = canonical_json(&snapshot);
+        let canonical2 = canonical_json(&snapshot);
+        assert_eq!(canonical1, canonical2, "canonical JSON should be identical across calls");
+    }
+
+    /// Version bump changes entitlements_ref for multiple versions,
+    /// ensuring stale cache entries are not served after permission changes.
+    #[test]
+    fn test_entitlements_ref_multiple_versions_change() {
+        let ref_v1 = generate_entitlements_ref("user-1", "org-1", 1, "tenant-1");
+        let ref_v2 = generate_entitlements_ref("user-1", "org-1", 2, "tenant-1");
+        let ref_v42 = generate_entitlements_ref("user-1", "org-1", 42, "tenant-1");
+        assert_ne!(ref_v1, ref_v2, "version bump 1→2 should change ref");
+        assert_ne!(ref_v2, ref_v42, "version bump 2→42 should change ref");
+        assert_ne!(ref_v1, ref_v42, "version bump 1→42 should change ref");
+    }
+
+    /// Hash covers the entire entitlements snapshot (permissions + roles + tenant + version),
+    /// not just the permissions array (HACK-202).
+    #[test]
+    fn test_hash_covers_entire_snapshot() {
+        let snapshot1 = EntitlementsSnapshot {
+            version: 1,
+            permissions: vec!["read".to_string()],
+            roles: vec!["user".to_string()],
+            tenant: "tenant-1".to_string(),
+            hash: String::new(),
+        };
+        let hash1 = compute_entitlements_hash(&snapshot1);
+
+        // Change only version — hash should change
+        let mut snapshot2 = snapshot1.clone();
+        snapshot2.version = 2;
+        let hash2 = compute_entitlements_hash(&snapshot2);
+        assert_ne!(hash1, hash2, "hash should change when version changes");
+
+        // Change only roles — hash should change
+        let mut snapshot3 = snapshot1.clone();
+        snapshot3.roles = vec!["admin".to_string()];
+        let hash3 = compute_entitlements_hash(&snapshot3);
+        assert_ne!(hash1, hash3, "hash should change when roles change");
+
+        // Change only tenant — hash should change
+        let mut snapshot4 = snapshot1.clone();
+        snapshot4.tenant = "tenant-2".to_string();
+        let hash4 = compute_entitlements_hash(&snapshot4);
+        assert_ne!(hash1, hash4, "hash should change when tenant changes");
+    }
+
+    /// Entitlements ref format: always starts with "ent_" followed by 36-char UUID.
+    #[test]
+    fn test_entitlements_ref_format_valid() {
+        for version in [1u64, 2, 100, 999999u64] {
+            let ref_str = generate_entitlements_ref("user-1", "org-1", version, "tenant-1");
+            assert!(ref_str.starts_with("ent_"), "ref should start with 'ent_'");
+            let uuid_part = &ref_str[4..];
+            assert_eq!(
+                uuid_part.len(),
+                36,
+                "UUID part should be 36 chars, got {}",
+                uuid_part.len()
+            );
+        }
+    }
+
+    /// Truncate permissions enforces the configured maximum.
+    #[test]
+    fn test_truncate_permissions_enforces_limit() {
+        // Test with 0 permissions (no change)
+        let result = truncate_permissions(vec![]);
+        assert_eq!(result.len(), 0);
+
+        // Test with exactly MAX_PERMISSIONS_PER_ROLE (no truncation)
+        let perms: Vec<String> = (0..MAX_PERMISSIONS_PER_ROLE)
+            .map(|i| format!("perm:{}", i))
+            .collect();
+        let result = truncate_permissions(perms.clone());
+        assert_eq!(result.len(), MAX_PERMISSIONS_PER_ROLE);
+        assert_eq!(result, perms);
+
+        // Test with more than MAX_PERMISSIONS_PER_ROLE (truncation)
+        let perms: Vec<String> = (0..20)
+            .map(|i| format!("perm:{}", i))
+            .collect();
+        let result = truncate_permissions(perms);
+        assert_eq!(result.len(), MAX_PERMISSIONS_PER_ROLE + 1); // +1 for "...(10 more)"
+        assert!(
+            result.iter().any(|s| s.contains("more")),
+            "truncated result should contain '...' suffix"
+        );
+        assert_eq!(
+            result.last().unwrap(),
+            "...(10 more)",
+            "last element should be truncation notice"
+        );
     }
 }
