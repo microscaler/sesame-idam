@@ -33,9 +33,7 @@ def run(project_root: Path) -> int:
             if r.returncode != 0 and "AlreadyExists" not in (r.stderr or ""):
                 print(f"⚠️  Warning: Some {label} PVs may already exist (this is OK)")
         else:
-            print(
-                f"Info:  No {label} PersistentVolumes file found (this is OK for initial setup)"
-            )
+            print(f"Info:  No {label} PersistentVolumes file found (this is OK for initial setup)")
     print("✅ PersistentVolumes setup complete!")
     r = subprocess.run(["kubectl", "get", "pv"], capture_output=True, text=True)
     if r.returncode == 0:

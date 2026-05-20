@@ -10,20 +10,16 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // {
     //   "both_verified": false,
     //   "email_sent": true,
-    //   "email_verified": false,
     //   "message": "Verification codes have been sent to your email and phone",
     //   "phone_sent": true,
-    //   "phone_verified": false,
     //   "success": true
     // }
     match serde_json::from_str::<Response>(
         r###"{
   "both_verified": false,
   "email_sent": true,
-  "email_verified": false,
   "message": "Verification codes have been sent to your email and phone",
   "phone_sent": true,
-  "phone_verified": false,
   "success": true
 }"###,
     ) {
@@ -37,10 +33,10 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     Response {
         both_verified: Some(false),
         email_sent: true,
-        email_verified: Some(false),
+        email_verified: Some(true),
         message: Some("Verification codes have been sent to your email and phone".to_string()),
         phone_sent: true,
-        phone_verified: Some(false),
+        phone_verified: Some(true),
         success: true,
     }
 }

@@ -150,6 +150,17 @@ pub struct AuditRetentionPolicy {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuthError {
+    pub error: String,
+
+    pub message: String,
+
+    pub reason: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthorizeRequest {
     pub action: String,
 

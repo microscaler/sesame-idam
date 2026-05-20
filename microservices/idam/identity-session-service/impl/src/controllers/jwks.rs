@@ -2,7 +2,6 @@
 /// Serves Ed25519 public keys in JWKS format (RFC 7517).
 /// Cache-Control and security headers are injected by JwksHeadersMiddleware
 /// in impl/src/middleware/jwks_headers.rs.
-
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::jwks::{Request, Response};

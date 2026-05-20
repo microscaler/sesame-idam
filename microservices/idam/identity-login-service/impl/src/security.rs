@@ -6,7 +6,6 @@
 /// This module mirrors the security initialization in `gen/main.rs` so
 /// the impl crate uses real JWKS-based validation instead of the mock
 /// providers that the generated code ships with.
-
 use std::sync::Arc;
 
 use brrtrouter::security::JwksBearerProvider;

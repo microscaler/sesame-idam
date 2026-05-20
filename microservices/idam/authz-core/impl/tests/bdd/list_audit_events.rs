@@ -62,10 +62,7 @@ fn response_has_items_array() {
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("items").is_some(), "missing 'items' field");
-    assert!(
-        json["items"].is_array(),
-        "'items' must be an array"
-    );
+    assert!(json["items"].is_array(), "'items' must be an array");
 }
 
 /// Scenario: Response has "total" integer field.
@@ -80,10 +77,7 @@ fn response_has_total_integer() {
     assert_eq!(response.total, 0, "total should be 0");
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("total").is_some(), "missing 'total' field");
-    assert!(
-        json["total"].is_number(),
-        "'total' must be an integer"
-    );
+    assert!(json["total"].is_number(), "'total' must be an integer");
 }
 
 /// Scenario: Response has "limit" integer field.
@@ -97,10 +91,7 @@ fn response_has_limit_integer() {
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("limit").is_some(), "missing 'limit' field");
-    assert!(
-        json["limit"].is_number(),
-        "'limit' must be an integer"
-    );
+    assert!(json["limit"].is_number(), "'limit' must be an integer");
 }
 
 /// Scenario: Response has "offset" integer field.
@@ -114,10 +105,7 @@ fn response_has_offset_integer() {
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("offset").is_some(), "missing 'offset' field");
-    assert!(
-        json["offset"].is_number(),
-        "'offset' must be an integer"
-    );
+    assert!(json["offset"].is_number(), "'offset' must be an integer");
 }
 
 /// Scenario: Request with page and limit filters works.
@@ -127,15 +115,7 @@ fn response_has_offset_integer() {
 /// Then: the response reflects the filter values.
 #[test]
 fn list_with_page_and_limit() {
-    let typed_req = make_request(
-        Some(1),
-        Some(10),
-        None,
-        None,
-        None,
-        None,
-        None,
-    );
+    let typed_req = make_request(Some(1), Some(10), None, None, None, None, None);
 
     let response = handle(typed_req);
     assert_eq!(response.page, Some(1), "page should match");
@@ -150,9 +130,13 @@ fn list_with_page_and_limit() {
 #[test]
 fn list_with_event_type_filter() {
     let typed_req = make_request(
-        None, None,
+        None,
+        None,
         Some("authentication".to_string()),
-        None, None, None, None,
+        None,
+        None,
+        None,
+        None,
     );
 
     let response = handle(typed_req);
@@ -170,10 +154,13 @@ fn list_with_event_type_filter() {
 #[test]
 fn list_with_severity_filter() {
     let typed_req = make_request(
-        None, None,
-        None, None,
+        None,
+        None,
+        None,
+        None,
         Some("error".to_string()),
-        None, None,
+        None,
+        None,
     );
 
     let response = handle(typed_req);
@@ -191,8 +178,11 @@ fn list_with_severity_filter() {
 #[test]
 fn list_with_time_range() {
     let typed_req = make_request(
-        None, None,
-        None, None, None,
+        None,
+        None,
+        None,
+        None,
+        None,
         Some("2024-01-01T00:00:00Z".to_string()),
         Some("2024-12-31T23:59:59Z".to_string()),
     );

@@ -29,12 +29,14 @@ Sesame-IDAM uses BRRTRouter's existing OTEL tracing and structured logging stack
 
 ### JWKS Document & Cache (Epic 9.1, 9.2)
 
-| Span | Service | File | Attributes | Level |
-|------|---------|------|------------|-------|
-| `jwks.document` | identity-session-service | `impl/src/controllers/jwks.rs` | (key count info) | INFO |
-| `jwks.cache.refresh` | identity-session-service | `impl/src/jwks_client.rs` | `cache_status` (hit/miss), `result` (allowed/denied), `error` | INFO |
+|| Span | Service | File | Attributes | Level |
+||------|---------|------|------------|-------|
+|| `jwks.document` | identity-session-service | `impl/src/controllers/jwks.rs` | (key count info) | INFO |
+|| `jwks.cache.refresh` | identity-session-service | `impl/src/jwks_client.rs` | `keys_count_bucket` ("1-2"/"3-5"/"6+"), `cache_status` (hit/miss), `result` (allowed/denied), `error` | INFO |
 
 **Note:** Separate `jwks_cache.hit` and `jwks_cache.miss` as top-level spans on each token validation require BRRTRouter changes.
+
+**Security (HACK-921):** Key counts are bucketized into ranges ("1-2", "3-5", "6+") to prevent rotation schedule mapping via span attribute analysis. Exact key counts are never recorded in span attributes.
 
 ### Token Lifecycle (Epic 9.5)
 

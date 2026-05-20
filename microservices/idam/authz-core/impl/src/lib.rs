@@ -11,5 +11,6 @@
 //! Authz core — library target for migrator access.
 
 pub mod audit;
+pub mod auth_error;
 pub mod controllers;
 pub mod models;

@@ -11,3 +11,5 @@ pub mod controllers;
 pub mod jwks_client;
 pub mod key_manager;
 pub mod models;
+// Redis client and helpers for refresh token rotation
+pub mod redis;

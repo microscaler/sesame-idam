@@ -30,7 +30,6 @@
 /// Config structs are duplicated across all 6 services. This avoids
 /// circular dependencies between services and allows each service to
 /// run without a config file (falling back to `Default`).
-
 use std::collections::HashMap;
 
 /// Top-level application configuration.
@@ -47,6 +46,8 @@ pub struct AppConfig {
     pub http: Option<HttpConfig>,
     /// CORS policy.
     pub cors: Option<CorsConfig>,
+    /// JWT token configuration (TTL, refresh token settings).
+    pub jwt: Option<JwtConfig>,
 }
 
 /// Security scheme configurations for the service.
@@ -120,4 +121,29 @@ pub fn load_config(path: &std::path::PathBuf) -> Result<AppConfig, String> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(AppConfig::default()),
         Err(e) => Err(format!("failed to read {}: {}", path.display(), e)),
     }
+}
+
+/// JWT token configuration loaded from `config.yaml`.
+///
+/// Environment variables take priority over config.yaml values.
+/// See [`crate::jwt::ttl::TtlConfig::from_env_and_config`] for resolution logic.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+pub struct JwtConfig {
+    /// Access token TTL configuration.
+    pub access_token: Option<AccessTokenConfig>,
+}
+
+/// Access token TTL configuration from config.yaml.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+pub struct AccessTokenConfig {
+    /// Normal user access token TTL in seconds (default: 300 = 5 minutes).
+    pub normal_ttl_secs: Option<u64>,
+    /// Elevated privilege user access token TTL in seconds (default: 300 = 5 minutes, F-010 aligned).
+    pub elevated_ttl_secs: Option<u64>,
+    /// Admin user access token TTL in seconds (default: 300 = 5 minutes, F-010 aligned).
+    pub admin_ttl_secs: Option<u64>,
+    /// Platform user access token TTL in seconds (default: 300 = 5 minutes, F-010 aligned).
+    pub platform_ttl_secs: Option<u64>,
+    /// Normal user refresh token TTL in days (default: 30).
+    pub refresh_ttl_days: Option<u64>,
 }

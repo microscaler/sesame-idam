@@ -35,6 +35,8 @@ pub mod social_login;
 
 pub mod auth_token;
 
+pub mod get_user_profile;
+
 pub mod verify_dual_otp;
 
 pub mod verify_email_otp;

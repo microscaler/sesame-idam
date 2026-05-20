@@ -4,11 +4,7 @@ use sesame_idam_authz_core::controllers::update_retention_policy::handle;
 use sesame_idam_authz_core_gen::handlers::update_retention_policy::{Request, Response};
 
 /// Construct a minimal TypedHandlerRequest for update_retention_policy.
-fn make_request(
-    method: Method,
-    handler_name: &str,
-    data: Request,
-) -> TypedHandlerRequest<Request> {
+fn make_request(method: Method, handler_name: &str, data: Request) -> TypedHandlerRequest<Request> {
     TypedHandlerRequest {
         method,
         path: "/authz/audit/retention/retention-rule-1".to_string(),
@@ -34,11 +30,7 @@ fn test_update_retention_policy_all_fields() {
         delete_after_days: Some(365),
     };
 
-    let typed_req = make_request(
-        Method::PUT,
-        "update_retention_policy",
-        request_data,
-    );
+    let typed_req = make_request(Method::PUT, "update_retention_policy", request_data);
 
     let response = handle(typed_req);
 
@@ -47,10 +39,7 @@ fn test_update_retention_policy_all_fields() {
         "retention_days should match request value"
     );
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("id").is_some(),
-        "missing 'id' field"
-    );
+    assert!(json.get("id").is_some(), "missing 'id' field");
     assert!(
         json.get("event_type").is_some(),
         "missing 'event_type' field"
@@ -75,10 +64,7 @@ fn test_update_retention_policy_all_fields() {
         );
     }
     // tenant_id is required in response
-    assert!(
-        json.get("tenant_id").is_some(),
-        "missing 'tenant_id' field"
-    );
+    assert!(json.get("tenant_id").is_some(), "missing 'tenant_id' field");
 }
 
 /// Scenario: Update retention policy with optional fields omitted.
@@ -96,19 +82,12 @@ fn test_update_retention_policy_defaults() {
         delete_after_days: None,
     };
 
-    let typed_req = make_request(
-        Method::PUT,
-        "update_retention_policy",
-        request_data,
-    );
+    let typed_req = make_request(Method::PUT, "update_retention_policy", request_data);
 
     let response = handle(typed_req);
     assert_eq!(response.retention_days, 90, "default retention_days is 90");
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("id").is_some(),
-        "missing 'id' field"
-    );
+    assert!(json.get("id").is_some(), "missing 'id' field");
 }
 
 /// Scenario: Update retention policy with retention_days only.
@@ -126,11 +105,7 @@ fn test_update_retention_policy_with_retention_days() {
         delete_after_days: None,
     };
 
-    let typed_req = make_request(
-        Method::PUT,
-        "update_retention_policy",
-        request_data,
-    );
+    let typed_req = make_request(Method::PUT, "update_retention_policy", request_data);
 
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
@@ -189,11 +164,7 @@ fn test_response_id_may_be_null() {
         delete_after_days: None,
     };
 
-    let typed_req = make_request(
-        Method::PUT,
-        "update_retention_policy",
-        request_data,
-    );
+    let typed_req = make_request(Method::PUT, "update_retention_policy", request_data);
 
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
@@ -220,11 +191,7 @@ fn test_response_event_type_is_string() {
         delete_after_days: None,
     };
 
-    let typed_req = make_request(
-        Method::PUT,
-        "update_retention_policy",
-        request_data,
-    );
+    let typed_req = make_request(Method::PUT, "update_retention_policy", request_data);
 
     let response = handle(typed_req);
     assert_eq!(response.event_type, "", "'event_type' must be a string");
@@ -245,11 +212,7 @@ fn test_response_retention_days_is_integer() {
         delete_after_days: None,
     };
 
-    let typed_req = make_request(
-        Method::PUT,
-        "update_retention_policy",
-        request_data,
-    );
+    let typed_req = make_request(Method::PUT, "update_retention_policy", request_data);
 
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
@@ -278,11 +241,7 @@ fn test_response_created_at_may_be_null() {
         delete_after_days: None,
     };
 
-    let typed_req = make_request(
-        Method::PUT,
-        "update_retention_policy",
-        request_data,
-    );
+    let typed_req = make_request(Method::PUT, "update_retention_policy", request_data);
 
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
@@ -313,8 +272,7 @@ fn test_tenant_isolation_headers() {
 
     let json = serde_json::to_value(&request_data).expect("request must serialize");
     assert_eq!(
-        json["X-Tenant-ID"],
-        header_tenant_id,
+        json["X-Tenant-ID"], header_tenant_id,
         "X-Tenant-ID must match header"
     );
 }

@@ -1,0 +1,23 @@
+[package]
+name = "sesame-jwt-common-path"
+version.workspace = true
+edition.workspace = true
+description = "JWT common-path authorization middleware for Sesame-IDAM — validates JWTs and evaluates local policy from claims for jwt-only routes"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+sesame_common = { path = "../common" }
+prometheus = { workspace = true, optional = true }
+brrtrouter = { path = "../../../../BRRTRouter" }
+arc-swap = { workspace = true }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+tracing = "0.1"
+
+[dev-dependencies]
+chrono = { workspace = true, features = ["serde"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+prometheus = { workspace = true }

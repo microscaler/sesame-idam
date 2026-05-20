@@ -5,9 +5,7 @@ use sesame_idam_authz_core_gen::handlers::search_audit_events::{Request, Respons
 
 /// Construct a minimal TypedHandlerRequest for search_audit_events.
 fn make_request(
-    filters: Option<
-        sesame_idam_authz_core_gen::handlers::types::AuditEventFilter,
-    >,
+    filters: Option<sesame_idam_authz_core_gen::handlers::types::AuditEventFilter>,
     sort_by: Option<String>,
     sort_order: Option<String>,
 ) -> TypedHandlerRequest<Request> {
@@ -56,10 +54,7 @@ fn response_has_items_array() {
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("items").is_some(), "missing 'items' field");
-    assert!(
-        json["items"].is_array(),
-        "'items' must be an array"
-    );
+    assert!(json["items"].is_array(), "'items' must be an array");
 }
 
 /// Scenario: Response has "total" integer field.
@@ -74,10 +69,7 @@ fn response_has_total_integer() {
     assert_eq!(response.total, 0, "total should be 0");
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("total").is_some(), "missing 'total' field");
-    assert!(
-        json["total"].is_number(),
-        "'total' must be an integer"
-    );
+    assert!(json["total"].is_number(), "'total' must be an integer");
 }
 
 /// Scenario: Response has "limit" integer field.
@@ -91,10 +83,7 @@ fn response_has_limit_integer() {
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("limit").is_some(), "missing 'limit' field");
-    assert!(
-        json["limit"].is_number(),
-        "'limit' must be an integer"
-    );
+    assert!(json["limit"].is_number(), "'limit' must be an integer");
 }
 
 /// Scenario: Response has "offset" integer field.
@@ -108,10 +97,7 @@ fn response_has_offset_integer() {
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("offset").is_some(), "missing 'offset' field");
-    assert!(
-        json["offset"].is_number(),
-        "'offset' must be an integer"
-    );
+    assert!(json["offset"].is_number(), "'offset' must be an integer");
 }
 
 /// Scenario: Search with event_type filter.
@@ -121,20 +107,19 @@ fn response_has_offset_integer() {
 /// Then: the response is returned (audit emission).
 #[test]
 fn search_with_event_type_filter() {
-    let filter =
-        sesame_idam_authz_core_gen::handlers::types::AuditEventFilter {
-            event_type: "authentication".to_string(),
-            actor: Default::default(),
-            event_action: Default::default(),
-            tenant_id: Default::default(),
-            user_id: Default::default(),
-            org_id: Default::default(),
-            severity: Default::default(),
-            start_time: Default::default(),
-            end_time: Default::default(),
-            limit: 0,
-            offset: 0,
-        };
+    let filter = sesame_idam_authz_core_gen::handlers::types::AuditEventFilter {
+        event_type: "authentication".to_string(),
+        actor: Default::default(),
+        event_action: Default::default(),
+        tenant_id: Default::default(),
+        user_id: Default::default(),
+        org_id: Default::default(),
+        severity: Default::default(),
+        start_time: Default::default(),
+        end_time: Default::default(),
+        limit: 0,
+        offset: 0,
+    };
     let typed_req = make_request(Some(filter), None, None);
 
     let response = handle(typed_req);
@@ -151,20 +136,19 @@ fn search_with_event_type_filter() {
 /// Then: the response is returned (audit emission).
 #[test]
 fn search_with_actor_filter() {
-    let filter =
-        sesame_idam_authz_core_gen::handlers::types::AuditEventFilter {
-            actor: "admin".to_string(),
-            event_type: Default::default(),
-            event_action: Default::default(),
-            tenant_id: Default::default(),
-            user_id: Default::default(),
-            org_id: Default::default(),
-            severity: Default::default(),
-            start_time: Default::default(),
-            end_time: Default::default(),
-            limit: 0,
-            offset: 0,
-        };
+    let filter = sesame_idam_authz_core_gen::handlers::types::AuditEventFilter {
+        actor: "admin".to_string(),
+        event_type: Default::default(),
+        event_action: Default::default(),
+        tenant_id: Default::default(),
+        user_id: Default::default(),
+        org_id: Default::default(),
+        severity: Default::default(),
+        start_time: Default::default(),
+        end_time: Default::default(),
+        limit: 0,
+        offset: 0,
+    };
     let typed_req = make_request(Some(filter), None, None);
 
     let response = handle(typed_req);
@@ -181,20 +165,19 @@ fn search_with_actor_filter() {
 /// Then: the response is returned.
 #[test]
 fn search_with_combined_filters() {
-    let filter =
-        sesame_idam_authz_core_gen::handlers::types::AuditEventFilter {
-            event_type: "authentication".to_string(),
-            actor: "admin".to_string(),
-            event_action: "login".to_string(),
-            severity: "error".to_string(),
-            limit: 10,
-            offset: 0,
-            tenant_id: Default::default(),
-            user_id: Default::default(),
-            org_id: Default::default(),
-            start_time: Default::default(),
-            end_time: Default::default(),
-        };
+    let filter = sesame_idam_authz_core_gen::handlers::types::AuditEventFilter {
+        event_type: "authentication".to_string(),
+        actor: "admin".to_string(),
+        event_action: "login".to_string(),
+        severity: "error".to_string(),
+        limit: 10,
+        offset: 0,
+        tenant_id: Default::default(),
+        user_id: Default::default(),
+        org_id: Default::default(),
+        start_time: Default::default(),
+        end_time: Default::default(),
+    };
     let typed_req = make_request(Some(filter), None, None);
 
     let response = handle(typed_req);
@@ -211,8 +194,7 @@ fn search_with_combined_filters() {
 /// Then: the response is returned.
 #[test]
 fn search_with_sort_by() {
-    let typed_req =
-        make_request(None, Some("timestamp".to_string()), None);
+    let typed_req = make_request(None, Some("timestamp".to_string()), None);
 
     let response = handle(typed_req);
     assert!(

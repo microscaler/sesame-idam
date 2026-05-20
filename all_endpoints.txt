@@ -1,0 +1,134 @@
+POST   /api-keys                                          api-keys                       Create API key (M2M key / service account)
+GET    /api-keys/archived                                 api-keys                       Fetch archived (revoked/expired) API keys
+GET    /api-keys/archived/{key_id}                        api-keys                       Fetch archived API key details
+GET    /api-keys/current                                  api-keys                       Fetch active API keys
+POST   /api-keys/import                                   api-keys                       Import API keys from external system
+GET    /api-keys/usage                                    api-keys                       Fetch API key usage
+POST   /api-keys/validate                                 api-keys                       Validate API key
+POST   /api-keys/validate/org                             api-keys                       DEPRECATED: Validate organisation API key
+POST   /api-keys/validate/personal                        api-keys                       DEPRECATED: Validate personal API key
+PUT    /api-keys/{key_id}                                 api-keys                       Update API key metadata
+DELETE /api-keys/{key_id}                                 api-keys                       Delete API key
+POST   /authz/audit/events                                authz-core                     Search audit events
+GET    /authz/audit/events                                authz-core                     List audit events (simple query)
+POST   /authz/audit/events/stats                          authz-core                     Get audit event statistics
+GET    /authz/audit/events/{id}                           authz-core                     Get single audit event
+POST   /authz/audit/export                                authz-core                     Request audit event export
+GET    /authz/audit/export/{export_id}                    authz-core                     Check export status
+GET    /authz/audit/retention                             authz-core                     List retention policies
+POST   /authz/audit/retention                             authz-core                     Create retention policy
+PATCH  /authz/audit/retention/{id}                        authz-core                     Update retention policy
+DELETE /authz/audit/retention/{id}                        authz-core                     Delete retention policy
+POST   /authz/authorize                                   authz-core                     Check if principal is allowed to perform action on resource
+POST   /authz/principals/attributes                       authz-core                     Set attribute for principal (ABAC)
+POST   /authz/principals/effective                        authz-core                     Get effective roles and permissions for principal
+POST   /authz/principals/roles                            authz-core                     Assign role to principal
+DELETE /authz/principals/roles                            authz-core                     Revoke role from principal
+POST   /auth/login                                        identity-login-service         Login with password
+POST   /auth/login/dual-otp                               identity-login-service         Send OTPs to both email and phone simultaneously
+POST   /auth/login/email-otp                              identity-login-service         Send email OTP
+POST   /auth/login/magic-link                             identity-login-service         Send magic link for passwordless login
+POST   /auth/login/magic-link/verify                      identity-login-service         Verify magic link token and complete login
+POST   /auth/login/phone-magic-link                       identity-login-service         Send SMS magic link for passwordless login
+POST   /auth/login/phone-magic-link/verify                identity-login-service         Verify SMS magic link token and complete login
+POST   /auth/login/phone-otp                              identity-login-service         Send phone SMS OTP
+POST   /auth/logout                                       identity-login-service         Logout (revoke refresh token)
+POST   /auth/password/forgot                              identity-login-service         Request password reset email
+POST   /auth/password/reset                               identity-login-service         Confirm password reset with token
+POST   /auth/register                                     identity-login-service         Register new user with email and password
+GET    /auth/signup/validate                              identity-login-service         Validate signup eligibility
+POST   /auth/social/{provider}/callback                   identity-login-service         Exchange OAuth provider callback for tokens
+GET    /auth/social/{provider}/login                      identity-login-service         Initiate OAuth login with provider
+POST   /auth/token                                        identity-login-service         Token endpoint (refresh, client_credentials, token_exchange RFC 8693)
+POST   /auth/verify/dual-otp                              identity-login-service         Verify dual OTP codes and complete login
+POST   /auth/verify/email-otp                             identity-login-service         Verify email OTP and complete login
+POST   /auth/verify/phone-otp                             identity-login-service         Verify phone SMS OTP and complete login
+GET    /oauth/authorize                                   identity-login-service         OAuth2 authorization endpoint
+GET    /.well-known/jwks.json                             identity-session-service       JWKS for JWT verification
+GET    /.well-known/openid-configuration                  identity-session-service       OIDC discovery
+POST   /admin/jwks/revoke                                 identity-session-service       Revoke a JWT signing key
+POST   /admin/impersonate                                 identity-session-service       Impersonate user
+POST   /admin/impersonate/restore                         identity-session-service       Restore admin session
+POST   /auth/verify/step-up                               identity-session-service       Step-up MFA verification
+GET    /identity/me                                       identity-session-service       Current user profile
+PATCH  /identity/me                                       identity-session-service       Update current user profile
+POST   /identity/me/token                                 identity-session-service       Issue access token
+GET    /identity/userinfo                                 identity-session-service       User Info endpoint
+GET    /mcp/agents                                        identity-session-service       List agents
+POST   /mcp/agents                                        identity-session-service       Create agent
+GET    /mcp/agents/{agent_id}                             identity-session-service       Get agent
+DELETE /mcp/agents/{agent_id}                             identity-session-service       Delete agent
+POST   /mcp/token                                         identity-session-service       Issue MCP auth token
+POST   /mcp/token/validate                                identity-session-service       Validate MCP token
+POST   /session/refresh                                   identity-session-service       Refresh access token
+POST   /admin/audit/events                                identity-user-mgmt-service     Get user-specific audit events
+POST   /admin/audit/users/{user_id}/events/compliance-export identity-user-mgmt-service     Export user's audit events (GDPR)
+GET    /admin/audit/users/{user_id}/events/count          identity-user-mgmt-service     Get user event count
+POST   /admin/users                                       identity-user-mgmt-service     Create user (idempotent by email)
+GET    /admin/users/email                                 identity-user-mgmt-service     Fetch user by email
+POST   /admin/users/migrate                               identity-user-mgmt-service     Migrate user from external auth system
+POST   /admin/users/migrate-password                      identity-user-mgmt-service     Bulk migrate passwords (hash+salt)
+GET    /admin/users/query                                 identity-user-mgmt-service     Paginated query for users with filters
+GET    /admin/users/username                              identity-user-mgmt-service     Fetch user by username
+DELETE /admin/users/{user_id}                             identity-user-mgmt-service     Delete user (irreversible)
+POST   /admin/users/{user_id}/disable                     identity-user-mgmt-service     Disable/block user
+PUT    /admin/users/{user_id}/email                       identity-user-mgmt-service     Change user email
+POST   /admin/users/{user_id}/email/verify                identity-user-mgmt-service     Verify user email
+GET    /admin/users/{user_id}/employee                    identity-user-mgmt-service     Fetch user in employee mode
+POST   /admin/users/{user_id}/enable                      identity-user-mgmt-service     Enable/unblock user
+POST   /admin/users/{user_id}/logout-all-sessions         identity-user-mgmt-service     Logout all user sessions
+POST   /admin/users/{user_id}/magiclink                   identity-user-mgmt-service     Send magic link for login
+POST   /admin/users/{user_id}/mfa/disable                 identity-user-mgmt-service     Disable user 2FA
+POST   /admin/users/{user_id}/mfa/setup                   identity-user-mgmt-service     Set up TOTP MFA
+POST   /admin/users/{user_id}/mfa/verify                  identity-user-mgmt-service     Verify MFA code
+DELETE /admin/users/{user_id}/password                    identity-user-mgmt-service     Clear password (convert to SSO-only)
+POST   /admin/users/{user_id}/phone                       identity-user-mgmt-service     Add phone number for user
+POST   /admin/users/{user_id}/phone/verify                identity-user-mgmt-service     Verify phone number
+POST   /admin/users/{user_id}/resend-email-confirmation   identity-user-mgmt-service     Resend email confirmation
+POST   /admin/users/{user_id}/social/link                 identity-user-mgmt-service     Link social account to user
+GET    /admin/users/{user_id}/social/tokens               identity-user-mgmt-service     Fetch user's OAuth tokens from providers
+GET    /admin/users/{user_id}/social/tokens/{provider}/refresh identity-user-mgmt-service     Fetch fresh token from provider
+POST   /oauth/logout                                      identity-user-mgmt-service     OAuth2 logout endpoint
+GET    /applications                                      org-mgmt                       List applications
+POST   /applications                                      org-mgmt                       Register application
+GET    /applications/{app_id}                             org-mgmt                       Get application by id
+GET    /applications/{app_id}/permissions                 org-mgmt                       List permissions for application
+POST   /applications/{app_id}/permissions                 org-mgmt                       Create permission for application
+GET    /applications/{app_id}/roles                       org-mgmt                       List roles for application
+POST   /applications/{app_id}/roles                       org-mgmt                       Create role for application
+GET    /applications/{app_id}/roles/{role_id}             org-mgmt                       Get role by id
+GET    /applications/{app_id}/roles/{role_id}/permissions org-mgmt                       Get permissions for role
+POST   /applications/{app_id}/roles/{role_id}/permissions org-mgmt                       Assign permission to role
+DELETE /applications/{app_id}/roles/{role_id}/permissions org-mgmt                       Revoke permission from role
+GET    /organizations                                     org-mgmt                       Query for organisations
+POST   /organizations/admin/users/{user_id}/invalidate-all-keys org-mgmt                       Invalidate all API keys for user
+GET    /organizations/{org_id}                            org-mgmt                       Fetch organisation by ID
+PUT    /organizations/{org_id}                            org-mgmt                       Update organisation
+DELETE /organizations/{org_id}                            org-mgmt                       Delete organisation
+PUT    /organizations/{org_id}/domains                    org-mgmt                       Update organisation domain settings
+POST   /organizations/{org_id}/invitations                org-mgmt                       Invite user to organisation by email
+POST   /organizations/{org_id}/invitations/by-id          org-mgmt                       Invite existing user to organisation
+POST   /organizations/{org_id}/migrate-to-isolated        org-mgmt                       Migrate organisation to isolated SAML mode
+POST   /organizations/{org_id}/oidc-metadata              org-mgmt                       Set OIDC IdP metadata for organisation
+DELETE /organizations/{org_id}/pending-invitations        org-mgmt                       Revoke pending organisation invite
+GET    /organizations/{org_id}/role-mappings              org-mgmt                       Fetch custom role mappings for organisation
+PUT    /organizations/{org_id}/role-mappings/subscribe    org-mgmt                       Subscribe organisation to a role mapping
+GET    /organizations/{org_id}/scim/groups                org-mgmt                       Fetch SCIM groups for organisation
+GET    /organizations/{org_id}/scim/groups/{group_id}     org-mgmt                       Fetch a specific SCIM group
+GET    /organizations/{org_id}/scim/users                 org-mgmt                       List SCIM users in org
+POST   /organizations/{org_id}/scim/users                 org-mgmt                       Create SCIM user in org
+PUT    /organizations/{org_id}/scim/users/{user_id}       org-mgmt                       Update SCIM user in org
+DELETE /organizations/{org_id}/scim/users/{user_id}       org-mgmt                       Delete SCIM user from org
+GET    /organizations/{org_id}/users                      org-mgmt                       Fetch users in organisation
+POST   /organizations/{org_id}/users                      org-mgmt                       Add user to organisation
+DELETE /organizations/{org_id}/users/{user_id}            org-mgmt                       Remove user from organisation
+PATCH  /organizations/{org_id}/users/{user_id}/role       org-mgmt                       Change user role in organisation
+GET    /organizations/{org_id}/webhooks                   org-mgmt                       Fetch organisation webhook subscriptions
+DELETE /organizations/{org_id}/webhooks/{subscription_id} org-mgmt                       Delete webhook subscription
+POST   /organizations/{org_id}/webhooks/{subscription_id}/test org-mgmt                       Test webhook delivery
+DELETE /sso/saml                                          org-mgmt                       Delete SAML connection
+POST   /sso/saml/allow                                    org-mgmt                       Allow organisation to set up SAML SSO
+POST   /sso/saml/disable                                  org-mgmt                       Disallow organisation from using SAML SSO
+POST   /sso/saml/enable                                   org-mgmt                       Enable SAML connection for organisation
+POST   /sso/saml/link                                     org-mgmt                       Create SAML connection setup link
+PUT    /sso/saml/metadata                                 org-mgmt                       Set SAML IdP metadata for organisation

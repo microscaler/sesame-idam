@@ -212,7 +212,7 @@ No OpenAPI changes. Spans are internal.
 
 ## Acceptance Criteria
 
-- [ ] `jwks_cache` span created on every key lookup — **NOT implemented**. Token validation happens in BRRTRouter's `JwksBearerProvider`, not in sesame-idam's `jwks_client.rs`
+- [x] `jwks_cache` span created on every key lookup — implemented in BRRTRouter `JwksBearerProvider::get_key_for()` with `kid`, `cache_hit` (bool), `cache_age_seconds` attributes
 - [x] `jwks.cache.refresh` span created on JWKS cache validation — implemented in `jwks_client.rs:validate_jwks_refresh()` with `keys_count`, `cache_status` (hit/miss), `result` (allowed/denied), `error`
 - [x] Span attributes record: `keys_count`, `cache_status`, `result`, `error` — implemented with hit/miss tracking
 - [x] Poisoning detection logged at WARN level with "jwks cache refresh REJECTED (no overlap)" — implemented

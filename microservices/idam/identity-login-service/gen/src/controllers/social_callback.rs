@@ -9,12 +9,9 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     // Example response:
     // {
     //   "access_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig",
-    //   "email": "alice@example.com",
-    //   "email_verified": true,
     //   "expires_in": 900,
     //   "id_token": null,
     //   "mfa_required": false,
-    //   "phone_verified": false,
     //   "refresh_token": "cmVmcmVzaC10b2tlbi1zb2NpYWwtZ2l0aHVi",
     //   "refresh_token_expires_in": 2592000,
     //   "scope": "openid profile",
@@ -24,12 +21,9 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     match serde_json::from_str::<Response>(
         r###"{
   "access_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig",
-  "email": "alice@example.com",
-  "email_verified": true,
   "expires_in": 900,
   "id_token": null,
   "mfa_required": false,
-  "phone_verified": false,
   "refresh_token": "cmVmcmVzaC10b2tlbi1zb2NpYWwtZ2l0aHVi",
   "refresh_token_expires_in": 2592000,
   "scope": "openid profile",
@@ -47,8 +41,6 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     Response {
         access_token: "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig"
             .to_string(),
-        email: Some("alice@example.com".to_string()),
-        email_verified: Some(true),
         expires_in: 900,
         refresh_token: "cmVmcmVzaC10b2tlbi1zb2NpYWwtZ2l0aHVi".to_string(),
         social_provider: "example".to_string(),

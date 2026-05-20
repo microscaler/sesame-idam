@@ -12,9 +12,7 @@ REG_PORT = "5001"
 def run(project_root: Path) -> int:
     """Create/start kind-registry, connect to kind network. Returns 0 or 1."""
     _ = project_root  # unused; kept for API parity with RERP
-    inspect = subprocess.run(
-        ["docker", "inspect", REG_NAME], capture_output=True, text=True
-    )
+    inspect = subprocess.run(["docker", "inspect", REG_NAME], capture_output=True, text=True)
     if inspect.returncode != 0:
         print(f"📦 Creating local registry: {REG_NAME} (host port {REG_PORT})")
         subprocess.run(

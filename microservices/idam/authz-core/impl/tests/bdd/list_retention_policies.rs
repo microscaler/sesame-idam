@@ -17,75 +17,64 @@ fn make_request() -> TypedHandlerRequest<Request> {
     }
 }
 
-/// Scenario: List retention policies returns empty array.
+/// Scenario: List retention policies returns items array.
 ///
 /// Given: a valid request with X-Tenant-ID.
 /// When: the handler is invoked.
-/// Then: the response body is an empty array.
+/// Then: the response has an "items" field with an array value.
 #[test]
-fn list_retention_policies_returns_empty() {
+fn list_retention_policies_returns_response_with_items() {
     let typed_req = make_request();
     let response = handle(typed_req);
 
-    // The Response is a transparent newtype wrapping Vec<AuditRetentionPolicy>
-    let items = &response.0;
+    // Response struct has an items field
     assert!(
-        items.is_empty(),
+        response.items.is_empty(),
         "retention policies should be empty (stub handler)"
     );
 }
 
-/// Scenario: Response is a valid array.
+/// Scenario: Response "items" field is an array.
 ///
 /// Given: a valid request.
 /// When: the handler is invoked.
-/// Then: the response serializes to a JSON array.
+/// Then: the response body has "items" field of type array.
 #[test]
-fn response_is_valid_array() {
+fn response_has_items_array() {
     let typed_req = make_request();
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.is_array(),
-        "response must serialize to a JSON array"
-    );
+    assert!(json.get("items").is_some(), "missing 'items' field");
+    assert!(json["items"].is_array(), "'items' must be an array");
 }
 
-/// Scenario: Response has correct element type.
+/// Scenario: Response serializes to a valid JSON object.
 ///
 /// Given: a valid request.
 /// When: the handler is invoked.
-/// Then: each element in the array has expected policy fields.
+/// Then: the response body is a valid JSON object with "items".
 #[test]
-fn response_elements_have_policy_fields() {
+fn response_is_valid_object() {
     let typed_req = make_request();
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-
-    // Empty array - verify it's still valid
-    let items: &serde_json::Value = json.as_array().expect("must be array");
-    // Stub returns empty, so just verify array type
-    assert!(
-        json.is_array(),
-        "response must be a JSON array"
-    );
+    assert!(json.is_object(), "response must serialize to a JSON object");
 }
 
-/// Scenario: Response serializes to transparent array (not wrapped object).
+/// Scenario: Response items array is empty for stub.
 ///
 /// Given: a valid request.
 /// When: the handler is invoked.
-/// Then: the response JSON is [items] not {"0":[items]}.
+/// Then: response.items is an empty array.
 #[test]
-fn response_serializes_as_transparent_array() {
+fn response_items_array_is_empty_for_stub() {
     let typed_req = make_request();
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-
-    // Must be a JSON array at top level, not an object with key "0"
+    let items = json["items"].as_array().expect("must be array");
     assert!(
-        json.is_array(),
-        "response must be a top-level JSON array (transparent serde)"
+        items.is_empty(),
+        "stub handler should return empty items array"
     );
 }
 

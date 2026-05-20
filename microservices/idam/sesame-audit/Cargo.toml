@@ -7,11 +7,14 @@ description = "Shared audit event emission interface for Sesame-IDAM microservic
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-uuid = { version = "1.14", features = ["v4", "v7", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
+uuid = { workspace = true, features = ["v4", "v7"] }
+chrono = { workspace = true }
 arc-swap = { workspace = true }
 tracing = "0.1"
 anyhow = { workspace = true }
-sha2 = "0.10"
-hmac = "0.12"
-hex = "0.4"
+tokio = { workspace = true }
+metrics = { workspace = true }
+futures = { workspace = true }
+sha2 = { workspace = true }
+hmac = { workspace = true }
+hex = { workspace = true }

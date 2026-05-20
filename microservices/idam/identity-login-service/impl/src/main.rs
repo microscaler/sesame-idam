@@ -5,6 +5,7 @@
 use sesame_idam_identity_login_service_gen::registry;
 mod audit;
 mod config;
+mod jwt;
 mod security;
 
 use brrtrouter::dispatcher::Dispatcher;
@@ -130,6 +131,30 @@ fn main() -> io::Result<()> {
         eprintln!("[auth][error] {e}");
         return Err(io::Error::other(e));
     }
+
+    // Validate JWT TTL configuration at startup (HACK-301: prevent zero-TTL DoS).
+    // Load from env vars (with defaults); config.yaml values are optional.
+    let jwt_access = app_config
+        .jwt
+        .as_ref()
+        .and_then(|j| j.access_token.as_ref());
+    let ttl_config = jwt::ttl::TtlConfig::from_env_and_config(
+        jwt_access.map(|a| a.normal_ttl_secs),
+        jwt_access.map(|a| a.elevated_ttl_secs),
+        jwt_access.map(|a| a.admin_ttl_secs),
+        jwt_access.map(|a| a.platform_ttl_secs),
+        jwt_access.map(|a| a.refresh_ttl_days),
+    );
+    println!(
+        "[jwt] TTL config loaded: normal={}s elevated={}s admin={}s platform={}s refresh={}d",
+        ttl_config.normal_secs,
+        ttl_config.elevated_secs,
+        ttl_config.admin_secs,
+        ttl_config.platform_secs,
+        ttl_config.refresh_days
+    );
+    jwt::ttl::validate_minimum_ttl(&ttl_config);
+    jwt::ttl::validate_refresh_exceeds_access(&ttl_config);
 
     // Concatenate Lifeguard's prometheus text (DB metrics, pool stats) into
     // BRRTRouter's scrape response so a single /metrics endpoint covers both

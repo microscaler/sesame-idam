@@ -2,11 +2,9 @@ openapi: 3.1.0
 info:
   title: Login Service
   version: 1.0.0
-  description: "Slow-path service for authentication flows.\nHandles password login,\
-    \ registration, token exchange, password reset,\nsocial login redirects, and OAuth2\
-    \ authorization.\nHIGH frequency with HIGH per-request cost (bcrypt/scrypt hashing,\
-    \ token signing).\nCPU-bound operations limit throughput \u2014 requires vertical\
-    \ scaling.\n"
+  description: "Slow-path service for authentication flows.\nHandles password login, registration, token exchange, password\
+    \ reset,\nsocial login redirects, and OAuth2 authorization.\nHIGH frequency with HIGH per-request cost (bcrypt/scrypt\
+    \ hashing, token signing).\nCPU-bound operations limit throughput \u2014 requires vertical scaling.\n"
   contact:
     name: Platform / Security
 servers:
@@ -25,6 +23,8 @@ tags:
   description: Pre-registration validation
 - name: Passwordless
   description: Passwordless magic link authentication
+- name: UserManagement
+  description: User profile management and PII retrieval endpoints
 security:
 - BearerAuth: []
 - ApiKeyHeader: []
@@ -34,8 +34,7 @@ paths:
       tags:
       - AuthFlows
       summary: Login with password
-      description: 'Authenticate with email+password. Returns access token and refresh
-        token.
+      description: 'Authenticate with email+password. Returns access token and refresh token.
 
         If MFA is enabled on the account, returns 202 with MFA verification flow.
 
@@ -75,9 +74,6 @@ paths:
                     refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1zZXNzaW9u
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
                     mfa_required: false
                     id_token: null
                     scope: openid profile email
@@ -126,8 +122,7 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call for user login
       x-brrtrouter-impl: true
@@ -174,8 +169,6 @@ paths:
                     success: true
                     email_sent: true
                     phone_sent: true
-                    email_verified: false
-                    phone_verified: false
                     both_verified: false
                     message: Verification codes have been sent to your email and phone
               example: *id005
@@ -264,8 +257,8 @@ paths:
       tags:
       - Passwordless
       summary: Send magic link for passwordless login
-      description: 'Sends a time-limited magic link to the user email. The user clicks
-        the link to complete login without a password.
+      description: 'Sends a time-limited magic link to the user email. The user clicks the link to complete login without
+        a password.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -320,8 +313,7 @@ paths:
       tags:
       - Passwordless
       summary: Verify magic link token and complete login
-      description: 'Verifies the magic link token. On success, returns access token
-        and refresh token.
+      description: 'Verifies the magic link token. On success, returns access token and refresh token.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -356,9 +348,6 @@ paths:
                     refresh_token: cmVmcmVzaC10b2tlbi1tYWdpYy1saW5r
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
                     mfa_required: false
                     id_token: null
                     scope: openid
@@ -440,8 +429,7 @@ paths:
       tags:
       - Passwordless
       summary: Verify SMS magic link token and complete login
-      description: 'Verifies the SMS magic link token. On success, returns access
-        token and refresh token.
+      description: 'Verifies the SMS magic link token. On success, returns access token and refresh token.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -476,9 +464,6 @@ paths:
                     refresh_token: cmVmcmVzaC10b2tlbi1zbXMtbWFn
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: true
                     mfa_required: false
                     id_token: null
                     scope: openid
@@ -612,8 +597,7 @@ paths:
       tags:
       - PasswordReset
       summary: Request password reset email
-      description: 'Sends a password reset email with a time-limited token to the
-        given email.
+      description: 'Sends a password reset email with a time-limited token to the given email.
 
 
 
@@ -681,8 +665,7 @@ paths:
       tags:
       - PasswordReset
       summary: Confirm password reset with token
-      description: 'Validates the reset token from the password reset email and sets
-        a new password.
+      description: 'Validates the reset token from the password reset email and sets a new password.
 
 
 
@@ -782,9 +765,6 @@ paths:
                     refresh_token: cmVmcmVzaC10b2tlbi1yZWdpc3Rlci1uZXc
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: newuser@example.com
-                    email_verified: false
-                    phone_verified: false
                     mfa_required: false
                     id_token: null
                     scope: openid
@@ -811,8 +791,7 @@ paths:
       tags:
       - Signup
       summary: Validate signup eligibility
-      description: 'Check if email/phone is allowed to register before the user starts
-        filling forms.
+      description: 'Check if email/phone is allowed to register before the user starts filling forms.
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -864,15 +843,13 @@ paths:
           description: Internal server error
           content: *id006
       x-consumer: frontend
-      x-consumer-note: Direct browser call to validate signup data (email/username
-        availability)
+      x-consumer-note: Direct browser call to validate signup data (email/username availability)
   /auth/social/{provider}/callback:
     post:
       tags:
       - SocialLogin
       summary: Exchange OAuth provider callback for tokens
-      description: 'Step 2 of social login. Receives the provider''s authorization
-        code
+      description: 'Step 2 of social login. Receives the provider''s authorization code
 
         (from OAuth redirect), exchanges it for tokens, and completes login.
 
@@ -890,8 +867,7 @@ paths:
         schema:
           type: string
           format: uuid
-        description: Tenant identifier. Required for resolving the user to the correct
-          tenant context.
+        description: Tenant identifier. Required for resolving the user to the correct tenant context.
       - name: provider
         in: path
         required: true
@@ -928,9 +904,6 @@ paths:
                     refresh_token: cmVmcmVzaC10b2tlbi1zb2NpYWwtZ2l0aHVi
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
                     mfa_required: false
                     id_token: null
                     scope: openid profile
@@ -954,8 +927,7 @@ paths:
           description: Internal server error
           content: *id006
       x-consumer: external-provider
-      x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not
-        frontend
+      x-consumer-note: Called by OAuth provider (GitHub, Google, etc.) redirect, not frontend
       x-brrtrouter-impl: true
   /auth/social/{provider}/login:
     get:
@@ -1058,9 +1030,6 @@ paths:
                     refresh_token: bmV3LXJlZnJlc2gtdG9rZW4tYWxpY2U
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
                     mfa_required: false
                     id_token: null
                     scope: openid profile email
@@ -1072,7 +1041,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Invalid or expired refresh token
+          description: Invalid or expired subject/actor token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Actor does not have permission to delegate or tenant mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
           content:
             application/json:
               schema:
@@ -1131,9 +1112,6 @@ paths:
                     refresh_token: cmVmcmVzaC10b2tlbi1kdWFsLW90cA
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: true
                     mfa_required: false
                     id_token: null
                     scope: openid
@@ -1155,11 +1133,8 @@ paths:
                   summary: Example for verify_dual_otp 201
                   value: &id049
                     success: true
-                    email_verified: true
-                    phone_verified: false
                     both_verified: false
-                    message: Email verified. Please verify your phone to complete
-                      login.
+                    message: Email verified. Please verify your phone to complete login.
               example: *id032
         '401':
           description: "Unauthorized \u2014 invalid, expired, or missing credentials"
@@ -1216,9 +1191,6 @@ paths:
                     refresh_token: cmVmcmVzaC10b2tlbi1hbGljZS1vdHA
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: false
                     mfa_required: false
                     id_token: null
                     scope: openid
@@ -1245,8 +1217,7 @@ paths:
       tags:
       - AuthFlows
       summary: Verify phone SMS OTP and complete login
-      description: 'Verifies the 6-digit SMS OTP code. On success, returns access
-        token
+      description: 'Verifies the 6-digit SMS OTP code. On success, returns access token
 
         and refresh token. Sets phone_verified=true on the user''s profile.
 
@@ -1287,9 +1258,6 @@ paths:
                     refresh_token: cmVmcmVzaC10b2tlbi1waG9uZS1vcHQ
                     refresh_token_expires_in: 2592000
                     user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                    email: alice@example.com
-                    email_verified: true
-                    phone_verified: true
                     mfa_required: false
                     id_token: null
                     scope: openid
@@ -1316,8 +1284,7 @@ paths:
       tags:
       - Sessions
       summary: OAuth2 authorization endpoint
-      description: 'Redirects user to the Sesame login page. Compatible with `code`
-        response type.
+      description: 'Redirects user to the Sesame login page. Compatible with `code` response type.
 
         After successful login, redirects to `redirect_uri` with `code` parameter.
 
@@ -1395,6 +1362,56 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: OAuth authorization endpoint called by frontend browser
+  /auth/users/me:
+    get:
+      tags:
+      - UserManagement
+      summary: Get current user profile with PII
+      description: 'Returns the authenticated user''s full profile including PII fields.
+
+
+        This is the designated endpoint for fetching PII that was removed from JWT tokens in Story 2.3.
+
+
+        Requires a valid Bearer token with an active session.'
+      operationId: get_user_profile
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+              example:
+                user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                email: alice@example.com
+                email_verified: true
+                phone_number: '+14155551234'
+                phone_verified: false
+                first_name: Alice
+                last_name: Smith
+                name: Alice Smith
+                preferred_username: asmith
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                error_description: Authentication required
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal_error
+                error_description: An unexpected error occurred
+      security:
+      - BearerAuth: []
 components:
   parameters:
     Page:
@@ -1515,17 +1532,6 @@ components:
           type: string
           format: uuid
           description: UUID of the authenticated user
-        email:
-          type: string
-          format: email
-          nullable: true
-          description: User's email address
-        email_verified:
-          type: boolean
-          description: Whether the email has been verified
-        phone_verified:
-          type: boolean
-          description: Whether the phone has been verified
         mfa_required:
           type: boolean
           description: Whether MFA is required for this user
@@ -1537,6 +1543,30 @@ components:
           type: string
           nullable: true
           description: Granted OAuth scopes
+        entitlements_ref:
+          type: string
+          description: 'Deterministic reference to the user''s entitlements snapshot (format: ent_<uuid_v5>)'
+          example: ent_a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        entitlements_hash:
+          type: string
+          description: 'SHA-256 hash of the canonical JSON representation of the entitlements snapshot (format: sha256:<hex>)'
+          example: sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+        roles:
+          type: array
+          items:
+            type: string
+          description: User's roles within the organization
+          example:
+          - admin
+          - billing-viewer
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Bounded set of permissions from the entitlements snapshot
+          example:
+          - org:admin
+          - billing:read
       example: *id039
     PendingEmailVerificationResponse:
       type: object
@@ -1558,8 +1588,7 @@ components:
           description: "Always false \u2014 user must confirm via email link"
         message:
           type: string
-          example: A confirmation email has been sent. Please verify your email to
-            complete registration.
+          example: A confirmation email has been sent. Please verify your email to complete registration.
     MfaRequiredResponse:
       type: object
       required:
@@ -1838,7 +1867,64 @@ components:
           - urn:ietf:params:oauth:token-type:access_token
           - urn:ietf:params:oauth:token-type:refresh_token
           description: Type of token being requested
+        actor_token:
+          type: string
+          description: Optional actor token for nested delegation (RFC 8693)
       example: *id051
+    TokenExchangeResponse:
+      type: object
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      - issued_token_type
+      properties:
+        access_token:
+          type: string
+          description: New access token with act claim for delegated access
+        refresh_token:
+          type: string
+          description: New rotating refresh token
+        token_type:
+          type: string
+          enum:
+          - Bearer
+          description: Always "Bearer"
+        expires_in:
+          type: integer
+          description: 'Access token lifetime in seconds (default: 900)'
+        scope:
+          type: string
+          description: Granted scopes (space-delimited)
+        issued_token_type:
+          type: string
+          enum:
+          - urn:ietf:params:oauth:token-type:access_token
+          description: Type of issued token
+        iss:
+          type: string
+          description: 'Issuer of the token (RFC 8693 F-003). Default: idam issuer URL.'
+        aud:
+          type: array
+          items:
+            type: string
+          description: "Audience(s) for the token \u2014 merged from subject and actor audiences (RFC 8693 F-012)"
+        iat:
+          type: integer
+          format: int64
+          description: Issued-at Unix timestamp (RFC 8693 F-003)
+      example:
+        access_token: eyJhbG...ifX0.sig
+        refresh_token: bmV3LXJlZnJlc2gtdG9rZW4tZXhjaGFuZ2U
+        token_type: Bearer
+        expires_in: 900
+        scope: profile:read orders:write
+        issued_token_type: urn:ietf:params:oauth:token-type:access_token
+        iss: https://idam.example.com
+        aud:
+        - myapp.com
+        - support-portal.com
+        iat: 1715000000
     ForgotPasswordRequest:
       type: object
       required:
@@ -1868,12 +1954,10 @@ components:
       properties:
         refresh_token:
           type: string
-          description: The refresh token to revoke. Required only if no Authorization
-            header is present. If the session is identified via the Bearer token in
-            the Authorization header, this field is optional.
-      description: Request body for logout operation. Either the refresh_token in
-        the body OR the Bearer token in the Authorization header can be used to identify
-        the session to revoke. If both are provided, the refresh_token is preferred.
+          description: The refresh token to revoke. Required only if no Authorization header is present. If the session is
+            identified via the Bearer token in the Authorization header, this field is optional.
+      description: Request body for logout operation. Either the refresh_token in the body OR the Bearer token in the Authorization
+        header can be used to identify the session to revoke. If both are provided, the refresh_token is preferred.
       example: *id054
     SocialCallbackRequest:
       type: object
@@ -1919,13 +2003,6 @@ components:
           type: string
           format: uuid
           description: UUID of the authenticated user
-        email:
-          type: string
-          format: email
-          description: User's email from the social provider
-        email_verified:
-          type: boolean
-          description: Whether the provider verified the email
         social_provider:
           type: string
           description: OAuth provider name (e.g., "github", "google")
@@ -2031,3 +2108,73 @@ components:
           type: string
           description: Magic link token from the SMS URL
       example: *id061
+    EntitlementsSnapshot:
+      type: object
+      required:
+      - version
+      - permissions
+      - roles
+      - tenant
+      properties:
+        version:
+          type: integer
+          description: Entitlements version, bumped on permission changes
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Full list of permissions for this user/organization combination
+        roles:
+          type: array
+          items:
+            type: string
+          description: Roles assigned to this user
+        tenant:
+          type: string
+          format: uuid
+          description: Tenant identifier for multi-tenant isolation
+        hash:
+          type: string
+          description: SHA-256 hash of the canonical JSON of this snapshot
+    UserProfileResponse:
+      type: object
+      required:
+      - user_id
+      - email
+      - email_verified
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: UUID of the user
+        email:
+          type: string
+          format: email
+          description: User's email address
+        email_verified:
+          type: boolean
+          description: Whether the email has been verified
+        phone_number:
+          type: string
+          pattern: ^\+[1-9]\d{1,14}$
+          nullable: true
+          description: Phone number in E.164 format
+        phone_verified:
+          type: boolean
+          description: Whether the phone has been verified
+        first_name:
+          type: string
+          nullable: true
+          description: User's first name
+        last_name:
+          type: string
+          nullable: true
+          description: User's last name
+        name:
+          type: string
+          nullable: true
+          description: Full display name
+        preferred_username:
+          type: string
+          nullable: true
+          description: Preferred username

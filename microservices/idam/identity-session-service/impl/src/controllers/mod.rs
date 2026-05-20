@@ -2,7 +2,6 @@
 ///
 /// Each controller corresponds to a single API endpoint. Controllers audit every
 /// request via the global `EMITTER`, then delegate to the service layer.
-
 pub mod admin_impersonate;
 pub mod admin_issue_token;
 pub mod admin_jwks_revoke;

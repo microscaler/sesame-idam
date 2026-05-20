@@ -32,10 +32,7 @@ fn get_audit_stats_returns_valid_response() {
     assert_eq!(response.total, 0, "Stub returns total 0");
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("total").is_some(), "missing 'total' field");
-    assert!(
-        json.get("by_type").is_some(),
-        "missing 'by_type' field"
-    );
+    assert!(json.get("by_type").is_some(), "missing 'by_type' field");
     assert!(
         json.get("by_severity").is_some(),
         "missing 'by_severity' field"
@@ -67,16 +64,17 @@ fn response_total_is_integer() {
     };
 
     let response = handle(typed_req);
-    assert!(response.total >= 0, "total should be >= 0, got {}", response.total);
+    assert!(
+        response.total >= 0,
+        "total should be >= 0, got {}",
+        response.total
+    );
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(
         json.get("total").is_some(),
         "Response must have 'total' field"
     );
-    assert!(
-        json["total"].is_number(),
-        "'total' must be an integer"
-    );
+    assert!(json["total"].is_number(), "'total' must be an integer");
 }
 
 /// Scenario: Response "by_type" is an object.
@@ -109,10 +107,7 @@ fn response_by_type_is_object() {
         json.get("by_type").is_some(),
         "Response must have 'by_type' field"
     );
-    assert!(
-        json["by_type"].is_object(),
-        "'by_type' must be an object"
-    );
+    assert!(json["by_type"].is_object(), "'by_type' must be an object");
 }
 
 /// Scenario: Reject request missing required fields.

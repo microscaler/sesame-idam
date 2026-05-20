@@ -69,10 +69,7 @@ def patched_suite_sub_service_names(project_root: Path, suite: str) -> list[str]
         d = project_root / "openapi" / "idam"
         if not d.exists() or not d.is_dir():
             return []
-        return sorted(
-            x.name for x in d.iterdir()
-            if x.is_dir() and (x / "openapi.yaml").exists()
-        )
+        return sorted(x.name for x in d.iterdir() if x.is_dir() and (x / "openapi.yaml").exists())
     return _original_suite_sub(project_root, suite)
 
 
@@ -86,8 +83,7 @@ def patched_iter_suite_services(project_root: Path, suite: str | None = None):
         d = project_root / "openapi" / "idam"
         if d.exists() and d.is_dir():
             for name in sorted(
-                x.name for x in d.iterdir()
-                if x.is_dir() and (x / "openapi.yaml").exists()
+                x.name for x in d.iterdir() if x.is_dir() and (x / "openapi.yaml").exists()
             ):
                 yield ("idam", name)
     yield from _original_iter_suite(project_root, suite)
@@ -141,6 +137,7 @@ def _read_impl_package_name(project_root: Path, service_name: str) -> str:
         return ""
     try:
         import configparser
+
         cfg = configparser.ConfigParser()
         cfg.read(str(impl_cargo))
         val = cfg.get("package", "name", fallback="")
@@ -158,6 +155,7 @@ def _read_impl_binary_name(project_root: Path, service_name: str) -> str:
         with open(impl_cargo) as f:
             content = f.read()
         import re
+
         m = re.search(r'\[\[bin\]\]\s*name\s*=\s*"([^"]+)"', content)
         if m:
             return m.group(1)
@@ -216,7 +214,9 @@ _original_get_service_ports = _h_services.get_service_ports
 def patched_get_service_ports(project_root: Path) -> dict[str, str]:
     """HTTP port per service with idam suite support."""
     out: dict[str, str] = {}
-    for name, (_suite, port) in _h_services.discover_openapi_suite_microservice_localhost(project_root).items():
+    for name, (_suite, port) in _h_services.discover_openapi_suite_microservice_localhost(
+        project_root
+    ).items():
         out[name] = str(port)
     for name, port in _h_services.discover_bff_suite_config(project_root).items():
         out.setdefault(name, str(port))

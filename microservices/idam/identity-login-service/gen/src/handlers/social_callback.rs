@@ -32,14 +32,6 @@ pub struct Response {
     #[serde(rename = "access_token")]
     pub access_token: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "email")]
-    pub email: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "email_verified")]
-    pub email_verified: Option<bool>,
-
     #[serde(rename = "expires_in")]
     pub expires_in: i32,
 

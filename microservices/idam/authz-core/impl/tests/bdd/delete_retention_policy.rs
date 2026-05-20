@@ -1,9 +1,7 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;
 use sesame_idam_authz_core::controllers::delete_retention_policy::handle;
-use sesame_idam_authz_core_gen::handlers::delete_retention_policy::{
-    Request, Response,
-};
+use sesame_idam_authz_core_gen::handlers::delete_retention_policy::{Request, Response};
 
 /// Construct a minimal TypedHandlerRequest for delete_retention_policy.
 fn make_request(id: &str) -> TypedHandlerRequest<Request> {
@@ -48,14 +46,8 @@ fn response_error_is_string() {
     let typed_req = make_request("policy-123");
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("error").is_some(),
-        "missing 'error' field"
-    );
-    assert!(
-        json["error"].is_string(),
-        "'error' must be a string"
-    );
+    assert!(json.get("error").is_some(), "missing 'error' field");
+    assert!(json["error"].is_string(), "'error' must be a string");
 }
 
 /// Scenario: Response "error_description" is optional string.
@@ -83,7 +75,11 @@ fn response_error_description_is_optional_string() {
 /// Then: the response is returned consistently.
 #[test]
 fn delete_various_policy_ids() {
-    for id in ["policy-1", "550e8400-e29b-41d4-a716-446655440000", "rule-abc"] {
+    for id in [
+        "policy-1",
+        "550e8400-e29b-41d4-a716-446655440000",
+        "rule-abc",
+    ] {
         let typed_req = make_request(id);
         let response = handle(typed_req);
         let json = serde_json::to_value(&response).expect("serialize");

@@ -72,10 +72,7 @@ fn response_id_is_string() {
     let response = handle(typed_req);
     assert!(!response.id.is_empty(), "response id should not be empty");
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json["id"].is_string(),
-        "'id' must be a string"
-    );
+    assert!(json["id"].is_string(), "'id' must be a string");
 }
 
 /// Scenario: Response "hmac_signature" is optional (string or null).

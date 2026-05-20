@@ -108,6 +108,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "get_user_profile",
+        crate::controllers::get_user_profile::GetUserProfileController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "verify_dual_otp",
         crate::controllers::verify_dual_otp::VerifyDualOtpController,
         20480,
@@ -273,6 +279,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_token::AuthTokenController,
                     20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "get_user_profile" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::get_user_profile::GetUserProfileController,
+                    16384,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

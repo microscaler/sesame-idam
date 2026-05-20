@@ -1,5 +1,4 @@
 /// JWT validation BDD tests for api-keys
-
 use base64::Engine;
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
@@ -126,12 +125,7 @@ fn test_valid_ed25519_jwt_accepted() {
 
 #[test]
 fn test_missing_auth_token_rejected() {
-    let req = make_request(
-        "health",
-        Method::GET,
-        vec![],
-        None,
-    );
+    let req = make_request("health", Method::GET, vec![], None);
     let has_auth = req
         .headers
         .iter()
@@ -232,12 +226,7 @@ fn test_alg_none_attack_rejected() {
 #[test]
 fn test_missing_bearer_prefix_rejected() {
     let (jwt, _kid) = create_valid_jwt();
-    let req = make_request(
-        "health",
-        Method::GET,
-        vec![("Authorization", &jwt)],
-        None,
-    );
+    let req = make_request("health", Method::GET, vec![("Authorization", &jwt)], None);
     let auth_header = req
         .headers
         .iter()
@@ -277,8 +266,7 @@ fn test_jwks_key_available_for_validation() {
         "Key must have a non-empty kid"
     );
     assert!(
-        key.public_key_jwk
-            .kty
+        key.public_key_jwk.kty
             == sesame_idam_identity_session_service::key_manager::JwkKeyType::Okp,
         "Key must be OKP (Ed25519)"
     );

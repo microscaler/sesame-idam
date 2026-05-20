@@ -20,9 +20,19 @@ pub mod bdd {
     pub mod set_principal_attribute;
 
     // Epic 1 audit/retention — per-controller BDD specs
+    pub mod check_export_status;
+    pub mod export_audit_events;
     pub mod get_audit_event;
     pub mod get_audit_stats;
-    pub mod export_audit_events;
-    pub mod check_export_status;
     pub mod update_retention_policy;
+
+    // Epic 1 audit/retention — additional controllers
+    pub mod create_retention_policy;
+    pub mod delete_retention_policy;
+    pub mod list_audit_events;
+    pub mod list_retention_policies;
+    pub mod search_audit_events;
+
+    // Epic 5 token versioning — version mismatch handling
+    pub mod version_mismatch;
 }

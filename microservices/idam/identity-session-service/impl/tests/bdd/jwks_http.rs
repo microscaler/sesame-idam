@@ -7,7 +7,6 @@
 /// - The response body is valid JWKS (RFC 7517)
 /// - The middleware injects correct headers
 /// - No private key material leaks
-
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse, HeaderVec};
 use brrtrouter::ids::RequestId;
 use brrtrouter::typed::{Handler, HandlerResponseOutput};

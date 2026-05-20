@@ -303,6 +303,21 @@ pub static ORG_MGMT_CONFIG: std::sync::LazyLock<JwksServiceConfig> =
 
 // ─── Anti-poisoning guard ────────────────────────────────────────────────────
 
+/// Bucketize a key count into a non-sensitive range string.
+///
+/// Mitigates HACK-921: exact key counts in span attributes help attackers
+/// map the key rotation schedule. Bucketed counts preserve observability
+/// without leaking precise rotation state.
+#[must_use]
+fn keys_count_bucket(count: usize) -> &'static str {
+    match count {
+        0 => "0",
+        1..=2 => "1-2",
+        3..=5 => "3-5",
+        _ => "6+",
+    }
+}
+
 /// Validate that a new JWKS set contains at least one key from the previous set.
 ///
 /// This is the critical fix for HACK-101: if the JWKS is poisoned with
@@ -310,12 +325,19 @@ pub static ORG_MGMT_CONFIG: std::sync::LazyLock<JwksServiceConfig> =
 /// the old (trusted) key set.
 ///
 /// Returns `true` if the refresh is safe (at least one overlapping key).
+///
+/// # Security (HACK-921)
+///
+/// Key counts are bucketized into "1-2", "3-5", "6+" to prevent rotation
+/// schedule mapping via span attribute analysis in Jaeger.
 #[must_use]
 pub fn validate_jwks_refresh(new_keys: &[String], old_keys: &[String]) -> bool {
+    let count = new_keys.len();
+    let bucket = keys_count_bucket(count);
     let span = tracing::span!(
         tracing::Level::INFO,
         "jwks.cache.refresh",
-        keys_count = new_keys.len()
+        keys_count_bucket = bucket
     );
     let _guard = span.enter();
 
@@ -332,7 +354,7 @@ pub fn validate_jwks_refresh(new_keys: &[String], old_keys: &[String]) -> bool {
         span.record("cache_status", "hit");
         span.record("result", "allowed");
         tracing::info!(
-            keys_count = new_keys.len(),
+            keys_count_bucket = bucket,
             "jwks cache refresh OK (overlap found)"
         );
     } else {

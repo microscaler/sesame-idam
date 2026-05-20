@@ -6,7 +6,6 @@
 /// This module mirrors the security initialization in `gen/main.rs` so
 /// the impl crate uses real JWKS-based validation instead of the mock
 /// providers that the generated code ships with.
-
 use std::sync::Arc;
 
 use brrtrouter::security::JwksBearerProvider;
@@ -24,10 +23,7 @@ use crate::config::AppConfig;
 /// # Errors
 ///
 /// Returns an error string if a provider cannot be created.
-pub fn init_security(
-    app_config: &AppConfig,
-    service: &mut AppService,
-) -> Result<(), String> {
+pub fn init_security(app_config: &AppConfig, service: &mut AppService) -> Result<(), String> {
     let sec_cfg = app_config.security.as_ref();
     let mut schemes = service.security_schemes.clone();
     for (scheme_name, _scheme) in schemes.drain() {
@@ -57,6 +53,6 @@ pub fn init_security(
         }
         // Fallback: skip this scheme (no JWKS config defined)
     }
-    
+
     Ok(())
 }

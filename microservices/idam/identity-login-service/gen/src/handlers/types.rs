@@ -33,9 +33,9 @@ pub struct AuthLoginRequest {
 pub struct AuthLoginResponse {
     pub access_token: String,
 
-    pub email: String,
+    pub entitlements_hash: String,
 
-    pub email_verified: bool,
+    pub entitlements_ref: String,
 
     pub expires_in: i32,
 
@@ -43,11 +43,13 @@ pub struct AuthLoginResponse {
 
     pub mfa_required: bool,
 
-    pub phone_verified: bool,
+    pub permissions: Vec<String>,
 
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub roles: Vec<String>,
 
     pub scope: String,
 
@@ -91,9 +93,9 @@ pub struct AuthRegisterRequest {
 pub struct AuthRegisterResponse {
     pub access_token: String,
 
-    pub email: String,
+    pub entitlements_hash: String,
 
-    pub email_verified: bool,
+    pub entitlements_ref: String,
 
     pub expires_in: i32,
 
@@ -101,11 +103,13 @@ pub struct AuthRegisterResponse {
 
     pub mfa_required: bool,
 
-    pub phone_verified: bool,
+    pub permissions: Vec<String>,
 
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub roles: Vec<String>,
 
     pub scope: String,
 
@@ -130,6 +134,8 @@ pub struct AuthResetPasswordResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthTokenRequest {
+    pub actor_token: String,
+
     pub client_id: String,
 
     pub client_secret: String,
@@ -151,9 +157,9 @@ pub struct AuthTokenRequest {
 pub struct AuthTokenResponse {
     pub access_token: String,
 
-    pub email: String,
+    pub entitlements_hash: String,
 
-    pub email_verified: bool,
+    pub entitlements_ref: String,
 
     pub expires_in: i32,
 
@@ -161,11 +167,13 @@ pub struct AuthTokenResponse {
 
     pub mfa_required: bool,
 
-    pub phone_verified: bool,
+    pub permissions: Vec<String>,
 
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub roles: Vec<String>,
 
     pub scope: String,
 
@@ -246,6 +254,19 @@ pub struct EmailOTPVerifyRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct EntitlementsSnapshot {
+    pub hash: String,
+
+    pub permissions: Vec<String>,
+
+    pub roles: Vec<String>,
+
+    pub tenant: String,
+
+    pub version: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ErrorResponse {
     pub error: String,
 
@@ -259,6 +280,27 @@ pub struct ErrorResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ForgotPasswordRequest {
     pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct GetUserProfileResponse {
+    pub email: String,
+
+    pub email_verified: bool,
+
+    pub first_name: String,
+
+    pub last_name: String,
+
+    pub name: String,
+
+    pub phone_number: String,
+
+    pub phone_verified: bool,
+
+    pub preferred_username: String,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -358,9 +400,9 @@ pub struct MagicLinkVerifyRequest {
 pub struct MagicLinkVerifyResponse {
     pub access_token: String,
 
-    pub email: String,
+    pub entitlements_hash: String,
 
-    pub email_verified: bool,
+    pub entitlements_ref: String,
 
     pub expires_in: i32,
 
@@ -368,11 +410,13 @@ pub struct MagicLinkVerifyResponse {
 
     pub mfa_required: bool,
 
-    pub phone_verified: bool,
+    pub permissions: Vec<String>,
 
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub roles: Vec<String>,
 
     pub scope: String,
 
@@ -508,9 +552,9 @@ pub struct SmsMagicLinkVerifyRequest {
 pub struct SmsMagicLinkVerifyResponse {
     pub access_token: String,
 
-    pub email: String,
+    pub entitlements_hash: String,
 
-    pub email_verified: bool,
+    pub entitlements_ref: String,
 
     pub expires_in: i32,
 
@@ -518,11 +562,13 @@ pub struct SmsMagicLinkVerifyResponse {
 
     pub mfa_required: bool,
 
-    pub phone_verified: bool,
+    pub permissions: Vec<String>,
 
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub roles: Vec<String>,
 
     pub scope: String,
 
@@ -544,10 +590,6 @@ pub struct SocialCallbackRequest {
 pub struct SocialCallbackResponse {
     pub access_token: String,
 
-    pub email: String,
-
-    pub email_verified: bool,
-
     pub expires_in: i32,
 
     pub refresh_token: String,
@@ -565,10 +607,6 @@ pub struct SocialCallbackResponse {
 pub struct SocialLoginResponse {
     pub access_token: String,
 
-    pub email: String,
-
-    pub email_verified: bool,
-
     pub expires_in: i32,
 
     pub refresh_token: String,
@@ -583,7 +621,30 @@ pub struct SocialLoginResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TokenExchangeResponse {
+    pub access_token: String,
+
+    pub aud: Vec<String>,
+
+    pub expires_in: i32,
+
+    pub iat: i32,
+
+    pub iss: String,
+
+    pub issued_token_type: String,
+
+    pub refresh_token: String,
+
+    pub scope: String,
+
+    pub token_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct TokenRequest {
+    pub actor_token: String,
+
     pub client_id: String,
 
     pub client_secret: String,
@@ -605,9 +666,9 @@ pub struct TokenRequest {
 pub struct TokenResponse {
     pub access_token: String,
 
-    pub email: String,
+    pub entitlements_hash: String,
 
-    pub email_verified: bool,
+    pub entitlements_ref: String,
 
     pub expires_in: i32,
 
@@ -615,15 +676,38 @@ pub struct TokenResponse {
 
     pub mfa_required: bool,
 
-    pub phone_verified: bool,
+    pub permissions: Vec<String>,
 
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
 
+    pub roles: Vec<String>,
+
     pub scope: String,
 
     pub token_type: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UserProfileResponse {
+    pub email: String,
+
+    pub email_verified: bool,
+
+    pub first_name: String,
+
+    pub last_name: String,
+
+    pub name: String,
+
+    pub phone_number: String,
+
+    pub phone_verified: bool,
+
+    pub preferred_username: String,
 
     pub user_id: String,
 }
@@ -659,9 +743,9 @@ pub struct VerifyEmailOtpRequest {
 pub struct VerifyEmailOtpResponse {
     pub access_token: String,
 
-    pub email: String,
+    pub entitlements_hash: String,
 
-    pub email_verified: bool,
+    pub entitlements_ref: String,
 
     pub expires_in: i32,
 
@@ -669,11 +753,13 @@ pub struct VerifyEmailOtpResponse {
 
     pub mfa_required: bool,
 
-    pub phone_verified: bool,
+    pub permissions: Vec<String>,
 
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub roles: Vec<String>,
 
     pub scope: String,
 
@@ -693,9 +779,9 @@ pub struct VerifyPhoneOtpRequest {
 pub struct VerifyPhoneOtpResponse {
     pub access_token: String,
 
-    pub email: String,
+    pub entitlements_hash: String,
 
-    pub email_verified: bool,
+    pub entitlements_ref: String,
 
     pub expires_in: i32,
 
@@ -703,11 +789,13 @@ pub struct VerifyPhoneOtpResponse {
 
     pub mfa_required: bool,
 
-    pub phone_verified: bool,
+    pub permissions: Vec<String>,
 
     pub refresh_token: String,
 
     pub refresh_token_expires_in: i32,
+
+    pub roles: Vec<String>,
 
     pub scope: String,
 

@@ -71,10 +71,7 @@ fn test_check_export_status_pending() {
     let req = make_export_status_request(
         "/authz/audit/events/export/7f3c2a1b-8e9d-4f5a-b6c7-d8e9f0a1b2c3",
         Method::GET,
-        vec![(
-            "X-Tenant-ID",
-            "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-        )],
+        vec![("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8")],
         Some(serde_json::json!({
             "export_id": "7f3c2a1b-8e9d-4f5a-b6c7-d8e9f0a1b2c3",
             "tenant_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
@@ -103,10 +100,7 @@ fn test_export_status_response_has_required_fields() {
     let req = make_export_status_request(
         "/authz/audit/events/export/7f3c2a1b-8e9d-4f5a-b6c7-d8e9f0a1b2c3",
         Method::GET,
-        vec![(
-            "X-Tenant-ID",
-            "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-        )],
+        vec![("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8")],
         None,
     );
 
@@ -186,10 +180,7 @@ fn test_response_contains_export_id() {
     let req = make_export_status_request(
         "/authz/audit/events/export/7f3c2a1b-8e9d-4f5a-b6c7-d8e9f0a1b2c3",
         Method::GET,
-        vec![(
-            "X-Tenant-ID",
-            "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-        )],
+        vec![("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8")],
         None,
     );
 
@@ -200,7 +191,10 @@ fn test_response_contains_export_id() {
         json.get("export_id").is_some(),
         "Response must have 'export_id' field"
     );
-    assert!(json["export_id"].is_string(), "'export_id' must be a string");
+    assert!(
+        json["export_id"].is_string(),
+        "'export_id' must be a string"
+    );
 }
 
 /// Scenario: Response contains "status" string.
@@ -218,10 +212,7 @@ fn test_response_contains_status() {
     let req = make_export_status_request(
         "/authz/audit/events/export/7f3c2a1b-8e9d-4f5a-b6c7-d8e9f0a1b2c3",
         Method::GET,
-        vec![(
-            "X-Tenant-ID",
-            "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-        )],
+        vec![("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8")],
         None,
     );
 
@@ -250,10 +241,7 @@ fn test_response_may_contain_download_url() {
     let req = make_export_status_request(
         "/authz/audit/events/export/7f3c2a1b-8e9d-4f5a-b6c7-d8e9f0a1b2c3",
         Method::GET,
-        vec![(
-            "X-Tenant-ID",
-            "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-        )],
+        vec![("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8")],
         None,
     );
 
@@ -284,10 +272,7 @@ fn test_response_may_contain_estimated_completion() {
     let req = make_export_status_request(
         "/authz/audit/events/export/7f3c2a1b-8e9d-4f5a-b6c7-d8e9f0a1b2c3",
         Method::GET,
-        vec![(
-            "X-Tenant-ID",
-            "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-        )],
+        vec![("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8")],
         None,
     );
 

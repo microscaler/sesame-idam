@@ -29,23 +29,14 @@ fn export_csv_returns_pending() {
 
     let response = handle(typed_req);
 
-    assert_eq!(
-        response.status, "pending",
-        "status should be pending"
-    );
+    assert_eq!(response.status, "pending", "status should be pending");
     assert!(
         !response.export_id.is_empty(),
         "export_id should not be empty"
     );
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("export_id").is_some(),
-        "missing 'export_id' field"
-    );
-    assert!(
-        json.get("status").is_some(),
-        "missing 'status' field"
-    );
+    assert!(json.get("export_id").is_some(), "missing 'export_id' field");
+    assert!(json.get("status").is_some(), "missing 'status' field");
     // optional fields are absent or null when not set
     if let Some(completion) = json.get("estimated_completion") {
         assert!(
@@ -86,19 +77,10 @@ fn export_json_returns_pending() {
     };
 
     let response = handle(typed_req);
-    assert_eq!(
-        response.status, "pending",
-        "status should be pending"
-    );
+    assert_eq!(response.status, "pending", "status should be pending");
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("export_id").is_some(),
-        "missing 'export_id' field"
-    );
-    assert!(
-        json.get("status").is_some(),
-        "missing 'status' field"
-    );
+    assert!(json.get("export_id").is_some(), "missing 'export_id' field");
+    assert!(json.get("status").is_some(), "missing 'status' field");
 }
 
 /// Scenario: Reject request missing required "format" field.
@@ -113,10 +95,7 @@ fn reject_missing_format() {
         "X-Tenant-ID": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
     });
     let result: Result<Request, _> = serde_json::from_value(json_body);
-    assert!(
-        result.is_err(),
-        "Missing 'format' should fail"
-    );
+    assert!(result.is_err(), "Missing 'format' should fail");
 }
 
 /// Scenario: Reject request missing required "X-Tenant-ID" header.
@@ -131,10 +110,7 @@ fn reject_missing_x_tenant_id() {
         "format": "csv"
     });
     let result: Result<Request, _> = serde_json::from_value(json_body);
-    assert!(
-        result.is_err(),
-        "Missing 'X-Tenant-ID' should fail"
-    );
+    assert!(result.is_err(), "Missing 'X-Tenant-ID' should fail");
 }
 
 /// Scenario: Reject request missing required "tenant_id" field.
@@ -149,10 +125,7 @@ fn reject_missing_tenant_id() {
         "X-Tenant-ID": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
     });
     let result: Result<Request, _> = serde_json::from_value(json_body);
-    assert!(
-        result.is_err(),
-        "Missing 'tenant_id' should fail"
-    );
+    assert!(result.is_err(), "Missing 'tenant_id' should fail");
 }
 
 /// Scenario: Response "export_id" is a non-empty string.
@@ -181,10 +154,7 @@ fn export_id_is_nonempty_string() {
 
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("export_id").is_some(),
-        "missing 'export_id' field"
-    );
+    assert!(json.get("export_id").is_some(), "missing 'export_id' field");
     assert!(
         json["export_id"].is_string(),
         "'export_id' must be a string"
@@ -216,17 +186,8 @@ fn status_is_pending_string() {
     };
 
     let response = handle(typed_req);
-    assert_eq!(
-        response.status, "pending",
-        "status should be pending"
-    );
+    assert_eq!(response.status, "pending", "status should be pending");
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("status").is_some(),
-        "missing 'status' field"
-    );
-    assert!(
-        json["status"].is_string(),
-        "'status' must be a string"
-    );
+    assert!(json.get("status").is_some(), "missing 'status' field");
+    assert!(json["status"].is_string(), "'status' must be a string");
 }

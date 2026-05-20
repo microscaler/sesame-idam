@@ -1,7 +1,6 @@
 /// Admin handler: POST /admin/jwks/revoke
 /// Immediately revoke a key by `kid`. Removes from JWKS and drops private key.
 /// Implements HACK-101 fix: compromised keys can be revoked at any time.
-
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::admin_jwks_revoke::{Request, Response};

@@ -1,9 +1,7 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;
 use sesame_idam_authz_core::controllers::create_retention_policy::handle;
-use sesame_idam_authz_core_gen::handlers::create_retention_policy::{
-    Request, Response,
-};
+use sesame_idam_authz_core_gen::handlers::create_retention_policy::{Request, Response};
 
 /// Construct a minimal TypedHandlerRequest for create_retention_policy.
 fn make_request(
@@ -35,42 +33,33 @@ fn make_request(
 /// Then: the response has id, event_type, retention_days, archive/delete_after_days, created_at, tenant_id.
 #[test]
 fn create_retention_policy_all_fields() {
-    let typed_req = make_request(
-        "authentication",
-        365,
-        Some(180),
-        Some(365),
-    );
+    let typed_req = make_request("authentication", 365, Some(180), Some(365));
 
     let response = handle(typed_req);
 
-    assert_eq!(response.event_type, "authentication", "event_type should match");
+    assert_eq!(
+        response.event_type, "authentication",
+        "event_type should match"
+    );
     assert_eq!(response.retention_days, 365, "retention_days should match");
     assert_eq!(
-        response.archive_after_days, Some(180),
+        response.archive_after_days,
+        Some(180),
         "archive_after_days should match"
     );
     assert_eq!(
-        response.delete_after_days, Some(365),
+        response.delete_after_days,
+        Some(365),
         "delete_after_days should match"
     );
-    assert!(
-        !response.id.is_empty(),
-        "id should be a generated UUID"
-    );
+    assert!(!response.id.is_empty(), "id should be a generated UUID");
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("id").is_some(),
-        "missing 'id' field"
-    );
+    assert!(json.get("id").is_some(), "missing 'id' field");
     assert!(
         json.get("event_type").is_some(),
         "missing 'event_type' field"
     );
-    assert!(
-        json.get("tenant_id").is_some(),
-        "missing 'tenant_id' field"
-    );
+    assert!(json.get("tenant_id").is_some(), "missing 'tenant_id' field");
     // created_at is optional (skip_serializing_if)
     if let Some(created_at) = json.get("created_at") {
         assert!(
@@ -95,10 +84,7 @@ fn create_retention_policy_required_only() {
     assert_eq!(response.retention_days, 90);
     assert_eq!(response.archive_after_days, None);
     assert_eq!(response.delete_after_days, None);
-    assert!(
-        !response.id.is_empty(),
-        "id should be a generated UUID"
-    );
+    assert!(!response.id.is_empty(), "id should be a generated UUID");
 }
 
 /// Scenario: Response "id" is a non-empty string (UUID).
@@ -117,10 +103,7 @@ fn response_id_is_nonempty_string() {
     );
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("id").is_some(), "missing 'id' field");
-    assert!(
-        json["id"].is_string(),
-        "'id' must be a string"
-    );
+    assert!(json["id"].is_string(), "'id' must be a string");
 }
 
 /// Scenario: Response "event_type" is a string.
@@ -153,7 +136,10 @@ fn response_event_type_is_string() {
 fn response_retention_days_is_integer() {
     let typed_req = make_request("authentication", 365, None, None);
     let response = handle(typed_req);
-    assert!(response.retention_days >= 0, "retention_days should be >= 0");
+    assert!(
+        response.retention_days >= 0,
+        "retention_days should be >= 0"
+    );
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(
         json.get("retention_days").is_some(),
@@ -193,10 +179,7 @@ fn response_has_tenant_id() {
     let typed_req = make_request("authentication", 365, None, None);
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("tenant_id").is_some(),
-        "missing 'tenant_id' field"
-    );
+    assert!(json.get("tenant_id").is_some(), "missing 'tenant_id' field");
     assert!(
         json["tenant_id"].is_string(),
         "'tenant_id' must be a string"
@@ -213,7 +196,8 @@ fn create_with_archive_only() {
     let typed_req = make_request("audit", 90, Some(45), None);
     let response = handle(typed_req);
     assert_eq!(
-        response.archive_after_days, Some(45),
+        response.archive_after_days,
+        Some(45),
         "archive_after_days should match"
     );
 }
@@ -228,7 +212,8 @@ fn create_with_delete_only() {
     let typed_req = make_request("audit", 90, None, Some(30));
     let response = handle(typed_req);
     assert_eq!(
-        response.delete_after_days, Some(30),
+        response.delete_after_days,
+        Some(30),
         "delete_after_days should match"
     );
 }

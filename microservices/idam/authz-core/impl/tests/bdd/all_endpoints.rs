@@ -6,23 +6,23 @@ use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;
 use rstest::rstest;
 
+use sesame_idam_authz_core::controllers::assign_principal_role::handle as role_handle;
 use sesame_idam_authz_core::controllers::authorize::handle as auth_handle;
 use sesame_idam_authz_core::controllers::principal_effective::handle as effective_handle;
-use sesame_idam_authz_core::controllers::set_principal_attribute::handle as attr_handle;
-use sesame_idam_authz_core::controllers::assign_principal_role::handle as role_handle;
 use sesame_idam_authz_core::controllers::revoke_principal_role::handle as revoke_handle;
+use sesame_idam_authz_core::controllers::set_principal_attribute::handle as attr_handle;
+use sesame_idam_authz_core_gen::handlers::assign_principal_role::{
+    Request as RoleReq, Response as RoleResp,
+};
 use sesame_idam_authz_core_gen::handlers::authorize::{Request as AuthReq, Response as AuthResp};
 use sesame_idam_authz_core_gen::handlers::principal_effective::{
     Request as EffectiveReq, Response as EffectiveResp,
 };
-use sesame_idam_authz_core_gen::handlers::set_principal_attribute::{
-    Request as AttrReq, Response as AttrResp,
-};
-use sesame_idam_authz_core_gen::handlers::assign_principal_role::{
-    Request as RoleReq, Response as RoleResp,
-};
 use sesame_idam_authz_core_gen::handlers::revoke_principal_role::{
     Request as RevokeReq, Response as RevokeResp,
+};
+use sesame_idam_authz_core_gen::handlers::set_principal_attribute::{
+    Request as AttrReq, Response as AttrResp,
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -151,7 +151,10 @@ fn authorization_response_has_allowed_boolean() {
     let response = auth_handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
     assert!(json.get("allowed").is_some(), "missing 'allowed' field");
-    assert!(json["allowed"].as_bool().is_some(), "'allowed' must be boolean");
+    assert!(
+        json["allowed"].as_bool().is_some(),
+        "'allowed' must be boolean"
+    );
 }
 
 // ─── Principal Effective Scenarios ───────────────────────────────────────────

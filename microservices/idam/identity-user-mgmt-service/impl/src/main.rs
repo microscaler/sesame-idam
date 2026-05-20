@@ -36,7 +36,10 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 /// Command-line arguments.
 #[derive(Parser)]
-#[command(name = "identity-user-mgmt-service", about = "Identity user management service for Sesame-IDAM")]
+#[command(
+    name = "identity-user-mgmt-service",
+    about = "Identity user management service for Sesame-IDAM"
+)]
 struct Args {
     /// Path to the OpenAPI spec file.
     #[arg(short, long, default_value = "./doc/openapi.yaml")]
@@ -60,7 +63,9 @@ struct Args {
 
 fn main() -> io::Result<()> {
     // Initialize structured logging.
-    if let Err(e) = brrtrouter::otel::init_logging_with_config(&brrtrouter::otel::LogConfig::from_env()) {
+    if let Err(e) =
+        brrtrouter::otel::init_logging_with_config(&brrtrouter::otel::LogConfig::from_env())
+    {
         eprintln!("[logging][error] failed to init tracing subscriber: {e}");
     }
 
@@ -75,7 +80,8 @@ fn main() -> io::Result<()> {
     let (routes, schemes, _) = load_spec(&spec_path);
 
     // Create the router.
-    let router_arc = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Router::new(routes.clone())));
+    let router_arc =
+        std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Router::new(routes.clone())));
     {
         let r = router_arc.load();
         r.dump_routes();
@@ -146,7 +152,9 @@ fn main() -> io::Result<()> {
     println!("🚀 server listening on {addr}");
 
     let handle = HttpServer(service).start(&addr)?;
-    handle.run_until_shutdown().map_err(|e| std::io::Error::other(format!("Server error: {e:?}")))?;
+    handle
+        .run_until_shutdown()
+        .map_err(|e| std::io::Error::other(format!("Server error: {e:?}")))?;
 
     Ok(())
 }

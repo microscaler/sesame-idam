@@ -1019,10 +1019,36 @@ components:
           - application_not_found
           - role_not_found
           - attribute_too_large
+          - stale_auth_token
           description: Machine-readable error code
         error_description:
           type: string
           description: Human-readable error message
+    AuthError:
+      type: object
+      required:
+      - error
+      - message
+      properties:
+        error:
+          type: string
+          enum:
+          - stale_auth_token
+          - token_expired
+          - token_revoked
+          - invalid_token
+          - insufficient_permissions
+          description: Machine-readable error code for auth failures
+        message:
+          type: string
+          description: Human-readable error message explaining the auth failure
+        retry_after:
+          type: integer
+          format: int64
+          description: Seconds to wait before retrying. 0 means immediate re-authentication required, not just a refresh.
+        reason:
+          type: string
+          description: Machine-readable reason for the auth error (e.g., stale_authz_snapshot)
     AssignPrincipalRoleRequest:
       type: object
       required:

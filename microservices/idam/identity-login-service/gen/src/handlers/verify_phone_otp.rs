@@ -26,12 +26,12 @@ pub struct Response {
     pub access_token: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "email")]
-    pub email: Option<String>,
+    #[serde(rename = "entitlements_hash")]
+    pub entitlements_hash: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "email_verified")]
-    pub email_verified: Option<bool>,
+    #[serde(rename = "entitlements_ref")]
+    pub entitlements_ref: Option<String>,
 
     #[serde(rename = "expires_in")]
     pub expires_in: i32,
@@ -45,8 +45,8 @@ pub struct Response {
     pub mfa_required: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "phone_verified")]
-    pub phone_verified: Option<bool>,
+    #[serde(rename = "permissions")]
+    pub permissions: Option<Vec<String>>,
 
     #[serde(rename = "refresh_token")]
     pub refresh_token: String,
@@ -54,6 +54,10 @@ pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "refresh_token_expires_in")]
     pub refresh_token_expires_in: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "roles")]
+    pub roles: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "scope")]

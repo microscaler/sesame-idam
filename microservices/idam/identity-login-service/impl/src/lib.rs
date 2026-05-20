@@ -10,4 +10,5 @@
 #![allow(clippy::missing_panics_doc)] // build script panic docs are auto-generated
 //! Identity login service — library target for migrator access.
 
+pub mod jwt;
 pub mod models;

@@ -1,12 +1,12 @@
+use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::search_audit_events::{Request, Response};
-use brrtrouter::typed::TypedHandlerRequest;
 
 /// Handler for Search Audit Events — searches audit events across the tenant..
 #[handler(SearchAuditEventsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
     let mut event = AuditEvent::new(
@@ -21,7 +21,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         "filter_event_type": req.inner.filters.event_type,
         "filter_actor": req.inner.filters.actor,
         "filter_action": req.inner.filters.event_action,
-    }).into();
+    })
+    .into();
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
 
@@ -31,7 +32,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // AND ($2::text IS NULL OR event_type = $2)
     // ORDER BY timestamp DESC
     // LIMIT $3 OFFSET $4
-    
+
     Response {
         items: vec![],
         total: 0,

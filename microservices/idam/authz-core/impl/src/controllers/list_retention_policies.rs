@@ -1,12 +1,12 @@
+use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::list_retention_policies::{Request, Response};
-use brrtrouter::typed::TypedHandlerRequest;
 
 /// Handler for List Retention Policies — lists all retention policies..
 #[handler(ListRetentionPoliciesController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
     let mut event = AuditEvent::new(
@@ -21,8 +21,6 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     EMITTER.emit(&mut event);
 
     // TODO: SELECT * FROM retention_policies WHERE tenant_id = $1
-    
-    Response {
-        items: vec![],
-    }
+
+    Response { items: vec![] }
 }
