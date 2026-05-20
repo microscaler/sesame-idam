@@ -139,11 +139,11 @@ fn main() -> io::Result<()> {
         .as_ref()
         .and_then(|j| j.access_token.as_ref());
     let ttl_config = jwt::ttl::TtlConfig::from_env_and_config(
-        jwt_access.map(|a| a.normal_ttl_secs),
-        jwt_access.map(|a| a.elevated_ttl_secs),
-        jwt_access.map(|a| a.admin_ttl_secs),
-        jwt_access.map(|a| a.platform_ttl_secs),
-        jwt_access.map(|a| a.refresh_ttl_days),
+        jwt_access.map(|a| a.normal_ttl_secs).flatten(),
+        jwt_access.map(|a| a.elevated_ttl_secs).flatten(),
+        jwt_access.map(|a| a.admin_ttl_secs).flatten(),
+        jwt_access.map(|a| a.platform_ttl_secs).flatten(),
+        jwt_access.map(|a| a.refresh_ttl_days).flatten(),
     );
     println!(
         "[jwt] TTL config loaded: normal={}s elevated={}s admin={}s platform={}s refresh={}d",

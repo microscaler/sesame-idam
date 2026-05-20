@@ -12,11 +12,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let mut event = AuditEvent::new(
         AuditEventType::Compliance,
         "retention_policies_listed",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        req.data.tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::Admin,
         "internal".to_string(),
     );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.user_id = req.data.user_id.parse::<Uuid>().ok();
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
 

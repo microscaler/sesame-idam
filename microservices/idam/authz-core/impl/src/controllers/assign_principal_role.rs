@@ -1,10 +1,12 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::assign_principal_role::{Request, Response};
+use sesame_token_versioning::BumpReason;
 
 /// Assign a role to a principal within a tenant context.
 ///
-/// Emits an `role_assigned` audit event and returns success.
+/// Emits an `role_assigned` audit event and publishes a version bump
+/// push invalidation event via Redis pub/sub (Story 5.4).
 ///
 /// TODO: In production, this validates role existence, stores the
 /// assignment, invalidates cached effective permissions, and clears
@@ -34,6 +36,17 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     if let Ok((tenant_id, oid, user_id, app_id)) = emit_event {
         events::role_assigned(&EMITTER, tenant_id, oid, user_id, app_id, &req.data.role);
+    }
+
+    // Story 5.4: Publish push invalidation event for role assignment
+    if let Some(tenant_id) = req.data.tenant_id.as_deref() {
+        if let Some(publisher) = &*crate::audit::PUBLISHER {
+            publisher.publish_tenant(
+                tenant_id,
+                0, // version is managed by VersionStore
+                BumpReason::RoleAssigned,
+            );
+        }
     }
 
     // In a production implementation, this would:

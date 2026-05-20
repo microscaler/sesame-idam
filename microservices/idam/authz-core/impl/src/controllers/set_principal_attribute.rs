@@ -1,15 +1,19 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::set_principal_attribute::{Request, Response};
+use sesame_token_versioning::BumpReason;
 
 /// Handler for Set Principal Attribute - sets a metadata attribute on a principal.
+///
+/// Emits an audit event and publishes a version bump push invalidation event
+/// via Redis pub/sub (Story 5.4).
 #[handler(SetPrincipalAttributeController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
     use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
-    // Emit audit event: attribute updated
+    // Emit a
     let mut event = AuditEvent::new(
         AuditEventType::Authorization,
         "attribute_updated",
@@ -28,6 +32,17 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     .into();
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
+
+    // Story 5.4: Publish push invalidation event for principal attribute change
+    if let Some(tenant_id) = req.data.tenant_id.as_deref() {
+        if let Some(publisher) = &*crate::audit::PUBLISHER {
+            publisher.publish_tenant(
+                tenant_id,
+                0, // version is managed by VersionStore
+                BumpReason::PrincipalAttributeModified,
+            );
+        }
+    }
 
     // In a production implementation, this would:
     // 1. Store the attribute in the principal's metadata table

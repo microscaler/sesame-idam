@@ -12,15 +12,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let mut event = AuditEvent::new(
         AuditEventType::Compliance,
         "audit_events_searched",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        req.data.tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::Admin,
         "internal".to_string(),
     );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.user_id = req.data.user_id.parse::<Uuid>().ok();
     event.metadata = serde_json::json!({
-        "filter_event_type": req.inner.filters.event_type,
-        "filter_actor": req.inner.filters.actor,
-        "filter_action": req.inner.filters.event_action,
+        "filter_event_type": req.data.filters.event_type,
+        "filter_actor": req.data.filters.actor,
+        "filter_action": req.data.filters.event_action,
     })
     .into();
     event.severity = Some(AuditSeverity::Info);
@@ -36,7 +36,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     Response {
         items: vec![],
         total: 0,
-        limit: req.inner.filters.limit,
-        offset: req.inner.filters.offset,
+        limit: req.data.filters.limit,
+        offset: req.data.filters.offset,
     }
 }

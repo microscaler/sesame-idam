@@ -11,24 +11,22 @@ use brrtrouter::typed::TypedHandlerRequest;
 
 
 /// Handler for Fetch Fresh Oauth Token.
+/// Uses TTL configuration from `jwt::ttl::TtlConfig` to set `expires_in` on
+/// issued access tokens.
 #[handler(FetchFreshOauthTokenController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let user_id = req.inner.user_id;// let provider = req.inner.provider;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
+    // Apply TTL config for access and refresh token expiry.
+    let ttl_config = crate::jwt::ttl::TtlConfig::from_env();
+    let access_ttl_secs = ttl_config.access_ttl_secs_for_role("customer");
+    let refresh_ttl_secs = ttl_config.refresh_ttl_for_role("customer").as_secs();
+    ttl_config.record_ttl_metric("customer");
+
     Response {
         access_token: None, // TODO: Set from your business logic
-        expires_in: None, // TODO: Set from your business logic
+        expires_in: Some(access_ttl_secs as i32),
         refresh_token: None, // TODO: Set from your business logic
+        refresh_token_expires_in: Some(refresh_ttl_secs as i64),
         scope: None, // TODO: Set from your business logic
         token_type: None, // TODO: Set from your business logic
     }
-    
 }

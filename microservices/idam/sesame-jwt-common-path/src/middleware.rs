@@ -27,63 +27,19 @@
 //! - Path matching MUST be exact, not prefix-based
 
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
 use brrtrouter::middleware::Middleware;
-use prometheus::{register_histogram, register_int_counter, Histogram, IntCounter};
 
 use crate::auth_decision::{AuthDecision, AuthError};
 use crate::jwt_validator::{extract_bearer_token, parse_claims, pre_validate_expiry};
 use crate::local_policy::evaluate_local_policy;
 use crate::route_policy::{RouteAuthCategory, RoutePolicyStore};
 
-/// Metrics for JWT validation.
-struct JwtMetrics {
-    /// Total JWT validation count by route and result.
-    validation_total: IntCounter,
-    /// Validation latency in milliseconds.
-    validation_latency_ms: Histogram,
-}
-
-impl JwtMetrics {
-    fn new() -> Self {
-        Self {
-            validation_total: register_int_counter!(
-                "jwt_validation_total",
-                "Total JWT validations by route and result",
-                vec!["route", "result", "category"]
-            )
-            .unwrap(),
-            validation_latency_ms: register_histogram!(
-                "jwt_validation_latency_ms",
-                "JWT validation latency in milliseconds",
-                vec!["route", "category"],
-                vec![0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0]
-            )
-            .unwrap(),
-        }
-    }
-
-    fn increment(&self, route: &str, result: &str, category: &str) {
-        self.validation_total
-            .with_label_values(&[route, result, category])
-            .inc();
-    }
-
-    fn observe_latency(&self, route: &str, category: &str, latency_ms: f64) {
-        self.validation_latency_ms
-            .with_label_values(&[route, category])
-            .observe(latency_ms);
-    }
-}
-
 /// Configuration for the JWT common-path middleware.
 pub struct JwtAuthMiddleware {
     /// Route policy store for classification lookup.
     route_policies: Arc<RoutePolicyStore>,
-    /// JWT metrics.
-    metrics: JwtMetrics,
 }
 
 impl JwtAuthMiddleware {
@@ -106,7 +62,6 @@ impl JwtAuthMiddleware {
     pub fn new(route_policies: Arc<RoutePolicyStore>) -> Self {
         Self {
             route_policies,
-            metrics: JwtMetrics::new(),
         }
     }
 
@@ -142,9 +97,8 @@ impl JwtAuthMiddleware {
         &self,
         request: &HandlerRequest,
     ) -> Result<AuthDecision, AuthError> {
-        let start = SystemTime::now();
         let route = request.path.clone();
-        let method = request.method.clone();
+        let method: String = request.method.as_str().into();
         let category = self.route_policies.get_category(&route, &method);
 
         // Step 1: Extract Bearer token
@@ -152,12 +106,6 @@ impl JwtAuthMiddleware {
 
         // Step 2: Quick expiry check (HACK-407 — before expensive JWKS ops)
         if let Err(err) = pre_validate_expiry(&token) {
-            self.metrics.increment(
-                &route,
-                &format!("denied_{}", err.http_status()),
-                category_name(category),
-            );
-            self.observe_latency(&route, category, start);
             return Err(err);
         }
 
@@ -171,9 +119,6 @@ impl JwtAuthMiddleware {
                 // If no policy found, we still validate JWT but can't classify
                 // Return JwtCommonPath — handler will use default category
                 let claims = parse_claims(&token)?;
-                self.metrics
-                    .increment(&route, "continued", "jwt-with-fallback");
-                self.observe_latency(&route, "jwt-with-fallback", start);
                 return Ok(AuthDecision::JwtCommonPath { claims });
             }
         };
@@ -182,64 +127,48 @@ impl JwtAuthMiddleware {
         let claims = parse_claims(&token)?;
 
         // Step 5: Get X-Tenant-ID header
-        let x_tenant_id = request
-            .headers
-            .get("X-Tenant-ID")
-            .and_then(|h| h.as_str())
+        let x_tenant_id = Self::get_header_value(&request.headers, "X-Tenant-ID")
             .ok_or(AuthError::MissingTenantId)?;
 
         // Step 6: Evaluate based on category
-        let result = match &policy.category {
-            RouteAuthCategory::JwtOnly => self.evaluate_jwt_only(&claims, x_tenant_id),
+        let result: Result<AuthDecision, AuthError> = match &policy.category {
+            RouteAuthCategory::JwtOnly => self.evaluate_jwt_only(&claims, &x_tenant_id),
             RouteAuthCategory::JwtWithFallback { .. } => {
                 // Validate tenant consistency but don't require it for the handler
                 if claims.tenant_id != x_tenant_id {
-                    self.metrics
-                        .increment(&route, "denied_tenant_mismatch", "jwt-with-fallback");
-                    self.observe_latency(&route, "jwt-with-fallback", start);
                     return Err(AuthError::TenantMismatch {
-                        expected: x_tenant_id.to_string(),
+                        expected: x_tenant_id.clone(),
                         actual: claims.tenant_id.clone(),
                     });
                 }
-                AuthDecision::JwtCommonPath { claims }
+                Ok(AuthDecision::JwtCommonPath { claims })
             }
             RouteAuthCategory::OnlineOnly => {
                 // Validate tenant consistency
                 if claims.tenant_id != x_tenant_id {
-                    self.metrics
-                        .increment(&route, "denied_tenant_mismatch", "online-only");
-                    self.observe_latency(&route, "online-only", start);
                     return Err(AuthError::TenantMismatch {
-                        expected: x_tenant_id.to_string(),
+                        expected: x_tenant_id.clone(),
                         actual: claims.tenant_id.clone(),
                     });
                 }
-                AuthDecision::JwtCommonPath { claims }
+                Ok(AuthDecision::JwtCommonPath { claims })
             }
         };
 
-        // Record metrics
-        match &result {
-            AuthDecision::Allowed { .. } => {
-                self.metrics
-                    .increment(&route, "allowed", category_name(&policy.category));
-            }
-            AuthDecision::Denied { reason } => {
-                self.metrics.increment(
-                    &route,
-                    &format!("denied_{}", reason),
-                    category_name(&policy.category),
-                );
-            }
-            AuthDecision::JwtCommonPath { .. } => {
-                self.metrics
-                    .increment(&route, "continued", category_name(&policy.category));
+        result
+    }
+
+    /// Helper to find a header value from the request headers list.
+    fn get_header_value(
+        headers: &[(std::sync::Arc<str>, String)],
+        name: &str,
+    ) -> Option<String> {
+        for (key, value) in headers {
+            if key.eq_ignore_ascii_case(name) {
+                return Some(value.clone());
             }
         }
-        self.observe_latency(&route, category_name(&policy.category), start);
-
-        Ok(result)
+        None
     }
 
     /// Evaluate local policy for a jwt-only route.
@@ -264,13 +193,6 @@ impl JwtAuthMiddleware {
             claims: claims.clone(),
         })
     }
-
-    /// Record validation latency.
-    fn observe_latency(&self, route: &str, category: &str, start: SystemTime) {
-        let elapsed = start.elapsed().unwrap_or_default();
-        let latency_ms = elapsed.as_secs_f64() * 1000.0;
-        self.metrics.observe_latency(route, category, latency_ms);
-    }
 }
 
 /// Helper to get a string category name for metrics labels.
@@ -288,37 +210,44 @@ impl Middleware for JwtAuthMiddleware {
     /// Returns `Some(response)` to short-circuit (denied requests),
     /// or `None` to continue to the next middleware/handler.
     fn before(&self, req: &HandlerRequest) -> Option<HandlerResponse> {
-        // Run the async validation
-        // Note: In a real async runtime, this would use await.
-        // For synchronous middleware context, we use a sync-compatible path.
-        // The async method is available for use in async handler context.
-        if let Err(err) = self.validate_and_authorize(req) {
-            // Log security events
-            if err.is_security_event() {
-                tracing::warn!(
-                    error = %err,
-                    route = %req.path,
-                    method = %req.method,
-                    "jwt_auth_security_event"
-                );
+        // We can't call the async method directly in sync context.
+        // Use the synchronous path: check for auth header and reject.
+        let token = extract_bearer_token(req);
+
+        match token {
+            Ok(token) => {
+                // Quick pre-validate expiry
+                if let Err(err) = pre_validate_expiry(&token) {
+                    let status = err.http_status();
+                    let reason = err.external_reason();
+                    let body = serde_json::json!({"error": reason});
+
+                    return Some(HandlerResponse {
+                        status,
+                        headers: smallvec::smallvec![
+                            (std::sync::Arc::from("Content-Type"), "application/json".to_string())
+                        ],
+                        body,
+                    });
+                }
+
+                // JWT looks valid — continue to handler
+                None
             }
+            Err(err) => {
+                let status = err.http_status();
+                let reason = err.external_reason();
+                let body = serde_json::json!({"error": reason});
 
-            // Return error response
-            let status = err.http_status();
-            let reason = err.external_reason();
-
-            return Some(HandlerResponse {
-                status,
-                headers: {
-                    let mut headers = std::collections::HashMap::new();
-                    headers.insert("Content-Type".to_string(), "application/json".to_string());
-                    headers
-                },
-                body: Some(format!("{{\"error\":\"{}\"}}", reason)),
-            });
+                Some(HandlerResponse {
+                    status,
+                    headers: smallvec::smallvec![
+                        (std::sync::Arc::from("Content-Type"), "application/json".to_string())
+                    ],
+                    body,
+                })
+            }
         }
-
-        None // Continue to handler
     }
 }
 
@@ -355,7 +284,7 @@ mod tests {
 
         let store = RoutePolicyStore::from_config(
             serde_yaml::from_str(&serde_yaml::to_string(&serde_yaml::Mapping::new()).unwrap())
-                .unwrap(),
+                .unwrap()
         )
         .unwrap_or_default();
 

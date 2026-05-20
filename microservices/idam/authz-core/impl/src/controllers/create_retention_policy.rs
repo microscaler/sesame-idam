@@ -14,15 +14,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let mut event = AuditEvent::new(
         AuditEventType::Compliance,
         "retention_policy_created",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        req.data.tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::Admin,
         "internal".to_string(),
     );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
+    event.user_id = req.data.user_id.parse::<Uuid>().ok();
     event.metadata = serde_json::json!({
         "policy_id": policy_id.to_string(),
-        "event_type": req.inner.event_type,
-        "retention_days": req.inner.retention_days,
+        "event_type": req.data.event_type,
+        "retention_days": req.data.retention_days,
     })
     .into();
     event.severity = Some(AuditSeverity::Info);
@@ -32,10 +32,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     Response {
         id: policy_id.to_string(),
-        event_type: req.inner.event_type,
-        retention_days: req.inner.retention_days,
-        archive_after_days: req.inner.archive_after_days,
-        delete_after_days: req.inner.delete_after_days,
+        event_type: req.data.event_type,
+        retention_days: req.data.retention_days,
+        archive_after_days: req.data.archive_after_days,
+        delete_after_days: req.data.delete_after_days,
         created_at: chrono::Utc::now().to_rfc3339(),
     }
 }

@@ -9,8 +9,8 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 thiserror = { workspace = true }
-sesame_common = { path = "../common" }
-prometheus = { workspace = true, optional = true }
+sesame_common = { package = "sesame-common", path = "../common" }
+prometheus = { workspace = true }
 brrtrouter = { path = "../../../../BRRTRouter" }
 arc-swap = { workspace = true }
 chrono = { workspace = true }

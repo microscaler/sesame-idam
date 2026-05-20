@@ -12,12 +12,12 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let mut event = AuditEvent::new(
         AuditEventType::Compliance,
         "retention_policy_deleted",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
+        req.data.tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::Admin,
         "internal".to_string(),
     );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    event.metadata = serde_json::json!({ "policy_id": req.inner.id }).into();
+    event.user_id = req.data.user_id.parse::<Uuid>().ok();
+    event.metadata = serde_json::json!({ "policy_id": req.data.id }).into();
     event.severity = Some(AuditSeverity::Info);
     EMITTER.emit(&mut event);
 

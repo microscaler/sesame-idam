@@ -1,10 +1,12 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::revoke_principal_role::{Request, Response};
+use sesame_token_versioning::BumpReason;
 
 /// Revoke a role from a principal within a tenant context.
 ///
-/// Emits an `role_revoked` audit event and returns success.
+/// Emits an `role_revoked` audit event and publishes a version bump
+/// push invalidation event via Redis pub/sub (Story 5.4).
 ///
 /// TODO: In production, this removes the role assignment from the database,
 /// invalidates cached effective permissions, and forces re-evaluation on
@@ -29,6 +31,17 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
             app_id,
             &req.data.role,
         );
+    }
+
+    // Story 5.4: Publish push invalidation event for role revocation
+    if let Ok(tenant_id) = req.data.x_tenant_id.parse::<String>() {
+        if let Some(publisher) = &*crate::audit::PUBLISHER {
+            publisher.publish_tenant(
+                &tenant_id,
+                0, // version is managed by VersionStore
+                BumpReason::RoleRevoked,
+            );
+        }
     }
 
     // In a production implementation, this would:
