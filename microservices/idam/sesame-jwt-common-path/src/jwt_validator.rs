@@ -27,97 +27,12 @@
 //! - Expired tokens are rejected immediately without processing
 //! - All validation errors are logged for security auditing
 
-use std::sync::OnceLock;
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use brrtrouter::dispatcher::HandlerRequest;
 
-use crate::auth_decision::{AuthError};
-
-/// Prometheus token_size_bytes histogram — registered once, shared across requests.
-static TOKEN_SIZE_HISTOGRAM: OnceLock<prometheus::Histogram> = OnceLock::new();
-
-/// Register the token_size_bytes histogram in the global Prometheus registry.
-///
-/// Returns a `&'static Histogram` that callers use to record measurements.
-/// This is idempotent: subsequent calls return the same instance.
-///
-/// IMPORTANT: Call this once at application startup (e.g. in the service main).
-/// If not called, `token_size_histogram()` returns `None` and metrics are dropped.
-pub fn register_token_size_metrics() -> &'static prometheus::Histogram {
-    TOKEN_SIZE_HISTOGRAM.get_or_init(|| {
-        prometheus::register(
-            prometheus::Histogram::with_opts(
-                prometheus::HistogramOpts::new(
-                    "sesame_jwt_token_size_bytes",
-                    "Size of JWT tokens in bytes (unencoded payload JSON)",
-                )
-                .buckets(vec![
-                    100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 750.0,
-                    800.0, 900.0, 1000.0, 1500.0, 2000.0, 5000.0,
-                ]),
-            )
-            .expect("Failed to register sesame_jwt_token_size_bytes histogram"),
-        )
-    })
-}
-
-/// Get the registered token_size_bytes histogram (if metrics were registered).
-fn token_size_histogram() -> Option<&'static prometheus::Histogram> {
-    TOKEN_SIZE_HISTOGRAM.get()
-}
-
-/// Log a warning when the JWT payload exceeds the warning threshold.
-///
-/// HACK-250: Warning threshold is TOKEN_SIZE_WARNING_BYTES (500 bytes).
-/// At this point the token is still within budget but close enough to merit attention.
-pub fn log_token_size_warning(payload_size: usize) {
-    let warning_threshold = sesame_common::jwt::TOKEN_SIZE_WARNING_BYTES;
-    if payload_size > warning_threshold {
-        // Use the prometheus crate's logging (stderr) since we don't have full tracing.
-        eprintln!(
-            "WARNING [jwt-token-size] JWT payload size {} bytes exceeds {}-byte warning threshold",
-            payload_size, warning_threshold
-        );
-    }
-}
-
-/// Log a critical alert when the JWT payload exceeds the maximum budget.
-///
-/// HACK-250: Hard budget is MAX_TOKEN_SIZE_BYTES (750 bytes).
-/// Tokens over this threshold risk exceeding NGINX's default 1KB header buffer.
-pub fn log_token_size_alert(payload_size: usize) {
-    let max_bytes = sesame_common::jwt::MAX_TOKEN_SIZE_BYTES;
-    eprintln!(
-        "ALERT [jwt-token-size] JWT payload size {} bytes EXCEEDS {}-byte maximum budget! \
-         This token may exceed NGINX's 1KB client_header_buffer_size and cause 414 errors.",
-        payload_size, max_bytes
-    );
-}
-
-/// Check and log JWT token size against configured thresholds.
-///
-/// Records the size to the prometheus histogram (if registered) and logs
-/// warnings/alerts based on the thresholds defined in sesame_common::jwt.
-///
-/// This function is non-blocking: all logging/registry actions are fire-and-forget.
-pub fn check_token_size_and_log(claims: &sesame_common::AccessClaims) {
-    let payload_size = claims.json_payload_size();
-
-    // Record to prometheus histogram (no-op if not registered)
-    if let Some(hist) = token_size_histogram() {
-        hist.observe(payload_size as f64);
-    }
-
-    // Log warnings for tokens approaching the budget
-    log_token_size_warning(payload_size);
-
-    // Log alerts for tokens exceeding the maximum budget
-    if payload_size > sesame_common::jwt::MAX_TOKEN_SIZE_BYTES {
-        log_token_size_alert(payload_size);
-    }
-}
-use sesame_common::{AccessClaims, ALLOWED_ISSUERS, EXPECTED_AUDIENCES, VALID_RISK_VALUES};
+use crate::auth_decision::AuthError;
+use sesame_common::{AccessClaims, ALLOWED_ISSUERS, EXPECTED_AUDIENCE};
 
 /// Extract the Bearer token from the Authorization header.
 ///
@@ -126,22 +41,17 @@ use sesame_common::{AccessClaims, ALLOWED_ISSUERS, EXPECTED_AUDIENCES, VALID_RIS
 /// - `MissingAuthorization` — no Authorization header present
 /// - `InvalidBearerScheme` — header does not start with "Bearer "
 /// - `MissingJwt` — Authorization header is empty or whitespace-only
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use sesame_jwt_common_path::jwt_validator::extract_bearer_token;
-///
-/// // Returns "eyJhbG..." from "Authorization: Bearer eyJhbG..."
-/// ```
 pub fn extract_bearer_token(request: &HandlerRequest) -> Result<String, AuthError> {
-    // Get the Authorization header
-    let auth_header = request
-        .headers
-        .get("Authorization")
-        .ok_or(AuthError::MissingAuthorization)?;
+    // Iterate headers to find Authorization (case-insensitive)
+    let mut auth_value: Option<String> = None;
+    for (key, value) in &request.headers {
+        if key.eq_ignore_ascii_case("Authorization") {
+            auth_value = Some(value.clone());
+            break;
+        }
+    }
 
-    let auth_str = auth_header.as_str();
+    let auth_str = auth_value.ok_or(AuthError::MissingAuthorization)?;
 
     // Check for Bearer scheme
     if !auth_str.starts_with("Bearer ") {
@@ -163,22 +73,7 @@ pub fn extract_bearer_token(request: &HandlerRequest) -> Result<String, AuthErro
 /// This is a **fast-path check** (HACK-407) that rejects expired tokens
 /// before any expensive cryptographic operations. It decodes the JWT payload
 /// (without verifying the signature) to check the `exp` claim.
-///
-/// # Security
-///
-/// - This function does NOT validate the signature. It is only used as a
-///   pre-filter to reject obviously expired tokens quickly.
-/// - The full validation pipeline (signature, iss, aud, typ, etc.) must
-///   still be performed after this check.
-/// - Never use this as the sole validation gate.
-///
-/// # Errors
-///
-/// - `JwtExpired` — token has passed its `exp` time
-/// - `JwtNotYetValid` — token's `nbf` is in the future
-/// - `JwtInvalid` — token format is not valid JWT (3 segments)
 pub fn pre_validate_expiry(token: &str) -> Result<(), AuthError> {
-    // JWT format: header.payload.signature (3 base64url segments)
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() != 3 {
         return Err(AuthError::JwtInvalid(
@@ -186,17 +81,14 @@ pub fn pre_validate_expiry(token: &str) -> Result<(), AuthError> {
         ));
     }
 
-    // Decode the payload (second segment)
-    let payload_b64 = parts[1];
-    let payload_bytes = decode_base64url(payload_b64).ok_or_else(|| {
+    let payload_bytes = decode_base64url(parts[1]).ok_or_else(|| {
         AuthError::JwtInvalid("JWT payload is not valid base64url".into())
     })?;
 
-    // Parse the JSON to extract exp and nbf
     let claims_json: serde_json::Value =
-        serde_json::from_slice(&payload_bytes).map_err(|_| AuthError::JwtInvalid(
-            "JWT payload is not valid JSON".into(),
-        ))?;
+        serde_json::from_slice(&payload_bytes).map_err(|_| {
+            AuthError::JwtInvalid("JWT payload is not valid JSON".into())
+        })?;
 
     // Check exp — reject immediately if expired
     if let Some(exp) = claims_json.get("exp").and_then(|v| v.as_i64()) {
@@ -206,10 +98,9 @@ pub fn pre_validate_expiry(token: &str) -> Result<(), AuthError> {
         }
     }
 
-    // Check nbf — reject if not yet valid
+    // Check nbf — reject if not yet valid (with 60s clock skew tolerance)
     if let Some(nbf) = claims_json.get("nbf").and_then(|v| v.as_i64()) {
         let now = now_secs();
-        // Allow 60s clock skew tolerance per Story 1.3
         if nbf > now + 60 {
             return Err(AuthError::JwtNotYetValid { nbf });
         }
@@ -219,38 +110,24 @@ pub fn pre_validate_expiry(token: &str) -> Result<(), AuthError> {
 }
 
 /// Decode a base64url-encoded string.
-///
-/// Returns `None` if the input is not valid base64url.
 fn decode_base64url(input: &str) -> Option<Vec<u8>> {
-    // Replace base64url characters with standard base64
+    let chars: Vec<char> = input.chars().collect();
+    let len = chars.len();
     let mut decoded = Vec::with_capacity(input.len());
     let mut i = 0;
 
-    while i < input.len() {
-        let chars: Vec<char> = input.chars().collect();
+    while i < len {
         let a = char_to_val(chars[i]);
-        let b = if i + 1 < chars.len() {
-            char_to_val(chars[i + 1])
-        } else {
-            0
-        };
-        let c = if i + 2 < chars.len() {
-            char_to_val(chars[i + 2])
-        } else {
-            0
-        };
-        let d = if i + 3 < chars.len() {
-            char_to_val(chars[i + 3])
-        } else {
-            0
-        };
+        let b = if i + 1 < len { char_to_val(chars[i + 1]) } else { 0 };
+        let c = if i + 2 < len { char_to_val(chars[i + 2]) } else { 0 };
+        let d = if i + 3 < len { char_to_val(chars[i + 3]) } else { 0 };
 
-        decoded.push((a << 2) | (b >> 4));
-        if i + 2 < chars.len() {
-            decoded.push(((b & 0x0F) << 4) | (c >> 2));
+        decoded.push(((a << 2) | (b >> 4)) as u8);
+        if i + 2 < len {
+            decoded.push((((b & 0x0F) << 4) | (c >> 2)) as u8);
         }
-        if i + 3 < chars.len() {
-            decoded.push(((c & 0x03) << 6) | d);
+        if i + 3 < len {
+            decoded.push((((c & 0x03) << 6) | d) as u8);
         }
 
         i += 4;
@@ -274,18 +151,7 @@ fn char_to_val(c: char) -> u32 {
 }
 
 /// Parse a JWT token string into `AccessClaims`.
-///
-/// This function decodes the JWT payload (without signature verification).
-/// Signature verification must be performed separately by the JWKS client.
-///
-/// # Errors
-///
-/// - `JwtInvalid` — token format error or payload is not valid JSON
-/// - `JwtIssuerMismatch` — `iss` is not in the allow-list
-/// - `JwtAudienceMismatch` — `aud` does not intersect expected audiences
-/// - `JwtWrongType` — `typ` is not `at+jwt`
 pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
-    // JWT format: header.payload.signature
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() != 3 {
         return Err(AuthError::JwtInvalid(
@@ -293,18 +159,14 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
         ));
     }
 
-    // Decode the payload
-    let payload_bytes =
-        decode_base64url(parts[1])
-            .ok_or_else(|| AuthError::JwtInvalid("JWT payload is not valid base64url".into()))?;
+    let payload_bytes = decode_base64url(parts[1])
+        .ok_or_else(|| AuthError::JwtInvalid("JWT payload is not valid base64url".into()))?;
 
-    // Parse into AccessClaims
     let claims: AccessClaims = serde_json::from_slice(&payload_bytes).map_err(|_| {
         AuthError::JwtInvalid("JWT payload is not valid JSON or missing required fields".into())
     })?;
 
-    // Validate basic claim constraints
-    // 1. Check issuer
+    // Validate issuer
     if !ALLOWED_ISSUERS.contains(&claims.iss.as_str()) {
         return Err(AuthError::JwtIssuerMismatch {
             expected: ALLOWED_ISSUERS[0].to_string(),
@@ -312,31 +174,23 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
         });
     }
 
-    // 2. Check audience
-    let has_aud = claims.aud.iter().any(|a| EXPECTED_AUDIENCES.contains(&a.as_str()));
+    // Validate audience
+    let has_aud = claims.aud.iter().any(|a| EXPECTED_AUDIENCE.contains(&a.as_str()));
     if claims.aud.is_empty() || !has_aud {
         return Err(AuthError::JwtAudienceMismatch {
-            expected: EXPECTED_AUDIENCES[0].to_string(),
-            actual: claims
-                .aud
-                .join(","),
+            expected: EXPECTED_AUDIENCE[0].to_string(),
+            actual: claims.aud.join(","),
         });
     }
 
-    // 3. Validate the claims struct
+    // Validate the claims struct (ver, tenant, sx, risk, etc.)
     if let Err(validation_err) = claims.validate() {
-        return match validation_err {
-            sesame_common::JwtValidationError::InvalidIssuer(msg) => {
-                AuthError::JwtIssuerMismatch {
-                    expected: ALLOWED_ISSUERS[0].to_string(),
-                    actual: msg,
-                }
+        return Err(match validation_err {
+            sesame_common::JwtValidationError::InvalidIssuer => {
+                AuthError::JwtInvalid("JWT contains invalid issuer".into())
             }
             sesame_common::JwtValidationError::InvalidAudience => {
-                AuthError::JwtAudienceMismatch {
-                    expected: EXPECTED_AUDIENCES[0].to_string(),
-                    actual: claims.aud.join(","),
-                }
+                AuthError::JwtInvalid("JWT contains invalid audience".into())
             }
             sesame_common::JwtValidationError::MissingVersion => {
                 AuthError::JwtInvalid("JWT missing required 'ver' field".into())
@@ -347,18 +201,25 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
             sesame_common::JwtValidationError::MissingAuthzClaims => {
                 AuthError::JwtInvalid("JWT missing required 'sx' claims namespace".into())
             }
-            sesame_common::JwtValidationError::InvalidRisk(_) => {
+            sesame_common::JwtValidationError::InvalidRisk => {
                 AuthError::JwtInvalid("JWT contains invalid 'risk' value".into())
             }
-            sesame_common::JwtValidationError::InvalidTokenVersion(_) => {
+            sesame_common::JwtValidationError::InvalidTokenVersion => {
                 AuthError::JwtInvalid("JWT contains invalid 'ver' value".into())
             }
-            sesame_common::JwtValidationError::Expired(exp) => AuthError::JwtExpired { exp },
-            sesame_common::JwtValidationError::NotYetValid(nbf) => AuthError::JwtNotYetValid { nbf },
+            sesame_common::JwtValidationError::Expired => {
+                AuthError::JwtInvalid("JWT is expired".into())
+            }
+            sesame_common::JwtValidationError::NotYetValid => {
+                AuthError::JwtInvalid("JWT is not yet valid".into())
+            }
             sesame_common::JwtValidationError::SignatureInvalid => {
                 AuthError::JwtSignatureInvalid
             }
-        };
+            sesame_common::JwtValidationError::EntitlementsHashMismatch => {
+                AuthError::JwtInvalid("Entitlements hash mismatch".into())
+            }
+        });
     }
 
     Ok(claims)
@@ -375,15 +236,39 @@ fn now_secs() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use brrtrouter::dispatcher::HandlerRequest;
 
     // ─── Bearer Token Extraction Tests ──────────────────────────────────
 
+    fn create_request(auth: &str) -> HandlerRequest {
+        let mut headers = std::collections::HashMap::new();
+        if auth.is_empty() {
+            HandlerRequest {
+                method: "GET".to_string(),
+                path: "/test".to_string(),
+                query_params: std::collections::HashMap::new(),
+                headers,
+                body: None,
+            }
+        } else {
+            headers.insert(
+                "Authorization".to_string(),
+                format!("Bearer {}", auth),
+            );
+            HandlerRequest {
+                method: "GET".to_string(),
+                path: "/test".to_string(),
+                query_params: std::collections::HashMap::new(),
+                headers,
+                body: None,
+            }
+        }
+    }
+
     #[test]
     fn extract_bearer_token_success() {
-        let mut req = create_request("Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0");
+        let req = create_request("eyJhbG...xIn0");
         let token = extract_bearer_token(&req).unwrap();
-        assert_eq!(token, "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0");
+        assert_eq!(token, "eyJhbG...xIn0");
     }
 
     #[test]
@@ -397,7 +282,7 @@ mod tests {
 
     #[test]
     fn extract_bearer_token_rejects_non_bearer_scheme() {
-        let mut req = create_request("Basic dXNlcjpwYXNz");
+        let req = create_request("Basic dXNlcjpwYXNz");
         assert_eq!(
             extract_bearer_token(&req),
             Err(AuthError::InvalidBearerScheme)
@@ -406,7 +291,7 @@ mod tests {
 
     #[test]
     fn extract_bearer_token_rejects_empty_token() {
-        let mut req = create_request("Bearer ");
+        let req = create_request("Bearer ");
         assert_eq!(
             extract_bearer_token(&req),
             Err(AuthError::MissingJwt)
@@ -415,7 +300,7 @@ mod tests {
 
     #[test]
     fn extract_bearer_token_with_whitespace() {
-        let mut req = create_request("Bearer   token  ");
+        let req = create_request("Bearer   token  ");
         let token = extract_bearer_token(&req).unwrap();
         assert_eq!(token, "token");
     }
@@ -445,7 +330,10 @@ mod tests {
         });
         let token = make_jwt_token(&payload);
         let result = pre_validate_expiry(&token);
-        assert!(matches!(result, Err(AuthError::JwtExpired { exp } if exp == past_exp)));
+        assert!(matches!(
+            result,
+            Err(AuthError::JwtExpired { exp }) if exp == past_exp
+        ));
     }
 
     #[test]
@@ -457,7 +345,10 @@ mod tests {
             "sub": "test"
         });
         let token = make_jwt_token(&payload);
-        assert!(matches!(pre_validate_expiry(&token), Err(AuthError::JwtNotYetValid { nbf } if nbf == future_nbf)));
+        assert!(matches!(
+            pre_validate_expiry(&token),
+            Err(AuthError::JwtNotYetValid { nbf }) if nbf == future_nbf
+        ));
     }
 
     #[test]
@@ -469,6 +360,56 @@ mod tests {
     }
 
     // ─── Parse Claims Tests ─────────────────────────────────────────────
+
+    fn make_test_claims() -> AccessClaims {
+        AccessClaims::builder()
+            .iss("https://idam.example.com")
+            .sub("user-1")
+            .aud(vec!["identity-login-service".into()])
+            .client_id("test-app")
+            .scope("read".into())
+            .exp(i64::MAX - 3600)
+            .nbf(0)
+            .iat(0)
+            .jti("jti-test-1")
+            .ver(1)
+            .sid("sid-test-1")
+            .tenant_id("tenant-a")
+            .user_id("user-1")
+            .user_type("registered")
+            .sx(sesame_common::SesameAuthzClaims::builder()
+                .tenant("tenant-a")
+                .portal("test-app")
+                .roles(vec!["admin".into(), "user".into()])
+                .permissions(vec!["users:read".into(), "prefs:write".into()])
+                .risk("normal".into())
+                .build()
+                .unwrap())
+            .build()
+            .unwrap()
+    }
+
+    fn make_claims_token(claims: &AccessClaims) -> String {
+        let header = base64url_encode(r#"{"alg":"RS256","typ":"at+jwt"}"#);
+        let payload = base64url_encode(&serde_json::to_string(claims).unwrap());
+        format!("{}.{}.fake_signature", header, payload)
+    }
+
+    fn base64url_encode(input: &str) -> String {
+        use base64::{engine::general_purpose, Engine as _};
+        let standard = general_purpose::STANDARD.encode(input.as_bytes());
+        standard
+            .trim_end_matches('=')
+            .replace('+', "-")
+            .replace('/', "_")
+    }
+
+    fn make_jwt_token(payload: &serde_json::Value) -> String {
+        let header = base64url_encode(r#"{"alg":"RS256","typ":"at+jwt"}"#);
+        let payload_str = serde_json::to_string(payload).unwrap();
+        let payload_b64 = base64url_encode(&payload_str);
+        format!("{}.{}.fake", header, payload_b64)
+    }
 
     #[test]
     fn parse_claims_valid_token() {
@@ -506,82 +447,8 @@ mod tests {
     #[test]
     fn parse_claims_malformed_jwt() {
         assert!(matches!(
-            parse_claims("not.a.jwt"),
+            parse_claims("not-a-jwt"),
             Err(AuthError::JwtInvalid(_))
         ));
-    }
-
-    // ─── Helpers ────────────────────────────────────────────────────────
-
-    fn create_request(auth_value: &str) -> HandlerRequest {
-        let mut headers = std::collections::HashMap::new();
-        if !auth_value.is_empty() {
-            headers.insert("Authorization".to_string(), auth_value.to_string());
-        }
-        HandlerRequest {
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            query_params: std::collections::HashMap::new(),
-            headers,
-            body: None,
-        }
-    }
-
-    fn make_claims_token(claims: &AccessClaims) -> String {
-        // Create a fake JWT with valid claims
-        let header = base64url_encode(r#"{"alg":"RS256","typ":"at+jwt"}"#);
-        let payload = base64url_encode(
-            &serde_json::to_string(claims).unwrap(),
-        );
-        format!("{}.{}.fake_signature", header, payload)
-    }
-
-    fn make_test_claims() -> AccessClaims {
-        AccessClaims::builder()
-            .iss("https://idam.example.com")
-            .sub("user-1")
-            .aud(vec!["identity-login-service".into()])
-            .client_id("test-app")
-            .scope("read".into())
-            .exp(now_secs() + 3600)
-            .nbf(now_secs() - 60)
-            .iat(now_secs())
-            .jti("jti-test-1")
-            .ver(1)
-            .sid("sid-test-1")
-            .tenant_id("tenant-a")
-            .user_id("user-1")
-            .user_type("registered")
-            .sx(
-                sesame_common::SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test-app")
-                    .roles(vec!["admin".into(), "user".into()])
-                    .permissions(vec!["users:read".into(), "prefs:write".into()])
-                    .risk("normal".into())
-                    .build()
-                    .unwrap(),
-            )
-            .build()
-            .unwrap()
-    }
-
-    fn make_jwt_token(payload_json: &serde_json::Value) -> String {
-        let header = base64url_encode(r#"{"alg":"RS256","typ":"at+jwt"}"#);
-        let payload = base64url_encode(&payload_json.to_string());
-        format!("{}.{}.sig", header, payload)
-    }
-
-    fn base64url_encode(input: &str) -> String {
-        // Simple base64url encoding (no padding)
-        use base64::{Engine as _, engine::general_purpose};
-        let standard = general_purpose::STANDARD.encode(input.as_bytes());
-        standard.trim_end_matches('=').replace('+', "-").replace('/', "_")
-    }
-
-    fn base64url_encode(input: &[u8]) -> String {
-        use base64::{Engine as _, engine::general_purpose};
-        let standard = general_purpose::STANDARD.encode(input);
-        standard.trim_end_matches('=').replace('+', "-").replace('/', "_")
     }
 }
