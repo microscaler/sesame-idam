@@ -4,7 +4,7 @@
 //! `EntitlementSnapshot` holds a complete, pre-computed ACL for a user/org pair.
 
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
+
 
 /// A single permission (action on a resource).
 ///
@@ -147,6 +147,22 @@ impl EntitlementSnapshot {
     /// Get the TTL in seconds for this snapshot based on its complexity.
     pub fn ttl_seconds(&self) -> f64 {
         self.complexity.default_ttl_seconds()
+    }
+
+    /// Get the serialized size of this snapshot in bytes (approximate).
+    ///
+    /// This is used for ACL size validation to prevent memory exhaustion
+    /// (HACK-752). The value is an estimate based on serde_json serialization.
+    pub fn serialized_size_bytes(&self) -> usize {
+        // Serialize to JSON and return the byte length
+        match serde_json::to_string(self) {
+            Ok(json) => json.len(),
+            Err(_) => {
+                // Fallback estimate if serialization fails
+                self.user_id.len() + self.org_id.len() + self.computed_at.len()
+                    + self.permissions.len() * 50 // rough per-permission cost
+            }
+        }
     }
 }
 

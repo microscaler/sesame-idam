@@ -57,6 +57,8 @@ struct CacheState {
     /// Track access order for LRU eviction (simple counter-based).
     access_order: HashMap<String, u64>,
     next_order: u64,
+    /// Total eviction count for metrics.
+    evictions: u64,
 }
 
 /// Errors that can occur during cache operations.
@@ -222,8 +224,6 @@ impl EntitlementSnapshotCache {
             if let Some(entry) = state.entries.get(&cache_key) {
                 if entry.expires_at > std::time::Instant::now() {
                     entry.access_count.fetch_add(1, Ordering::Relaxed);
-                    state.access_order.insert(cache_key.clone(), state.next_order);
-                    state.next_order += 1;
                     drop(state);
 
                     self.hits_counter.inc();
@@ -235,7 +235,6 @@ impl EntitlementSnapshotCache {
                     return Ok(entry.snapshot.clone());
                 }
                 // Expired — fall through to fetch
-                drop(state);
             }
         }
 

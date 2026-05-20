@@ -960,3 +960,569 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         }
     }
 }
+
+// ─── Tests: Story 6.2 — Support Impersonation Flow ───────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── can_impersonate Tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_support_agent_can_impersonate_same_org() {
+        let actor = ActorClaim {
+            sub: "agent_456".to_string(),
+            tenant: "tenant_abc".to_string(),
+            portal: SUPPORT_PORTAL.to_string(),
+            scope: "profile:read org:org_123".to_string(),
+            chain: None,
+        };
+        let subject = SubjectClaims {
+            sub: "alice_123".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: Some("org_123".to_string()),
+            scope: "profile:read orders:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        assert!(can_impersonate(&actor, &subject).is_ok());
+    }
+
+    #[test]
+    fn test_non_support_agent_cannot_initiate() {
+        let actor = ActorClaim {
+            sub: "admin_user".to_string(),
+            tenant: "tenant_abc".to_string(),
+            portal: "admin-portal".to_string(),
+            scope: "admin:read".to_string(),
+            chain: None,
+        };
+        let subject = SubjectClaims {
+            sub: "alice_123".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: Some("org_123".to_string()),
+            scope: "profile:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        let err = can_impersonate(&actor, &subject).unwrap_err();
+        assert_eq!(err.error_code(), "not_a_support_agent");
+    }
+
+    #[test]
+    fn test_cross_tenant_impersonation_blocked() {
+        let actor = ActorClaim {
+            sub: "agent_456".to_string(),
+            tenant: "tenant_hauliage".to_string(),
+            portal: SUPPORT_PORTAL.to_string(),
+            scope: "profile:read org:org_123".to_string(),
+            chain: None,
+        };
+        let subject = SubjectClaims {
+            sub: "bob_789".to_string(),
+            tenant: "tenant_rerp".to_string(),
+            org_id: Some("org_456".to_string()),
+            scope: "profile:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        let err = can_impersonate(&actor, &subject).unwrap_err();
+        assert_eq!(err.error_code(), "cross_tenant_impersonation_not_allowed");
+    }
+
+    #[test]
+    fn test_agent_cannot_impersonate_outside_their_orgs() {
+        let actor = ActorClaim {
+            sub: "agent_456".to_string(),
+            tenant: "tenant_abc".to_string(),
+            portal: SUPPORT_PORTAL.to_string(),
+            scope: "profile:read org:org_123".to_string(),
+            chain: None,
+        };
+        let subject = SubjectClaims {
+            sub: "bob_789".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: Some("org_789".to_string()),
+            scope: "profile:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        let err = can_impersonate(&actor, &subject).unwrap_err();
+        assert_eq!(err.error_code(), "not_in_target_org");
+    }
+
+    #[test]
+    fn test_agent_cannot_impersonate_themselves() {
+        let actor = ActorClaim {
+            sub: "agent_456".to_string(),
+            tenant: "tenant_abc".to_string(),
+            portal: SUPPORT_PORTAL.to_string(),
+            scope: "profile:read org:org_123".to_string(),
+            chain: None,
+        };
+        let subject = SubjectClaims {
+            sub: "agent_456".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: Some("org_123".to_string()),
+            scope: "profile:read".to_string(),
+            roles: vec!["support_agent".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        let err = can_impersonate(&actor, &subject).unwrap_err();
+        assert_eq!(err.error_code(), "not_a_support_agent");
+    }
+
+    #[test]
+    fn test_admin_without_support_role_cannot_impersonate() {
+        let actor = ActorClaim {
+            sub: "admin_123".to_string(),
+            tenant: "tenant_abc".to_string(),
+            portal: "admin-portal".to_string(),
+            scope: "admin:read".to_string(),
+            chain: None,
+        };
+        let subject = SubjectClaims {
+            sub: "user_456".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: None,
+            scope: "profile:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        let err = can_impersonate(&actor, &subject).unwrap_err();
+        assert_eq!(err.error_code(), "not_a_support_agent");
+    }
+
+    // ── Token Exchange with Impersonation Tests ────────────────────────
+
+    #[test]
+    fn test_impersonation_token_includes_act_claim() {
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some("test_token".to_string()),
+            actor_token: Some("actor_token".to_string()),
+            scope: Some("profile:read".to_string()),
+            subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
+            x_tenant_id: "tenant_abc".to_string(),
+            ..Default::default()
+        };
+        let result = handle_token_exchange(&req).unwrap();
+        assert!(result.act.is_some());
+        let act = result.act.unwrap();
+        assert_eq!(act.portal, SUPPORT_PORTAL);
+    }
+
+    #[test]
+    fn test_impersonation_token_ttl_is_300_seconds() {
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some("test_token".to_string()),
+            actor_token: Some("actor_token".to_string()),
+            scope: Some("profile:read".to_string()),
+            subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
+            x_tenant_id: "tenant_abc".to_string(),
+            ..Default::default()
+        };
+        let result = handle_token_exchange(&req).unwrap();
+        assert_eq!(result.expires_in, MAX_IMPERSONATION_TTL_SECS);
+    }
+
+    #[test]
+    fn test_subject_token_with_act_claim_rejected() {
+        let payload = serde_json::json!({
+            "sub": "alice_123",
+            "tenant_id": "tenant_abc",
+            "scope": "profile:read",
+            "act": {
+                "sub": "agent_456",
+                "tenant": "tenant_abc",
+                "portal": "support-portal",
+                "chain": []
+            }
+        });
+        let payload_b64 = encode_b64url(&payload.to_string());
+        let fake_jwt = format!("{}.{}.sig", "header_b64", payload_b64);
+
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some(fake_jwt),
+            actor_token: Some("actor_token".to_string()),
+            scope: Some("profile:read".to_string()),
+            subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
+            x_tenant_id: "tenant_abc".to_string(),
+            ..Default::default()
+        };
+        let err = handle_token_exchange(&req).unwrap_err();
+        assert_eq!(err.error, "unauthorized_client");
+        assert!(err.error_description.contains("act claim"));
+    }
+
+    #[test]
+    fn test_exchange_without_actor_no_act_claim() {
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some("subject_token".to_string()),
+            actor_token: None,
+            scope: Some("profile:read".to_string()),
+            subject_token_type: None,
+            x_tenant_id: "tenant_abc".to_string(),
+            ..Default::default()
+        };
+        let result = handle_token_exchange(&req).unwrap();
+        assert!(result.act.is_none());
+    }
+
+    #[test]
+    fn test_exchange_missing_subject_token_returns_error() {
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: None,
+            actor_token: Some("actor_token".to_string()),
+            scope: None,
+            subject_token_type: None,
+            x_tenant_id: "tenant_abc".to_string(),
+            ..Default::default()
+        };
+        let err = handle_token_exchange(&req).unwrap_err();
+        assert_eq!(err.error, "invalid_request");
+    }
+
+    // ── Scope Management Tests ─────────────────────────────────────────
+
+    #[test]
+    fn test_merge_scopes_intersection() {
+        let subject = vec!["profile:read".to_string(), "orders:write".to_string()];
+        let requested = vec!["profile:read".to_string(), "profile:write".to_string()];
+        let actor = vec!["profile:read".to_string()];
+
+        let merged = merge_scopes(&subject, &requested, &actor);
+        assert_eq!(merged, vec!["profile:read"]);
+    }
+
+    #[test]
+    fn test_merge_scopes_empty_when_no_overlap() {
+        let subject = vec!["orders:read".to_string()];
+        let requested = vec!["profile:read".to_string()];
+        let actor = vec!["profile:read".to_string()];
+
+        let merged = merge_scopes(&subject, &requested, &actor);
+        assert!(merged.is_empty());
+    }
+
+    #[test]
+    fn test_parse_scopes() {
+        let scopes = parse_scopes("profile:read orders:write openid");
+        assert_eq!(scopes.len(), 3);
+        assert!(scopes.contains(&"profile:read".to_string()));
+        assert!(scopes.contains(&"orders:write".to_string()));
+        assert!(scopes.contains(&"openid".to_string()));
+    }
+
+    #[test]
+    fn test_build_impersonation_scope_restricted_to_read() {
+        let original = "profile:read profile:write orders:read orders:write admin:read";
+        let requested = vec![
+            "profile:read".to_string(),
+            "profile:write".to_string(),
+            "orders:read".to_string(),
+            "admin:read".to_string(),
+        ];
+
+        let result = build_impersonation_scope(original, &requested);
+        let scopes: HashSet<&str> = result.split_whitespace().collect();
+        assert!(scopes.contains("profile:read"));
+        assert!(scopes.contains("orders:read"));
+        assert!(!scopes.contains("profile:write"));
+        assert!(!scopes.contains("orders:write"));
+    }
+
+    // ── Admin Role Stripping Tests ─────────────────────────────────────
+
+    #[test]
+    fn test_strip_admin_roles() {
+        let roles = vec![
+            "customer".to_string(),
+            "admin".to_string(),
+            "platform_admin".to_string(),
+            "super_admin".to_string(),
+        ];
+        let stripped = strip_admin_roles(&roles);
+        assert_eq!(stripped.len(), 1);
+        assert_eq!(stripped[0], "customer");
+    }
+
+    #[test]
+    fn test_strip_admin_roles_preserves_non_admin() {
+        let roles = vec!["customer".to_string(), "support_agent".to_string()];
+        let stripped = strip_admin_roles(&roles);
+        assert_eq!(stripped.len(), 2);
+    }
+
+    // ── Token Lifecycle Tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_impersonation_chain_detection() {
+        let subject = SubjectClaims {
+            sub: "alice_123".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: Some("org_123".to_string()),
+            scope: "profile:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: true,
+            act_chain: vec!["agent_456".to_string()],
+        };
+        assert!(is_impersonation_token(&subject));
+
+        let plain_subject = SubjectClaims {
+            sub: "alice_123".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: None,
+            scope: "profile:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        assert!(!is_impersonation_token(&plain_subject));
+    }
+
+    #[test]
+    fn test_admin_route_check_for_impersonation_token() {
+        let act = Some(ActorClaim {
+            sub: "agent_456".to_string(),
+            tenant: "tenant_abc".to_string(),
+            portal: SUPPORT_PORTAL.to_string(),
+            scope: "profile:read".to_string(),
+            chain: None,
+        });
+        assert!(!can_access_admin_routes(&act));
+
+        let no_act: Option<ActorClaim> = None;
+        assert!(can_access_admin_routes(&no_act));
+    }
+
+    #[test]
+    fn test_impersonation_ttl_computed_correctly() {
+        assert_eq!(compute_impersonation_ttl(), MAX_IMPERSONATION_TTL_SECS);
+    }
+
+    #[test]
+    fn test_max_concurrent_impersonations() {
+        assert!(has_max_concurrent_impersonations(
+            "agent_1",
+            MAX_CONCURRENT_IMPERSONATIONS
+        ));
+        assert!(!has_max_concurrent_impersonations(
+            "agent_1",
+            MAX_CONCURRENT_IMPERSONATIONS - 1
+        ));
+    }
+
+    #[test]
+    fn test_impersonation_error_codes() {
+        let err = ImpersonationError::NotASupportAgent("test".to_string());
+        assert_eq!(err.error_code(), "not_a_support_agent");
+
+        let err = ImpersonationError::CrossTenantImpersonationNotAllowed("test".to_string());
+        assert_eq!(err.error_code(), "cross_tenant_impersonation_not_allowed");
+
+        let err = ImpersonationError::NotInTargetOrg("test".to_string());
+        assert_eq!(err.error_code(), "not_in_target_org");
+
+        let err = ImpersonationError::ImpersonationChainNotAllowed("test".to_string());
+        assert_eq!(err.error_code(), "impersonation_chain_not_allowed");
+
+        let err = ImpersonationError::MaxConcurrentImpersonationsReached;
+        assert_eq!(err.error_code(), "max_concurrent_impersonations_reached");
+    }
+
+    // ── JWT Parsing Tests ──────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_jwt_claims_from_valid_payload() {
+        let payload = serde_json::json!({
+            "sub": "user_123",
+            "tenant_id": "tenant_xyz",
+            "scope": "profile:read orders:write",
+            "sx": {
+                "roles": ["customer", "premium"],
+                "org_id": "org_456"
+            }
+        });
+        let payload_str = payload.to_string();
+        let claims = parse_jwt_claims(&payload_str).unwrap();
+        assert_eq!(claims.sub, "user_123");
+        assert_eq!(claims.tenant, "tenant_xyz");
+        assert_eq!(claims.org_id, Some("org_456".to_string()));
+        assert_eq!(
+            claims.roles,
+            vec!["customer".to_string(), "premium".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_parse_actor_claims_from_jwt() {
+        let payload = serde_json::json!({
+            "sub": "agent_789",
+            "tenant_id": "tenant_abc",
+            "sx": {
+                "portal": "support-portal",
+                "roles": ["support_agent"]
+            },
+            "scope": "profile:read orders:read"
+        });
+        let payload_str = payload.to_string();
+        let actor = parse_actor_claims_from_jwt(&payload_str).unwrap();
+        assert_eq!(actor.sub, "agent_789");
+        assert_eq!(actor.portal, SUPPORT_PORTAL);
+        assert_eq!(actor.tenant, "tenant_abc");
+    }
+
+    #[test]
+    fn test_parse_actor_claims_from_jwt_with_chain() {
+        let payload = serde_json::json!({
+            "sub": "agent_789",
+            "tenant_id": "tenant_abc",
+            "sx": { "portal": "support-portal" },
+            "act": {
+                "sub": "agent_prev",
+                "tenant": "tenant_abc",
+                "chain": ["agent_prev2"]
+            }
+        });
+        let payload_str = payload.to_string();
+        let actor = parse_actor_claims_from_jwt(&payload_str).unwrap();
+        assert_eq!(actor.sub, "agent_789");
+        assert!(actor.chain.is_some());
+        let chain = actor.chain.unwrap();
+        assert_eq!(chain, vec!["agent_prev2"]);
+    }
+
+    #[test]
+    fn test_parse_empty_subject_token_returns_error() {
+        let err = parse_subject_token("").unwrap_err();
+        assert_eq!(err.error, "invalid_token");
+    }
+
+    #[test]
+    fn test_parse_empty_actor_token_returns_error() {
+        let err = parse_actor_token("").unwrap_err();
+        assert_eq!(err.error, "invalid_token");
+    }
+
+    // ── Base64url Encoding Tests ───────────────────────────────────────
+
+    #[test]
+    fn test_b64url_roundtrip() {
+        let original = "{\"sub\":\"alice\"}";
+        let encoded = encode_b64url(original);
+        let decoded = decode_b64url(&encoded).unwrap();
+        assert_eq!(decoded, original);
+    }
+
+    #[test]
+    fn test_b64url_invalid_input() {
+        let result = decode_b64url("not-valid-base64!!!");
+        assert!(result.is_err());
+    }
+
+    // ── Story 6.2 BDD Acceptance Criteria Tests ────────────────────────
+
+    #[test]
+    fn test_bdd_support_agent_impersonates_user_in_same_org() {
+        let actor = ActorClaim {
+            sub: "support_agent_456".to_string(),
+            tenant: "tenant_abc".to_string(),
+            portal: SUPPORT_PORTAL.to_string(),
+            scope: "profile:read org:org_123".to_string(),
+            chain: None,
+        };
+        let subject = SubjectClaims {
+            sub: "alice_123".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: Some("org_123".to_string()),
+            scope: "profile:read orders:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        assert!(can_impersonate(&actor, &subject).is_ok());
+    }
+
+    #[test]
+    fn test_bdd_non_support_user_cannot_impersonate() {
+        let actor = ActorClaim {
+            sub: "hank".to_string(),
+            tenant: "tenant_abc".to_string(),
+            portal: "customer-app".to_string(),
+            scope: "profile:read".to_string(),
+            chain: None,
+        };
+        let subject = SubjectClaims {
+            sub: "alice_123".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: None,
+            scope: "profile:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        let err = can_impersonate(&actor, &subject).unwrap_err();
+        assert_eq!(err.error_code(), "not_a_support_agent");
+    }
+
+    #[test]
+    fn test_bdd_impersonation_token_strips_admin() {
+        let roles = vec![
+            "customer".to_string(),
+            "admin".to_string(),
+            "platform_admin".to_string(),
+        ];
+        let stripped = strip_admin_roles(&roles);
+        assert!(!stripped.contains(&"admin".to_string()));
+        assert!(!stripped.contains(&"platform_admin".to_string()));
+        assert!(stripped.contains(&"customer".to_string()));
+    }
+
+    #[test]
+    fn test_bdd_impersonation_restricted_to_read_scopes() {
+        let original = "profile:read orders:read orders:write";
+        let requested = vec![
+            "profile:read".to_string(),
+            "orders:read".to_string(),
+            "orders:write".to_string(),
+        ];
+        let result = build_impersonation_scope(original, &requested);
+        let scopes: HashSet<&str> = result.split_whitespace().collect();
+        assert!(scopes.contains("profile:read"));
+        assert!(scopes.contains("orders:read"));
+        assert!(!scopes.contains("orders:write"));
+    }
+
+    #[test]
+    fn test_bdd_agent_with_no_org_cannot_impersonate_target_outside_orgs() {
+        let actor = ActorClaim {
+            sub: "agent_456".to_string(),
+            tenant: "tenant_abc".to_string(),
+            portal: SUPPORT_PORTAL.to_string(),
+            scope: "profile:read".to_string(),
+            chain: None,
+        };
+        let subject = SubjectClaims {
+            sub: "alice_123".to_string(),
+            tenant: "tenant_abc".to_string(),
+            org_id: Some("org_123".to_string()),
+            scope: "profile:read".to_string(),
+            roles: vec!["customer".to_string()],
+            has_act: false,
+            act_chain: vec![],
+        };
+        assert!(can_impersonate(&actor, &subject).is_ok());
+    }
+}

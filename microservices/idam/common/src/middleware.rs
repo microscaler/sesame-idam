@@ -26,8 +26,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
-
 // Re-export JWT types from the jwt module.
 pub use super::jwt::{AccessClaims, ActorClaim, SesameAuthzClaims};
 
