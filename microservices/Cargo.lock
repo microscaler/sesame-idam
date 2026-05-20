@@ -4931,6 +4931,7 @@ dependencies = [
  "base64 0.22.1",
  "brrtrouter",
  "chrono",
+ "once_cell",
  "prometheus 0.13.4",
  "regex",
  "serde",

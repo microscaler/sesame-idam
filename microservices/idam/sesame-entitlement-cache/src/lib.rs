@@ -33,8 +33,7 @@
 pub mod snapshot;
 
 pub use snapshot::{
-    CacheLookupResult, EntitlementComplexity, EntitlementSnapshot, HighRiskPermissions,
-    Permission,
+    CacheLookupResult, EntitlementComplexity, EntitlementSnapshot, Permission,
 };
 
 use prometheus::{IntCounter, IntGauge, Registry};

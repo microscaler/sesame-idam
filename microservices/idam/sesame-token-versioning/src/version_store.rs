@@ -157,26 +157,21 @@ impl VersionStore {
             .await
             .context("failed to INCR subject version in Redis")?;
 
-        // Step 2: Set TTL. This only takes effect for new keys or when the key has no TTL.
-        // For existing keys with TTL, we use SETEX to refresh the TTL without changing the value.
-        // We use a pipeline to set TTL atomically after increment.
+        // Step 2: Set TTL. We use EXPIRE to set the TTL without overwriting the value.
+        // Using SETEX here would overwrite the value that INCR just set, creating
+        // a race condition where concurrent calls can corrupt the counter.
         let ttl = if ttl < self.min_ttl_secs {
             self.min_ttl_secs
         } else {
             ttl
         };
 
-        // Use SET to atomically set value and TTL (replaces current value, but we just INCR'd so this is fine)
-        // Actually, we should use SET with NX or SETEX to just refresh TTL.
-        // The safest approach: SET key value EX ttl — but this overwrites.
-        // Better: Just SETEX the key (INCR already set it, so this refreshes TTL).
-        redis::cmd("SETEX")
+        redis::cmd("EXPIRE")
             .arg(&key)
             .arg(ttl)
-            .arg(new_ver)
             .query_async::<_, ()>(&mut conn)
             .await
-            .context("failed to SET subject version TTL in Redis")?;
+            .context("failed to SET TTL on subject version in Redis")?;
 
         debug!(
             user_id,
@@ -410,19 +405,18 @@ mod tests {
 
     // Test that validates Redis is reachable.
     // Skip if Redis is not available — these tests require a live Redis instance.
-    fn redis_available() -> bool {
+    async fn redis_available().await -> bool {
         let url = test_redis_url();
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            let client = Client::open(url.as_str());
-            match client {
-                Ok(c) => {
-                    let mut conn = c.get_multiplexed_async_connection().await;
-                    conn.is_ok()
+        let client = Client::open(url.as_str());
+        match client {
+            Ok(c) => {
+                match c.get_multiplexed_async_connection().await {
+                    Ok(_conn) => true,
+                    Err(_) => false,
                 }
-                Err(_) => false,
             }
-        })
+            Err(_) => false,
+        }
     }
 
     #[test]
@@ -488,13 +482,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_increment_subject_returns_sequential() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
 
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
-        let user = format!("test_seq_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs());
+        let user = format!("test_seq_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos());
         let key = store.subject_key(&user);
 
         // Clean up before test
@@ -517,7 +511,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_subject_version_returns_zero_for_new_user() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -525,7 +519,7 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
             "test_new_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
 
         let ver = store.get_subject_version(&user).await.unwrap();
@@ -537,7 +531,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_subject_version_after_increment() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -545,7 +539,7 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
             "test_get_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
         let key = store.subject_key(&user);
 
@@ -559,7 +553,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_increment_tenant_returns_sequential() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -567,7 +561,7 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let tenant = format!(
             "test_tenant_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
         let key = store.tenant_key(&tenant);
 
@@ -584,7 +578,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_tenant_version_returns_zero_for_new_tenant() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -592,7 +586,7 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let tenant = format!(
             "test_newtenant_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
 
         let ver = store.get_tenant_version(&tenant).await.unwrap();
@@ -603,7 +597,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_independent_subject_and_tenant_versions() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -611,11 +605,11 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
             "test_indep_user_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
         let tenant = format!(
             "test_indep_tenant_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
 
         // Increment user version
@@ -645,7 +639,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ttl_is_set_on_increment() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -659,7 +653,7 @@ mod tests {
         let store = VersionStore::new(&config).unwrap();
         let user = format!(
             "test_ttl_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
 
         store.increment_subject(&user).await.unwrap();
@@ -673,7 +667,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_issue_version_returns_tuple() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -681,7 +675,7 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
             "test_issue_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
         let key = store.subject_key(&user);
 
@@ -696,7 +690,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_key_exists_true_after_increment() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -704,7 +698,7 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
             "test_exists_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
         let key = store.subject_key(&user);
 
@@ -720,7 +714,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrent_increments_no_duplicates() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -728,7 +722,7 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
             "test_concurrent_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
         let key = store.subject_key(&user);
 
@@ -763,7 +757,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_flush_all_cleans_keys() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -771,11 +765,11 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
             "test_flush_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
         let tenant = format!(
             "test_flush_tenant_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
 
         store.increment_subject(&user).await.unwrap();
@@ -797,7 +791,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_monotonically_increasing_across_calls() {
-        if !redis_available() {
+        if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
         }
@@ -805,7 +799,7 @@ mod tests {
         let store = VersionStore::from_url(&test_redis_url()).unwrap();
         let user = format!(
             "test_mono_{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
         );
         let key = store.subject_key(&user);
 

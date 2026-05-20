@@ -13,13 +13,14 @@ uuid = { workspace = true, features = ["v5", "std"] }
 chrono = { workspace = true, features = ["serde"] }
 regex = "1.10"
 base64 = { workspace = true, features = ["alloc"] }
+once_cell = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 brrtrouter = { workspace = true, default-features = false, optional = true }
 tokio = { workspace = true, features = ["sync"], optional = true }
 
 [features]
 default = []
-metrics = ["prometheus", "brrtrouter", "tokio"]
+metrics = ["once_cell", "prometheus", "brrtrouter", "tokio"]
 
 [dev-dependencies]
 chrono = { version = "0.4", features = ["serde"] }
