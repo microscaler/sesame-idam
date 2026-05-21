@@ -160,16 +160,6 @@ pub struct AccessClaims {
     // Optional delegation (RFC 8693)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub act: Option<ActorClaim>,
-    // DPoP confirmation claim (RFC 9449)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cnf: Option<DpopConfirmation>,
-}
-
-/// The `cnf` (confirmation) claim embedded in a DPoP-bound access token.
-/// Per RFC 9449: `cnf: { "jkt": "<base64url(SHA-256(DPoP_public_key))>"} `
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct DpopConfirmation {
-    pub jkt: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -460,29 +450,15 @@ pub struct AccessClaimsBuilder {
     user_type: Option<String>,
     sx: Option<SesameAuthzClaims>,
     act: Option<ActorClaim>,
-    cnf: Option<DpopConfirmation>,
 }
 
 impl AccessClaimsBuilder {
     pub fn new() -> Self {
         Self {
-            iss: None,
-            sub: None,
-            aud: None,
-            client_id: None,
-            scope: None,
-            exp: None,
-            nbf: None,
-            iat: None,
-            jti: None,
-            ver: None,
-            sid: None,
-            tenant_id: None,
-            user_id: None,
-            user_type: None,
-            sx: None,
-            act: None,
-            cnf: None,
+            iss: None, sub: None, aud: None, client_id: None, scope: None,
+            exp: None, nbf: None, iat: None, jti: None, ver: None,
+            sid: None, tenant_id: None, user_id: None, user_type: None,
+            sx: None, act: None,
         }
     }
 
@@ -502,7 +478,6 @@ impl AccessClaimsBuilder {
     pub fn user_type(mut self, user_type: impl Into<String>) -> Self { self.user_type = Some(user_type.into()); self }
     pub fn sx(mut self, sx: SesameAuthzClaims) -> Self { self.sx = Some(sx); self }
     pub fn act(mut self, act: ActorClaim) -> Self { self.act = Some(act); self }
-    pub fn cnf(mut self, cnf: DpopConfirmation) -> Self { self.cnf = Some(cnf); self }
 
     pub fn build(self) -> Result<AccessClaims, JwtError> {
         let iss = self.iss.ok_or_else(|| JwtError::MissingRequiredField("iss".into()))?;
@@ -529,7 +504,6 @@ impl AccessClaimsBuilder {
             iss, sub, aud, client_id, scope, exp, nbf, iat, jti,
             ver, sid, tenant_id, user_id, user_type, sx,
             act: self.act,
-            cnf: self.cnf,
         })
     }
 }
@@ -657,7 +631,6 @@ mod tests {
                 risk: None,
             },
             act: None,
-            cnf: None,
         };
 
         let json = claims.to_compact_json();
@@ -695,7 +668,6 @@ mod tests {
                 vec!["org:read".to_string()],
             ),
             act: None,
-            cnf: None,
         };
 
         let json = claims.to_compact_json();
@@ -829,7 +801,6 @@ mod tests {
                 risk: None,
             },
             act: None,
-            cnf: None,
         };
 
         let size = claims.json_payload_size();
@@ -889,7 +860,6 @@ mod tests {
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
-            cnf: None,
         };
 
         let json_no = serde_json::to_string(&no_act).unwrap();
@@ -929,7 +899,6 @@ mod tests {
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(),
                 vec!["admin".to_string()], vec!["org:read".to_string()]),
             act: None,
-            cnf: None,
         };
         assert!(claims.validate().is_ok());
     }
@@ -946,7 +915,6 @@ mod tests {
             user_id: "user-123".to_string(), user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
-            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::MissingVersion));
     }
@@ -963,7 +931,6 @@ mod tests {
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
-            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::MissingTenant));
     }
@@ -984,7 +951,6 @@ mod tests {
                 entitlements_ref: None, entitlements_hash: None, risk: None,
             },
             act: None,
-            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::MissingAuthzClaims));
     }
@@ -1001,7 +967,6 @@ mod tests {
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
-            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::InvalidIssuer));
     }
@@ -1018,7 +983,6 @@ mod tests {
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
-            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::InvalidAudience));
     }
@@ -1041,7 +1005,6 @@ mod tests {
                     risk: Some(risk_value.to_string()),
                 },
                 act: None,
-                cnf: None,
             };
             assert!(claims.validate().is_ok(), "risk '{}' should be valid", risk_value);
         }
@@ -1064,7 +1027,6 @@ mod tests {
                 risk: Some("unknown".to_string()),
             },
             act: None,
-            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::InvalidRisk));
     }
@@ -1153,7 +1115,6 @@ mod tests {
                 risk: Some("normal".to_string()),
             },
             act: None,
-            cnf: None,
         };
 
         let size = claims.json_payload_size();
@@ -1291,7 +1252,6 @@ mod tests {
             user_type: "customer".to_string(),
             sx: truncated,
             act: None,
-            cnf: None,
         };
 
         let size = claims.json_payload_size();
@@ -1386,7 +1346,6 @@ mod tests {
                 risk: Some("normal".to_string()),
             },
             act: None,
-            cnf: None,
         };
 
         let size = claims.json_payload_size();

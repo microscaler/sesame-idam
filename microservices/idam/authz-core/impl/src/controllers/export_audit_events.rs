@@ -2,12 +2,34 @@ use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::export_audit_events::{Request, Response};
 
-/// Handler for Export Audit Events
+/// Handler for Export Audit Events — exports audit events from the org..
 #[handler(ExportAuditEventsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
     let export_id = Uuid::new_v4();
+
+    let mut event = AuditEvent::new(
+        AuditEventType::Compliance,
+        "audit_export_requested",
+        req.data.x_tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::Admin,
+        "internal".to_string(),
+    );
+    event.metadata = serde_json::json!({
+        "export_id": export_id.to_string(),
+        "format": req.data.format,
+        "include_metadata": req.data.include_metadata,
+    })
+    .into();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
+    // TODO: Async export task:
+    // 1. Spawn background job to write CSV/JSON to S3
+    // 2. Return export_id + download_url for polling
 
     Response {
         export_id: export_id.to_string(),

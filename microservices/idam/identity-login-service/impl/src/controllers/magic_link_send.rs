@@ -15,7 +15,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Send email with magic link: https://app.example.com/auth/verify-magic?token=xxx
     // TODO: Rate limit: 1 link per email per 1 minute
 
-    let event = AuditEvent::new_with_params(
+    let mut event = AuditEvent::new(
         AuditEventType::Authentication,
         "magic_link_sent",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -23,7 +23,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
     );
     event.metadata = serde_json::json!({ "email": req.inner.email }).into();
-    EMITTER.emit(event);
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
 
     Response {
         magic_link_sent: true,

@@ -2,9 +2,26 @@ use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::get_audit_event::{Request, Response};
 
-/// Handler for Get Audit Event
+/// Handler for Get Audit Event — retrieves a single audit event by ID..
 #[handler(GetAuditEventController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
+    use crate::audit::EMITTER;
+    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
+    use uuid::Uuid;
+
+    let mut event = AuditEvent::new(
+        AuditEventType::Compliance,
+        "audit_event_retrieved",
+        req.data.x_tenant_id.parse::<Uuid>().unwrap_or_default(),
+        AuditActor::Admin,
+        "internal".to_string(),
+    );
+    event.metadata = serde_json::json!({ "event_id": req.data.id }).into();
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
+
+    // TODO: Query audit_events WHERE id = $1 AND tenant_id = $2
+
     Response {
         id: req.data.id,
         event_type: "".to_string(),

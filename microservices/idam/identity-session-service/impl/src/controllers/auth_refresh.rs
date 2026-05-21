@@ -10,8 +10,8 @@ use sesame_idam_identity_session_service_gen::handlers::auth_refresh::{Request, 
 use crate::audit::EMITTER;
 use crate::models::refresh_token::REFRESH_TOKEN_TTL;
 use crate::services::token_rotation::{
-    self, RotationOutcome, REFRESH_REUSE_DETECTED_TOTAL, REFRESH_ROTATION_FAILURES_TOTAL,
-    TOKEN_REFRESH_TOTAL,
+    self, RotationOutcome, TOKEN_REFRESH_TOTAL, REFRESH_REUSE_DETECTED_TOTAL,
+    REFRESH_ROTATION_FAILURES_TOTAL,
 };
 use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
 use uuid::Uuid;
@@ -34,14 +34,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let user_id = tenant_id.parse::<Uuid>().unwrap_or_default().to_string();
 
     // --- Audit logging ---
-    let mut audit_event = AuditEvent::new_with_params(
+    let mut audit_event = AuditEvent::new(
         AuditEventType::SessionManagement,
         "token_refresh_started",
         tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::User,
         "127.0.0.1".to_string(),
     );
-    EMITTER.emit(audit_event);
+    audit_event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut audit_event);
 
     // --- Perform token rotation ---
     let result = token_rotation::rotate_refresh_token(&refresh_token, &user_id, &user_id);
@@ -72,14 +73,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
             refresh_expires_in,
         } => {
             // Success: emit audit event for completed rotation
-            let mut success_event = AuditEvent::new_with_params(
+            let mut success_event = AuditEvent::new(
                 AuditEventType::SessionManagement,
                 "token_refreshed",
                 tenant_id.parse::<Uuid>().unwrap_or_default(),
                 AuditActor::User,
                 "127.0.0.1".to_string(),
             );
-    EMITTER.emit(success_event);
+            success_event.severity = Some(AuditSeverity::Info);
+            EMITTER.emit(&mut success_event);
 
             Response {
                 access_token: new_access_token,
@@ -141,14 +143,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 "Refresh token not found in Redis"
             );
 
-            let mut error_event = AuditEvent::new_with_params(
+            let mut error_event = AuditEvent::new(
                 AuditEventType::SessionManagement,
                 "token_refresh_failed_invalid",
                 tenant_id.parse::<Uuid>().unwrap_or_default(),
                 AuditActor::User,
                 "127.0.0.1".to_string(),
             );
-    EMITTER.emit(error_event);
+            error_event.severity = Some(AuditSeverity::Warn);
+            EMITTER.emit(&mut error_event);
 
             Response {
                 access_token: String::new(),
@@ -172,14 +175,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 "Redis unavailable during token rotation"
             );
 
-            let mut error_event = AuditEvent::new_with_params(
+            let mut error_event = AuditEvent::new(
                 AuditEventType::SessionManagement,
                 "token_refresh_failed_redis",
                 tenant_id.parse::<Uuid>().unwrap_or_default(),
                 AuditActor::User,
                 "127.0.0.1".to_string(),
             );
-    EMITTER.emit(error_event);
+            error_event.severity = Some(AuditSeverity::Error);
+            EMITTER.emit(&mut error_event);
 
             Response {
                 access_token: String::new(),

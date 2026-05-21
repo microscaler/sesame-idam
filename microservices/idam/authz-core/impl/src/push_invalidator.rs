@@ -42,7 +42,7 @@ impl PublisherWrapper {
         let url = self.redis_url.clone();
         let secret = self.hmac_secret.clone();
 
-        tokio::spawn(async move {
+        tokio::task::spawn(async move {
             let publisher = match VersionBumpPublisher::new(&url, secret.clone()) {
                 Ok(p) => p,
                 Err(e) => {
@@ -73,7 +73,7 @@ impl PublisherWrapper {
         let url = self.redis_url.clone();
         let secret = self.hmac_secret.clone();
 
-        tokio::spawn(async move {
+        tokio::task::spawn(async move {
             let publisher = match VersionBumpPublisher::new(&url, secret.clone()) {
                 Ok(p) => p,
                 Err(e) => {
@@ -105,17 +105,12 @@ impl PublisherWrapper {
 }
 
 /// Create a `PublisherWrapper` from Redis config.
-///
-/// Redis configuration is expected to be under the `security` section
-/// of `AppConfig` (e.g. `security.redis`). Returns `None` if Redis is not
-/// configured.
+/// Returns `None` if Redis is not configured.
 pub fn create_publisher(
     config: &crate::config::AppConfig,
 ) -> Option<PublisherWrapper> {
-    let security = config.security.as_ref()?;
-    // Redis config is expected to be nested under security or in a top-level redis section.
-    // Since AppConfig doesn't have a redis field, we return None (no Redis configured).
-    // If Redis is needed in the future, add a RedisConfig struct to config.rs
-    // and wire it into the security section.
-    None
+    let redis = config.redis.as_ref()?;
+    let url = redis.url.as_ref()?;
+    let secret = redis.hmac_secret.as_ref()?;
+    Some(PublisherWrapper::new(url, secret.clone().into_bytes()))
 }

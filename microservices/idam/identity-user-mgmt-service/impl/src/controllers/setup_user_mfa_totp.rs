@@ -9,7 +9,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
-    let event = AuditEvent::new_with_params(
+    let mut event = AuditEvent::new(
         AuditEventType::UserManagement,
         "mfa_enrolled",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -17,7 +17,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
     );
     event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    EMITTER.emit(event);
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
 
     // TODO: Generate TOTP secret (RFC 4226)
     // TODO: Store encrypted secret in user_mfa_devices table

@@ -9,7 +9,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
-    let event = AuditEvent::new_with_params(
+    let mut event = AuditEvent::new(
         AuditEventType::UserManagement,
         "social_account_linked",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -20,7 +20,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     event.metadata = serde_json::json!({
         "provider": req.inner.provider,
     }).into();
-    EMITTER.emit(event);
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
 
     // TODO: Store social provider user_id in user_social_accounts table
     // TODO: Link to existing user_id

@@ -11,8 +11,6 @@
 //! - `denylist_cache_redis_misses_total` — Total Redis misses (JTI not in Redis)
 //! - `denylist_cache_redis_errors_total` — Total Redis errors (connection failures)
 //! - `denylist_cache_evictions_total` — Total cache evictions (when max entries reached)
-//! - `denylist_cache_checks_total` — Total is_revoked() calls (hit + miss + error)
-//! - `denylist_cache_hit_ratio` — Cache hit ratio (hits / checks)
 
 use prometheus::{IntCounter, IntGauge, Registry, Histogram, register};
 
@@ -35,8 +33,6 @@ pub struct DenylistMetrics {
     pub redis_errors_total: IntCounter,
     /// Total cache evictions — entries removed when max entries reached.
     pub evictions_total: IntCounter,
-    /// Total is_revoked() calls (hit + miss + error combined).
-    pub checks_total: IntCounter,
 }
 
 impl DenylistMetrics {
@@ -99,12 +95,6 @@ impl DenylistMetrics {
         )?;
         registry.register(Box::new(evictions_total.clone()))?;
 
-        let checks_total = IntCounter::new(
-            "denylist_cache_checks_total",
-            "Total is_revoked() calls (all checks, hit + miss + error)",
-        )?;
-        registry.register(Box::new(checks_total.clone()))?;
-
         Ok(Self {
             cache_size,
             hits_total,
@@ -113,7 +103,6 @@ impl DenylistMetrics {
             redis_misses_total,
             redis_errors_total,
             evictions_total,
-            checks_total,
         })
     }
 
@@ -150,11 +139,6 @@ impl DenylistMetrics {
     /// Record a cache eviction.
     pub fn inc_evictions(&self) {
         self.evictions_total.inc();
-    }
-
-    /// Record a total is_revoked() check (hit, miss, or error).
-    pub fn inc_checks(&self) {
-        self.checks_total.inc();
     }
 }
 
@@ -197,7 +181,6 @@ mod tests {
         assert!(metric_names.contains(&"denylist_cache_redis_misses_total"));
         assert!(metric_names.contains(&"denylist_cache_redis_errors_total"));
         assert!(metric_names.contains(&"denylist_cache_evictions_total"));
-        assert!(metric_names.contains(&"denylist_cache_checks_total"));
     }
 
     #[test]

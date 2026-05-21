@@ -47,7 +47,7 @@ pub mod audit_events {
 
     /// Emit a key generation event.
     pub fn key_generated(kid: &str) {
-        let mut event = AuditEvent::new_with_params(
+        let mut event = AuditEvent::new(
             AuditEventType::System,
             "key_generated",
             uuid::Uuid::default(),
@@ -57,12 +57,13 @@ pub mod audit_events {
         event.target_id = Some(uuid::Uuid::default());
         event.target_type = Some("jwt_signing_key".to_string());
         event.metadata = Some(serde_json::json!({ "kid": kid }));
-    EMITTER.emit(event);
+        event.severity = Some(AuditSeverity::Info);
+        EMITTER.emit(&mut event);
     }
 
     /// Emit a key rotation event.
     pub fn key_rotated(old_kid: &str, new_kid: &str) {
-        let mut event = AuditEvent::new_with_params(
+        let mut event = AuditEvent::new(
             AuditEventType::System,
             "key_rotated",
             uuid::Uuid::default(),
@@ -73,12 +74,13 @@ pub mod audit_events {
             "from_kid": old_kid,
             "to_kid": new_kid
         }));
-    EMITTER.emit(event);
+        event.severity = Some(AuditSeverity::Info);
+        EMITTER.emit(&mut event);
     }
 
     /// Emit a key revocation event.
     pub fn key_revoked(kid: &str, reason: &str) {
-        let mut event = AuditEvent::new_with_params(
+        let mut event = AuditEvent::new(
             AuditEventType::System,
             "key_revoked",
             uuid::Uuid::default(),
@@ -91,12 +93,13 @@ pub mod audit_events {
             "kid": kid,
             "reason": reason
         }));
-    EMITTER.emit(event);
+        event.severity = Some(AuditSeverity::Critical);
+        EMITTER.emit(&mut event);
     }
 
     /// Emit a grace key cleanup event.
     pub fn grace_key_expired(kid: &str, age_secs: u64) {
-        let mut event = AuditEvent::new_with_params(
+        let mut event = AuditEvent::new(
             AuditEventType::System,
             "grace_key_expired",
             uuid::Uuid::default(),
@@ -108,7 +111,8 @@ pub mod audit_events {
             "kid": kid,
             "age_secs": age_secs
         }));
-    EMITTER.emit(event);
+        event.severity = Some(AuditSeverity::Info);
+        EMITTER.emit(&mut event);
     }
 }
 

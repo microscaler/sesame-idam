@@ -2,7 +2,6 @@
 //!
 //! Tracks:
 //! - Total events emitted per event type
-//! - Token version counters (issued, bumped)
 //! - Drops due to rate limiting
 //! - Buffer sizes and latency
 
@@ -43,21 +42,6 @@ impl AuditMetrics {
         // Metrics 0.22 uses gauge for timing (counter only supports u64)
         let sec = duration.as_secs_f64();
         gauge!("audit_log_latency_seconds").set(sec);
-    }
-
-    /// Increment counter for tokens issued (jwt_issued events).
-    pub fn increment_token_issued() {
-        counter!("token_version_total", "action" => "issued").increment(1);
-    }
-
-    /// Increment counter for token version bumps.
-    pub fn increment_token_bumped() {
-        counter!("token_version_total", "action" => "bumped").increment(1);
-    }
-
-    /// Set the current token version for a subject.
-    pub fn set_current_token_version(subject_id: &str, version: u64) {
-        gauge!("token_version_current", "subject" => subject_id.to_string()).set(version as f64);
     }
 
     /// Initialize all metric descriptions.

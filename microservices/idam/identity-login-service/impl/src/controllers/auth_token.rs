@@ -67,8 +67,6 @@ pub struct TokenExchangeResult {
     pub scope: Option<String>,
     pub issued_token_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub aud: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub act: Option<ActorClaim>,
 }
 
@@ -701,24 +699,6 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
         300
     };
     
-    // 6. Merge audiences per RFC 8693 Section 2.2.3:
-    // aud contains "the audiences that the issued access token is intended for.
-    // It includes, but is not limited to, the client's identifier."
-    let mut aud_set: HashSet<&str> = HashSet::new();
-    aud_set.insert(&subject.tenant); // primary audience is the subject's tenant
-    if has_actor && !actor_claims.tenant.is_empty() && actor_claims.tenant != subject.tenant {
-        aud_set.insert(&actor_claims.tenant); // include actor's tenant if different
-    }
-    if let Some(ref scope) = req.scope {
-        // Scope can encode an audience hint (e.g., "api:read" targets the "api" audience)
-        for s in parse_scopes(scope) {
-            if let Some(domain) = s.splitn(2, ':').next() {
-                aud_set.insert(domain);
-            }
-        }
-    }
-    let aud: Vec<String> = aud_set.into_iter().map(String::from).collect();
-    
     let new_access_token = build_access_token(
         &subject_claims,
         &actor_claims,
@@ -728,8 +708,6 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
         token_ttl,
         store.increment_subject(&subject_claims.sub).await.unwrap_or(1), // Story 5.1: version from VersionStore
         &jti, // Story 5.1: session ID (uses jti as identifier)
-        None, // dpop_jkt: not yet implemented in this endpoint
-        &aud,
     );
     let new_refresh_token = build_refresh_token(&subject_claims, &jti, now);
     
@@ -744,7 +722,6 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
             Some(merged_scopes.join(" "))
         },
         issued_token_type: "urn:ietf:params:oauth:token-type:access_token".to_string(),
-        aud: if aud.is_empty() { None } else { Some(aud) },
         act: if has_actor {
             Some(actor_claims.clone())
         } else {
@@ -767,7 +744,6 @@ fn build_access_token(
     token_version: u64,
     session_id: &str,
     dpop_jkt: Option<&str>,
-    aud: &[String],
 ) -> String {
     use uuid::Uuid;
     
@@ -807,11 +783,6 @@ fn build_access_token(
     }
     
     payload.insert("sx".into(), serde_json::json!(sx));
-    
-    // aud (audience) per RFC 8693
-    if !aud.is_empty() {
-        payload.insert("aud".into(), serde_json::json!(aud));
-    }
     
     // Act claim for impersonation/delegation
     if actor.portal == SUPPORT_PORTAL || (!actor.sub.is_empty() && !actor.tenant.is_empty()) {
@@ -1602,6 +1573,7 @@ mod tests {
         };
         assert!(can_impersonate(&actor, &subject).is_ok());
     }
+}
 
     // ── Story 3.4: can_delegate Unit Tests ─────────────────────────────
 

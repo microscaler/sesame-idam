@@ -60,10 +60,6 @@ tracing = "0.1"
 
 [build-dependencies]
 lifeguard-migrate = { workspace = true }
-
-# Denylist JTI cache
-sesame_denylist = { workspace = true }
-
 [dev-dependencies]
 rstest = "0.21"
 rstest-bdd = "0.5.0"

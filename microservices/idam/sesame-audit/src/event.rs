@@ -8,7 +8,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::AuditActor;
 
 // ─── Event Types ─────────────────────────────────────────────────────────────
 
@@ -26,9 +25,6 @@ pub enum AuditEventType {
     VersionBump,
     VersionMismatch,
     TokenBindingMismatch,
-    SessionManagement,
-    UserManagement,
-    System,
 }
 
 impl AuditEventType {
@@ -45,9 +41,6 @@ impl AuditEventType {
             AuditEventType::VersionBump => "version_bump",
             AuditEventType::VersionMismatch => "version_mismatch",
             AuditEventType::TokenBindingMismatch => "token_binding_mismatch",
-            AuditEventType::SessionManagement => "session_management",
-            AuditEventType::UserManagement => "user_management",
-            AuditEventType::System => "system",
         }
     }
 
@@ -64,9 +57,6 @@ impl AuditEventType {
             AuditEventType::VersionBump => AuditLevel::Info,
             AuditEventType::VersionMismatch => AuditLevel::Warn,
             AuditEventType::TokenBindingMismatch => AuditLevel::Error,
-            AuditEventType::SessionManagement => AuditLevel::Info,
-            AuditEventType::UserManagement => AuditLevel::Info,
-            AuditEventType::System => AuditLevel::Info,
         }
     }
 
@@ -103,9 +93,6 @@ pub fn allowed_event_types() -> &'static [&'static str] {
         "version_bump",
         "version_mismatch",
         "token_binding_mismatch",
-        "session_management",
-        "user_management",
-        "system",
     ]
 }
 
@@ -118,10 +105,11 @@ pub fn is_valid_event_type(event: &str) -> bool {
 // ─── Logging Levels ──────────────────────────────────────────────────────────
 
 /// Logging levels for audit events, mapped to the story's logging requirements.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum AuditLevel {
     /// High-volume normal operations. Rate-limited.
+    #[default]
     Debug,
     /// Normal operational events.
     Info,
@@ -129,14 +117,6 @@ pub enum AuditLevel {
     Warn,
     /// Active attack indicators. Always synchronous.
     Error,
-    /// Critical security events requiring immediate attention.
-    Critical,
-}
-
-impl Default for AuditLevel {
-    fn default() -> Self {
-        Self::Info
-    }
 }
 
 impl AuditLevel {
@@ -147,7 +127,6 @@ impl AuditLevel {
             AuditLevel::Info => "info",
             AuditLevel::Warn => "warn",
             AuditLevel::Error => "error",
-            AuditLevel::Critical => "critical",
         }
     }
 
@@ -384,54 +363,6 @@ impl AuditLogEntry {
         }
 
         Ok(())
-    }
-
-    /// Create a new audit log entry with custom event name and actor.
-    /// Matches the legacy 5-parameter API used by auth controllers.
-    pub fn new_with_params(
-        event_type: AuditEventType,
-        event_name: impl Into<String>,
-        user_id: impl Into<String>,
-        actor: AuditActor,
-        ip_address: impl Into<String>,
-    ) -> Self {
-        let actor_str = match actor {
-            AuditActor::User => Some("user".to_string()),
-            AuditActor::Admin => Some("admin".to_string()),
-            AuditActor::System => Some("service_account".to_string()),
-        };
-        Self {
-            event: event_name.into(),
-            event_type,
-            timestamp: Utc::now(),
-            service: String::new(),
-            tenant_id: None,
-            user_id: Some(user_id.into()),
-            actor_id: actor_str,
-            scopes: String::new(),
-            decision_source: String::new(),
-            result: String::new(),
-            metadata: None,
-            ip_address: Some(ip_address.into()),
-            user_agent: None,
-            request_id: None,
-            token_version: None,
-            ttl: None,
-            algorithm: None,
-            error: None,
-            reason: None,
-            delegation_type: None,
-            actor_roles: None,
-            act_claim_present: None,
-            old_ver: None,
-            new_ver: None,
-            version_reason: None,
-            expected_binding: None,
-            actual_binding: None,
-            hmac_signature: None,
-            level: event_type.default_level(),
-            event_id: Uuid::now_v7(),
-        }
     }
 
     /// Sanitize the entry by truncating long fields to prevent log bloat.

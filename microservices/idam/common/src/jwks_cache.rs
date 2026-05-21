@@ -50,7 +50,7 @@
 use arc_swap::ArcSwap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
@@ -153,7 +153,7 @@ pub enum JwksCacheError {
     TooManyKeys { max: usize, actual: usize },
 
     #[error("Invalid JWKS JSON: {0}")]
-    ParseError(String),
+    ParseError(#[from] serde_json::Error),
 
     #[error("No keys available in cache")]
     NoKeysAvailable,
@@ -358,6 +358,7 @@ impl std::fmt::Debug for JwksCacheBuilder {
             .field("stale_tolerance", &self.stale_tolerance)
             .field("max_keys", &self.max_keys)
             .field("service_name", &self.service_name)
+            .field("bg_refresh", &self.bg_refresh)
             .finish()
     }
 }
@@ -492,26 +493,26 @@ impl JwksCache {
 
         if is_expired {
             // Cache is expired — fetch immediately.
-            if let Ok(count) = self.refresh().await {
-                let updated = self.inner.load_shared();
-                if let Some(key) = updated.keys.get(kid) {
-                    return Ok(key.clone());
-                }
-                // Fallback to any key after refresh.
-                let fallback = updated.keys.values().next().cloned();
-                return match fallback {
-                    Some(key) => {
-                        tracing::warn!(
-                            kid,
-                            "Cache expired, requested key not found after refresh, using fallback key: {}",
-                            key.kid
-                        );
-                        Ok(key)
-                    }
-                    None => Err(JwksCacheError::KeyNotFound(kid.to_string())),
-                };
+            self.refresh().await?;
+
+            let updated = self.inner.load_shared();
+            if let Some(key) = updated.keys.get(kid) {
+                return Ok(key.clone());
             }
-            return Err(JwksCacheError::KeyNotFound(kid.to_string()));
+
+            // Fallback to any key.
+            let fallback = updated.keys.values().next().cloned();
+            match fallback {
+                Some(key) => {
+                    tracing::warn!(
+                        kid,
+                        "Cache expired, requested key not found, using fallback key: {}",
+                        key.kid
+                    );
+                    Ok(key)
+                }
+                None => Err(JwksCacheError::KeyNotFound(kid.to_string())),
+            }
         }
 
         // Not stale, key simply not in cache.
@@ -658,7 +659,7 @@ impl JwksCache {
         }
 
         // Parse JWKS.
-        let jwks: JwksDocument = serde_json::from_slice(&body_bytes).map_err(|e| JwksCacheError::ParseError(e.to_string()))?;
+        let jwks: JwksDocument = serde_json::from_slice(&body_bytes)?;
 
         // Validate key count (HACK-712).
         if jwks.keys.len() > self.max_keys {
@@ -687,7 +688,7 @@ impl JwksCache {
         for key in &jwks.keys {
             // Serialize key to JSON and check size.
             let key_json = serde_json::to_vec(key).map_err(|e| {
-                JwksCacheError::ParseError(e.to_string())
+                JwksCacheError::ParseError(e)
             })?;
 
             if key_json.len() > self.max_key_size_bytes {
@@ -868,7 +869,7 @@ impl JwksCache {
             return Err(Self::size_error(max_jwks_size, body_bytes.len()));
         }
 
-        let jwks: JwksDocument = serde_json::from_slice(&body_bytes).map_err(|e| JwksCacheError::ParseError(e.to_string()))?;
+        let jwks: JwksDocument = serde_json::from_slice(&body_bytes)?;
 
         if jwks.keys.len() > max_keys {
             return Err(JwksCacheError::TooManyKeys {
@@ -879,7 +880,7 @@ impl JwksCache {
 
         let mut new_keys = HashMap::with_capacity(jwks.keys.len());
         for key in &jwks.keys {
-            let key_json = serde_json::to_vec(key).map_err(|e| JwksCacheError::ParseError(e.to_string()))?;
+            let key_json = serde_json::to_vec(key)?;
             if key_json.len() > max_key_size {
                 continue; // Skip oversized keys.
             }
@@ -1006,8 +1007,8 @@ pub struct JwksHealthCheck {
     pub key_count: usize,
     /// Key IDs in the cache.
     pub key_ids: Vec<String>,
-    /// Seconds since last successful refresh (None if never refreshed).
-    pub last_refresh_age_secs: Option<u64>,
+    /// Last successful refresh time.
+    pub last_refresh: Option<Instant>,
     /// Whether the cache has been initialized.
     pub initialized: bool,
     /// Stale tolerance duration.
@@ -1290,21 +1291,21 @@ mod tests {
     // ─── Blocking get helper for tests ──────────────────────────────────────────
 
     /// Blocking wrapper for async JwksCache operations in sync tests.
-    trait BlockingGet {
-        fn blocking_get(self) -> Result<Jwk, JwksCacheError>;
+    trait BlockingGet<T> {
+        fn blocking_get(self) -> T;
     }
 
-    impl BlockingGet for tokio::task::JoinHandle<Result<Jwk, JwksCacheError>> {
+    impl<T> BlockingGet<Result<Jwk, JwksCacheError>> for tokio::task::JoinHandle<Result<Jwk, JwksCacheError>> {
         fn blocking_get(self) -> Result<Jwk, JwksCacheError> {
             tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(self.await)
+                .block_on(self.unwrap())
         }
     }
 
-    impl BlockingGet for std::pin::Pin<Box<dyn std::future::Future<Output = Result<Jwk, JwksCacheError>> + Send>> {
+    impl<T> BlockingGet<Result<Jwk, JwksCacheError>> for std::pin::Pin<Box<dyn std::future::Future<Output = Result<Jwk, JwksCacheError>> + Send>> {
         fn blocking_get(self) -> Result<Jwk, JwksCacheError> {
             tokio::runtime::Builder::new_current_thread()
                 .enable_all()

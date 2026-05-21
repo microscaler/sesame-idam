@@ -11,14 +11,15 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
 
     let tenant_id = _req.data.x_tenant_id.clone();
 
-    let mut event = AuditEvent::new_with_params(
+    let mut event = AuditEvent::new(
         AuditEventType::SessionManagement,
         "mcp_agent_deleted",
         tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::User,
         "127.0.0.1".to_string(),
     );
-    EMITTER.emit(event);
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
 
     Response {
         error: "Not implemented".to_string(),

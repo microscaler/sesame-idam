@@ -5,15 +5,57 @@ use sesame_token_versioning::BumpReason;
 
 /// Assign a role to a principal within a tenant context.
 ///
-/// Publishes a version bump push invalidation event via Redis pub/sub
-/// after the role assignment (Story 5.4).
+/// Emits an `role_assigned` audit event and publishes a version bump
+/// push invalidation event via Redis pub/sub (Story 5.4).
+///
+/// TODO: In production, this validates role existence, stores the
+/// assignment, invalidates cached effective permissions, and clears
+/// the Redis cache for the user's principal evaluation.
 #[handler(AssignPrincipalRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // Story 5.4: Publish push invalidation event for role assignment
-    if let Some(publisher) = &*crate::audit::PUBLISHER {
-        publisher.publish_tenant(&req.data.tenant_id, 0, BumpReason::RoleAssigned);
+    use crate::audit::EMITTER;
+    use sesame_audit::events;
+    use uuid::Uuid;
+
+    let role_id = Uuid::new_v4();
+    // Emit audit event: role assignment
+    // Extract org_id as Option<Uuid> for the audit call
+    let org_id: Uuid = req
+        .data
+        .org_id
+        .as_ref()
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_default();
+
+    let emit_event = req.data.tenant_id.parse().and_then(|tenant_id| {
+        let user_id = req.data.user_id.parse()?;
+        let app_id = req.data.app_id.parse()?;
+        Ok((tenant_id, org_id, user_id, app_id))
+    });
+
+    if let Ok((tenant_id, oid, user_id, app_id)) = emit_event {
+        events::role_assigned(&EMITTER, tenant_id, oid, user_id, app_id, &req.data.role);
     }
 
+    // Story 5.4: Publish push invalidation event for role assignment
+    if let Some(tenant_id) = req.data.tenant_id.as_deref() {
+        if let Some(publisher) = &*crate::audit::PUBLISHER {
+            publisher.publish_tenant(
+                tenant_id,
+                0, // version is managed by VersionStore
+                BumpReason::RoleAssigned,
+            );
+        }
+    }
+
+    // In a production implementation, this would:
+    // 1. Validate the role exists and belongs to the app/tenant
+    // 2. Assign the role to the principal in the org
+    // 3. Invalidate any cached effective permissions for this user
+    // 4. Clear Redis cache for user's principal evaluation
+
+    // For now, return success
     Response {
         error: String::new(),
         error_description: None,

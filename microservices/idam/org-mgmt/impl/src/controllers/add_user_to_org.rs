@@ -9,7 +9,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
-    let event = AuditEvent::new_with_params(
+    let mut event = AuditEvent::new(
         AuditEventType::Organization,
         "org_member_added",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -19,7 +19,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     event.org_id = req.inner.org_id.parse::<Uuid>().ok();
     event.user_id = req.inner.user_id.parse::<Uuid>().ok();
     event.metadata = serde_json::json!({ "role": req.inner.role }).into();
-    EMITTER.emit(event);
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
 
     Response {
         success: req.inner.success.unwrap_or(false),

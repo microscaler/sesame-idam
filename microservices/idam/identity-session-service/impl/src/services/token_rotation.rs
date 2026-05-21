@@ -78,6 +78,12 @@ pub enum RotationError {
     RedisError(String),
 }
 
+impl From<redis::Error> for RotationError {
+    fn from(e: redis::Error) -> Self {
+        RotationError::RedisError(e.to_string())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Core rotation logic
 // ---------------------------------------------------------------------------
@@ -107,9 +113,7 @@ pub fn rotate_refresh_token(
 ) -> RotationOutcome {
     let parts: Vec<&str> = refresh_token_value.split('.').collect();
     if parts.len() != 3 {
-        TOKEN_REFRESH_TOTAL
-            .with_label_values(&["failure", "invalid_format"])
-            .inc();
+        TOKEN_REFRESH_TOTAL.with_label_values(&["failure", "invalid_format"]).inc();
         REFRESH_ROTATION_FAILURES_TOTAL.inc();
         return RotationOutcome::InvalidToken;
     }
@@ -310,7 +314,10 @@ fn generate_access_token(
     let payload_b64 = engine.encode(serde_json::to_string(&payload).unwrap());
 
     // Signature (placeholder — replace with real signing in production)
-    format!("{}.{}.placeholder_signature", header_b64, payload_b64)
+    format!(
+        "{}.{}.placeholder_signature",
+        header_b64, payload_b64
+    )
 }
 
 /// Check if a token has been reused (for reuse detection).

@@ -9,7 +9,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
-    let event = AuditEvent::new_with_params(
+    let mut event = AuditEvent::new(
         AuditEventType::Authentication,
         "magic_link_verified",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -18,7 +18,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     );
     event.user_id = req.inner.user_id.parse::<Uuid>().ok();
     event.session_id = req.inner.session_id.parse::<Uuid>().ok();
-    EMITTER.emit(event);
+    event.severity = Some(AuditSeverity::Info);
+    EMITTER.emit(&mut event);
 
     Response {
         success: req.inner.success.unwrap_or(false),
