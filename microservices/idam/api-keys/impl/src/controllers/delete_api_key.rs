@@ -14,21 +14,31 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     );
     let _guard = span.enter();
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
+    use sesame_audit::{AuditEventType, AuditLevel, AuditLogEntry};
     use uuid::Uuid;
 
-    let mut event = AuditEvent::new(
-        AuditEventType::ApiKey,
-        "api_key_deleted",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::ApiKey,
-        "internal".to_string(),
-    );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    event.metadata =
-        serde_json::json!({ "api_key_id": req.inner.api_key_id }).into();
-    event.severity = Some(AuditSeverity::Warning);
-    EMITTER.emit(&mut event);
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "api-keys")
+        .tenant_id(req.inner.tenant_id.clone())
+        .metadata(serde_json::json!({
+            "api_key_id": req.inner.api_key_id,
+        }))
+        .build();
+
+    let entry = entry.and_then(|e| {
+        Ok(e.user_id(
+            req.inner.user_id
+                .parse::<Uuid>()
+                .ok()
+                .map(|u| u.to_string())
+                .unwrap_or_default(),
+        )
+        .level(AuditLevel::Warn)
+        .build()?)
+    });
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     Response {
         success: req.inner.success.unwrap_or(false),

@@ -5,7 +5,7 @@ use sesame_token_versioning::BumpReason;
 
 /// Revoke a role from a principal within a tenant context.
 ///
-/// Emits an `role_revoked` audit event and publishes a version bump
+/// Emits a delegation audit event and publishes a version bump
 /// push invalidation event via Redis pub/sub (Story 5.4).
 ///
 /// TODO: In production, this removes the role assignment from the database,
@@ -14,34 +14,30 @@ use sesame_token_versioning::BumpReason;
 #[handler(RevokePrincipalRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::events;
+    use sesame_audit::{AuditEventType, AuditLogEntry};
 
     // Emit audit event: role revocation
-    // Note: RevokePrincipalRoleRequest has no tenant_id field, use x_tenant_id header
-    if let (Ok(tenant_id), Ok(user_id), Ok(app_id)) = (
-        req.data.x_tenant_id.parse(),
-        req.data.user_id.parse(),
-        req.data.app_id.parse(),
-    ) {
-        events::role_revoked(
-            &EMITTER,
-            tenant_id,
-            uuid::Uuid::default(), // No org_id in revoke request
-            user_id,
-            app_id,
-            &req.data.role,
-        );
+    let mut metadata = serde_json::Map::new();
+    metadata.insert("role".to_string(), serde_json::json!(&req.data.role));
+
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "role_revoked")
+        .tenant_id(&req.data.x_tenant_id)
+        .user_id(&req.data.user_id)
+        .metadata(serde_json::Value::Object(metadata))
+        .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
     }
 
     // Story 5.4: Publish push invalidation event for role revocation
-    if let Ok(tenant_id) = req.data.x_tenant_id.parse::<String>() {
-        if let Some(publisher) = &*crate::audit::PUBLISHER {
-            publisher.publish_tenant(
-                &tenant_id,
-                0, // version is managed by VersionStore
-                BumpReason::RoleRevoked,
-            );
-        }
+    let tenant_id = req.data.x_tenant_id.clone();
+    if let Some(publisher) = &*crate::audit::PUBLISHER {
+        publisher.publish_tenant(
+            &tenant_id,
+            0, // version is managed by VersionStore
+            BumpReason::RoleRevoked,
+        );
     }
 
     // In a production implementation, this would:

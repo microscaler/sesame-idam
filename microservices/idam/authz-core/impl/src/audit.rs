@@ -1,14 +1,11 @@
-//! Shared audit logger and push invalidation publisher for this service.
-//!
-//! Services import the EMITTER as `use crate::audit::EMITTER;`.
-//! The PUBLISHER is created at startup from config and is `None` if Redis is
-//! not configured. Controllers call it after authz state changes.
-
 use sesame_audit::AuditEmitter;
 
 /// Global audit emitter shared across all handlers in this service.
+///
+/// `AuditEmitter::new` requires (service: impl Into<String>, hmac_key: Option<Vec<u8>>).
+/// We pass a hardcoded service name and None for HMAC (unconfigured).
 pub static EMITTER: std::sync::LazyLock<AuditEmitter> =
-    std::sync::LazyLock::new(|| AuditEmitter::new(None));
+    std::sync::LazyLock::new(|| AuditEmitter::new("sesame_idam_authz_core", None));
 
 /// Global push invalidation publisher for authz state changes.
 /// Created during startup from config; `None` if Redis is not configured.

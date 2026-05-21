@@ -6,20 +6,20 @@ use brrtrouter::typed::TypedHandlerRequest;
 #[handler(CreateRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_audit::{AuditEventType, AuditLevel, AuditLogEntry};
     use uuid::Uuid;
 
-    let mut event = AuditEvent::new(
-        AuditEventType::Organization,
-        "role_created",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.org_id = req.inner.org_id.parse::<Uuid>().ok();
-    event.metadata = serde_json::json!({ "role": req.inner.role }).into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "org-mgmt")
+        .tenant_id(req.inner.tenant_id.clone())
+        .metadata(serde_json::json!({
+            "role": req.inner.role,
+            "org_id": req.inner.org_id,
+        }))
+        .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     Response {
         success: req.inner.success.unwrap_or(false),

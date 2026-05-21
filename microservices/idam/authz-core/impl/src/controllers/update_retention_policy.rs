@@ -6,23 +6,25 @@ use sesame_idam_authz_core_gen::handlers::update_retention_policy::{Request, Res
 #[handler(UpdateRetentionPolicyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
+    use sesame_audit::{AuditEventType, AuditLogEntry};
 
-    let mut event = AuditEvent::new(
-        AuditEventType::Compliance,
-        "retention_policy_updated",
-        req.data.x_tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.metadata = serde_json::json!({
-        "policy_id": req.data.id,
-        "retention_days": req.data.retention_days,
-    })
-    .into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    let mut metadata = serde_json::Map::new();
+    metadata.insert("policy_id".to_string(), serde_json::json!(&req.data.id));
+    if let Some(retention_days) = req.data.retention_days {
+        metadata.insert(
+            "retention_days".to_string(),
+            serde_json::json!(retention_days),
+        );
+    }
+
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "retention_policy_updated")
+        .tenant_id(&req.data.x_tenant_id)
+        .metadata(serde_json::Value::Object(metadata))
+        .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     // TODO: UPDATE retention_policies SET retention_days = $1, ...
     // WHERE id = $2 AND tenant_id = $3

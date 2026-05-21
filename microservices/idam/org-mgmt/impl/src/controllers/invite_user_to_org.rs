@@ -6,21 +6,24 @@ use brrtrouter::typed::TypedHandlerRequest;
 #[handler(InviteUserToOrgController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_audit::{AuditEventType, AuditLevel, AuditLogEntry};
     use uuid::Uuid;
 
-    let mut event = AuditEvent::new(
-        AuditEventType::Organization,
-        "org_invite_sent",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.org_id = req.inner.org_id.parse::<Uuid>().ok();
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    event.metadata = serde_json::json!({ "email": req.inner.email }).into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "org-mgmt")
+        .tenant_id(req.inner.tenant_id.clone())
+        .metadata(serde_json::json!({
+            "email": req.inner.email,
+            "org_id": req.inner.org_id,
+        }))
+        .build();
+
+    if let Ok(entry) = entry {
+        if let Ok(uid) = req.inner.user_id.parse::<Uuid>() {
+            EMITTER.emit(entry.user_id(uid.to_string()));
+        } else {
+            EMITTER.emit(entry);
+        }
+    }
 
     Response {
         success: req.inner.success.unwrap_or(false),

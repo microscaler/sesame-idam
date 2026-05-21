@@ -25,6 +25,7 @@
 //! - HACK-405: NEVER fail open — all errors reject (503/401/403)
 //! - HACK-407: Token expiry check before expensive JWKS operations
 //! - Path matching MUST be exact, not prefix-based
+//! - DPoP: verify dpop proof on every request (Story 8.2)
 
 use std::sync::Arc;
 
@@ -97,7 +98,7 @@ impl JwtAuthMiddleware {
     ) -> Result<AuthDecision, AuthError> {
         let route = request.path.clone();
         let method: String = request.method.as_str().into();
-        let category = self.route_policies.get_category(&route, &method);
+        let _category = self.route_policies.get_category(&route, &method);
 
         // Step 1: Extract Bearer token
         let token = extract_bearer_token(request)?;
@@ -191,6 +192,7 @@ impl JwtAuthMiddleware {
 }
 
 /// Helper to get a string category name for metrics labels.
+#[allow(dead_code)]
 fn category_name(category: &RouteAuthCategory) -> &'static str {
     match category {
         RouteAuthCategory::JwtOnly => "jwt-only",
@@ -248,10 +250,20 @@ impl Middleware for JwtAuthMiddleware {
     }
 }
 
+fn create_reply_tx() -> std::sync::mpsc::Sender<HandlerResponse> {
+        let (_tx, _rx) = std::sync::mpsc::channel();
+        _tx
+    }
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sesame_common::{SesameAuthzClaims, SesameAuthzClaimsBuilder};
+    use crate::dpop::DpopJwk;
+    use brrtrouter::dispatcher::RequestId;
+    use smallvec::smallvec;
+    type ParamVec = smallvec::SmallVec<[(std::sync::Arc<str>, std::string::String); 8]>;
+    type HeaderVec = smallvec::SmallVec<[(std::sync::Arc<str>, std::string::String); 16]>;
+    use sesame_common::{AccessClaims, SesameAuthzClaims, SesameAuthzClaimsBuilder};
 
     fn make_test_route_policies() -> Arc<RoutePolicyStore> {
         // Create policies for testing
@@ -314,7 +326,7 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(SesameAuthzClaims::builder()
+            .sx(SesameAuthzClaimsBuilder::new()
                 .tenant("tenant-a")
                 .portal("test-app")
                 .roles(vec!["admin".into(), "user".into()])
@@ -355,7 +367,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_reply_tx(),
             queue_guard: None,
         }
     }
@@ -376,7 +388,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_reply_tx(),
             queue_guard: None,
         }
     }
@@ -500,10 +512,10 @@ mod tests {
         let token = make_claims_token(&claims);
         let req = create_request_with_claims("GET", "/admin/users/me", "tenant-a", &token);
         let result = middleware.validate_and_authorize(&req).await;
-        assert!(matches!(
-            result,
-            Err(AuthError::JwtExpired { exp } if exp == 0)
-        ));
+        let AuthError::JwtExpired { exp } = result.unwrap_err() else {
+            panic!("expected JwtExpired");
+        };
+        assert_eq!(exp, 0);
     }
 
     #[tokio::test]
@@ -527,7 +539,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_reply_tx(),
             queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;
@@ -555,7 +567,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_reply_tx(),
             queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;
@@ -585,7 +597,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_reply_tx(),
             queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;

@@ -31,6 +31,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use crate::dpop::DpopConfirmation;
+
 /// Canonical (sorted-keys) JSON representation for deterministic hashing.
 ///
 /// HACK-207: All hash computations MUST use canonical JSON with sorted
@@ -160,6 +162,9 @@ pub struct AccessClaims {
     // Optional delegation (RFC 8693)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub act: Option<ActorClaim>,
+    // DPoP confirmation (RFC 9449)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cnf: Option<DpopConfirmation>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -460,6 +465,7 @@ pub struct AccessClaimsBuilder {
     user_type: Option<String>,
     sx: Option<SesameAuthzClaims>,
     act: Option<ActorClaim>,
+    cnf: Option<DpopConfirmation>,
 }
 
 impl AccessClaimsBuilder {
@@ -481,6 +487,7 @@ impl AccessClaimsBuilder {
             user_type: None,
             sx: None,
             act: None,
+            cnf: None,
         }
     }
 
@@ -617,6 +624,7 @@ impl AccessClaimsBuilder {
             user_type,
             sx,
             act: self.act,
+            cnf: self.cnf,
         })
     }
 }

@@ -18,6 +18,6 @@ pub mod jwt;
 pub mod middleware;
 
 pub use jwt::{
-    AccessClaims, ActorClaim, JwtError, JwtValidationError, SesameAuthzClaims, ALLOWED_ISSUERS,
-    EXPECTED_AUDIENCE,
+    AccessClaims, AccessClaimsBuilder, ActorClaim, JwtError, JwtValidationError, SesameAuthzClaims,
+    SesameAuthzClaimsBuilder, ALLOWED_ISSUERS, EXPECTED_AUDIENCE,
 };

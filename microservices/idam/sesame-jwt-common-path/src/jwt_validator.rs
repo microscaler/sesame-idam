@@ -253,20 +253,34 @@ mod tests {
         let mut headers = std::collections::HashMap::new();
         if auth.is_empty() {
             HandlerRequest {
-                method: "GET".to_string(),
+                request_id: RequestId::new(),
+                method: Method::GET,
                 path: "/test".to_string(),
-                query_params: std::collections::HashMap::new(),
-                headers,
+                handler_name: "test".to_string(),
+                path_params: ParamVec::new(),
+                query_params: ParamVec::new(),
+                headers: HeaderVec::new(),
+                cookies: HeaderVec::new(),
                 body: None,
+                jwt_claims: None,
+                reply_tx: reply_tx.clone(),
+                queue_guard: None,
             }
         } else {
             headers.insert("Authorization".to_string(), format!("Bearer {}", auth));
             HandlerRequest {
-                method: "GET".to_string(),
+                request_id: RequestId::new(),
+                method: Method::GET,
                 path: "/test".to_string(),
-                query_params: std::collections::HashMap::new(),
-                headers,
+                handler_name: "test".to_string(),
+                path_params: ParamVec::new(),
+                query_params: ParamVec::new(),
+                headers: HeaderVec::new(),
+                cookies: HeaderVec::new(),
                 body: None,
+                jwt_claims: None,
+                reply_tx: reply_tx.clone(),
+                queue_guard: None,
             }
         }
     }
@@ -381,7 +395,7 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(sesame_common::SesameAuthzClaims::builder()
+            .sx(sesame_common::SesameAuthzClaimsBuilder::new()
                 .tenant("tenant-a")
                 .portal("test-app")
                 .roles(vec!["admin".into(), "user".into()])

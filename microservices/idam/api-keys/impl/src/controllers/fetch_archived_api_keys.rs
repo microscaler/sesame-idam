@@ -6,19 +6,27 @@ use sesame_idam_api_keys_gen::handlers::fetch_archived_api_keys::{Request, Respo
 #[handler(FetchArchivedApiKeysController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
+    use sesame_audit::{AuditEventType, AuditLogEntry};
     use uuid::Uuid;
 
-    let mut event = AuditEvent::new(
-        AuditEventType::ApiKey,
-        "archived_keys_listed",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::User,
-        "internal".to_string(),
-    );
-    event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "api-keys")
+        .tenant_id(req.inner.tenant_id.clone())
+        .build();
+
+    let entry = entry.and_then(|e| {
+        Ok(e.user_id(
+            req.inner.user_id
+                .parse::<Uuid>()
+                .ok()
+                .map(|u| u.to_string())
+                .unwrap_or_default(),
+        )
+        .build()?)
+    });
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     Response {
         success: req.inner.success.unwrap_or(false),

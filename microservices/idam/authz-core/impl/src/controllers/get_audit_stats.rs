@@ -6,18 +6,15 @@ use sesame_idam_authz_core_gen::handlers::get_audit_stats::{Request, Response};
 #[handler(GetAuditStatsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
+    use sesame_audit::{AuditEventType, AuditLogEntry};
 
-    let mut event = AuditEvent::new(
-        AuditEventType::Compliance,
-        "audit_stats_requested",
-        req.data.x_tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "audit_stats_requested")
+        .tenant_id(&req.data.x_tenant_id)
+        .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     // TODO: Aggregate query on audit_events
     // SELECT

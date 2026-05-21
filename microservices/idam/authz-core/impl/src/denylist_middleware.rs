@@ -81,7 +81,6 @@ impl DenylistMiddleware {
         let _ = prometheus::register(Box::new(metrics.redis_misses_total.clone()));
         let _ = prometheus::register(Box::new(metrics.redis_errors_total.clone()));
         let _ = prometheus::register(Box::new(metrics.evictions_total.clone()));
-        let _ = prometheus::register(Box::new(metrics.checks_total.clone()));
 
         let middleware = Self::new(cache, metrics, config.redis_url.clone());
         (middleware, config)
@@ -95,7 +94,6 @@ impl DenylistMiddleware {
     ///
     /// Returns true if the token is definitely revoked (cache hit), false otherwise.
     pub async fn check_revocation(&self, jti: &str, token_exp_epoch: Option<u64>) -> bool {
-        self.metrics.inc_checks();
 
         let result = self
             .cache

@@ -5171,6 +5171,7 @@ dependencies = [
  "sesame_idam_identity_session_service",
  "sesame_token_versioning",
  "tikv-jemallocator",
+ "tokio",
  "tracing",
  "uuid",
 ]

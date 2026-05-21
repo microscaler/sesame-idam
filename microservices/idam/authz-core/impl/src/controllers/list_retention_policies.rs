@@ -6,21 +6,17 @@ use sesame_idam_authz_core_gen::handlers::list_retention_policies::{Request, Res
 #[handler(ListRetentionPoliciesController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
+    use sesame_audit::{AuditEventType, AuditLogEntry};
 
-    let mut event = AuditEvent::new(
-        AuditEventType::Compliance,
-        "retention_policies_listed",
-        req.data.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.user_id = req.data.user_id.parse::<Uuid>().ok();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "retention_policies_listed")
+        .tenant_id(&req.data.x_tenant_id)
+        .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     // TODO: SELECT * FROM retention_policies WHERE tenant_id = $1
 
-    Response { items: vec![] }
+    Response(vec![])
 }

@@ -12,23 +12,25 @@ use sesame_idam_authz_core_gen::handlers::principal_effective::{Request, Respons
 #[handler(PrincipalEffectiveController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
+    use sesame_audit::{AuditEventType, AuditLogEntry};
 
-    let mut event = AuditEvent::new(
-        AuditEventType::Authorization,
-        "effective_permissions",
-        req.data.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::ServiceAccount,
-        "internal".to_string(),
-    );
-    event.user_id = req.data.user_id.parse::<Uuid>().ok();
-    if let Some(ref val) = req.data.org_id {
-        event.org_id = val.to_string().parse::<Uuid>().ok();
+    let mut metadata = serde_json::Map::new();
+    if let Some(include) = req.data.include_inherited {
+        metadata.insert(
+            "include_inherited".to_string(),
+            serde_json::json!(include),
+        );
     }
-    event.metadata = serde_json::json!({ "include_inherited": req.data.include_inherited }).into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "effective_permissions")
+        .tenant_id(&req.data.tenant_id)
+        .user_id(&req.data.user_id)
+        .metadata(serde_json::Value::Object(metadata))
+        .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     Response {
         attributes: Some(serde_json::json!({})),

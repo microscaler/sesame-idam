@@ -534,7 +534,7 @@ mod tests {
                 let called = fetch_called_clone.clone();
                 async move {
                     called.store(true, Ordering::Relaxed);
-                    Ok(make_snapshot(
+                    Ok::<EntitlementSnapshot, String>(make_snapshot(
                         "u2",
                         vec![Permission::new("read", "reports")],
                     ))
@@ -625,7 +625,7 @@ mod tests {
         for i in 0..3 {
             let snap = make_snapshot(&format!("u{}", i), vec![Permission::new("read", "docs")]);
             cache
-                .get_or_insert(&format!("ent_{}", i), || async move { Ok(snap) })
+                .get_or_insert(&format!("ent_{}", i), || async move { Ok::<EntitlementSnapshot, String>(snap) })
                 .await
                 .unwrap();
         }
@@ -695,7 +695,7 @@ mod tests {
         for i in 0..5 {
             let snap = make_snapshot(&format!("u{}", i), vec![Permission::new("read", "docs")]);
             cache
-                .get_or_insert(&format!("ent_{}", i), || async move { Ok(snap) })
+                .get_or_insert(&format!("ent_{}", i), || async move { Ok::<EntitlementSnapshot, String>(snap) })
                 .await
                 .unwrap();
         }

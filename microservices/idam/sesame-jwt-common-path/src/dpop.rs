@@ -21,6 +21,7 @@
 //! - HACK-807: Reject oversized jwk (>500 bytes), invalid kty, invalid curves
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use prometheus::{IntCounter, Registry};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -265,6 +266,40 @@ pub struct DpopConfirmation {
 }
 
 // ---------------------------------------------------------------------------
+// DPoP Metrics
+// ---------------------------------------------------------------------------
+
+/// Prometheus counter for token binding mismatch events.
+/// Incremented whenever a client presents a DPoP proof whose key
+/// does not match the cnf.jkt embedded in the access token.
+static mut TOKEN_BINDING_MISMATCH_TOTAL: Option<IntCounter> = None;
+
+/// Initialize the DPoP metrics with the given Prometheus registry.
+/// Must be called once at application startup.
+pub fn init_dpop_metrics(registry: &Registry) {
+    let counter = IntCounter::new(
+        "token_binding_mismatch_total",
+        "Total number of DPoP token binding mismatches (proof key != cnf.jkt)",
+    )
+    .unwrap();
+    registry.register(Box::new(counter.clone())).unwrap();
+    unsafe {
+        TOKEN_BINDING_MISMATCH_TOTAL = Some(counter);
+    }
+}
+
+/// Emit a token binding mismatch event.
+/// Safe to call even if metrics were not initialized (no-op).
+pub fn emit_token_binding_mismatch() {
+    unsafe {
+        let ptr = &TOKEN_BINDING_MISMATCH_TOTAL as *const Option<IntCounter>;
+        if let Some(counter) = &*ptr {
+            counter.inc();
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Proof Replay Detection (Redis-backed)
 // ---------------------------------------------------------------------------
 
@@ -278,6 +313,11 @@ pub trait DpopProofStore: Send + Sync {
 
     /// Record a JTI with a 60-second TTL.
     async fn record(&self, jti: &str) -> Result<(), DpopError>;
+    
+    /// Synchronous JTI check for non-async contexts. Default: skip replay check.
+    fn is_seen_sync(&self, _jti: &str) -> Result<bool, DpopError> {
+        Ok(false)
+    }
 }
 
 /// In-memory implementation for testing.
@@ -312,13 +352,18 @@ impl DpopProofStore for InMemoryProofStore {
         store.insert(jti.to_string(), SystemTime::now());
         Ok(())
     }
+
+    fn is_seen_sync(&self, jti: &str) -> Result<bool, DpopError> {
+        let store = self.seen.read().unwrap();
+        Ok(store.contains_key(jti))
+    }
 }
 
 /// Redis-backed implementation for production.
 /// JTI keys are stored as `dpop_jti:{jti}` with 60s TTL.
 pub struct RedisProofStore {
     /// Redis client connection (moved into async context at runtime).
-    conn: tokio::sync::Mutex<Option<redis::aio::ConnectionManager>>,
+    conn: tokio::sync::Mutex<Option<redis::aio::MultiplexedConnection>>,
 }
 
 impl RedisProofStore {
@@ -332,7 +377,7 @@ impl RedisProofStore {
     pub async fn init(&mut self, redis_url: &str) -> Result<(), DpopError> {
         let conn = redis::Client::open(redis_url)
             .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?
-            .get_multiplexed_conn_manager()
+            .get_multiplexed_async_connection()
             .await
             .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?;
         let mut guard = self.conn.lock().await;
@@ -388,7 +433,7 @@ impl DpopProofStore for RedisProofStore {
 /// 4. `htu` matches actual request path
 /// 5. Proof is fresh (`iat` within 60 seconds)
 /// 6. Proof JTI has not been replayed
-pub fn verify_dpop_proof(
+pub async fn verify_dpop_proof(
     claims: &sesame_common::AccessClaims,
     proof: &DpopProofClaims,
     htm: &str,
@@ -400,16 +445,21 @@ pub fn verify_dpop_proof(
     proof.validate()?;
 
     // Check that claims have a cnf.jkt (this token was DPoP-bound)
-    let expected_jkt = claims
+    let expected_jkt = match claims
         .cnf
         .as_ref()
-        .ok_or(DpopError::BindingMismatch)?
-        .jkt
-        .clone();
+    {
+        Some(cnf) => cnf.jkt.clone(),
+        None => {
+            emit_token_binding_mismatch();
+            return Err(DpopError::BindingMismatch);
+        }
+    };
 
     // 1. Verify jkt match
     let proof_jkt = proof.jwk.jkt();
     if expected_jkt != proof_jkt {
+        emit_token_binding_mismatch();
         return Err(DpopError::BindingMismatch);
     }
 
@@ -439,21 +489,11 @@ pub fn verify_dpop_proof(
     }
 
     // 5. Check proof JTI for replay
-    if store.is_seen_sync(&proof.jti)? {
+    if store.is_seen(&proof.jti).await? {
         return Err(DpopError::ProofReplay);
     }
 
     Ok(())
-}
-
-/// In-memory JTI replay check used when async store is not available.
-impl DpopProofStore {
-    fn is_seen_sync(&self, jti: &str) -> Result<bool, DpopError> {
-        match self {
-            DpopProofStore::InMemory(store) => store.is_seen(jti).into(),
-            _ => Ok(false), // Redis not available — skip replay check (caller handles error)
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -551,7 +591,8 @@ pub fn require_dpop_proof(
         return Ok(()); // DPoP not required
     }
 
-    if request.headers.get("DPoP").is_none() {
+    let has_dpop = request.headers.iter().any(|(k, _)| k.eq_ignore_ascii_case("DPoP"));
+    if !has_dpop {
         return Err(DpopError::DpopRequired);
     }
 

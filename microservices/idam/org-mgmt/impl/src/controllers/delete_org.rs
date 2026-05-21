@@ -14,19 +14,17 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     );
     let _guard = span.enter();
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
-    use uuid::Uuid;
+    use sesame_audit::{AuditEventType, AuditLevel, AuditLogEntry};
 
-    let mut event = AuditEvent::new(
-        AuditEventType::Organization,
-        "org_deleted",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.org_id = req.inner.org_id.parse::<Uuid>().ok();
-    event.severity = Some(AuditSeverity::Critical);
-    EMITTER.emit(&mut event);
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "org-mgmt")
+        .tenant_id(req.inner.tenant_id.clone())
+        .build();
+
+    let entry = entry.and_then(|e| Ok(e.level(AuditLevel::Error).build()?));
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     Response {
         success: req.inner.success.unwrap_or(false),

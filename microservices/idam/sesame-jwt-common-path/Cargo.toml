@@ -17,7 +17,7 @@ chrono = { workspace = true }
 sha2 = { workspace = true }
 tracing = "0.1"
 smallvec = "1"
-redis = { workspace = true, features = ["tokio-comp", "connection-manager"] }
+redis = { workspace = true, features = ["aio", "tokio-comp", "connection-manager"] }
 blake3 = { workspace = true }
 dashmap = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
@@ -32,3 +32,7 @@ hex = "0.4"
 chrono = { workspace = true, features = ["serde"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 prometheus = { workspace = true }
+http = "1"
+tokio = { workspace = true, features = ["full", "test-util"] }
+may = { path = "../../../../BRRTRouter/lib/may" }
+smallvec = "1"

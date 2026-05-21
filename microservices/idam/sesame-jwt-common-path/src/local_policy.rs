@@ -180,7 +180,7 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(SesameAuthzClaims::builder()
+            .sx(SesameAuthzClaimsBuilder::new()
                 .tenant("tenant-a")
                 .portal("test-app")
                 .roles(vec!["admin".into(), "user".into()])
@@ -208,7 +208,7 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-2")
             .user_type("registered")
-            .sx(SesameAuthzClaims::builder()
+            .sx(SesameAuthzClaimsBuilder::new()
                 .tenant("tenant-a")
                 .portal("test-app")
                 .roles(vec!["customer".into()])
@@ -236,7 +236,7 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-3")
             .user_type("registered")
-            .sx(SesameAuthzClaims::builder()
+            .sx(SesameAuthzClaimsBuilder::new()
                 .tenant("tenant-a")
                 .portal("test-app")
                 .roles(vec!["admin".into()])
@@ -264,7 +264,7 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-4")
             .user_type("registered")
-            .sx(SesameAuthzClaims::builder()
+            .sx(SesameAuthzClaimsBuilder::new()
                 .tenant("tenant-a")
                 .portal("test-app")
                 .roles(vec!["admin".into()])
@@ -305,10 +305,7 @@ mod tests {
         let result = evaluate_local_policy(
             &claims,
             "tenant-a",
-            &[vec!["admin".into(), "user".into()]
-                .into_iter()
-                .collect::<Vec<_>>()[..]
-                .to_vec()],
+            ["admin".into(), "user".into()],
             &[],
             None,
             None,

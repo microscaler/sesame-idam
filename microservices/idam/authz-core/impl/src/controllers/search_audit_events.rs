@@ -6,25 +6,24 @@ use sesame_idam_authz_core_gen::handlers::search_audit_events::{Request, Respons
 #[handler(SearchAuditEventsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
+    use sesame_audit::{AuditEventType, AuditLogEntry};
 
-    let mut event = AuditEvent::new(
-        AuditEventType::Compliance,
-        "audit_events_searched",
-        req.data.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.user_id = req.data.user_id.parse::<Uuid>().ok();
-    event.metadata = serde_json::json!({
-        "filter_event_type": req.data.filters.event_type,
-        "filter_actor": req.data.filters.actor,
-        "filter_action": req.data.filters.event_action,
-    })
-    .into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    let filters = req.data.filters.as_ref();
+    let mut metadata = serde_json::Map::new();
+    if let Some(f) = filters {
+        metadata.insert("filter_event_type".to_string(), serde_json::json!(&f.event_type));
+        metadata.insert("filter_actor".to_string(), serde_json::json!(&f.actor));
+        metadata.insert("filter_action".to_string(), serde_json::json!(&f.event_action));
+    }
+
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "audit_events_searched")
+        .tenant_id(&req.data.tenant_id)
+        .metadata(serde_json::Value::Object(metadata))
+        .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     // TODO: Query audit_events with dynamic filters
     // SELECT * FROM audit_events
@@ -33,10 +32,5 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // ORDER BY timestamp DESC
     // LIMIT $3 OFFSET $4
 
-    Response {
-        items: vec![],
-        total: 0,
-        limit: req.data.filters.limit,
-        offset: req.data.filters.offset,
-    }
+    Response {}
 }
