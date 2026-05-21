@@ -289,7 +289,7 @@ mod tests {
         .unwrap_or_default();
 
         // Build manually since from_config needs a YAML config
-        let mut lookup = std::collections::HashMap::new();
+        let mut lookup: std::collections::HashMap<String, RoutePolicy> = std::collections::HashMap::new();
         for policy in &policies {
             for method in &policy.methods {
                 let key = format!("{}:{}", policy.path, method);
@@ -334,17 +334,49 @@ mod tests {
         tenant_id: &str,
         token: &str,
     ) -> HandlerRequest {
-        let mut headers = std::collections::HashMap::new();
-        headers.insert("Authorization".to_string(), format!("Bearer {}", token));
+        use brrtrouter::dispatcher::HeaderVec;
+        use http::Method;
+        let mut headers = HeaderVec::new();
+        headers.push((std::sync::Arc::from("Authorization"), format!("Bearer {}", token)));
         if !tenant_id.is_empty() {
-            headers.insert("X-Tenant-ID".to_string(), tenant_id.to_string());
+            headers.push((std::sync::Arc::from("X-Tenant-ID"), tenant_id.to_string()));
         }
+        use brrtrouter::ids::RequestId;
+        use brrtrouter::router::ParamVec;
         HandlerRequest {
-            method: method.to_string(),
+            request_id: RequestId::new(),
+            method: method.parse::<Method>().unwrap_or(Method::GET),
             path: path.to_string(),
-            query_params: std::collections::HashMap::new(),
+            handler_name: "test".to_string(),
+            path_params: ParamVec::new(),
+            query_params: ParamVec::new(),
             headers,
+            cookies: HeaderVec::new(),
             body: None,
+            jwt_claims: None,
+            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            queue_guard: None,
+        }
+    }
+
+    fn make_empty_request(method: &str, path: &str) -> HandlerRequest {
+        use brrtrouter::dispatcher::HeaderVec;
+        use http::Method;
+        use brrtrouter::ids::RequestId;
+        use brrtrouter::router::ParamVec;
+        HandlerRequest {
+            request_id: RequestId::new(),
+            method: method.parse::<Method>().unwrap_or(Method::GET),
+            path: path.to_string(),
+            handler_name: "test".to_string(),
+            path_params: ParamVec::new(),
+            query_params: ParamVec::new(),
+            headers: HeaderVec::new(),
+            cookies: HeaderVec::new(),
+            body: None,
+            jwt_claims: None,
+            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            queue_guard: None,
         }
     }
 
@@ -417,13 +449,7 @@ mod tests {
     #[tokio::test]
     async fn missing_authorization_header() {
         let middleware = JwtAuthMiddleware::new(make_test_route_policies());
-        let req = HandlerRequest {
-            method: "GET".to_string(),
-            path: "/admin/users/me".to_string(),
-            query_params: std::collections::HashMap::new(),
-            headers: std::collections::HashMap::new(),
-            body: None,
-        };
+        let req = make_empty_request("GET", "/admin/users/me");
         let result = middleware.validate_and_authorize(&req).await;
         assert!(matches!(result, Err(AuthError::MissingAuthorization)));
     }
@@ -482,20 +508,26 @@ mod tests {
     #[tokio::test]
     async fn bearer_extraction_rejects_basic_auth() {
         let middleware = JwtAuthMiddleware::new(make_test_route_policies());
+        use brrtrouter::dispatcher::HeaderVec;
+        let mut headers = HeaderVec::new();
+        headers.push((
+            std::sync::Arc::from("Authorization"),
+            "Basic dXNlcjpwYXNz".to_string(),
+        ));
+        headers.push((std::sync::Arc::from("X-Tenant-ID"), "tenant-a".to_string()));
         let req = HandlerRequest {
-            method: "GET".to_string(),
+            request_id: brrtrouter::ids::RequestId::new(),
+            method: "GET".parse().unwrap(),
             path: "/admin/users/me".to_string(),
-            query_params: std::collections::HashMap::new(),
-            headers: {
-                let mut h = std::collections::HashMap::new();
-                h.insert(
-                    "Authorization".to_string(),
-                    "Basic dXNlcjpwYXNz".to_string(),
-                );
-                h.insert("X-Tenant-ID".to_string(), "tenant-a".to_string());
-                h
-            },
+            handler_name: "test".to_string(),
+            path_params: brrtrouter::router::ParamVec::new(),
+            query_params: brrtrouter::router::ParamVec::new(),
+            headers,
+            cookies: HeaderVec::new(),
             body: None,
+            jwt_claims: None,
+            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;
         assert!(matches!(result, Err(AuthError::InvalidBearerScheme)));
@@ -504,20 +536,26 @@ mod tests {
     #[tokio::test]
     async fn malformed_jwt_rejected() {
         let middleware = JwtAuthMiddleware::new(make_test_route_policies());
+        use brrtrouter::dispatcher::HeaderVec;
+        let mut headers = HeaderVec::new();
+        headers.push((
+            std::sync::Arc::from("Authorization"),
+            "Bearer not-a-real-token".to_string(),
+        ));
+        headers.push((std::sync::Arc::from("X-Tenant-ID"), "tenant-a".to_string()));
         let req = HandlerRequest {
-            method: "GET".to_string(),
+            request_id: brrtrouter::ids::RequestId::new(),
+            method: "GET".parse().unwrap(),
             path: "/admin/users/me".to_string(),
-            query_params: std::collections::HashMap::new(),
-            headers: {
-                let mut h = std::collections::HashMap::new();
-                h.insert(
-                    "Authorization".to_string(),
-                    "Bearer not-a-real-token".to_string(),
-                );
-                h.insert("X-Tenant-ID".to_string(), "tenant-a".to_string());
-                h
-            },
+            handler_name: "test".to_string(),
+            path_params: brrtrouter::router::ParamVec::new(),
+            query_params: brrtrouter::router::ParamVec::new(),
+            headers,
+            cookies: HeaderVec::new(),
             body: None,
+            jwt_claims: None,
+            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;
         // Will fail at parse_claims because "not-a-real-token" has only 1 segment
@@ -531,17 +569,23 @@ mod tests {
         let header = base64url_encode(r#"{"alg":"RS256","typ":"at+jwt"}"#);
         let empty_payload = base64url_encode("{}");
         let token = format!("{}.{}.sig", header, empty_payload);
+        use brrtrouter::dispatcher::HeaderVec;
+        let mut headers = HeaderVec::new();
+        headers.push(("Authorization".into(), format!("Bearer {}", token)));
+        headers.push(("X-Tenant-ID".into(), "tenant-a".to_string()));
         let req = HandlerRequest {
-            method: "GET".to_string(),
+            request_id: brrtrouter::ids::RequestId::new(),
+            method: "GET".parse().unwrap(),
             path: "/admin/users/me".to_string(),
-            query_params: std::collections::HashMap::new(),
-            headers: {
-                let mut h = std::collections::HashMap::new();
-                h.insert("Authorization".to_string(), format!("Bearer {}", token));
-                h.insert("X-Tenant-ID".to_string(), "tenant-a".to_string());
-                h
-            },
+            handler_name: "test".to_string(),
+            path_params: brrtrouter::router::ParamVec::new(),
+            query_params: brrtrouter::router::ParamVec::new(),
+            headers,
+            cookies: HeaderVec::new(),
             body: None,
+            jwt_claims: None,
+            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;
         assert!(matches!(result, Err(AuthError::JwtInvalid(_))));

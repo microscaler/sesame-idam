@@ -733,6 +733,7 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
 /// Build a new access token JWT.
 ///
 /// Story 5.1: Includes `ver` (token version) and `sid` (session ID) claims.
+/// Story 8.2: Includes `cnf.jkt` (DPoP thumbprint) when token is DPoP-bound.
 fn build_access_token(
     subject: &SubjectClaims,
     actor: &ActorClaim,
@@ -742,6 +743,7 @@ fn build_access_token(
     ttl: i32,
     token_version: u64,
     session_id: &str,
+    dpop_jkt: Option<&str>,
 ) -> String {
     use uuid::Uuid;
     

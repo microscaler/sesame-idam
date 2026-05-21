@@ -22,7 +22,6 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::io;
 
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +51,16 @@ pub enum RouteAuthCategory {
     /// All authorization decisions require online evaluation.
     /// No JWT common-path optimization — always calls authz-core.
     OnlineOnly,
+}
+
+impl std::fmt::Display for RouteAuthCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RouteAuthCategory::JwtOnly => write!(f, "jwt-only"),
+            RouteAuthCategory::JwtWithFallback { .. } => write!(f, "jwt-with-fallback"),
+            RouteAuthCategory::OnlineOnly => write!(f, "online-only"),
+        }
+    }
 }
 
 impl Default for RouteAuthCategory {
@@ -184,18 +193,18 @@ impl RoutePolicyStore {
 
     /// Build a route policy store from a `RoutePolicyConfig`.
     pub fn from_config(config: RoutePolicyConfig) -> Result<Self, AuthError> {
-        let mut lookup = HashMap::new();
+        let mut lookup: HashMap<String, RoutePolicy> = HashMap::new();
         let mut policies = Vec::new();
 
         for policy_cfg in config.route_policies {
-            let category = policy_cfg.category.into_category();
+            let category = policy_cfg.to_route_category();
 
             for method in &policy_cfg.methods {
                 let key = format!("{}:{}", policy_cfg.path, method);
 
                 if lookup.contains_key(&key) {
                     return Err(AuthError::InternalError(format!(
-                        "Duplicate path+method entry: `{}` (first defined with category {}, this one with `{}`)",
+                        "Duplicate path+method entry: `{}` (first defined with category {:?}, this one with {:?})",
                         policy_cfg.path,
                         lookup.get(&key).unwrap().category,
                         category
@@ -256,10 +265,10 @@ impl RoutePolicyStore {
 
     /// Get the category for a route+method, falling back to the default.
     #[must_use]
-    pub fn get_category(&self, path: &str, method: &str) -> &RouteAuthCategory {
+    pub fn get_category(&self, path: &str, method: &str) -> RouteAuthCategory {
         self.get_policy(path, method)
-            .map(|p| &p.category)
-            .unwrap_or_else(&RouteAuthCategory::default)
+            .map(|p| p.category.clone())
+            .unwrap_or_else(RouteAuthCategory::default)
     }
 }
 
@@ -298,7 +307,7 @@ pub struct RoutePolicyYamlEntry {
 
 impl RoutePolicyYamlEntry {
     /// Convert the YAML representation to the runtime category.
-    fn into_category(self) -> RouteAuthCategory {
+    pub fn to_route_category(&self) -> RouteAuthCategory {
         match self.category {
             RouteCategoryYaml::JwtOnly => RouteAuthCategory::JwtOnly,
             RouteCategoryYaml::JwtWithFallback => RouteAuthCategory::JwtWithFallback {
@@ -317,4 +326,18 @@ pub enum RouteCategoryYaml {
     JwtOnly,
     JwtWithFallback,
     OnlineOnly,
+}
+
+impl RouteCategoryYaml {
+    /// Convert YAML category to runtime `RouteAuthCategory`.
+    pub fn into_category(self) -> RouteAuthCategory {
+        match self {
+            RouteCategoryYaml::JwtOnly => RouteAuthCategory::JwtOnly,
+            RouteCategoryYaml::JwtWithFallback => RouteAuthCategory::JwtWithFallback {
+                cache_ttl_secs: 30,
+                requires_fresh_version: false,
+            },
+            RouteCategoryYaml::OnlineOnly => RouteAuthCategory::OnlineOnly,
+        }
+    }
 }

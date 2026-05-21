@@ -9,7 +9,7 @@
 //! Also provides metrics counters for telemetry.
 
 use anyhow::Result;
-use prometheus::{register_int_counter, IntCounter};
+use prometheus::{register_int_counter, register_int_counter_vec, IntCounter, IntCounterVec};
 use uuid::Uuid;
 
 use crate::models::refresh_token::RefreshToken;
@@ -20,10 +20,11 @@ use crate::redis;
 // ---------------------------------------------------------------------------
 
 lazy_static::lazy_static! {
-    /// Total number of refresh attempts (success + failure).
-    pub static ref TOKEN_REFRESH_TOTAL: IntCounter = register_int_counter!(
+    /// Total number of refresh attempts, labeled by result and subreason.
+    pub static ref TOKEN_REFRESH_TOTAL: IntCounterVec = register_int_counter_vec!(
         "token_refresh_total",
         "Total number of /auth/refresh requests",
+        &["result", "subreason"]
     ).unwrap();
 
     /// Number of refreshes where reuse was detected (family revoked).
