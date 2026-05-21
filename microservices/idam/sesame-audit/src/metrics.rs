@@ -5,9 +5,8 @@
 //! - Drops due to rate limiting
 //! - Buffer sizes and latency
 
-use metrics::{counter, describe_counter, gauge, Gauge, Histogram};
+use metrics::{counter, describe_counter, gauge};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
 
 /// Event counter metric type.
 pub struct AuditMetrics;
@@ -40,9 +39,9 @@ impl AuditMetrics {
 
     /// Record log write latency in seconds.
     pub fn record_latency(duration: std::time::Duration) {
-        // Metrics 0.22 uses histogram for timing
+        // Metrics 0.22 uses gauge for timing (counter only supports u64)
         let sec = duration.as_secs_f64();
-        counter!("audit_log_latency_seconds", "bucket" => "histogram").increment_by(sec);
+        gauge!("audit_log_latency_seconds").set(sec);
     }
 
     /// Initialize all metric descriptions.

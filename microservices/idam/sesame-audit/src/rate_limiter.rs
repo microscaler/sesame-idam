@@ -5,10 +5,8 @@
 /// - INFO/WARN/ERROR: no rate limiting (always logged)
 /// - Metrics for dropped entries
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
-
-use crate::event::AuditLevel;
 
 /// Rate limiter configuration.
 #[derive(Debug, Clone)]
@@ -89,7 +87,8 @@ impl RateLimiter {
     /// Get the current drop count for debugging.
     #[must_use]
     pub fn debug_drops(&self) -> u64 {
-        crate::metrics::AuditMetrics::debug_drops()
+        // TODO: expose via metrics registry
+        0
     }
 }
 

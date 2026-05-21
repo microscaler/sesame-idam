@@ -53,7 +53,7 @@ impl AuditQueue {
         if is_security {
             self.enqueue_high(entry)
         } else {
-            self.enqueue_low(entry)
+            self.enqueue_low(&entry)
         }
     }
 
@@ -150,9 +150,10 @@ mod tests {
     use crate::event::AuditEventType;
 
     fn make_entry(level: AuditLevel, event: AuditEventType) -> AuditLogEntry {
-        let mut entry = AuditLogEntry::new(event, "test-service");
-        entry.level = level;
-        entry
+        AuditLogEntry::new(event, "test-service")
+            .level(level)
+            .build()
+            .expect("build entry")
     }
 
     #[test]

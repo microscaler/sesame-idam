@@ -12,9 +12,10 @@ use uuid::Uuid;
 // ─── Event Types ─────────────────────────────────────────────────────────────
 
 /// All defined audit event types. No values outside this set are allowed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum AuditEventType {
+    #[default]
     JwtIssued,
     JwtValidated,
     ValidationFailed,
@@ -104,10 +105,11 @@ pub fn is_valid_event_type(event: &str) -> bool {
 // ─── Logging Levels ──────────────────────────────────────────────────────────
 
 /// Logging levels for audit events, mapped to the story's logging requirements.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum AuditLevel {
     /// High-volume normal operations. Rate-limited.
+    #[default]
     Debug,
     /// Normal operational events.
     Info,
@@ -150,7 +152,7 @@ const MAX_FIELD_LENGTH: usize = 1024;
 ///
 /// Every security event MUST include all core fields. Optional fields are
 /// populated when available but never leak PII.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AuditLogEntry {
     /// Event type — one of the 9 defined types.
     pub event: String,
@@ -252,53 +254,71 @@ pub struct AuditLogEntry {
     pub hmac_signature: Option<String>,
 
     /// Internal: logging level (not logged to output, used for routing).
-    #[serde(skip)]
+    #[serde(skip_deserializing)]
     pub level: AuditLevel,
 
     /// Internal: internal event type (not logged to output, used for validation).
-    #[serde(skip)]
+    #[serde(skip_deserializing)]
     pub event_type: AuditEventType,
 
     /// Internal: unique event ID (not logged to output).
-    #[serde(skip)]
+    #[serde(skip_deserializing)]
+    #[serde(serialize_with = "uuid_to_string", deserialize_with = "string_to_uuid")]
     pub event_id: Uuid,
 }
 
+
+fn uuid_to_string<S>(uuid: &Uuid, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&uuid.to_string())
+}
+
+fn string_to_uuid<'de, D>(deserializer: D) -> Result<Uuid, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    s.parse::<Uuid>().map_err(serde::de::Error::custom)
+}
 impl AuditLogEntry {
     /// Create a new audit log entry with a generated UUID and current timestamp.
     #[must_use]
-    pub fn new(event_type: AuditEventType, service: impl Into<String>) -> Self {
-        Self {
-            event: event_type.as_str().to_string(),
-            timestamp: Utc::now(),
-            service: service.into(),
-            tenant_id: None,
-            user_id: None,
-            actor_id: None,
-            scopes: String::new(),
-            decision_source: String::new(),
-            result: String::new(),
-            metadata: None,
-            ip_address: None,
-            user_agent: None,
-            request_id: None,
-            token_version: None,
-            ttl: None,
-            algorithm: None,
-            error: None,
-            reason: None,
-            delegation_type: None,
-            actor_roles: None,
-            act_claim_present: None,
-            old_ver: None,
-            new_ver: None,
-            version_reason: None,
-            expected_binding: None,
-            actual_binding: None,
-            hmac_signature: None,
-            level: event_type.default_level(),
-            event_type,
-            event_id: Uuid::now_v7(),
+    pub fn new(event_type: AuditEventType, service: impl Into<String>) -> AuditLogEntryBuilder {
+        AuditLogEntryBuilder {
+            entry: Self {
+                event: event_type.as_str().to_string(),
+                timestamp: Utc::now(),
+                service: service.into(),
+                tenant_id: None,
+                user_id: None,
+                actor_id: None,
+                scopes: String::new(),
+                decision_source: String::new(),
+                result: String::new(),
+                metadata: None,
+                ip_address: None,
+                user_agent: None,
+                request_id: None,
+                token_version: None,
+                ttl: None,
+                algorithm: None,
+                error: None,
+                reason: None,
+                delegation_type: None,
+                actor_roles: None,
+                act_claim_present: None,
+                old_ver: None,
+                new_ver: None,
+                version_reason: None,
+                expected_binding: None,
+                actual_binding: None,
+                hmac_signature: None,
+                level: event_type.default_level(),
+                event_type,
+                event_id: Uuid::now_v7(),
+            },
         }
     }
 
@@ -417,6 +437,150 @@ impl AuditLogEntry {
         };
         serde_json::to_string(&log_entry)
     }
+
+    #[must_use]
+    pub fn tenant_id(mut self, id: impl Into<String>) -> Self {
+        self.tenant_id = Some(id.into());
+        self
+    }
+
+    #[must_use]
+    pub fn user_id(mut self, id: impl Into<String>) -> Self {
+        self.user_id = Some(id.into());
+        self
+    }
+
+    #[must_use]
+    pub fn actor_id(mut self, id: impl Into<String>) -> Self {
+        self.actor_id = Some(id.into());
+        self
+    }
+
+    #[must_use]
+    pub fn scopes(mut self, scopes: impl Into<String>) -> Self {
+        self.scopes = scopes.into();
+        self
+    }
+
+    #[must_use]
+    pub fn decision_source(mut self, source: impl Into<String>) -> Self {
+        self.decision_source = source.into();
+        self
+    }
+
+    #[must_use]
+    pub fn result(mut self, result: impl Into<String>) -> Self {
+        self.result = result.into();
+        self
+    }
+
+    #[must_use]
+    pub fn ip_address(mut self, ip: impl Into<String>) -> Self {
+        self.ip_address = Some(ip.into());
+        self
+    }
+
+    #[must_use]
+    pub fn user_agent(mut self, ua: impl Into<String>) -> Self {
+        self.user_agent = Some(ua.into());
+        self
+    }
+
+    #[must_use]
+    pub fn request_id(mut self, id: impl Into<String>) -> Self {
+        self.request_id = Some(id.into());
+        self
+    }
+
+    #[must_use]
+    pub fn token_version(mut self, ver: u64) -> Self {
+        self.token_version = Some(ver);
+        self
+    }
+
+    #[must_use]
+    pub fn ttl(mut self, seconds: u64) -> Self {
+        self.ttl = Some(seconds);
+        self
+    }
+
+    #[must_use]
+    pub fn algorithm(mut self, algo: impl Into<String>) -> Self {
+        self.algorithm = Some(algo.into());
+        self
+    }
+
+    #[must_use]
+    pub fn error(mut self, err: impl Into<String>) -> Self {
+        self.error = Some(err.into());
+        self
+    }
+
+    #[must_use]
+    pub fn reason(mut self, reason: impl Into<String>) -> Self {
+        self.reason = Some(reason.into());
+        self
+    }
+
+    #[must_use]
+    pub fn metadata(mut self, meta: serde_json::Value) -> Self {
+        self.metadata = Some(meta);
+        self
+    }
+
+    #[must_use]
+    pub fn delegation_type(mut self, dtype: impl Into<String>) -> Self {
+        self.delegation_type = Some(dtype.into());
+        self
+    }
+
+    #[must_use]
+    pub fn actor_roles(mut self, roles: Vec<String>) -> Self {
+        self.actor_roles = Some(roles);
+        self
+    }
+
+    #[must_use]
+    pub fn act_claim_present(mut self, present: bool) -> Self {
+        self.act_claim_present = Some(present);
+        self
+    }
+
+    #[must_use]
+    pub fn old_ver(mut self, ver: u64) -> Self {
+        self.old_ver = Some(ver);
+        self
+    }
+
+    #[must_use]
+    pub fn new_ver(mut self, ver: u64) -> Self {
+        self.new_ver = Some(ver);
+        self
+    }
+
+    #[must_use]
+    pub fn version_reason(mut self, reason: impl Into<String>) -> Self {
+        self.version_reason = Some(reason.into());
+        self
+    }
+
+    #[must_use]
+    pub fn expected_binding(mut self, binding: impl Into<String>) -> Self {
+        self.expected_binding = Some(binding.into());
+        self
+    }
+
+    #[must_use]
+    pub fn actual_binding(mut self, binding: impl Into<String>) -> Self {
+        self.actual_binding = Some(binding.into());
+        self
+    }
+
+    #[must_use]
+    pub fn level(mut self, level: AuditLevel) -> Self {
+        self.level = level;
+        self
+    }
 }
 
 /// Minimal output structure — only fields meant for log consumers.
@@ -502,7 +666,38 @@ pub struct AuditLogEntryBuilder {
 impl AuditLogEntryBuilder {
     pub fn new(event_type: AuditEventType, service: impl Into<String>) -> Self {
         Self {
-            entry: AuditLogEntry::new(event_type, service),
+            entry: AuditLogEntry {
+                event: event_type.as_str().to_string(),
+                timestamp: Utc::now(),
+                service: service.into(),
+                tenant_id: None,
+                user_id: None,
+                actor_id: None,
+                scopes: String::new(),
+                decision_source: String::new(),
+                result: String::new(),
+                metadata: None,
+                ip_address: None,
+                user_agent: None,
+                request_id: None,
+                token_version: None,
+                ttl: None,
+                algorithm: None,
+                error: None,
+                reason: None,
+                delegation_type: None,
+                actor_roles: None,
+                act_claim_present: None,
+                old_ver: None,
+                new_ver: None,
+                version_reason: None,
+                expected_binding: None,
+                actual_binding: None,
+                hmac_signature: None,
+                level: event_type.default_level(),
+                event_type,
+                event_id: Uuid::now_v7(),
+            },
         }
     }
 

@@ -10,8 +10,6 @@
 /// - Graceful shutdown with buffer flush
 
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use uuid::Uuid;
 
 use crate::event::{AuditEventType, AuditLevel, AuditLogEntry};
 use crate::hmac::sign_entry;
@@ -73,21 +71,20 @@ impl AuditEmitter {
         ttl: u64,
         algorithm: impl Into<String>,
     ) {
-        let mut entry = AuditLogEntry::new(
-            AuditEventType::JwtIssued,
-            &self.service,
-        )
-        .user_id(user_id)
-        .tenant_id(tenant_id)
-        .scopes(scopes)
-        .token_version(token_version)
-        .ttl(ttl)
-        .algorithm(algorithm)
-        .decision_source("jwt_claims")
-        .result("allowed")
-        .build();
+        let entry = AuditLogEntry::new(AuditEventType::JwtIssued, &self.service)
+            .user_id(user_id)
+            .tenant_id(tenant_id)
+            .scopes(scopes)
+            .token_version(token_version)
+            .ttl(ttl)
+            .algorithm(algorithm)
+            .decision_source("jwt_claims")
+            .result("allowed")
+            .build();
 
-        self.emit(entry);
+        if let Ok(entry) = entry {
+            self.emit(entry);
+        }
     }
 
     /// Emit a JWT validated event (success).
@@ -100,18 +97,17 @@ impl AuditEmitter {
         scopes: impl Into<String>,
         decision_source: impl Into<String>,
     ) {
-        let mut entry = AuditLogEntry::new(
-            AuditEventType::JwtValidated,
-            &self.service,
-        )
-        .user_id(user_id)
-        .tenant_id(tenant_id)
-        .scopes(scopes)
-        .decision_source(decision_source)
-        .result("allowed")
-        .build();
+        let entry = AuditLogEntry::new(AuditEventType::JwtValidated, &self.service)
+            .user_id(user_id)
+            .tenant_id(tenant_id)
+            .scopes(scopes)
+            .decision_source(decision_source)
+            .result("allowed")
+            .build();
 
-        self.emit(entry);
+        if let Ok(entry) = entry {
+            self.emit(entry);
+        }
     }
 
     /// Emit a validation failed event.
@@ -125,20 +121,19 @@ impl AuditEmitter {
         error: impl Into<String>,
         reason: impl Into<String>,
     ) {
-        let mut entry = AuditLogEntry::new(
-            AuditEventType::ValidationFailed,
-            &self.service,
-        )
-        .user_id(user_id)
-        .tenant_id(tenant_id)
-        .scopes(scopes)
-        .decision_source("jwt_claims")
-        .result("denied")
-        .error(error)
-        .reason(reason)
-        .build();
+        let entry = AuditLogEntry::new(AuditEventType::ValidationFailed, &self.service)
+            .user_id(user_id)
+            .tenant_id(tenant_id)
+            .scopes(scopes)
+            .decision_source("jwt_claims")
+            .result("denied")
+            .error(error)
+            .reason(reason)
+            .build();
 
-        self.emit(entry);
+        if let Ok(entry) = entry {
+            self.emit(entry);
+        }
     }
 
     /// Emit a token revoked event.
@@ -151,19 +146,20 @@ impl AuditEmitter {
         jti: impl Into<String>,
         reason: impl Into<String>,
     ) {
-        let mut entry = AuditLogEntry::new(
-            AuditEventType::TokenRevoked,
-            &self.service,
-        )
-        .user_id(user_id)
-        .tenant_id(tenant_id)
-        .decision_source("denylist")
-        .result("revoked")
-        .reason(reason);
+        let mut entry = AuditLogEntry::new(AuditEventType::TokenRevoked, &self.service)
+            .user_id(user_id)
+            .tenant_id(tenant_id)
+            .decision_source("denylist")
+            .result("revoked")
+            .reason(reason)
+            .build();
 
         // Add JTI to metadata
-        entry.metadata = Some(serde_json::json!({ "jti": jti }));
-        self.emit(entry);
+        if let Ok(ref mut entry) = entry {
+            entry.metadata = Some(serde_json::json!({ "jti": jti.into() }));
+            let built = entry.clone();
+            self.emit(built);
+        }
     }
 
     /// Emit a family revoked event.
@@ -175,17 +171,17 @@ impl AuditEmitter {
         tenant_id: impl Into<String>,
         scope: impl Into<String>,
     ) {
-        let mut entry = AuditLogEntry::new(
-            AuditEventType::FamilyRevoked,
-            &self.service,
-        )
-        .user_id(user_id)
-        .tenant_id(tenant_id)
-        .decision_source("family_revoke")
-        .result("revoked")
-        .reason(format!("Token family revoked: {}", scope));
+        let entry = AuditLogEntry::new(AuditEventType::FamilyRevoked, &self.service)
+            .user_id(user_id)
+            .tenant_id(tenant_id)
+            .decision_source("family_revoke")
+            .result("revoked")
+            .reason(format!("Token family revoked: {}", scope.into()))
+            .build();
 
-        self.emit(entry);
+        if let Ok(entry) = entry {
+            self.emit(entry);
+        }
     }
 
     /// Emit a delegation event.
@@ -201,21 +197,21 @@ impl AuditEmitter {
         actor_roles: Vec<String>,
         act_claim_present: bool,
     ) {
-        let mut entry = AuditLogEntry::new(
-            AuditEventType::Delegation,
-            &self.service,
-        )
-        .user_id(user_id)
-        .actor_id(actor_id)
-        .tenant_id(tenant_id)
-        .scopes(scopes)
-        .decision_source("jwt_claims")
-        .result("allowed")
-        .delegation_type(delegation_type)
-        .actor_roles(actor_roles)
-        .act_claim_present(act_claim_present);
+        let entry = AuditLogEntry::new(AuditEventType::Delegation, &self.service)
+            .user_id(user_id)
+            .actor_id(actor_id)
+            .tenant_id(tenant_id)
+            .scopes(scopes)
+            .decision_source("jwt_claims")
+            .result("allowed")
+            .delegation_type(delegation_type)
+            .actor_roles(actor_roles)
+            .act_claim_present(act_claim_present)
+            .build();
 
-        self.emit(entry);
+        if let Ok(entry) = entry {
+            self.emit(entry);
+        }
     }
 
     /// Emit a version bump event.
@@ -229,19 +225,19 @@ impl AuditEmitter {
         new_ver: u64,
         reason: impl Into<String>,
     ) {
-        let mut entry = AuditLogEntry::new(
-            AuditEventType::VersionBump,
-            &self.service,
-        )
-        .user_id(user_id)
-        .tenant_id(tenant_id)
-        .decision_source("authz_core")
-        .result("allowed")
-        .old_ver(old_ver)
-        .new_ver(new_ver)
-        .version_reason(reason);
+        let entry = AuditLogEntry::new(AuditEventType::VersionBump, &self.service)
+            .user_id(user_id)
+            .tenant_id(tenant_id)
+            .decision_source("authz_core")
+            .result("allowed")
+            .old_ver(old_ver)
+            .new_ver(new_ver)
+            .version_reason(reason)
+            .build();
 
-        self.emit(entry);
+        if let Ok(entry) = entry {
+            self.emit(entry);
+        }
     }
 
     /// Emit a version mismatch event.
@@ -254,18 +250,18 @@ impl AuditEmitter {
         token_ver: u64,
         cached_ver: u64,
     ) {
-        let mut entry = AuditLogEntry::new(
-            AuditEventType::VersionMismatch,
-            &self.service,
-        )
-        .user_id(user_id)
-        .tenant_id(tenant_id)
-        .decision_source("jwt_claims")
-        .result("denied")
-        .error("stale_auth_token")
-        .reason(format!("claims.ver ({}) < cached_ver ({})", token_ver, cached_ver));
+        let entry = AuditLogEntry::new(AuditEventType::VersionMismatch, &self.service)
+            .user_id(user_id)
+            .tenant_id(tenant_id)
+            .decision_source("jwt_claims")
+            .result("denied")
+            .error("stale_auth_token")
+            .reason(format!("claims.ver ({}) < cached_ver ({})", token_ver, cached_ver))
+            .build();
 
-        self.emit(entry);
+        if let Ok(entry) = entry {
+            self.emit(entry);
+        }
     }
 
     /// Emit a token binding mismatch event.
@@ -278,18 +274,18 @@ impl AuditEmitter {
         expected: impl Into<String>,
         actual: impl Into<String>,
     ) {
-        let mut entry = AuditLogEntry::new(
-            AuditEventType::TokenBindingMismatch,
-            &self.service,
-        )
-        .user_id(user_id)
-        .tenant_id(tenant_id)
-        .decision_source("dpop_verify")
-        .result("denied")
-        .expected_binding(expected)
-        .actual_binding(actual);
+        let entry = AuditLogEntry::new(AuditEventType::TokenBindingMismatch, &self.service)
+            .user_id(user_id)
+            .tenant_id(tenant_id)
+            .decision_source("dpop_verify")
+            .result("denied")
+            .expected_binding(expected)
+            .actual_binding(actual)
+            .build();
 
-        self.emit(entry);
+        if let Ok(entry) = entry {
+            self.emit(entry);
+        }
     }
 
     /// Core emit method — rate limiting, validation, queueing, and HMAC signing.

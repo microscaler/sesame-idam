@@ -31,8 +31,12 @@ pub fn verify_entry(key: &[u8], log_json: &str, timestamp: &str, signature: &str
     if expected_bytes.len() != input_bytes.len() {
         return false;
     }
-    hmac::mac::generic_array::GenericArray::from_slice(&expected_bytes)
-        .const_eq(&hmac::mac::generic_array::GenericArray::from_slice(&input_bytes))
+    // Constant-time comparison to prevent timing attacks
+    let mut result: u8 = 0;
+    for (a, b) in expected_bytes.iter().zip(input_bytes.iter()) {
+        result |= a ^ b;
+    }
+    result == 0
 }
 
 /// Generates a random HMAC key (32 bytes / 256 bits).
