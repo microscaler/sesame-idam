@@ -242,11 +242,30 @@ impl AccessClaims {
     }
 
     /// Validate that the request's tenant matches the claims' tenant.
-    /// Used by middleware to enforce tenant isolation at the request level.
+    ///
+    /// Checks BOTH top-level `tenant_id` AND namespaced `sx.tenant` against
+    /// the request's X-Tenant-ID header (HACK-241, HACK-243).
+    ///
+    /// # Requirements (HACK-243)
+    /// - Returns `Err(JwtError::MissingRequiredField("X-Tenant-ID"))` if `request_tenant` is empty
+    /// - Checks both `self.tenant_id` and `self.sx.tenant` — mismatch in either direction fails
+    /// - MUST be called before any database query to prevent cross-tenant data leakage
     pub fn validate_tenant(&self, request_tenant: &str) -> Result<(), JwtError> {
+        // HACK-243: Reject empty/missing X-Tenant-ID — never treat None as "no constraint"
+        if request_tenant.is_empty() {
+            return Err(JwtError::MissingRequiredField("X-Tenant-ID".to_string()));
+        }
+        // Check top-level tenant_id
         if self.tenant_id != request_tenant {
             return Err(JwtError::TenantMismatch {
                 expected: self.tenant_id.clone(),
+                actual: request_tenant.to_string(),
+            });
+        }
+        // Check namespaced sx.tenant (HACK-241: both locations must match)
+        if self.sx.tenant != request_tenant {
+            return Err(JwtError::TenantMismatch {
+                expected: self.sx.tenant.clone(),
                 actual: request_tenant.to_string(),
             });
         }
@@ -1336,5 +1355,208 @@ mod tests {
             size,
             MAX_TOKEN_SIZE_BYTES
         );
+    }
+
+    // ─── Story 2.4: Tenant Claim Validation Unit Tests ─────────────────────
+
+    #[test]
+    fn test_validate_tenant_accepts_matching_tenant() {
+        let claims = AccessClaimsBuilder::new()
+            .iss("https://sesame-idam.example.com")
+            .sub("user-123")
+            .aud(vec!["api".to_string()])
+            .client_id("client-1")
+            .scope("openid".to_string())
+            .exp(1700000000)
+            .nbf(1700000000 - 60)
+            .iat(1700000000)
+            .jti("jti-123".to_string())
+            .ver(1)
+            .sid("session-1".to_string())
+            .tenant_id("tenant-alpha".to_string())
+            .user_id("user-123".to_string())
+            .user_type("customer".to_string())
+            .sx(SesameAuthzClaims::new(
+                "tenant-alpha".to_string(),
+                "web".to_string(),
+                vec![],
+                vec![],
+            ))
+            .build()
+            .expect("valid claims");
+
+        // Both top-level and sx.tenant match the request tenant
+        assert!(claims.validate_tenant("tenant-alpha").is_ok());
+    }
+
+    #[test]
+    fn test_validate_tenant_rejects_mismatched_top_level() {
+        let claims = AccessClaimsBuilder::new()
+            .iss("https://sesame-idam.example.com")
+            .sub("user-123")
+            .aud(vec!["api".to_string()])
+            .client_id("client-1")
+            .scope("openid".to_string())
+            .exp(1700000000)
+            .nbf(1700000000 - 60)
+            .iat(1700000000)
+            .jti("jti-123".to_string())
+            .ver(1)
+            .sid("session-1".to_string())
+            .tenant_id("tenant-alpha".to_string())
+            .user_id("user-123".to_string())
+            .user_type("customer".to_string())
+            .sx(SesameAuthzClaims::new(
+                "tenant-alpha".to_string(),
+                "web".to_string(),
+                vec![],
+                vec![],
+            ))
+            .build()
+            .expect("valid claims");
+
+        // Request tenant doesn't match top-level tenant_id
+        let result = claims.validate_tenant("tenant-beta");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            JwtError::TenantMismatch { expected, actual } => {
+                assert_eq!(expected, "tenant-alpha");
+                assert_eq!(actual, "tenant-beta");
+            }
+            _ => panic!("Expected TenantMismatch"),
+        }
+    }
+
+    #[test]
+    fn test_validate_tenant_rejects_empty_request_tenant() {
+        let claims = AccessClaimsBuilder::new()
+            .iss("https://sesame-idam.example.com")
+            .sub("user-123")
+            .aud(vec!["api".to_string()])
+            .client_id("client-1")
+            .scope("openid".to_string())
+            .exp(1700000000)
+            .nbf(1700000000 - 60)
+            .iat(1700000000)
+            .jti("jti-123".to_string())
+            .ver(1)
+            .sid("session-1".to_string())
+            .tenant_id("tenant-alpha".to_string())
+            .user_id("user-123".to_string())
+            .user_type("customer".to_string())
+            .sx(SesameAuthzClaims::new(
+                "tenant-alpha".to_string(),
+                "web".to_string(),
+                vec![],
+                vec![],
+            ))
+            .build()
+            .expect("valid claims");
+
+        // Empty request_tenant is always rejected (HACK-243)
+        let result = claims.validate_tenant("");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            JwtError::MissingRequiredField(field) => {
+                assert_eq!(field, "X-Tenant-ID");
+            }
+            _ => panic!("Expected MissingRequiredField"),
+        }
+    }
+
+    #[test]
+    fn test_validate_tenant_checks_both_top_level_and_namespaced() {
+        // Test case: top-level matches but sx.tenant doesn't
+        let mut claims = AccessClaimsBuilder::new()
+            .iss("https://sesame-idam.example.com")
+            .sub("user-123")
+            .aud(vec!["api".to_string()])
+            .client_id("client-1")
+            .scope("openid".to_string())
+            .exp(1700000000)
+            .nbf(1700000000 - 60)
+            .iat(1700000000)
+            .jti("jti-123".to_string())
+            .ver(1)
+            .sid("session-1".to_string())
+            .tenant_id("tenant-alpha".to_string())
+            .user_id("user-123".to_string())
+            .user_type("customer".to_string())
+            .sx(SesameAuthzClaims::new(
+                "tenant-beta".to_string(), // Different from top-level!
+                "web".to_string(),
+                vec![],
+                vec![],
+            ))
+            .build()
+            .expect("valid claims");
+
+        // Even though top-level tenant_id matches, sx.tenant doesn't
+        let result = claims.validate_tenant("tenant-alpha");
+        assert!(result.is_err(), "Must reject when sx.tenant doesn't match");
+
+        // Test case: sx.tenant matches but top-level doesn't
+        claims = AccessClaimsBuilder::new()
+            .iss("https://sesame-idam.example.com")
+            .sub("user-123")
+            .aud(vec!["api".to_string()])
+            .client_id("client-1")
+            .scope("openid".to_string())
+            .exp(1700000000)
+            .nbf(1700000000 - 60)
+            .iat(1700000000)
+            .jti("jti-123".to_string())
+            .ver(1)
+            .sid("session-1".to_string())
+            .tenant_id("tenant-beta".to_string())
+            .user_id("user-123".to_string())
+            .user_type("customer".to_string())
+            .sx(SesameAuthzClaims::new(
+                "tenant-alpha".to_string(),
+                "web".to_string(),
+                vec![],
+                vec![],
+            ))
+            .build()
+            .expect("valid claims");
+
+        // Even though sx.tenant matches, top-level tenant_id doesn't
+        let result = claims.validate_tenant("tenant-alpha");
+        assert!(result.is_err(), "Must reject when top-level tenant_id doesn't match");
+    }
+
+    #[test]
+    fn test_validate_tenant_consistent_across_user_types() {
+        for user_type in &["customer", "platform", "platform_admin"] {
+            let claims = AccessClaimsBuilder::new()
+                .iss("https://sesame-idam.example.com")
+                .sub(format!("user-{}", user_type))
+                .aud(vec!["api".to_string()])
+                .client_id("app")
+                .scope("openid".to_string())
+                .exp(1700000000)
+                .nbf(1700000000 - 60)
+                .iat(1700000000)
+                .jti(format!("jti-{}", user_type))
+                .ver(1)
+                .sid(format!("session-{}", user_type))
+                .tenant_id("tenant-shared".to_string())
+                .user_id(format!("user-{}", user_type))
+                .user_type(user_type.to_string())
+                .sx(SesameAuthzClaims::new(
+                    "tenant-shared".to_string(),
+                    "web".to_string(),
+                    vec![],
+                    vec![],
+                ))
+                .build()
+                .expect("valid claims");
+
+            assert!(
+                claims.validate_tenant("tenant-shared").is_ok(),
+                "user_type {} must validate_tenant pass for matching tenant",
+                user_type
+            );
+        }
     }
 }
