@@ -115,6 +115,14 @@ fn main() -> io::Result<()> {
     let jwks_headers = std::sync::Arc::new(middleware::jwks_headers::JwksHeadersMiddleware);
     dispatcher.add_middleware(jwks_headers);
 
+    // Rate limiting middleware: applies per-endpoint sliding-window limits.
+    // JWKS endpoint is rate-limited to 100 req/60s; all other endpoints at
+    // 1000 req/60s. Configurable via `config.yaml` `rate_limit` section.
+    let rate_limiter = std::sync::Arc::new(
+        middleware::rate_limit::RateLimitMiddleware::default(),
+    );
+    dispatcher.add_middleware(rate_limiter);
+
     // Create memory tracking middleware
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());

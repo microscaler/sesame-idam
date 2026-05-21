@@ -568,7 +568,7 @@ mod tests {
             cookies: Default::default(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::mpsc::channel().0,
+            reply_tx: may::sync::mpsc::channel().0,
             queue_guard: None,
         };
         let key = state.get_key(&req, "/.well-known/jwks.json");
@@ -592,7 +592,7 @@ mod tests {
             cookies: Default::default(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::mpsc::channel().0,
+            reply_tx: may::sync::mpsc::channel().0,
             queue_guard: None,
         };
         let key = state.get_key(&req, "/.well-known/jwks.json");
@@ -614,7 +614,7 @@ mod tests {
             cookies: Default::default(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::mpsc::channel().0,
+            reply_tx: may::sync::mpsc::channel().0,
             queue_guard: None,
         };
         let key = state.get_key(&req, "");
@@ -646,7 +646,7 @@ mod tests {
             cookies: Default::default(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::mpsc::channel().0,
+            reply_tx: may::sync::mpsc::channel().0,
             queue_guard: None,
         };
 
@@ -683,7 +683,7 @@ mod tests {
             cookies: Default::default(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::mpsc::channel().0,
+            reply_tx: may::sync::mpsc::channel().0,
             queue_guard: None,
         };
 
@@ -878,7 +878,7 @@ rate_limit:
             cookies: Default::default(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::mpsc::channel().0,
+            reply_tx: may::sync::mpsc::channel().0,
             queue_guard: None,
         }
     }
