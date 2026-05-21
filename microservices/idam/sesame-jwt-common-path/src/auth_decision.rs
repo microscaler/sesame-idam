@@ -261,7 +261,7 @@ mod tests {
                 .sub("user-1")
                 .aud(vec!["identity-login-service".into()])
                 .client_id("test")
-                .scope("read".into())
+                .scope("read")
                 .exp(9999999999)
                 .nbf(0)
                 .iat(0)
@@ -271,11 +271,12 @@ mod tests {
                 .tenant_id("tenant-a")
                 .user_id("user-1")
                 .user_type("registered")
-                .sx(sesame_common::SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test")
-                    .build()
-                    .unwrap())
+                .sx(sesame_common::SesameAuthzClaims::new(
+                    "tenant-a".into(),
+                    "test".into(),
+                    vec![],
+                    vec![],
+                ))
                 .build()
                 .unwrap(),
         };
@@ -303,7 +304,7 @@ mod tests {
                 .sub("user-1")
                 .aud(vec!["identity-login-service".into()])
                 .client_id("test")
-                .scope("read".into())
+                .scope("read")
                 .exp(9999999999)
                 .nbf(0)
                 .iat(0)
@@ -313,11 +314,12 @@ mod tests {
                 .tenant_id("tenant-a")
                 .user_id("user-1")
                 .user_type("registered")
-                .sx(sesame_common::SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test")
-                    .build()
-                    .unwrap())
+                .sx(sesame_common::SesameAuthzClaims::new(
+                    "tenant-a".into(),
+                    "test".into(),
+                    vec![],
+                    vec![],
+                ))
                 .build()
                 .unwrap(),
         };

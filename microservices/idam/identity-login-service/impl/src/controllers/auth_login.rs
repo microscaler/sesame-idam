@@ -9,7 +9,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::new_with_params(
         AuditEventType::Authentication,
         if req.inner.success.unwrap_or(false) { "login_success" } else { "login_failure" },
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -23,8 +23,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         Some(AuditSeverity::Info)
     } else {
         Some(AuditSeverity::Warning)
-    };
-    EMITTER.emit(&mut event);
+    });
+    EMITTER.emit(event);
 
     Response {
         error: req.inner.error.clone().unwrap_or_default(),

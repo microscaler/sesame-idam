@@ -8,7 +8,7 @@ use sesame_audit::AuditEmitter;
 
 /// Global audit emitter shared across all handlers in this service.
 pub static EMITTER: std::sync::LazyLock<AuditEmitter> =
-    std::sync::LazyLock::new(|| AuditEmitter::new(None));
+    std::sync::LazyLock::new(|| AuditEmitter::new("authz-core", None));
 
 /// Global push invalidation publisher for authz state changes.
 /// Created during startup from config; `None` if Redis is not configured.
@@ -23,8 +23,6 @@ pub static EMITTER: std::sync::LazyLock<AuditEmitter> =
 pub static PUBLISHER: std::sync::LazyLock<
     Option<std::sync::Arc<crate::push_invalidator::PublisherWrapper>>,
 > = std::sync::LazyLock::new(|| {
-    let config =
-        crate::config::load_config(&std::path::PathBuf::from("./config/config.yaml"))
-            .unwrap_or_default();
+    let config = crate::config::load_config(&std::path::PathBuf::from("./config/config.yaml")).unwrap_or_else(|_| crate::config::AppConfig::default());
     crate::push_invalidator::create_publisher(&config).map(|p| std::sync::Arc::new(p))
 });

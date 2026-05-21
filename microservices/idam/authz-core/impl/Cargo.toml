@@ -1,4 +1,3 @@
-
 [package]
 name = "sesame_idam_authz_core"
 version = "0.1.0"
@@ -56,10 +55,15 @@ lifeguard-migrate = { workspace = true }
 may_minihttp = { workspace = true }
 sea-query = { workspace = true }
 serde_yaml = { workspace = true }
+tokio = { version = "1", features = ["sync", "time", "rt"] }
 tracing = "0.1"
 
 [build-dependencies]
 lifeguard-migrate = { workspace = true }
+
+# Denylist JTI cache
+sesame_denylist = { workspace = true }
+
 [dev-dependencies]
 rstest = "0.21"
 rstest-bdd = "0.5.0"

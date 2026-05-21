@@ -13,7 +13,7 @@ use std::sync::Arc;
 use brrtrouter::security::JwksBearerProvider;
 use brrtrouter::server::AppService;
 
-use crate::config::{AppConfig, JwksSchemeConfig};
+use crate::config::AppConfig;
 
 /// Initialize security providers from the application configuration.
 ///

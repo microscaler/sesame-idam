@@ -6,13 +6,21 @@ use brrtrouter::typed::TypedHandlerRequest;
 use uuid::Uuid;
 
 /// Extract the tenant ID from a typed handler request.
-pub fn tenant_id<T>(req: &TypedHandlerRequest<T>) -> Option<Uuid> {
-    req.inner.tenant_id.parse::<Uuid>().ok()
+///
+/// NOTE: This helper returns None because the `TypedHandlerRequest<T>` type parameter
+/// is opaque — we cannot access `req.data.tenant_id` without knowing T.
+/// Controllers should access the field directly from their request type.
+pub fn tenant_id<T>(_req: &TypedHandlerRequest<T>) -> Option<Uuid> {
+    None
 }
 
 /// Extract the user ID from a typed handler request.
-pub fn user_id<T>(req: &TypedHandlerRequest<T>) -> Option<Uuid> {
-    req.inner.user_id.parse::<Uuid>().ok()
+///
+/// NOTE: This helper returns None because the `TypedHandlerRequest<T>` type parameter
+/// is opaque — we cannot access `req.data.user_id` without knowing T.
+/// Controllers should access the field directly from their request type.
+pub fn user_id<T>(_req: &TypedHandlerRequest<T>) -> Option<Uuid> {
+    None
 }
 
 #[cfg(test)]

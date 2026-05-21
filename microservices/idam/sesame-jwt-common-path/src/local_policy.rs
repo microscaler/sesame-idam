@@ -162,7 +162,7 @@ pub fn evaluate_category_policy(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sesame_common::{SesameAuthzClaims, SesameAuthzClaimsBuilder};
+    use sesame_common::SesameAuthzClaims;
 
     fn make_test_claims() -> AccessClaims {
         AccessClaims::builder()
@@ -170,7 +170,7 @@ mod tests {
             .sub("user-1")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read")
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -180,14 +180,12 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(SesameAuthzClaims::builder()
-                .tenant("tenant-a")
-                .portal("test-app")
-                .roles(vec!["admin".into(), "user".into()])
-                .permissions(vec!["users:read".into(), "prefs:write".into()])
-                .risk("normal".into())
-                .build()
-                .unwrap())
+            .sx(SesameAuthzClaims::new(
+                "tenant-a".into(),
+                "test-app".into(),
+                vec!["admin".into(), "user".into()],
+                vec!["users:read".into(), "prefs:write".into()],
+            ))
             .build()
             .unwrap()
     }
@@ -198,7 +196,7 @@ mod tests {
             .sub("user-2")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read")
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -208,16 +206,12 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-2")
             .user_type("registered")
-            .sx(
-                SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test-app")
-                    .roles(vec!["customer".into()])
-                    .permissions(vec!["shipments:read".into()])
-                    .risk("normal".into())
-                    .build()
-                    .unwrap(),
-            )
+            .sx(SesameAuthzClaims::new(
+                "tenant-a".into(),
+                "test-app".into(),
+                vec!["customer".into()],
+                vec!["shipments:read".into()],
+            ))
             .build()
             .unwrap()
     }
@@ -228,7 +222,7 @@ mod tests {
             .sub("user-3")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read")
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -238,16 +232,12 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-3")
             .user_type("registered")
-            .sx(
-                SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test-app")
-                    .roles(vec!["admin".into()])
-                    .permissions(vec!["users:read".into()])
-                    .risk("elevated".into())
-                    .build()
-                    .unwrap(),
-            )
+            .sx(SesameAuthzClaims::new(
+                "tenant-a".into(),
+                "test-app".into(),
+                vec!["admin".into()],
+                vec!["users:read".into()],
+            ))
             .build()
             .unwrap()
     }
@@ -258,7 +248,7 @@ mod tests {
             .sub("user-4")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read")
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -268,15 +258,12 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-4")
             .user_type("registered")
-            .sx(
-                SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test-app")
-                    .roles(vec!["admin".into()])
-                    .permissions(vec!["users:read".into()])
-                    .build()
-                    .unwrap(),
-            )
+            .sx(SesameAuthzClaims::new(
+                "tenant-a".into(),
+                "test-app".into(),
+                vec!["admin".into()],
+                vec!["users:read".into()],
+            ))
             .build()
             .unwrap()
     }
@@ -325,7 +312,7 @@ mod tests {
         let result = evaluate_local_policy(
             &claims,
             "tenant-a",
-            &[vec!["admin".into(), "user".into()].into_iter().collect::<Vec<_>>()[..].to_vec()],
+            &vec!["admin".into(), "user".into()],
             &[],
             None,
             None,

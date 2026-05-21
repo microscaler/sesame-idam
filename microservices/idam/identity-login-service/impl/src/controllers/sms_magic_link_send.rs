@@ -15,7 +15,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Send SMS via Twilio with verification code
     // TODO: Rate limit: 1 SMS per phone per 1 minute
 
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::new_with_params(
         AuditEventType::Authentication,
         "sms_magic_link_sent",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -23,8 +23,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
     );
     event.metadata = serde_json::json!({ "phone": req.inner.phone }).into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     Response {
         magic_link_sent: true,

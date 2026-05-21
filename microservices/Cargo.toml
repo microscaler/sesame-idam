@@ -43,7 +43,6 @@ sesame_audit = { package = "sesame-audit", path = "idam/sesame-audit" }
 sesame_token_versioning = { package = "sesame_token_versioning", path = "idam/sesame-token-versioning" }
 sesame_jwt_common_path = { package = "sesame-jwt-common-path", path = "idam/sesame-jwt-common-path" }
 sesame_denylist = { package = "sesame-denylist", path = "idam/sesame-denylist" }
-sesame-denylist = { package = "sesame-denylist", path = "idam/sesame-denylist" }
 sesame_entitlement_cache = { package = "sesame-entitlement-cache", path = "idam/sesame-entitlement-cache" }
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
 brrtrouter = { path = "../../BRRTRouter", default-features = false }

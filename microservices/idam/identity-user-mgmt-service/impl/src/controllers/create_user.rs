@@ -19,7 +19,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     let user_id = Uuid::new_v7();
     
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::new_with_params(
         AuditEventType::UserManagement,
         "user_created",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -31,8 +31,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         "email": req.inner.email,
         "username": req.inner.username,
     }).into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     // TODO: INSERT INTO users WITH tenant_id, email, username, password_hash (bcrypt)
     // TODO: Send email confirmation if not already verified

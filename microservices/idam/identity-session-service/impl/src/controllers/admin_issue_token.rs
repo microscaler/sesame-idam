@@ -22,7 +22,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let tenant_id = req.data.x_tenant_id.clone();
     let user_id = req.data.user_id.clone();
 
-    let mut event = AuditEvent::new(
+    let mut event = AuditEvent::new_with_params(
         AuditEventType::SessionManagement,
         "token_issued",
         tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -30,8 +30,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         "internal".to_string(),
     );
     event.user_id = user_id.parse::<Uuid>().ok();
-    event.severity = Some(AuditSeverity::Warning);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     span.record("tenant_id", &tenant_id);
     span.record("user_id", &user_id);

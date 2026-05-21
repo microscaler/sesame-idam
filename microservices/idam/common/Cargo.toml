@@ -2,7 +2,7 @@
 name = "sesame-common"
 version.workspace = true
 edition.workspace = true
-description = "Shared JWT claim types, validation, and builder for Sesame-IDAM microservices"
+description = "Shared JWT claim types, validation, builder, and DPoP for Sesame-IDAM microservices"
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
@@ -13,6 +13,10 @@ uuid = { workspace = true, features = ["v5", "std"] }
 chrono = { workspace = true, features = ["serde"] }
 regex = "1.10"
 base64 = { workspace = true, features = ["alloc"] }
+ed25519-dalek = { workspace = true }
+ed25519-zebra = { workspace = true }
+p256 = { workspace = true }
+rand = { workspace = true }
 once_cell = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 brrtrouter = { workspace = true, default-features = false, optional = true }
@@ -21,9 +25,14 @@ blake3 = { workspace = true, optional = true }
 redis = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 arc-swap = { workspace = true, optional = true }
+reqwest = { workspace = true, features = ["json", "stream"], optional = true }
+tracing = { workspace = true, optional = true }
+lazy_static = { workspace = true, optional = true }
 
 [features]
 default = []
+full = ["metrics", "jwks_cache"]
+jwks_cache = ["reqwest", "lazy_static", "tokio", "arc-swap", "tracing"]
 metrics = ["once_cell", "prometheus", "brrtrouter", "tokio"]
 
 [dev-dependencies]

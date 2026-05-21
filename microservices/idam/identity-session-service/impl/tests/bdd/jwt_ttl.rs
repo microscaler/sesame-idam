@@ -2,12 +2,11 @@
 ///
 /// Tests token issuance with role-based TTL, env var overrides,
 /// and expiry validation — using brrtrouter HandlerRequest pattern.
-
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
 use http::Method;
 use sesame_idam_identity_session_service::jwt::ttl::{
-    TtlConfig, validate_minimum_ttl, validate_refresh_exceeds_access,
+    validate_minimum_ttl, validate_refresh_exceeds_access, TtlConfig,
 };
 
 /// Create a minimal HandlerRequest for testing auth_refresh.
@@ -220,7 +219,13 @@ fn test_refresh_ttl_exceeds_access_for_all_roles() {
 
     validate_refresh_exceeds_access(&config);
 
-    for role in ["customer", "org_admin", "platform_admin", "elevated", "platform"] {
+    for role in [
+        "customer",
+        "org_admin",
+        "platform_admin",
+        "elevated",
+        "platform",
+    ] {
         let access_secs = config.access_ttl_secs_for_role(role);
         let refresh_secs = config.refresh_ttl_for_role(role).as_secs();
         assert!(
@@ -268,7 +273,10 @@ fn test_exp_claim_set_by_server_not_request() {
     let iat: u64 = 1000;
 
     let exp = config.exp_for_role("customer", iat);
-    assert_eq!(exp, 1300, "exp must be iat + ttl_for_role, not from request");
+    assert_eq!(
+        exp, 1300,
+        "exp must be iat + ttl_for_role, not from request"
+    );
 
     assert_eq!(
         config.exp_for_role("org_admin", iat),

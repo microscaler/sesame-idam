@@ -17,7 +17,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::new_with_params(
         AuditEventType::Organization,
         "org_deleted",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -25,8 +25,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         "internal".to_string(),
     );
     event.org_id = req.inner.org_id.parse::<Uuid>().ok();
-    event.severity = Some(AuditSeverity::Critical);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     Response {
         success: req.inner.success.unwrap_or(false),

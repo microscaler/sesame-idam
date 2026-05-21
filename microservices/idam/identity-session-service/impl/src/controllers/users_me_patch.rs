@@ -11,15 +11,14 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
 
     let tenant_id = _req.data.x_tenant_id.clone();
 
-    let mut event = AuditEvent::new(
+    let mut event = AuditEvent::new_with_params(
         AuditEventType::UserManagement,
         "user_profile_updated",
         tenant_id.parse::<Uuid>().unwrap_or_default(),
         AuditActor::User,
         "127.0.0.1".to_string(),
     );
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     Response {
         email: None,

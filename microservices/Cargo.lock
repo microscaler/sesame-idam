@@ -1279,6 +1279,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
 dependencies = [
  "pkcs8",
+ "serde",
  "signature",
 ]
 
@@ -1290,6 +1291,24 @@ checksum = "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
 dependencies = [
  "curve25519-dalek",
  "ed25519",
+ "rand_core 0.6.4",
+ "serde",
+ "sha2 0.10.9",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "ed25519-zebra"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "775765289f7c6336c18d3d66127527820dd45ffd9eb3b6b8ee4708590e6c20f5"
+dependencies = [
+ "curve25519-dalek",
+ "ed25519",
+ "hashbrown 0.16.1",
+ "pkcs8",
+ "rand_core 0.6.4",
  "serde",
  "sha2 0.10.9",
  "subtle",
@@ -4282,12 +4301,14 @@ dependencies = [
  "sync_wrapper",
  "tokio",
  "tokio-native-tls",
+ "tokio-util",
  "tower",
  "tower-http",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
 ]
 
@@ -4970,16 +4991,23 @@ dependencies = [
  "blake3",
  "brrtrouter",
  "chrono",
+ "ed25519-dalek",
+ "ed25519-zebra",
  "futures",
+ "lazy_static",
  "once_cell",
+ "p256",
  "prometheus 0.13.4",
+ "rand 0.8.6",
  "redis 0.25.5",
  "regex",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "thiserror 1.0.69",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -5072,6 +5100,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sesame-audit",
+ "sesame-denylist",
  "sesame_idam_api_keys_gen",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
@@ -5131,11 +5160,13 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sesame-audit",
+ "sesame-denylist",
  "sesame_idam_authz_core_gen",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
  "sesame_token_versioning",
  "tikv-jemallocator",
+ "tokio",
  "tracing",
  "uuid",
 ]
@@ -5199,6 +5230,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sesame-audit",
+ "sesame-denylist",
  "sesame_idam_database",
  "sesame_idam_identity_login_service_gen",
  "sesame_idam_identity_session_service",
@@ -5244,6 +5276,7 @@ dependencies = [
  "config",
  "http 1.4.0",
  "jsonwebtoken 9.3.1",
+ "lazy_static",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
@@ -5263,6 +5296,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sesame-audit",
+ "sesame-denylist",
  "sesame_idam_database",
  "sesame_idam_identity_session_service_gen",
  "tikv-jemallocator",
@@ -5322,6 +5356,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sesame-audit",
+ "sesame-denylist",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
  "sesame_idam_identity_user_mgmt_service_gen",
@@ -5394,6 +5429,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sesame-audit",
+ "sesame-denylist",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
  "sesame_idam_org_mgmt_gen",
@@ -6749,6 +6785,19 @@ dependencies = [
  "indexmap",
  "wasm-encoder",
  "wasmparser",
+]
+
+[[package]]
+name = "wasm-streams"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

@@ -9,7 +9,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::new_with_params(
         AuditEventType::UserManagement,
         "email_updated",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -20,8 +20,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     event.metadata = serde_json::json!({
         "new_email": req.inner.email,
     }).into();
-    event.severity = Some(AuditSeverity::Warning);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     // TODO: UPDATE users SET email = $1, email_verified = false WHERE id = $2
     // TODO: Send confirmation email to new address

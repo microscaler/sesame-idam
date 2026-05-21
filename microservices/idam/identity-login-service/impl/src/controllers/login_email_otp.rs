@@ -16,7 +16,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: Send OTP via SES/SendGrid email
     // TODO: Log login_failure audit event if user doesn't exist
 
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::new_with_params(
         AuditEventType::Authentication,
         "email_otp_sent",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -24,8 +24,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
     );
     event.metadata = serde_json::json!({ "email": req.inner.email }).into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     Response { success: Some(true), message: Some("Verification code sent to your email".to_string()) }
 }

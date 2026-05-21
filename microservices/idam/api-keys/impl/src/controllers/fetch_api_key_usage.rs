@@ -9,7 +9,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::new_with_params(
         AuditEventType::ApiKey,
         "api_key_usage_accessed",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -19,8 +19,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     event.user_id = req.inner.user_id.parse::<Uuid>().ok();
     event.metadata =
         serde_json::json!({ "api_key_id": req.inner.api_key_id }).into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     Response {
         success: req.inner.success.unwrap_or(false),

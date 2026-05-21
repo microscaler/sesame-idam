@@ -254,7 +254,14 @@ impl Middleware for JwtAuthMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sesame_common::{SesameAuthzClaims, SesameAuthzClaimsBuilder};
+    use sesame_common::{SesameAuthzClaims, AccessClaims};
+    use crate::route_policy::RoutePolicy;
+
+
+    fn create_handler_response_sender() -> std::sync::mpsc::Sender<brrtrouter::dispatcher::HandlerResponse> {
+        let (tx, _rx) = std::sync::mpsc::channel::<brrtrouter::dispatcher::HandlerResponse>();
+        tx
+    }
 
     fn make_test_route_policies() -> Arc<RoutePolicyStore> {
         // Create policies for testing
@@ -306,7 +313,7 @@ mod tests {
             .sub("user-1")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read")
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -316,14 +323,12 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(SesameAuthzClaims::builder()
-                .tenant("tenant-a")
-                .portal("test-app")
-                .roles(vec!["admin".into(), "user".into()])
-                .permissions(vec!["users:read".into(), "prefs:write".into()])
-                .risk("normal".into())
-                .build()
-                .unwrap())
+            .sx(SesameAuthzClaims::new(
+                "tenant-a".into(),
+                "test-app".into(),
+                vec!["admin".into(), "user".into()],
+                vec!["users:read".into(), "prefs:write".into()],
+            ))
             .build()
             .unwrap()
     }
@@ -354,7 +359,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_handler_response_sender(),
             queue_guard: None,
         }
     }
@@ -375,7 +380,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_handler_response_sender(),
             queue_guard: None,
         }
     }
@@ -501,7 +506,7 @@ mod tests {
         let result = middleware.validate_and_authorize(&req).await;
         assert!(matches!(
             result,
-            Err(AuthError::JwtExpired { exp } if exp == 0)
+            Err(AuthError::JwtExpired { exp: e }) if e == 0
         ));
     }
 
@@ -526,7 +531,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_handler_response_sender(),
             queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;
@@ -554,7 +559,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_handler_response_sender(),
             queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;
@@ -584,7 +589,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            reply_tx: create_handler_response_sender(),
             queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;

@@ -7,7 +7,7 @@
 /// The service is already modularized with:
 /// - `key_manager` — JWT signing key generation, rotation, and storage
 /// - `controllers` — endpoint handlers (JWKS, admin revoke)
-/// - `middleware` — custom middleware (JWKS headers)
+/// - `middleware` — custom middleware (JWKS headers, rate limiting)
 /// - `audit` — global audit event emitter
 use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 use sesame_idam_identity_session_service_gen::registry;
@@ -107,6 +107,18 @@ fn main() -> io::Result<()> {
     let metrics = std::sync::Arc::new(MetricsMiddleware::new());
     dispatcher.add_middleware(metrics.clone());
 
+    // Load rate limit config from the same YAML file.
+    // Parse into a generic serde_yaml::Value so we can extract sub-sections
+    // (like `rate_limit`) that aren't part of AppConfig.
+    let rate_limit_section = parse_rate_limit_config(&args.config);
+
+    // Rate limit middleware: applies before all other middleware so rate
+    // limited requests never hit the handler or other middleware chains.
+    let rate_limiter = std::sync::Arc::new(middleware::rate_limit::RateLimitMiddleware::new(
+        rate_limit_section.as_ref(),
+    ));
+    dispatcher.add_middleware(rate_limiter);
+
     // JWKS headers middleware: injects Cache-Control, X-Content-Type-Options, Vary headers
     // on the /.well-known/jwks.json endpoint
     let jwks_headers = std::sync::Arc::new(middleware::jwks_headers::JwksHeadersMiddleware);
@@ -200,4 +212,28 @@ fn main() -> io::Result<()> {
         .map_err(|e| io::Error::other(format!("Server error: {e:?}")))?;
 
     Ok(())
+}
+
+/// Load rate limit configuration from the config YAML file.
+///
+/// Parses the file into a generic `serde_yaml::Value`, then extracts the
+/// `rate_limit` sub-section. Returns `None` if the section is absent.
+fn parse_rate_limit_config(
+    config_path: &PathBuf,
+) -> Option<middleware::rate_limit::RateLimitSection> {
+    match std::fs::read_to_string(config_path) {
+        Ok(s) => {
+            let yaml_value: serde_yaml::Value = serde_yaml::from_str(&s).ok()?;
+            middleware::rate_limit::load_rate_limit_config(&yaml_value)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => {
+            eprintln!(
+                "[rate_limit][error] failed to read {}: {}",
+                config_path.display(),
+                e
+            );
+            None
+        }
+    }
 }

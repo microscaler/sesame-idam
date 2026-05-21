@@ -9,7 +9,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
     use uuid::Uuid;
 
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::new_with_params(
         AuditEventType::ApiKey,
         "api_key_validated",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -23,8 +23,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         Some(AuditSeverity::Info)
     } else {
         Some(AuditSeverity::Warning)
-    };
-    EMITTER.emit(&mut event);
+    });
+    EMITTER.emit(event);
 
     Response {
         valid: req.inner.valid.unwrap_or(false),

@@ -493,14 +493,27 @@ mod tests {
         let prev = std::env::var("JWT_ACCESS_TTL_NORMAL").ok();
 
         std::env::set_var("JWT_ACCESS_TTL_NORMAL", "600");
-        let config = TtlConfig::from_env_and_config(Some(300), Some(300), Some(300), Some(300), Some(30), Some(7));
+        let config = TtlConfig::from_env_and_config(
+            Some(300),
+            Some(300),
+            Some(300),
+            Some(300),
+            Some(30),
+            Some(7),
+        );
         // Env var takes priority over config.yaml value
         assert_eq!(config.normal_secs, 600, "Env var should override config");
 
         // Config falls back to default when no env var set
         std::env::remove_var("JWT_ACCESS_TTL_NORMAL");
-        let config2 =
-            TtlConfig::from_env_and_config(Some(600), Some(300), Some(300), Some(300), Some(30), Some(7));
+        let config2 = TtlConfig::from_env_and_config(
+            Some(600),
+            Some(300),
+            Some(300),
+            Some(300),
+            Some(30),
+            Some(7),
+        );
         assert_eq!(
             config2.normal_secs, 600,
             "Config value should be used when no env var"

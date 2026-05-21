@@ -14,7 +14,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // TODO: If user doesn't exist, still return success (prevent email enumeration)
     // TODO: Send email with password reset link containing token
 
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::new_with_params(
         AuditEventType::UserManagement,
         "password_reset_requested",
         req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
@@ -22,8 +22,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
     );
     event.user_id = req.inner.user_id.parse::<Uuid>().ok();
-    event.severity = Some(AuditSeverity::Warning);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     Response { success: true, message: Some("Password reset instructions sent to your email".to_string()) }
 }

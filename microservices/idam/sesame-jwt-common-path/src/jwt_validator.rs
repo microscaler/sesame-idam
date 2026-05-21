@@ -240,27 +240,29 @@ mod tests {
     // ─── Bearer Token Extraction Tests ──────────────────────────────────
 
     fn create_request(auth: &str) -> HandlerRequest {
-        let mut headers = std::collections::HashMap::new();
-        if auth.is_empty() {
-            HandlerRequest {
-                method: "GET".to_string(),
-                path: "/test".to_string(),
-                query_params: std::collections::HashMap::new(),
-                headers,
-                body: None,
-            }
-        } else {
-            headers.insert(
-                "Authorization".to_string(),
-                format!("Bearer {}", auth),
-            );
-            HandlerRequest {
-                method: "GET".to_string(),
-                path: "/test".to_string(),
-                query_params: std::collections::HashMap::new(),
-                headers,
-                body: None,
-            }
+        use brrtrouter::dispatcher::HeaderVec;
+        use brrtrouter::dispatcher::HandlerResponse;
+        use http::Method;
+        use brrtrouter::ids::RequestId;
+        use brrtrouter::router::ParamVec;
+        let (reply_tx, _reply_rx) = mpsc::channel::<HandlerResponse>();
+        let mut headers = HeaderVec::new();
+        if !auth.is_empty() {
+            headers.push((std::sync::Arc::from("Authorization"), format!("Bearer {}", auth)));
+        }
+        HandlerRequest {
+            request_id: RequestId::new(),
+            method: Method::GET,
+            path: "/test".to_string(),
+            handler_name: "test".to_string(),
+            path_params: ParamVec::new(),
+            query_params: ParamVec::new(),
+            headers,
+            cookies: HeaderVec::new(),
+            body: None,
+            jwt_claims: None,
+            reply_tx,
+            queue_guard: None,
         }
     }
 
@@ -367,7 +369,7 @@ mod tests {
             .sub("user-1")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read")
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -377,14 +379,12 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(sesame_common::SesameAuthzClaims::builder()
-                .tenant("tenant-a")
-                .portal("test-app")
-                .roles(vec!["admin".into(), "user".into()])
-                .permissions(vec!["users:read".into(), "prefs:write".into()])
-                .risk("normal".into())
-                .build()
-                .unwrap())
+            .sx(sesame_common::SesameAuthzClaims::new(
+                "tenant-a".into(),
+                "test-app".into(),
+                vec!["admin".into(), "user".into()],
+                vec!["users:read".into(), "prefs:write".into()],
+            ))
             .build()
             .unwrap()
     }

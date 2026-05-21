@@ -8,15 +8,14 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
     use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
 
-    let mut event = AuditEvent::new(
+    let mut event = AuditEvent::new_with_params(
         AuditEventType::System,
         "openid_configuration_accessed",
         uuid::Uuid::nil(),
         AuditActor::ServiceAccount,
         "127.0.0.1".to_string(),
     );
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    EMITTER.emit(event);
 
     Response {
         authorization_endpoint: None,
