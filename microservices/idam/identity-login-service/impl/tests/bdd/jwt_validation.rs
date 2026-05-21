@@ -163,7 +163,7 @@ fn test_wrong_algorithm_rejected() {
         "exp": now + 3600,
     });
 
-    let jwt = sign_jwt_with_fake_alg(&payload.to_string(), &kid, "HS256");
+    let jwt = sign_jwt_with_fake_alg(&payload.to_string(), &kid, "RS256");
     let req = make_request(
         "health",
         Method::GET,

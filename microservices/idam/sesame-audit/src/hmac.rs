@@ -2,7 +2,6 @@
 ///
 /// Each audit log entry can be signed with an HMAC-SHA256 key so that
 /// downstream consumers can verify the entry has not been tampered with.
-
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 

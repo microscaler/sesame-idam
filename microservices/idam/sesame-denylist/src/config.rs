@@ -2,8 +2,6 @@
 //!
 //! Controls TTL behavior, size limits, and Redis connection.
 
-use std::time::Duration;
-
 /// Configuration for the denylist cache.
 ///
 /// # Default values

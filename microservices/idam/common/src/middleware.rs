@@ -116,7 +116,9 @@ impl fmt::Display for AuthError {
             AuthError::MissingRole { required_role } => {
                 write!(f, "Missing required role: {required_role}")
             }
-            AuthError::MissingPermission { required_permission } => {
+            AuthError::MissingPermission {
+                required_permission,
+            } => {
                 write!(f, "Missing required permission: {required_permission}")
             }
             AuthError::UserTypeMismatch { expected, actual } => {
@@ -294,7 +296,10 @@ impl AuthDecision {
     /// Check if the decision allows the request to proceed.
     #[must_use]
     pub fn is_allowed(&self) -> bool {
-        matches!(self, AuthDecision::Allowed { .. } | AuthDecision::JwtCommonPath { .. })
+        matches!(
+            self,
+            AuthDecision::Allowed { .. } | AuthDecision::JwtCommonPath { .. }
+        )
     }
 
     /// Check if the decision denies the request.
@@ -397,8 +402,7 @@ impl RoutePolicyStore {
                 required_permissions,
                 required_user_type.as_deref(),
             ),
-            RouteAuthCategory::JwtWithFallback { .. }
-            | RouteAuthCategory::OnlineOnly => {
+            RouteAuthCategory::JwtWithFallback { .. } | RouteAuthCategory::OnlineOnly => {
                 Err(AuthError::PolicyEvaluationError(
                     "evaluate_jwt_only called for non-jwt-only route".into(),
                 ))
@@ -562,11 +566,8 @@ impl JwtAuthMiddleware {
 
         // 3. Evaluate based on category.
         match &policy.category {
-            RouteAuthCategory::JwtOnly { .. } => {
-                self.policies.evaluate_jwt_only(claims, policy)
-            }
-            RouteAuthCategory::JwtWithFallback { .. }
-            | RouteAuthCategory::OnlineOnly => {
+            RouteAuthCategory::JwtOnly { .. } => self.policies.evaluate_jwt_only(claims, policy),
+            RouteAuthCategory::JwtWithFallback { .. } | RouteAuthCategory::OnlineOnly => {
                 // JWT is validated, pass claims to handler.
                 Ok(AuthDecision::JwtCommonPath {
                     claims: claims.clone(),
@@ -652,12 +653,10 @@ impl brrtrouter::middleware::Middleware for BrrtJwtMiddleware {
 
         // 4. Evaluate policy.
         let method_str = req.method.as_str();
-        let decision = match self.inner.evaluate(
-            &req.path,
-            method_str,
-            tenant_header,
-            &claims,
-        ) {
+        let decision = match self
+            .inner
+            .evaluate(&req.path, method_str, tenant_header, &claims)
+        {
             Ok(d) => d,
             Err(e) => {
                 return Some(brrtrouter::dispatcher::HandlerResponse::error(
@@ -669,8 +668,7 @@ impl brrtrouter::middleware::Middleware for BrrtJwtMiddleware {
 
         // 5. Handle decision.
         match decision {
-            AuthDecision::Allowed { .. }
-            | AuthDecision::JwtCommonPath { .. } => None, // Continue to handler.
+            AuthDecision::Allowed { .. } | AuthDecision::JwtCommonPath { .. } => None, // Continue to handler.
             AuthDecision::Denied { reason, error } => {
                 Some(brrtrouter::dispatcher::HandlerResponse::error(
                     error.status_code(),
@@ -697,8 +695,8 @@ impl brrtrouter::middleware::Middleware for BrrtJwtMiddleware {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::jwt::{AccessClaimsBuilder, SesameAuthzClaimsBuilder};
+    use super::*;
 
     fn make_valid_claims() -> AccessClaims {
         let sx = SesameAuthzClaimsBuilder::new()
@@ -808,10 +806,14 @@ mod tests {
         let mut store = RoutePolicyStore::new();
         store.register_batch(vec![
             ("/a".into(), "GET".into(), RouteAuthCategory::OnlineOnly),
-            ("/b".into(), "POST".into(), RouteAuthCategory::JwtWithFallback {
-                common_roles: vec![],
-                common_permissions: vec![],
-            }),
+            (
+                "/b".into(),
+                "POST".into(),
+                RouteAuthCategory::JwtWithFallback {
+                    common_roles: vec![],
+                    common_permissions: vec![],
+                },
+            ),
         ]);
         assert_eq!(store.len(), 2);
         assert!(store.has_policy("/a", "GET"));
@@ -841,7 +843,9 @@ mod tests {
     fn test_jwt_only_user_type_match() {
         let claims = make_valid_claims();
         let store = make_policy_store();
-        let policy = store.get_policy("/api/v1/identity/users/me", "GET").unwrap();
+        let policy = store
+            .get_policy("/api/v1/identity/users/me", "GET")
+            .unwrap();
         let result = store.evaluate_jwt_only(&claims, policy);
         assert!(matches!(result, Ok(AuthDecision::Allowed { .. })));
     }
@@ -883,11 +887,16 @@ mod tests {
             .unwrap();
 
         let store = make_policy_store();
-        let policy = store.get_policy("/api/v1/identity/users/me", "GET").unwrap();
+        let policy = store
+            .get_policy("/api/v1/identity/users/me", "GET")
+            .unwrap();
         let result = store.evaluate_jwt_only(&claims, policy);
         assert!(matches!(
             result,
-            Ok(AuthDecision::Denied { error: AuthError::UserTypeMismatch { .. }, .. })
+            Ok(AuthDecision::Denied {
+                error: AuthError::UserTypeMismatch { .. },
+                ..
+            })
         ));
     }
 
@@ -900,7 +909,10 @@ mod tests {
         // dispatcher role present, but shipments:write permission missing
         assert!(matches!(
             result,
-            Ok(AuthDecision::Denied { error: AuthError::MissingPermission { .. }, .. })
+            Ok(AuthDecision::Denied {
+                error: AuthError::MissingPermission { .. },
+                ..
+            })
         ));
     }
 
@@ -944,7 +956,10 @@ mod tests {
         let result = store.evaluate_jwt_only(&claims, policy);
         assert!(matches!(
             result,
-            Ok(AuthDecision::Denied { error: AuthError::MissingRole { .. }, .. })
+            Ok(AuthDecision::Denied {
+                error: AuthError::MissingRole { .. },
+                ..
+            })
         ));
     }
 
@@ -988,41 +1003,50 @@ mod tests {
 
     #[test]
     fn test_auth_error_status_codes() {
-        assert_eq!(
-            AuthError::MissingToken.status_code(),
-            401
-        );
+        assert_eq!(AuthError::MissingToken.status_code(), 401);
         assert_eq!(
             AuthError::TenantMismatch {
                 expected: "a".into(),
                 actual: "b".into(),
-            }.status_code(),
+            }
+            .status_code(),
             403
         );
         assert_eq!(
-            AuthError::MissingRole { required_role: "x".into() }.status_code(),
+            AuthError::MissingRole {
+                required_role: "x".into()
+            }
+            .status_code(),
             403
         );
         assert_eq!(
-            AuthError::MissingPermission { required_permission: "x".into() }.status_code(),
+            AuthError::MissingPermission {
+                required_permission: "x".into()
+            }
+            .status_code(),
             403
         );
         assert_eq!(
-            AuthError::UserTypeMismatch { expected: "a".into(), actual: "b".into() }.status_code(),
+            AuthError::UserTypeMismatch {
+                expected: "a".into(),
+                actual: "b".into()
+            }
+            .status_code(),
             403
         );
         assert_eq!(
-            AuthError::RiskLevelTooHigh { required: "a".into(), actual: "b".into() }.status_code(),
+            AuthError::RiskLevelTooHigh {
+                required: "a".into(),
+                actual: "b".into()
+            }
+            .status_code(),
             403
         );
         assert_eq!(
             AuthError::JwksValidationFailed("test".into()).status_code(),
             401
         );
-        assert_eq!(
-            AuthError::PolicyNotFound.status_code(),
-            403
-        );
+        assert_eq!(AuthError::PolicyNotFound.status_code(), 403);
     }
 
     #[test]
@@ -1031,17 +1055,36 @@ mod tests {
         assert_eq!(AuthError::InvalidTokenFormat.reason(), "invalid_format");
         assert_eq!(AuthError::PolicyNotFound.reason(), "policy_not_found");
         assert_eq!(
-            AuthError::TenantMismatch { expected: "a".into(), actual: "b".into() }.reason(),
+            AuthError::TenantMismatch {
+                expected: "a".into(),
+                actual: "b".into()
+            }
+            .reason(),
             "tenant_mismatch"
         );
         assert_eq!(AuthError::MissingTenantId.reason(), "missing_tenant_id");
-        assert_eq!(AuthError::MissingRole { required_role: "x".into() }.reason(), "missing_role");
         assert_eq!(
-            AuthError::MissingPermission { required_permission: "x".into() }.reason(),
+            AuthError::MissingRole {
+                required_role: "x".into()
+            }
+            .reason(),
+            "missing_role"
+        );
+        assert_eq!(
+            AuthError::MissingPermission {
+                required_permission: "x".into()
+            }
+            .reason(),
             "missing_permission"
         );
-        assert_eq!(AuthError::PolicyEvaluationError("test".into()).reason(), "policy_error");
-        assert_eq!(AuthError::JwksValidationFailed("test".into()).reason(), "jwks_error");
+        assert_eq!(
+            AuthError::PolicyEvaluationError("test".into()).reason(),
+            "policy_error"
+        );
+        assert_eq!(
+            AuthError::JwksValidationFailed("test".into()).reason(),
+            "jwks_error"
+        );
     }
 
     // --- Policy not found for jwt-only ---
@@ -1105,12 +1148,7 @@ mod tests {
         let store = Arc::new(make_policy_store());
         let middleware = JwtAuthMiddleware::new(store.clone(), None);
         let claims = make_valid_claims();
-        let result = middleware.evaluate(
-            "/api/v1/health",
-            "GET",
-            Some("tenant-abc"),
-            &claims,
-        );
+        let result = middleware.evaluate("/api/v1/health", "GET", Some("tenant-abc"), &claims);
         assert!(matches!(result, Ok(AuthDecision::JwtCommonPath { .. })));
     }
 
@@ -1121,12 +1159,7 @@ mod tests {
         let claims = make_valid_claims();
         // No tenant header — tenant validation should still work because
         // we only validate if tenant_header is Some
-        let result = middleware.evaluate(
-            "/api/v1/identity/users/me",
-            "GET",
-            None,
-            &claims,
-        );
+        let result = middleware.evaluate("/api/v1/identity/users/me", "GET", None, &claims);
         // Should succeed since no tenant check is performed when header is missing
         assert!(matches!(result, Ok(AuthDecision::Allowed { .. })));
     }
@@ -1146,12 +1179,7 @@ mod tests {
         ));
         let middleware = JwtAuthMiddleware::new(Arc::new(store), None);
         let claims = make_valid_claims();
-        let result = middleware.evaluate(
-            "/api/v1/fallback",
-            "POST",
-            Some("tenant-abc"),
-            &claims,
-        );
+        let result = middleware.evaluate("/api/v1/fallback", "POST", Some("tenant-abc"), &claims);
         assert!(matches!(result, Ok(AuthDecision::JwtCommonPath { .. })));
     }
 
@@ -1160,11 +1188,24 @@ mod tests {
     #[test]
     fn test_all_error_reasons_are_distinct() {
         let e1 = AuthError::JwtValidationError("x".into());
-        let e2 = AuthError::TenantMismatch { expected: "x".into(), actual: "x".into() };
-        let e3 = AuthError::MissingRole { required_role: "x".into() };
-        let e4 = AuthError::MissingPermission { required_permission: "x".into() };
-        let e5 = AuthError::UserTypeMismatch { expected: "x".into(), actual: "x".into() };
-        let e6 = AuthError::RiskLevelTooHigh { required: "x".into(), actual: "x".into() };
+        let e2 = AuthError::TenantMismatch {
+            expected: "x".into(),
+            actual: "x".into(),
+        };
+        let e3 = AuthError::MissingRole {
+            required_role: "x".into(),
+        };
+        let e4 = AuthError::MissingPermission {
+            required_permission: "x".into(),
+        };
+        let e5 = AuthError::UserTypeMismatch {
+            expected: "x".into(),
+            actual: "x".into(),
+        };
+        let e6 = AuthError::RiskLevelTooHigh {
+            required: "x".into(),
+            actual: "x".into(),
+        };
         let e7 = AuthError::PolicyEvaluationError("x".into());
         let e8 = AuthError::JwksValidationFailed("x".into());
 

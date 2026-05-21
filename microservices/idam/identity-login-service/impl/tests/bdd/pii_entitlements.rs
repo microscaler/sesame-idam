@@ -19,7 +19,7 @@ fn scenario_login_token_has_no_pii() {
     let user_email = "alice@corp.com".to_string();
     let user_phone = "+141****1234".to_string();
     let user_name = "Alice Corp".to_string();
-    
+
     // When — build a token like the login controller would
     let claims = AccessClaimsBuilder::new()
         .iss("https://sesame-idam.example.com")
@@ -44,24 +44,42 @@ fn scenario_login_token_has_no_pii() {
         ))
         .build()
         .expect("valid claims");
-    
+
     // Then — PII is absent from serialized JSON
     let json = claims.to_compact_json();
-    
+
     // Assert no PII fields (use string literals, not char literals)
     assert!(!json.contains(r#""email""#), "email should not be in JWT");
-    assert!(!json.contains(r#""email_verified""#), "email_verified absent");
+    assert!(
+        !json.contains(r#""email_verified""#),
+        "email_verified absent"
+    );
     assert!(!json.contains(r#""phone_number""#), "phone_number absent");
-    assert!(!json.contains(r#""phone_verified""#), "phone_verified absent");
+    assert!(
+        !json.contains(r#""phone_verified""#),
+        "phone_verified absent"
+    );
     assert!(!json.contains(r#""first_name""#), "first_name absent");
     assert!(!json.contains(r#""last_name""#), "last_name absent");
     assert!(!json.contains(r#""name""#), "name absent");
-    assert!(!json.contains(r#""preferred_username""#), "preferred_username absent");
-    
+    assert!(
+        !json.contains(r#""preferred_username""#),
+        "preferred_username absent"
+    );
+
     // Also assert the actual PII values are not present
-    assert!(!json.contains(&user_email), "actual email value should not be in JWT");
-    assert!(!json.contains(&user_phone), "actual phone value should not be in JWT");
-    assert!(!json.contains(&user_name), "actual name value should not be in JWT");
+    assert!(
+        !json.contains(&user_email),
+        "actual email value should not be in JWT"
+    );
+    assert!(
+        !json.contains(&user_phone),
+        "actual phone value should not be in JWT"
+    );
+    assert!(
+        !json.contains(&user_name),
+        "actual name value should not be in JWT"
+    );
 }
 
 /// Scenario: Entitlements ref is used in consumer flow
@@ -94,20 +112,23 @@ fn scenario_entitlements_ref_consumer_flow() {
         ))
         .build()
         .expect("valid claims");
-    
+
     // Extract the entitlements_ref — this is what a consumer would do
     let ref_opt = claims.sx.entitlements_ref.as_ref().map(|s| s.as_str());
-    
+
     // Then — the ref should exist and be a valid format
     assert!(ref_opt.is_some(), "entitlements_ref should be present");
     let ref_val = ref_opt.unwrap();
     assert!(ref_val.starts_with("ent_"), "ref should start with 'ent_'");
-    
+
     // Consumer would use this as a Redis cache key: entitlements:{tenant}:{ref}
     let cache_key = format!("entitlements:{}:{}", claims.tenant_id, ref_val);
-    assert!(cache_key.contains("tenant-2"), "cache key should include tenant");
+    assert!(
+        cache_key.contains("tenant-2"),
+        "cache key should include tenant"
+    );
     assert!(cache_key.contains(ref_val), "cache key should include ref");
-    
+
     // Consumer should check cache first, only call authz on miss
     // We verify the ref format is valid for this flow
     assert!(!cache_key.is_empty(), "cache key should be non-empty");
@@ -128,21 +149,25 @@ fn scenario_hash_verification_on_consumer_side() {
         tenant: "tenant-2".to_string(),
         hash: String::new(), // will be computed
     };
-    
+
     let computed_hash = compute_entitlements_hash(&snapshot);
     snapshot.hash = computed_hash.clone();
-    
+
     // Verify the hash
-    assert!(verify_entitlements_hash(&snapshot, &computed_hash).is_ok(),
-        "valid snapshot should pass hash verification");
-    
+    assert!(
+        verify_entitlements_hash(&snapshot, &computed_hash).is_ok(),
+        "valid snapshot should pass hash verification"
+    );
+
     // When — an attacker tampers with the snapshot
     let mut tampered = snapshot.clone();
     tampered.permissions.push("admin:all".to_string());
-    
+
     // Then — hash verification should fail
-    assert!(verify_entitlements_hash(&tampered, &computed_hash).is_err(),
-        "tampered snapshot should fail hash verification");
+    assert!(
+        verify_entitlements_hash(&tampered, &computed_hash).is_err(),
+        "tampered snapshot should fail hash verification"
+    );
 }
 
 /// Scenario: No PII in token even with special characters
@@ -156,7 +181,7 @@ fn scenario_no_pii_with_special_characters() {
     let apostrophe_name = "O'Brien".to_string();
     let emoji_name = "José García".to_string();
     let phone_with_plus = "+1 (415) 555-0123".to_string();
-    
+
     // When — build claims (note: PII is not set, but we verify the actual
     // PII values don't appear even if they were somehow in related fields)
     let claims = AccessClaimsBuilder::new()
@@ -182,20 +207,32 @@ fn scenario_no_pii_with_special_characters() {
         ))
         .build()
         .expect("valid claims");
-    
+
     let json = claims.to_compact_json();
-    
+
     // Then — none of the special PII values appear
-    assert!(!json.contains(&unicode_email), "unicode email should not be in JWT");
-    assert!(!json.contains(&apostrophe_name), "apostrophe name should not be in JWT");
-    assert!(!json.contains(&emoji_name), "accented name should not be in JWT");
-    assert!(!json.contains(&phone_with_plus), "phone with special chars should not be in JWT");
+    assert!(
+        !json.contains(&unicode_email),
+        "unicode email should not be in JWT"
+    );
+    assert!(
+        !json.contains(&apostrophe_name),
+        "apostrophe name should not be in JWT"
+    );
+    assert!(
+        !json.contains(&emoji_name),
+        "accented name should not be in JWT"
+    );
+    assert!(
+        !json.contains(&phone_with_plus),
+        "phone with special chars should not be in JWT"
+    );
 }
 
 #[cfg(test)]
 mod bdd_tests {
     use super::*;
-    
+
     #[test]
     fn test_all_scenarios_run() {
         // Verify all 4 BDD scenario functions are callable

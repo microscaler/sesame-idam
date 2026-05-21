@@ -3,6 +3,7 @@
 /// issued access tokens.
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
+use sesame_audit::AuditEventType;
 use sesame_idam_identity_session_service_gen::handlers::admin_issue_token::{Request, Response};
 
 #[handler(AdminIssueTokenController)]
@@ -16,22 +17,21 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let _guard = span.enter();
 
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
 
     let tenant_id = req.data.x_tenant_id.clone();
     let user_id = req.data.user_id.clone();
 
-    let mut event = AuditEvent::new(
-        AuditEventType::SessionManagement,
-        "token_issued",
-        tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.user_id = user_id.parse::<Uuid>().ok();
-    event.severity = Some(AuditSeverity::Warning);
-    EMITTER.emit(&mut event);
+    let entry =
+        sesame_audit::AuditLogEntry::new(AuditEventType::JwtIssued, "identity-session-service")
+            .user_id(user_id.clone())
+            .tenant_id(tenant_id.clone())
+            .decision_source("admin_issue_token")
+            .result("allowed")
+            .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     span.record("tenant_id", &tenant_id);
     span.record("user_id", &user_id);

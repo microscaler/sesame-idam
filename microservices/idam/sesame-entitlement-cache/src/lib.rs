@@ -32,9 +32,7 @@
 
 pub mod snapshot;
 
-pub use snapshot::{
-    CacheLookupResult, EntitlementComplexity, EntitlementSnapshot, Permission,
-};
+pub use snapshot::{CacheLookupResult, EntitlementComplexity, EntitlementSnapshot, Permission};
 
 use prometheus::{IntCounter, IntGauge, Registry};
 use std::collections::HashMap;
@@ -151,28 +149,36 @@ impl EntitlementSnapshotCache {
             "Total evicted entries from entitlement cache",
         )
         .unwrap();
-        registry.register(Box::new(evictions_counter.clone())).unwrap();
+        registry
+            .register(Box::new(evictions_counter.clone()))
+            .unwrap();
 
         let cache_size_gauge = IntGauge::new(
             "entitlement_cache_size",
             "Current number of entries in the entitlement cache",
         )
         .unwrap();
-        registry.register(Box::new(cache_size_gauge.clone())).unwrap();
+        registry
+            .register(Box::new(cache_size_gauge.clone()))
+            .unwrap();
 
         let cache_memory_gauge = IntGauge::new(
             "entitlement_cache_memory_bytes",
             "Total memory usage of cached ACL snapshots in bytes",
         )
         .unwrap();
-        registry.register(Box::new(cache_memory_gauge.clone())).unwrap();
+        registry
+            .register(Box::new(cache_memory_gauge.clone()))
+            .unwrap();
 
         let acls_too_large_counter = IntCounter::new(
             "entitlement_cache_acls_too_large_total",
             "ACL snapshots rejected for exceeding size limit",
         )
         .unwrap();
-        registry.register(Box::new(acls_too_large_counter.clone())).unwrap();
+        registry
+            .register(Box::new(acls_too_large_counter.clone()))
+            .unwrap();
 
         Self {
             state: RwLock::new(CacheState {
@@ -398,7 +404,7 @@ fn truncate_ref(ref_id: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use snapshot::{Permission, EntitlementComplexity};
+    use snapshot::{EntitlementComplexity, Permission};
 
     fn make_snapshot(user_id: &str, perms: Vec<Permission>) -> EntitlementSnapshot {
         EntitlementSnapshot::new(user_id, "org_test", perms, EntitlementComplexity::Static)
@@ -489,7 +495,9 @@ mod tests {
 
         // First call — cache miss
         let result = cache
-            .get_or_insert("ent_1", || async { Ok::<EntitlementSnapshot, String>(snap.clone()) })
+            .get_or_insert("ent_1", || async {
+                Ok::<EntitlementSnapshot, String>(snap.clone())
+            })
             .await;
         assert!(result.is_ok());
         let first = result.unwrap();
@@ -500,16 +508,13 @@ mod tests {
         let fetch_called = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let fetch_called_clone = fetch_called.clone();
         let result = cache
-            .get_or_insert(
-                "ent_1",
-                || {
-                    let called = fetch_called_clone.clone();
-                    async move {
-                        called.store(true, Ordering::Relaxed);
-                        Err("should not be called".to_string())
-                    }
-                },
-            )
+            .get_or_insert("ent_1", || {
+                let called = fetch_called_clone.clone();
+                async move {
+                    called.store(true, Ordering::Relaxed);
+                    Err("should not be called".to_string())
+                }
+            })
             .await;
         assert!(result.is_ok());
         assert!(
@@ -525,19 +530,16 @@ mod tests {
         let fetch_called_clone = fetch_called.clone();
 
         let result = cache
-            .get_or_insert(
-                "ent_2",
-                || {
-                    let called = fetch_called_clone.clone();
-                    async move {
-                        called.store(true, Ordering::Relaxed);
-                        Ok(make_snapshot(
-                            "u2",
-                            vec![Permission::new("read", "reports")],
-                        ))
-                    }
-                },
-            )
+            .get_or_insert("ent_2", || {
+                let called = fetch_called_clone.clone();
+                async move {
+                    called.store(true, Ordering::Relaxed);
+                    Ok(make_snapshot(
+                        "u2",
+                        vec![Permission::new("read", "reports")],
+                    ))
+                }
+            })
             .await;
 
         assert!(result.is_ok());
@@ -554,9 +556,7 @@ mod tests {
         let cache = EntitlementSnapshotCache::new(CacheConfig::default());
 
         let result = cache
-            .get_or_insert("ent_3", || async {
-                Err("fetch failed".to_string())
-            })
+            .get_or_insert("ent_3", || async { Err("fetch failed".to_string()) })
             .await;
 
         assert!(result.is_err());
@@ -582,28 +582,19 @@ mod tests {
         let cache = EntitlementSnapshotCache::new(config);
 
         let perms = vec![
-            Permission::new(
-                "read",
-                "very_long_resource_name_for_testing_purposes_aaa",
-            ),
-            Permission::new(
-                "write",
-                "another_very_long_resource_name_for_testing_bbb",
-            ),
+            Permission::new("read", "very_long_resource_name_for_testing_purposes_aaa"),
+            Permission::new("write", "another_very_long_resource_name_for_testing_bbb"),
             Permission::new(
                 "delete",
                 "yet_another_very_long_resource_name_for_testing_ccc",
             ),
         ];
-        let snap = EntitlementSnapshot::new(
-            "u1",
-            "org_test",
-            perms,
-            EntitlementComplexity::Static,
-        );
+        let snap = EntitlementSnapshot::new("u1", "org_test", perms, EntitlementComplexity::Static);
 
         let result = cache
-            .get_or_insert("ent_large", || async { Ok::<EntitlementSnapshot, String>(snap) })
+            .get_or_insert("ent_large", || async {
+                Ok::<EntitlementSnapshot, String>(snap)
+            })
             .await;
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -632,15 +623,9 @@ mod tests {
 
         // Fill cache to capacity
         for i in 0..3 {
-            let snap = make_snapshot(
-                &format!("u{}", i),
-                vec![Permission::new("read", "docs")],
-            );
+            let snap = make_snapshot(&format!("u{}", i), vec![Permission::new("read", "docs")]);
             cache
-                .get_or_insert(
-                    &format!("ent_{}", i),
-                    || async move { Ok(snap) },
-                )
+                .get_or_insert(&format!("ent_{}", i), || async move { Ok(snap) })
                 .await
                 .unwrap();
         }
@@ -648,12 +633,11 @@ mod tests {
         assert_eq!(cache.len().await, 3);
 
         // Adding a 4th should evict the least recently used (ent_0)
-        let snap4 = make_snapshot(
-            "u4",
-            vec![Permission::new("read", "docs")],
-        );
+        let snap4 = make_snapshot("u4", vec![Permission::new("read", "docs")]);
         cache
-            .get_or_insert("ent_4", || async { Ok::<EntitlementSnapshot, String>(snap4) })
+            .get_or_insert("ent_4", || async {
+                Ok::<EntitlementSnapshot, String>(snap4)
+            })
             .await
             .unwrap();
 
@@ -661,19 +645,17 @@ mod tests {
 
         // ent_0 should be evicted
         let result = cache
-            .get_or_insert(
-                "ent_0",
-                || async { Err("should have been evicted".to_string()) },
-            )
+            .get_or_insert("ent_0", || async {
+                Err("should have been evicted".to_string())
+            })
             .await;
         assert!(result.is_err());
 
         // ent_1 should still be cached
         let result = cache
-            .get_or_insert(
-                "ent_1",
-                || async { Err("should still be cached".to_string()) },
-            )
+            .get_or_insert("ent_1", || async {
+                Err("should still be cached".to_string())
+            })
             .await;
         assert!(result.is_ok());
     }
@@ -686,12 +668,11 @@ mod tests {
     async fn test_invalidate_removes_entry() {
         let cache = EntitlementSnapshotCache::new(CacheConfig::default());
 
-        let snap = make_snapshot(
-            "u1",
-            vec![Permission::new("read", "docs")],
-        );
+        let snap = make_snapshot("u1", vec![Permission::new("read", "docs")]);
         cache
-            .get_or_insert("ent_inv", || async { Ok::<EntitlementSnapshot, String>(snap) })
+            .get_or_insert("ent_inv", || async {
+                Ok::<EntitlementSnapshot, String>(snap)
+            })
             .await
             .unwrap();
         assert_eq!(cache.len().await, 1);
@@ -712,15 +693,9 @@ mod tests {
         let cache = EntitlementSnapshotCache::new(CacheConfig::default());
 
         for i in 0..5 {
-            let snap = make_snapshot(
-                &format!("u{}", i),
-                vec![Permission::new("read", "docs")],
-            );
+            let snap = make_snapshot(&format!("u{}", i), vec![Permission::new("read", "docs")]);
             cache
-                .get_or_insert(
-                    &format!("ent_{}", i),
-                    || async move { Ok(snap) },
-                )
+                .get_or_insert(&format!("ent_{}", i), || async move { Ok(snap) })
                 .await
                 .unwrap();
         }
@@ -737,15 +712,12 @@ mod tests {
     #[tokio::test]
     async fn test_empty_permissions_snapshot() {
         let cache = EntitlementSnapshotCache::new(CacheConfig::default());
-        let snap = EntitlementSnapshot::new(
-            "u1",
-            "o1",
-            vec![],
-            EntitlementComplexity::Static,
-        );
+        let snap = EntitlementSnapshot::new("u1", "o1", vec![], EntitlementComplexity::Static);
 
         let result = cache
-            .get_or_insert("ent_empty", || async { Ok::<EntitlementSnapshot, String>(snap) })
+            .get_or_insert("ent_empty", || async {
+                Ok::<EntitlementSnapshot, String>(snap)
+            })
             .await;
         assert!(result.is_ok());
         assert!(result.unwrap().permissions.is_empty());
@@ -757,12 +729,11 @@ mod tests {
         assert!(cache.is_empty().await);
         assert_eq!(cache.len().await, 0);
 
-        let snap = make_snapshot(
-            "u1",
-            vec![Permission::new("read", "docs")],
-        );
+        let snap = make_snapshot("u1", vec![Permission::new("read", "docs")]);
         cache
-            .get_or_insert("ent_1", || async { Ok::<EntitlementSnapshot, String>(snap) })
+            .get_or_insert("ent_1", || async {
+                Ok::<EntitlementSnapshot, String>(snap)
+            })
             .await
             .unwrap();
         assert!(!cache.is_empty().await);
@@ -772,13 +743,12 @@ mod tests {
     #[tokio::test]
     async fn test_cache_with_unicode_ref() {
         let cache = EntitlementSnapshotCache::new(CacheConfig::default());
-        let snap = make_snapshot(
-            "u1",
-            vec![Permission::new("读取", "文档")],
-        );
+        let snap = make_snapshot("u1", vec![Permission::new("读取", "文档")]);
 
         let result = cache
-            .get_or_insert("ent_üñíçödé", || async { Ok::<EntitlementSnapshot, String>(snap) })
+            .get_or_insert("ent_üñíçödé", || async {
+                Ok::<EntitlementSnapshot, String>(snap)
+            })
             .await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap().user_id, "u1");
@@ -801,10 +771,7 @@ mod tests {
 
         assert_eq!(deserialized.user_id, snap.user_id);
         assert_eq!(deserialized.org_id, snap.org_id);
-        assert_eq!(
-            deserialized.permissions.len(),
-            snap.permissions.len()
-        );
+        assert_eq!(deserialized.permissions.len(), snap.permissions.len());
         assert_eq!(deserialized.complexity, EntitlementComplexity::RoleOrg);
     }
 
@@ -816,8 +783,7 @@ mod tests {
 
     #[test]
     fn test_truncate_ref_long() {
-        let ref_id =
-            "ent_very_long_reference_id_that_exceeds_forty_characters_for_testing";
+        let ref_id = "ent_very_long_reference_id_that_exceeds_forty_characters_for_testing";
         assert_eq!(truncate_ref(ref_id).len(), 40);
     }
 }

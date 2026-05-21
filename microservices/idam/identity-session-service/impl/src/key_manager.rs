@@ -43,76 +43,79 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// HACK-102: All key lifecycle events must be audit-logged for tamper-evident audit trails.
 pub mod audit_events {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
+    use sesame_audit::AuditEventType;
 
     /// Emit a key generation event.
     pub fn key_generated(kid: &str) {
-        let mut event = AuditEvent::new(
-            AuditEventType::System,
-            "key_generated",
-            uuid::Uuid::default(),
-            AuditActor::System,
-            "internal",
-        );
-        event.target_id = Some(uuid::Uuid::default());
-        event.target_type = Some("jwt_signing_key".to_string());
-        event.metadata = Some(serde_json::json!({ "kid": kid }));
-        event.severity = Some(AuditSeverity::Info);
-        EMITTER.emit(&mut event);
+        let entry = sesame_audit::AuditLogEntry::new(
+            AuditEventType::VersionBump,
+            "identity-session-service",
+        )
+        .metadata(serde_json::json!({ "kid": kid }))
+        .decision_source("key_generation")
+        .result("allowed")
+        .build();
+
+        if let Ok(entry) = entry {
+            EMITTER.emit(entry);
+        }
     }
 
     /// Emit a key rotation event.
     pub fn key_rotated(old_kid: &str, new_kid: &str) {
-        let mut event = AuditEvent::new(
-            AuditEventType::System,
-            "key_rotated",
-            uuid::Uuid::default(),
-            AuditActor::System,
-            "internal",
-        );
-        event.metadata = Some(serde_json::json!({
+        let entry = sesame_audit::AuditLogEntry::new(
+            AuditEventType::VersionBump,
+            "identity-session-service",
+        )
+        .metadata(serde_json::json!({
             "from_kid": old_kid,
             "to_kid": new_kid
-        }));
-        event.severity = Some(AuditSeverity::Info);
-        EMITTER.emit(&mut event);
+        }))
+        .decision_source("key_rotation")
+        .result("allowed")
+        .build();
+
+        if let Ok(entry) = entry {
+            EMITTER.emit(entry);
+        }
     }
 
     /// Emit a key revocation event.
     pub fn key_revoked(kid: &str, reason: &str) {
-        let mut event = AuditEvent::new(
-            AuditEventType::System,
-            "key_revoked",
-            uuid::Uuid::default(),
-            AuditActor::Admin,
-            "internal",
-        );
-        event.target_id = Some(uuid::Uuid::default());
-        event.target_type = Some("jwt_signing_key".to_string());
-        event.metadata = Some(serde_json::json!({
+        let entry = sesame_audit::AuditLogEntry::new(
+            AuditEventType::TokenRevoked,
+            "identity-session-service",
+        )
+        .metadata(serde_json::json!({
             "kid": kid,
             "reason": reason
-        }));
-        event.severity = Some(AuditSeverity::Critical);
-        EMITTER.emit(&mut event);
+        }))
+        .decision_source("key_revocation")
+        .result("revoked")
+        .build();
+
+        if let Ok(entry) = entry {
+            EMITTER.emit(entry);
+        }
     }
 
     /// Emit a grace key cleanup event.
     pub fn grace_key_expired(kid: &str, age_secs: u64) {
-        let mut event = AuditEvent::new(
-            AuditEventType::System,
-            "grace_key_expired",
-            uuid::Uuid::default(),
-            AuditActor::System,
-            "internal",
-        );
-        event.target_type = Some("jwt_signing_key".to_string());
-        event.metadata = Some(serde_json::json!({
+        let entry = sesame_audit::AuditLogEntry::new(
+            AuditEventType::TokenRevoked,
+            "identity-session-service",
+        )
+        .metadata(serde_json::json!({
             "kid": kid,
             "age_secs": age_secs
-        }));
-        event.severity = Some(AuditSeverity::Info);
-        EMITTER.emit(&mut event);
+        }))
+        .decision_source("grace_key_expiration")
+        .result("allowed")
+        .build();
+
+        if let Ok(entry) = entry {
+            EMITTER.emit(entry);
+        }
     }
 }
 

@@ -145,9 +145,7 @@ impl VersionStore {
             .await
             .context("failed to get subject version")?;
 
-        Ok(version
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0))
+        Ok(version.and_then(|v| v.parse().ok()).unwrap_or(0))
     }
 
     /// Get the current version for a tenant. Returns 0 if not found.
@@ -161,9 +159,7 @@ impl VersionStore {
             .await
             .context("failed to get tenant version")?;
 
-        Ok(version
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0))
+        Ok(version.and_then(|v| v.parse().ok()).unwrap_or(0))
     }
 
     /// Issue a new version for a subject (increment + set TTL).
@@ -272,12 +268,10 @@ mod tests {
         let url = test_redis_url();
         let client = Client::open(url.as_str());
         match client {
-            Ok(c) => {
-                match c.get_multiplexed_async_connection().await {
-                    Ok(_) => true,
-                    Err(_) => false,
-                }
-            }
+            Ok(c) => match c.get_multiplexed_async_connection().await {
+                Ok(_) => true,
+                Err(_) => false,
+            },
             Err(_) => false,
         }
     }
@@ -628,7 +622,12 @@ mod tests {
         let mut last_ver = 0u64;
         for i in 1..=20 {
             let ver = store.increment_subject(&user).await.unwrap();
-            assert!(ver > last_ver, "Version {} was not greater than {}", ver, last_ver);
+            assert!(
+                ver > last_ver,
+                "Version {} was not greater than {}",
+                ver,
+                last_ver
+            );
             assert_eq!(ver, i, "Expected {} but got {}", i, ver);
             last_ver = ver;
         }

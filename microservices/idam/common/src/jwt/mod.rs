@@ -201,7 +201,11 @@ impl AccessClaims {
         if !ALLOWED_ISSUERS.iter().any(|i| *i == self.iss.as_str()) {
             return Err(JwtValidationError::InvalidIssuer);
         }
-        if !self.aud.iter().any(|a| EXPECTED_AUDIENCE.iter().any(|e| e == &a.as_str())) {
+        if !self
+            .aud
+            .iter()
+            .any(|a| EXPECTED_AUDIENCE.iter().any(|e| e == &a.as_str()))
+        {
             return Err(JwtValidationError::InvalidAudience);
         }
         if self.ver == 0 {
@@ -353,8 +357,12 @@ impl SesameAuthzClaimsBuilder {
 
     pub fn build(self) -> Result<SesameAuthzClaims, JwtError> {
         Ok(SesameAuthzClaims {
-            tenant: self.tenant.ok_or_else(|| JwtError::MissingRequiredField("tenant".into()))?,
-            portal: self.portal.ok_or_else(|| JwtError::MissingRequiredField("portal".into()))?,
+            tenant: self
+                .tenant
+                .ok_or_else(|| JwtError::MissingRequiredField("tenant".into()))?,
+            portal: self
+                .portal
+                .ok_or_else(|| JwtError::MissingRequiredField("portal".into()))?,
             roles: self.roles.unwrap_or_default(),
             permissions: self.permissions.unwrap_or_default(),
             entitlements_ref: self.entitlements_ref,
@@ -365,7 +373,9 @@ impl SesameAuthzClaimsBuilder {
 }
 
 impl Default for SesameAuthzClaimsBuilder {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Generate a deterministic entitlements reference for the given tuple.
@@ -455,61 +465,166 @@ pub struct AccessClaimsBuilder {
 impl AccessClaimsBuilder {
     pub fn new() -> Self {
         Self {
-            iss: None, sub: None, aud: None, client_id: None, scope: None,
-            exp: None, nbf: None, iat: None, jti: None, ver: None,
-            sid: None, tenant_id: None, user_id: None, user_type: None,
-            sx: None, act: None,
+            iss: None,
+            sub: None,
+            aud: None,
+            client_id: None,
+            scope: None,
+            exp: None,
+            nbf: None,
+            iat: None,
+            jti: None,
+            ver: None,
+            sid: None,
+            tenant_id: None,
+            user_id: None,
+            user_type: None,
+            sx: None,
+            act: None,
         }
     }
 
-    pub fn iss(mut self, iss: impl Into<String>) -> Self { self.iss = Some(iss.into()); self }
-    pub fn sub(mut self, sub: impl Into<String>) -> Self { self.sub = Some(sub.into()); self }
-    pub fn aud(mut self, aud: Vec<String>) -> Self { self.aud = Some(aud); self }
-    pub fn client_id(mut self, client_id: impl Into<String>) -> Self { self.client_id = Some(client_id.into()); self }
-    pub fn scope(mut self, scope: impl Into<String>) -> Self { self.scope = Some(scope.into()); self }
-    pub fn exp(mut self, exp: i64) -> Self { self.exp = Some(exp); self }
-    pub fn nbf(mut self, nbf: i64) -> Self { self.nbf = Some(nbf); self }
-    pub fn iat(mut self, iat: i64) -> Self { self.iat = Some(iat); self }
-    pub fn jti(mut self, jti: impl Into<String>) -> Self { self.jti = Some(jti.into()); self }
-    pub fn ver(mut self, ver: u64) -> Self { self.ver = Some(ver); self }
-    pub fn sid(mut self, sid: impl Into<String>) -> Self { self.sid = Some(sid.into()); self }
-    pub fn tenant_id(mut self, tenant_id: impl Into<String>) -> Self { self.tenant_id = Some(tenant_id.into()); self }
-    pub fn user_id(mut self, user_id: impl Into<String>) -> Self { self.user_id = Some(user_id.into()); self }
-    pub fn user_type(mut self, user_type: impl Into<String>) -> Self { self.user_type = Some(user_type.into()); self }
-    pub fn sx(mut self, sx: SesameAuthzClaims) -> Self { self.sx = Some(sx); self }
-    pub fn act(mut self, act: ActorClaim) -> Self { self.act = Some(act); self }
+    pub fn iss(mut self, iss: impl Into<String>) -> Self {
+        self.iss = Some(iss.into());
+        self
+    }
+    pub fn sub(mut self, sub: impl Into<String>) -> Self {
+        self.sub = Some(sub.into());
+        self
+    }
+    pub fn aud(mut self, aud: Vec<String>) -> Self {
+        self.aud = Some(aud);
+        self
+    }
+    pub fn client_id(mut self, client_id: impl Into<String>) -> Self {
+        self.client_id = Some(client_id.into());
+        self
+    }
+    pub fn scope(mut self, scope: impl Into<String>) -> Self {
+        self.scope = Some(scope.into());
+        self
+    }
+    pub fn exp(mut self, exp: i64) -> Self {
+        self.exp = Some(exp);
+        self
+    }
+    pub fn nbf(mut self, nbf: i64) -> Self {
+        self.nbf = Some(nbf);
+        self
+    }
+    pub fn iat(mut self, iat: i64) -> Self {
+        self.iat = Some(iat);
+        self
+    }
+    pub fn jti(mut self, jti: impl Into<String>) -> Self {
+        self.jti = Some(jti.into());
+        self
+    }
+    pub fn ver(mut self, ver: u64) -> Self {
+        self.ver = Some(ver);
+        self
+    }
+    pub fn sid(mut self, sid: impl Into<String>) -> Self {
+        self.sid = Some(sid.into());
+        self
+    }
+    pub fn tenant_id(mut self, tenant_id: impl Into<String>) -> Self {
+        self.tenant_id = Some(tenant_id.into());
+        self
+    }
+    pub fn user_id(mut self, user_id: impl Into<String>) -> Self {
+        self.user_id = Some(user_id.into());
+        self
+    }
+    pub fn user_type(mut self, user_type: impl Into<String>) -> Self {
+        self.user_type = Some(user_type.into());
+        self
+    }
+    pub fn sx(mut self, sx: SesameAuthzClaims) -> Self {
+        self.sx = Some(sx);
+        self
+    }
+    pub fn act(mut self, act: ActorClaim) -> Self {
+        self.act = Some(act);
+        self
+    }
 
     pub fn build(self) -> Result<AccessClaims, JwtError> {
-        let iss = self.iss.ok_or_else(|| JwtError::MissingRequiredField("iss".into()))?;
-        let sub = self.sub.ok_or_else(|| JwtError::MissingRequiredField("sub".into()))?;
-        let aud = self.aud.ok_or_else(|| JwtError::MissingRequiredField("aud".into()))?;
-        let client_id = self.client_id.ok_or_else(|| JwtError::MissingRequiredField("client_id".into()))?;
-        let scope = self.scope.ok_or_else(|| JwtError::MissingRequiredField("scope".into()))?;
-        let exp = self.exp.ok_or_else(|| JwtError::MissingRequiredField("exp".into()))?;
-        let nbf = self.nbf.ok_or_else(|| JwtError::MissingRequiredField("nbf".into()))?;
-        let iat = self.iat.ok_or_else(|| JwtError::MissingRequiredField("iat".into()))?;
-        let jti = self.jti.ok_or_else(|| JwtError::MissingRequiredField("jti".into()))?;
-        let ver = self.ver.ok_or_else(|| JwtError::MissingRequiredField("ver".into()))?;
-        let sid = self.sid.ok_or_else(|| JwtError::MissingRequiredField("sid".into()))?;
-        let tenant_id = self.tenant_id.ok_or_else(|| JwtError::MissingRequiredField("tenant_id".into()))?;
-        let user_id = self.user_id.ok_or_else(|| JwtError::MissingRequiredField("user_id".into()))?;
-        let user_type = self.user_type.ok_or_else(|| JwtError::MissingRequiredField("user_type".into()))?;
-        let sx = self.sx.ok_or_else(|| JwtError::MissingRequiredField("sx".into()))?;
+        let iss = self
+            .iss
+            .ok_or_else(|| JwtError::MissingRequiredField("iss".into()))?;
+        let sub = self
+            .sub
+            .ok_or_else(|| JwtError::MissingRequiredField("sub".into()))?;
+        let aud = self
+            .aud
+            .ok_or_else(|| JwtError::MissingRequiredField("aud".into()))?;
+        let client_id = self
+            .client_id
+            .ok_or_else(|| JwtError::MissingRequiredField("client_id".into()))?;
+        let scope = self
+            .scope
+            .ok_or_else(|| JwtError::MissingRequiredField("scope".into()))?;
+        let exp = self
+            .exp
+            .ok_or_else(|| JwtError::MissingRequiredField("exp".into()))?;
+        let nbf = self
+            .nbf
+            .ok_or_else(|| JwtError::MissingRequiredField("nbf".into()))?;
+        let iat = self
+            .iat
+            .ok_or_else(|| JwtError::MissingRequiredField("iat".into()))?;
+        let jti = self
+            .jti
+            .ok_or_else(|| JwtError::MissingRequiredField("jti".into()))?;
+        let ver = self
+            .ver
+            .ok_or_else(|| JwtError::MissingRequiredField("ver".into()))?;
+        let sid = self
+            .sid
+            .ok_or_else(|| JwtError::MissingRequiredField("sid".into()))?;
+        let tenant_id = self
+            .tenant_id
+            .ok_or_else(|| JwtError::MissingRequiredField("tenant_id".into()))?;
+        let user_id = self
+            .user_id
+            .ok_or_else(|| JwtError::MissingRequiredField("user_id".into()))?;
+        let user_type = self
+            .user_type
+            .ok_or_else(|| JwtError::MissingRequiredField("user_type".into()))?;
+        let sx = self
+            .sx
+            .ok_or_else(|| JwtError::MissingRequiredField("sx".into()))?;
 
         if ver == 0 {
             return Err(JwtError::MissingRequiredField("ver must be > 0".into()));
         }
 
         Ok(AccessClaims {
-            iss, sub, aud, client_id, scope, exp, nbf, iat, jti,
-            ver, sid, tenant_id, user_id, user_type, sx,
+            iss,
+            sub,
+            aud,
+            client_id,
+            scope,
+            exp,
+            nbf,
+            iat,
+            jti,
+            ver,
+            sid,
+            tenant_id,
+            user_id,
+            user_type,
+            sx,
             act: self.act,
         })
     }
 }
 
 impl Default for AccessClaimsBuilder {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ===========================================================================
@@ -546,7 +661,8 @@ pub fn truncate_permissions(permissions: Vec<String>) -> Vec<String> {
         return permissions;
     }
     let remaining = permissions.len() - MAX_PERMISSIONS_PER_ROLE;
-    let mut truncated: Vec<String> = permissions.into_iter()
+    let mut truncated: Vec<String> = permissions
+        .into_iter()
         .take(MAX_PERMISSIONS_PER_ROLE)
         .collect();
     truncated.push(format!("...({} more)", remaining));
@@ -635,13 +751,22 @@ mod tests {
 
         let json = claims.to_compact_json();
         assert!(!json.contains("\"email\""), "email should not be in JWT");
-        assert!(!json.contains("\"email_verified\""), "email_verified absent");
+        assert!(
+            !json.contains("\"email_verified\""),
+            "email_verified absent"
+        );
         assert!(!json.contains("\"phone_number\""), "phone_number absent");
-        assert!(!json.contains("\"phone_verified\""), "phone_verified absent");
+        assert!(
+            !json.contains("\"phone_verified\""),
+            "phone_verified absent"
+        );
         assert!(!json.contains("\"first_name\""), "first_name absent");
         assert!(!json.contains("\"last_name\""), "last_name absent");
         assert!(!json.contains("\"name\""), "name absent");
-        assert!(!json.contains("\"preferred_username\""), "preferred_username absent");
+        assert!(
+            !json.contains("\"preferred_username\""),
+            "preferred_username absent"
+        );
     }
 
     #[test]
@@ -796,7 +921,9 @@ mod tests {
                 portal: "web".to_string(),
                 roles: vec!["admin".to_string()],
                 permissions: vec!["org:read".to_string()],
-                entitlements_ref: Some(generate_entitlements_ref("user-123", "org-1", 1, "tenant-1")),
+                entitlements_ref: Some(generate_entitlements_ref(
+                    "user-123", "org-1", 1, "tenant-1",
+                )),
                 entitlements_hash: Some("sha256:abc123def456".to_string()),
                 risk: None,
             },
@@ -804,7 +931,11 @@ mod tests {
         };
 
         let size = claims.json_payload_size();
-        assert!(size < 750, "JWT payload size {} exceeds 750-byte budget", size);
+        assert!(
+            size < 750,
+            "JWT payload size {} exceeds 750-byte budget",
+            size
+        );
     }
 
     #[test]
@@ -840,7 +971,9 @@ mod tests {
 
     #[test]
     fn test_actor_claim_round_trip() {
-        let actor = ActorClaim { sub: "user-123".to_string() };
+        let actor = ActorClaim {
+            sub: "user-123".to_string(),
+        };
         let json = serde_json::to_string(&actor).unwrap();
         let deserialized: ActorClaim = serde_json::from_str(&json).unwrap();
         assert_eq!(actor, deserialized);
@@ -854,9 +987,14 @@ mod tests {
             aud: vec!["api".to_string()],
             client_id: "client-1".to_string(),
             scope: "openid".to_string(),
-            exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-            jti: "jti-123".to_string(), ver: 1, sid: "session-1".to_string(),
-            tenant_id: "tenant-1".to_string(), user_id: "user-123".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
@@ -866,7 +1004,9 @@ mod tests {
         assert!(!json_no.contains("\"act\""));
 
         let with_act = AccessClaims {
-            act: Some(ActorClaim { sub: "user-456".to_string() }),
+            act: Some(ActorClaim {
+                sub: "user-456".to_string(),
+            }),
             ..no_act.clone()
         };
         let json_yes = serde_json::to_string(&with_act).unwrap();
@@ -876,8 +1016,12 @@ mod tests {
     #[test]
     fn test_sesame_authz_claims_special_characters() {
         let json = serde_json::to_value(&SesameAuthzClaims::new(
-            "tenant-1".to_string(), "web".to_string(), vec![], vec![],
-        )).unwrap();
+            "tenant-1".to_string(),
+            "web".to_string(),
+            vec![],
+            vec![],
+        ))
+        .unwrap();
         assert!(!json.to_string().contains("O'Brien"));
         assert!(!json.to_string().contains("+141****1234"));
     }
@@ -892,12 +1036,21 @@ mod tests {
             aud: vec!["api".to_string()],
             client_id: "client-1".to_string(),
             scope: "openid".to_string(),
-            exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-            jti: "jti-123".to_string(), ver: 1, sid: "session-1".to_string(),
-            tenant_id: "tenant-1".to_string(), user_id: "user-123".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
             user_type: "customer".to_string(),
-            sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(),
-                vec!["admin".to_string()], vec!["org:read".to_string()]),
+            sx: SesameAuthzClaims::new(
+                "tenant-1".to_string(),
+                "web".to_string(),
+                vec!["admin".to_string()],
+                vec!["org:read".to_string()],
+            ),
             act: None,
         };
         assert!(claims.validate().is_ok());
@@ -907,12 +1060,19 @@ mod tests {
     fn test_validation_rejects_missing_ver() {
         let claims = AccessClaims {
             iss: "https://sesame-idam.example.com".to_string(),
-            sub: "user-123".to_string(), aud: vec!["api".to_string()],
-            client_id: "client-1".to_string(), scope: "openid".to_string(),
-            exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-            jti: "jti-123".to_string(), ver: 0, // missing version
-            sid: "session-1".to_string(), tenant_id: "tenant-1".to_string(),
-            user_id: "user-123".to_string(), user_type: "customer".to_string(),
+            sub: "user-123".to_string(),
+            aud: vec!["api".to_string()],
+            client_id: "client-1".to_string(),
+            scope: "openid".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 0, // missing version
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
+            user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
         };
@@ -923,11 +1083,18 @@ mod tests {
     fn test_validation_rejects_missing_tenant_id() {
         let claims = AccessClaims {
             iss: "https://sesame-idam.example.com".to_string(),
-            sub: "user-123".to_string(), aud: vec!["api".to_string()],
-            client_id: "client-1".to_string(), scope: "openid".to_string(),
-            exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-            jti: "jti-123".to_string(), ver: 1, sid: "session-1".to_string(),
-            tenant_id: "".to_string(), user_id: "user-123".to_string(),
+            sub: "user-123".to_string(),
+            aud: vec!["api".to_string()],
+            client_id: "client-1".to_string(),
+            scope: "openid".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "".to_string(),
+            user_id: "user-123".to_string(),
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
@@ -939,31 +1106,52 @@ mod tests {
     fn test_validation_rejects_missing_sx_tenant() {
         let claims = AccessClaims {
             iss: "https://sesame-idam.example.com".to_string(),
-            sub: "user-123".to_string(), aud: vec!["api".to_string()],
-            client_id: "client-1".to_string(), scope: "openid".to_string(),
-            exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-            jti: "jti-123".to_string(), ver: 1, sid: "session-1".to_string(),
-            tenant_id: "tenant-1".to_string(), user_id: "user-123".to_string(),
+            sub: "user-123".to_string(),
+            aud: vec!["api".to_string()],
+            client_id: "client-1".to_string(),
+            scope: "openid".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims {
-                tenant: "".to_string(), portal: "web".to_string(),
-                roles: vec![], permissions: vec![],
-                entitlements_ref: None, entitlements_hash: None, risk: None,
+                tenant: "".to_string(),
+                portal: "web".to_string(),
+                roles: vec![],
+                permissions: vec![],
+                entitlements_ref: None,
+                entitlements_hash: None,
+                risk: None,
             },
             act: None,
         };
-        assert_eq!(claims.validate(), Err(JwtValidationError::MissingAuthzClaims));
+        assert_eq!(
+            claims.validate(),
+            Err(JwtValidationError::MissingAuthzClaims)
+        );
     }
 
     #[test]
     fn test_validation_rejects_invalid_issuer() {
         let claims = AccessClaims {
             iss: "https://evil-issuer.example.com".to_string(),
-            sub: "user-123".to_string(), aud: vec!["api".to_string()],
-            client_id: "client-1".to_string(), scope: "openid".to_string(),
-            exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-            jti: "jti-123".to_string(), ver: 1, sid: "session-1".to_string(),
-            tenant_id: "tenant-1".to_string(), user_id: "user-123".to_string(),
+            sub: "user-123".to_string(),
+            aud: vec!["api".to_string()],
+            client_id: "client-1".to_string(),
+            scope: "openid".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
@@ -975,11 +1163,18 @@ mod tests {
     fn test_validation_rejects_invalid_audience() {
         let claims = AccessClaims {
             iss: "https://sesame-idam.example.com".to_string(),
-            sub: "user-123".to_string(), aud: vec!["unknown-service".to_string()],
-            client_id: "client-1".to_string(), scope: "openid".to_string(),
-            exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-            jti: "jti-123".to_string(), ver: 1, sid: "session-1".to_string(),
-            tenant_id: "tenant-1".to_string(), user_id: "user-123".to_string(),
+            sub: "user-123".to_string(),
+            aud: vec!["unknown-service".to_string()],
+            client_id: "client-1".to_string(),
+            scope: "openid".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
@@ -992,21 +1187,35 @@ mod tests {
         for risk_value in &["normal", "elevated", "critical"] {
             let claims = AccessClaims {
                 iss: "https://sesame-idam.example.com".to_string(),
-                sub: "user-123".to_string(), aud: vec!["api".to_string()],
-                client_id: "client-1".to_string(), scope: "openid".to_string(),
-                exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-                jti: "jti-123".to_string(), ver: 1, sid: "session-1".to_string(),
-                tenant_id: "tenant-1".to_string(), user_id: "user-123".to_string(),
+                sub: "user-123".to_string(),
+                aud: vec!["api".to_string()],
+                client_id: "client-1".to_string(),
+                scope: "openid".to_string(),
+                exp: 1700000000,
+                nbf: 1700000000 - 60,
+                iat: 1700000000,
+                jti: "jti-123".to_string(),
+                ver: 1,
+                sid: "session-1".to_string(),
+                tenant_id: "tenant-1".to_string(),
+                user_id: "user-123".to_string(),
                 user_type: "customer".to_string(),
                 sx: SesameAuthzClaims {
-                    tenant: "tenant-1".to_string(), portal: "web".to_string(),
-                    roles: vec![], permissions: vec![],
-                    entitlements_ref: None, entitlements_hash: None,
+                    tenant: "tenant-1".to_string(),
+                    portal: "web".to_string(),
+                    roles: vec![],
+                    permissions: vec![],
+                    entitlements_ref: None,
+                    entitlements_hash: None,
                     risk: Some(risk_value.to_string()),
                 },
                 act: None,
             };
-            assert!(claims.validate().is_ok(), "risk '{}' should be valid", risk_value);
+            assert!(
+                claims.validate().is_ok(),
+                "risk '{}' should be valid",
+                risk_value
+            );
         }
     }
 
@@ -1014,16 +1223,26 @@ mod tests {
     fn test_validation_rejects_invalid_risk() {
         let claims = AccessClaims {
             iss: "https://sesame-idam.example.com".to_string(),
-            sub: "user-123".to_string(), aud: vec!["api".to_string()],
-            client_id: "client-1".to_string(), scope: "openid".to_string(),
-            exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-            jti: "jti-123".to_string(), ver: 1, sid: "session-1".to_string(),
-            tenant_id: "tenant-1".to_string(), user_id: "user-123".to_string(),
+            sub: "user-123".to_string(),
+            aud: vec!["api".to_string()],
+            client_id: "client-1".to_string(),
+            scope: "openid".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims {
-                tenant: "tenant-1".to_string(), portal: "web".to_string(),
-                roles: vec![], permissions: vec![],
-                entitlements_ref: None, entitlements_hash: None,
+                tenant: "tenant-1".to_string(),
+                portal: "web".to_string(),
+                roles: vec![],
+                permissions: vec![],
+                entitlements_ref: None,
+                entitlements_hash: None,
                 risk: Some("unknown".to_string()),
             },
             act: None,
@@ -1039,16 +1258,22 @@ mod tests {
             .aud(vec!["api".to_string()])
             .client_id("client-1".to_string())
             .scope("openid".to_string())
-            .exp(1700000000).nbf(1700000000 - 60).iat(1700000000)
+            .exp(1700000000)
+            .nbf(1700000000 - 60)
+            .iat(1700000000)
             .jti("jti-123".to_string())
-            .ver(1).sid("session-1".to_string())
+            .ver(1)
+            .sid("session-1".to_string())
             .tenant_id("tenant-1".to_string())
             .user_id("user-123".to_string())
             .user_type("customer".to_string())
             .sx(SesameAuthzClaims::new(
-                "tenant-1".to_string(), "web".to_string(),
-                vec!["admin".to_string()], vec!["org:read".to_string()],
-            )).build();
+                "tenant-1".to_string(),
+                "web".to_string(),
+                vec!["admin".to_string()],
+                vec!["org:read".to_string()],
+            ))
+            .build();
         assert!(claims.is_ok());
         let claims = claims.unwrap();
         assert_eq!(claims.iss, "https://sesame-idam.example.com");
@@ -1064,8 +1289,11 @@ mod tests {
             .aud(vec!["api".to_string()])
             .client_id("client-1".to_string())
             .scope("openid".to_string())
-            .exp(1700000000).nbf(1700000000 - 60).iat(1700000000)
-            .jti("jti-123".to_string()).ver(1)
+            .exp(1700000000)
+            .nbf(1700000000 - 60)
+            .iat(1700000000)
+            .jti("jti-123".to_string())
+            .ver(1)
             .build();
         assert!(result.is_err());
     }
@@ -1078,7 +1306,9 @@ mod tests {
             .aud(vec!["api".to_string()])
             .client_id("client-1".to_string())
             .scope("openid".to_string())
-            .exp(1700000000).nbf(1700000000 - 60).iat(1700000000)
+            .exp(1700000000)
+            .nbf(1700000000 - 60)
+            .iat(1700000000)
             .jti("jti-123".to_string())
             .ver(0) // explicitly zero
             .sid("session-1".to_string())
@@ -1086,10 +1316,17 @@ mod tests {
             .user_id("user-123".to_string())
             .user_type("customer".to_string())
             .sx(SesameAuthzClaims::new(
-                "tenant-1".to_string(), "web".to_string(), vec![], vec![],
-            )).build();
+                "tenant-1".to_string(),
+                "web".to_string(),
+                vec![],
+                vec![],
+            ))
+            .build();
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), JwtError::MissingRequiredField("ver must be > 0".into()));
+        assert_eq!(
+            result.unwrap_err(),
+            JwtError::MissingRequiredField("ver must be > 0".into())
+        );
     }
 
     #[test]
@@ -1103,14 +1340,23 @@ mod tests {
             aud: vec!["api".to_string(), "frontend".to_string()],
             client_id: "client-1".to_string(),
             scope: "openid profile email".to_string(),
-            exp: 1700000000, nbf: 1700000000 - 60, iat: 1700000000,
-            jti: "jti-123".to_string(), ver: 1, sid: "session-1".to_string(),
-            tenant_id: "tenant-1".to_string(), user_id: "user-123".to_string(),
+            exp: 1700000000,
+            nbf: 1700000000 - 60,
+            iat: 1700000000,
+            jti: "jti-123".to_string(),
+            ver: 1,
+            sid: "session-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            user_id: "user-123".to_string(),
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims {
-                tenant: "tenant-1".to_string(), portal: "web".to_string(),
-                roles, permissions,
-                entitlements_ref: Some(generate_entitlements_ref("user-123", "org-1", 1, "tenant-1")),
+                tenant: "tenant-1".to_string(),
+                portal: "web".to_string(),
+                roles,
+                permissions,
+                entitlements_ref: Some(generate_entitlements_ref(
+                    "user-123", "org-1", 1, "tenant-1",
+                )),
                 entitlements_hash: Some("sha256:".to_string() + &"a".repeat(64)),
                 risk: Some("normal".to_string()),
             },
@@ -1118,14 +1364,21 @@ mod tests {
         };
 
         let size = claims.json_payload_size();
-        assert!(size < 750, "JWT payload size {} exceeds 750-byte budget", size);
+        assert!(
+            size < 750,
+            "JWT payload size {} exceeds 750-byte budget",
+            size
+        );
     }
 
     #[test]
     fn test_entitlements_ref_is_tenant_aware() {
         let ref_a = generate_entitlements_ref("user-1", "org-1", 1, "tenant-a");
         let ref_b = generate_entitlements_ref("user-1", "org-1", 1, "tenant-b");
-        assert_ne!(ref_a, ref_b, "Different tenants should produce different refs");
+        assert_ne!(
+            ref_a, ref_b,
+            "Different tenants should produce different refs"
+        );
 
         let ref_a_2 = generate_entitlements_ref("user-1", "org-1", 1, "tenant-a");
         assert_eq!(ref_a, ref_a_2);
@@ -1136,9 +1389,7 @@ mod tests {
     /// Permissions within MAX_PERMISSIONS_PER_ROLE pass through unchanged
     #[test]
     fn test_truncate_permissions_within_limit() {
-        let perms: Vec<String> = (0..5)
-            .map(|i| format!("perm-{}", i))
-            .collect();
+        let perms: Vec<String> = (0..5).map(|i| format!("perm-{}", i)).collect();
         let result = truncate_permissions(perms.clone());
         assert_eq!(result, perms, "Should pass through when within limit");
     }
@@ -1146,9 +1397,7 @@ mod tests {
     /// Permissions over MAX_PERMISSIONS_PER_ROLE are truncated
     #[test]
     fn test_truncate_permissions_over_limit() {
-        let perms: Vec<String> = (0..15)
-            .map(|i| format!("perm-{}", i))
-            .collect();
+        let perms: Vec<String> = (0..15).map(|i| format!("perm-{}", i)).collect();
         let result = truncate_permissions(perms);
         assert_eq!(
             result.len(),
@@ -1211,12 +1460,8 @@ mod tests {
     /// Truncated SesameAuthzClaims fit budget
     #[test]
     fn test_truncated_authz_claims_fits_budget() {
-        let permissions: Vec<String> = (0..50)
-            .map(|i| format!("perm:resource:{}", i))
-            .collect();
-        let roles: Vec<String> = (0..5)
-            .map(|i| format!("role-{}", i))
-            .collect();
+        let permissions: Vec<String> = (0..50).map(|i| format!("perm:resource:{}", i)).collect();
+        let roles: Vec<String> = (0..5).map(|i| format!("role-{}", i)).collect();
 
         let sx = SesameAuthzClaims {
             tenant: "tenant-1".to_string(),
@@ -1278,9 +1523,7 @@ mod tests {
         assert_eq!(result, perms);
 
         // Test with more than MAX_PERMISSIONS_PER_ROLE (truncation)
-        let perms: Vec<String> = (0..20)
-            .map(|i| format!("perm:{}", i))
-            .collect();
+        let perms: Vec<String> = (0..20).map(|i| format!("perm:{}", i)).collect();
         let result = truncate_permissions(perms);
         assert_eq!(result.len(), MAX_PERMISSIONS_PER_ROLE + 1); // +1 for "...(10 more)"
         assert!(
@@ -1314,12 +1557,8 @@ mod tests {
     /// must fit within 750 bytes unencoded budget.
     #[test]
     fn test_build_time_token_size_within_budget() {
-        let roles: Vec<String> = (0..5)
-            .map(|i| format!("role-{i}"))
-            .collect();
-        let permissions: Vec<String> = (0..5)
-            .map(|i| format!("perm:{i}"))
-            .collect();
+        let roles: Vec<String> = (0..5).map(|i| format!("role-{i}")).collect();
+        let permissions: Vec<String> = (0..5).map(|i| format!("perm:{i}")).collect();
 
         let claims = AccessClaims {
             iss: "https://sesame-idam.example.com".to_string(),
@@ -1522,7 +1761,10 @@ mod tests {
 
         // Even though sx.tenant matches, top-level tenant_id doesn't
         let result = claims.validate_tenant("tenant-alpha");
-        assert!(result.is_err(), "Must reject when top-level tenant_id doesn't match");
+        assert!(
+            result.is_err(),
+            "Must reject when top-level tenant_id doesn't match"
+        );
     }
 
     #[test]

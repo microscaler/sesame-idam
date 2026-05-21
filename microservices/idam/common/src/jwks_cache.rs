@@ -175,8 +175,8 @@ pub enum JwksCacheError {
 #[cfg(feature = "metrics")]
 mod metrics {
     use prometheus::{
-        register_gauge_vec, register_histogram_vec, register_int_counter_vec,
-        GaugeVec, HistogramVec, IntCounterVec,
+        register_gauge_vec, register_histogram_vec, register_int_counter_vec, GaugeVec,
+        HistogramVec, IntCounterVec,
     };
 
     lazy_static::lazy_static! {
@@ -567,15 +567,12 @@ impl JwksCache {
     pub async fn refresh(&self) -> Result<usize, JwksCacheError> {
         let now = std::time::Instant::now();
 
-        let response = self
-            .client
-            .get(&self.endpoint)
-            .send()
-            .await
-            .map_err(|e| JwksCacheError::FetchError {
+        let response = self.client.get(&self.endpoint).send().await.map_err(|e| {
+            JwksCacheError::FetchError {
                 status: 0,
                 message: e.to_string(),
-            })?;
+            }
+        })?;
 
         let status = response.status().as_u16();
 
@@ -605,7 +602,10 @@ impl JwksCache {
                     .inc();
             }
 
-            return Err(JwksCacheError::FetchError { status, message: body });
+            return Err(JwksCacheError::FetchError {
+                status,
+                message: body,
+            });
         }
 
         // Validate document size before parsing (HACK-712).
@@ -655,7 +655,10 @@ impl JwksCache {
                     .inc();
             }
 
-            return Err(JwksCache::size_error(self.max_jwks_size_bytes, body_bytes.len()));
+            return Err(JwksCache::size_error(
+                self.max_jwks_size_bytes,
+                body_bytes.len(),
+            ));
         }
 
         // Parse JWKS.
@@ -687,9 +690,7 @@ impl JwksCache {
         let mut new_keys = HashMap::with_capacity(jwks.keys.len());
         for key in &jwks.keys {
             // Serialize key to JSON and check size.
-            let key_json = serde_json::to_vec(key).map_err(|e| {
-                JwksCacheError::ParseError(e)
-            })?;
+            let key_json = serde_json::to_vec(key).map_err(|e| JwksCacheError::ParseError(e))?;
 
             if key_json.len() > self.max_key_size_bytes {
                 tracing::warn!(
@@ -832,14 +833,15 @@ impl JwksCache {
     ) -> Result<usize, JwksCacheError> {
         let now = std::time::Instant::now();
 
-        let response = client
-            .get(endpoint)
-            .send()
-            .await
-            .map_err(|e| JwksCacheError::FetchError {
-                status: 0,
-                message: e.to_string(),
-            })?;
+        let response =
+            client
+                .get(endpoint)
+                .send()
+                .await
+                .map_err(|e| JwksCacheError::FetchError {
+                    status: 0,
+                    message: e.to_string(),
+                })?;
 
         let status = response.status().as_u16();
 
@@ -860,10 +862,13 @@ impl JwksCache {
             });
         }
 
-        let body_bytes = response.bytes().await.map_err(|e| JwksCacheError::FetchError {
-            status,
-            message: e.to_string(),
-        })?;
+        let body_bytes = response
+            .bytes()
+            .await
+            .map_err(|e| JwksCacheError::FetchError {
+                status,
+                message: e.to_string(),
+            })?;
 
         if body_bytes.len() > max_jwks_size {
             return Err(Self::size_error(max_jwks_size, body_bytes.len()));
@@ -1151,7 +1156,7 @@ mod tests {
         // Create a cache with a "stale" last_refresh time.
         let cache = JwksCache::builder("https://example.com/.well-known/jwks.json")
             .refresh_interval(Duration::from_secs(300)) // 5 min TTL
-            .stale_tolerance(Duration::from_secs(900))  // 15 min tolerance
+            .stale_tolerance(Duration::from_secs(900)) // 15 min tolerance
             .build();
 
         // Simulate a cache that was last refreshed 10 minutes ago.
@@ -1295,7 +1300,9 @@ mod tests {
         fn blocking_get(self) -> T;
     }
 
-    impl<T> BlockingGet<Result<Jwk, JwksCacheError>> for tokio::task::JoinHandle<Result<Jwk, JwksCacheError>> {
+    impl<T> BlockingGet<Result<Jwk, JwksCacheError>>
+        for tokio::task::JoinHandle<Result<Jwk, JwksCacheError>>
+    {
         fn blocking_get(self) -> Result<Jwk, JwksCacheError> {
             tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -1305,7 +1312,9 @@ mod tests {
         }
     }
 
-    impl<T> BlockingGet<Result<Jwk, JwksCacheError>> for std::pin::Pin<Box<dyn std::future::Future<Output = Result<Jwk, JwksCacheError>> + Send>> {
+    impl<T> BlockingGet<Result<Jwk, JwksCacheError>>
+        for std::pin::Pin<Box<dyn std::future::Future<Output = Result<Jwk, JwksCacheError>> + Send>>
+    {
         fn blocking_get(self) -> Result<Jwk, JwksCacheError> {
             tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -1442,7 +1451,7 @@ mod tests {
     fn test_unit_ttl_config_defaults() {
         let cache = JwksCache::new("https://example.com/.well-known/jwks.json");
         assert_eq!(cache.refresh_interval, Duration::from_secs(300)); // 5 min default
-        assert_eq!(cache.stale_tolerance, Duration::from_secs(900));  // 15 min default
+        assert_eq!(cache.stale_tolerance, Duration::from_secs(900)); // 15 min default
     }
 
     #[test]

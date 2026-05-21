@@ -9,12 +9,8 @@ use sesame_idam_identity_session_service_gen::handlers::auth_refresh::{Request, 
 
 use crate::audit::EMITTER;
 use crate::models::refresh_token::REFRESH_TOKEN_TTL;
-use crate::services::token_rotation::{
-    self, RotationOutcome, TOKEN_REFRESH_TOTAL, REFRESH_REUSE_DETECTED_TOTAL,
-    REFRESH_ROTATION_FAILURES_TOTAL,
-};
-use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-use uuid::Uuid;
+use crate::services::token_rotation::{self, RotationOutcome};
+use sesame_audit::AuditEventType;
 
 #[handler(AuthRefreshController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
@@ -30,22 +26,20 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let tenant_id = req.data.x_tenant_id.clone();
     let span_tenant = tenant_id.clone();
 
-    // Extract user_id from tenant (for metrics)
-    let user_id = tenant_id.parse::<Uuid>().unwrap_or_default().to_string();
-
     // --- Audit logging ---
-    let mut audit_event = AuditEvent::new(
-        AuditEventType::SessionManagement,
-        "token_refresh_started",
-        tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::User,
-        "127.0.0.1".to_string(),
-    );
-    audit_event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut audit_event);
+    let entry =
+        sesame_audit::AuditLogEntry::new(AuditEventType::JwtIssued, "identity-session-service")
+            .tenant_id(tenant_id.clone())
+            .decision_source("token_refresh")
+            .result("allowed")
+            .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     // --- Perform token rotation ---
-    let result = token_rotation::rotate_refresh_token(&refresh_token, &user_id, &user_id);
+    let result = token_rotation::rotate_refresh_token(&refresh_token, &tenant_id, &tenant_id);
 
     // Record result in span
     match &result {
@@ -73,15 +67,19 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
             refresh_expires_in,
         } => {
             // Success: emit audit event for completed rotation
-            let mut success_event = AuditEvent::new(
-                AuditEventType::SessionManagement,
-                "token_refreshed",
-                tenant_id.parse::<Uuid>().unwrap_or_default(),
-                AuditActor::User,
-                "127.0.0.1".to_string(),
-            );
-            success_event.severity = Some(AuditSeverity::Info);
-            EMITTER.emit(&mut success_event);
+            let entry = sesame_audit::AuditLogEntry::new(
+                AuditEventType::JwtIssued,
+                "identity-session-service",
+            )
+            .tenant_id(tenant_id.clone())
+            .decision_source("token_refresh")
+            .result("allowed")
+            .ttl(REFRESH_TOKEN_TTL as u64)
+            .build();
+
+            if let Ok(entry) = entry {
+                EMITTER.emit(entry);
+            }
 
             Response {
                 access_token: new_access_token,
@@ -95,7 +93,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 refresh_token_expires_in: Some(refresh_expires_in),
                 scope: None,
                 token_type: "Bearer".to_string(),
-                user_id: user_id.clone(),
+                user_id: tenant_id.clone(),
             }
         }
         RotationOutcome::ReuseDetected {
@@ -103,8 +101,6 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
             family_id,
         } => {
             // Reuse detected: revoke family and return 401 equivalent
-            // Since the handler returns Response, we set empty tokens and
-            // let the caller check a flag. For 401, we use an error response.
             tracing::warn!(
                 event = "refresh_reuse_detected",
                 reused_jti = reused_jti,
@@ -119,8 +115,6 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 "Triggering cross-session notification for token reuse"
             );
 
-            // Return a 401-style response with empty tokens
-            // The actual HTTP 401 status is handled by the router based on response
             Response {
                 access_token: String::new(),
                 email: None,
@@ -133,7 +127,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 refresh_token_expires_in: None,
                 scope: None,
                 token_type: "Bearer".to_string(),
-                user_id: user_id.clone(),
+                user_id: tenant_id.clone(),
             }
         }
         RotationOutcome::InvalidToken => {
@@ -143,15 +137,20 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 "Refresh token not found in Redis"
             );
 
-            let mut error_event = AuditEvent::new(
-                AuditEventType::SessionManagement,
-                "token_refresh_failed_invalid",
-                tenant_id.parse::<Uuid>().unwrap_or_default(),
-                AuditActor::User,
-                "127.0.0.1".to_string(),
-            );
-            error_event.severity = Some(AuditSeverity::Warn);
-            EMITTER.emit(&mut error_event);
+            let entry = sesame_audit::AuditLogEntry::new(
+                AuditEventType::ValidationFailed,
+                "identity-session-service",
+            )
+            .tenant_id(tenant_id.clone())
+            .decision_source("token_refresh")
+            .result("denied")
+            .error("invalid_token")
+            .reason("Refresh token not found in Redis")
+            .build();
+
+            if let Ok(entry) = entry {
+                EMITTER.emit(entry);
+            }
 
             Response {
                 access_token: String::new(),
@@ -165,7 +164,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 refresh_token_expires_in: None,
                 scope: None,
                 token_type: "Bearer".to_string(),
-                user_id: user_id.clone(),
+                user_id: tenant_id.clone(),
             }
         }
         RotationOutcome::RedisUnavailable => {
@@ -175,15 +174,20 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 "Redis unavailable during token rotation"
             );
 
-            let mut error_event = AuditEvent::new(
-                AuditEventType::SessionManagement,
-                "token_refresh_failed_redis",
-                tenant_id.parse::<Uuid>().unwrap_or_default(),
-                AuditActor::User,
-                "127.0.0.1".to_string(),
-            );
-            error_event.severity = Some(AuditSeverity::Error);
-            EMITTER.emit(&mut error_event);
+            let entry = sesame_audit::AuditLogEntry::new(
+                AuditEventType::ValidationFailed,
+                "identity-session-service",
+            )
+            .tenant_id(tenant_id.clone())
+            .decision_source("token_refresh")
+            .result("denied")
+            .error("redis_unavailable")
+            .reason("Redis unavailable during token rotation")
+            .build();
+
+            if let Ok(entry) = entry {
+                EMITTER.emit(entry);
+            }
 
             Response {
                 access_token: String::new(),
@@ -197,7 +201,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 refresh_token_expires_in: None,
                 scope: None,
                 token_type: "Bearer".to_string(),
-                user_id: user_id.clone(),
+                user_id: tenant_id.clone(),
             }
         }
     }

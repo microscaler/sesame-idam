@@ -1,25 +1,25 @@
-/// Handler for Step Up Verify — verifies step-up authentication (MFA)..
+/// Handler for Step Up Verify — verifies step-up authentication (MFA).
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
+use sesame_audit::AuditEventType;
 use sesame_idam_identity_session_service_gen::handlers::step_up_verify::{Request, Response};
 
 #[handler(StepUpVerifyController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
 
     let tenant_id = _req.data.x_tenant_id.clone();
 
-    let mut event = AuditEvent::new(
-        AuditEventType::SessionManagement,
-        "step_up_verified",
-        tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::User,
-        "127.0.0.1".to_string(),
-    );
-    event.severity = Some(AuditSeverity::Warning);
-    EMITTER.emit(&mut event);
+    let entry =
+        sesame_audit::AuditLogEntry::new(AuditEventType::JwtIssued, "identity-session-service")
+            .tenant_id(tenant_id.clone())
+            .decision_source("step_up_verify")
+            .result("allowed")
+            .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     Response {
         mfa_method: None,

@@ -20,11 +20,11 @@ use crate::events::{BumpReason, VersionBumpEvent};
 use crate::publisher::{parse_signed_message, verify_signature, VERSION_BUMP_CHANNEL};
 use anyhow::{anyhow, Context, Result};
 use arc_swap::ArcSwap;
+use futures_util::StreamExt;
 use prometheus::{Histogram, IntCounterVec, Registry};
 use redis::aio::MultiplexedConnection;
 use redis::Client;
 use std::collections::HashMap;
-use futures_util::StreamExt;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
@@ -306,7 +306,7 @@ impl VersionBumpSubscriber {
         let metrics_clone = metrics.clone();
 
         let mut msg_stream = pubsub.on_message();
-        
+
         loop {
             tokio::select! {
                 _ = stop_rx.recv() => {
@@ -344,7 +344,7 @@ impl VersionBumpSubscriber {
                 }
             }
         }
-        
+
         // Drop the stream to release the mutable borrow on pubsub
         drop(msg_stream);
         pubsub.unsubscribe(VERSION_BUMP_CHANNEL).await.ok();
@@ -503,10 +503,7 @@ impl VersionBumpSubscriber {
     }
 
     /// Evict the oldest entries from the cache until it's within the limit.
-    fn evict_oldest(
-        cache: &mut HashMap<String, CacheEntry>,
-        max_size: usize,
-    ) {
+    fn evict_oldest(cache: &mut HashMap<String, CacheEntry>, max_size: usize) {
         let mut entries: Vec<_> = cache.iter().collect();
         entries.sort_by_key(|(_, entry)| entry.inserted_at);
 
@@ -630,7 +627,10 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(
-            err.contains("invalid message") || err.contains("missing HMAC") || err.contains("not enough") || err.contains("empty"),
+            err.contains("invalid message")
+                || err.contains("missing HMAC")
+                || err.contains("not enough")
+                || err.contains("empty"),
             "Expected error about invalid message/HMAC/signature, got: {err}"
         );
     }

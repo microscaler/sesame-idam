@@ -40,10 +40,10 @@
 //! }
 //! ```
 
-mod config;
 mod cache;
+mod config;
 mod metrics;
 
+pub use cache::{DenylistCache, DenylistResult};
 pub use config::DenylistConfig;
-pub use cache::DenylistCache;
-pub use metrics::register_denylist_metrics;
+pub use metrics::{register_denylist_metrics, DenylistMetrics};

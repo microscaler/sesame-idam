@@ -13,4 +13,4 @@ pub mod version_store;
 pub use events::{BumpReason, VersionBumpEvent};
 pub use publisher::VersionBumpPublisher;
 pub use subscriber::VersionBumpSubscriber;
-pub use version_store::{VersionStore, VersionStoreConfig, subject_key, tenant_key};
+pub use version_store::{subject_key, tenant_key, VersionStore, VersionStoreConfig};

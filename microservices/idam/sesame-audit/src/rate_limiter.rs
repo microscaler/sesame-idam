@@ -4,7 +4,6 @@
 /// - DEBUG rate limit: max 1000 entries/sec per service (HACK-833)
 /// - INFO/WARN/ERROR: no rate limiting (always logged)
 /// - Metrics for dropped entries
-
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -42,9 +41,7 @@ impl RateLimiter {
     pub fn new(config: RateLimitConfig) -> Self {
         Self {
             config,
-            counters: std::sync::Arc::new(std::sync::Mutex::new(
-                std::collections::HashMap::new(),
-            )),
+            counters: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
         }
     }
 

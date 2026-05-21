@@ -26,6 +26,8 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use p256::elliptic_curve::sec1::ToEncodedPoint;
+
 // ---------------------------------------------------------------------------
 // DPoP Proof JWK Types
 // ---------------------------------------------------------------------------
@@ -39,11 +41,44 @@ pub enum DpopKeyTypeId {
 }
 
 /// Allowed curves for DPoP key types.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DpopCurve {
     Ed25519,
     P256, // We use the Rust name "P256" but serialize as "P-256" per RFC 7518
+}
+
+impl std::fmt::Debug for DpopCurve {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DpopCurve::Ed25519 => write!(f, "Ed25519"),
+            DpopCurve::P256 => write!(f, "P256"),
+        }
+    }
+}
+
+impl Clone for DpopCurve {
+    fn clone(&self) -> Self {
+        match self {
+            DpopCurve::Ed25519 => DpopCurve::Ed25519,
+            DpopCurve::P256 => DpopCurve::P256,
+        }
+    }
+}
+
+impl PartialEq for DpopCurve {
+    fn eq(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
+impl Eq for DpopCurve {}
+
+impl DpopCurve {
+    fn as_str(&self) -> &'static str {
+        match self {
+            DpopCurve::Ed25519 => "Ed25519",
+            DpopCurve::P256 => "P-256",
+        }
+    }
 }
 
 impl Serialize for DpopCurve {
@@ -51,11 +86,7 @@ impl Serialize for DpopCurve {
     where
         S: serde::Serializer,
     {
-        let name = match self {
-            DpopCurve::Ed25519 => "Ed25519",
-            DpopCurve::P256 => "P-256",
-        };
-        serializer.serialize_str(name)
+        serializer.serialize_str(self.as_str())
     }
 }
 
@@ -68,10 +99,7 @@ impl<'de> Deserialize<'de> for DpopCurve {
         match s.as_str() {
             "Ed25519" => Ok(DpopCurve::Ed25519),
             "P-256" | "P256" => Ok(DpopCurve::P256),
-            _ => Err(serde::de::Error::unknown_variant(
-                &s,
-                &["Ed25519", "P-256"],
-            )),
+            _ => Err(serde::de::Error::unknown_variant(&s, &["Ed25519", "P-256"])),
         }
     }
 }
@@ -99,10 +127,9 @@ impl DpopJwk {
     /// For OKP (Ed25519): just the x coordinate.
     /// For EC (P-256): uncompressed point format (0x04 || x || y).
     pub fn to_key_bytes(&self) -> Result<Vec<u8>, DpopError> {
-        let x_bytes =
-            URL_SAFE_NO_PAD
-                .decode(&self.x)
-                .map_err(|_| DpopError::InvalidJwk("x coordinate is not valid base64url".into()))?;
+        let x_bytes = URL_SAFE_NO_PAD
+            .decode(&self.x)
+            .map_err(|_| DpopError::InvalidJwk("x coordinate is not valid base64url".into()))?;
 
         match &self.kty {
             DpopKeyTypeId::Okp => Ok(x_bytes),
@@ -111,10 +138,9 @@ impl DpopJwk {
                     .y
                     .as_ref()
                     .ok_or_else(|| DpopError::InvalidJwk("EC key missing y coordinate".into()))?;
-                let y_bytes =
-                    URL_SAFE_NO_PAD
-                        .decode(y_bytes)
-                        .map_err(|_| DpopError::InvalidJwk("y coordinate is not valid base64url".into()))?;
+                let y_bytes = URL_SAFE_NO_PAD.decode(y_bytes).map_err(|_| {
+                    DpopError::InvalidJwk("y coordinate is not valid base64url".into())
+                })?;
                 // Uncompressed point format: 0x04 || x || y
                 let mut bytes = Vec::with_capacity(1 + x_bytes.len() + y_bytes.len());
                 bytes.push(0x04);
@@ -205,15 +231,9 @@ pub enum DpopError {
     /// DPoP proof jkt does not match token's cnf.jkt
     BindingMismatch,
     /// DPoP proof htm does not match request method
-    MethodMismatch {
-        expected: String,
-        actual: String,
-    },
+    MethodMismatch { expected: String, actual: String },
     /// DPoP proof htu does not match request path
-    UriMismatch {
-        expected: String,
-        actual: String,
-    },
+    UriMismatch { expected: String, actual: String },
     /// DPoP proof iat is too old (> 60 seconds)
     ProofExpired,
     /// DPoP proof iat is in the future (clock skew manipulation)
@@ -310,14 +330,13 @@ impl RedisProofStore {
     }
 
     pub async fn init(&mut self, redis_url: &str) -> Result<(), DpopError> {
-        let manager =
-            redis::Client::open(redis_url)
-                .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?
-                .get_multiplexed_conn_manager()
-                .await
-                .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?;
-        let mut conn = self.conn.lock().await;
-        *conn = Some(manager);
+        let conn = redis::Client::open(redis_url)
+            .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?
+            .get_multiplexed_conn_manager()
+            .await
+            .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?;
+        let mut guard = self.conn.lock().await;
+        *guard = Some(conn);
         Ok(())
     }
 }
@@ -325,30 +344,31 @@ impl RedisProofStore {
 #[async_trait::async_trait]
 impl DpopProofStore for RedisProofStore {
     async fn is_seen(&self, jti: &str) -> Result<bool, DpopError> {
-        let conn = self.conn.lock().await;
-        let conn = conn.as_ref().ok_or_else(|| {
-            DpopError::InvalidJwk("Redis not initialized".into())
-        })?;
+        let mut conn = self.conn.lock().await;
+        let conn = conn
+            .as_mut()
+            .ok_or_else(|| DpopError::InvalidJwk("Redis not initialized".into()))?;
         let key = format!("dpop_jti:{jti}");
-        let exists: Option<String> = redis::cmd("EXISTS")
+        let exists: i64 = redis::cmd("EXISTS")
             .arg(&key)
-            .query_async(conn)
+            .query_async::<_, i64>(conn)
             .await
             .map_err(|e| DpopError::InvalidJwk(format!("Redis EXISTS failed: {e}")))?;
-        Ok(exists.is_some())
+        Ok(exists > 0)
     }
 
     async fn record(&self, jti: &str) -> Result<(), DpopError> {
-        let conn = self.conn.lock().await;
-        let conn = conn.as_ref().ok_or_else(|| {
-            DpopError::InvalidJwk("Redis not initialized".into())
-        })?;
+        let mut conn = self.conn.lock().await;
+        let conn = conn
+            .as_mut()
+            .ok_or_else(|| DpopError::InvalidJwk("Redis not initialized".into()))?;
         let key = format!("dpop_jti:{jti}");
-        redis::cmd("SETEX")
+        redis::cmd("SET")
             .arg(&key)
-            .arg(60u32)
             .arg("seen")
-            .query_async::<()>(&mut *conn)
+            .arg("EX")
+            .arg(60u32)
+            .query_async::<_, ()>(conn)
             .await
             .map_err(|e| DpopError::InvalidJwk(format!("Redis SET failed: {e}")))?;
         Ok(())
@@ -449,14 +469,13 @@ pub fn compute_jkt(jwk: &DpopJwk) -> String {
 /// Generate a fresh Ed25519 key pair for DPoP.
 /// Returns (private_key_hex, DpopJwk).
 pub fn generate_ed25519_keypair() -> (String, DpopJwk) {
-    use ed25519_dalek::{Keypair, SecretKey};
+    use ed25519_dalek::SigningKey;
 
     let mut rng = rand::thread_rng();
-    let keypair = Keypair::generate(&mut rng);
-    let secret: SecretKey = keypair.secret.clone();
-    let public = keypair.public;
+    let signing_key = SigningKey::generate(&mut rng);
+    let public = signing_key.verifying_key();
 
-    let private_hex = hex::encode(secret.as_bytes());
+    let private_hex = hex::encode(signing_key.to_bytes());
     let jwk = DpopJwk {
         kty: DpopKeyTypeId::Okp,
         crv: DpopCurve::Ed25519,
@@ -472,7 +491,6 @@ pub fn generate_ed25519_keypair() -> (String, DpopJwk) {
 /// Returns (private_key_hex, DpopJwk).
 pub fn generate_p256_keypair() -> (String, DpopJwk) {
     use p256::ecdsa::SigningKey;
-    use rand::CryptoRngCore;
 
     let mut rng = rand::thread_rng();
     let signing_key = SigningKey::random(&mut rng);
@@ -526,16 +544,14 @@ pub fn is_dpop_enabled() -> bool {
 
 /// Validate that a request includes a DPoP proof when required.
 /// Returns `DpopError::DpopRequired` if DPoP is mandatory but proof is missing.
-pub fn require_dpop_proof(request: &brrtrouter::dispatcher::HandlerRequest) -> Result<(), DpopError> {
+pub fn require_dpop_proof(
+    request: &brrtrouter::dispatcher::HandlerRequest,
+) -> Result<(), DpopError> {
     if !is_dpop_enabled() {
         return Ok(()); // DPoP not required
     }
 
-    if request
-        .headers
-        .get("DPoP")
-        .is_none()
-    {
+    if request.headers.get("DPoP").is_none() {
         return Err(DpopError::DpopRequired);
     }
 
@@ -662,23 +678,16 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(
-                SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test-app")
-                    .build()
-                    .unwrap(),
-            )
+            .sx(SesameAuthzClaims::builder()
+                .tenant("tenant-a")
+                .portal("test-app")
+                .build()
+                .unwrap())
             .build()
             .unwrap()
     }
 
-    fn make_proof(
-        jwk: DpopJwk,
-        iat_offset_secs: i64,
-        htm: &str,
-        htu: &str,
-    ) -> DpopProofClaims {
+    fn make_proof(jwk: DpopJwk, iat_offset_secs: i64, htm: &str, htu: &str) -> DpopProofClaims {
         DpopProofClaims {
             typ: Some("dpop+jwt".to_string()),
             alg: "EdDSA".to_string(),
@@ -704,7 +713,9 @@ mod tests {
         let proof = make_proof(jwk, 0, "POST", "/auth/token");
         let store = make_store();
 
-        assert!(verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).is_ok());
+        assert!(
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).is_ok()
+        );
     }
 
     #[test]
@@ -783,7 +794,9 @@ mod tests {
         let proof = make_proof(jwk, -30, "POST", "/auth/token"); // iat = 30s ago
         let store = make_store();
 
-        assert!(verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).is_ok());
+        assert!(
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).is_ok()
+        );
     }
 
     #[test]
@@ -865,7 +878,9 @@ mod tests {
         let proof = make_proof(jwk, -59, "POST", "/auth/token"); // iat = 59s ago
         let store = make_store();
 
-        assert!(verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).is_ok());
+        assert!(
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).is_ok()
+        );
     }
 
     // ─── EC Key Tests ──────────────────────────────────────────────────
@@ -1004,10 +1019,7 @@ mod tests {
             y: None,
             additional: serde_json::Value::Null,
         };
-        assert!(matches!(
-            jwk.to_key_bytes(),
-            Err(DpopError::InvalidJwk(_))
-        ));
+        assert!(matches!(jwk.to_key_bytes(), Err(DpopError::InvalidJwk(_))));
     }
 
     // ─── Extra JWK Fields Ignored ──────────────────────────────────────

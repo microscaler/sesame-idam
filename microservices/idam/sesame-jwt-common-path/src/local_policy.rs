@@ -208,16 +208,14 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-2")
             .user_type("registered")
-            .sx(
-                SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test-app")
-                    .roles(vec!["customer".into()])
-                    .permissions(vec!["shipments:read".into()])
-                    .risk("normal".into())
-                    .build()
-                    .unwrap(),
-            )
+            .sx(SesameAuthzClaims::builder()
+                .tenant("tenant-a")
+                .portal("test-app")
+                .roles(vec!["customer".into()])
+                .permissions(vec!["shipments:read".into()])
+                .risk("normal".into())
+                .build()
+                .unwrap())
             .build()
             .unwrap()
     }
@@ -238,16 +236,14 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-3")
             .user_type("registered")
-            .sx(
-                SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test-app")
-                    .roles(vec!["admin".into()])
-                    .permissions(vec!["users:read".into()])
-                    .risk("elevated".into())
-                    .build()
-                    .unwrap(),
-            )
+            .sx(SesameAuthzClaims::builder()
+                .tenant("tenant-a")
+                .portal("test-app")
+                .roles(vec!["admin".into()])
+                .permissions(vec!["users:read".into()])
+                .risk("elevated".into())
+                .build()
+                .unwrap())
             .build()
             .unwrap()
     }
@@ -268,15 +264,13 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-4")
             .user_type("registered")
-            .sx(
-                SesameAuthzClaims::builder()
-                    .tenant("tenant-a")
-                    .portal("test-app")
-                    .roles(vec!["admin".into()])
-                    .permissions(vec!["users:read".into()])
-                    .build()
-                    .unwrap(),
-            )
+            .sx(SesameAuthzClaims::builder()
+                .tenant("tenant-a")
+                .portal("test-app")
+                .roles(vec!["admin".into()])
+                .permissions(vec!["users:read".into()])
+                .build()
+                .unwrap())
             .build()
             .unwrap()
     }
@@ -286,28 +280,14 @@ mod tests {
     #[test]
     fn tenant_validation_accepts_match() {
         let claims = make_test_claims();
-        let result = evaluate_local_policy(
-            &claims,
-            "tenant-a",
-            &[],
-            &[],
-            None,
-            None,
-        );
+        let result = evaluate_local_policy(&claims, "tenant-a", &[], &[], None, None);
         assert!(result.is_ok());
     }
 
     #[test]
     fn tenant_validation_rejects_mismatch() {
         let claims = make_test_claims();
-        let result = evaluate_local_policy(
-            &claims,
-            "tenant-b",
-            &[],
-            &[],
-            None,
-            None,
-        );
+        let result = evaluate_local_policy(&claims, "tenant-b", &[], &[], None, None);
         assert!(matches!(
             result,
             Err(AuthError::TenantMismatch {
@@ -325,7 +305,10 @@ mod tests {
         let result = evaluate_local_policy(
             &claims,
             "tenant-a",
-            &[vec!["admin".into(), "user".into()].into_iter().collect::<Vec<_>>()[..].to_vec()],
+            &[vec!["admin".into(), "user".into()]
+                .into_iter()
+                .collect::<Vec<_>>()[..]
+                .to_vec()],
             &[],
             None,
             None,
@@ -336,18 +319,9 @@ mod tests {
     #[test]
     fn local_policy_denies_with_missing_role() {
         let claims = make_customer_claims();
-        let result = evaluate_local_policy(
-            &claims,
-            "tenant-a",
-            &vec!["admin".into()],
-            &[],
-            None,
-            None,
-        );
-        assert!(matches!(
-            result,
-            Err(AuthError::RoleCheckFailed { .. })
-        ));
+        let result =
+            evaluate_local_policy(&claims, "tenant-a", &vec!["admin".into()], &[], None, None);
+        assert!(matches!(result, Err(AuthError::RoleCheckFailed { .. })));
     }
 
     // ─── Permission Check Tests ─────────────────────────────────────────
@@ -388,28 +362,14 @@ mod tests {
     #[test]
     fn local_policy_allows_with_normal_risk() {
         let claims = make_test_claims();
-        let result = evaluate_local_policy(
-            &claims,
-            "tenant-a",
-            &[],
-            &[],
-            Some("normal"),
-            None,
-        );
+        let result = evaluate_local_policy(&claims, "tenant-a", &[], &[], Some("normal"), None);
         assert!(result.is_ok());
     }
 
     #[test]
     fn local_policy_allows_without_risk_claim() {
         let claims = make_no_risk_claims();
-        let result = evaluate_local_policy(
-            &claims,
-            "tenant-a",
-            &[],
-            &[],
-            None,
-            None,
-        );
+        let result = evaluate_local_policy(&claims, "tenant-a", &[], &[], None, None);
         assert!(result.is_ok());
     }
 
@@ -418,22 +378,14 @@ mod tests {
     #[test]
     fn category_policy_jwt_only_with_valid_claims() {
         let claims = make_test_claims();
-        let result = evaluate_category_policy(
-            &claims,
-            "tenant-a",
-            &RouteAuthCategory::JwtOnly,
-        );
+        let result = evaluate_category_policy(&claims, "tenant-a", &RouteAuthCategory::JwtOnly);
         assert!(result.is_ok());
     }
 
     #[test]
     fn category_policy_jwt_only_with_tenant_mismatch() {
         let claims = make_test_claims();
-        let result = evaluate_category_policy(
-            &claims,
-            "tenant-b",
-            &RouteAuthCategory::JwtOnly,
-        );
+        let result = evaluate_category_policy(&claims, "tenant-b", &RouteAuthCategory::JwtOnly);
         assert!(matches!(result, Err(AuthError::TenantMismatch { .. })));
     }
 
@@ -454,11 +406,7 @@ mod tests {
     #[test]
     fn category_policy_online_only_continues() {
         let claims = make_test_claims();
-        let result = evaluate_category_policy(
-            &claims,
-            "tenant-a",
-            &RouteAuthCategory::OnlineOnly,
-        );
+        let result = evaluate_category_policy(&claims, "tenant-a", &RouteAuthCategory::OnlineOnly);
         assert!(result.is_ok());
     }
 
@@ -467,14 +415,7 @@ mod tests {
     #[test]
     fn empty_roles_and_permissions_graceful() {
         let claims = make_customer_claims();
-        let result = evaluate_local_policy(
-            &claims,
-            "tenant-a",
-            &[],
-            &[],
-            None,
-            None,
-        );
+        let result = evaluate_local_policy(&claims, "tenant-a", &[], &[], None, None);
         assert!(result.is_ok());
     }
 
@@ -482,14 +423,7 @@ mod tests {
     fn empty_required_roles_passed() {
         // Empty required roles means any user is allowed
         let claims = make_customer_claims();
-        let result = evaluate_local_policy(
-            &claims,
-            "tenant-a",
-            &[],
-            &[],
-            None,
-            None,
-        );
+        let result = evaluate_local_policy(&claims, "tenant-a", &[], &[], None, None);
         assert!(result.is_ok());
     }
 }

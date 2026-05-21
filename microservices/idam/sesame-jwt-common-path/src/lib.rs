@@ -44,6 +44,7 @@
 //! ```
 
 pub mod auth_decision;
+pub mod dpop;
 pub mod jwt_validator;
 pub mod local_policy;
 pub mod middleware;
@@ -51,6 +52,10 @@ pub mod route_policy;
 
 // Re-export public types for convenience
 pub use auth_decision::{AuthDecision, AuthError};
+pub use dpop::{
+    compute_jkt, generate_ed25519_keypair, generate_p256_keypair, verify_dpop_proof,
+    DpopConfirmation, DpopError, DpopJwk, InMemoryProofStore,
+};
 pub use jwt_validator::{extract_bearer_token, parse_claims, pre_validate_expiry};
 pub use local_policy::evaluate_local_policy;
 pub use middleware::JwtAuthMiddleware;

@@ -8,6 +8,8 @@
 //!
 //! Also provides metrics counters for telemetry.
 
+use std::sync::LazyLock;
+
 use anyhow::Result;
 use prometheus::{register_int_counter, register_int_counter_vec, IntCounter, IntCounterVec};
 use uuid::Uuid;
@@ -19,26 +21,30 @@ use crate::redis;
 // Metrics
 // ---------------------------------------------------------------------------
 
-lazy_static::lazy_static! {
-    /// Total number of refresh attempts, labeled by result and subreason.
-    pub static ref TOKEN_REFRESH_TOTAL: IntCounterVec = register_int_counter_vec!(
+pub static TOKEN_REFRESH_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec!(
         "token_refresh_total",
         "Total number of /auth/refresh requests",
         &["result", "subreason"]
-    ).unwrap();
+    )
+    .unwrap()
+});
 
-    /// Number of refreshes where reuse was detected (family revoked).
-    pub static ref REFRESH_REUSE_DETECTED_TOTAL: IntCounter = register_int_counter!(
+pub static REFRESH_REUSE_DETECTED_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| {
+    register_int_counter!(
         "refresh_reuse_detected_total",
         "Total number of refresh token reuse detections (family revocations)",
-    ).unwrap();
+    )
+    .unwrap()
+});
 
-    /// Number of rotation failures (invalid token, Redis error, etc.).
-    pub static ref REFRESH_ROTATION_FAILURES_TOTAL: IntCounter = register_int_counter!(
+pub static REFRESH_ROTATION_FAILURES_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| {
+    register_int_counter!(
         "refresh_rotation_failures_total",
         "Total number of refresh rotation failures",
-    ).unwrap();
-}
+    )
+    .unwrap()
+});
 
 // ---------------------------------------------------------------------------
 // Rotation result types
@@ -78,8 +84,8 @@ pub enum RotationError {
     RedisError(String),
 }
 
-impl From<redis::Error> for RotationError {
-    fn from(e: redis::Error) -> Self {
+impl From<anyhow::Error> for RotationError {
+    fn from(e: anyhow::Error) -> Self {
         RotationError::RedisError(e.to_string())
     }
 }
@@ -109,11 +115,13 @@ impl From<redis::Error> for RotationError {
 pub fn rotate_refresh_token(
     refresh_token_value: &str,
     family_id: &str,
-    user_id: &str,
+    _user_id: &str,
 ) -> RotationOutcome {
     let parts: Vec<&str> = refresh_token_value.split('.').collect();
     if parts.len() != 3 {
-        TOKEN_REFRESH_TOTAL.with_label_values(&["failure", "invalid_format"]).inc();
+        TOKEN_REFRESH_TOTAL
+            .with_label_values(&["failure", "invalid_format"])
+            .inc();
         REFRESH_ROTATION_FAILURES_TOTAL.inc();
         return RotationOutcome::InvalidToken;
     }
@@ -284,7 +292,7 @@ fn generate_access_token(
     client_id: &str,
     scopes: &str,
     family_id: &str,
-    version_hint: &str,
+    _version_hint: &str,
 ) -> String {
     use base64::Engine;
     let engine = base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -314,10 +322,7 @@ fn generate_access_token(
     let payload_b64 = engine.encode(serde_json::to_string(&payload).unwrap());
 
     // Signature (placeholder — replace with real signing in production)
-    format!(
-        "{}.{}.placeholder_signature",
-        header_b64, payload_b64
-    )
+    format!("{}.{}.placeholder_signature", header_b64, payload_b64)
 }
 
 /// Check if a token has been reused (for reuse detection).

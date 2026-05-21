@@ -46,6 +46,8 @@ pub struct AppConfig {
     pub http: Option<HttpConfig>,
     /// CORS policy.
     pub cors: Option<CorsConfig>,
+    /// Redis connection configuration for push invalidation.
+    pub redis: Option<RedisConfig>,
 }
 
 /// Security scheme configurations for the service.
@@ -90,7 +92,7 @@ pub struct HttpConfig {
     pub max_requests: Option<u64>,
 }
 
-/// CORS policy.
+/// HTTP CORS policy.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct CorsConfig {
     /// Allowed origins (e.g. `["https://myapp.com"]`).
@@ -105,6 +107,18 @@ pub struct CorsConfig {
     pub expose_headers: Option<Vec<String>>,
     /// Cache duration for preflight responses in seconds.
     pub max_age: Option<u32>,
+}
+
+/// Redis connection configuration.
+///
+/// Used by the push invalidation publisher to connect to Redis for
+/// pub/sub event delivery.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+pub struct RedisConfig {
+    /// Redis connection URL (e.g., `redis://127.0.0.1:6379`).
+    pub url: Option<String>,
+    /// HMAC-SHA256 secret for signing version bump events.
+    pub hmac_secret: Option<String>,
 }
 
 /// Load configuration from a YAML file.

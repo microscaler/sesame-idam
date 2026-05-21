@@ -184,7 +184,7 @@ Session ───┬── User (via user_id)           ← Session owner
 ## Competitive Intelligence Deep Dive
 
 ### Auth0: Token Signing
-Auth0 supports RS256, HS256, ES256 JWT algorithms with configurable expiration and claims mapping. The Management API supports token introspection and revocation. **Sesame Gap:** No token introspection endpoint (RFC 7662).
+Auth0 supports RS256, ES256, EdDSA JWT algorithms with configurable expiration and claims mapping. The Management API supports token introspection and revocation. **Sesame Gap:** No token introspection endpoint (RFC 7662).
 
 ### Okta: Adaptive Session Control
 Okta's session control includes idle timeout, absolute timeout, device posture checks, and geographic restrictions. **Sesame Gap:** No timeout configuration, no device posture checks.

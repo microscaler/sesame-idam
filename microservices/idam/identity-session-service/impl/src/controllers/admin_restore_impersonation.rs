@@ -1,6 +1,6 @@
-/// Handler for Admin Restore Impersonation — restores the admin to their original session.
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
+use sesame_audit::AuditEventType;
 use sesame_idam_identity_session_service_gen::handlers::admin_restore_impersonation::{
     Request, Response,
 };
@@ -8,22 +8,21 @@ use sesame_idam_identity_session_service_gen::handlers::admin_restore_impersonat
 #[handler(AdminRestoreImpersonationController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
 
     let tenant_id = req.data.x_tenant_id.clone();
     let admin_user_id = req.data.admin_user_id.clone();
 
-    let mut event = AuditEvent::new(
-        AuditEventType::SessionManagement,
-        "impersonation_restored",
-        tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.user_id = admin_user_id.parse::<Uuid>().ok();
-    event.severity = Some(AuditSeverity::Warning);
-    EMITTER.emit(&mut event);
+    let entry =
+        sesame_audit::AuditLogEntry::new(AuditEventType::Delegation, "identity-session-service")
+            .user_id(admin_user_id.clone())
+            .tenant_id(tenant_id.clone())
+            .decision_source("admin_restore_impersonation")
+            .result("allowed")
+            .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     Response {
         access_token: "restored-jwt".to_string(),

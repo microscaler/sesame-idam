@@ -60,9 +60,7 @@ impl JwtAuthMiddleware {
     /// ```
     #[must_use]
     pub fn new(route_policies: Arc<RoutePolicyStore>) -> Self {
-        Self {
-            route_policies,
-        }
+        Self { route_policies }
     }
 
     /// The main validation and authorization pipeline.
@@ -159,10 +157,7 @@ impl JwtAuthMiddleware {
     }
 
     /// Helper to find a header value from the request headers list.
-    fn get_header_value(
-        headers: &[(std::sync::Arc<str>, String)],
-        name: &str,
-    ) -> Option<String> {
+    fn get_header_value(headers: &[(std::sync::Arc<str>, String)], name: &str) -> Option<String> {
         for (key, value) in headers {
             if key.eq_ignore_ascii_case(name) {
                 return Some(value.clone());
@@ -224,9 +219,10 @@ impl Middleware for JwtAuthMiddleware {
 
                     return Some(HandlerResponse {
                         status,
-                        headers: smallvec::smallvec![
-                            (std::sync::Arc::from("Content-Type"), "application/json".to_string())
-                        ],
+                        headers: smallvec::smallvec![(
+                            std::sync::Arc::from("Content-Type"),
+                            "application/json".to_string()
+                        )],
                         body,
                     });
                 }
@@ -241,9 +237,10 @@ impl Middleware for JwtAuthMiddleware {
 
                 Some(HandlerResponse {
                     status,
-                    headers: smallvec::smallvec![
-                        (std::sync::Arc::from("Content-Type"), "application/json".to_string())
-                    ],
+                    headers: smallvec::smallvec![(
+                        std::sync::Arc::from("Content-Type"),
+                        "application/json".to_string()
+                    )],
                     body,
                 })
             }
@@ -284,12 +281,13 @@ mod tests {
 
         let store = RoutePolicyStore::from_config(
             serde_yaml::from_str(&serde_yaml::to_string(&serde_yaml::Mapping::new()).unwrap())
-                .unwrap()
+                .unwrap(),
         )
         .unwrap_or_default();
 
         // Build manually since from_config needs a YAML config
-        let mut lookup: std::collections::HashMap<String, RoutePolicy> = std::collections::HashMap::new();
+        let mut lookup: std::collections::HashMap<String, RoutePolicy> =
+            std::collections::HashMap::new();
         for policy in &policies {
             for method in &policy.methods {
                 let key = format!("{}:{}", policy.path, method);
@@ -337,7 +335,10 @@ mod tests {
         use brrtrouter::dispatcher::HeaderVec;
         use http::Method;
         let mut headers = HeaderVec::new();
-        headers.push((std::sync::Arc::from("Authorization"), format!("Bearer {}", token)));
+        headers.push((
+            std::sync::Arc::from("Authorization"),
+            format!("Bearer {}", token),
+        ));
         if !tenant_id.is_empty() {
             headers.push((std::sync::Arc::from("X-Tenant-ID"), tenant_id.to_string()));
         }
@@ -361,9 +362,9 @@ mod tests {
 
     fn make_empty_request(method: &str, path: &str) -> HandlerRequest {
         use brrtrouter::dispatcher::HeaderVec;
-        use http::Method;
         use brrtrouter::ids::RequestId;
         use brrtrouter::router::ParamVec;
+        use http::Method;
         HandlerRequest {
             request_id: RequestId::new(),
             method: method.parse::<Method>().unwrap_or(Method::GET),

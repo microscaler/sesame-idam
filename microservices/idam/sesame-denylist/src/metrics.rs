@@ -12,9 +12,11 @@
 //! - `denylist_cache_redis_errors_total` — Total Redis errors (connection failures)
 //! - `denylist_cache_evictions_total` — Total cache evictions (when max entries reached)
 
-use prometheus::{IntCounter, IntGauge, Registry, Histogram, register};
+use prometheus::{IntCounter, IntGauge, Registry};
 
 /// Prometheus registry namespace for denylist cache metrics.
+/// (Used for documentation — metric names are defined inline.)
+#[allow(dead_code)]
 const DENYLIST_NAMESPACE: &str = "denylist";
 
 /// Registry containing all denylist cache metrics.
@@ -155,7 +157,9 @@ impl DenylistMetrics {
 /// let registry = prometheus::Registry::new();
 /// let metrics = register_denylist_metrics(&registry).unwrap();
 /// ```
-pub fn register_denylist_metrics(registry: &Registry) -> Result<DenylistMetrics, prometheus::Error> {
+pub fn register_denylist_metrics(
+    registry: &Registry,
+) -> Result<DenylistMetrics, prometheus::Error> {
     DenylistMetrics::register(registry)
 }
 
@@ -166,13 +170,11 @@ mod tests {
     #[test]
     fn test_register_metrics() {
         let registry = Registry::new();
-        let metrics = register_denylist_metrics(&registry).unwrap();
+        let _metrics = register_denylist_metrics(&registry).unwrap();
 
         // Verify all metrics are registered
         let metrics_families = registry.gather();
-        let metric_names: Vec<_> = metrics_families.iter()
-            .map(|mf| mf.get_name())
-            .collect();
+        let metric_names: Vec<_> = metrics_families.iter().map(|mf| mf.get_name()).collect();
 
         assert!(metric_names.contains(&"denylist_cache_size"));
         assert!(metric_names.contains(&"denylist_cache_hits_total"));
@@ -202,42 +204,54 @@ mod tests {
 
         // Verify metric values
         let metrics_families = registry.gather();
-        let values: std::collections::HashMap<_, _> = metrics_families.iter()
+        let values: std::collections::HashMap<_, _> = metrics_families
+            .iter()
             .filter(|mf| mf.get_name().starts_with("denylist_"))
-            .flat_map(|mf| mf.get_metric())
-            .filter_map(|m| {
-                if let prometheus::proto::MetricType::GAUGE = m.get_type() {
-                    m.get_gauge().map(|g| (m.get_label().iter().next().map(|l| l.get_value().to_string()).unwrap_or_default(), g.get_value()))
-                } else if let prometheus::proto::MetricType::COUNTER = m.get_type() {
-                    m.get_counter().map(|c| (m.get_label().iter().next().map(|l| l.get_value().to_string()).unwrap_or_default(), c.get_value()))
-                } else {
-                    None
-                }
+            .filter_map(|mf| {
+                let name = mf.get_name().to_string();
+                let m = mf.get_metric().first()?;
+                let value = match mf.get_field_type() {
+                    prometheus::proto::MetricType::GAUGE => m.get_gauge().get_value(),
+                    prometheus::proto::MetricType::COUNTER => m.get_counter().get_value(),
+                    _ => return None,
+                };
+                Some((name, value))
             })
             .collect();
 
         // Check cache_size gauge
         assert_eq!(values.get(&"denylist_cache_size".to_string()), Some(&42.0));
         // Check hits counter
-        assert_eq!(values.get(&"denylist_cache_hits_total".to_string()), Some(&2.0));
+        assert_eq!(
+            values.get(&"denylist_cache_hits_total".to_string()),
+            Some(&2.0)
+        );
         // Check misses counter
-        assert_eq!(values.get(&"denylist_cache_misses_total".to_string()), Some(&1.0));
+        assert_eq!(
+            values.get(&"denylist_cache_misses_total".to_string()),
+            Some(&1.0)
+        );
         // Check evictions counter
-        assert_eq!(values.get(&"denylist_cache_evictions_total".to_string()), Some(&3.0));
+        assert_eq!(
+            values.get(&"denylist_cache_evictions_total".to_string()),
+            Some(&3.0)
+        );
     }
 
     #[test]
     fn test_empty_cache_size() {
         let registry = Registry::new();
-        let metrics = register_denylist_metrics(&registry).unwrap();
+        let _metrics = register_denylist_metrics(&registry).unwrap();
 
         // Default cache size should be 0
-        metrics.set_cache_size(0);
         let metrics_families = registry.gather();
-        let cache_size = metrics_families.iter()
+        let cache_size = metrics_families
+            .iter()
             .filter(|mf| mf.get_name() == "denylist_cache_size")
-            .flat_map(|mf| mf.get_metric())
-            .filter_map(|m| m.get_gauge().map(|g| g.get_value()))
+            .filter_map(|mf| {
+                let m = mf.get_metric().first()?;
+                Some(m.get_gauge().get_value())
+            })
             .next();
 
         assert_eq!(cache_size, Some(0.0));

@@ -115,10 +115,7 @@ impl RateLimiterState {
             .unwrap()
             .as_nanos() as u64;
 
-        let current_window = self
-            .window_start
-            .load(Ordering::Relaxed)
-            .max(1); // avoid div by zero
+        let current_window = self.window_start.load(Ordering::Relaxed).max(1); // avoid div by zero
 
         // If we've moved to a new window, reset counter
         let this_window = (now / self.window_ns) * self.window_ns;
@@ -134,13 +131,9 @@ impl RateLimiterState {
         }
 
         // Atomically increment and check
-        counter.compare_exchange(
-            count,
-            count + 1,
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-        )
-        .is_ok()
+        counter
+            .compare_exchange(count, count + 1, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
     }
 }
 

@@ -1,25 +1,25 @@
-/// Handler for OAuth Userinfo — returns OAuth user information..
+/// Handler for OAuth Userinfo — returns OAuth user information.
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
+use sesame_audit::AuditEventType;
 use sesame_idam_identity_session_service_gen::handlers::oauth_userinfo::{Request, Response};
 
 #[handler(OauthUserinfoController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditActor, AuditEvent, AuditEventType, AuditSeverity};
-    use uuid::Uuid;
 
     let tenant_id = _req.data.x_tenant_id.clone();
 
-    let mut event = AuditEvent::new(
-        AuditEventType::SessionManagement,
-        "oauth_userinfo_accessed",
-        tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::ServiceAccount,
-        "127.0.0.1".to_string(),
-    );
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
+    let entry =
+        sesame_audit::AuditLogEntry::new(AuditEventType::JwtValidated, "identity-session-service")
+            .tenant_id(tenant_id.clone())
+            .decision_source("oauth_userinfo")
+            .result("allowed")
+            .build();
+
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
 
     Response {
         email: None,

@@ -6,7 +6,7 @@ description = "JWT common-path authorization middleware for Sesame-IDAM — vali
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
+serde_json = { workspace = true, features = ["preserve_order"] }
 serde_yaml = { workspace = true }
 thiserror = { workspace = true }
 sesame_common = { package = "sesame-common", path = "../common" }
@@ -17,11 +17,16 @@ chrono = { workspace = true }
 sha2 = { workspace = true }
 tracing = "0.1"
 smallvec = "1"
-redis = { workspace = true }
+redis = { workspace = true, features = ["tokio-comp", "connection-manager"] }
 blake3 = { workspace = true }
 dashmap = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 async-trait = "0.1"
+base64 = "0.21"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+p256 = { version = "0.13", features = ["ecdsa"] }
+rand = "0.8"
+hex = "0.4"
 
 [dev-dependencies]
 chrono = { workspace = true, features = ["serde"] }

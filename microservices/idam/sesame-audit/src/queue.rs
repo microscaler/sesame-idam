@@ -3,7 +3,6 @@
 /// Two separate queues: HIGH (security events: WARN/ERROR) and LOW
 /// (normal events: DEBUG/INFO). HIGH priority events are always written;
 /// LOW priority events are dropped when the buffer is full.
-
 use dashmap::DashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;

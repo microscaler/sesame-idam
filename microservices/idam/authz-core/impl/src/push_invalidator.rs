@@ -9,8 +9,6 @@
 //! authz state changes. These are fire-and-forget — they spawn an async task
 //! and return immediately.
 
-use std::sync::Arc;
-
 use sesame_token_versioning::VersionBumpPublisher;
 
 /// Shared publisher handle wrapped for sync callers.
@@ -41,6 +39,8 @@ impl PublisherWrapper {
     ) {
         let url = self.redis_url.clone();
         let secret = self.hmac_secret.clone();
+        let tenant_id = tenant_id.to_string();
+        let reason_str = format!("{:?}", reason);
 
         tokio::task::spawn(async move {
             let publisher = match VersionBumpPublisher::new(&url, secret.clone()) {
@@ -50,11 +50,14 @@ impl PublisherWrapper {
                     return;
                 }
             };
-            if let Err(e) = publisher.publish_tenant(tenant_id, new_version, reason).await {
+            if let Err(e) = publisher
+                .publish_tenant(&tenant_id, new_version, reason)
+                .await
+            {
                 tracing::error!(
                     tenant_id,
                     new_version,
-                    reason = ?reason,
+                    reason = reason_str,
                     error = %e,
                     "failed to publish version bump event",
                 );
@@ -72,6 +75,9 @@ impl PublisherWrapper {
     ) {
         let url = self.redis_url.clone();
         let secret = self.hmac_secret.clone();
+        let tenant_id = tenant_id.to_string();
+        let user_id = user_id.to_string();
+        let reason_str = format!("{:?}", reason);
 
         tokio::task::spawn(async move {
             let publisher = match VersionBumpPublisher::new(&url, secret.clone()) {
@@ -82,14 +88,14 @@ impl PublisherWrapper {
                 }
             };
             if let Err(e) = publisher
-                .publish_subject(tenant_id, user_id, new_version, reason)
+                .publish_subject(&tenant_id, &user_id, new_version, reason)
                 .await
             {
                 tracing::error!(
                     tenant_id,
                     user_id,
                     new_version,
-                    reason = ?reason,
+                    reason = reason_str,
                     error = %e,
                     "failed to publish subject version bump event",
                 );
@@ -106,9 +112,7 @@ impl PublisherWrapper {
 
 /// Create a `PublisherWrapper` from Redis config.
 /// Returns `None` if Redis is not configured.
-pub fn create_publisher(
-    config: &crate::config::AppConfig,
-) -> Option<PublisherWrapper> {
+pub fn create_publisher(config: &crate::config::AppConfig) -> Option<PublisherWrapper> {
     let redis = config.redis.as_ref()?;
     let url = redis.url.as_ref()?;
     let secret = redis.hmac_secret.as_ref()?;

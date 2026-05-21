@@ -2,12 +2,11 @@
 ///
 /// Tests token issuance with role-based TTL, env var overrides,
 /// and expiry validation — using brrtrouter HandlerRequest pattern.
-
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
 use http::Method;
 use sesame_idam_identity_user_mgmt_service::jwt::ttl::{
-    TtlConfig, validate_minimum_ttl, validate_refresh_exceeds_access,
+    validate_minimum_ttl, validate_refresh_exceeds_access, TtlConfig,
 };
 
 /// Create a minimal HandlerRequest for testing fetch_fresh_oauth_token.

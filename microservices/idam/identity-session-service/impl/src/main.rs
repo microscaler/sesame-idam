@@ -17,7 +17,10 @@ mod controllers;
 mod jwt;
 mod key_manager;
 mod middleware;
+mod models;
+mod redis;
 mod security;
+mod services;
 
 // key_manager module is registered but KeyManager is used via static KEY_MANAGER
 

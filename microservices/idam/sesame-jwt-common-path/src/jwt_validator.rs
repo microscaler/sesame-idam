@@ -81,14 +81,11 @@ pub fn pre_validate_expiry(token: &str) -> Result<(), AuthError> {
         ));
     }
 
-    let payload_bytes = decode_base64url(parts[1]).ok_or_else(|| {
-        AuthError::JwtInvalid("JWT payload is not valid base64url".into())
-    })?;
+    let payload_bytes = decode_base64url(parts[1])
+        .ok_or_else(|| AuthError::JwtInvalid("JWT payload is not valid base64url".into()))?;
 
-    let claims_json: serde_json::Value =
-        serde_json::from_slice(&payload_bytes).map_err(|_| {
-            AuthError::JwtInvalid("JWT payload is not valid JSON".into())
-        })?;
+    let claims_json: serde_json::Value = serde_json::from_slice(&payload_bytes)
+        .map_err(|_| AuthError::JwtInvalid("JWT payload is not valid JSON".into()))?;
 
     // Check exp — reject immediately if expired
     if let Some(exp) = claims_json.get("exp").and_then(|v| v.as_i64()) {
@@ -118,9 +115,21 @@ fn decode_base64url(input: &str) -> Option<Vec<u8>> {
 
     while i < len {
         let a = char_to_val(chars[i]);
-        let b = if i + 1 < len { char_to_val(chars[i + 1]) } else { 0 };
-        let c = if i + 2 < len { char_to_val(chars[i + 2]) } else { 0 };
-        let d = if i + 3 < len { char_to_val(chars[i + 3]) } else { 0 };
+        let b = if i + 1 < len {
+            char_to_val(chars[i + 1])
+        } else {
+            0
+        };
+        let c = if i + 2 < len {
+            char_to_val(chars[i + 2])
+        } else {
+            0
+        };
+        let d = if i + 3 < len {
+            char_to_val(chars[i + 3])
+        } else {
+            0
+        };
 
         decoded.push(((a << 2) | (b >> 4)) as u8);
         if i + 2 < len {
@@ -175,7 +184,10 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
     }
 
     // Validate audience
-    let has_aud = claims.aud.iter().any(|a| EXPECTED_AUDIENCE.contains(&a.as_str()));
+    let has_aud = claims
+        .aud
+        .iter()
+        .any(|a| EXPECTED_AUDIENCE.contains(&a.as_str()));
     if claims.aud.is_empty() || !has_aud {
         return Err(AuthError::JwtAudienceMismatch {
             expected: EXPECTED_AUDIENCE[0].to_string(),
@@ -213,9 +225,7 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
             sesame_common::JwtValidationError::NotYetValid => {
                 AuthError::JwtInvalid("JWT is not yet valid".into())
             }
-            sesame_common::JwtValidationError::SignatureInvalid => {
-                AuthError::JwtSignatureInvalid
-            }
+            sesame_common::JwtValidationError::SignatureInvalid => AuthError::JwtSignatureInvalid,
             sesame_common::JwtValidationError::EntitlementsHashMismatch => {
                 AuthError::JwtInvalid("Entitlements hash mismatch".into())
             }
@@ -250,10 +260,7 @@ mod tests {
                 body: None,
             }
         } else {
-            headers.insert(
-                "Authorization".to_string(),
-                format!("Bearer {}", auth),
-            );
+            headers.insert("Authorization".to_string(), format!("Bearer {}", auth));
             HandlerRequest {
                 method: "GET".to_string(),
                 path: "/test".to_string(),
@@ -292,10 +299,7 @@ mod tests {
     #[test]
     fn extract_bearer_token_rejects_empty_token() {
         let req = create_request("Bearer ");
-        assert_eq!(
-            extract_bearer_token(&req),
-            Err(AuthError::MissingJwt)
-        );
+        assert_eq!(extract_bearer_token(&req), Err(AuthError::MissingJwt));
     }
 
     #[test]

@@ -17,6 +17,8 @@ static GLOBAL: Jemalloc = Jemalloc;
 mod audit;
 mod authz_span_middleware;
 mod config;
+mod denylist_middleware;
+mod push_invalidator;
 mod security;
 
 use sesame_idam_authz_core_gen::registry;

@@ -23,8 +23,7 @@ pub static EMITTER: std::sync::LazyLock<AuditEmitter> =
 pub static PUBLISHER: std::sync::LazyLock<
     Option<std::sync::Arc<crate::push_invalidator::PublisherWrapper>>,
 > = std::sync::LazyLock::new(|| {
-    let config =
-        crate::config::load_config(&std::path::PathBuf::from("./config/config.yaml"))
-            .unwrap_or_default();
+    let config = crate::config::load_config(&std::path::PathBuf::from("./config/config.yaml"))
+        .unwrap_or_default();
     crate::push_invalidator::create_publisher(&config).map(|p| std::sync::Arc::new(p))
 });

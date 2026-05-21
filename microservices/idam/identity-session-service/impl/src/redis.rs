@@ -15,7 +15,7 @@ use redis::Commands;
 
 use crate::models::refresh_token::{
     RefreshToken, DENYLIST_KEY_PREFIX, FAMILY_REVOKED, FAMILY_SET_KEY_PREFIX, FAMILY_TTL,
-    MAX_DENYLIST_SIZE, REFIRESH_TOKEN_KEY_PREFIX, REFRESH_TOKEN_TTL, SESSION_KEY_PREFIX,
+    REFIRESH_TOKEN_KEY_PREFIX, REFRESH_TOKEN_TTL, SESSION_KEY_PREFIX,
 };
 
 // ---------------------------------------------------------------------------
@@ -174,8 +174,6 @@ pub fn is_in_denylist(jti: &str) -> Result<bool> {
 
 /// Clean old denylist entries for a user when size exceeds MAX_DENYLIST_SIZE.
 pub fn evict_old_denylist_entries(_jti: &str) -> Result<()> {
-    let mut conn = get_redis_connection()?;
-
     // Eviction is a per-user concern; currently no user-specific denylist tracking.
     // TODO: Add per-user denylist counting (HACK-304).
     Ok(())

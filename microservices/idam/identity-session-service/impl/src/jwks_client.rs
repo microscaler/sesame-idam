@@ -10,7 +10,7 @@
 //! ```text
 //! 1. Parse JOSE header              -- Extract typ, alg, kid before ANY trust decision
 //! 2. Require typ = at+jwt           -- Reject type confusion (F-002) BEFORE signature check
-//! 3. Require algorithm from allow   -- Reject alg: none, reject HS256, reject unexpected alg
+//! 3. Require algorithm from allow   -- Reject alg: none, reject disallowed alg
 //! 4. Choose key by kid from JWKS    -- Select public key for verification
 //! 5. Verify signature               -- CRYPTOGRAPHIC TRUST DECISION POINT
 //! 6. Validate iss, aud, exp, nbf    -- Claim validation (after trust is established)
@@ -419,15 +419,15 @@ mod tests {
         assert!(reject_none_algorithm("None"));
         assert!(reject_none_algorithm("NONE"));
         assert!(!reject_none_algorithm("EdDSA"));
-        assert!(!reject_none_algorithm("HS256"));
+        assert!(!reject_none_algorithm("ES256"));
     }
 
     #[test]
     fn test_allowed_algorithms() {
         assert!(is_allowed_algorithm("EdDSA"));
         assert!(is_allowed_algorithm("ES256"));
-        assert!(!is_allowed_algorithm("HS256"));
         assert!(!is_allowed_algorithm("RS256"));
+        assert!(!is_allowed_algorithm("HS256"));
         assert!(!is_allowed_algorithm("none"));
     }
 

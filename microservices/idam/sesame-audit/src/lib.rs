@@ -62,19 +62,19 @@
 //! - **HACK-838**: Priority queue with HIGH/LOW split.
 //!   HIGH priority events always written; LOW dropped when full.
 
-pub mod event;
 pub mod emitter;
+pub mod event;
 pub mod hmac;
 pub mod metrics;
 pub mod queue;
 pub mod rate_limiter;
 
 // Re-export the most commonly used types at crate root
+pub use emitter::AuditEmitter;
 pub use event::{
     allowed_event_types, is_valid_event_type, AuditEventType, AuditLevel, AuditLogEntry,
     AuditLogEntryBuilder,
 };
-pub use emitter::AuditEmitter;
 pub use hmac::{generate_key, sign_entry, verify_entry};
 pub use metrics::AuditMetrics;
 pub use queue::AuditQueue;

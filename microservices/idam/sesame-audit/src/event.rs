@@ -267,7 +267,6 @@ pub struct AuditLogEntry {
     pub event_id: Uuid,
 }
 
-
 fn uuid_to_string<S>(uuid: &Uuid, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
@@ -347,7 +346,9 @@ impl AuditLogEntry {
                     .split('"')
                     .any(|part| part.len() > 50 && part.starts_with("eyJ"));
                 if suspicious {
-                    return Err("Raw JWT token detected in audit log entry — entry dropped".to_string());
+                    return Err(
+                        "Raw JWT token detected in audit log entry — entry dropped".to_string()
+                    );
                 }
             }
         }

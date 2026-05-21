@@ -2,17 +2,16 @@
 ///
 /// Tests token issuance with role-based TTL, env var overrides,
 /// and expiry validation — using rstest_bdd pattern.
-
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
 use http::Method;
 use std::sync::Arc;
 use std::time::Duration;
 
-use sesame_idam_identity_login_service_gen::handlers::auth_token::{Request, Response};
 use sesame_idam_identity_login_service::jwt::ttl::{
-    TtlConfig, validate_minimum_ttl, validate_refresh_exceeds_access,
+    validate_minimum_ttl, validate_refresh_exceeds_access, TtlConfig,
 };
+use sesame_idam_identity_login_service_gen::handlers::auth_token::{Request, Response};
 
 /// Create a minimal HandlerRequest for testing.
 fn make_request(
@@ -175,26 +174,11 @@ fn test_metrics_track_ttl_for_roles() {
     let config = TtlConfig::from_env();
 
     // All roles should report the same TTL (F-010 aligned)
-    assert_eq!(
-        config.access_ttl_secs_for_role("customer"),
-        300
-    );
-    assert_eq!(
-        config.access_ttl_secs_for_role("org_admin"),
-        300
-    );
-    assert_eq!(
-        config.access_ttl_secs_for_role("platform_admin"),
-        300
-    );
-    assert_eq!(
-        config.access_ttl_secs_for_role("elevated"),
-        300
-    );
-    assert_eq!(
-        config.access_ttl_secs_for_role("platform"),
-        300
-    );
+    assert_eq!(config.access_ttl_secs_for_role("customer"), 300);
+    assert_eq!(config.access_ttl_secs_for_role("org_admin"), 300);
+    assert_eq!(config.access_ttl_secs_for_role("platform_admin"), 300);
+    assert_eq!(config.access_ttl_secs_for_role("elevated"), 300);
+    assert_eq!(config.access_ttl_secs_for_role("platform"), 300);
 }
 
 /// Scenario: Refresh token TTL always exceeds access token TTL.
@@ -208,7 +192,13 @@ fn test_refresh_ttl_exceeds_access_for_all_roles() {
     validate_refresh_exceeds_access(&config);
 
     // Verify explicitly for each role
-    for role in ["customer", "org_admin", "platform_admin", "elevated", "platform"] {
+    for role in [
+        "customer",
+        "org_admin",
+        "platform_admin",
+        "elevated",
+        "platform",
+    ] {
         let access_secs = config.access_ttl_secs_for_role(role);
         let refresh_secs = config.refresh_ttl_for_role(role).as_secs();
         assert!(
@@ -260,7 +250,10 @@ fn test_exp_claim_set_by_server_not_request() {
 
     // The exp is computed by ttl_for_role, independent of request data.
     let exp = config.exp_for_role("customer", iat);
-    assert_eq!(exp, 1300, "exp must be iat + ttl_for_role, not from request");
+    assert_eq!(
+        exp, 1300,
+        "exp must be iat + ttl_for_role, not from request"
+    );
 
     // Even with different roles, the exp computation is deterministic.
     assert_eq!(

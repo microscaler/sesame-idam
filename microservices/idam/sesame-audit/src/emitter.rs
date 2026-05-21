@@ -8,7 +8,6 @@
 /// - Validation and sanitization before enqueueing
 /// - Async dispatch to flush task
 /// - Graceful shutdown with buffer flush
-
 use std::sync::Arc;
 
 use crate::event::{AuditEventType, AuditLevel, AuditLogEntry};
@@ -256,7 +255,10 @@ impl AuditEmitter {
             .decision_source("jwt_claims")
             .result("denied")
             .error("stale_auth_token")
-            .reason(format!("claims.ver ({}) < cached_ver ({})", token_ver, cached_ver))
+            .reason(format!(
+                "claims.ver ({}) < cached_ver ({})",
+                token_ver, cached_ver
+            ))
             .build();
 
         if let Ok(entry) = entry {
@@ -289,7 +291,7 @@ impl AuditEmitter {
     }
 
     /// Core emit method — rate limiting, validation, queueing, and HMAC signing.
-    fn emit(&self, mut entry: AuditLogEntry) {
+    pub fn emit(&self, mut entry: AuditLogEntry) {
         // HACK-835: Rate limit DEBUG events (HACK-833)
         if entry.level == AuditLevel::Debug {
             if !self.rate_limiter.allow_debug(&self.service) {
