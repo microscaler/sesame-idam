@@ -7,7 +7,7 @@ use sesame_idam_identity_login_service_gen::handlers::auth_token::{Request, Resp
 use std::collections::HashSet;
 
 /// Token versioning module for per-subject version tracking (Story 5.1)
-use sesame_token_versioning::VersionStore;
+use sesame_common::token_versioning::VersionStore;
 
 // ─── Constants ───────────────────────────────────────────────────────────
 
@@ -853,7 +853,7 @@ fn build_refresh_token(subject: &SubjectClaims, jti: &str, now: i64) -> String {
 #[handler(AuthTokenController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     
     // Span: track token issuance events
     let span = tracing::span!(

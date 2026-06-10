@@ -14,7 +14,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     );
     let _guard = span.enter();
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
     let user_id = Uuid::new_v7();

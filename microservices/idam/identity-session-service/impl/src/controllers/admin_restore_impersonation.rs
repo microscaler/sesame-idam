@@ -1,6 +1,6 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
-use sesame_audit::AuditEventType;
+use sesame_common::audit::AuditEventType;
 use sesame_idam_identity_session_service_gen::handlers::admin_restore_impersonation::{
     Request, Response,
 };
@@ -13,7 +13,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let admin_user_id = req.data.admin_user_id.clone();
 
     let entry =
-        sesame_audit::AuditLogEntry::new(AuditEventType::Delegation, "identity-session-service")
+        sesame_common::audit::AuditLogEntry::new(AuditEventType::Delegation, "identity-session-service")
             .user_id(admin_user_id.clone())
             .tenant_id(tenant_id.clone())
             .decision_source("admin_restore_impersonation")

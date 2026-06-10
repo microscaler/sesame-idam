@@ -4957,45 +4957,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "sesame-audit"
+name = "sesame-common"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "arc-swap",
  "async-trait",
- "chrono",
- "dashmap 5.5.3",
- "futures",
- "hex",
- "hmac 0.12.1",
- "metrics",
- "prometheus 0.13.4",
- "rand 0.8.6",
- "rstest",
- "rstest-bdd",
- "rstest-bdd-macros",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "sesame-common"
-version = "0.1.0"
-dependencies = [
- "arc-swap",
  "base64 0.22.1",
  "blake3",
  "brrtrouter",
  "chrono",
+ "clap",
+ "config",
+ "dashmap 5.5.3",
  "ed25519-dalek",
  "ed25519-zebra",
- "futures",
+ "futures-util",
+ "hex",
+ "hmac 0.12.1",
+ "http 1.4.0",
+ "jsonwebtoken 9.3.1",
  "lazy_static",
+ "may",
+ "metrics",
  "once_cell",
  "p256",
  "prometheus 0.13.4",
@@ -5003,78 +4987,20 @@ dependencies = [
  "redis 0.25.5",
  "regex",
  "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "sesame-denylist"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "chrono",
- "dashmap 5.5.3",
- "once_cell",
- "prometheus 0.13.4",
- "rand 0.8.6",
- "redis 0.25.5",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "sesame-entitlement-cache"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "chrono",
- "prometheus 0.13.4",
- "rand 0.8.6",
+ "ring",
+ "rstest",
  "rstest-bdd",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "sesame-jwt-common-path"
-version = "0.1.0"
-dependencies = [
- "arc-swap",
- "async-trait",
- "base64 0.21.7",
- "blake3",
- "brrtrouter",
- "chrono",
- "dashmap 5.5.3",
- "ed25519-dalek",
- "hex",
- "p256",
- "prometheus 0.13.4",
- "rand 0.8.6",
- "redis 0.25.5",
+ "rstest-bdd-macros",
  "serde",
  "serde_json",
  "serde_yaml",
- "sesame-common",
  "sha2 0.10.9",
  "smallvec",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uuid",
+ "wiremock",
 ]
 
 [[package]]
@@ -5105,7 +5031,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sesame-audit",
+ "sesame-common",
  "sesame_idam_api_keys_gen",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
@@ -5132,6 +5058,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sesame-common",
  "tikv-jemallocator",
 ]
 
@@ -5147,6 +5074,8 @@ dependencies = [
  "chrono",
  "clap",
  "config",
+ "hex",
+ "hmac 0.12.1",
  "http 1.4.0",
  "lifeguard",
  "lifeguard-derive",
@@ -5155,6 +5084,7 @@ dependencies = [
  "may_minihttp 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "may_postgres",
  "prometheus 0.13.4",
+ "redis 0.25.5",
  "ring",
  "rstest",
  "rstest-bdd",
@@ -5164,14 +5094,12 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sesame-audit",
- "sesame-denylist",
+ "sesame-common",
  "sesame_idam_authz_core_gen",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
- "sesame_token_versioning",
+ "sha2 0.10.9",
  "tikv-jemallocator",
- "tokio",
  "tracing",
  "uuid",
 ]
@@ -5194,6 +5122,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sesame-common",
  "tikv-jemallocator",
 ]
 
@@ -5234,11 +5163,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sesame-audit",
+ "sesame-common",
  "sesame_idam_database",
  "sesame_idam_identity_login_service_gen",
  "sesame_idam_identity_session_service",
- "sesame_token_versioning",
  "sha2 0.10.9",
  "tikv-jemallocator",
  "tracing",
@@ -5263,6 +5191,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sesame-common",
  "tikv-jemallocator",
 ]
 
@@ -5298,7 +5227,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sesame-audit",
+ "sesame-common",
  "sesame_idam_database",
  "sesame_idam_identity_session_service_gen",
  "tikv-jemallocator",
@@ -5326,6 +5255,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sesame-common",
  "tikv-jemallocator",
 ]
 
@@ -5357,7 +5287,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sesame-audit",
+ "sesame-common",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
  "sesame_idam_identity_user_mgmt_service_gen",
@@ -5384,6 +5314,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sesame-common",
  "tikv-jemallocator",
 ]
 
@@ -5429,7 +5360,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sesame-audit",
+ "sesame-common",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
  "sesame_idam_org_mgmt_gen",
@@ -5456,28 +5387,8 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sesame-common",
  "tikv-jemallocator",
-]
-
-[[package]]
-name = "sesame_token_versioning"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arc-swap",
- "chrono",
- "futures-util",
- "hex",
- "hmac 0.12.1",
- "prometheus 0.13.4",
- "rand 0.8.6",
- "redis 0.25.5",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tokio",
- "tracing",
- "uuid",
 ]
 
 [[package]]

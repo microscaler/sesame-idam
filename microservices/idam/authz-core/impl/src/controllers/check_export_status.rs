@@ -6,7 +6,7 @@ use sesame_idam_authz_core_gen::handlers::check_export_status::{Request, Respons
 #[handler(CheckExportStatusController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
     let mut metadata = serde_json::Map::new();
     metadata.insert("export_id".to_string(), serde_json::json!(&req.data.export_id));

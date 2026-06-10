@@ -9,7 +9,7 @@
 //! - Only authz-core (or services with the shared secret) can publish valid events
 //! - Publishers should be restricted via Redis ACL (HACK-502)
 
-use crate::events::{BumpReason, VersionBumpEvent};
+use super::events::{BumpReason, VersionBumpEvent};
 use anyhow::{Context, Result};
 use hmac::{Hmac, Mac};
 use redis::Client;
@@ -198,8 +198,8 @@ pub fn verify_signature(json_payload: &str, signature_hex: &str, hmac_secret: &[
 
 #[cfg(test)]
 mod tests {
+    use super::super::events::BumpReason;
     use super::*;
-    use crate::events::BumpReason;
 
     fn test_hmac_secret() -> Vec<u8> {
         b"test-shared-secret-for-hmac".to_vec()

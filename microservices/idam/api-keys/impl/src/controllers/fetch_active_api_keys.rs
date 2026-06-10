@@ -6,7 +6,7 @@ use sesame_idam_api_keys_gen::handlers::fetch_active_api_keys::{Request, Respons
 #[handler(FetchActiveApiKeysController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLogEntry};
     use uuid::Uuid;
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "api-keys")

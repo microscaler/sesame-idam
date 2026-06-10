@@ -10,7 +10,7 @@ use sesame_idam_identity_session_service_gen::handlers::auth_refresh::{Request, 
 use crate::audit::EMITTER;
 use crate::models::refresh_token::REFRESH_TOKEN_TTL;
 use crate::services::token_rotation::{self, RotationOutcome};
-use sesame_audit::AuditEventType;
+use sesame_common::audit::AuditEventType;
 
 #[handler(AuthRefreshController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
@@ -28,7 +28,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     // --- Audit logging ---
     let entry =
-        sesame_audit::AuditLogEntry::new(AuditEventType::JwtIssued, "identity-session-service")
+        sesame_common::audit::AuditLogEntry::new(AuditEventType::JwtIssued, "identity-session-service")
             .tenant_id(tenant_id.clone())
             .decision_source("token_refresh")
             .result("allowed")
@@ -67,7 +67,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
             refresh_expires_in,
         } => {
             // Success: emit audit event for completed rotation
-            let entry = sesame_audit::AuditLogEntry::new(
+            let entry = sesame_common::audit::AuditLogEntry::new(
                 AuditEventType::JwtIssued,
                 "identity-session-service",
             )
@@ -137,7 +137,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 "Refresh token not found in Redis"
             );
 
-            let entry = sesame_audit::AuditLogEntry::new(
+            let entry = sesame_common::audit::AuditLogEntry::new(
                 AuditEventType::ValidationFailed,
                 "identity-session-service",
             )
@@ -174,7 +174,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 "Redis unavailable during token rotation"
             );
 
-            let entry = sesame_audit::AuditLogEntry::new(
+            let entry = sesame_common::audit::AuditLogEntry::new(
                 AuditEventType::ValidationFailed,
                 "identity-session-service",
             )

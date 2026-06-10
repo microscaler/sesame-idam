@@ -6,7 +6,7 @@ use sesame_idam_authz_core_gen::handlers::export_audit_events::{Request, Respons
 #[handler(ExportAuditEventsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLogEntry};
     use uuid::Uuid;
 
     let export_id = Uuid::new_v4();

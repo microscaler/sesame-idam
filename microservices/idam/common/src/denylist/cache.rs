@@ -29,7 +29,7 @@
 use dashmap::DashMap;
 use std::time::{Duration, Instant};
 
-use crate::config::DenylistConfig;
+use super::config::DenylistConfig;
 
 /// Result of a denylist cache check.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,7 +62,7 @@ struct CacheEntry {
 /// # Example
 ///
 /// ```rust
-/// use sesame_denylist::{DenylistCache, DenylistConfig};
+/// use crate::denylist::{DenylistCache, DenylistConfig};
 ///
 /// let config = DenylistConfig::default();
 /// let cache = DenylistCache::new(config);

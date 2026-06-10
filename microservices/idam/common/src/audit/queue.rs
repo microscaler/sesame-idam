@@ -6,10 +6,9 @@
 use dashmap::DashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
-use crate::event::{AuditLevel, AuditLogEntry};
-use crate::metrics::{AuditMetrics, RateLimiterState};
+use super::event::{AuditLevel, AuditLogEntry};
+use super::metrics::{AuditMetrics, RateLimiterState};
 
 /// Maximum entries in the LOW priority queue before dropping.
 const LOW_QUEUE_MAX: usize = 10_000;
@@ -145,8 +144,8 @@ impl Default for AuditQueue {
 
 #[cfg(test)]
 mod tests {
+    use super::super::event::AuditEventType;
     use super::*;
-    use crate::event::AuditEventType;
 
     fn make_entry(level: AuditLevel, event: AuditEventType) -> AuditLogEntry {
         AuditLogEntry::new(event, "test-service")

@@ -434,7 +434,7 @@ impl DpopProofStore for RedisProofStore {
 /// 5. Proof is fresh (`iat` within 60 seconds)
 /// 6. Proof JTI has not been replayed
 pub async fn verify_dpop_proof(
-    claims: &sesame_common::AccessClaims,
+    claims: &crate::AccessClaims,
     proof: &DpopProofClaims,
     htm: &str,
     htu: &str,
@@ -602,6 +602,9 @@ pub fn require_dpop_proof(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SesameAuthzClaimsBuilder;
+    use crate::dpop::DpopConfirmation as JwtDpopConfirmation;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     // ─── JWK Thumbprint Tests ─────────────────────────────────────────
 
@@ -702,14 +705,14 @@ mod tests {
 
     // ─── Proof Verification ────────────────────────────────────────────
 
-    fn make_test_claims_with_cnf(jkt: &str) -> sesame_common::AccessClaims {
-        use sesame_common::SesameAuthzClaims;
-        sesame_common::AccessClaims::builder()
+    fn make_test_claims_with_cnf(jkt: &str) -> crate::AccessClaims {
+        use crate::SesameAuthzClaims;
+        crate::AccessClaims::builder()
             .iss("https://idam.example.com")
             .sub("user-1")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read".to_string())
             .exp(now_secs() + 3600)
             .nbf(now_secs() - 60)
             .iat(now_secs())
@@ -719,7 +722,7 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(SesameAuthzClaims::builder()
+            .sx(SesameAuthzClaimsBuilder::new()
                 .tenant("tenant-a")
                 .portal("test-app")
                 .build()
@@ -744,140 +747,128 @@ mod tests {
         Box::new(InMemoryProofStore::new())
     }
 
-    #[test]
-    fn proof_with_correct_jkt_accepted() {
+    #[tokio::test]
+    async fn proof_with_correct_jkt_accepted() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt = compute_jkt(&jwk);
         let mut claims = make_test_claims_with_cnf(&jkt);
-        claims.cnf = Some(DpopConfirmation { jkt: jkt.clone() });
+        claims.cnf = Some(crate::dpop::DpopConfirmation { jkt: jkt.clone() });
 
         let proof = make_proof(jwk, 0, "POST", "/auth/token");
         let store = make_store();
 
         assert!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).is_ok()
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await.is_ok()
         );
     }
 
-    #[test]
-    fn proof_with_mismatched_jkt_rejected() {
+    #[tokio::test]
+    async fn proof_with_mismatched_jkt_rejected() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let wrong_jkt = "wrong-thumbprint-xyz";
         let mut claims = make_test_claims_with_cnf(wrong_jkt);
-        claims.cnf = Some(DpopConfirmation {
+claims.cnf = Some(crate::dpop::DpopConfirmation {
             jkt: wrong_jkt.to_string(),
         });
 
         let proof = make_proof(jwk, 0, "POST", "/auth/token");
         let store = make_store();
 
-        assert!(matches!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store),
-            Err(DpopError::BindingMismatch)
-        ));
+        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        assert!(matches!(proof_result, Err(DpopError::BindingMismatch)));
     }
 
-    #[test]
-    fn proof_wrong_htm_rejected() {
+    #[tokio::test]
+    async fn proof_wrong_htm_rejected() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt = compute_jkt(&jwk);
         let mut claims = make_test_claims_with_cnf(&jkt);
-        claims.cnf = Some(DpopConfirmation { jkt });
+        claims.cnf = Some(crate::dpop::DpopConfirmation { jkt });
 
         let proof = make_proof(jwk, 0, "GET", "/auth/token"); // Proof says GET
         let store = make_store();
 
-        assert!(matches!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store),
-            Err(DpopError::MethodMismatch { .. })
-        ));
+        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        assert!(matches!(proof_result, Err(DpopError::MethodMismatch { .. })));
     }
 
-    #[test]
-    fn proof_wrong_htu_rejected() {
+    #[tokio::test]
+    async fn proof_wrong_htu_rejected() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt = compute_jkt(&jwk);
         let mut claims = make_test_claims_with_cnf(&jkt);
-        claims.cnf = Some(DpopConfirmation { jkt });
+        claims.cnf = Some(crate::dpop::DpopConfirmation { jkt });
 
         let proof = make_proof(jwk, 0, "POST", "/other/path"); // Proof says different path
         let store = make_store();
 
-        assert!(matches!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store),
-            Err(DpopError::UriMismatch { .. })
-        ));
+        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        assert!(matches!(proof_result, Err(DpopError::UriMismatch { .. })));
     }
 
-    #[test]
-    fn expired_proof_rejected() {
+    #[tokio::test]
+    async fn expired_proof_rejected() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt = compute_jkt(&jwk);
         let mut claims = make_test_claims_with_cnf(&jkt);
-        claims.cnf = Some(DpopConfirmation { jkt });
+        claims.cnf = Some(crate::dpop::DpopConfirmation { jkt });
 
         let proof = make_proof(jwk, -120, "POST", "/auth/token"); // iat = 120s ago
         let store = make_store();
 
-        assert!(matches!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store),
-            Err(DpopError::ProofExpired)
-        ));
+        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        assert!(matches!(proof_result, Err(DpopError::ProofExpired)));
     }
 
-    #[test]
-    fn fresh_proof_accepted() {
+    #[tokio::test]
+    async fn fresh_proof_accepted() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt = compute_jkt(&jwk);
         let mut claims = make_test_claims_with_cnf(&jkt);
-        claims.cnf = Some(DpopConfirmation { jkt });
+        claims.cnf = Some(crate::dpop::DpopConfirmation { jkt });
 
         let proof = make_proof(jwk, -30, "POST", "/auth/token"); // iat = 30s ago
         let store = make_store();
 
         assert!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).is_ok()
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await.is_ok()
         );
     }
 
-    #[test]
-    fn proof_future_rejected() {
+    #[tokio::test]
+    async fn proof_future_rejected() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt = compute_jkt(&jwk);
         let mut claims = make_test_claims_with_cnf(&jkt);
-        claims.cnf = Some(DpopConfirmation { jkt });
+        claims.cnf = Some(crate::dpop::DpopConfirmation { jkt });
 
         let proof = make_proof(jwk, 5, "POST", "/auth/token"); // iat = 5s in future
         let store = make_store();
 
-        assert!(matches!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store),
-            Err(DpopError::ProofFuture)
-        ));
+        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        assert!(matches!(proof_result, Err(DpopError::ProofFuture)));
     }
 
-    #[test]
-    fn proof_replay_within_window_rejected() {
+    #[tokio::test]
+    async fn proof_replay_within_window_rejected() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt = compute_jkt(&jwk);
         let mut claims = make_test_claims_with_cnf(&jkt);
-        claims.cnf = Some(DpopConfirmation { jkt });
+        claims.cnf = Some(crate::dpop::DpopConfirmation { jkt });
 
         let proof = make_proof(jwk, 0, "POST", "/auth/token");
         let store = make_store();
 
         // Record the proof JTI first
-        store.record(&proof.jti).into_inner();
+        store.record(&proof.jti).await.unwrap();
 
         // Second use should be rejected as replay
-        assert!(matches!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store),
-            Err(DpopError::ProofReplay)
-        ));
+        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        assert!(matches!(proof_result, Err(DpopError::ProofReplay)));
     }
 
-    #[test]
-    fn proof_with_missing_cnf_rejected() {
+    #[tokio::test]
+    async fn proof_with_missing_cnf_rejected() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let claims = make_test_claims_with_cnf("some-jkt");
         // No cnf set
@@ -885,42 +876,38 @@ mod tests {
         let proof = make_proof(jwk, 0, "POST", "/auth/token");
         let store = make_store();
 
-        assert!(matches!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store),
-            Err(DpopError::BindingMismatch)
-        ));
+        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        assert!(matches!(proof_result, Err(DpopError::BindingMismatch)));
     }
 
     // ─── Proof Freshness Boundary ──────────────────────────────────────
 
-    #[test]
-    fn proof_exactly_at_60_seconds_rejected() {
+    #[tokio::test]
+    async fn proof_exactly_at_60_seconds_rejected() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt = compute_jkt(&jwk);
         let mut claims = make_test_claims_with_cnf(&jkt);
-        claims.cnf = Some(DpopConfirmation { jkt });
+        claims.cnf = Some(crate::dpop::DpopConfirmation { jkt });
 
         let proof = make_proof(jwk, -60, "POST", "/auth/token"); // iat = exactly 60s ago
         let store = make_store();
 
-        assert!(matches!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store),
-            Err(DpopError::ProofExpired)
-        ));
+        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        assert!(matches!(proof_result, Err(DpopError::ProofExpired)));
     }
 
-    #[test]
-    fn proof_at_59_seconds_accepted() {
+    #[tokio::test]
+    async fn proof_at_59_seconds_accepted() {
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt = compute_jkt(&jwk);
         let mut claims = make_test_claims_with_cnf(&jkt);
-        claims.cnf = Some(DpopConfirmation { jkt });
+        claims.cnf = Some(crate::dpop::DpopConfirmation { jkt });
 
         let proof = make_proof(jwk, -59, "POST", "/auth/token"); // iat = 59s ago
         let store = make_store();
 
         assert!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).is_ok()
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await.is_ok()
         );
     }
 
@@ -986,12 +973,20 @@ mod tests {
     #[test]
     fn require_dpop_rejects_missing_header() {
         std::env::set_var("RUST_ENV", "production");
+        let (reply_tx, _reply_rx) = may::sync::mpsc::channel();
         let req = brrtrouter::dispatcher::HandlerRequest {
-            method: "GET".to_string(),
+            request_id: brrtrouter::ids::RequestId::new(),
+            method: http::Method::GET,
             path: "/test".to_string(),
-            query_params: std::collections::HashMap::new(),
-            headers: std::collections::HashMap::new(),
+            handler_name: "test".to_string(),
+            path_params: brrtrouter::router::ParamVec::new(),
+            query_params: brrtrouter::router::ParamVec::new(),
+            headers: brrtrouter::dispatcher::HeaderVec::new(),
+            cookies: brrtrouter::dispatcher::HeaderVec::new(),
             body: None,
+            jwt_claims: None,
+            reply_tx: reply_tx.clone(),
+            queue_guard: None,
         };
         assert!(matches!(
             require_dpop_proof(&req),
@@ -1002,16 +997,25 @@ mod tests {
 
     #[test]
     fn require_dpop_accepts_header_present() {
+        let (reply_tx, _reply_rx) = may::sync::mpsc::channel();
+        let mut headers = brrtrouter::dispatcher::HeaderVec::new();
+        headers.push((
+            std::sync::Arc::from("DPoP"),
+            "dpop-proof-jwt".to_string()
+        ));
         let req = brrtrouter::dispatcher::HandlerRequest {
-            method: "GET".to_string(),
+            request_id: brrtrouter::ids::RequestId::new(),
+            method: http::Method::GET,
             path: "/test".to_string(),
-            query_params: std::collections::HashMap::new(),
-            headers: {
-                let mut h = std::collections::HashMap::new();
-                h.insert("DPoP".to_string(), "dpop-proof-jwt".to_string());
-                h
-            },
+            handler_name: "test".to_string(),
+            path_params: brrtrouter::router::ParamVec::new(),
+            query_params: brrtrouter::router::ParamVec::new(),
+            headers,
+            cookies: brrtrouter::dispatcher::HeaderVec::new(),
             body: None,
+            jwt_claims: None,
+            reply_tx: reply_tx.clone(),
+            queue_guard: None,
         };
         assert!(require_dpop_proof(&req).is_ok());
     }
@@ -1020,12 +1024,20 @@ mod tests {
     fn require_dpop_skip_in_dev() {
         std::env::set_var("RUST_ENV", "dev");
         std::env::set_var("DPoP_ENABLED", "false");
+        let (reply_tx, _reply_rx) = may::sync::mpsc::channel();
         let req = brrtrouter::dispatcher::HandlerRequest {
-            method: "GET".to_string(),
+            request_id: brrtrouter::ids::RequestId::new(),
+            method: http::Method::GET,
             path: "/test".to_string(),
-            query_params: std::collections::HashMap::new(),
-            headers: std::collections::HashMap::new(),
+            handler_name: "test".to_string(),
+            path_params: brrtrouter::router::ParamVec::new(),
+            query_params: brrtrouter::router::ParamVec::new(),
+            headers: brrtrouter::dispatcher::HeaderVec::new(),
+            cookies: brrtrouter::dispatcher::HeaderVec::new(),
             body: None,
+            jwt_claims: None,
+            reply_tx: reply_tx.clone(),
+            queue_guard: None,
         };
         assert!(require_dpop_proof(&req).is_ok()); // No proof needed in dev
         std::env::remove_var("RUST_ENV");
@@ -1067,7 +1079,7 @@ mod tests {
 
     #[test]
     fn jwk_with_extra_fields_validated() {
-        let mut jwk = serde_json::from_value(serde_json::json!({
+        let mut jwk: DpopJwk = serde_json::from_value(serde_json::json!({
             "kty": "OKP",
             "crv": "Ed25519",
             "x": "f7eb5e7c0f3e1c4d5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8",

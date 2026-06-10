@@ -1,7 +1,7 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::assign_principal_role::{Request, Response};
-use sesame_token_versioning::BumpReason;
+use sesame_common::token_versioning::BumpReason;
 
 /// Assign a role to a principal within a tenant context.
 ///
@@ -14,7 +14,7 @@ use sesame_token_versioning::BumpReason;
 #[handler(AssignPrincipalRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLogEntry};
     use uuid::Uuid;
 
     let role_id = Uuid::new_v4();

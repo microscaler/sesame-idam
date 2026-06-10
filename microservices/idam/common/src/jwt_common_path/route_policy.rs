@@ -25,7 +25,7 @@ use std::fs;
 
 use serde::{Deserialize, Serialize};
 
-use crate::auth_decision::AuthError;
+use super::auth_decision::AuthError;
 
 // ---------------------------------------------------------------------------
 // RouteAuthCategory — classification of how each route is authorized
@@ -279,6 +279,17 @@ impl Default for RoutePolicyStore {
             policies: Vec::new(),
             lookup: HashMap::new(),
         }
+    }
+}
+
+impl RoutePolicyStore {
+    /// Test helper: build a RoutePolicyStore directly from policies and lookup map.
+    #[cfg(test)]
+    pub(crate) fn from_parts(
+        policies: Vec<RoutePolicy>,
+        lookup: std::collections::HashMap<String, RoutePolicy>,
+    ) -> Self {
+        Self { policies, lookup }
     }
 }
 

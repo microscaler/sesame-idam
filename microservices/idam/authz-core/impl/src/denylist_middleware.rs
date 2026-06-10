@@ -33,7 +33,7 @@ use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
 use brrtrouter::middleware::Middleware;
 use std::sync::Arc;
 
-use sesame_denylist::{DenylistCache, DenylistConfig, DenylistMetrics, DenylistResult};
+use sesame_common::denylist::{DenylistCache, DenylistConfig, DenylistMetrics, DenylistResult};
 
 /// Denylist middleware that checks JTI revocation on every request.
 ///

@@ -6,7 +6,7 @@ use sesame_idam_authz_core_gen::handlers::list_retention_policies::{Request, Res
 #[handler(ListRetentionPoliciesController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "retention_policies_listed")
         .tenant_id(&req.data.x_tenant_id)

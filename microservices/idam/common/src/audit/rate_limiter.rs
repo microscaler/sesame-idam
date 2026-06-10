@@ -67,7 +67,7 @@ impl RateLimiter {
 
         // Check limit
         if state.count >= self.config.max_debug_per_second {
-            crate::metrics::AuditMetrics::increment_debug_dropped();
+super::metrics::AuditMetrics::increment_debug_dropped();
             return false;
         }
 

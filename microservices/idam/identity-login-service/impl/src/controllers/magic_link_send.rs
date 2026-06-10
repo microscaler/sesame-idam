@@ -6,7 +6,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 #[handler(MagicLinkSendController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
     // TODO: Look up user by email

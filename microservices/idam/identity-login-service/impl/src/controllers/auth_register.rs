@@ -12,7 +12,7 @@ use sesame_idam_identity_login_service_gen::handlers::auth_register::{Request, R
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
     use crate::jwt::ttl::TtlConfig;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
     // Load TTL configuration from env vars (with defaults).

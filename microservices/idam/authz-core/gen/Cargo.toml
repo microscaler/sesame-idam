@@ -18,6 +18,7 @@ jemalloc = ["tikv-jemallocator"]
 dead_code = "allow"
 
 [dependencies]
+sesame_common = { workspace = true }
 # NOTE: Additional dependencies can be configured via brrtrouter-dependencies.toml
 # Place brrtrouter-dependencies.toml alongside your openapi.yaml file.
 # BRRTRouter will auto-detect it and include dependencies from:

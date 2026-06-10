@@ -32,10 +32,10 @@ use std::sync::Arc;
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
 use brrtrouter::middleware::Middleware;
 
-use crate::auth_decision::{AuthDecision, AuthError};
-use crate::jwt_validator::{extract_bearer_token, parse_claims, pre_validate_expiry};
-use crate::local_policy::evaluate_local_policy;
-use crate::route_policy::{RouteAuthCategory, RoutePolicyStore};
+use super::auth_decision::{AuthDecision, AuthError};
+use super::jwt_validator::{extract_bearer_token, parse_claims, pre_validate_expiry};
+use super::local_policy::evaluate_local_policy;
+use super::route_policy::{RouteAuthCategory, RoutePolicyStore};
 
 /// Configuration for the JWT common-path middleware.
 pub struct JwtAuthMiddleware {
@@ -53,7 +53,7 @@ impl JwtAuthMiddleware {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use sesame_jwt_common_path::JwtAuthMiddleware;
+    /// use crate::jwt_common_path::JwtAuthMiddleware;
     /// use std::sync::Arc;
     ///
     /// let policies = RoutePolicyStore::load_from_yaml("config/routes.yaml").unwrap();
@@ -170,7 +170,7 @@ impl JwtAuthMiddleware {
     /// Evaluate local policy for a jwt-only route.
     fn evaluate_jwt_only(
         &self,
-        claims: &sesame_common::AccessClaims,
+        claims: &crate::AccessClaims,
         x_tenant_id: &str,
     ) -> Result<AuthDecision, AuthError> {
         // Full local policy evaluation
@@ -250,20 +250,28 @@ impl Middleware for JwtAuthMiddleware {
     }
 }
 
-fn create_reply_tx() -> std::sync::mpsc::Sender<HandlerResponse> {
-        let (_tx, _rx) = std::sync::mpsc::channel();
-        _tx
-    }
-
 #[cfg(test)]
 mod tests {
+    use super::super::dpop::DpopJwk;
     use super::*;
-    use crate::dpop::DpopJwk;
-    use brrtrouter::dispatcher::RequestId;
+    use brrtrouter::ids::RequestId;
     use smallvec::smallvec;
     type ParamVec = smallvec::SmallVec<[(std::sync::Arc<str>, std::string::String); 8]>;
     type HeaderVec = smallvec::SmallVec<[(std::sync::Arc<str>, std::string::String); 16]>;
-    use sesame_common::{AccessClaims, SesameAuthzClaims, SesameAuthzClaimsBuilder};
+    use brrtrouter::dispatcher::HandlerResponse;
+    use crate::{AccessClaims, RoutePolicy, SesameAuthzClaims, SesameAuthzClaimsBuilder};
+    use crate::SesameAuthzClaimsBuilder as SAZCB;
+
+    fn create_reply_tx() -> may::sync::mpsc::Sender<brrtrouter::dispatcher::HandlerResponse> {
+        let (_tx, _rx) = may::sync::mpsc::channel();
+        _tx
+    }
+
+    lazy_static::lazy_static! {
+        static ref REPLY_TX: std::sync::Arc<may::sync::mpsc::Sender<brrtrouter::dispatcher::HandlerResponse>> = {
+            std::sync::Arc::new(create_reply_tx())
+        };
+    }
 
     fn make_test_route_policies() -> Arc<RoutePolicyStore> {
         // Create policies for testing
@@ -307,7 +315,7 @@ mod tests {
             }
         }
 
-        Arc::new(RoutePolicyStore { policies, lookup })
+        Arc::new(RoutePolicyStore::from_parts(policies, lookup))
     }
 
     fn make_test_claims() -> AccessClaims {
@@ -316,7 +324,7 @@ mod tests {
             .sub("user-1")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read".to_string())
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -326,12 +334,12 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(SesameAuthzClaimsBuilder::new()
+            .sx(SAZCB::new()
                 .tenant("tenant-a")
                 .portal("test-app")
                 .roles(vec!["admin".into(), "user".into()])
                 .permissions(vec!["users:read".into(), "prefs:write".into()])
-                .risk("normal".into())
+                .risk("normal".to_string())
                 .build()
                 .unwrap())
             .build()
@@ -367,7 +375,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: create_reply_tx(),
+            reply_tx: (**REPLY_TX).clone(),
             queue_guard: None,
         }
     }
@@ -388,7 +396,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: create_reply_tx(),
+            reply_tx: (**REPLY_TX).clone(),
             queue_guard: None,
         }
     }
@@ -539,7 +547,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: create_reply_tx(),
+            reply_tx: (**REPLY_TX).clone(),
             queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;
@@ -567,7 +575,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: create_reply_tx(),
+            reply_tx: (**REPLY_TX).clone(),
             queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;
@@ -597,7 +605,7 @@ mod tests {
             cookies: HeaderVec::new(),
             body: None,
             jwt_claims: None,
-            reply_tx: create_reply_tx(),
+            reply_tx: (**REPLY_TX).clone(),
             queue_guard: None,
         };
         let result = middleware.validate_and_authorize(&req).await;

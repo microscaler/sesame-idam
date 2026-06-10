@@ -32,10 +32,10 @@ fn given_empty_tenant_id(_ctx: Arc<Mutex<EdgeCaseContext>>) {
 
 #[when("the handler processes the event")]
 fn when_process_empty_tenant(ctx: Arc<Mutex<EdgeCaseContext>>) {
-    let event = sesame_token_versioning::VersionBumpEvent::for_tenant(
+    let event = sesame_common::token_versioning::VersionBumpEvent::for_tenant(
         "",
         10,
-        sesame_token_versioning::BumpReason::OrgDeleted,
+        sesame_common::token_versioning::BumpReason::OrgDeleted,
     );
     let result = event.validate();
     let _ = ctx.lock().map(|mut c| {
@@ -66,12 +66,12 @@ fn given_zero_version(_ctx: Arc<Mutex<EdgeCaseContext>>) {
 
 #[when("the handler processes the event")]
 fn when_process_zero_version(ctx: Arc<Mutex<EdgeCaseContext>>) {
-    let event = sesame_token_versioning::VersionBumpEvent {
+    let event = sesame_common::token_versioning::VersionBumpEvent {
         event: "version_bump".to_string(),
         tenant_id: "test".to_string(),
         user_id: None,
         new_version: 0,
-        reason: sesame_token_versioning::BumpReason::Other("test".to_string()),
+        reason: sesame_common::token_versioning::BumpReason::Other("test".to_string()),
         timestamp: 1715000000,
     };
     let result = event.validate();
@@ -102,10 +102,10 @@ fn given_max_version(_ctx: Arc<Mutex<EdgeCaseContext>>) {
 
 #[when("the handler processes the event")]
 fn when_process_max_version(ctx: Arc<Mutex<EdgeCaseContext>>) {
-    let event = sesame_token_versioning::VersionBumpEvent::for_tenant(
+    let event = sesame_common::token_versioning::VersionBumpEvent::for_tenant(
         "test",
         u64::MAX,
-        sesame_token_versioning::BumpReason::Other("overflow".to_string()),
+        sesame_common::token_versioning::BumpReason::Other("overflow".to_string()),
     );
     let result = event.validate();
     let _ = ctx.lock().map(|mut c| {
@@ -136,12 +136,12 @@ fn given_future_timestamp(_ctx: Arc<Mutex<EdgeCaseContext>>) {
 
 #[when("the handler processes the event")]
 fn when_process_future_timestamp(ctx: Arc<Mutex<EdgeCaseContext>>) {
-    let event = sesame_token_versioning::VersionBumpEvent {
+    let event = sesame_common::token_versioning::VersionBumpEvent {
         event: "version_bump".to_string(),
         tenant_id: "test".to_string(),
         user_id: None,
         new_version: 10,
-        reason: sesame_token_versioning::BumpReason::Other("future".to_string()),
+        reason: sesame_common::token_versioning::BumpReason::Other("future".to_string()),
         timestamp: u64::MAX, // Far in the future
     };
     let result = event.validate();
@@ -176,12 +176,12 @@ fn when_process_old_timestamp(ctx: Arc<Mutex<EdgeCaseContext>>) {
     let one_year_ago = chrono::Utc::now()
         .timestamp()
         .saturating_sub(365 * 24 * 60 * 60) as u64;
-    let event = sesame_token_versioning::VersionBumpEvent {
+    let event = sesame_common::token_versioning::VersionBumpEvent {
         event: "version_bump".to_string(),
         tenant_id: "test".to_string(),
         user_id: None,
         new_version: 10,
-        reason: sesame_token_versioning::BumpReason::Other("old".to_string()),
+        reason: sesame_common::token_versioning::BumpReason::Other("old".to_string()),
         timestamp: one_year_ago,
     };
     let result = event.validate();
@@ -223,7 +223,7 @@ fn when_partial_message(ctx: Arc<Mutex<EdgeCaseContext>>) {
     // Then it tries to deserialize JSON. If invalid, serde returns Err.
     // Either way, the error is logged and the message is skipped.
     let invalid_json = r#"{"event":"version_bump","tenant_id":""#;
-    let result = sesame_token_versioning::VersionBumpEvent::from_json(invalid_json);
+    let result = sesame_common::token_versioning::VersionBumpEvent::from_json(invalid_json);
     let _ = ctx.lock().map(|mut c| {
         c.validation_result = Some(format!("{:?}", result));
     });
@@ -291,12 +291,12 @@ fn given_unknown_reason(_ctx: Arc<Mutex<EdgeCaseContext>>) {
 
 #[when("the handler processes the event")]
 fn when_process_unknown_reason(ctx: Arc<Mutex<EdgeCaseContext>>) {
-    let event = sesame_token_versioning::VersionBumpEvent {
+    let event = sesame_common::token_versioning::VersionBumpEvent {
         event: "version_bump".to_string(),
         tenant_id: "test".to_string(),
         user_id: None,
         new_version: 10,
-        reason: sesame_token_versioning::BumpReason::Other("unknown_event_type".to_string()),
+        reason: sesame_common::token_versioning::BumpReason::Other("unknown_event_type".to_string()),
         timestamp: 1715000000,
     };
     let result = event.validate();

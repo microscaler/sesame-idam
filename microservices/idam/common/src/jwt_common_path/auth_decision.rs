@@ -13,7 +13,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use sesame_common::AccessClaims;
+use crate::AccessClaims;
 
 // ---------------------------------------------------------------------------
 // AuthDecision — result of middleware evaluation
@@ -261,7 +261,7 @@ mod tests {
                 .sub("user-1")
                 .aud(vec!["identity-login-service".into()])
                 .client_id("test")
-                .scope("read".into())
+                .scope("read".to_string())
                 .exp(9999999999)
                 .nbf(0)
                 .iat(0)
@@ -271,7 +271,7 @@ mod tests {
                 .tenant_id("tenant-a")
                 .user_id("user-1")
                 .user_type("registered")
-                .sx(sesame_common::SesameAuthzClaimsBuilder::new()
+                .sx(crate::SesameAuthzClaimsBuilder::new()
                     .tenant("tenant-a")
                     .portal("test")
                     .build()
@@ -303,7 +303,7 @@ mod tests {
                 .sub("user-1")
                 .aud(vec!["identity-login-service".into()])
                 .client_id("test")
-                .scope("read".into())
+                .scope("read".to_string())
                 .exp(9999999999)
                 .nbf(0)
                 .iat(0)
@@ -313,7 +313,7 @@ mod tests {
                 .tenant_id("tenant-a")
                 .user_id("user-1")
                 .user_type("registered")
-                .sx(sesame_common::SesameAuthzClaimsBuilder::new()
+                .sx(crate::SesameAuthzClaimsBuilder::new()
                     .tenant("tenant-a")
                     .portal("test")
                     .build()

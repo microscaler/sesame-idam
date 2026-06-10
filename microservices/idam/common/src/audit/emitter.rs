@@ -10,11 +10,11 @@
 /// - Graceful shutdown with buffer flush
 use std::sync::Arc;
 
-use crate::event::{AuditEventType, AuditLevel, AuditLogEntry};
-use crate::hmac::sign_entry;
-use crate::metrics::AuditMetrics;
-use crate::queue::AuditQueue;
-use crate::rate_limiter::{RateLimitConfig, RateLimiter};
+use super::event::{AuditEventType, AuditLevel, AuditLogEntry};
+use super::hmac::sign_entry;
+use super::metrics::AuditMetrics;
+use super::queue::AuditQueue;
+use super::rate_limiter::{RateLimitConfig, RateLimiter};
 
 /// The audit event emitter.
 ///
@@ -25,7 +25,7 @@ pub struct AuditEmitter {
     queue: Arc<AuditQueue>,
     rate_limiter: Arc<RateLimiter>,
     hmac_key: Option<Vec<u8>>,
-    shutdown: tokio::sync::Notify,
+
 }
 
 impl AuditEmitter {
@@ -39,7 +39,7 @@ impl AuditEmitter {
             queue: Arc::new(AuditQueue::new()),
             rate_limiter: Arc::new(RateLimiter::new(RateLimitConfig::default())),
             hmac_key,
-            shutdown: tokio::sync::Notify::new(),
+// shutdown: removed — Notify was dead code (never awaited),
         }
     }
 
@@ -54,7 +54,7 @@ impl AuditEmitter {
             queue: Arc::new(AuditQueue::new()),
             rate_limiter: Arc::new(RateLimiter::new(config)),
             hmac_key,
-            shutdown: tokio::sync::Notify::new(),
+// shutdown: removed — Notify was dead code (never awaited),
         }
     }
 
@@ -325,7 +325,6 @@ impl AuditEmitter {
         let _ = self.queue.enqueue(entry);
 
         // Signal the flush task if there's new work
-        self.shutdown.notify_one();
     }
 
     /// Flush all pending entries synchronously.
@@ -375,7 +374,7 @@ impl Clone for AuditEmitter {
             queue: Arc::clone(&self.queue),
             rate_limiter: Arc::clone(&self.rate_limiter),
             hmac_key: self.hmac_key.clone(),
-            shutdown: tokio::sync::Notify::new(),
+// shutdown: removed — Notify was dead code (never awaited),
         }
     }
 }

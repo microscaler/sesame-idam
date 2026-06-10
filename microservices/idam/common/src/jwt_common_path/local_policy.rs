@@ -17,10 +17,10 @@
 //! - Empty role/permission arrays are handled gracefully (no panic)
 //! - Missing risk claim does NOT cause denial (absence ≠ elevated)
 
-use sesame_common::AccessClaims;
+use crate::AccessClaims;
 
-use crate::auth_decision::AuthError;
-use crate::route_policy::RouteAuthCategory;
+use super::auth_decision::AuthError;
+use super::route_policy::RouteAuthCategory;
 
 /// Evaluates local policy for a jwt-only route.
 ///
@@ -162,7 +162,7 @@ pub fn evaluate_category_policy(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sesame_common::{SesameAuthzClaims, SesameAuthzClaimsBuilder};
+    use crate::{SesameAuthzClaims, SesameAuthzClaimsBuilder};
 
     fn make_test_claims() -> AccessClaims {
         AccessClaims::builder()
@@ -170,7 +170,7 @@ mod tests {
             .sub("user-1")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read".to_string())
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -185,7 +185,7 @@ mod tests {
                 .portal("test-app")
                 .roles(vec!["admin".into(), "user".into()])
                 .permissions(vec!["users:read".into(), "prefs:write".into()])
-                .risk("normal".into())
+                .risk("normal")
                 .build()
                 .unwrap())
             .build()
@@ -198,7 +198,7 @@ mod tests {
             .sub("user-2")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read".to_string())
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -213,7 +213,7 @@ mod tests {
                 .portal("test-app")
                 .roles(vec!["customer".into()])
                 .permissions(vec!["shipments:read".into()])
-                .risk("normal".into())
+                .risk("normal")
                 .build()
                 .unwrap())
             .build()
@@ -226,7 +226,7 @@ mod tests {
             .sub("user-3")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read".to_string())
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -241,7 +241,7 @@ mod tests {
                 .portal("test-app")
                 .roles(vec!["admin".into()])
                 .permissions(vec!["users:read".into()])
-                .risk("elevated".into())
+                .risk("elevated")
                 .build()
                 .unwrap())
             .build()
@@ -254,7 +254,7 @@ mod tests {
             .sub("user-4")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read".to_string())
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -305,7 +305,7 @@ mod tests {
         let result = evaluate_local_policy(
             &claims,
             "tenant-a",
-            ["admin".into(), "user".into()],
+            &["admin".to_string(), "user".to_string()],
             &[],
             None,
             None,

@@ -36,11 +36,11 @@ fn given_attacker_access(_ctx: Arc<Mutex<SecurityTestContext>>) {
 
 #[when("the attacker publishes a fake version bump event")]
 fn when_attacker_publishes(ctx: Arc<Mutex<SecurityTestContext>>) {
-    use sesame_token_versioning::BumpReason;
+    use sesame_common::token_versioning::BumpReason;
 
     // Attacker uses a DIFFERENT secret than the services know about
     let attacker_secret = b"attacker-secret-not-known-to-services".to_vec();
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         attacker_secret,
     );
@@ -112,8 +112,8 @@ fn given_actor_has_redis_access(_ctx: Arc<Mutex<SecurityTestContext>>) {
 
 #[when("the actor publishes a fake version bump with new_version 999999")]
 fn when_fake_version_published(ctx: Arc<Mutex<SecurityTestContext>>) {
-    use sesame_token_versioning::BumpReason;
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    use sesame_common::token_versioning::BumpReason;
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         b"wrong-secret".to_vec(),
     );

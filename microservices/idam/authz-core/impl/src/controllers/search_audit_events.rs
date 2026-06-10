@@ -6,7 +6,7 @@ use sesame_idam_authz_core_gen::handlers::search_audit_events::{Request, Respons
 #[handler(SearchAuditEventsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
     let filters = req.data.filters.as_ref();
     let mut metadata = serde_json::Map::new();

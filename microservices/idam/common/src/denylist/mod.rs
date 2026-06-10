@@ -28,7 +28,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use sesame_denylist::{DenylistCache, DenylistConfig};
+//! use crate::denylist::{DenylistCache, DenylistConfig};
 //!
 //! #[tokio::main]
 //! async fn main() {

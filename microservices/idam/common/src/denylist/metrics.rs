@@ -46,7 +46,7 @@ impl DenylistMetrics {
     /// # Example
     ///
     /// ```no_run
-    /// use sesame_denylist::register_denylist_metrics;
+    /// use crate::denylist::register_denylist_metrics;
     ///
     /// let registry = prometheus::Registry::new();
     /// let metrics = register_denylist_metrics(&registry).unwrap();
@@ -152,7 +152,7 @@ impl DenylistMetrics {
 /// # Example
 ///
 /// ```no_run
-/// use sesame_denylist::register_denylist_metrics;
+/// use crate::denylist::register_denylist_metrics;
 ///
 /// let registry = prometheus::Registry::new();
 /// let metrics = register_denylist_metrics(&registry).unwrap();

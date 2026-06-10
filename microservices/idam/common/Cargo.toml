@@ -2,39 +2,80 @@
 name = "sesame-common"
 version.workspace = true
 edition.workspace = true
-description = "Shared JWT claim types, validation, builder, and DPoP for Sesame-IDAM microservices"
+description = "Shared JWT claim types, validation, builder, middleware, JWKS cache, audit logging, denylist caching, entitlement snapshot caching, JWT common-path authorization, and token versioning for Sesame-IDAM microservices"
 
 [dependencies]
+# Core types (always available)
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
+serde_json = { workspace = true, features = ["preserve_order"] }
 thiserror = { workspace = true }
 sha2 = { workspace = true }
-uuid = { workspace = true, features = ["v5", "std"] }
+uuid = { workspace = true, features = ["v5", "std", "v4", "v7"] }
 chrono = { workspace = true, features = ["serde"] }
 regex = "1.10"
 base64 = { workspace = true, features = ["alloc"] }
-ed25519-dalek = { workspace = true }
-ed25519-zebra = { workspace = true }
-p256 = { workspace = true }
-rand = { workspace = true }
-once_cell = { workspace = true, optional = true }
-prometheus = { workspace = true, optional = true }
-brrtrouter = { workspace = true, default-features = false, optional = true }
-tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"], optional = true }
+hex = "0.4"
+
+# JWT / crypto (always available)
+jsonwebtoken = "9.3"
+ring = "0.17"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+ed25519-zebra = "4"
+p256 = { version = "0.13", features = ["ecdsa"] }
+hmac = "0.12"
+rand = "0.8"
+
+# Audit module deps (always available)
+async-trait = "0.1"
+futures-util = "0.3"
+arc-swap = { workspace = true }
+dashmap = { workspace = true }
+once_cell = { workspace = true }
+lazy_static = { workspace = true }
+tracing = "0.1"
+prometheus = { workspace = true }
+metrics = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time", "macros", "rt-multi-thread"] }
+
+# Denylist module deps (always available)
+redis = { workspace = true, features = ["aio", "tokio-comp", "connection-manager"] }
+
+# JWT common-path module deps (always available)
+brrtrouter = { workspace = true, default-features = false }
+http = { workspace = true }
+
+# HTTP client
+reqwest = { workspace = true, features = ["json", "stream", "blocking"] }
+
+# Config / cli (always available)
+anyhow = { workspace = true }
+config = { workspace = true }
+serde_yaml = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+
+# Small types
+smallvec = "1"
+
+# Optional: used by fallback_cache module
 blake3 = { workspace = true, optional = true }
-redis = { workspace = true, optional = true }
-futures = { workspace = true, optional = true }
-arc-swap = { workspace = true, optional = true }
-reqwest = { workspace = true, features = ["json", "stream"], optional = true }
-tracing = { workspace = true, optional = true }
-lazy_static = { workspace = true, optional = true }
 
 [features]
 default = []
 full = ["metrics", "fallback_cache"]
-metrics = ["once_cell", "prometheus", "brrtrouter", "tokio"]
-fallback_cache = ["blake3", "redis", "tokio", "futures", "arc-swap", "prometheus", "tracing", "reqwest"]
+metrics = []
+fallback_cache = ["blake3"]
 
 [dev-dependencies]
+may = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
+rstest = "0.21"
+rstest-bdd = "0.5.0"
+rstest-bdd-macros = "0.5.0"
+tokio = { workspace = true, features = ["full", "test-util"] }
+anyhow = "1.0"
+http = "1"
+prometheus = { workspace = true }
+smallvec = "1"
+wiremock = "0.5"
+rand = "0.8"

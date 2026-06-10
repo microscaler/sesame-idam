@@ -42,10 +42,10 @@ fn given_tenant_at_version(_ctx: Arc<Mutex<PushInvalidationContext>>) {
 
 #[when("an authz change bumps the version to 11")]
 fn when_version_bumped(ctx: Arc<Mutex<PushInvalidationContext>>) {
-    use sesame_token_versioning::BumpReason;
+    use sesame_common::token_versioning::BumpReason;
 
     // Create a publisher and fire an event (fire-and-forget)
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         b"dev-shared-secret-for-version-bump-signing".to_vec(),
     );
@@ -159,8 +159,8 @@ fn given_multiple_subscribers(_ctx: Arc<Mutex<PushInvalidationContext>>) {
 
 #[when("a version bump event is published")]
 fn when_event_published(ctx: Arc<Mutex<PushInvalidationContext>>) {
-    use sesame_token_versioning::BumpReason;
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    use sesame_common::token_versioning::BumpReason;
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         b"dev-shared-secret-for-version-bump-signing".to_vec(),
     );
@@ -215,8 +215,8 @@ fn given_subject_event(_ctx: Arc<Mutex<PushInvalidationContext>>) {
 
 #[when("the event is received")]
 fn when_event_received(ctx: Arc<Mutex<PushInvalidationContext>>) {
-    use sesame_token_versioning::BumpReason;
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    use sesame_common::token_versioning::BumpReason;
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         b"dev-shared-secret-for-version-bump-signing".to_vec(),
     );
@@ -281,8 +281,8 @@ fn given_tenant_wide_event(_ctx: Arc<Mutex<PushInvalidationContext>>) {
 
 #[when("the event is received")]
 fn when_tenant_wide_event_received(ctx: Arc<Mutex<PushInvalidationContext>>) {
-    use sesame_token_versioning::BumpReason;
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    use sesame_common::token_versioning::BumpReason;
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         b"dev-shared-secret-for-version-bump-signing".to_vec(),
     );
@@ -335,8 +335,8 @@ fn then_no_subject_cache_entries(ctx: Arc<Mutex<PushInvalidationContext>>) {
 
 #[given(r#"user bob has ver = 10 and a version bump to 11 is published"#)]
 fn given_stale_token(ctx: Arc<Mutex<PushInvalidationContext>>) {
-    use sesame_token_versioning::BumpReason;
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    use sesame_common::token_versioning::BumpReason;
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         b"dev-shared-secret-for-version-bump-signing".to_vec(),
     );
@@ -451,8 +451,8 @@ fn given_ten_subscribers(_ctx: Arc<Mutex<PushInvalidationContext>>) {
 
 #[when("a version bump event is published")]
 fn when_published_for_ten(ctx: Arc<Mutex<PushInvalidationContext>>) {
-    use sesame_token_versioning::BumpReason;
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    use sesame_common::token_versioning::BumpReason;
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         b"dev-shared-secret-for-version-bump-signing".to_vec(),
     );
@@ -503,8 +503,8 @@ fn then_metrics_recorded() {
 
 #[given("tenant version goes 10 -> 11 -> 12 -> 13 via 4 rapid events")]
 fn given_rapid_bumps(ctx: Arc<Mutex<PushInvalidationContext>>) {
-    use sesame_token_versioning::BumpReason;
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    use sesame_common::token_versioning::BumpReason;
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         b"dev-shared-secret-for-version-bump-signing".to_vec(),
     );
@@ -561,8 +561,8 @@ fn then_cache_at_version_13(ctx: Arc<Mutex<PushInvalidationContext>>) {
 
 #[given("a version bump event is received by a service")]
 fn given_event_received(ctx: Arc<Mutex<PushInvalidationContext>>) {
-    use sesame_token_versioning::BumpReason;
-    let publisher = sesame_token_versioning::VersionBumpPublisher::new(
+    use sesame_common::token_versioning::BumpReason;
+    let publisher = sesame_common::token_versioning::VersionBumpPublisher::new(
         "redis://127.0.0.1:6379",
         b"dev-shared-secret-for-version-bump-signing".to_vec(),
     );

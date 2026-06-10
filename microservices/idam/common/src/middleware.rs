@@ -695,7 +695,7 @@ impl brrtrouter::middleware::Middleware for BrrtJwtMiddleware {
 
 #[cfg(test)]
 mod tests {
-    use super::super::jwt::{AccessClaimsBuilder, SesameAuthzClaimsBuilder};
+    use crate::jwt::{AccessClaimsBuilder, SesameAuthzClaimsBuilder};
     use super::*;
 
     fn make_valid_claims() -> AccessClaims {

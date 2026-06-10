@@ -26,7 +26,7 @@
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use sesame_jwt_common_path::shadow_decision::ShadowDecision;
+//! use crate::jwt_common_path::shadow_decision::ShadowDecision;
 //!
 //! // Enabled via SHADOW_MODE_ENABLED=true env var
 //! let shadow = ShadowDecision::from_env();
@@ -39,7 +39,7 @@ use std::env;
 
 use brrtrouter::dispatcher::HandlerRequest;
 
-use crate::auth_decision::{AuthDecision, AuthError};
+use super::auth_decision::{AuthDecision, AuthError};
 
 // ---------------------------------------------------------------------------
 // AuthzClient — interface for calling authz-core /authorize
@@ -299,7 +299,7 @@ fn jwt_decision_str(decision: &AuthDecision) -> &'static str {
         AuthDecision::Denied { .. } => "denied",
         // JwtCommonPath shouldn't normally reach shadow evaluation,
         // but if it does, we record it as "continued"
-        crate::auth_decision::AuthDecision::JwtCommonPath { .. } => "continued",
+super::auth_decision::AuthDecision::JwtCommonPath { .. } => "continued",
     }
 }
 
@@ -381,7 +381,7 @@ impl AuthzClient for DefaultAuthzClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth_decision::AuthError;
+use super::auth_decision::AuthError;
     use brrtrouter::dispatcher::HandlerRequest;
     use std::collections::HashMap;
 

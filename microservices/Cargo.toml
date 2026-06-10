@@ -2,16 +2,8 @@
 members = [
     # Database layer (shared across all services)
     "database",
-    # Shared JWT claims crate
+    # Shared JWT claims crate (consolidated with all libs)
     "idam/common",
-    # Shared audit crate
-    "idam/sesame-audit",
-    # Shared token versioning (Redis + pub/sub for push invalidation)
-    "idam/sesame-token-versioning",
-    # Shared denylist cache (JTI revocation caching)
-    "idam/sesame-denylist",
-    # Shared entitlement snapshot cache
-    "idam/sesame-entitlement-cache",
     # Migration tooling
     "migrator",
     # IDAM microservices — gen crates (generated types + handlers)
@@ -28,8 +20,6 @@ members = [
     "idam/authz-core/impl",
     "idam/org-mgmt/gen",
     "idam/org-mgmt/impl",
-    # Shared JWT common-path middleware (Epic 4.2)
-    "idam/sesame-jwt-common-path",
 ]
 resolver = "2"
 
@@ -39,12 +29,7 @@ edition = "2021"
 
 [workspace.dependencies]
 sesame_common = { package = "sesame-common", path = "idam/common" }
-sesame_audit = { package = "sesame-audit", path = "idam/sesame-audit" }
-sesame_token_versioning = { package = "sesame_token_versioning", path = "idam/sesame-token-versioning" }
-sesame_jwt_common_path = { package = "sesame-jwt-common-path", path = "idam/sesame-jwt-common-path" }
-sesame_denylist = { package = "sesame-denylist", path = "idam/sesame-denylist" }
-sesame-denylist = { package = "sesame-denylist", path = "idam/sesame-denylist" }
-sesame_entitlement_cache = { package = "sesame-entitlement-cache", path = "idam/sesame-entitlement-cache" }
+# All shared libs are now modules within common, so individual workspace deps are removed
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
 brrtrouter = { path = "../../BRRTRouter", default-features = false }
 brrtrouter_macros = { path = "../../BRRTRouter/brrtrouter_macros" }

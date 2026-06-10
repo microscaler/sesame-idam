@@ -1,4 +1,4 @@
-use sesame_audit::AuditEmitter;
+use sesame_common::audit::AuditEmitter;
 
 /// Global audit emitter shared across all handlers in this service.
 ///

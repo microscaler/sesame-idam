@@ -24,27 +24,25 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use sesame_common::jwks_cache::JwksCache;
+//! use crate::jwks_cache::JwksCache;
+//! use std::thread;
 //! use std::time::Duration;
 //!
-//! #[tokio::main]
-//! async fn main() {
-//!     let cache = JwksCache::builder()
-//!         .endpoint("https://idam.example.com/.well-known/jwks.json")
-//!         .build();
+//! let cache = JwksCache::builder()
+//!     .endpoint("https://idam.example.com/.well-known/jwks.json")
+//!     .build();
 //!
-//!     // Start background refresh (non-blocking)
-//!     cache.start_background_refresh().await;
+//! // Start background refresh (non-blocking, uses may::go!)
+//! cache.start_background_refresh();
 //!
-//!     // Wait for initial fill
-//!     tokio::time::sleep(Duration::from_millis(500)).await;
+//! // Wait for initial fill
+//! thread::sleep(Duration::from_millis(500));
 //!
-//!     // Fetch key by kid
-//!     let key = cache.get_key("key-2026-05").await;
+//! // Fetch key by kid (now sync)
+//! let key = cache.get_key("key-2026-05");
 //!
-//!     // Or fallback to any available key
-//!     let any_key = cache.get_any_valid_key().await;
-//! }
+//! // Or fallback to any available key (now sync)
+//! let any_key = cache.get_any_valid_key();
 //! ```
 
 use arc_swap::ArcSwap;
@@ -414,7 +412,7 @@ impl JwksCache {
     ///
     /// Returns `Err(JwksCacheError::NoKeysAvailable)` if the cache is empty,
     /// or the key is beyond stale tolerance.
-    pub async fn get_key(&self, kid: &str) -> Result<Jwk, JwksCacheError> {
+    pub fn get_key(&self, kid: &str) -> Result<Jwk, JwksCacheError> {
         let inner = self.inner.load_shared();
 
         // Try cache hit first.
@@ -465,7 +463,7 @@ impl JwksCache {
 
             // Trigger background refresh if not already in flight.
             if !self.is_fetch_in_flight() {
-                self.start_fetch().await;
+                self.start_fetch();
             }
 
             // Try again with updated cache.
@@ -493,7 +491,7 @@ impl JwksCache {
 
         if is_expired {
             // Cache is expired — fetch immediately.
-            self.refresh().await?;
+            self.refresh()?;
 
             let updated = self.inner.load_shared();
             if let Some(key) = updated.keys.get(kid) {
@@ -543,7 +541,7 @@ impl JwksCache {
     ///
     /// Returns the first available key regardless of `kid`.
     /// Useful when the JWT header's `kid` is missing or unrecognized.
-    pub async fn get_any_valid_key(&self) -> Result<Jwk, JwksCacheError> {
+    pub fn get_any_valid_key(&self) -> Result<Jwk, JwksCacheError> {
         let inner = self.inner.load_shared();
 
         match inner.keys.values().next() {
@@ -564,10 +562,10 @@ impl JwksCache {
     /// Refresh the cache by fetching from the JWKS endpoint.
     ///
     /// This performs a full fetch and atomically replaces the cache.
-    pub async fn refresh(&self) -> Result<usize, JwksCacheError> {
+    pub fn refresh(&self) -> Result<usize, JwksCacheError> {
         let now = std::time::Instant::now();
 
-        let response = self.client.get(&self.endpoint).send().await.map_err(|e| {
+        let response = self.client.get(&self.endpoint).send().map_err(|e| {
             JwksCacheError::FetchError {
                 status: 0,
                 message: e.to_string(),
@@ -586,7 +584,7 @@ impl JwksCache {
         }
 
         if !response.status().is_success() {
-            let body = response.text().await.unwrap_or_default();
+            let body = response.text().unwrap_or_default();
             tracing::error!(
                 endpoint = %self.endpoint,
                 status,
@@ -634,7 +632,6 @@ impl JwksCache {
         // Read body as bytes first for size check.
         let body_bytes = response
             .bytes()
-            .await
             .map_err(|e| JwksCacheError::FetchError {
                 status,
                 message: e.to_string(),
@@ -726,15 +723,15 @@ impl JwksCache {
 
     /// Start background refresh loop (non-blocking).
     ///
-    /// Spawns a tokio task that refreshes the cache at the configured interval.
+    /// Spawns a may coroutine that refreshes the cache at the configured interval.
     /// Returns immediately without blocking the caller.
-    pub async fn start_background_refresh(&self) {
+    pub fn start_background_refresh(&self) {
         if !self.bg_refresh {
             return;
         }
 
         // Initial fetch to populate cache.
-        if let Err(e) = self.refresh().await {
+        if let Err(e) = self.refresh() {
             tracing::warn!(
                 error = %e,
                 "Initial JWKS fetch failed, will retry on next interval"
@@ -750,12 +747,9 @@ impl JwksCache {
         let service_name = self.service_name.clone();
         let client = self.client.clone();
 
-        tokio::spawn(async move {
-            let mut timer = tokio::time::interval(interval);
-            timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
+        may::go!(move || {
             loop {
-                timer.tick().await;
+                std::thread::sleep(interval);
 
                 // Single-flight: only one fetch in flight.
                 if Self::check_and_set_fetch_flag(&service_name) {
@@ -769,7 +763,6 @@ impl JwksCache {
                         max_jwks_size,
                         &service_name,
                     )
-                    .await
                     {
                         Ok(count) => {
                             tracing::info!(
@@ -808,9 +801,9 @@ impl JwksCache {
     }
 
     /// Perform a fetch with single-flight deduplication.
-    async fn start_fetch(&self) {
+    fn start_fetch(&self) {
         if !self.is_fetch_in_flight() {
-            let result = self.refresh().await;
+            let result = self.refresh();
             match result {
                 Ok(count) => {
                     tracing::info!(key_count = count, "On-demand JWKS refresh successful");
@@ -823,7 +816,7 @@ impl JwksCache {
     }
 
     /// Internal fetch with single-flight deduplication for background tasks.
-    async fn do_fetch(
+    fn do_fetch(
         endpoint: &str,
         client: &reqwest::Client,
         max_keys: usize,
@@ -837,7 +830,6 @@ impl JwksCache {
             client
                 .get(endpoint)
                 .send()
-                .await
                 .map_err(|e| JwksCacheError::FetchError {
                     status: 0,
                     message: e.to_string(),
@@ -855,7 +847,7 @@ impl JwksCache {
         }
 
         if !response.status().is_success() {
-            let body = response.text().await.unwrap_or_default();
+            let body = response.text().unwrap_or_default();
             return Err(JwksCacheError::FetchError {
                 status,
                 message: body,
@@ -864,7 +856,6 @@ impl JwksCache {
 
         let body_bytes = response
             .bytes()
-            .await
             .map_err(|e| JwksCacheError::FetchError {
                 status,
                 message: e.to_string(),
@@ -1100,7 +1091,7 @@ mod tests {
         keys.insert("key-2".to_string(), sample_jwk("key-2"));
         cache.update_keys(keys);
 
-        let key = cache.get_key("key-1").blocking_get();
+        let key = cache.get_key("key-1");
         assert!(key.is_ok());
         assert_eq!(key.unwrap().kid, "key-1");
     }
@@ -1112,7 +1103,7 @@ mod tests {
         keys.insert("key-1".to_string(), sample_jwk("key-1"));
         cache.update_keys(keys);
 
-        let key = cache.get_key("key-999").blocking_get();
+        let key = cache.get_key("key-999");
         assert!(matches!(key, Err(JwksCacheError::KeyNotFound(_))));
     }
 
@@ -1125,7 +1116,7 @@ mod tests {
         cache.update_keys(keys);
 
         // Try to get a key that doesn't exist — should fall back.
-        let key = cache.get_key("nonexistent").blocking_get();
+        let key = cache.get_key("nonexistent");
         assert!(key.is_ok());
         // Should get one of the cached keys as fallback.
         assert!(key.unwrap().kid == "key-1" || key.unwrap().kid == "key-2");
@@ -1139,7 +1130,7 @@ mod tests {
         keys.insert("key-2".to_string(), sample_jwk("key-2"));
         cache.update_keys(keys);
 
-        let key = cache.get_any_valid_key().blocking_get();
+        let key = cache.get_any_valid_key();
         assert!(key.is_ok());
         assert!(key.unwrap().kid == "key-1" || key.unwrap().kid == "key-2");
     }
@@ -1147,7 +1138,7 @@ mod tests {
     #[test]
     fn test_get_any_valid_key_empty() {
         let cache = JwksCache::new("https://example.com/.well-known/jwks.json");
-        let key = cache.get_any_valid_key().blocking_get();
+        let key = cache.get_any_valid_key();
         assert!(matches!(key, Err(JwksCacheError::NoKeysAvailable)));
     }
 
@@ -1171,7 +1162,7 @@ mod tests {
         }));
 
         // Should still return the key (within 15 min tolerance).
-        let key = cache.get_key("key-1").blocking_get();
+        let key = cache.get_key("key-1");
         assert!(key.is_ok());
     }
 
@@ -1194,7 +1185,7 @@ mod tests {
         }));
 
         // Key is expired — should return KeyNotFound (no endpoint to refresh from in tests).
-        let key = cache.get_key("key-1").blocking_get();
+        let key = cache.get_key("key-1");
         // May return KeyNotFound or try to refresh and fail.
         // In any case, it should NOT return a valid key since the cache is expired.
         match key {
@@ -1217,7 +1208,7 @@ mod tests {
     #[test]
     fn test_empty_cache() {
         let cache = JwksCache::new("https://example.com/.well-known/jwks.json");
-        let key = cache.get_key("key-1").blocking_get();
+        let key = cache.get_key("key-1");
         assert!(matches!(key, Err(JwksCacheError::KeyNotFound(_))));
     }
 
@@ -1293,47 +1284,6 @@ mod tests {
         // Should not panic — just means no background task is spawned.
     }
 
-    // ─── Blocking get helper for tests ──────────────────────────────────────────
-
-    /// Blocking wrapper for async JwksCache operations in sync tests.
-    trait BlockingGet<T> {
-        fn blocking_get(self) -> T;
-    }
-
-    impl<T> BlockingGet<Result<Jwk, JwksCacheError>>
-        for tokio::task::JoinHandle<Result<Jwk, JwksCacheError>>
-    {
-        fn blocking_get(self) -> Result<Jwk, JwksCacheError> {
-            tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(self.unwrap())
-        }
-    }
-
-    impl<T> BlockingGet<Result<Jwk, JwksCacheError>>
-        for std::pin::Pin<Box<dyn std::future::Future<Output = Result<Jwk, JwksCacheError>> + Send>>
-    {
-        fn blocking_get(self) -> Result<Jwk, JwksCacheError> {
-            tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(self)
-        }
-    }
-
-    impl JwksCache {
-        /// Blocking get for test usage.
-        pub fn blocking_get(&self, kid: &str) -> Result<Jwk, JwksCacheError> {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            rt.block_on(self.get_key(kid))
-        }
-    }
 
     // ─── Unit Tests (per story requirements) ────────────────────────────────────
 
@@ -1347,7 +1297,7 @@ mod tests {
         cache.update_keys(keys);
 
         // When get_key("key_1")
-        let result = cache.blocking_get("key_1");
+        let result = cache.get_key("key_1");
 
         // Then assert it returns the cached key without calling the JWKS endpoint
         assert!(result.is_ok());
@@ -1363,7 +1313,7 @@ mod tests {
         cache.update_keys(keys);
 
         // When get_key("key_2")
-        let result = cache.blocking_get("key_2");
+        let result = cache.get_key("key_2");
 
         // Then assert it returns None (KeyNotFound) — cache only returns what it holds
         assert!(result.is_err());
@@ -1380,7 +1330,7 @@ mod tests {
         cache.update_keys(keys);
 
         // When get_key("key_3") (not in cache)
-        let result = cache.blocking_get("key_3");
+        let result = cache.get_key("key_3");
 
         // Then assert fallback returns key_1 (first available)
         assert!(result.is_ok());
@@ -1407,7 +1357,7 @@ mod tests {
         }));
 
         // When get_key("key_1")
-        let result = cache.blocking_get("key_1");
+        let result = cache.get_key("key_1");
 
         // Then assert it still returns cached keys
         assert!(result.is_ok());
@@ -1433,7 +1383,7 @@ mod tests {
         }));
 
         // When get_key("key_1")
-        let result = cache.blocking_get("key_1");
+        let result = cache.get_key("key_1");
 
         // Then assert cache is considered expired
         match result {
@@ -1463,7 +1413,7 @@ mod tests {
         cache.update_keys(keys);
 
         // Read should succeed.
-        let result = cache.blocking_get("key_1");
+        let result = cache.get_key("key_1");
         assert!(result.is_ok());
     }
 

@@ -6,7 +6,7 @@ use sesame_idam_authz_core_gen::handlers::get_audit_stats::{Request, Response};
 #[handler(GetAuditStatsController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "audit_stats_requested")
         .tenant_id(&req.data.x_tenant_id)

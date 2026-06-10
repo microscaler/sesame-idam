@@ -31,8 +31,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use brrtrouter::dispatcher::HandlerRequest;
 
-use crate::auth_decision::AuthError;
-use sesame_common::{AccessClaims, ALLOWED_ISSUERS, EXPECTED_AUDIENCE};
+use super::auth_decision::AuthError;
+use crate::{AccessClaims, ALLOWED_ISSUERS, EXPECTED_AUDIENCE};
 
 /// Extract the Bearer token from the Authorization header.
 ///
@@ -198,35 +198,35 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
     // Validate the claims struct (ver, tenant, sx, risk, etc.)
     if let Err(validation_err) = claims.validate() {
         return Err(match validation_err {
-            sesame_common::JwtValidationError::InvalidIssuer => {
+            crate::JwtValidationError::InvalidIssuer => {
                 AuthError::JwtInvalid("JWT contains invalid issuer".into())
             }
-            sesame_common::JwtValidationError::InvalidAudience => {
+            crate::JwtValidationError::InvalidAudience => {
                 AuthError::JwtInvalid("JWT contains invalid audience".into())
             }
-            sesame_common::JwtValidationError::MissingVersion => {
+            crate::JwtValidationError::MissingVersion => {
                 AuthError::JwtInvalid("JWT missing required 'ver' field".into())
             }
-            sesame_common::JwtValidationError::MissingTenant => {
+            crate::JwtValidationError::MissingTenant => {
                 AuthError::JwtInvalid("JWT missing required 'tenant_id' field".into())
             }
-            sesame_common::JwtValidationError::MissingAuthzClaims => {
+            crate::JwtValidationError::MissingAuthzClaims => {
                 AuthError::JwtInvalid("JWT missing required 'sx' claims namespace".into())
             }
-            sesame_common::JwtValidationError::InvalidRisk => {
+            crate::JwtValidationError::InvalidRisk => {
                 AuthError::JwtInvalid("JWT contains invalid 'risk' value".into())
             }
-            sesame_common::JwtValidationError::InvalidTokenVersion => {
+            crate::JwtValidationError::InvalidTokenVersion => {
                 AuthError::JwtInvalid("JWT contains invalid 'ver' value".into())
             }
-            sesame_common::JwtValidationError::Expired => {
+            crate::JwtValidationError::Expired => {
                 AuthError::JwtInvalid("JWT is expired".into())
             }
-            sesame_common::JwtValidationError::NotYetValid => {
+            crate::JwtValidationError::NotYetValid => {
                 AuthError::JwtInvalid("JWT is not yet valid".into())
             }
-            sesame_common::JwtValidationError::SignatureInvalid => AuthError::JwtSignatureInvalid,
-            sesame_common::JwtValidationError::EntitlementsHashMismatch => {
+            crate::JwtValidationError::SignatureInvalid => AuthError::JwtSignatureInvalid,
+            crate::JwtValidationError::EntitlementsHashMismatch => {
                 AuthError::JwtInvalid("Entitlements hash mismatch".into())
             }
         });
@@ -246,6 +246,21 @@ fn now_secs() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use brrtrouter::ids::RequestId;
+    use http::Method;
+    use brrtrouter::router::ParamVec;
+    use brrtrouter::dispatcher::HeaderVec;
+
+    fn create_reply_tx() -> may::sync::mpsc::Sender<brrtrouter::dispatcher::HandlerResponse> {
+        let (_tx, _rx) = may::sync::mpsc::channel();
+        _tx
+    }
+
+    lazy_static::lazy_static! {
+        static ref REPLY_TX: std::sync::Arc<may::sync::mpsc::Sender<brrtrouter::dispatcher::HandlerResponse>> = {
+            std::sync::Arc::new(create_reply_tx())
+        };
+    }
 
     // ─── Bearer Token Extraction Tests ──────────────────────────────────
 
@@ -263,7 +278,7 @@ mod tests {
                 cookies: HeaderVec::new(),
                 body: None,
                 jwt_claims: None,
-                reply_tx: reply_tx.clone(),
+                reply_tx: (**REPLY_TX).clone(),
                 queue_guard: None,
             }
         } else {
@@ -279,7 +294,7 @@ mod tests {
                 cookies: HeaderVec::new(),
                 body: None,
                 jwt_claims: None,
-                reply_tx: reply_tx.clone(),
+                reply_tx: (**REPLY_TX).clone(),
                 queue_guard: None,
             }
         }
@@ -385,7 +400,7 @@ mod tests {
             .sub("user-1")
             .aud(vec!["identity-login-service".into()])
             .client_id("test-app")
-            .scope("read".into())
+            .scope("read".to_string())
             .exp(i64::MAX - 3600)
             .nbf(0)
             .iat(0)
@@ -395,12 +410,12 @@ mod tests {
             .tenant_id("tenant-a")
             .user_id("user-1")
             .user_type("registered")
-            .sx(sesame_common::SesameAuthzClaimsBuilder::new()
+            .sx(crate::SesameAuthzClaimsBuilder::new()
                 .tenant("tenant-a")
                 .portal("test-app")
                 .roles(vec!["admin".into(), "user".into()])
                 .permissions(vec!["users:read".into(), "prefs:write".into()])
-                .risk("normal".into())
+                .risk("normal".to_string())
                 .build()
                 .unwrap())
             .build()

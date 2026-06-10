@@ -33,7 +33,7 @@
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use sesame_jwt_common_path::JwtAuthMiddleware;
+//! use crate::jwt_common_path::JwtAuthMiddleware;
 //! use std::sync::Arc;
 //!
 //! let policies = RoutePolicyStore::load_from_yaml("config/routes.yaml").unwrap();

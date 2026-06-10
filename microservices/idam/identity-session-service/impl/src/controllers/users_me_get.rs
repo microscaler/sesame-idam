@@ -1,7 +1,7 @@
 /// Handler for Users Me Get — retrieves the authenticated user's profile.
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
-use sesame_audit::AuditEventType;
+use sesame_common::audit::AuditEventType;
 use sesame_idam_identity_session_service_gen::handlers::users_me_get::{Request, Response};
 
 #[handler(UsersMeGetController)]
@@ -11,7 +11,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     let tenant_id = _req.data.x_tenant_id.clone();
 
     let entry =
-        sesame_audit::AuditLogEntry::new(AuditEventType::JwtValidated, "identity-session-service")
+        sesame_common::audit::AuditLogEntry::new(AuditEventType::JwtValidated, "identity-session-service")
             .tenant_id(tenant_id.clone())
             .decision_source("users_me_get")
             .result("allowed")

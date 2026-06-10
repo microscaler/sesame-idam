@@ -6,7 +6,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 #[handler(SetupUserPhoneController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
+    use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;
 
     let mut event = AuditEvent::new(

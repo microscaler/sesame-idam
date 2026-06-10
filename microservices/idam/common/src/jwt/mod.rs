@@ -755,6 +755,7 @@ mod tests {
                 risk: None,
             },
             act: None,
+            cnf: None,
         };
 
         let json = claims.to_compact_json();
@@ -801,6 +802,7 @@ mod tests {
                 vec!["org:read".to_string()],
             ),
             act: None,
+            cnf: None,
         };
 
         let json = claims.to_compact_json();
@@ -936,6 +938,7 @@ mod tests {
                 risk: None,
             },
             act: None,
+            cnf: None,
         };
 
         let size = claims.json_payload_size();
@@ -1006,6 +1009,7 @@ mod tests {
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
+            cnf: None,
         };
 
         let json_no = serde_json::to_string(&no_act).unwrap();
@@ -1060,6 +1064,7 @@ mod tests {
                 vec!["org:read".to_string()],
             ),
             act: None,
+            cnf: None,
         };
         assert!(claims.validate().is_ok());
     }
@@ -1083,6 +1088,7 @@ mod tests {
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
+            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::MissingVersion));
     }
@@ -1106,6 +1112,7 @@ mod tests {
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
+            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::MissingTenant));
     }
@@ -1137,6 +1144,7 @@ mod tests {
                 risk: None,
             },
             act: None,
+            cnf: None,
         };
         assert_eq!(
             claims.validate(),
@@ -1163,6 +1171,7 @@ mod tests {
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
+            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::InvalidIssuer));
     }
@@ -1186,6 +1195,7 @@ mod tests {
             user_type: "customer".to_string(),
             sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
             act: None,
+            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::InvalidAudience));
     }
@@ -1218,6 +1228,7 @@ mod tests {
                     risk: Some(risk_value.to_string()),
                 },
                 act: None,
+                cnf: None,
             };
             assert!(
                 claims.validate().is_ok(),
@@ -1254,6 +1265,7 @@ mod tests {
                 risk: Some("unknown".to_string()),
             },
             act: None,
+            cnf: None,
         };
         assert_eq!(claims.validate(), Err(JwtValidationError::InvalidRisk));
     }
@@ -1331,10 +1343,10 @@ mod tests {
             ))
             .build();
         assert!(result.is_err());
-        assert_eq!(
+        assert!(matches!(
             result.unwrap_err(),
-            JwtError::MissingRequiredField("ver must be > 0".into())
-        );
+            JwtError::MissingRequiredField(s) if s == "ver must be > 0"
+        ));
     }
 
     #[test]
@@ -1369,6 +1381,7 @@ mod tests {
                 risk: Some("normal".to_string()),
             },
             act: None,
+            cnf: None,
         };
 
         let size = claims.json_payload_size();
@@ -1505,6 +1518,7 @@ mod tests {
             user_type: "customer".to_string(),
             sx: truncated,
             act: None,
+            cnf: None,
         };
 
         let size = claims.json_payload_size();
@@ -1593,6 +1607,7 @@ mod tests {
                 risk: Some("normal".to_string()),
             },
             act: None,
+            cnf: None,
         };
 
         let size = claims.json_payload_size();

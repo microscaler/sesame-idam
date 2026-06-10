@@ -6,7 +6,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 #[handler(CreateSamlLinkController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLevel, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLevel, AuditLogEntry};
     use uuid::Uuid;
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "org-mgmt")

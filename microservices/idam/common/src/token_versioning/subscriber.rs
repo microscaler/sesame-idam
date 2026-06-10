@@ -16,8 +16,8 @@
 //! `VersionBumpSubscriber` is `Clone` and shares a `ArcSwap` of the subscriber handle,
 //! allowing the cache to be updated without locking the entire struct.
 
-use crate::events::{BumpReason, VersionBumpEvent};
-use crate::publisher::{parse_signed_message, verify_signature, VERSION_BUMP_CHANNEL};
+use super::events::{BumpReason, VersionBumpEvent};
+use super::publisher::{parse_signed_message, verify_signature, VERSION_BUMP_CHANNEL};
 use anyhow::{anyhow, Context, Result};
 use arc_swap::ArcSwap;
 use futures_util::StreamExt;
@@ -549,8 +549,8 @@ impl VersionBumpSubscriber {
 
 #[cfg(test)]
 mod tests {
+    use super::super::events::BumpReason;
     use super::*;
-    use crate::events::BumpReason;
     use hmac::Mac;
     use prometheus::Encoder;
 

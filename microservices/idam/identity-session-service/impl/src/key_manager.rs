@@ -43,11 +43,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// HACK-102: All key lifecycle events must be audit-logged for tamper-evident audit trails.
 pub mod audit_events {
     use crate::audit::EMITTER;
-    use sesame_audit::AuditEventType;
+    use sesame_common::audit::AuditEventType;
 
     /// Emit a key generation event.
     pub fn key_generated(kid: &str) {
-        let entry = sesame_audit::AuditLogEntry::new(
+        let entry = sesame_common::audit::AuditLogEntry::new(
             AuditEventType::VersionBump,
             "identity-session-service",
         )
@@ -63,7 +63,7 @@ pub mod audit_events {
 
     /// Emit a key rotation event.
     pub fn key_rotated(old_kid: &str, new_kid: &str) {
-        let entry = sesame_audit::AuditLogEntry::new(
+        let entry = sesame_common::audit::AuditLogEntry::new(
             AuditEventType::VersionBump,
             "identity-session-service",
         )
@@ -82,7 +82,7 @@ pub mod audit_events {
 
     /// Emit a key revocation event.
     pub fn key_revoked(kid: &str, reason: &str) {
-        let entry = sesame_audit::AuditLogEntry::new(
+        let entry = sesame_common::audit::AuditLogEntry::new(
             AuditEventType::TokenRevoked,
             "identity-session-service",
         )
@@ -101,7 +101,7 @@ pub mod audit_events {
 
     /// Emit a grace key cleanup event.
     pub fn grace_key_expired(kid: &str, age_secs: u64) {
-        let entry = sesame_audit::AuditLogEntry::new(
+        let entry = sesame_common::audit::AuditLogEntry::new(
             AuditEventType::TokenRevoked,
             "identity-session-service",
         )

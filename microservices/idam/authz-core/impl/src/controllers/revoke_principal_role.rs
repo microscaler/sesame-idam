@@ -1,7 +1,7 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_authz_core_gen::handlers::revoke_principal_role::{Request, Response};
-use sesame_token_versioning::BumpReason;
+use sesame_common::token_versioning::BumpReason;
 
 /// Revoke a role from a principal within a tenant context.
 ///
@@ -14,7 +14,7 @@ use sesame_token_versioning::BumpReason;
 #[handler(RevokePrincipalRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
     // Emit audit event: role revocation
     let mut metadata = serde_json::Map::new();

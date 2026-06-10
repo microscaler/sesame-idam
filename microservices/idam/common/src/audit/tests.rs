@@ -9,7 +9,7 @@
 
 #![cfg(test)]
 
-use sesame_audit::{
+use super::{
     AuditEmitter, AuditEventType, AuditLevel, AuditLogEntry,
     allowed_event_types, is_valid_event_type, generate_key,
 };

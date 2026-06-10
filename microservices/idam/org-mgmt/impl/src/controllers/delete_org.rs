@@ -14,7 +14,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     );
     let _guard = span.enter();
     use crate::audit::EMITTER;
-    use sesame_audit::{AuditEventType, AuditLevel, AuditLogEntry};
+    use sesame_common::audit::{AuditEventType, AuditLevel, AuditLogEntry};
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "org-mgmt")
         .tenant_id(req.inner.tenant_id.clone())
