@@ -140,15 +140,14 @@ impl DenylistCache {
     /// This function NEVER caches a false positive. If Redis says a JTI is not
     /// revoked, the cache will not return `true` for that JTI. Redis is always
     /// consulted on cache miss (HACK-741).
-    pub async fn is_revoked<F, Fut>(
+    pub fn is_revoked<F>(
         &self,
         jti: &str,
         token_exp_epoch: Option<u64>,
         redis_exists: F,
     ) -> DenylistResult
     where
-        F: FnOnce(&str) -> Fut,
-        Fut: std::future::Future<Output = std::result::Result<bool, anyhow::Error>>,
+        F: FnOnce(&str) -> bool,
     {
         // Step 1: Check local cache
         {
@@ -166,19 +165,15 @@ impl DenylistCache {
         }
 
         // Step 2: Cache miss — check Redis
-        match redis_exists(&format!("{}:{}", self.inner.redis_key_prefix, jti)).await {
-            Ok(true) => {
+        match redis_exists(&format!("{}:{}", self.inner.redis_key_prefix, jti)) {
+            true => {
                 // Redis says revoked — add to local cache with dynamic TTL
                 self.add_to_cache(jti, token_exp_epoch);
                 DenylistResult::RedisHit
             }
-            Ok(false) => {
+            false => {
                 // Redis says not revoked — do NOT cache this (never cache false negatives)
                 DenylistResult::RedisMiss
-            }
-            Err(_) => {
-                // Redis unavailable — fail-closed, reject token
-                DenylistResult::RedisUnavailable
             }
         }
     }
@@ -186,12 +181,11 @@ impl DenylistCache {
     /// Check if a JTI is revoked, without token expiry information.
     ///
     /// Convenience wrapper that uses `default_ttl_secs` for cache entries.
-    pub async fn is_revoked_simple<F, Fut>(&self, jti: &str, redis_exists: F) -> DenylistResult
+    pub fn is_revoked_simple<F>(&self, jti: &str, redis_exists: F) -> DenylistResult
     where
-        F: FnOnce(&str) -> Fut,
-        Fut: std::future::Future<Output = std::result::Result<bool, anyhow::Error>>,
+        F: FnOnce(&str) -> bool,
     {
-        self.is_revoked(jti, None, redis_exists).await
+        self.is_revoked(jti, None, redis_exists)
     }
 
     /// Add a JTI to the local cache with calculated TTL.

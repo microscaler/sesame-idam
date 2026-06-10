@@ -93,7 +93,7 @@ impl DenylistMiddleware {
     /// is done in the handler validation path.
     ///
     /// Returns true if the token is definitely revoked (cache hit), false otherwise.
-    pub async fn check_revocation(&self, jti: &str, token_exp_epoch: Option<u64>) -> bool {
+    pub fn check_revocation(&self, jti: &str, token_exp_epoch: Option<u64>) -> bool {
 
         let result = self
             .cache
@@ -101,11 +101,8 @@ impl DenylistMiddleware {
                 // Placeholder: actual Redis client integration.
                 // Production code will inject a Redis client here.
                 let _ = key;
-                Box::pin(async {
-                    Ok::<bool, anyhow::Error>(false) // Treat as not revoked if Redis is down (fail-open)
-                })
-            })
-            .await;
+                false // Treat as not revoked if Redis is down (fail-open)
+            });
 
         match result {
             DenylistResult::CacheHit => {
