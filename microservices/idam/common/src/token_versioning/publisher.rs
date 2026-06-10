@@ -81,7 +81,7 @@ impl VersionBumpPublisher {
     /// # Returns
     ///
     /// `Ok(())` on success, `Err` if Redis fails to publish.
-    pub async fn publish(&self, event: &VersionBumpEvent) -> Result<()> {
+    pub fn publish(&self, event: &VersionBumpEvent) -> Result<()> {
         // Serialize the event to JSON
         let json = event
             .to_json()
@@ -97,18 +97,15 @@ impl VersionBumpPublisher {
         // Create the signed message: `<json>|<hex_signature>`
         let message = format!("{}|{}", json, sig_hex);
 
-        // Publish to Redis
+        // Publish to Redis (blocking)
         let mut conn = self
             .client
-            .get_multiplexed_async_connection()
-            .await
-            .context("failed to get connection from pool for publishing event")?;
+            .get_connection()
+            .context("failed to get connection for publishing event")?;
 
-        redis::cmd("PUBLISH")
-            .arg(VERSION_BUMP_CHANNEL)
-            .arg(&message)
-            .query_async::<_, i64>(&mut conn)
-            .await
+        use redis::Commands;
+        let _: i64 = conn
+            .publish(VERSION_BUMP_CHANNEL, &message)
             .context("failed to publish event to Redis")?;
 
         tracing::debug!(
@@ -124,7 +121,7 @@ impl VersionBumpPublisher {
     }
 
     /// Publish a subject-specific version bump.
-    pub async fn publish_subject(
+    pub fn publish_subject(
         &self,
         tenant_id: &str,
         user_id: &str,
@@ -132,18 +129,18 @@ impl VersionBumpPublisher {
         reason: BumpReason,
     ) -> Result<()> {
         let event = VersionBumpEvent::for_subject(tenant_id, user_id, new_version, reason);
-        self.publish(&event).await
+        self.publish(&event)
     }
 
     /// Publish a tenant-wide version bump.
-    pub async fn publish_tenant(
+    pub fn publish_tenant(
         &self,
         tenant_id: &str,
         new_version: u64,
         reason: BumpReason,
     ) -> Result<()> {
         let event = VersionBumpEvent::for_tenant(tenant_id, new_version, reason);
-        self.publish(&event).await
+        self.publish(&event)
     }
 
     /// Simulate a slow event for testing (adds a delay before publishing).

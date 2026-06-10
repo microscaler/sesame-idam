@@ -51,7 +51,7 @@ use super::auth_decision::{AuthDecision, AuthError};
 /// The default implementation calls authz-core via HTTP.
 pub trait AuthzClient: Send + Sync {
     /// Call authz-core /authorize and return the online decision.
-    async fn authorize(&self, request: &AuthorizeRequest) -> Result<bool, String>;
+    fn authorize(&self, request: &AuthorizeRequest) -> Result<bool, String>;
 }
 
 /// Request structure passed to authz-core for shadow comparison.
@@ -212,7 +212,7 @@ impl ShadowDecision {
         let client = self.authz_client.clone();
 
         // Fire-and-forget: spawn background task
-        tokio::spawn(async move {
+        may::go!(move || {
             // Create the shadow_decision.compare span as child of jwt_validation span
             let span = tracing::span!(
                 tracing::Level::INFO,
@@ -223,7 +223,7 @@ impl ShadowDecision {
             let _guard = span.enter();
 
             // Call authz-core in background
-            let online_result = client.authorize(&authz_req).await;
+            let online_result = client.authorize(&authz_req);
 
             let jwt_allowed = matches!(jwt_dec, AuthDecision::Allowed { .. });
 
@@ -350,7 +350,7 @@ pub fn check_shadow_mode_production() -> Result<(), String> {
 struct DefaultAuthzClient;
 
 impl AuthzClient for DefaultAuthzClient {
-    async fn authorize(&self, request: &AuthorizeRequest) -> Result<bool, String> {
+    fn authorize(&self, request: &AuthorizeRequest) -> Result<bool, String> {
         // In production, this makes an HTTP POST to authz-core /authorize.
         // For now, return a placeholder that simulates a matching decision.
         // The actual implementation will use reqwest or hyper.
@@ -406,7 +406,7 @@ use super::auth_decision::AuthError;
     // ========================================================================
 
     /// Unit test: Shadow mode disabled — no span created
-    #[tokio::test]
+    #[test]
     async fn shadow_mode_disabled_no_span_created() {
         // Create with authz_client that returns a mismatch, but shadow is disabled
         let shadow = ShadowDecision::default();
@@ -424,7 +424,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Unit test: Shadow mode enabled — span created (verified by no-panicking)
-    #[tokio::test]
+    #[test]
     async fn shadow_mode_enabled_span_created() {
         let mut shadow = ShadowDecision::default();
         shadow.set_enabled(true);
@@ -442,7 +442,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Unit test: Shadow hit — decisions match (DEBUG log)
-    #[tokio::test]
+    #[test]
     async fn shadow_decision_match_returns_no_error() {
         let shadow = ShadowDecision::default();
         let decision = AuthDecision::Allowed {
@@ -455,7 +455,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Unit test: Shadow mismatch (jwt_allowed, online_denied) — WARN log
-    #[tokio::test]
+    #[test]
     async fn shadow_mismatch_jwt_allowed_online_denied() {
         // Create shadow with a mock client that returns false (denied)
         struct DenyClient;
@@ -477,7 +477,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Unit test: Shadow mismatch (jwt_denied, online_allowed) — WARN log
-    #[tokio::test]
+    #[test]
     async fn shadow_mismatch_jwt_denied_online_allowed() {
         struct AllowClient;
         impl AuthzClient for AllowClient {
@@ -498,7 +498,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Unit test: Shadow online check does not block JWT decision
-    #[tokio::test]
+    #[test]
     async fn shadow_online_check_does_not_block_jwt_decision() {
         let mut shadow = ShadowDecision::default();
         shadow.set_enabled(true);
@@ -519,13 +519,13 @@ use super::auth_decision::AuthError;
     }
 
     /// Unit test: Shadow online check failure is ignored
-    #[tokio::test]
+    #[test]
     async fn shadow_online_check_failure_ignored() {
         shadow_decision_error_simulation().await;
     }
 
     /// Unit test: Span attributes record full decision details
-    #[tokio::test]
+    #[test]
     async fn span_attributes_record_full_decision_details() {
         let shadow = ShadowDecision::default();
         let decision = AuthDecision::Allowed {
@@ -543,7 +543,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Unit test: Shadow mode toggle can be set at runtime
-    #[tokio::test]
+    #[test]
     async fn shadow_mode_toggle_can_be_set_at_runtime() {
         let mut shadow = ShadowDecision::default();
         assert!(!shadow.is_enabled());
@@ -556,7 +556,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Unit test: Concurrent shadow evaluations create independent spans
-    #[tokio::test]
+    #[test]
     async fn concurrent_shadow_evaluations_create_independent_spans() {
         let mut shadow = ShadowDecision::default();
         shadow.set_enabled(true);
@@ -571,7 +571,7 @@ use super::auth_decision::AuthError;
         for i in 0..100 {
             let mut shadow_clone = shadow.clone();
             let req_clone = req.clone();
-            handles.push(tokio::spawn(async move {
+            handles.push(may::go!(move || {
                 shadow_clone
                     .evaluate(&format!("/route:{i}"), &decision, &req_clone)
                     .await;
@@ -592,7 +592,7 @@ use super::auth_decision::AuthError;
     /// Given: shadow mode is enabled and JWT claims accurately reflect online authorization
     /// When: 100 requests arrive across jwt-with-fallback routes
     /// Then: shadow evaluations complete with hit results (no mismatch errors)
-    #[tokio::test]
+    #[test]
     async fn scenario_shadow_mode_enabled_all_decisions_match() {
         let mut shadow = ShadowDecision::default();
         shadow.set_enabled(true);
@@ -614,7 +614,7 @@ use super::auth_decision::AuthError;
     /// Given: shadow mode is enabled and JWT claims are missing a role that online requires
     /// When: requests arrive on jwt-with-fallback routes
     /// Then: shadow evaluations complete with mismatch events
-    #[tokio::test]
+    #[test]
     async fn scenario_shadow_mode_enabled_mismatch_detected() {
         shadow_decision_mismatch_simulation(
             &AuthDecision::Denied {
@@ -629,7 +629,7 @@ use super::auth_decision::AuthError;
     /// Given: shadow mode is disabled
     /// When: 100 requests arrive on jwt-with-fallback routes
     /// Then: NO shadow_decision.compare spans are created (evaluate returns immediately)
-    #[tokio::test]
+    #[test]
     async fn scenario_shadow_mode_disabled_no_shadow_spans() {
         let shadow = ShadowDecision::default();
         assert!(!shadow.is_enabled());
@@ -654,7 +654,7 @@ use super::auth_decision::AuthError;
     /// Given: a mismatch occurs (JWT allows, online denies)
     /// When: the request is processed
     /// Then: the JWT decision stands — shadow does not block or override decisions
-    #[tokio::test]
+    #[test]
     async fn scenario_shadow_mode_does_not_affect_authorization() {
         let decision = AuthDecision::Allowed {
             reason: Some("role:admin".into()),
@@ -675,7 +675,7 @@ use super::auth_decision::AuthError;
     /// Given: authz-core takes >5s to respond to a shadow request
     /// When: the shadow task times out
     /// Then: shadow evaluation completes with error result (no crash)
-    #[tokio::test]
+    #[test]
     async fn scenario_shadow_online_check_timeout_handled_gracefully() {
         shadow_decision_error_simulation().await;
     }
@@ -719,7 +719,7 @@ use super::auth_decision::AuthError;
     /// Security: Shadow online check cannot be used as a side-channel
     /// Assert: the shadow check does not provide the client with any information
     /// about online authorization — the client only sees the JWT decision
-    #[tokio::test]
+    #[test]
     async fn security_shadow_online_check_cannot_be_used_as_side_channel() {
         let decision = AuthDecision::Allowed {
             reason: Some("role:admin".into()),
@@ -741,7 +741,7 @@ use super::auth_decision::AuthError;
     /// Security: Shadow mode toggle cannot be manipulated mid-request
     /// Given: a shadow mode toggle from enabled to disabled occurs while a shadow task is in-flight
     /// Assert: the in-flight task completes without corrupting state
-    #[tokio::test]
+    #[test]
     async fn security_shadow_mode_toggle_cannot_be_manipulated_mid_request() {
         let mut shadow = ShadowDecision::default();
         shadow.set_enabled(true);
@@ -766,7 +766,7 @@ use super::auth_decision::AuthError;
     // ========================================================================
 
     /// Edge case: Shadow mode enabled with zero jwt-with-fallback routes
-    #[tokio::test]
+    #[test]
     async fn edge_case_shadow_mode_enabled_with_zero_routes() {
         let mut shadow = ShadowDecision::default();
         shadow.set_enabled(true);
@@ -781,7 +781,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Edge case: Mismatch with same decision but different reasons
-    #[tokio::test]
+    #[test]
     async fn edge_case_mismatch_with_same_decision_different_reasons() {
         let shadow = ShadowDecision::default();
         let decision = AuthDecision::Allowed {
@@ -794,7 +794,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Edge case: Concurrent shadow evaluations for same route
-    #[tokio::test]
+    #[test]
     async fn edge_case_concurrent_shadow_evaluations_same_route() {
         let mut shadow = ShadowDecision::default();
         shadow.set_enabled(true);
@@ -809,7 +809,7 @@ use super::auth_decision::AuthError;
         for _ in 0..1000 {
             let mut shadow_clone = shadow.clone();
             let req_clone = req.clone();
-            handles.push(tokio::spawn(async move {
+            handles.push(may::go!(move || {
                 shadow_clone
                     .evaluate("/users/me:GET", &decision, &req_clone)
                     .await;
@@ -822,7 +822,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Edge case: Shadow online check with authz-core returning error response
-    #[tokio::test]
+    #[test]
     async fn edge_case_shadow_online_check_authz_core_error() {
         shadow_decision_error_simulation().await;
     }
@@ -872,7 +872,7 @@ use super::auth_decision::AuthError;
     }
 
     /// Edge case: Empty route name
-    #[tokio::test]
+    #[test]
     async fn edge_case_empty_route_name() {
         let mut shadow = ShadowDecision::default();
         shadow.set_enabled(true);

@@ -363,24 +363,23 @@ impl DpopProofStore for InMemoryProofStore {
 /// JTI keys are stored as `dpop_jti:{jti}` with 60s TTL.
 pub struct RedisProofStore {
     /// Redis client connection (moved into async context at runtime).
-    conn: tokio::sync::Mutex<Option<redis::aio::MultiplexedConnection>>,
+    conn: std::sync::Mutex<Option<redis::Connection>>,
 }
 
 impl RedisProofStore {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            conn: tokio::sync::Mutex::new(None),
+            conn: std::sync::Mutex::new(None),
         }
     }
 
     pub async fn init(&mut self, redis_url: &str) -> Result<(), DpopError> {
         let conn = redis::Client::open(redis_url)
             .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?
-            .get_multiplexed_async_connection()
-            .await
+            .get_connection()
             .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?;
-        let mut guard = self.conn.lock().await;
+        let mut guard = self.conn.lock().map_err(|e| DpopError::InvalidJwk(format!("Mutex poisoned: {e}")))?;
         *guard = Some(conn);
         Ok(())
     }
@@ -389,33 +388,24 @@ impl RedisProofStore {
 #[async_trait::async_trait]
 impl DpopProofStore for RedisProofStore {
     async fn is_seen(&self, jti: &str) -> Result<bool, DpopError> {
-        let mut conn = self.conn.lock().await;
+        let mut conn = self.conn.lock().map_err(|e| DpopError::InvalidJwk(format!("Mutex poisoned: {e}")))?;
         let conn = conn
             .as_mut()
             .ok_or_else(|| DpopError::InvalidJwk("Redis not initialized".into()))?;
         let key = format!("dpop_jti:{jti}");
-        let exists: i64 = redis::cmd("EXISTS")
-            .arg(&key)
-            .query_async::<_, i64>(conn)
-            .await
-            .map_err(|e| DpopError::InvalidJwk(format!("Redis EXISTS failed: {e}")))?;
+        use redis::Commands;
+        let exists: i64 = conn.exists(&key).map_err(|e| DpopError::InvalidJwk(format!("Redis EXISTS failed: {e}")))?;
         Ok(exists > 0)
     }
 
     async fn record(&self, jti: &str) -> Result<(), DpopError> {
-        let mut conn = self.conn.lock().await;
+        let mut conn = self.conn.lock().map_err(|e| DpopError::InvalidJwk(format!("Mutex poisoned: {e}")))?;
         let conn = conn
             .as_mut()
             .ok_or_else(|| DpopError::InvalidJwk("Redis not initialized".into()))?;
         let key = format!("dpop_jti:{jti}");
-        redis::cmd("SET")
-            .arg(&key)
-            .arg("seen")
-            .arg("EX")
-            .arg(60u32)
-            .query_async::<_, ()>(conn)
-            .await
-            .map_err(|e| DpopError::InvalidJwk(format!("Redis SET failed: {e}")))?;
+        use redis::Commands;
+        let _: () = conn.set_ex(&key, "seen", 60u64).map_err(|e| DpopError::InvalidJwk(format!("Redis SET failed: {e}")))?;
         Ok(())
     }
 }

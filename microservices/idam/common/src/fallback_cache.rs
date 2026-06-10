@@ -21,7 +21,7 @@ use std::time::Duration;
 use prometheus::{Gauge, HistogramVec, IntCounter, IntCounterVec, Registry};
 use redis::Commands;
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 
 // ===========================================================================
 // Types and structs
@@ -298,7 +298,7 @@ pub struct FallbackCache {
 
     /// In-flight requests: key -> sender for single-flight.
     /// Prevents thundering herd when cache entry expires.
-    in_flight: Arc<Mutex<HashMap<String, (Arc<tokio::sync::Notify>, AuthzDecision)>>>,
+    in_flight: Arc<Mutex<HashMap<String, (Arc<std::sync::atomic::AtomicBool>, AuthzDecision)>>>,
     /// Tracks in-flight keys and their results for single-flight dedup.
 
     /// Metrics.
@@ -479,7 +479,7 @@ impl FallbackCache {
     async fn wait_for_flight(
         &self,
         cache_key: &str,
-        in_flight: Arc<Mutex<HashMap<String, (Arc<tokio::sync::Notify>, AuthzDecision)>>>,
+        in_flight: Arc<Mutex<HashMap<String, (Arc<std::sync::atomic::AtomicBool>, AuthzDecision)>>>,
     ) {
         let guard = in_flight.lock().await;
         if let Some((notify, _decision)) = guard.get(cache_key) {

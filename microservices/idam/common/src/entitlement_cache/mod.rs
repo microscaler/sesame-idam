@@ -38,7 +38,7 @@ use prometheus::{IntCounter, IntGauge, Registry};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::sync::RwLock;
+use std::sync::RwLock;
 use tracing::debug;
 
 /// Inner cache entry with expiry tracking.
@@ -226,7 +226,7 @@ impl EntitlementSnapshotCache {
 
         // 1. Check cache
         {
-            let state = self.state.read().await;
+            let state = self.state.read().unwrap();
             if let Some(entry) = state.entries.get(&cache_key) {
                 if entry.expires_at > std::time::Instant::now() {
                     entry.access_count.fetch_add(1, Ordering::Relaxed);
@@ -294,7 +294,7 @@ impl EntitlementSnapshotCache {
         serialized_size: usize,
         ttl: Duration,
     ) {
-        let mut state = self.state.write().await;
+        let mut state = self.state.write().unwrap();
 
         // Evict expired entries first
         let now = std::time::Instant::now();
@@ -352,9 +352,9 @@ impl EntitlementSnapshotCache {
     ///
     /// Useful when a user's permissions change and you want to force
     /// an immediate refresh rather than waiting for TTL expiry.
-    pub async fn invalidate(&self, entitlements_ref: &str) {
+    pub fn invalidate(&self, entitlements_ref: &str) {
         let cache_key = format!("entitlements:{}", entitlements_ref);
-        let mut state = self.state.write().await;
+        let mut state = self.state.write().unwrap();
         if state.entries.remove(&cache_key).is_some() {
             state.access_order.remove(&cache_key);
             debug!(
@@ -365,8 +365,8 @@ impl EntitlementSnapshotCache {
     }
 
     /// Clear all entries from the cache.
-    pub async fn clear(&self) {
-        let mut state = self.state.write().await;
+    pub fn clear(&self) {
+        let mut state = self.state.write().unwrap();
         let count = state.entries.len();
         state.entries.clear();
         state.access_order.clear();
@@ -374,18 +374,18 @@ impl EntitlementSnapshotCache {
     }
 
     /// Get the current number of entries in the cache.
-    pub async fn len(&self) -> usize {
-        self.state.read().await.entries.len()
+    pub fn len(&self) -> usize {
+        self.state.read().unwrap().entries.len()
     }
 
     /// Check if the cache is empty.
-    pub async fn is_empty(&self) -> bool {
-        self.state.read().await.entries.is_empty()
+    pub fn is_empty(&self) -> bool {
+        self.state.read().unwrap().entries.is_empty()
     }
 
     /// Update Prometheus gauges to reflect current cache state.
     fn update_gauges(&self) {
-        let state = self.state.blocking_read();
+        let state = self.state.read().unwrap();
         self.cache_size_gauge.set(state.entries.len() as i64);
         let total_memory: usize = state.entries.values().map(|e| e.serialized_size).sum();
         self.cache_memory_gauge.set(total_memory as i64);

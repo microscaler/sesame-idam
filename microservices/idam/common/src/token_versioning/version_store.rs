@@ -74,11 +74,10 @@ impl VersionStore {
         })
     }
 
-    /// Get the Redis connection.
-    async fn get_conn(&self) -> Result<redis::aio::MultiplexedConnection> {
+    /// Get the Redis connection (blocking).
+    fn get_conn(&self) -> Result<redis::Connection> {
         self.client
-            .get_multiplexed_async_connection()
-            .await
+            .get_connection()
             .context("failed to get Redis connection")
     }
 
@@ -86,78 +85,58 @@ impl VersionStore {
     ///
     /// Uses Redis INCR for atomic increment. Sets the key with a TTL
     /// on the first increment (when it didn't exist).
-    pub async fn increment_subject(&self, subject: &str) -> Result<u64> {
+    pub fn increment_subject(&self, subject: &str) -> Result<u64> {
         let key = subject_key(subject);
-        let mut conn = self.get_conn().await?;
+        let mut conn = self.get_conn()?;
 
+        use redis::Commands;
+        
         // Use INCR for atomic increment
-        let version: u64 = redis::cmd("INCR")
-            .arg(&key)
-            .query_async::<_, u64>(&mut conn)
-            .await
-            .context("failed to increment subject version")?;
+        let version: u64 = conn.incr(&key, 0)?;
 
         // Set TTL only if this is the first time the key is set
         // INCR returns 1 when the key was just created
         if version == 1 {
-            redis::cmd("EXPIRE")
-                .arg(&key)
-                .arg(self.subject_ttl)
-                .query_async::<_, ()>(&mut conn)
-                .await
-                .context("failed to set TTL on subject version key")?;
+            let _: () = conn.expire(&key, self.subject_ttl as i64).map_err(|e| anyhow::anyhow!("expire failed: {}", e))?;
         }
 
         Ok(version)
     }
 
     /// Increment the version for a tenant and return the new version.
-    pub async fn increment_tenant(&self, tenant_id: &str) -> Result<u64> {
+    pub fn increment_tenant(&self, tenant_id: &str) -> Result<u64> {
         let key = tenant_key(tenant_id);
-        let mut conn = self.get_conn().await?;
+        let mut conn = self.get_conn()?;
 
-        let version: u64 = redis::cmd("INCR")
-            .arg(&key)
-            .query_async::<_, u64>(&mut conn)
-            .await
-            .context("failed to increment tenant version")?;
+        use redis::Commands;
+        
+        let version: u64 = conn.incr(&key, 0)?;
 
         if version == 1 {
-            redis::cmd("EXPIRE")
-                .arg(&key)
-                .arg(self.tenant_ttl)
-                .query_async::<_, ()>(&mut conn)
-                .await
-                .context("failed to set TTL on tenant version key")?;
+            let _: () = conn.expire(&key, self.tenant_ttl as i64).map_err(|e| anyhow::anyhow!("expire failed: {}", e))?;
         }
 
         Ok(version)
     }
 
     /// Get the current version for a subject. Returns 0 if not found.
-    pub async fn get_subject_version(&self, subject: &str) -> Result<u64> {
+    pub fn get_subject_version(&self, subject: &str) -> Result<u64> {
         let key = subject_key(subject);
-        let mut conn = self.get_conn().await?;
+        let mut conn = self.get_conn()?;
 
-        let version: Option<String> = redis::cmd("GET")
-            .arg(&key)
-            .query_async(&mut conn)
-            .await
-            .context("failed to get subject version")?;
+        use redis::Commands;
+        let version: Option<String> = conn.get(&key).unwrap_or_default();
 
         Ok(version.and_then(|v| v.parse().ok()).unwrap_or(0))
     }
 
     /// Get the current version for a tenant. Returns 0 if not found.
-    pub async fn get_tenant_version(&self, tenant_id: &str) -> Result<u64> {
+    pub fn get_tenant_version(&self, tenant_id: &str) -> Result<u64> {
         let key = tenant_key(tenant_id);
-        let mut conn = self.get_conn().await?;
+        let mut conn = self.get_conn()?;
 
-        let version: Option<String> = redis::cmd("GET")
-            .arg(&key)
-            .query_async(&mut conn)
-            .await
-            .context("failed to get tenant version")?;
+        use redis::Commands;
+        let version: Option<String> = conn.get(&key).unwrap_or_default();
 
         Ok(version.and_then(|v| v.parse().ok()).unwrap_or(0))
     }
@@ -166,43 +145,32 @@ impl VersionStore {
     ///
     /// Returns the (version, ttl) tuple. The TTL is the subject TTL
     /// set on the key after incrementing.
-    pub async fn issue_version(&self, subject: &str) -> Result<(u64, u64)> {
-        let version = self.increment_subject(subject).await?;
+    pub fn issue_version(&self, subject: &str) -> Result<(u64, u64)> {
+        let version = self.increment_subject(subject)?;
         Ok((version, self.subject_ttl))
     }
 
     /// Delete a key from Redis.
-    pub async fn delete_key(&self, key: &str) -> Result<()> {
-        let mut conn = self.get_conn().await?;
-        redis::cmd("DEL")
-            .arg(key)
-            .query_async::<_, ()>(&mut conn)
-            .await
-            .context("failed to delete key")?;
+    pub fn delete_key(&self, key: &str) -> Result<()> {
+        let mut conn = self.get_conn()?;
+        use redis::Commands;
+        conn.del::<_, ()>(key).map_err(|e| anyhow::anyhow!("del failed: {}", e))?;
         Ok(())
     }
 
     /// Check if a key exists in Redis.
-    pub async fn key_exists(&self, key: &str) -> Result<bool> {
-        let mut conn = self.get_conn().await?;
-        let exists: bool = redis::cmd("EXISTS")
-            .arg(key)
-            .query_async(&mut conn)
-            .await
-            .context("failed to check key existence")?;
-        Ok(exists)
+    pub fn key_exists(&self, key: &str) -> Result<bool> {
+        let mut conn = self.get_conn()?;
+        use redis::Commands;
+        conn.exists(key).map_err(|e| anyhow::anyhow!("redis exists failed: {}", e))
     }
 
     /// Get the remaining TTL for a key in seconds.
     /// Returns 0 if the key doesn't exist.
-    pub async fn get_ttl(&self, key: &str) -> Result<u64> {
-        let mut conn = self.get_conn().await?;
-        let ttl: i64 = redis::cmd("TTL")
-            .arg(key)
-            .query_async(&mut conn)
-            .await
-            .context("failed to get key TTL")?;
-
+    pub fn get_ttl(&self, key: &str) -> Result<u64> {
+        let mut conn = self.get_conn()?;
+        use redis::Commands;
+        let ttl: i64 = conn.ttl(key)?;
         Ok(if ttl > 0 { ttl as u64 } else { 0 })
     }
 
@@ -210,14 +178,11 @@ impl VersionStore {
     ///
     /// For production use, use dedicated test namespaces or key prefixes
     /// rather than deleting arbitrary keys.
-    pub async fn flush_keys(&self, keys: &[&str]) -> Result<()> {
-        let mut conn = self.get_conn().await?;
+    pub fn flush_keys(&self, keys: &[&str]) -> Result<()> {
+        let mut conn = self.get_conn()?;
+        use redis::Commands;
         for key in keys {
-            redis::cmd("DEL")
-                .arg(key)
-                .query_async::<_, ()>(&mut conn)
-                .await
-                .context("failed to delete key")?;
+            conn.del::<_, ()>(key).map_err(|e| anyhow::anyhow!("del failed: {}", e))?;
         }
         Ok(())
     }
@@ -264,11 +229,11 @@ mod tests {
         std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into())
     }
 
-    async fn redis_available() -> bool {
+    fn redis_available() -> bool {
         let url = test_redis_url();
         let client = Client::open(url.as_str());
         match client {
-            Ok(c) => match c.get_multiplexed_async_connection().await {
+            Ok(c) => match c.get_connection() {
                 Ok(_) => true,
                 Err(_) => false,
             },
@@ -288,8 +253,7 @@ mod tests {
         )
     }
 
-    #[tokio::test]
-    async fn test_increment_subject_returns_sequential() {
+    #[test] fn test_increment_subject_returns_sequential() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -300,25 +264,24 @@ mod tests {
         let key = store.subject_key(&user);
 
         // Clean up before test
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
 
-        let v1 = store.increment_subject(&user).await.unwrap();
+        let v1 = store.increment_subject(&user).unwrap();
         assert_eq!(v1, 1);
 
-        let v2 = store.increment_subject(&user).await.unwrap();
+        let v2 = store.increment_subject(&user).unwrap();
         assert_eq!(v2, 2);
 
-        let v3 = store.increment_subject(&user).await.unwrap();
+        let v3 = store.increment_subject(&user).unwrap();
         assert_eq!(v3, 3);
 
         assert!(v1 < v2 && v2 < v3);
 
         // Clean up
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
     }
 
-    #[tokio::test]
-    async fn test_get_subject_version_returns_zero_for_new_user() {
+    #[test] fn test_get_subject_version_returns_zero_for_new_user() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -335,15 +298,14 @@ mod tests {
         );
         let key = store.subject_key(&user);
 
-        let ver = store.get_subject_version(&user).await.unwrap();
+        let ver = store.get_subject_version(&user).unwrap();
         assert_eq!(ver, 0);
 
         // Clean up
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
     }
 
-    #[tokio::test]
-    async fn test_get_subject_version_after_increment() {
+    #[test] fn test_get_subject_version_after_increment() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -360,16 +322,15 @@ mod tests {
         );
         let key = store.subject_key(&user);
 
-        store.increment_subject(&user).await.unwrap();
+        store.increment_subject(&user).unwrap();
 
-        let ver = store.get_subject_version(&user).await.unwrap();
+        let ver = store.get_subject_version(&user).unwrap();
         assert_eq!(ver, 1);
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
     }
 
-    #[tokio::test]
-    async fn test_increment_tenant_returns_sequential() {
+    #[test] fn test_increment_tenant_returns_sequential() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -386,19 +347,18 @@ mod tests {
         );
         let key = store.tenant_key(&tenant);
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
 
-        let v1 = store.increment_tenant(&tenant).await.unwrap();
+        let v1 = store.increment_tenant(&tenant).unwrap();
         assert_eq!(v1, 1);
 
-        let v2 = store.increment_tenant(&tenant).await.unwrap();
+        let v2 = store.increment_tenant(&tenant).unwrap();
         assert_eq!(v2, 2);
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
     }
 
-    #[tokio::test]
-    async fn test_get_tenant_version_returns_zero_for_new_tenant() {
+    #[test] fn test_get_tenant_version_returns_zero_for_new_tenant() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -414,14 +374,13 @@ mod tests {
             std::process::id()
         );
 
-        let ver = store.get_tenant_version(&tenant).await.unwrap();
+        let ver = store.get_tenant_version(&tenant).unwrap();
         assert_eq!(ver, 0);
 
-        store.delete_key(&store.tenant_key(&tenant)).await.ok();
+        store.delete_key(&store.tenant_key(&tenant));;
     }
 
-    #[tokio::test]
-    async fn test_independent_subject_and_tenant_versions() {
+    #[test] fn test_independent_subject_and_tenant_versions() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -432,32 +391,31 @@ mod tests {
         let tenant = unique_key("test_indep_tenant");
 
         // Increment user version
-        store.increment_subject(&user).await.unwrap();
+        store.increment_subject(&user).unwrap();
         // Increment tenant version independently
-        store.increment_tenant(&tenant).await.unwrap();
+        store.increment_tenant(&tenant).unwrap();
 
         // User should be at version 1
-        let user_ver = store.get_subject_version(&user).await.unwrap();
+        let user_ver = store.get_subject_version(&user).unwrap();
         assert_eq!(user_ver, 1);
 
         // Tenant should be at version 1
-        let tenant_ver = store.get_tenant_version(&tenant).await.unwrap();
+        let tenant_ver = store.get_tenant_version(&tenant).unwrap();
         assert_eq!(tenant_ver, 1);
 
         // Increment tenant — user version should NOT change
-        store.increment_tenant(&tenant).await.unwrap();
-        let tenant_ver_after = store.get_tenant_version(&tenant).await.unwrap();
+        store.increment_tenant(&tenant).unwrap();
+        let tenant_ver_after = store.get_tenant_version(&tenant).unwrap();
         assert_eq!(tenant_ver_after, 2);
 
-        let user_ver_after = store.get_subject_version(&user).await.unwrap();
+        let user_ver_after = store.get_subject_version(&user).unwrap();
         assert_eq!(user_ver_after, 1); // unchanged
 
-        store.delete_key(&store.subject_key(&user)).await.ok();
-        store.delete_key(&store.tenant_key(&tenant)).await.ok();
+        store.delete_key(&store.subject_key(&user));;
+        store.delete_key(&store.tenant_key(&tenant));;
     }
 
-    #[tokio::test]
-    async fn test_ttl_is_set_on_increment() {
+    #[test] fn test_ttl_is_set_on_increment() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -472,17 +430,16 @@ mod tests {
         let store = VersionStore::new(&config).unwrap();
         let user = unique_key("test_ttl");
 
-        store.increment_subject(&user).await.unwrap();
+        store.increment_subject(&user).unwrap();
 
-        let ttl = store.get_ttl(&store.subject_key(&user)).await.unwrap();
+        let ttl = store.get_ttl(&store.subject_key(&user)).unwrap();
         // TTL should be close to 30 (within 5 seconds due to timing)
         assert!(ttl > 20 && ttl <= 30, "TTL was {}s, expected ~30s", ttl);
 
-        store.delete_key(&store.subject_key(&user)).await.ok();
+        store.delete_key(&store.subject_key(&user));;
     }
 
-    #[tokio::test]
-    async fn test_issue_version_returns_tuple() {
+    #[test] fn test_issue_version_returns_tuple() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -499,17 +456,16 @@ mod tests {
         );
         let key = store.subject_key(&user);
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
 
-        let (ver, ttl) = store.issue_version(&user).await.unwrap();
+        let (ver, ttl) = store.issue_version(&user).unwrap();
         assert_eq!(ver, 1);
         assert_eq!(ttl, 15); // default subject TTL
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
     }
 
-    #[tokio::test]
-    async fn test_key_exists_true_after_increment() {
+    #[test] fn test_key_exists_true_after_increment() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -526,18 +482,17 @@ mod tests {
         );
         let key = store.subject_key(&user);
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
 
-        assert!(!store.key_exists(&key).await.unwrap());
+        assert!(!store.key_exists(&key).unwrap());
 
-        store.increment_subject(&user).await.unwrap();
-        assert!(store.key_exists(&key).await.unwrap());
+        store.increment_subject(&user).unwrap();
+        assert!(store.key_exists(&key).unwrap());
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
     }
 
-    #[tokio::test]
-    async fn test_concurrent_increments_no_duplicates() {
+    #[test] fn test_concurrent_increments_no_duplicates() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -547,7 +502,7 @@ mod tests {
         let user = unique_key("test_concurrent");
         let key = store.subject_key(&user);
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
 
         // Run 10 concurrent increments
         let mut handles = vec![];
@@ -555,7 +510,7 @@ mod tests {
             let store_clone = store.clone();
             let user_clone = user.clone();
             handles.push(tokio::spawn(async move {
-                store_clone.increment_subject(&user_clone).await.unwrap()
+                store_clone.increment_subject(&user_clone).unwrap()
             }));
         }
 
@@ -573,11 +528,10 @@ mod tests {
             assert_eq!(*v, (i + 1) as u64, "Expected {} but got {}", i + 1, v);
         }
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
     }
 
-    #[tokio::test]
-    async fn test_flush_keys_cleans_targeted_keys() {
+    #[test] fn test_flush_keys_cleans_targeted_keys() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -590,24 +544,23 @@ mod tests {
         let tenant_key = store.tenant_key(&tenant);
 
         // Create some keys
-        store.increment_subject(&user).await.unwrap();
-        store.increment_tenant(&tenant).await.unwrap();
+        store.increment_subject(&user).unwrap();
+        store.increment_tenant(&tenant).unwrap();
 
-        assert!(store.key_exists(&user_key).await.unwrap());
-        assert!(store.key_exists(&tenant_key).await.unwrap());
+        assert!(store.key_exists(&user_key).unwrap());
+        assert!(store.key_exists(&tenant_key).unwrap());
 
         // Delete specific keys (not FLUSHDB, which would wipe other tests' data)
-        store.flush_keys(&[&user_key, &tenant_key]).await.unwrap();
+        store.flush_keys(&[&user_key, &tenant_key]).unwrap();
 
         // After deleting, versions should be 0
-        let user_ver = store.get_subject_version(&user).await.unwrap();
-        let tenant_ver = store.get_tenant_version(&tenant).await.unwrap();
+        let user_ver = store.get_subject_version(&user).unwrap();
+        let tenant_ver = store.get_tenant_version(&tenant).unwrap();
         assert_eq!(user_ver, 0);
         assert_eq!(tenant_ver, 0);
     }
 
-    #[tokio::test]
-    async fn test_monotonically_increasing_across_calls() {
+    #[test] fn test_monotonically_increasing_across_calls() {
         if !redis_available().await {
             println!("SKIP: Redis not available");
             return;
@@ -617,11 +570,11 @@ mod tests {
         let user = unique_key("test_mono");
         let key = store.subject_key(&user);
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
 
         let mut last_ver = 0u64;
         for i in 1..=20 {
-            let ver = store.increment_subject(&user).await.unwrap();
+            let ver = store.increment_subject(&user).unwrap();
             assert!(
                 ver > last_ver,
                 "Version {} was not greater than {}",
@@ -632,6 +585,6 @@ mod tests {
             last_ver = ver;
         }
 
-        store.delete_key(&key).await.ok();
+        store.delete_key(&key);;
     }
 }
