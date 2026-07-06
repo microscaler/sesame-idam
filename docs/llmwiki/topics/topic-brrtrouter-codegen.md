@@ -89,7 +89,7 @@ OpenAPI 3: operation `security: []` means **no auth**. BRRTRouter `build.rs` tre
 
 **Sesame workaround (2026-07-06):** removed global `security` from login/session specs; protected routes use per-operation `BearerAuth`. Public routes need no security block.
 
-**Proper fix:** BRRTRouter **BR-1** — see [`topic-brrtrouter-refactor-backlog.md`](./topic-brrtrouter-refactor-backlog.md).
+**Proper fix:** BRRTRouter **BR-1** — ✅ landed 2026-07-06 (`OperationSecurityPresence` + `resolve_operation_security`). Global security restored on login/session specs.
 
 ## Principal endpoints → raw handlers
 

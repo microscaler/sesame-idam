@@ -503,10 +503,27 @@ Documented BRRTRouter refactor tasks needed to remove sesame-idam workarounds ac
 
 Also updated `topic-brrtrouter-codegen.md` (security + raw-handler gaps) and closed Open item in `topic-http-client-policy.md`.
 
-### Workarounds catalogued
+## [2026-07-06 pm13] BR-1 security:[] fix + restore global OpenAPI security
 
-1. No global OpenAPI security on login/session specs (H6.1 deploy 401)
-2. Raw handlers for principal endpoints (`jwt_claims` dropped by typed dispatch)
-3. Full `init_security` in impl vs slim JWKS-only init
-4. Refresh errors → HTTP 200 + empty body (typed handler limitation)
+### Summary
+
+Implemented **BR-1** in BRRTRouter: explicit operation `security: []` is now public; omitted security inherits global. Restored global `BearerAuth` + `ApiKeyHeader` on login/session specs (**SI-1**). Added regression tests (**SI-2**).
+
+### BRRTRouter
+
+- `src/spec/security_presence.rs` — `extract_operation_security_presence`, `resolve_operation_security`
+- `build_routes_with_security_presence` wired from `load_spec` / `load_spec_full`
+- `tests/spec_security_tests.rs` — fixture-based inheritance tests
+
+### Sesame-IDAM
+
+- Global `security` re-added to `identity-login-service` and `identity-session-service` OpenAPI specs
+- `identity-login-service/impl/tests/openapi_security.rs` — loads real specs, asserts public vs protected routes
+
+### Verification (ms02)
+
+```bash
+cargo test --test spec_security_tests          # BRRTRouter — 3 passed
+cargo test -p sesame_idam_identity_login_service --test openapi_security  # 4 passed
+```
 

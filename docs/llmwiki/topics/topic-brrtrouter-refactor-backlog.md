@@ -20,7 +20,7 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 
 | Workaround | Where | Trigger |
 |------------|-------|---------|
-| No global `security` on login/session specs | `openapi/idam/identity-login-service/openapi.yaml`, `identity-session-service/openapi.yaml` | BRRTRouter treats `security: []` as “inherit global” → public routes got 401 in-cluster (H6.1) |
+| No global `security` on login/session specs | ~~Removed~~ — global security restored 2026-07-06 after **BR-1** | Was workaround for H6.1 deploy 401 |
 | Raw handlers for principal endpoints | `identity-session-service/impl/src/raw_handler.rs` | Typed dispatch drops `HandlerRequest::jwt_claims` |
 | Per-route explicit `BearerAuth` | All protected ops in login/session specs | Compensates for removed global security |
 | Full `init_security` in impl `main.rs` | `identity-login-service/impl/src/security.rs` | Gen `main.rs` registers providers; impl had JWKS-only init → deploy 401 |
@@ -31,11 +31,11 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 
 ### P1 — Correctness (unblocks proper OpenAPI security)
 
-| ID | Owner | Task | Unblocks |
-|----|-------|------|----------|
-| **BR-1** | BRRTRouter | Fix `security: []` semantics in `build.rs` + oas3 presence tracking | Restore global `security` on mixed public/protected specs |
-| **SI-1** | sesame-idam | After BR-1: re-add global `BearerAuth` on login/session specs; keep `security: []` on public ops only | Spec hygiene; fewer per-route copies |
-| **SI-2** | sesame-idam | Regression test: public login/register/refresh/JWKS/OIDC return 200 without providers when global security restored | H6.1 guard |
+| ID | Owner | Task | Status |
+|----|-------|------|--------|
+| **BR-1** | BRRTRouter | Fix `security: []` semantics in `build.rs` + raw-spec presence tracking | ✅ 2026-07-06 |
+| **SI-1** | sesame-idam | Re-add global `BearerAuth` + `ApiKeyHeader` on login/session specs | ✅ 2026-07-06 |
+| **SI-2** | sesame-idam | Regression tests: `tests/openapi_security.rs` + BRRTRouter `spec_security_tests.rs` | ✅ 2026-07-06 |
 
 ### P2 — Ergonomics (optional for hauliage P1)
 
@@ -68,22 +68,25 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 ## Recommended sequencing
 
 ```
-Sprint next (P1)
-  BR-1  →  SI-1 + SI-2  →  HI-1 (H7.2 JWKS smoke)
+Done (2026-07-06)
+  BR-1 + SI-1 + SI-2
 
-Then (P2, when OAuth status codes matter)
-  BR-2/BR-3  →  SI-3/SI-4
+Sprint next
+  HI-2 (H6.3 cluster URLs) → HI-1 (H7.2 JWKS smoke) → HI-3 (E2E)
+
+Then (P2)
+  BR-2/BR-3 → SI-3/SI-4
 
 Later (P3)
-  BR-4..BR-7, HI-2
+  BR-4..BR-7, HI-5..HI-9
 ```
 
 ## Code anchors
 
-- BRRTRouter security inheritance bug: `BRRTRouter/src/spec/build.rs` (~615–619)
+- BRRTRouter security resolution: `BRRTRouter/src/spec/security_presence.rs`
 - Sesame raw handler: `microservices/idam/identity-session-service/impl/src/raw_handler.rs`
-- Global security removal fix: commit `26b4aba`
+- Global security workaround (reverted): commit `26b4aba`
 
 ## Gaps / Drift
 
-> **Open:** `docs/plan/hauliage-readiness-plan.md` still lists some BRRTRouter items under HTTP migration — update when BR-1 lands.
+> **Open:** `docs/plan/hauliage-readiness-plan.md` still lists some BRRTRouter items under HTTP migration — update when BR-2 lands.

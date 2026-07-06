@@ -30,6 +30,9 @@ tags:
   description: Model Context Protocol authentication
 - name: KeyManagement
   description: JWT signing key lifecycle (generate, rotate, revoke)
+security:
+- BearerAuth: []
+- ApiKeyHeader: []
 paths:
   /.well-known/jwks.json:
     get:
