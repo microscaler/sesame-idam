@@ -42,7 +42,7 @@ impl TryFrom<HandlerRequest> for Request {
                 "X-Tenant-ID".to_string(),
                 brrtrouter::server::request::decode_param_value(
                     v,
-                    Some(&serde_json::json!({"format":"uuid","type":"string"})),
+                    Some(&serde_json::json!({"type":"string"})),
                     None,
                     None,
                 ),

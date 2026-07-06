@@ -121,7 +121,6 @@ paths:
         required: true
         schema:
           type: string
-          format: uuid
         description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call for user login
@@ -866,7 +865,6 @@ paths:
         required: true
         schema:
           type: string
-          format: uuid
         description: Tenant identifier. Required for resolving the user to the correct tenant context.
       - name: provider
         in: path

@@ -83,7 +83,7 @@ impl TryFrom<HandlerRequest> for Request {
             data_map.insert(
                 "X-Tenant-ID".to_string(),
                 brrtrouter::server::request::decode_param_value(
-                    v,Some(&serde_json::json!({"description":"Tenant identifier for multi-tenant isolation","format":"uuid","type":"string"})),None,None,
+                    v,Some(&serde_json::json!({"description":"Tenant identifier for multi-tenant isolation","type":"string"})),None,None,
                 ),
             );
         } else {
