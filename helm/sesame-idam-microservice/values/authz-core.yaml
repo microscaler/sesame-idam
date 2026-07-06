@@ -29,9 +29,12 @@ app:
     database:
       host: "postgres.data.svc.cluster.local"
       port: 5432
-      name: "postgres"
-      user: "postgres"
-      password: "postgres"
+      name: "sesame_idam"
+      user: "sesame_idam"
+      # Local Kind dev default — must match scripts/setup-db.sh
+      # (SESAME_IDAM_DB_PASSWORD); real deployments override via the
+      # sesame-idam-db-credentials Secret.
+      password: "dev_password_change_in_prod"
       max_connections: 10
     redis:
       host: "redis"

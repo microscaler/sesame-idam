@@ -38,6 +38,47 @@ spec:
               value: {{ .Values.env.BRRTR_LOG_FORMAT | quote }}
             - name: BRRTR_STACK_SIZE
               value: {{ .Values.env.BRRTR_STACK_SIZE | quote }}
+            # ── Lifeguard database pool (sesame_idam_database reads DB_*) ──
+            - name: DB_HOST
+              value: {{ .Values.app.config.database.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.app.config.database.port | quote }}
+            - name: DB_NAME
+              value: {{ .Values.app.config.database.name | quote }}
+            - name: DB_USER
+              value: {{ .Values.app.config.database.user | quote }}
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-db-credentials
+                  key: password
+                  optional: true
+            # Dev fallback when the Secret is absent (local Kind only).
+            - name: SESAME_IDAM_DB_PASSWORD
+              value: {{ .Values.app.config.database.password | quote }}
+            # ── Redis (refresh tokens, denylist, version store) ──
+            - name: REDIS_URL
+              value: "redis://{{ .Values.app.config.redis.host }}:{{ .Values.app.config.redis.port }}"
+            {{- if .Values.app.config.authzCoreUrl }}
+            # ── authz-core enrichment (identity-login-service) ──
+            - name: AUTHZ_CORE_URL
+              value: {{ .Values.app.config.authzCoreUrl | quote }}
+            {{- end }}
+            # ── Shared JWT signing key (K8s Secret; login signs, session
+            #    publishes the public half in JWKS). Optional: without it,
+            #    each service falls back to an ephemeral dev key.
+            - name: SESAME_JWT_SIGNING_KEY_PKCS8_B64
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-jwt-signing
+                  key: pkcs8_b64
+                  optional: true
+            - name: SESAME_JWT_SIGNING_KID
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-jwt-signing
+                  key: kid
+                  optional: true
           livenessProbe:
             httpGet:
               path: /health

@@ -38,6 +38,10 @@ fn db_available() -> bool {
     }
 
     INIT.call_once(|| {
+        // Each nextest test runs in its own process with its own pool —
+        // keep pools tiny so parallel DB tests don't exhaust Postgres
+        // max_connections.
+        std::env::set_var("DB_POOL_MAX", "2");
         std::env::set_var("DB_HOST", &host);
         std::env::set_var("DB_PORT", &port);
         std::env::set_var(

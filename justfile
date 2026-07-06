@@ -323,6 +323,13 @@ lint-unused-imports:
 # =============================================================================
 # Run `just init` before first dev-up so sesame tilt setup-kind-registry is available.
 
+# Generate the shared Ed25519 JWT signing key and apply it as the
+# sesame-idam-jwt-signing Secret. identity-login-service signs with it;
+# identity-session-service publishes its public half in JWKS. Re-run to rotate
+# (then restart both services).
+jwt-signing-secret:
+  cd microservices && cargo run -q -p sesame-common --bin sesame_keygen | kubectl apply -f -
+
 # Start development environment (shared Kind cluster; owned by shared-kind-cluster).
 # Platform infra (postgres, postgres-meta, parquet-lake) lives in namespace data
 # from shared-kind-cluster. Sesame-IDAM adds Redis in namespace sesame-idam.
