@@ -34,6 +34,8 @@ Users support multiple authentication methods: password, email OTP, phone OTP, d
 
 **Critical:** `UNIQUE(tenant_id, email)` — the same email can exist on different tenants but represents unrelated users. `alice@corp.com` on `Tenant A` and `alice@corp.com` on `Tenant B` are different people. No cross-tenant identity exists.
 
+As of 2026-07-06 this constraint is enforced in the schema via `#[composite_unique = "tenant_id, email"]` on the entity (migration `20260705235433_users.sql`). The entity is defined canonically in `identity-user-mgmt-service/impl/src/models/user.rs` and **duplicated** in `identity-login-service/impl/src/models/user.rs` (shared-schema duplication convention) so login can verify credentials — keep both in sync.
+
 Within a single tenant, email is globally unique. Within a multi-application tenant (e.g., hauliage with hauliage-web, hauliage-api, hauliage-admin), all applications share the same user base.
 
 ## Auth Method Flags

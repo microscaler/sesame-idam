@@ -64,7 +64,8 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-two-user-types](./topics/topic-two-user-types.md) | customer vs platform user model |
 ||| [topic-org-personas](./topics/topic-org-personas.md) | Platform, provider, consumer org types |
 |||| [topic-developer-contract](./topics/topic-developer-contract.md) | 3-layer SDK, Admin API, RLS helpers |
-|||| [topic-token-versioning](./topics/topic-token-versioning.md) | ver/sid claims, Redis version storage, validation flow, TTL strategy, version bump on authz change, version mismatch handling (Story 5.1-5.5) |
+||||| [topic-token-versioning](./topics/topic-token-versioning.md) | ver/sid claims, Redis version storage, validation flow, TTL strategy, version bump on authz change, version mismatch handling (Story 5.1-5.5) |
+||||| [topic-http-client-policy](./topics/topic-http-client-policy.md) | Single HTTP client policy — all outbound HTTP must use `may_http` only. No reqwest, hyper, tokio::spawn, or any other async runtime client.
 |||| [topic-delegation](./topics/topic-delegation.md) | RFC 8693 token exchange, act claim structure, delegation chain, actor can_delegate logic, support impersonation flow, step-up MFA, mfa_type strength (Story 6.1-6.3) |
 ||||| [topic-mfa](./topics/topic-mfa.md) | sx.mfa_verified claim, step-up MFA flow, mfa_type strength table, F-006 refresh token invalidation, F-016 SMS restriction (Story 6.3) |
 |||| [topic-observability](./topics/topic-observability.md) | OTEL span catalog for Epic 9 — key lifecycle, JWKS cache, authz request, token lifecycle spans across all 6 services. No custom Prometheus counters for JWT observability. |

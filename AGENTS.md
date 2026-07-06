@@ -218,6 +218,12 @@ Tests bind directly to the shared Kind PostgreSQL (namespace `data`, forwarded t
 - Run `just qa` before committing Python changes in `tooling/`.
 - Maintain test coverage for new behavior.
 
+### 8. Single HTTP client: may_http only
+
+Sesame-IDAM services share a single may coroutine runtime. **No `reqwest`, `tokio::spawn`, or any other async runtime HTTP client is allowed.** Every outbound HTTP call must use `may_http::client::Client`. Background tasks must use `may::task::spawn`.
+
+See `docs/llmwiki/topics/topic-http-client-policy.md` for details and migration tracking.
+
 ---
 
 ## Commit discipline

@@ -157,3 +157,71 @@ Wired OTEL tracing spans across all 6 sesame-idam microservices following the ha
 - **Story 9.6 structured JWT logging**: Partial — token lifecycle controllers have spans; per-request JWT fields (issuer, subject, session_id, jti) not yet wired
 - **Story 9.7 alerting**: No Loki/Grafana alert rules created yet (spans/logs are ready for them)
 - **Controller coverage**: Only representative controllers instrumented; many CRUD read/list controllers still lack spans
+
+## [2026-07-06] Real Login/Register + WIP Refactor Landed (Hauliage P0/P1)
+
+### Summary
+
+Implemented the first real, DB-backed authentication flow end-to-end and stabilised the previously-broken WIP tree. `POST /auth/register` and `POST /auth/login` on identity-login-service now verify argon2id credentials against `sesame_idam.users` (tenant-scoped), issue genuine Ed25519-signed `at+jwt` access tokens (kills `placeholder_signature` for the login path), seed refresh-token state in Redis compatible with session-service rotation, and return spec-conformant `TokenResponse` (the contract hauliage's E2E fixtures encode). Migrations + hauliage demo seed applied to the shared Kind postgres; 7 live-DB BDD tests pass including `hauliage_demo_user_logs_in`.
+
+### Key changes
+
+- **sesame-common**: fixed 4 compile errors in the WIP refactor (jwks_cache Uri/http_legacy, JwksCacheInner visibility, ParseError Clone, arc-swap dep). New `jwt::signer::Ed25519Signer` — shared signing key via `SESAME_JWT_SIGNING_KEY_PKCS8_B64`/`SESAME_JWT_SIGNING_KID` env (K8s Secret), dev fallback generates ephemeral key. **Real bug fixed:** `VersionStore` used `INCRBY key 0` — versions never advanced; now increments by 1. `get_key` no longer silently substitutes a different JWKS key on kid miss (use `get_any_valid_key` explicitly). `jwt_claims_cover_decision` returns true for empty requirements; `sanitize_key_input` preserves unicode, strips control chars; `set_ttl_config` merges over defaults; DPoP proof at exactly 60s now rejected.
+- **identity-session-service**: `KeyManager::new()` bootstraps from the shared signing key env so JWKS publishes the same key login signs with. Rotation prefers `token.family_id` from Redis over the caller-supplied hint. Bin now reuses lib modules (no duplicate compilation).
+- **identity-login-service**: restructured so all modules live in the lib (bin + tests share). New: `models/user.rs` (duplicated from user-mgmt per shared-schema convention, with `composite_unique = "tenant_id, email"`), `services/{password,user_service,token_issuer}`, `redis.rs`, real `auth_login`/`auth_register` controllers using the hauliage lifeguard pattern (stateless service + `sesame_idam_database::db()` at controller edge), Register & Overwrite in main.rs.
+- **Migrations/seeds**: migrator paths fixed (`../../../migrations` wrote OUTSIDE the repo → `../../migrations`); users migration regenerated with `UNIQUE(tenant_id, email)`; `scripts/setup-db.sh` seed path fixed; new seed `identity-user-mgmt-service/impl/seeds/20260706000000_hauliage_demo_users.sql` (owner/dispatcher/driver @hauliage.dev, password `SecureP@ss123!`).
+- **Deps**: `may_minihttp` switched to the microscaler fork (AGENTS rule; crates.io was silently used), `argon2` added.
+- **Lint**: `just lint-rust` was broken (referenced deleted `sesame-audit` crate → recipe always errored; historical "Lint PASS" claims were vacuous). Recipe fixed, ~900 pedantic findings fixed/auto-fixed across impl crates; strict gate now **passes**. `sesame-common` has ~380 remaining pedantic findings — split into `just lint-common` (Phase 1 warn) per the jsf-linting phase plan.
+
+### Gates
+
+- `cargo check --workspace`: PASS. `just nt`: **852/852 PASS** (count reduced from 890 by deduplicating session-service bin/lib double-compiled tests; new signer/password/auth-flow tests added). `just lint-rust`: PASS. DB migrations + seeds applied to Kind postgres (`sesame_idam` db).
+- NOTE: builds/tests must run on ms02 (`ssh ms02`, PATH needs `~/.cargo/bin`); local Mac builds over NFS take >20min.
+
+### Open Issues
+
+- Login issues tokens with empty `roles` — authz-core `/principal/effective` call (H3.5) not wired yet.
+- OpenAPI `X-Tenant-ID` is `format: uuid` but the hauliage tenant is the string `hauliage` — spec vs tenancy-model conflict to resolve before HTTP-level integration.
+- `sesame-common` pedantic backlog (~380) tracked via `just lint-common`.
+- `db_integration_suite` target for `just nt-db-suite` still missing (H1.6).
+
+## [2026-07-06] Hauliage Readiness Plan
+
+### Summary
+
+Cross-repo audit of sesame-idam vs hauliage to produce a launch-readiness backlog. Findings: sesame-idam is a compile-clean scaffold — 127 handlers, zero DB-backed; login/register/authorize/validate are echo stubs; real code = session-service JWKS/KeyManager, Redis refresh rotation, common crate libraries. Hauliage side: stub identity service, env-var org scoping (`HAULIAGE_ORGANIZATION_ID`), mocked AuthGuard, but BRRTRouter `JwksBearerProvider` plumbing ready; its E2E fixtures already encode the sesame-idam `TokenResponse` contract.
+
+### Deliverable
+
+`docs/plan/hauliage-readiness-plan.md` — 7 epics (H1 persistence, H2 real auth, H3 claims/authz, H4 users/orgs, H5 api-keys, H6 deployment, H7 E2E) + hauliage-side Track B, with P0–P3 sequencing and 4 blocking decisions (signing locus, authz-core call pattern, org boundary vs hauliage `company`, cluster topology).
+
+### Open Issues
+
+- `db_integration_suite` binary referenced by `just nt-db-suite` does not exist in the repo.
+- Helm `deployment.yaml` injects no DB/Redis env vars.
+- Large uncommitted refactor (config→common, jwt/jwks_cache/fallback_cache splits) must land before backlog work stacks on it.
+
+## [2026-06-10] HTTP Client Policy — may_http Only
+
+### Summary
+
+Audit found `reqwest::Client` in `jwks_cache.rs` (real usage, not comments), and `tokio::spawn` in `token_versioning/subscriber.rs` and `version_store.rs`. `reqwest` depends on `tokio` runtime — using it in may-coroutine services would spawn a separate runtime threadpool, breaking the single-runtime constraint.
+
+### Decision
+
+**Rule: All outbound HTTP in Sesame-IDAM must use `may_http` only.** Banned: `reqwest`, `hyper` (direct), `surf`, `ureq`, `isahc`, any `tokio::spawn` for background tasks. Allowed: `may_http::client::Client` for all outbound HTTP, `may::task::spawn` for background/coroutine tasks.
+
+### Files Requiring Migration
+
+| File | Issue | Status |
+|------|-------|--------|
+| `jwks_cache.rs` | `reqwest::Client` field + `client.get(endpoint).send()` | To migrate |
+| `token_versioning/subscriber.rs` | `tokio::spawn` at lines 214, 892 | To migrate |
+| `token_versioning/version_store.rs` | `tokio::spawn` at line 512 | To migrate |
+
+### Wiki Changes
+
+- Created `topics/topic-http-client-policy.md` — HTTP client policy page
+- Updated `index.md` — Added topic-http-client-policy link
+- Updated `log.md` — This entry
+
