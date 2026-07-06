@@ -92,7 +92,7 @@ management, and a deployable stack reachable from the hauliage Kind cluster.
 
 | Story | Description | Notes |
 |-------|-------------|-------|
-| H4.1 | identity-user-mgmt: `GET /users/me`, get/update user, disable user — DB-backed | Replaces hauliage's stub `get_current_user`; 15/25 handlers are stubs, only implement what hauliage consumes |
+| H4.1 🔶 | Current-user profile — DB-backed | **`GET`/`PATCH /identity/me` done 2026-07-06** (lives in identity-session-service per the spec, not user-mgmt): raw handlers reading the validated JWT principal (typed dispatch drops `jwt_claims`), tenant cross-check header↔claims, `users` + `user_profiles` upsert, 6 live-DB BDD tests. Remaining: user-mgmt admin CRUD (get/update/disable user) |
 | H4.2 | org-mgmt core CRUD: org create/fetch/update, memberships, role assignment | 35/42 handlers stubbed; scope to what hauliage needs |
 | H4.3 | **Boundary decision doc: org-mgmt vs hauliage `company` service.** Hauliage company owns KYC/escrow/GICS; IDAM owns identity-org + roles. Define the ID mapping (IDAM org_id ↔ hauliage organization UUID) and which system is source of truth for membership | Cross-repo decision; blocks H4.2 scoping |
 | H4.4 | org invites flow (create/accept) if hauliage team-invite feature is in launch scope | Verify with hauliage roadmap; else P2 |
@@ -112,7 +112,7 @@ before production but not for first integrated login.
 | Story | Description | Notes |
 |-------|-------------|-------|
 | H6.1 | Complete remediation Phase 5: `tilt trigger` validation per service, DB secrets/configmaps, Redis wiring, live_update verification | Wiki phase open since May |
-| H6.2 | Helm `deployment.yaml`: inject `DB_HOST`/`DB_*`/`REDIS_URL` env (values files already carry the data) | Handlers will need it once H1.2 lands |
+| H6.2 ✅ | Helm `deployment.yaml`: inject `DB_*`/`REDIS_URL` env | **Done 2026-07-06** — DB env from values + `sesame-idam-db-credentials` Secret (optional, dev fallback), `REDIS_URL`, `AUTHZ_CORE_URL` (login), shared JWT signing key from `sesame-idam-jwt-signing` Secret (created via `just jwt-signing-secret`, applied to the cluster). Values files fixed: app DB is `sesame_idam`, not the postgres superuser DB |
 | H6.3 | Decide + implement cluster topology: sesame-idam namespace on the shared Kind cluster so hauliage pods reach `identity-session-service.sesame-idam.svc.cluster.local:8105` (JWKS) and login at 8101 | Hauliage has zero idam URLs configured today |
 | H6.4 | `config/service.yaml` per impl crate (remediation Phase 2.2) | CORS/security/http/db-pool config |
 | H6.5 | OIDC discovery (`openid_configuration`) returns real issuer/JWKS URLs | Currently all-`None`; cheap and unblocks standard clients |

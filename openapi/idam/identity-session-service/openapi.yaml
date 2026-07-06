@@ -140,7 +140,6 @@ paths:
         required: true
         schema:
           type: string
-          format: uuid
         description: Tenant identifier. Routes the request to the correct tenant context.
       requestBody:
         required: true
@@ -211,7 +210,6 @@ paths:
         required: true
         schema:
           type: string
-          format: uuid
         description: Tenant identifier. Routes the request to the correct tenant context
           for user lookup and authentication.
       requestBody:
@@ -391,7 +389,6 @@ paths:
         required: true
         schema:
           type: string
-          format: uuid
         description: Tenant identifier. Routes the request to the correct tenant context
           for user lookup and authentication.
       x-consumer: frontend

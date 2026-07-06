@@ -158,6 +158,28 @@ Wired OTEL tracing spans across all 6 sesame-idam microservices following the ha
 - **Story 9.7 alerting**: No Loki/Grafana alert rules created yet (spans/logs are ready for them)
 - **Controller coverage**: Only representative controllers instrumented; many CRUD read/list controllers still lack spans
 
+## [2026-07-06 pm2] /identity/me DB-Backed + Helm Env Wiring + Tenant Format Fix
+
+### Summary
+
+Three hauliage unblockers:
+
+1. **`GET`/`PATCH /identity/me` (H4.1, identity-session-service)** — DB-backed current-user profile. Key discovery: BRRTRouter's typed dispatch (`TypedHandlerRequest<T>`) drops `HandlerRequest::jwt_claims`, so principal-dependent endpoints cannot be typed handlers. New `raw_handler` module: `spawn_raw_handler()` (dedicated coroutine + panic→500, mirroring typed spawn) and `authenticated_principal()` (sub/tenant_id from validated claims, cross-checked against `X-Tenant-ID` header). `ProfileService` reads `users` (entity duplicated into session models) + `user_profiles`, PATCH upserts first/last name + avatar with partial-update semantics. 6 live-DB BDD tests incl. cross-tenant denial.
+2. **Helm env wiring (H6.2)** — deployment.yaml now injects `DB_*` (values + optional `sesame-idam-db-credentials` Secret with dev fallback), `REDIS_URL`, `AUTHZ_CORE_URL` (login only, via values `app.config.authzCoreUrl`), and the shared JWT signing key from the `sesame-idam-jwt-signing` Secret (both env vars optional so services boot without it). New `sesame_keygen` bin in sesame-common + `just jwt-signing-secret` recipe generates/applies the Secret — applied to the shared Kind cluster (kid `key-2026-07-06-0807`). Values files fixed: app database is `sesame_idam`/`sesame_idam` role (was pointing at the `postgres` superuser DB, which does not contain our schema).
+3. **X-Tenant-ID format (spec)** — dropped `format: uuid` from all X-Tenant-ID params in the 6 specs; tenant ids are slugs (`hauliage`) or uuids. Verified BRRTRouter's `decode_param_value` never validated the uuid format, so this is documentation truth-up, not a behavior change; gen crates pick it up at next regen. All specs pass `just lint-openapi`.
+
+Also capped `DB_POOL_MAX=2` in all live-DB test fixtures — parallel nextest processes each open their own Lifeguard pool and were exhausting Postgres max_connections (flaky pool-init panics).
+
+### Gates
+
+`just nt` 867/867 PASS, `just lint-rust` PASS, `just lint-openapi` PASS, helm template renders the new env block.
+
+### Open Issues
+
+- `PATCH /identity/me` ignores `name`/`preferred_username` (no storage column; spec fields noted in controller docs).
+- user-mgmt admin CRUD endpoints (get/update/disable user) still stubs — rest of H4.1.
+- gen crates not regenerated after the spec format change (behaviorally identical; next `just gen` picks it up).
+
 ## [2026-07-06 pm] Login-Time Role Enrichment via authz-core (H3.1/H3.3/H3.5)
 
 ### Summary
