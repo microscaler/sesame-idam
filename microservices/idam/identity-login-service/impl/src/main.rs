@@ -3,15 +3,15 @@
 // You can modify this file freely - it will NOT be auto-regenerated.
 
 use sesame_idam_identity_login_service_gen::registry;
-mod audit;
-mod config;
-mod jwt;
-mod security;
+// All application modules live in the lib crate (see lib.rs) so BDD tests
+// and the migrator can reuse them.
+use sesame_idam_identity_login_service::{controllers, jwt, security, services};
 
 use brrtrouter::dispatcher::Dispatcher;
+use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 
-use config::load_config;
 use security::init_security;
+use sesame_common::config::load_config;
 
 use brrtrouter::middleware::MetricsMiddleware;
 
@@ -103,9 +103,31 @@ fn main() -> io::Result<()> {
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
-    // Register handlers from generated crate
+    // Register & Overwrite pattern (hauliage ADR 0001): register all gen
+    // stubs first, then overwrite implemented routes with impl controllers.
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);
+        for route in &routes {
+            match route.handler_name.as_ref() {
+                "auth_login" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::auth_login::AuthLoginController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "auth_register" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::auth_register::AuthRegisterController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                _ => {} // gen stubs serve everything else for now
+            }
+        }
     }
 
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
@@ -139,11 +161,11 @@ fn main() -> io::Result<()> {
         .as_ref()
         .and_then(|j| j.access_token.as_ref());
     let ttl_config = jwt::ttl::TtlConfig::from_env_and_config(
-        jwt_access.map(|a| a.normal_ttl_secs).flatten(),
-        jwt_access.map(|a| a.elevated_ttl_secs).flatten(),
-        jwt_access.map(|a| a.admin_ttl_secs).flatten(),
-        jwt_access.map(|a| a.platform_ttl_secs).flatten(),
-        jwt_access.map(|a| a.refresh_ttl_days).flatten(),
+        jwt_access.and_then(|a| a.normal_ttl_secs),
+        jwt_access.and_then(|a| a.elevated_ttl_secs),
+        jwt_access.and_then(|a| a.admin_ttl_secs),
+        jwt_access.and_then(|a| a.platform_ttl_secs),
+        jwt_access.and_then(|a| a.refresh_ttl_days),
     );
     println!(
         "[jwt] TTL config loaded: normal={}s elevated={}s admin={}s platform={}s refresh={}d",
@@ -162,6 +184,15 @@ fn main() -> io::Result<()> {
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
         lifeguard::metrics::prometheus_scrape_text()
     })));
+
+    // Warm Lifeguard on the main OS thread before may-scheduled HTTP handlers:
+    // lazy pool init inside a may coroutine can deadlock the runtime
+    // (WorkerPool::new + may_postgres::connect on a may worker).
+    let _ = sesame_idam_database::db();
+
+    // Initialize the JWT signer eagerly so a malformed signing key fails at
+    // startup rather than on the first login.
+    let _ = &*services::token_issuer::SIGNER;
 
     // Port selection: PORT env var (K8s) > default 8080
     let port = std::env::var("PORT")

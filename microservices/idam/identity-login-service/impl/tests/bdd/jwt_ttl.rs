@@ -1,32 +1,30 @@
 /// BDD integration tests for JWT TTL configuration (Story 3.3).
 ///
 /// Tests token issuance with role-based TTL, env var overrides,
-/// and expiry validation — using rstest_bdd pattern.
+/// and expiry validation — using `rstest_bdd` pattern.
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
 use http::Method;
-use std::sync::Arc;
 use std::time::Duration;
 
 use sesame_idam_identity_login_service::jwt::ttl::{
     validate_minimum_ttl, validate_refresh_exceeds_access, TtlConfig,
 };
-use sesame_idam_identity_login_service_gen::handlers::auth_token::{Request, Response};
 
-/// Create a minimal HandlerRequest for testing.
+/// Create a minimal `HandlerRequest` for testing.
 fn make_request(
     grant_type: &str,
     refresh_token: Option<String>,
     scope: Option<String>,
 ) -> HandlerRequest {
-    let mut hv = HeaderVec::new();
+    let hv = HeaderVec::new();
     HandlerRequest {
         request_id: RequestId::new(),
         method: Method::POST,
         path: "/auth/token".to_string(),
         handler_name: "auth_token".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: brrtrouter::router::ParamVec::default(),
+        query_params: brrtrouter::router::ParamVec::default(),
         headers: hv,
         cookies: HeaderVec::new(),
         body: Some(serde_json::json!({
@@ -58,7 +56,7 @@ fn test_normal_user_gets_5_min_token() {
 
 /// Scenario: Admin user gets 5-minute token (F-010 aligned).
 ///
-/// Given an org_admin logs in
+/// Given an `org_admin` logs in
 /// WHEN the access token is decoded
 /// THEN exp - iat = 300 seconds (same as normal, F-010 fix)
 #[test]
@@ -91,15 +89,23 @@ fn test_platform_user_gets_5_min_token() {
 
 /// Scenario: Expired token is rejected (TTL validation).
 ///
-/// Given a token with exp in the past
-/// WHEN a service validates it
-/// THEN the validation returns token_expired
+/// Given a token issued with a zero TTL
+/// WHEN the exp claim is computed
+/// THEN exp equals iat (immediately expired)
 #[test]
 fn test_expired_token_ttl_validation() {
-    let config = TtlConfig::from_env();
+    // A zero-TTL config would be rejected at startup by validate_minimum_ttl
+    // (HACK-301); construct one directly to verify the exp arithmetic.
+    let config = TtlConfig {
+        normal_secs: 0,
+        elevated_secs: 0,
+        admin_secs: 0,
+        platform_secs: 0,
+        refresh_days: 30,
+        admin_refresh_days: 1,
+    };
     let iat: u64 = 1000;
 
-    // Token issued with 0 TTL => exp = iat (immediately expired)
     let exp = config.exp_for_role("customer", iat);
     assert_eq!(exp, iat, "Zero TTL should produce exp = iat");
 }
@@ -129,7 +135,7 @@ fn test_token_just_before_expiry_accepted() {
 /// THEN the token is rejected (past 60-second clock skew tolerance)
 #[test]
 fn test_token_61_seconds_past_expiry_rejected() {
-    let config = TtlConfig::from_env();
+    let _config = TtlConfig::from_env();
     let iat: u64 = 1000;
     let exp: u64 = iat + 300; // 5-minute token
     let now: u64 = exp + 61; // 61 seconds past expiry
@@ -144,7 +150,7 @@ fn test_token_61_seconds_past_expiry_rejected() {
 
 /// Scenario: Environment variable overrides default TTL.
 ///
-/// Given JWT_ACCESS_TTL_NORMAL=600 is set
+/// Given `JWT_ACCESS_TTL_NORMAL=600` is set
 /// WHEN a normal user logs in
 /// THEN the access token has exp - iat = 600 seconds
 #[test]
@@ -168,7 +174,7 @@ fn test_env_override_normal_ttl() {
 /// Scenario: Metrics track issued TTLs for different roles.
 ///
 /// Given tokens are issued for different user types
-/// THEN token_ttl_seconds{role: "..."} are emitted with correct values
+/// THEN `token_ttl_seconds{role`: "..."} are emitted with correct values
 #[test]
 fn test_metrics_track_ttl_for_roles() {
     let config = TtlConfig::from_env();
@@ -183,7 +189,7 @@ fn test_metrics_track_ttl_for_roles() {
 
 /// Scenario: Refresh token TTL always exceeds access token TTL.
 ///
-/// For every role tier, refresh_token_ttl > access_token_ttl
+/// For every role tier, `refresh_token_ttl` > `access_token_ttl`
 /// A refresh token should NEVER expire before its associated access token.
 #[test]
 fn test_refresh_ttl_exceeds_access_for_all_roles() {
@@ -203,10 +209,7 @@ fn test_refresh_ttl_exceeds_access_for_all_roles() {
         let refresh_secs = config.refresh_ttl_for_role(role).as_secs();
         assert!(
             refresh_secs > access_secs,
-            "Refresh TTL ({}) must exceed access TTL ({}) for role {}",
-            refresh_secs,
-            access_secs,
-            role
+            "Refresh TTL ({refresh_secs}) must exceed access TTL ({access_secs}) for role {role}"
         );
     }
 }
@@ -265,7 +268,7 @@ fn test_exp_claim_set_by_server_not_request() {
 
 /// Edge case: Zero TTL — token issued with exp = iat (immediately expired).
 ///
-/// If JWT_ACCESS_TTL_NORMAL=0 is accidentally set, the token is issued
+/// If `JWT_ACCESS_TTL_NORMAL=0` is accidentally set, the token is issued
 /// with exp = iat, which causes immediate expiration.
 #[test]
 fn test_zero_ttl_produces_immediately_expired_token() {
@@ -289,7 +292,7 @@ fn test_zero_ttl_produces_immediately_expired_token() {
 
 /// Edge case: Minimum TTL validation rejects startup with low TTL.
 ///
-/// validate_minimum_ttl must panic if any TTL < 60 seconds.
+/// `validate_minimum_ttl` must panic if any TTL < 60 seconds.
 #[test]
 fn test_validate_minimum_ttl_rejects_zero() {
     let mut config = TtlConfig::from_env();
@@ -302,7 +305,7 @@ fn test_validate_minimum_ttl_rejects_zero() {
 
 /// Edge case: Maximum TTL — 1-hour tokens still work.
 ///
-/// If JWT_ACCESS_TTL_NORMAL=3600 is set, the token is issued with 1-hour expiry.
+/// If `JWT_ACCESS_TTL_NORMAL=3600` is set, the token is issued with 1-hour expiry.
 #[test]
 fn test_max_ttl_works() {
     let prev = std::env::var("JWT_ACCESS_TTL_NORMAL").ok();
@@ -328,7 +331,7 @@ fn test_max_ttl_works() {
 
 /// Edge case: Concurrent logins with different roles.
 ///
-/// Given a user who logs in as both customer and org_admin at the same time,
+/// Given a user who logs in as both customer and `org_admin` at the same time,
 /// THEN both tokens are issued with the correct TTL for their respective roles.
 #[test]
 fn test_concurrent_logins_different_roles() {
@@ -352,7 +355,7 @@ fn test_concurrent_logins_different_roles() {
 
 /// Edge case: Refresh token TTL increases but never decreases.
 ///
-/// If JWT_REFRESH_TTL_DAYS is increased, the new value applies going forward.
+/// If `JWT_REFRESH_TTL_DAYS` is increased, the new value applies going forward.
 /// The config does not enforce a "never decreases" rule, but documents the
 /// behavior in comments for operational awareness (HACK-302).
 #[test]
@@ -385,7 +388,7 @@ fn test_refresh_ttl_configurable() {
 
 /// Cleanup: Environment variables must be reset between tests.
 ///
-/// Tests that modify env vars use std::env::remove_var in teardown.
+/// Tests that modify env vars use `std::env::remove_var` in teardown.
 #[test]
 fn test_env_vars_reset_after_test() {
     // Verify that our tests properly clean up env vars.

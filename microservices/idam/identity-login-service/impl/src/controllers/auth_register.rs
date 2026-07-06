@@ -1,49 +1,153 @@
-// Implementation stub for handler 'auth_register'
+//! `POST /auth/register` — create a user with email + password.
+//!
+//! Hashes the password with argon2id, inserts the user (tenant-scoped,
+//! `UNIQUE(tenant_id, email)`), and issues a real token pair. Returns:
+//! - 201 `TokenResponse` on success
+//! - 400 for weak passwords or duplicate email
+//! - 500 on infrastructure failure
+
+use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
-use brrtrouter::typed::TypedHandlerRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::{Request, Response};
 
-/// Handler for Auth Register.
-///
-/// Uses role-based TTL configuration from `jwt::ttl::TtlConfig` to set
-/// `expires_in` on issued access tokens. All roles use 5-minute (300s)
-/// TTL after F-010 alignment.
+use crate::audit::EMITTER;
+use crate::services::password;
+use crate::services::token_issuer;
+use crate::services::user_service::UserService;
+use sesame_common::audit::{AuditEventType, AuditLogEntry};
+
+/// Default portal/client for direct browser registrations.
+const DEFAULT_PORTAL: &str = "frontend";
+
 #[handler(AuthRegisterController)]
-pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    use crate::audit::EMITTER;
-    use crate::jwt::ttl::TtlConfig;
-    use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
-    use uuid::Uuid;
+pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
+    let tenant_id = req.data.x_tenant_id.clone();
+    let email = req.data.email.trim().to_lowercase();
 
-    // Load TTL configuration from env vars (with defaults).
-    let ttl_config = TtlConfig::from_env();
-
-    let user_id = Uuid::new_v7();
-
-    // TODO: Validate password strength (min length, complexity)
-    // TODO: Hash password with bcrypt/argon2
-    // TODO: INSERT INTO users (tenant_id, email, username, password_hash)
-    // TODO: Check if email is already in use (return 409 Conflict)
-    // TODO: Send email confirmation
-    // TODO: Issue access_token + refresh_token
-    // TODO: Emit user_created audit event
-
-    // Register assigns a "customer" role by default.
-    let access_ttl_secs = ttl_config.access_ttl_secs_for_role("customer");
-    let refresh_ttl_secs = ttl_config.refresh_ttl_for_role("customer").as_secs();
-
-    Response {
-        access_token: format!("access_{}", Uuid::new_v4()),
-        token_type: "Bearer".to_string(),
-        expires_in: access_ttl_secs as i32,
-        refresh_token: format!("refresh_{}", Uuid::new_v4()),
-        refresh_token_expires_in: Some(refresh_ttl_secs as i64),
-        user_id: user_id.to_string(),
-        email: Some(req.inner.email),
-        email_verified: Some(false),
-        phone_verified: None,
-        mfa_required: Some(false),
-        id_token: None,
-        scope: "".to_string(),
+    if let Err(reason) = password::validate_password_strength(&req.data.password) {
+        return HttpJson::new(
+            400,
+            serde_json::json!({
+                "error": "weak_password",
+                "error_description": reason
+            }),
+        );
     }
+
+    let exec = sesame_idam_database::db();
+
+    // Pre-check duplicate email (the DB unique constraint is the failsafe).
+    match UserService::find_by_tenant_and_email(&tenant_id, &email, exec) {
+        Ok(Some(_)) => {
+            return HttpJson::new(
+                400,
+                serde_json::json!({
+                    "error": "email_in_use",
+                    "error_description": "An account with this email already exists"
+                }),
+            );
+        }
+        Ok(None) => {}
+        Err(e) => {
+            tracing::error!(error = %e, "auth_register: duplicate check failed");
+            return internal_error();
+        }
+    }
+
+    let password_hash = match password::hash_password(&req.data.password) {
+        Ok(hash) => hash,
+        Err(e) => {
+            tracing::error!(error = %e, "auth_register: hashing failed");
+            return internal_error();
+        }
+    };
+
+    let user_id = match UserService::create_user(
+        &tenant_id,
+        &email,
+        &password_hash,
+        req.data.phone.clone(),
+        exec,
+    ) {
+        Ok(id) => id,
+        Err(e) => {
+            // Unique-constraint race: two concurrent registrations.
+            let msg = e.to_string();
+            if msg.contains("unique") || msg.contains("duplicate") {
+                return HttpJson::new(
+                    400,
+                    serde_json::json!({
+                        "error": "email_in_use",
+                        "error_description": "An account with this email already exists"
+                    }),
+                );
+            }
+            tracing::error!(error = %e, "auth_register: user insert failed");
+            return internal_error();
+        }
+    };
+
+    let user_id_str = user_id.to_string();
+    let tokens = match token_issuer::issue_tokens(
+        &user_id_str,
+        &tenant_id,
+        DEFAULT_PORTAL,
+        vec![],
+        "customer",
+    ) {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            tracing::error!(error = %e, "auth_register: token issuance failed");
+            return internal_error();
+        }
+    };
+
+    // Audit: user created + tokens issued
+    match AuditLogEntry::new(AuditEventType::JwtIssued, "identity-login-service")
+        .tenant_id(tenant_id.clone())
+        .user_id(user_id.to_string())
+        .decision_source("registration")
+        .result("allowed")
+        .build()
+    {
+        Ok(entry) => EMITTER.emit(entry),
+        Err(e) => tracing::warn!(error = %e, "auth_register: audit entry build failed"),
+    }
+
+    let body = Response {
+        access_token: tokens.access_token,
+        entitlements_hash: None,
+        entitlements_ref: None,
+        expires_in: i32::try_from(tokens.expires_in).unwrap_or(300),
+        id_token: None,
+        mfa_required: Some(false),
+        permissions: None,
+        refresh_token: tokens.refresh_token,
+        refresh_token_expires_in: Some(
+            i32::try_from(tokens.refresh_expires_in).unwrap_or(i32::MAX),
+        ),
+        roles: Some(vec![]),
+        scope: Some(tokens.scope),
+        token_type: "Bearer".to_string(),
+        token_version: i32::try_from(tokens.token_version).ok(),
+        user_id: user_id_str,
+    };
+
+    match serde_json::to_value(&body) {
+        Ok(json) => HttpJson::new(201, json),
+        Err(e) => {
+            tracing::error!(error = %e, "auth_register: response serialization failed");
+            internal_error()
+        }
+    }
+}
+
+fn internal_error() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        500,
+        serde_json::json!({
+            "error": "internal_error",
+            "error_description": "An unexpected error occurred"
+        }),
+    )
 }

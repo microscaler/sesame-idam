@@ -8,7 +8,13 @@
 #![allow(clippy::missing_errors_doc)] // build script docs are auto-generated
 #![allow(clippy::uninlined_format_args)] // build script format strings
 #![allow(clippy::missing_panics_doc)] // build script panic docs are auto-generated
-//! Identity login service — library target for migrator access.
+//! Identity login service — library target for the migrator, the binary,
+//! and BDD tests (which call controllers/services directly).
 
+pub mod audit;
+pub mod controllers;
 pub mod jwt;
 pub mod models;
+pub mod redis;
+pub mod security;
+pub mod services;

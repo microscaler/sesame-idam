@@ -57,6 +57,11 @@ sea-query = { workspace = true }
 serde_yaml = { workspace = true }
 tracing = "0.1"
 
+# Authentication flows (login/register)
+argon2 = { workspace = true }
+redis = { workspace = true }
+thiserror = { workspace = true }
+
 [build-dependencies]
 lifeguard-migrate = { workspace = true }
 [dev-dependencies]

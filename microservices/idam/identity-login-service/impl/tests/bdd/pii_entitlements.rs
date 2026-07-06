@@ -27,9 +27,9 @@ fn scenario_login_token_has_no_pii() {
         .aud(vec!["api".to_string(), "frontend".to_string()])
         .client_id("login-app".to_string())
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(1_700_000_000)
+        .nbf(1_700_000_000 - 60)
+        .iat(1_700_000_000)
         .jti("jti-alice-001".to_string())
         .ver(1)
         .sid("session-alice-001".to_string())
@@ -83,7 +83,7 @@ fn scenario_login_token_has_no_pii() {
 }
 
 /// Scenario: Entitlements ref is used in consumer flow
-///   Given a token with sx.entitlements_ref set
+///   Given a token with `sx.entitlements_ref` set
 ///   When a consumer service receives the token
 ///   Then the service can extract the ref and use it as a cache key
 #[test]
@@ -95,26 +95,37 @@ fn scenario_entitlements_ref_consumer_flow() {
         .aud(vec!["api".to_string()])
         .client_id("consumer-app".to_string())
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(1_700_000_000)
+        .nbf(1_700_000_000 - 60)
+        .iat(1_700_000_000)
         .jti("jti-bob-002".to_string())
         .ver(3)
         .sid("session-bob-002".to_string())
         .tenant_id("tenant-2".to_string())
         .user_id("bob-user-002".to_string())
         .user_type("customer".to_string())
-        .sx(SesameAuthzClaims::new(
-            "tenant-2".to_string(),
-            "api".to_string(),
-            vec!["viewer".to_string()],
-            vec!["billing:read".to_string()],
-        ))
+        .sx({
+            let mut sx = SesameAuthzClaims::new(
+                "tenant-2".to_string(),
+                "api".to_string(),
+                vec!["viewer".to_string()],
+                vec!["billing:read".to_string()],
+            );
+            // The issuer (login-service) populates the entitlements ref when
+            // minting the token — SesameAuthzClaims::new leaves it None.
+            sx.entitlements_ref = Some(generate_entitlements_ref(
+                "bob-user-002",
+                "org-2",
+                3,
+                "tenant-2",
+            ));
+            sx
+        })
         .build()
         .expect("valid claims");
 
     // Extract the entitlements_ref — this is what a consumer would do
-    let ref_opt = claims.sx.entitlements_ref.as_ref().map(|s| s.as_str());
+    let ref_opt = claims.sx.entitlements_ref.as_deref();
 
     // Then — the ref should exist and be a valid format
     assert!(ref_opt.is_some(), "entitlements_ref should be present");
@@ -135,10 +146,10 @@ fn scenario_entitlements_ref_consumer_flow() {
 }
 
 /// Scenario: Hash verification on consumer side
-///   Given a token with sx.entitlements_hash
+///   Given a token with `sx.entitlements_hash`
 ///   When the consumer fetches the full snapshot from cache
 ///   And the consumer computes SHA-256 of the cached snapshot
-///   Then the computed hash matches sx.entitlements_hash
+///   Then the computed hash matches `sx.entitlements_hash`
 #[test]
 fn scenario_hash_verification_on_consumer_side() {
     // Given — build a snapshot that matches the hash in the claims
@@ -190,9 +201,9 @@ fn scenario_no_pii_with_special_characters() {
         .aud(vec!["api".to_string()])
         .client_id("test-client".to_string())
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(1_700_000_000)
+        .nbf(1_700_000_000 - 60)
+        .iat(1_700_000_000)
         .jti("jti-unicode".to_string())
         .ver(1)
         .sid("session-unicode".to_string())
