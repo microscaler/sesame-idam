@@ -210,7 +210,8 @@ fn main() {
         }
     };
 
-    let migrations_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../migrations");
+    // CARGO_MANIFEST_DIR = <repo>/microservices/migrator → <repo>/migrations
+    let migrations_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../migrations");
 
     for (table, sql) in ordered {
         let service = table_to_service[&table];
@@ -231,7 +232,8 @@ fn main() {
     }
 
     // Seed order — FK-aware, so dependent tables are populated first.
-    let microservices_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    // Service dirs (containing impl/seeds/) live under <repo>/microservices/idam/.
+    let microservices_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let seeds_root = microservices_root.join("idam");
     let seed_files = discover_seed_files(&seeds_root);
     if seed_files.is_empty() {

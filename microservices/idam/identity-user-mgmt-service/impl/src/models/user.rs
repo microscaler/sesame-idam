@@ -2,9 +2,15 @@ use lifeguard_derive::{LifeModel, LifeRecord};
 use serde::{Deserialize, Serialize};
 
 /// User entity for identity-user-mgmt-service.
+///
+/// NOTE: identity-login-service duplicates this entity (same table) for
+/// credential verification at login — keep the definitions in sync.
+/// `UNIQUE(tenant_id, email)`: the same email on different tenants is a
+/// different, unrelated user (hard-segment tenancy).
 #[derive(Clone, Debug, Serialize, Deserialize, LifeModel, LifeRecord)]
 #[table_name = "users"]
 #[schema_name = "sesame_idam"]
+#[composite_unique = "tenant_id, email"]
 pub struct User {
     #[primary_key]
     #[column_type = "UUID"]

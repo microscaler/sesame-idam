@@ -121,7 +121,8 @@ apply_seeds_from_disk() {
     echo "📥 Applying per-microservice seed SQL (microservices/idam/seed_order.txt, FK-ordered)..."
     while IFS= read -r rel || [ -n "${rel}" ]; do
       [[ -z "${rel}" || "${rel}" =~ ^# ]] && continue
-      seed_file="./microservices/${rel}"
+      # seed_order.txt paths are relative to microservices/idam (the migrator's seeds root)
+      seed_file="./microservices/idam/${rel}"
       if [ -f "${seed_file}" ]; then
         apply_one_seed "${seed_file}"
       else
