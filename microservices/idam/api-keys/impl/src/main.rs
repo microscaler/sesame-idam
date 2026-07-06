@@ -1,7 +1,8 @@
-/// Application entry point.
-///
-/// Loads configuration, initializes the security chain (JwksBearerProvider),
-/// registers middleware and handlers, and runs the BRRTRouter HTTP server.
+//! Application entry point.
+//!
+//! Loads configuration, initializes the security chain (`JwksBearerProvider`),
+//! registers middleware and handlers, and runs the `BRRTRouter` HTTP server.
+//!
 
 // Use jemalloc as the global allocator for better memory performance.
 #[cfg(feature = "jemalloc")]
@@ -12,11 +13,10 @@ use tikv_jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 
 mod audit;
-mod config;
 mod security;
 
-use config::load_config;
 use security::init_security;
+use sesame_common::config::load_config;
 
 use sesame_idam_api_keys_gen::registry;
 

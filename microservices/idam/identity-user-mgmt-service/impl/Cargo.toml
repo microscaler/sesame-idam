@@ -55,6 +55,8 @@ may_minihttp = { workspace = true }
 sea-query = { workspace = true }
 serde_yaml = { workspace = true }
 tracing = "0.1"
+prometheus = { workspace = true }
+lazy_static = { workspace = true }
 
 [build-dependencies]
 lifeguard-migrate = { workspace = true }
