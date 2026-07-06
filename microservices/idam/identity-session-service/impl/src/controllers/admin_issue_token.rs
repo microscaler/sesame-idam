@@ -8,6 +8,8 @@ use sesame_idam_identity_session_service_gen::handlers::admin_issue_token::{Requ
 
 #[handler(AdminIssueTokenController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
+    use crate::audit::EMITTER;
+
     let span = tracing::span!(
         tracing::Level::INFO,
         "token.issued",
@@ -16,18 +18,18 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     );
     let _guard = span.enter();
 
-    use crate::audit::EMITTER;
-
     let tenant_id = req.data.x_tenant_id.clone();
     let user_id = req.data.user_id.clone();
 
-    let entry =
-        sesame_common::audit::AuditLogEntry::new(AuditEventType::JwtIssued, "identity-session-service")
-            .user_id(user_id.clone())
-            .tenant_id(tenant_id.clone())
-            .decision_source("admin_issue_token")
-            .result("allowed")
-            .build();
+    let entry = sesame_common::audit::AuditLogEntry::new(
+        AuditEventType::JwtIssued,
+        "identity-session-service",
+    )
+    .user_id(user_id.clone())
+    .tenant_id(tenant_id.clone())
+    .decision_source("admin_issue_token")
+    .result("allowed")
+    .build();
 
     if let Ok(entry) = entry {
         EMITTER.emit(entry);
@@ -47,12 +49,12 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         access_token: req.data.scope.clone(),
         email: None,
         email_verified: None,
-        expires_in: access_ttl_secs as i32,
+        expires_in: i32::try_from(access_ttl_secs).unwrap_or(i32::MAX),
         id_token: None,
         mfa_required: None,
         phone_verified: None,
         refresh_token: "default-refresh".to_string(),
-        refresh_token_expires_in: Some(refresh_ttl_secs as i32),
+        refresh_token_expires_in: Some(i32::try_from(refresh_ttl_secs).unwrap_or(i32::MAX)),
         scope: Some(req.data.scope.clone()),
         token_type: "Bearer".to_string(),
         user_id,

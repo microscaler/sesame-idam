@@ -1,9 +1,9 @@
 /// HTTP BDD tests for Story 1.2 — JWKS Endpoint
 ///
-/// These tests invoke the JwksController handler directly via brrtrouter's
+/// These tests invoke the `JwksController` handler directly via brrtrouter's
 /// HandlerRequest/HandlerResponse channel pattern, exercising the same code
 /// path that the HTTP server uses. This verifies:
-/// - The handler returns live keys from KeyManager
+/// - The handler returns live keys from `KeyManager`
 /// - The response body is valid JWKS (RFC 7517)
 /// - The middleware injects correct headers
 /// - No private key material leaks
@@ -15,7 +15,7 @@ use sesame_idam_identity_session_service::controllers::jwks::JwksController;
 use sesame_idam_identity_session_service::key_manager::KEY_MANAGER;
 use std::sync::Arc;
 
-/// Construct a minimal HandlerRequest for testing.
+/// Construct a minimal `HandlerRequest` for testing.
 fn make_request(path: &str, method: Method, headers: Vec<(&str, &str)>) -> HandlerRequest {
     let mut hv = HeaderVec::new();
     for (k, v) in headers {
@@ -26,8 +26,8 @@ fn make_request(path: &str, method: Method, headers: Vec<(&str, &str)>) -> Handl
         method,
         path: path.to_string(),
         handler_name: "jwks".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: brrtrouter::router::ParamVec::default(),
+        query_params: brrtrouter::router::ParamVec::default(),
         headers: hv,
         cookies: HeaderVec::new(),
         body: None,
@@ -37,8 +37,9 @@ fn make_request(path: &str, method: Method, headers: Vec<(&str, &str)>) -> Handl
     }
 }
 
-/// Helper: invoke JwksController and collect the response.
-/// Returns the HandlerResponse sent back on the reply channel.
+/// Helper: invoke `JwksController` and collect the response.
+/// Returns the `HandlerResponse` sent back on the reply channel.
+#[allow(clippy::needless_pass_by_value)] // consumed via dispatch semantics
 fn invoke_jwks_request(req: HandlerRequest) -> HandlerResponse {
     let handler = JwksController;
 
@@ -75,11 +76,10 @@ fn invoke_jwks_request(req: HandlerRequest) -> HandlerResponse {
     let response_data = handler.handle(typed_req);
 
     // Convert the response to HandlerResponse
-    let hr = response_data
-        .into_handler_response()
-        .expect("JWKS handler response must serialize to HandlerResponse");
 
-    hr
+    response_data
+        .into_handler_response()
+        .expect("JWKS handler response must serialize to HandlerResponse")
 }
 
 // ─── Tests: Scenario 1 — JWKS serves current key ────────────────────────────────
@@ -105,7 +105,7 @@ fn test_jwks_endpoint_returns_live_keys() {
         "Response must have a 'keys' array"
     );
     assert!(
-        hr.body["keys"].as_array().unwrap().len() >= 1,
+        !hr.body["keys"].as_array().unwrap().is_empty(),
         "Response must contain at least 1 key"
     );
 }
@@ -166,11 +166,10 @@ fn test_jwks_endpoint_response_size_under_2kb() {
 
     // Then: serialized response is under 2KB
     let json = serde_json::to_string_pretty(&hr.body).expect("body must serialize");
-    let bytes = json.as_bytes().len();
+    let bytes = json.len();
     assert!(
         bytes < 2048,
-        "JWKS response must be under 2KB, got {} bytes",
-        bytes
+        "JWKS response must be under 2KB, got {bytes} bytes"
     );
 }
 
@@ -310,7 +309,7 @@ fn test_jwks_response_parses_as_valid_json() {
         "Parsed JSON must have 'keys' array"
     );
     assert!(
-        parsed["keys"].as_array().unwrap().len() >= 1,
+        !parsed["keys"].as_array().unwrap().is_empty(),
         "Keys array must have at least 1 entry"
     );
 }

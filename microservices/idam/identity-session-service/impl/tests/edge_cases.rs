@@ -28,7 +28,7 @@ fn test_concurrent_refresh_requests() {
         "sid-session".into(),
         "fam-concurrent".into(),
         1_000_000,
-        1_000_000 + REFRESH_TOKEN_TTL as i64,
+        1_000_000 + i64::from(REFRESH_TOKEN_TTL),
         "client".into(),
         "openid".into(),
     );
@@ -56,7 +56,7 @@ fn test_concurrent_refresh_requests() {
 /// must fail closed (401 error, NOT fail open) — rotation requires
 /// Redis state to be reliable.
 ///
-/// (Note: Current implementation returns RedisUnavailable which the
+/// (Note: Current implementation returns `RedisUnavailable` which the
 /// handler converts to a 401 with empty tokens — fail closed.)
 #[test]
 fn test_redis_unavailable_fails_closed() {
@@ -66,28 +66,20 @@ fn test_redis_unavailable_fails_closed() {
 
     // Without Redis, the result is RedisUnavailable or InvalidToken
     // Both are acceptable "fail closed" outcomes
-    match result {
-        RotationOutcome::RedisUnavailable => {
-            // Fail closed — correct behavior
-        }
-        RotationOutcome::InvalidToken => {
-            // Also acceptable — token not in Redis
-        }
-        RotationOutcome::Rotated { .. } => {
-            panic!("Should NOT rotate without Redis — must fail closed!");
-        }
-        RotationOutcome::ReuseDetected { .. } => {
-            // Would only happen if Redis returns denylist entry
-            // which shouldn't happen when Redis is down
-        }
-    }
+    // RedisUnavailable and InvalidToken are both acceptable "fail closed"
+    // outcomes; ReuseDetected shouldn't happen when Redis is down but is
+    // also not a fail-open. Only Rotated is a failure.
+    assert!(
+        !matches!(result, RotationOutcome::Rotated { .. }),
+        "Should NOT rotate without Redis — must fail closed!"
+    );
 }
 
 // ===========================================================================
 // Edge Case Test 3: Empty family set
 // ===========================================================================
 
-/// If family:{family_id} set is empty (cleanup bug), the refresh
+/// If `family:{family_id`} set is empty (cleanup bug), the refresh
 /// still proceeds normally (empty set is not an error condition).
 #[test]
 fn test_empty_family_set() {
@@ -110,7 +102,7 @@ fn test_empty_family_set() {
 // Edge Case Test 4: Very large family_id
 // ===========================================================================
 
-/// Inject a 1000-character family_id — Redis operations should
+/// Inject a 1000-character `family_id` — Redis operations should
 /// succeed (no key size issues).
 #[test]
 fn test_very_large_family_id() {
@@ -123,7 +115,7 @@ fn test_very_large_family_id() {
         "sid-session".into(),
         large_family_id.clone(),
         1_000_000,
-        1_000_000 + REFRESH_TOKEN_TTL as i64,
+        1_000_000 + i64::from(REFRESH_TOKEN_TTL),
         "client".into(),
         "openid".into(),
     );
@@ -184,18 +176,22 @@ fn test_family_revoked_sentinel() {
 // Edge Case Test 6: Maximum denylist size
 // ===========================================================================
 
-/// When the denylist reaches MAX_DENYLIST_SIZE (1000),
-/// the oldest entries should be evicted to prevent DoS.
+/// When the denylist reaches `MAX_DENYLIST_SIZE` (1000),
+/// the oldest entries should be evicted to prevent `DoS`.
 #[test]
 fn test_max_denylist_size() {
     assert_eq!(MAX_DENYLIST_SIZE, 1000);
 
     // Verify the constant is a reasonable upper bound
-    assert!(MAX_DENYLIST_SIZE > 100, "Must accommodate normal usage");
-    assert!(
-        MAX_DENYLIST_SIZE < 10_000,
-        "Must prevent excessive memory usage"
-    );
+    const {
+        assert!(MAX_DENYLIST_SIZE > 100, "Must accommodate normal usage");
+    }
+    const {
+        assert!(
+            MAX_DENYLIST_SIZE < 10_000,
+            "Must prevent excessive memory usage"
+        );
+    }
 
     // A user rotating tokens every hour for a year:
     // 365 days * 24 rotations = 8,760 rotations
@@ -212,7 +208,7 @@ fn test_max_denylist_size() {
 // Edge Case Test 7: Token with unusual but valid fields
 // ===========================================================================
 
-/// A refresh token with empty scopes, unusual client_id,
+/// A refresh token with empty scopes, unusual `client_id`,
 /// or very long sub should not cause issues.
 #[test]
 fn test_token_with_unusual_fields() {
@@ -222,9 +218,9 @@ fn test_token_with_unusual_fields() {
         "sid-short".into(),
         "fam-short".into(),
         0,
-        REFRESH_TOKEN_TTL as i64,
-        "".into(),  // empty client_id
-        " ".into(), // whitespace-only scopes
+        i64::from(REFRESH_TOKEN_TTL),
+        String::new(), // empty client_id
+        " ".into(),    // whitespace-only scopes
     );
 
     let json = token.to_json().expect("serialize unusual token");

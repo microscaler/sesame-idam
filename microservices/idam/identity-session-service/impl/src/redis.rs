@@ -39,7 +39,7 @@ pub fn store_refresh_token(token: &RefreshToken) -> Result<()> {
 
     let key = format!("{}:{}", REFIRESH_TOKEN_KEY_PREFIX, token.jti);
     let json = token.to_json()?;
-    let _: () = conn.set_ex(&key, json, REFRESH_TOKEN_TTL as u64)?;
+    let _: () = conn.set_ex(&key, json, u64::from(REFRESH_TOKEN_TTL))?;
     Ok(())
 }
 
@@ -49,7 +49,7 @@ pub fn store_refresh_token(token: &RefreshToken) -> Result<()> {
 pub fn lookup_refresh_token(jti: &str) -> Result<Option<RefreshToken>> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", REFIRESH_TOKEN_KEY_PREFIX, jti);
+    let key = format!("{REFIRESH_TOKEN_KEY_PREFIX}:{jti}");
     let value: Option<String> = conn.get(&key)?;
     match value {
         Some(json) => Ok(Some(RefreshToken::from_json(&json)?)),
@@ -61,7 +61,7 @@ pub fn lookup_refresh_token(jti: &str) -> Result<Option<RefreshToken>> {
 pub fn delete_refresh_token(jti: &str) -> Result<()> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", REFIRESH_TOKEN_KEY_PREFIX, jti);
+    let key = format!("{REFIRESH_TOKEN_KEY_PREFIX}:{jti}");
     let _: () = conn.del(&key)?;
     Ok(())
 }
@@ -74,7 +74,7 @@ pub fn delete_refresh_token(jti: &str) -> Result<()> {
 pub fn get_family_members(family_id: &str) -> Result<Vec<String>> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", FAMILY_SET_KEY_PREFIX, family_id);
+    let key = format!("{FAMILY_SET_KEY_PREFIX}:{family_id}");
     let members: Vec<String> = conn.smembers(&key)?;
     Ok(members)
 }
@@ -83,9 +83,9 @@ pub fn get_family_members(family_id: &str) -> Result<Vec<String>> {
 pub fn add_family_member(family_id: &str, jti: &str) -> Result<()> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", FAMILY_SET_KEY_PREFIX, family_id);
+    let key = format!("{FAMILY_SET_KEY_PREFIX}:{family_id}");
     let _: () = conn.sadd(&key, jti)?;
-    let _: () = conn.expire(&key, FAMILY_TTL as i64)?;
+    let _: () = conn.expire(&key, i64::from(FAMILY_TTL))?;
     Ok(())
 }
 
@@ -93,7 +93,7 @@ pub fn add_family_member(family_id: &str, jti: &str) -> Result<()> {
 pub fn remove_family_member(family_id: &str, jti: &str) -> Result<()> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", FAMILY_SET_KEY_PREFIX, family_id);
+    let key = format!("{FAMILY_SET_KEY_PREFIX}:{family_id}");
     let _: () = conn.srem(&key, jti)?;
     Ok(())
 }
@@ -102,7 +102,7 @@ pub fn remove_family_member(family_id: &str, jti: &str) -> Result<()> {
 pub fn revoke_family(family_id: &str) -> Result<()> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", FAMILY_SET_KEY_PREFIX, family_id);
+    let key = format!("{FAMILY_SET_KEY_PREFIX}:{family_id}");
     let _: () = conn.sadd(&key, FAMILY_REVOKED)?;
     Ok(())
 }
@@ -113,16 +113,16 @@ pub fn revoke_family(family_id: &str) -> Result<()> {
 pub fn delete_family_tokens(family_id: &str) -> Result<()> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", FAMILY_SET_KEY_PREFIX, family_id);
+    let key = format!("{FAMILY_SET_KEY_PREFIX}:{family_id}");
 
     // Get all members
     let members: Vec<String> = conn.smembers(&key)?;
 
     // Delete each refresh token and family member
     for jti in &members {
-        let token_key = format!("{}:{}", REFIRESH_TOKEN_KEY_PREFIX, jti);
+        let token_key = format!("{REFIRESH_TOKEN_KEY_PREFIX}:{jti}");
         let _: () = conn.del(&token_key)?;
-        let denylist_key = format!("{}:{}", DENYLIST_KEY_PREFIX, jti);
+        let denylist_key = format!("{DENYLIST_KEY_PREFIX}:{jti}");
         let _: () = conn.del(&denylist_key)?;
     }
 
@@ -141,7 +141,7 @@ pub fn delete_family_tokens(family_id: &str) -> Result<()> {
 pub fn is_family_revoked(family_id: &str) -> Result<bool> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", FAMILY_SET_KEY_PREFIX, family_id);
+    let key = format!("{FAMILY_SET_KEY_PREFIX}:{family_id}");
     let is_member: bool = conn.sismember(&key, FAMILY_REVOKED)?;
     Ok(is_member)
 }
@@ -151,13 +151,13 @@ pub fn is_family_revoked(family_id: &str) -> Result<bool> {
 // ---------------------------------------------------------------------------
 
 /// Add a jti to the denylist with 24-hour TTL.
-/// Returns an error if the denylist has exceeded MAX_DENYLIST_SIZE.
+/// Returns an error if the denylist has exceeded `MAX_DENYLIST_SIZE`.
 pub fn add_to_denylist(jti: &str) -> Result<()> {
     let mut conn = get_redis_connection()?;
 
     // Per-user denylist (identified by jti prefix)
-    let individual_key = format!("{}:{}", DENYLIST_KEY_PREFIX, jti);
-    let _: () = conn.set_ex(&individual_key, "rotated", FAMILY_TTL as u64)?;
+    let individual_key = format!("{DENYLIST_KEY_PREFIX}:{jti}");
+    let _: () = conn.set_ex(&individual_key, "rotated", u64::from(FAMILY_TTL))?;
     Ok(())
 }
 
@@ -165,14 +165,14 @@ pub fn add_to_denylist(jti: &str) -> Result<()> {
 pub fn is_in_denylist(jti: &str) -> Result<bool> {
     let mut conn = get_redis_connection()?;
 
-    let individual_key = format!("{}:{}", DENYLIST_KEY_PREFIX, jti);
+    let individual_key = format!("{DENYLIST_KEY_PREFIX}:{jti}");
     let value: Option<String> = conn.get(&individual_key)?;
 
     // Key exists => token is in denylist => was used before
     Ok(value.is_some())
 }
 
-/// Clean old denylist entries for a user when size exceeds MAX_DENYLIST_SIZE.
+/// Clean old denylist entries for a user when size exceeds `MAX_DENYLIST_SIZE`.
 pub fn evict_old_denylist_entries(_jti: &str) -> Result<()> {
     // Eviction is a per-user concern; currently no user-specific denylist tracking.
     // TODO: Add per-user denylist counting (HACK-304).
@@ -187,9 +187,9 @@ pub fn evict_old_denylist_entries(_jti: &str) -> Result<()> {
 pub fn store_session(sid: &str, data: &serde_json::Value) -> Result<()> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", SESSION_KEY_PREFIX, sid);
+    let key = format!("{SESSION_KEY_PREFIX}:{sid}");
     let json = serde_json::to_string(data)?;
-    let _: () = conn.set_ex(&key, json, REFRESH_TOKEN_TTL as u64)?;
+    let _: () = conn.set_ex(&key, json, u64::from(REFRESH_TOKEN_TTL))?;
     Ok(())
 }
 
@@ -197,7 +197,7 @@ pub fn store_session(sid: &str, data: &serde_json::Value) -> Result<()> {
 pub fn lookup_session(sid: &str) -> Result<Option<serde_json::Value>> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", SESSION_KEY_PREFIX, sid);
+    let key = format!("{SESSION_KEY_PREFIX}:{sid}");
     let value: Option<String> = conn.get(&key)?;
     match value {
         Some(json) => Ok(Some(serde_json::from_str(&json)?)),
@@ -209,7 +209,7 @@ pub fn lookup_session(sid: &str) -> Result<Option<serde_json::Value>> {
 pub fn delete_session(sid: &str) -> Result<()> {
     let mut conn = get_redis_connection()?;
 
-    let key = format!("{}:{}", SESSION_KEY_PREFIX, sid);
+    let key = format!("{SESSION_KEY_PREFIX}:{sid}");
     let _: () = conn.del(&key)?;
     Ok(())
 }

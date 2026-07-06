@@ -2,7 +2,7 @@
 /// Implements token rotation per Story 3.1: validates old token, issues new
 /// refresh token with new JTI, adds old JTI to denylist.
 ///
-/// Returns 401 with reason "token_rotated" on reuse detection (tear scenario).
+/// Returns 401 with reason "`token_rotated`" on reuse detection (tear scenario).
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::auth_refresh::{Request, Response};
@@ -27,12 +27,14 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let span_tenant = tenant_id.clone();
 
     // --- Audit logging ---
-    let entry =
-        sesame_common::audit::AuditLogEntry::new(AuditEventType::JwtIssued, "identity-session-service")
-            .tenant_id(tenant_id.clone())
-            .decision_source("token_refresh")
-            .result("allowed")
-            .build();
+    let entry = sesame_common::audit::AuditLogEntry::new(
+        AuditEventType::JwtIssued,
+        "identity-session-service",
+    )
+    .tenant_id(tenant_id.clone())
+    .decision_source("token_refresh")
+    .result("allowed")
+    .build();
 
     if let Ok(entry) = entry {
         EMITTER.emit(entry);
@@ -74,7 +76,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
             .tenant_id(tenant_id.clone())
             .decision_source("token_refresh")
             .result("allowed")
-            .ttl(REFRESH_TOKEN_TTL as u64)
+            .ttl(u64::from(REFRESH_TOKEN_TTL))
             .build();
 
             if let Ok(entry) = entry {

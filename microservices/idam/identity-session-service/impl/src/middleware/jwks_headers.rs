@@ -38,9 +38,8 @@ impl Middleware for JwksHeadersMiddleware {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
-    /// Verify path-matching logic without constructing the full HandlerRequest.
+    /// Verify path-matching logic without constructing the full `HandlerRequest`.
     /// The middleware logic is: `req.path.ends_with("/.well-known/jwks.json")`.
     fn path_matches(path: &str) -> bool {
         path.ends_with("/.well-known/jwks.json")

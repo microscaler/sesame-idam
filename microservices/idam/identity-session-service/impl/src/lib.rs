@@ -7,11 +7,11 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::uninlined_format_args)]
 mod audit;
-pub mod config;
 pub mod controllers;
 pub mod jwks_client;
 pub mod jwt;
 pub mod key_manager;
+pub mod middleware;
 pub mod models;
 // Redis client and helpers for refresh token rotation
 pub mod redis;

@@ -10,7 +10,7 @@
 /// - Step-up MFA provides the real security boundary for high-consequence actions
 ///
 /// Security gotchas:
-/// - HACK-301: Zero TTL causes DoS — validate_minimum_ttl at startup
+/// - HACK-301: Zero TTL causes `DoS` — `validate_minimum_ttl` at startup
 /// - HACK-303: Admin tokens same 5-min TTL as normal — documented trade-off
 /// - HACK-304: Token size budget — non-issue for current TTLs (same digit count)
 /// - HACK-305: Clock skew tolerance 60s — acceptable operational trade-off
@@ -187,8 +187,8 @@ impl TtlConfig {
 
     /// Record the `token_ttl_seconds` prometheus histogram metric for a given role.
     ///
-    /// This is called at token issue time by the handler (auth_login, auth_register,
-    /// social_callback) so operators can verify TTL configuration at runtime via
+    /// This is called at token issue time by the handler (`auth_login`, `auth_register`,
+    /// `social_callback`) so operators can verify TTL configuration at runtime via
     /// the /metrics endpoint.
     pub fn record_ttl_metric(&self, role: &str) {
         let secs = self.access_ttl_secs_for_role(role);
@@ -200,6 +200,8 @@ impl TtlConfig {
             )
             .expect("failed to register token_ttl_seconds histogram")
         });
+        // TTLs are far below f64's 52-bit mantissa; cast is lossless in practice.
+        #[allow(clippy::cast_precision_loss)]
         histogram.with_label_values(&[role]).observe(secs as f64);
     }
 }
@@ -212,70 +214,78 @@ impl Default for TtlConfig {
 
 /// Validate that all TTL values meet the minimum threshold.
 ///
-/// HACK-301: If any TTL is below MIN_TTL_SECS (60 seconds), panic at startup.
-/// This prevents accidental DoS from zero or very low TTL misconfigurations.
+/// HACK-301: If any TTL is below `MIN_TTL_SECS` (60 seconds), panic at startup.
+/// This prevents accidental `DoS` from zero or very low TTL misconfigurations.
 ///
 /// # Panics
 ///
 /// Panics if any TTL value is below the minimum (60 seconds).
 pub fn validate_minimum_ttl(config: &TtlConfig) {
-    if config.normal_secs < MIN_TTL_SECS {
-        panic!(
-            "JWT_ACCESS_TTL_NORMAL must be >= {} seconds (got {})",
-            MIN_TTL_SECS, config.normal_secs
-        );
-    }
-    if config.elevated_secs < MIN_TTL_SECS {
-        panic!(
-            "JWT_ACCESS_TTL_ELEVATED must be >= {} seconds (got {})",
-            MIN_TTL_SECS, config.elevated_secs
-        );
-    }
-    if config.admin_secs < MIN_TTL_SECS {
-        panic!(
-            "JWT_ACCESS_TTL_ADMIN must be >= {} seconds (got {})",
-            MIN_TTL_SECS, config.admin_secs
-        );
-    }
-    if config.platform_secs < MIN_TTL_SECS {
-        panic!(
-            "JWT_ACCESS_TTL_PLATFORM must be >= {} seconds (got {})",
-            MIN_TTL_SECS, config.platform_secs
-        );
-    }
+    assert!(
+        config.normal_secs >= MIN_TTL_SECS,
+        "JWT_ACCESS_TTL_NORMAL must be >= {} seconds (got {})",
+        MIN_TTL_SECS,
+        config.normal_secs
+    );
+    assert!(
+        config.elevated_secs >= MIN_TTL_SECS,
+        "JWT_ACCESS_TTL_ELEVATED must be >= {} seconds (got {})",
+        MIN_TTL_SECS,
+        config.elevated_secs
+    );
+    assert!(
+        config.admin_secs >= MIN_TTL_SECS,
+        "JWT_ACCESS_TTL_ADMIN must be >= {} seconds (got {})",
+        MIN_TTL_SECS,
+        config.admin_secs
+    );
+    assert!(
+        config.platform_secs >= MIN_TTL_SECS,
+        "JWT_ACCESS_TTL_PLATFORM must be >= {} seconds (got {})",
+        MIN_TTL_SECS,
+        config.platform_secs
+    );
 }
 
 /// Validate that refresh token TTL always exceeds access token TTL for every role.
 ///
 /// A refresh token should NEVER expire before its associated access token.
+///
+/// # Panics
+///
+/// Panics if any access-token TTL exceeds its refresh TTL.
 pub fn validate_refresh_exceeds_access(config: &TtlConfig) {
     let refresh_secs = Duration::from_secs(config.refresh_days * 86400).as_secs();
     let admin_refresh_secs = Duration::from_secs(config.admin_refresh_days * 86400).as_secs();
 
-    if config.normal_secs > refresh_secs {
-        panic!(
-            "JWT_ACCESS_TTL_NORMAL ({}) must be less than refresh TTL ({} days = {} secs)",
-            config.normal_secs, config.refresh_days, refresh_secs
-        );
-    }
-    if config.elevated_secs > refresh_secs {
-        panic!(
-            "JWT_ACCESS_TTL_ELEVATED ({}) must be less than refresh TTL ({} days = {} secs)",
-            config.elevated_secs, config.refresh_days, refresh_secs
-        );
-    }
-    if config.admin_secs > admin_refresh_secs {
-        panic!(
-            "JWT_ACCESS_TTL_ADMIN ({}) must be less than admin refresh TTL ({} days = {} secs)",
-            config.admin_secs, config.admin_refresh_days, admin_refresh_secs
-        );
-    }
-    if config.platform_secs > refresh_secs {
-        panic!(
-            "JWT_ACCESS_TTL_PLATFORM ({}) must be less than refresh TTL ({} days = {} secs)",
-            config.platform_secs, config.refresh_days, refresh_secs
-        );
-    }
+    assert!(
+        config.normal_secs <= refresh_secs,
+        "JWT_ACCESS_TTL_NORMAL ({}) must be less than refresh TTL ({} days = {} secs)",
+        config.normal_secs,
+        config.refresh_days,
+        refresh_secs
+    );
+    assert!(
+        config.elevated_secs <= refresh_secs,
+        "JWT_ACCESS_TTL_ELEVATED ({}) must be less than refresh TTL ({} days = {} secs)",
+        config.elevated_secs,
+        config.refresh_days,
+        refresh_secs
+    );
+    assert!(
+        config.admin_secs <= admin_refresh_secs,
+        "JWT_ACCESS_TTL_ADMIN ({}) must be less than admin refresh TTL ({} days = {} secs)",
+        config.admin_secs,
+        config.admin_refresh_days,
+        admin_refresh_secs
+    );
+    assert!(
+        config.platform_secs <= refresh_secs,
+        "JWT_ACCESS_TTL_PLATFORM ({}) must be less than refresh TTL ({} days = {} secs)",
+        config.platform_secs,
+        config.refresh_days,
+        refresh_secs
+    );
 }
 
 /// Helper: read a u64 from an environment variable, or return the default.
@@ -295,8 +305,7 @@ fn env_or_config(name: &str, config_val: Option<u64>, default: u64) -> u64 {
 fn now_secs() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+        .map_or(0, |d| d.as_secs())
 }
 
 #[cfg(test)]
@@ -382,9 +391,7 @@ mod tests {
         let refresh_secs = config.refresh_ttl_for_role("customer").as_secs();
         assert!(
             refresh_secs > access_secs,
-            "Refresh TTL ({}) must exceed access TTL ({})",
-            refresh_secs,
-            access_secs
+            "Refresh TTL ({refresh_secs}) must exceed access TTL ({access_secs})"
         );
 
         // Same for admin
@@ -392,9 +399,7 @@ mod tests {
         let admin_refresh = config.refresh_ttl_for_role("org_admin").as_secs();
         assert!(
             admin_refresh > admin_access,
-            "Admin refresh TTL ({}) must exceed admin access TTL ({})",
-            admin_refresh,
-            admin_access
+            "Admin refresh TTL ({admin_refresh}) must exceed admin access TTL ({admin_access})"
         );
     }
 

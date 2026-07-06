@@ -1,4 +1,4 @@
-/// Handler for OpenID Configuration — returns the OpenID Connect provider configuration.
+/// Handler for `OpenID` Configuration — returns the `OpenID` Connect provider configuration.
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_common::audit::AuditEventType;
@@ -8,11 +8,13 @@ use sesame_idam_identity_session_service_gen::handlers::openid_configuration::{R
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
 
-    let entry =
-        sesame_common::audit::AuditLogEntry::new(AuditEventType::JwtValidated, "identity-session-service")
-            .decision_source("openid_configuration")
-            .result("allowed")
-            .build();
+    let entry = sesame_common::audit::AuditLogEntry::new(
+        AuditEventType::JwtValidated,
+        "identity-session-service",
+    )
+    .decision_source("openid_configuration")
+    .result("allowed")
+    .build();
 
     if let Ok(entry) = entry {
         EMITTER.emit(entry);

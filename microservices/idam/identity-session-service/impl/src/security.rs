@@ -11,11 +11,11 @@ use std::sync::Arc;
 use brrtrouter::security::JwksBearerProvider;
 use brrtrouter::server::AppService;
 
-use crate::config::AppConfig;
+use sesame_common::config::AppConfig;
 
 /// Register security providers for all schemes defined in the app config.
 ///
-/// Iterates over the security schemes from the OpenAPI spec and matches them
+/// Iterates over the security schemes from the `OpenAPI` spec and matches them
 /// against per-scheme config entries. For schemes with JWKS config, creates a
 /// `JwksBearerProvider` with the specified `jwks_url`, `iss`, `aud`,
 /// `leeway_secs`, and `cache_ttl_secs`.
@@ -48,7 +48,6 @@ pub fn init_security(app_config: &AppConfig, service: &mut AppService) -> Result
                     scheme_name, jwks.jwks_url, jwks.iss, jwks.aud
                 );
                 service.register_security_provider(&scheme_name, Arc::new(provider));
-                continue;
             }
         }
         // Fallback: skip this scheme (no JWKS config defined)

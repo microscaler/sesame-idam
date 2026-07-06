@@ -121,7 +121,7 @@ fn test_replay_attack_on_active_token_detected() {
         new_access_token: "new-access-token".to_string(),
         new_refresh_token: "new-refresh-token".to_string(),
         access_expires_in: 300,
-        refresh_expires_in: REFRESH_TOKEN_TTL as i32,
+        refresh_expires_in: i32::try_from(REFRESH_TOKEN_TTL).unwrap_or(i32::MAX),
     };
 
     match legitimate_rotation {

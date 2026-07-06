@@ -12,13 +12,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let tenant_id = req.data.x_tenant_id.clone();
     let admin_user_id = req.data.admin_user_id.clone();
 
-    let entry =
-        sesame_common::audit::AuditLogEntry::new(AuditEventType::Delegation, "identity-session-service")
-            .user_id(admin_user_id.clone())
-            .tenant_id(tenant_id.clone())
-            .decision_source("admin_restore_impersonation")
-            .result("allowed")
-            .build();
+    let entry = sesame_common::audit::AuditLogEntry::new(
+        AuditEventType::Delegation,
+        "identity-session-service",
+    )
+    .user_id(admin_user_id.clone())
+    .tenant_id(tenant_id.clone())
+    .decision_source("admin_restore_impersonation")
+    .result("allowed")
+    .build();
 
     if let Ok(entry) = entry {
         EMITTER.emit(entry);

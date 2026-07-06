@@ -1,3 +1,6 @@
+// The `#[handler]` macro requires `handle(req: TypedHandlerRequest<Request>)`
+// by value — suppress clippy::needless_pass_by_value for all controllers.
+#![allow(clippy::needless_pass_by_value)]
 /// Controller handlers for Session management (JWT, refresh, OIDC, JWKS, step-up, impersonation, MCP).
 ///
 /// Each controller corresponds to a single API endpoint. Controllers audit every

@@ -328,13 +328,15 @@ impl JwtSigningKey {
         })
     }
 
-    /// Create a key from pre-existing bytes (for testing / future persistence).
+    /// Create a key from pre-existing PKCS#8 bytes.
+    ///
+    /// Used to bootstrap from a shared signing key (Kubernetes Secret via
+    /// `SESAME_JWT_SIGNING_KEY_PKCS8_B64`) so identity-login-service signs
+    /// with a key whose public half this service publishes in JWKS.
     ///
     /// # Errors
     ///
     /// Returns [`KeyError::InvalidKey`] if the PKCS#8 bytes are invalid.
-    #[cfg(test)]
-    #[allow(clippy::missing_errors_doc)]
     pub fn from_pkcs8(kid: String, pkcs8: &[u8]) -> Result<Self, KeyError> {
         let key_pair = Ed25519KeyPair::from_pkcs8(pkcs8)
             .map_err(|e| KeyError::InvalidKey(format!("Invalid PKCS8: {e}")))?;
@@ -453,13 +455,26 @@ pub struct KeyManager {
 }
 
 impl KeyManager {
-    /// Create a new [`KeyManager`] with a freshly generated key.
+    /// Create a new [`KeyManager`].
+    ///
+    /// If `SESAME_JWT_SIGNING_KEY_PKCS8_B64` + `SESAME_JWT_SIGNING_KID` are
+    /// set (shared signing key, provisioned as a Kubernetes Secret), the
+    /// current key is loaded from that material so JWKS publishes the same
+    /// key identity-login-service signs with. Otherwise a fresh key pair is
+    /// generated (single-process dev mode).
     ///
     /// # Errors
     ///
-    /// Returns [`KeyError::GenerationFailed`] if RNG fails.
+    /// Returns [`KeyError::GenerationFailed`] if RNG fails or
+    /// [`KeyError::InvalidKey`] if the env-provided key is malformed.
     pub fn new() -> Result<Self, KeyError> {
-        let current_key = JwtSigningKey::generate(None)?;
+        let current_key = match Self::key_from_env()? {
+            Some(key) => {
+                tracing::info!(kid = %key.kid, "KeyManager bootstrapped from shared signing key env");
+                key
+            }
+            None => JwtSigningKey::generate(None)?,
+        };
         Ok(Self {
             current_key: Some(current_key),
             next_key: None,
@@ -470,6 +485,28 @@ impl KeyManager {
             last_rotation: None,
             kid_counter: 0,
         })
+    }
+
+    /// Load the shared signing key from environment, if configured.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::InvalidKey`] if the env vars are set but contain
+    /// malformed key material.
+    fn key_from_env() -> Result<Option<JwtSigningKey>, KeyError> {
+        let (Ok(b64), Ok(kid)) = (
+            std::env::var(sesame_common::jwt::SIGNING_KEY_ENV),
+            std::env::var(sesame_common::jwt::SIGNING_KID_ENV),
+        ) else {
+            return Ok(None);
+        };
+        if b64.trim().is_empty() || kid.trim().is_empty() {
+            return Ok(None);
+        }
+        let pkcs8 = URL_SAFE_NO_PAD
+            .decode(b64.trim())
+            .map_err(|e| KeyError::InvalidKey(format!("signing key env base64: {e}")))?;
+        JwtSigningKey::from_pkcs8(kid.trim().to_string(), &pkcs8).map(Some)
     }
 
     /// Create with custom rotation settings.
@@ -617,11 +654,7 @@ impl KeyManager {
         span.record("to_kid", &new_kid);
         tracing::info!(kid = new_kid, "key rotation prepared");
         // HACK-102: audit key rotation preparation
-        let old_kid = self
-            .current_key
-            .as_ref()
-            .map(|k| k.kid.as_str())
-            .unwrap_or("none");
+        let old_kid = self.current_key.as_ref().map_or("none", |k| k.kid.as_str());
         audit_events::key_rotated(old_kid, &new_kid);
         Ok(())
     }
@@ -913,7 +946,7 @@ impl KeyManager {
         let current_kid = self
             .current_key
             .as_ref()
-            .map_or("".to_string(), |k| k.kid.clone());
+            .map_or(String::new(), |k| k.kid.clone());
         JwksHealthResponse {
             current_kid,
             key_count,
@@ -1116,9 +1149,9 @@ mod tests {
         assert_eq!(found.unwrap().kid, prev_kid);
 
         // Verify consistency: both methods return same key count.
-        let fv_count = km.keys_for_verification().len();
+        let _fv_count = km.keys_for_verification().len();
         // Manual count of keys findable by kid
-        let findable = km
+        let _findable = km
             .revoked_keys
             .iter()
             .filter(|k| {
@@ -1136,13 +1169,12 @@ mod tests {
             })
             .count();
         // find_public_key should find current + next + previous - revoked
-        let expected_findable = (3 - km.revoked_keys.len())
-            - if km.current_key.is_none() { 1 } else { 0 }
-            - if km.next_key.is_none() { 1 } else { 0 }
-            - if km.previous_key.is_none() { 1 } else { 0 };
-        assert_eq!(
+        let _expected_findable = (3 - km.revoked_keys.len())
+            - usize::from(km.current_key.is_none())
+            - usize::from(km.next_key.is_none())
+            - usize::from(km.previous_key.is_none());
+        assert!(
             found.is_some(),
-            true,
             "find_public_key and keys_for_verification should agree on previous_key"
         );
     }

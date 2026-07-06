@@ -61,7 +61,7 @@ pub struct RefreshToken {
 }
 
 impl RefreshToken {
-    /// Create a new RefreshToken instance.
+    /// Create a new `RefreshToken` instance.
     pub fn new(
         jti: String,
         sub: String,

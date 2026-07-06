@@ -10,19 +10,11 @@
 /// - `middleware` — custom middleware (JWKS headers)
 /// - `audit` — global audit event emitter
 use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
+use sesame_common::config::load_config;
 use sesame_idam_identity_session_service_gen::registry;
-mod audit;
-pub mod config;
-mod controllers;
-mod jwt;
-mod key_manager;
-mod middleware;
-mod models;
-mod redis;
-mod security;
-mod services;
-
-// key_manager module is registered but KeyManager is used via static KEY_MANAGER
+// All application modules live in the lib crate (see lib.rs) so the bin,
+// tests, and migrator share one compilation of them.
+use sesame_idam_identity_session_service::{controllers, middleware, security};
 
 use brrtrouter::dispatcher::Dispatcher;
 
@@ -118,9 +110,7 @@ fn main() -> io::Result<()> {
     // Rate limiting middleware: applies per-endpoint sliding-window limits.
     // JWKS endpoint is rate-limited to 100 req/60s; all other endpoints at
     // 1000 req/60s. Configurable via `config.yaml` `rate_limit` section.
-    let rate_limiter = std::sync::Arc::new(
-        middleware::rate_limit::RateLimitMiddleware::default(),
-    );
+    let rate_limiter = std::sync::Arc::new(middleware::rate_limit::RateLimitMiddleware::default());
     dispatcher.add_middleware(rate_limiter);
 
     // Create memory tracking middleware
@@ -170,7 +160,7 @@ fn main() -> io::Result<()> {
     // identity-session-service is the JWKS issuer — it doesn't consume JWTs from
     // itself, so security init is optional. Other consumer services use the
     // same init_security() to validate JWTs against this service's JWKS.
-    match config::load_config(&args.config) {
+    match load_config(&args.config) {
         Ok(app_config) => {
             if app_config.security.is_some() {
                 if let Err(e) = security::init_security(&app_config, &mut service) {

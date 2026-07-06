@@ -1,7 +1,7 @@
 /// BDD tests for Story 1.1 — Asymmetric JWKS
 ///
-/// Tests exercise KeyManager's PUBLIC API end-to-end. The same methods are called
-/// by the impl controllers (jwks.rs, admin_jwks_revoke.rs), so passing tests
+/// Tests exercise `KeyManager`'s PUBLIC API end-to-end. The same methods are called
+/// by the impl controllers (jwks.rs, `admin_jwks_revoke.rs`), so passing tests
 /// proves the controllers work correctly.
 use base64::Engine;
 use ring::signature::UnparsedPublicKey;
@@ -188,11 +188,7 @@ fn rotation_prepare_succeeds() {
     let old_kid = km.current_key.as_ref().unwrap().kid.clone();
 
     let result = km.prepare_rotation();
-    assert!(
-        result.is_ok(),
-        "prepare_rotation must succeed: {:?}",
-        result
-    );
+    assert!(result.is_ok(), "prepare_rotation must succeed: {result:?}");
 
     // next_key should now be set
     assert!(
@@ -242,8 +238,7 @@ fn rotation_activate_promotes_next_key() {
     let pub_keys = km.jwks_document().keys;
     assert!(
         pub_keys.iter().any(|k| k.kid == original_kid),
-        "Original key '{}' must still be in JWKS during grace period",
-        original_kid
+        "Original key '{original_kid}' must still be in JWKS during grace period"
     );
 
     // JWKS must have >= 2 keys
@@ -331,8 +326,7 @@ fn revoke_valid_key_succeeds() {
     let result = km.revoke_key(&kid);
     assert!(
         result.is_ok(),
-        "Revoke of valid key must succeed: {:?}",
-        result
+        "Revoke of valid key must succeed: {result:?}"
     );
 
     // Key must be removed from JWKS
@@ -340,8 +334,7 @@ fn revoke_valid_key_succeeds() {
     let still_present = remaining.iter().any(|j| j.kid == kid);
     assert!(
         !still_present,
-        "Key '{}' must be removed from JWKS after revocation",
-        kid
+        "Key '{kid}' must be removed from JWKS after revocation"
     );
 
     // Key count must decrease
@@ -359,8 +352,7 @@ fn revoke_invalid_key_fails() {
     let result = km.revoke_key("nonexistent-key-00000000");
     assert!(
         result.is_err(),
-        "Revoke of non-existent key must fail: {:?}",
-        result
+        "Revoke of non-existent key must fail: {result:?}"
     );
 }
 
@@ -370,8 +362,7 @@ fn revoke_empty_kid_fails() {
     let result = km.revoke_key("");
     assert!(
         result.is_err(),
-        "Revoke with empty kid must fail: {:?}",
-        result
+        "Revoke with empty kid must fail: {result:?}"
     );
 }
 
@@ -384,16 +375,13 @@ fn revoke_drops_private_key_from_memory() {
     let result = km.revoke_key(&kid);
     assert!(
         result.is_ok(),
-        "Revocation must succeed before checking memory: {:?}",
-        result
+        "Revocation must succeed before checking memory: {result:?}"
     );
 
     let new_count = km.jwks_document().keys.len();
     assert!(
         new_count < initial_count,
-        "Private key must be dropped from memory after revocation: {} -> {}",
-        initial_count,
-        new_count
+        "Private key must be dropped from memory after revocation: {initial_count} -> {new_count}"
     );
 }
 
@@ -408,8 +396,7 @@ fn revoke_key_tracked_in_revoked_list() {
     // Verify the key is in the revoked_keys tracking
     assert!(
         km.revoked_keys().contains(&kid),
-        "Revoked key '{}' must be tracked in revoked_keys",
-        kid
+        "Revoked key '{kid}' must be tracked in revoked_keys"
     );
 }
 
@@ -421,8 +408,7 @@ fn revoke_key_removed_from_public_keys() {
 
     assert!(
         km.find_public_key(&kid).is_none(),
-        "Revoked key '{}' must not be in public keys after revocation",
-        kid
+        "Revoked key '{kid}' must not be in public keys after revocation"
     );
 }
 

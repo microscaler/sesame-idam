@@ -70,7 +70,7 @@ impl WindowBucket {
 
     /// Evict entries outside the window and return the count.
     fn evict(&mut self, window: Duration) -> usize {
-        let cutoff = Instant::now() - window;
+        let cutoff = Instant::now().checked_sub(window).unwrap();
         while let Some(&front) = self.timestamps.front() {
             if front < cutoff {
                 self.timestamps.pop_front();
@@ -201,8 +201,8 @@ pub fn load_rate_limit_config(section: &serde_yaml::Value) -> Option<RateLimitSe
         Some(JwksRateLimitConfig {
             max_requests: m
                 .get("requests")
-                .and_then(|v| v.as_u64().map(|n| n as usize)),
-            window_secs: m.get("window_secs").and_then(|v| v.as_u64()),
+                .and_then(|v| v.as_u64().and_then(|n| usize::try_from(n).ok())),
+            window_secs: m.get("window_secs").and_then(serde_yaml::Value::as_u64),
         })
     });
 
@@ -211,8 +211,8 @@ pub fn load_rate_limit_config(section: &serde_yaml::Value) -> Option<RateLimitSe
         Some(GlobalRateLimitConfig {
             max_requests: m
                 .get("requests")
-                .and_then(|v| v.as_u64().map(|n| n as usize)),
-            window_secs: m.get("window_secs").and_then(|v| v.as_u64()),
+                .and_then(|v| v.as_u64().and_then(|n| usize::try_from(n).ok())),
+            window_secs: m.get("window_secs").and_then(serde_yaml::Value::as_u64),
         })
     });
 
@@ -248,12 +248,12 @@ impl RateLimiterState {
         // always ON by default so the service is protected on first deployment.
         let jwks_config = config.jwks.as_ref().map_or_else(
             || RateLimitConfig::new(DEFAULT_JWKS_REQUESTS, DEFAULT_JWKS_WINDOW_SECS),
-            |c| c.resolve(),
+            JwksRateLimitConfig::resolve,
         );
 
         let global_config = config.global.as_ref().map_or_else(
             || RateLimitConfig::new(DEFAULT_GLOBAL_REQUESTS, DEFAULT_GLOBAL_WINDOW_SECS),
-            |c| c.resolve(),
+            GlobalRateLimitConfig::resolve,
         );
 
         Self {
@@ -269,18 +269,18 @@ impl RateLimiterState {
     /// Uses the `X-Tenant-ID` header for multi-tenant services. If the header
     /// is absent, falls back to `"global"` which applies the limit across all
     /// callers (including unauthenticated requests).
-    fn get_key(&self, req: &HandlerRequest, path: &str) -> String {
+    fn get_key(req: &HandlerRequest, path: &str) -> String {
         if path.ends_with("/.well-known/jwks.json") {
             // For JWKS, use tenant-scoped or global key.
             // Unauthenticated JWKS fetches share the global key.
             req.get_header("X-Tenant-ID")
-                .map(|t| format!("jwks:tenant:{t}"))
-                .unwrap_or_else(|| "jwks:global".to_string())
+                .map_or_else(|| "jwks:global".to_string(), |t| format!("jwks:tenant:{t}"))
         } else {
             // Global limit uses tenant-scoped keys when available.
-            req.get_header("X-Tenant-ID")
-                .map(|t| format!("global:tenant:{t}"))
-                .unwrap_or_else(|| "global:global".to_string())
+            req.get_header("X-Tenant-ID").map_or_else(
+                || "global:global".to_string(),
+                |t| format!("global:tenant:{t}"),
+            )
         }
     }
 
@@ -299,7 +299,9 @@ impl RateLimiterState {
         // Lock and get/insert bucket in a scoped block to avoid temporary borrow
         let count = {
             let mut guard = self.buckets.lock().unwrap();
-            let bucket = guard.entry(key.to_string()).or_insert_with(WindowBucket::new);
+            let bucket = guard
+                .entry(key.to_string())
+                .or_insert_with(WindowBucket::new);
             bucket.evict(window)
         };
 
@@ -335,7 +337,7 @@ impl RateLimiterState {
     /// Returns `None` if the request is allowed, or `Some(retry_after_secs)`
     /// if rate limited.
     pub fn check_jwks(&self, req: &HandlerRequest) -> Result<usize, u64> {
-        let key = self.get_key(req, "/.well-known/jwks.json");
+        let key = Self::get_key(req, "/.well-known/jwks.json");
         self.check_limit(&key, &self.jwks_config, "jwks")
     }
 
@@ -344,7 +346,7 @@ impl RateLimiterState {
     /// Returns `None` if the request is allowed, or `Some(retry_after_secs)`
     /// if rate limited.
     pub fn check_global(&self, req: &HandlerRequest) -> Result<usize, u64> {
-        let key = self.get_key(req, "");
+        let key = Self::get_key(req, "");
         self.check_limit(&key, &self.global_config, "global")
     }
 }
@@ -393,7 +395,13 @@ impl RateLimitMiddleware {
 
     /// Create a new rate limit middleware with default configuration.
     #[must_use]
-    pub fn default() -> Self {
+    pub fn with_defaults() -> Self {
+        Self::new(None)
+    }
+}
+
+impl Default for RateLimitMiddleware {
+    fn default() -> Self {
         Self::new(None)
     }
 }
@@ -460,14 +468,14 @@ impl RateLimitMiddleware {
 mod tests {
     use super::*;
 
-    /// WindowBucket: empty bucket has 0 entries.
+    /// `WindowBucket`: empty bucket has 0 entries.
     #[test]
     fn test_empty_bucket_has_no_entries() {
         let bucket = WindowBucket::new();
         assert_eq!(bucket.timestamps.len(), 0);
     }
 
-    /// WindowBucket: recording adds a timestamp.
+    /// `WindowBucket`: recording adds a timestamp.
     #[test]
     fn test_record_adds_timestamp() {
         let mut bucket = WindowBucket::new();
@@ -476,7 +484,7 @@ mod tests {
         assert_eq!(bucket.timestamps.len(), 1);
     }
 
-    /// WindowBucket: multiple recordings increment count.
+    /// `WindowBucket`: multiple recordings increment count.
     #[test]
     fn test_multiple_records_increments_count() {
         let mut bucket = WindowBucket::new();
@@ -486,7 +494,7 @@ mod tests {
         assert_eq!(bucket.timestamps.len(), 3);
     }
 
-    /// WindowBucket: eviction removes entries older than window.
+    /// `WindowBucket`: eviction removes entries older than window.
     #[test]
     fn test_eviction_removes_old_entries() {
         let mut bucket = WindowBucket::new();
@@ -497,7 +505,7 @@ mod tests {
         assert_eq!(count, 0);
     }
 
-    /// WindowBucket: eviction preserves recent entries.
+    /// `WindowBucket`: eviction preserves recent entries.
     #[test]
     fn test_eviction_preserves_recent_entries() {
         let mut bucket = WindowBucket::new();
@@ -508,14 +516,14 @@ mod tests {
         assert_eq!(count, 2);
     }
 
-    /// WindowBucket: retry_after returns 0 for empty bucket.
+    /// `WindowBucket`: `retry_after` returns 0 for empty bucket.
     #[test]
     fn test_retry_after_empty_bucket() {
         let bucket = WindowBucket::new();
         assert_eq!(bucket.retry_after(Duration::from_secs(60)), 0);
     }
 
-    /// WindowBucket: retry_after returns positive value for non-empty bucket.
+    /// `WindowBucket`: `retry_after` returns positive value for non-empty bucket.
     #[test]
     fn test_retry_after_non_empty_bucket() {
         let mut bucket = WindowBucket::new();
@@ -524,7 +532,7 @@ mod tests {
         assert!(retry > 0 && retry <= 60);
     }
 
-    /// RateLimiterState: new state uses default config.
+    /// `RateLimiterState`: new state uses default config.
     #[test]
     fn test_new_state_uses_defaults() {
         let state = RateLimiterState::new(None);
@@ -533,7 +541,7 @@ mod tests {
         assert_eq!(state.jwks_config.window_secs, DEFAULT_JWKS_WINDOW_SECS);
     }
 
-    /// RateLimiterState: new state from config section uses configured values.
+    /// `RateLimiterState`: new state from config section uses configured values.
     #[test]
     fn test_new_state_from_config_uses_values() {
         let section = RateLimitSection {
@@ -553,32 +561,30 @@ mod tests {
         assert_eq!(state.global_config.window_secs, 120);
     }
 
-    /// RateLimiterState: get_key returns jwks:global for unauthenticated JWKS.
+    /// `RateLimiterState`: `get_key` returns jwks:global for unauthenticated JWKS.
     #[test]
     fn test_get_key_jwks_no_tenant() {
-        let state = RateLimiterState::new(None);
         let req = HandlerRequest {
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/.well-known/jwks.json".to_string(),
             handler_name: "jwks".to_string(),
-            path_params: Default::default(),
-            query_params: Default::default(),
-            headers: Default::default(),
-            cookies: Default::default(),
+            path_params: brrtrouter::router::ParamVec::default(),
+            query_params: brrtrouter::router::ParamVec::default(),
+            headers: brrtrouter::dispatcher::HeaderVec::default(),
+            cookies: brrtrouter::dispatcher::HeaderVec::default(),
             body: None,
             jwt_claims: None,
             reply_tx: may::sync::mpsc::channel().0,
             queue_guard: None,
         };
-        let key = state.get_key(&req, "/.well-known/jwks.json");
+        let key = RateLimiterState::get_key(&req, "/.well-known/jwks.json");
         assert_eq!(key, "jwks:global");
     }
 
-    /// RateLimiterState: get_key returns jwks-scoped key with tenant header.
+    /// `RateLimiterState`: `get_key` returns jwks-scoped key with tenant header.
     #[test]
     fn test_get_key_jwks_with_tenant() {
-        let state = RateLimiterState::new(None);
         let mut headers = brrtrouter::dispatcher::HeaderVec::new();
         headers.push((std::sync::Arc::from("x-tenant-id"), "hauliage".to_string()));
         let req = HandlerRequest {
@@ -586,42 +592,41 @@ mod tests {
             method: http::Method::GET,
             path: "/.well-known/jwks.json".to_string(),
             handler_name: "jwks".to_string(),
-            path_params: Default::default(),
-            query_params: Default::default(),
+            path_params: brrtrouter::router::ParamVec::default(),
+            query_params: brrtrouter::router::ParamVec::default(),
             headers,
-            cookies: Default::default(),
+            cookies: brrtrouter::dispatcher::HeaderVec::default(),
             body: None,
             jwt_claims: None,
             reply_tx: may::sync::mpsc::channel().0,
             queue_guard: None,
         };
-        let key = state.get_key(&req, "/.well-known/jwks.json");
+        let key = RateLimiterState::get_key(&req, "/.well-known/jwks.json");
         assert_eq!(key, "jwks:tenant:hauliage");
     }
 
-    /// RateLimiterState: get_key returns global-scoped key for non-JWKS.
+    /// `RateLimiterState`: `get_key` returns global-scoped key for non-JWKS.
     #[test]
     fn test_get_key_global_non_jwks() {
-        let state = RateLimiterState::new(None);
         let req = HandlerRequest {
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/api/v1/users".to_string(),
             handler_name: "users_me_get".to_string(),
-            path_params: Default::default(),
-            query_params: Default::default(),
-            headers: Default::default(),
-            cookies: Default::default(),
+            path_params: brrtrouter::router::ParamVec::default(),
+            query_params: brrtrouter::router::ParamVec::default(),
+            headers: brrtrouter::dispatcher::HeaderVec::default(),
+            cookies: brrtrouter::dispatcher::HeaderVec::default(),
             body: None,
             jwt_claims: None,
             reply_tx: may::sync::mpsc::channel().0,
             queue_guard: None,
         };
-        let key = state.get_key(&req, "");
+        let key = RateLimiterState::get_key(&req, "");
         assert_eq!(key, "global:global");
     }
 
-    /// RateLimitMiddleware: allows requests under the limit.
+    /// `RateLimitMiddleware`: allows requests under the limit.
     #[test]
     fn test_middleware_allows_under_limit() {
         // Set a very low limit for testing.
@@ -640,10 +645,10 @@ mod tests {
             method: http::Method::GET,
             path: "/.well-known/jwks.json".to_string(),
             handler_name: "jwks".to_string(),
-            path_params: Default::default(),
-            query_params: Default::default(),
+            path_params: brrtrouter::router::ParamVec::default(),
+            query_params: brrtrouter::router::ParamVec::default(),
             headers,
-            cookies: Default::default(),
+            cookies: brrtrouter::dispatcher::HeaderVec::default(),
             body: None,
             jwt_claims: None,
             reply_tx: may::sync::mpsc::channel().0,
@@ -655,7 +660,7 @@ mod tests {
         assert!(result.is_none());
     }
 
-    /// RateLimitMiddleware: blocks requests over the limit with 429.
+    /// `RateLimitMiddleware`: blocks requests over the limit with 429.
     #[test]
     fn test_middleware_blocks_over_limit() {
         // Set a very low limit for testing.
@@ -677,10 +682,10 @@ mod tests {
             method: http::Method::GET,
             path: "/.well-known/jwks.json".to_string(),
             handler_name: "jwks".to_string(),
-            path_params: Default::default(),
-            query_params: Default::default(),
+            path_params: brrtrouter::router::ParamVec::default(),
+            query_params: brrtrouter::router::ParamVec::default(),
             headers,
-            cookies: Default::default(),
+            cookies: brrtrouter::dispatcher::HeaderVec::default(),
             body: None,
             jwt_claims: None,
             reply_tx: may::sync::mpsc::channel().0,
@@ -699,7 +704,7 @@ mod tests {
         assert!(response.get_header("retry-after").is_some());
     }
 
-    /// RateLimitMiddleware: different tenants have separate limits.
+    /// `RateLimitMiddleware`: different tenants have separate limits.
     #[test]
     fn test_middleware_separate_tenants() {
         // Set a very low limit for testing.
@@ -729,7 +734,7 @@ mod tests {
         assert!(middleware.before(&req_b).is_none());
     }
 
-    /// RateLimitMiddleware: unauthenticated requests share global bucket.
+    /// `RateLimitMiddleware`: unauthenticated requests share global bucket.
     #[test]
     fn test_middleware_global_unauthenticated_bucket() {
         let section = RateLimitSection {
@@ -742,15 +747,21 @@ mod tests {
         let middleware = RateLimitMiddleware::new(Some(&section));
 
         // First unauthenticated request passes.
-        let req1 = make_req(&Default::default(), "/.well-known/jwks.json");
+        let req1 = make_req(
+            &brrtrouter::dispatcher::HeaderVec::default(),
+            "/.well-known/jwks.json",
+        );
         assert!(middleware.before(&req1).is_none());
 
         // Second unauthenticated request is rate limited (same global key).
-        let req2 = make_req(&Default::default(), "/.well-known/jwks.json");
+        let req2 = make_req(
+            &brrtrouter::dispatcher::HeaderVec::default(),
+            "/.well-known/jwks.json",
+        );
         assert!(middleware.before(&req2).is_some());
     }
 
-    /// RateLimitMiddleware: non-JWKS paths go through global limiter.
+    /// `RateLimitMiddleware`: non-JWKS paths go through global limiter.
     #[test]
     fn test_middleware_non_jwks_goes_to_global() {
         let section = RateLimitSection {
@@ -761,14 +772,17 @@ mod tests {
             }),
         };
         let middleware = RateLimitMiddleware::new(Some(&section));
-        let req = make_req(&Default::default(), "/api/v1/users");
+        let req = make_req(
+            &brrtrouter::dispatcher::HeaderVec::default(),
+            "/api/v1/users",
+        );
         assert!(middleware.before(&req).is_none());
     }
 
-    /// Config loader: returns None when no rate_limit section.
+    /// Config loader: returns None when no `rate_limit` section.
     #[test]
     fn test_load_config_none() {
-        let yaml = serde_yaml::Value::Mapping(Default::default());
+        let yaml = serde_yaml::Value::Mapping(serde_yaml::Mapping::default());
         assert!(load_rate_limit_config(&yaml).is_none());
     }
 
@@ -776,12 +790,12 @@ mod tests {
     #[test]
     fn test_load_config_parses_jwks() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            r#"
+            r"
 rate_limit:
   jwks:
     requests: 50
     window_secs: 30
-"#,
+",
         )
         .unwrap();
         let section = load_rate_limit_config(&yaml).expect("should parse");
@@ -795,12 +809,12 @@ rate_limit:
     #[test]
     fn test_load_config_parses_global() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            r#"
+            r"
 rate_limit:
   global:
     requests: 500
     window_secs: 120
-"#,
+",
         )
         .unwrap();
         let section = load_rate_limit_config(&yaml).expect("should parse");
@@ -810,7 +824,7 @@ rate_limit:
         assert_eq!(global.window_secs, Some(120));
     }
 
-    /// RateLimitConfig: resolve uses config values when set.
+    /// `RateLimitConfig`: resolve uses config values when set.
     #[test]
     fn test_resolve_uses_config() {
         let cfg = JwksRateLimitConfig {
@@ -822,7 +836,7 @@ rate_limit:
         assert_eq!(resolved.window_secs, 15);
     }
 
-    /// RateLimitConfig: resolve falls back to defaults when not set.
+    /// `RateLimitConfig`: resolve falls back to defaults when not set.
     #[test]
     fn test_resolve_falls_back_to_defaults() {
         let cfg = JwksRateLimitConfig::default();
@@ -865,17 +879,17 @@ rate_limit:
         let _ = middleware.before(&req_other);
     }
 
-    /// Helper to create a HandlerRequest with the given headers and path.
+    /// Helper to create a `HandlerRequest` with the given headers and path.
     fn make_req(headers: &brrtrouter::dispatcher::HeaderVec, path: &str) -> HandlerRequest {
         HandlerRequest {
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: path.to_string(),
             handler_name: "test".to_string(),
-            path_params: Default::default(),
-            query_params: Default::default(),
+            path_params: brrtrouter::router::ParamVec::default(),
+            query_params: brrtrouter::router::ParamVec::default(),
             headers: headers.clone(),
-            cookies: Default::default(),
+            cookies: brrtrouter::dispatcher::HeaderVec::default(),
             body: None,
             jwt_claims: None,
             reply_tx: may::sync::mpsc::channel().0,

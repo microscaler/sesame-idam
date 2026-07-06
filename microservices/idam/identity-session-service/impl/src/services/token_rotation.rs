@@ -99,7 +99,7 @@ impl From<anyhow::Error> for RotationError {
 /// Implements the rotation flow from Story 3.1:
 /// 1. Look up the refresh token in Redis by its JTI
 /// 2. Check if the JTI is in the denylist (reuse detection)
-/// 3. If found in denylist → revoke family → return ReuseDetected
+/// 3. If found in denylist → revoke family → return `ReuseDetected`
 /// 4. If clean → delete old token, issue new tokens, add old JTI to denylist
 ///
 /// # Parameters
@@ -127,15 +127,12 @@ pub fn rotate_refresh_token(
     }
 
     // Decode the JTI from the refresh token (payload portion)
-    let jti = match decode_refresh_token_jti(refresh_token_value) {
-        Some(j) => j,
-        None => {
-            TOKEN_REFRESH_TOTAL
-                .with_label_values(&["failure", "decode_error"])
-                .inc();
-            REFRESH_ROTATION_FAILURES_TOTAL.inc();
-            return RotationOutcome::InvalidToken;
-        }
+    let Some(jti) = decode_refresh_token_jti(refresh_token_value) else {
+        TOKEN_REFRESH_TOTAL
+            .with_label_values(&["failure", "decode_error"])
+            .inc();
+        REFRESH_ROTATION_FAILURES_TOTAL.inc();
+        return RotationOutcome::InvalidToken;
     };
 
     // Step 1: Look up the refresh token in Redis
@@ -156,6 +153,16 @@ pub fn rotate_refresh_token(
             return RotationOutcome::RedisUnavailable;
         }
     };
+
+    // Prefer the family recorded on the stored token (set at login time)
+    // over the caller-supplied hint, so reuse revocation targets the right
+    // family even when the handler cannot supply one.
+    let family_id: String = if token.family_id.is_empty() {
+        family_id.to_string()
+    } else {
+        token.family_id.clone()
+    };
+    let family_id = family_id.as_str();
 
     // Step 2: Check if this JTI is in the denylist (reuse detection)
     // This detects the "tear" scenario where an attacker used the token
@@ -195,7 +202,7 @@ pub fn rotate_refresh_token(
     // Step 4: Issue new refresh token (new JTI, same family)
     let new_jti = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().timestamp();
-    let new_exp = now + (crate::models::refresh_token::REFRESH_TOKEN_TTL as i64);
+    let new_exp = now + i64::from(crate::models::refresh_token::REFRESH_TOKEN_TTL);
 
     let new_token = RefreshToken::new(
         new_jti.clone(),
@@ -236,7 +243,8 @@ pub fn rotate_refresh_token(
 
     // Step 6: Generate new tokens (access + refresh)
     let access_expires_in = 300; // 5 minutes
-    let refresh_expires_in = crate::models::refresh_token::REFRESH_TOKEN_TTL as i32;
+    let refresh_expires_in =
+        i32::try_from(crate::models::refresh_token::REFRESH_TOKEN_TTL).unwrap_or(i32::MAX);
 
     let new_access_token = generate_access_token(
         &token.sub,
@@ -272,7 +280,10 @@ fn decode_refresh_token_jti(token: &str) -> Option<String> {
 
     // Parse as JSON and extract `jti`
     let value: serde_json::Value = serde_json::from_str(&decoded).ok()?;
-    value.get("jti")?.as_str().map(|s| s.to_string())
+    value
+        .get("jti")?
+        .as_str()
+        .map(std::string::ToString::to_string)
 }
 
 /// Base64url decode a string.
@@ -322,7 +333,7 @@ fn generate_access_token(
     let payload_b64 = engine.encode(serde_json::to_string(&payload).unwrap());
 
     // Signature (placeholder — replace with real signing in production)
-    format!("{}.{}.placeholder_signature", header_b64, payload_b64)
+    format!("{header_b64}.{payload_b64}.placeholder_signature")
 }
 
 /// Check if a token has been reused (for reuse detection).

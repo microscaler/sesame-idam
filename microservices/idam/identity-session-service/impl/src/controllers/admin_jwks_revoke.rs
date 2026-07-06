@@ -34,7 +34,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     };
 
     match result {
-        Ok(_) => {
+        Ok(()) => {
             tracing::info!(kid = &kid, "admin: key revoked successfully");
             span.record("result", "success");
             Response {
