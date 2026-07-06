@@ -82,11 +82,11 @@ management, and a deployable stack reachable from the hauliage Kind cluster.
 
 | Story | Description | Notes |
 |-------|-------------|-------|
-| H3.1 | Resolve the open question: authz-core per-request vs login-only (Epics INDEX open question #1). For hauliage v1, recommend **login-time enrichment only** (JWT-first, hybrid later per Epic 4) | Blocks claims design |
-| H3.2 | Claims schema v1 (Epic 2 subset): `sub`, `tenant_id`, `org_id`, `roles[]`, `sid`, `ver`, `typ=at+jwt` under the namespaced claims URI. Must carry what hauliage needs to delete its `HAULIAGE_ORGANIZATION_ID`/`HAULIAGE_USER_ID` env hacks | Full Epic 2 not required for v1 |
-| H3.3 | `principal_effective` real implementation: roles + permissions from org-membership/role tables, Redis-cached | Currently returns empty vectors |
+| H3.1 ✅ | authz-core call pattern decided: **login-time enrichment only** for hauliage v1 (JWT-first; hybrid per Epic 4 later) | Implemented as best-effort: login degrades to empty roles when authz-core is unavailable |
+| H3.2 🔶 | Claims schema v1: `sub`, `tenant_id`, `roles[]`, `sid`, `ver`, `typ=at+jwt` under the namespaced claims URI | **Mostly live** — login-issued tokens carry all of these; `org_id` claim still absent (needs org-membership data, H4) |
+| H3.3 🔶 | `principal_effective` real implementation | **Done for roles + attributes 2026-07-06** — queries `role_assignments`/`principal_attributes` tenant-scoped (live-DB BDD incl. tenant isolation). Permissions (role→permission mapping in org-mgmt tables) + Redis caching still pending |
 | H3.4 | `authorize` real decision evaluation (role→permission mapping); remove always-allow | EXTREME-traffic service; needs the Epic 7 caches eventually, simple DB+Redis for v1 |
-| H3.5 | Wire login → authz-core `/principal/effective` call (the one sanctioned cross-service dependency) using `may_http` client | Also completes the http-client-policy migration for this path |
+| H3.5 ✅ | Wire login → authz-core `/principal/effective` via `may_http` | **Done 2026-07-06** — `services/authz_client.rs` (500ms timeout, AUTHZ_CORE_URL env), roles land in TokenResponse + sx claims; BDD with mock authz-core + graceful-degradation test. Demo role seed: OWNER/DISPATCHER/DRIVER for the hauliage users |
 
 ## Epic H4 — Users & orgs (minimum viable surface)
 

@@ -158,6 +158,27 @@ Wired OTEL tracing spans across all 6 sesame-idam microservices following the ha
 - **Story 9.7 alerting**: No Loki/Grafana alert rules created yet (spans/logs are ready for them)
 - **Controller coverage**: Only representative controllers instrumented; many CRUD read/list controllers still lack spans
 
+## [2026-07-06 pm] Login-Time Role Enrichment via authz-core (H3.1/H3.3/H3.5)
+
+### Summary
+
+Wired the single sanctioned cross-service dependency: identity-login-service now calls authz-core `POST /authz/principals/effective` at login (may_http, 500ms timeout, `AUTHZ_CORE_URL` env, default `http://authz-core:8102`) and embeds the returned roles in both the `TokenResponse.roles` field and the signed token's namespaced `sx.roles` claims. Enrichment is best-effort: if authz-core is unreachable, login succeeds with empty roles (logged warning) — resolves Epics INDEX open question #1 as **login-time enrichment** for v1.
+
+authz-core `principal_effective` is now DB-backed: tenant-scoped queries over `role_assignments` (roles) and `principal_attributes` (attributes) via a new `PrincipalService`; permissions remain empty until the org-mgmt role→permission mapping / entitlements work. Non-UUID principals return empty without touching the DB. Register & Overwrite wired in authz-core main.rs + Lifeguard pool warmup.
+
+New seed `authz-core/impl/seeds/20260706000001_hauliage_demo_roles.sql`: OWNER/DISPATCHER/DRIVER for the three hauliage demo users (applied to the Kind postgres). NOTE: seed_order.txt must be regenerated (`cargo run -p sesame_idam_migrator`) after adding seeds, or setup-db.sh skips them.
+
+### Tests
+
+- authz-core: live-DB BDD (`principal_effective_db.rs`) — seeded role resolves, tenant isolation (no cross-tenant leak), unknown principal → empty, non-uuid guard.
+- login: `authz_enrichment.rs` — mock authz-core (may_minihttp) proves roles land in response + sx claims; unreachable authz-core proves graceful degradation.
+- Gates: `just nt` 861/861 PASS, `just lint-rust` PASS.
+
+### Open Issues
+
+- Roles are enriched but `permissions`/entitlements are still empty (needs org-mgmt mapping, Epic 2/7).
+- For roles to appear in real deployments, authz-core must be reachable from login-service (Tilt/Helm wiring, H6.3).
+
 ## [2026-07-06] Real Login/Register + WIP Refactor Landed (Hauliage P0/P1)
 
 ### Summary
