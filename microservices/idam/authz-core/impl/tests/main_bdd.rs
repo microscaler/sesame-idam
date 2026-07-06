@@ -17,6 +17,7 @@ pub mod bdd {
     pub mod authorize;
     pub mod jwt_validation;
     pub mod principal_effective;
+    pub mod principal_effective_db;
     pub mod set_principal_attribute;
 
     // Epic 1 audit/retention — per-controller BDD specs

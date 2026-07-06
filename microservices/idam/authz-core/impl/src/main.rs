@@ -105,9 +105,20 @@ fn main() -> std::io::Result<()> {
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
-    // Register generated handlers from the spec.
+    // Register & Overwrite pattern (hauliage ADR 0001): register all gen
+    // stubs first, then overwrite implemented routes with impl controllers.
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);
+        for route in &routes {
+            if route.handler_name.as_ref() == "principal_effective" {
+                let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                    sesame_idam_authz_core::controllers::principal_effective::PrincipalEffectiveController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+        }
     }
 
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
@@ -147,6 +158,10 @@ fn main() -> std::io::Result<()> {
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
         lifeguard::metrics::prometheus_scrape_text()
     })));
+
+    // Warm Lifeguard on the main OS thread before may-scheduled HTTP handlers:
+    // lazy pool init inside a may coroutine can deadlock the runtime.
+    let _ = sesame_idam_database::db();
 
     // Port selection: PORT env var (K8s) > default 8080.
     let port = std::env::var("PORT")
