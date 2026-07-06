@@ -1,16 +1,16 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;
 use sesame_idam_authz_core::controllers::list_retention_policies::handle;
-use sesame_idam_authz_core_gen::handlers::list_retention_policies::{Request, Response};
+use sesame_idam_authz_core_gen::handlers::list_retention_policies::Request;
 
-/// Construct a minimal TypedHandlerRequest for list_retention_policies.
+/// Construct a minimal `TypedHandlerRequest` for `list_retention_policies`.
 fn make_request() -> TypedHandlerRequest<Request> {
     TypedHandlerRequest {
         method: Method::GET,
         path: "/authz/audit/events/retention".to_string(),
         handler_name: "list_retention_policies".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: Request {
             x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
         },
@@ -29,7 +29,7 @@ fn list_retention_policies_returns_response_with_items() {
 
     // Response struct has an items field
     assert!(
-        response.items.is_empty(),
+        response.0.is_empty(),
         "retention policies should be empty (stub handler)"
     );
 }
@@ -41,24 +41,25 @@ fn list_retention_policies_returns_response_with_items() {
 /// Then: the response body has "items" field of type array.
 #[test]
 fn response_has_items_array() {
+    // Response is a tuple struct wrapping Vec<AuditRetentionPolicy>,
+    // so it serializes to a bare JSON array.
     let typed_req = make_request();
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(json.get("items").is_some(), "missing 'items' field");
-    assert!(json["items"].is_array(), "'items' must be an array");
+    assert!(json.is_array(), "response must serialize to a JSON array");
 }
 
 /// Scenario: Response serializes to a valid JSON object.
 ///
 /// Given: a valid request.
 /// When: the handler is invoked.
-/// Then: the response body is a valid JSON object with "items".
+/// Then: the response body is a valid JSON array.
 #[test]
 fn response_is_valid_object() {
     let typed_req = make_request();
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(json.is_object(), "response must serialize to a JSON object");
+    assert!(json.is_array(), "response must serialize to a JSON array");
 }
 
 /// Scenario: Response items array is empty for stub.
@@ -71,7 +72,7 @@ fn response_items_array_is_empty_for_stub() {
     let typed_req = make_request();
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-    let items = json["items"].as_array().expect("must be array");
+    let items = json.as_array().expect("must be array");
     assert!(
         items.is_empty(),
         "stub handler should return empty items array"
@@ -97,7 +98,7 @@ fn reject_missing_x_tenant_id() {
 ///
 /// Given: a request with X-Tenant-ID header.
 /// When: we construct a Request.
-/// Then: x_tenant_id is set from the header.
+/// Then: `x_tenant_id` is set from the header.
 #[test]
 fn tenant_isolation_headers() {
     let tenant_id = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";

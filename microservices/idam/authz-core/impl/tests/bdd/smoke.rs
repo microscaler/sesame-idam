@@ -45,8 +45,8 @@ fn when_call_authorize(ctx: Arc<Mutex<ControllerTestContext>>) {
         method: Method::POST,
         path: "/authz/authorize".to_string(),
         handler_name: "authorize".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: Request {
             user_id: "test-user-001".to_string(),
             action: "read".to_string(),

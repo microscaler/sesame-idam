@@ -4,7 +4,7 @@
 /// effective permissions endpoint. These verify:
 /// - Required fields are enforced by deserialization
 /// - Optional fields accept valid values
-/// - Response shape matches the OpenAPI spec
+/// - Response shape matches the `OpenAPI` spec
 /// - Tenant isolation headers are extracted correctly
 use sesame_idam_authz_core_gen::handlers::principal_effective::{Request, Response};
 
@@ -12,9 +12,9 @@ use sesame_idam_authz_core_gen::handlers::principal_effective::{Request, Respons
 
 /// Scenario: Get effective permissions for a user.
 ///
-/// Given: valid request with required fields (user_id, app_id, tenant_id).
+/// Given: valid request with required fields (`user_id`, `app_id`, `tenant_id`).
 /// When: we construct a Request and serialize the response.
-/// Then: the response has user_id, roles, and permissions fields.
+/// Then: the response has `user_id`, roles, and permissions fields.
 #[test]
 fn test_get_effective_permissions_for_user() {
     // Given: valid request with required fields
@@ -55,9 +55,9 @@ fn test_get_effective_permissions_for_user() {
 
 /// Scenario: Get effective permissions with inheritance.
 ///
-/// Given: valid request with include_inherited=true.
+/// Given: valid request with `include_inherited=true`.
 /// When: we construct a Request.
-/// Then: include_inherited is Some(true).
+/// Then: `include_inherited` is Some(true).
 #[test]
 fn test_get_effective_permissions_with_inheritance() {
     // Given: valid request with include_inherited
@@ -79,9 +79,9 @@ fn test_get_effective_permissions_with_inheritance() {
 
 // ─── Scenario Group 2: Required fields validation ────────────────────────────
 
-/// Scenario: Reject request missing required "user_id" field.
+/// Scenario: Reject request missing required "`user_id`" field.
 ///
-/// Given: request body without "user_id" field.
+/// Given: request body without "`user_id`" field.
 /// When: we attempt to construct a Request.
 /// Then: serde deserialization fails (missing required field).
 #[test]
@@ -102,9 +102,9 @@ fn test_reject_request_missing_user_id_field() {
     );
 }
 
-/// Scenario: Reject request missing required "tenant_id" field.
+/// Scenario: Reject request missing required "`tenant_id`" field.
 ///
-/// Given: request body without "tenant_id" field.
+/// Given: request body without "`tenant_id`" field.
 /// When: we attempt to construct a Request.
 /// Then: serde deserialization fails (missing required field).
 #[test]
@@ -125,9 +125,9 @@ fn test_reject_request_missing_tenant_id_field() {
     );
 }
 
-/// Scenario: Reject request missing required "app_id" field.
+/// Scenario: Reject request missing required "`app_id`" field.
 ///
-/// Given: request body without "app_id" field.
+/// Given: request body without "`app_id`" field.
 /// When: we attempt to construct a Request.
 /// Then: serde deserialization fails (missing required field).
 #[test]
@@ -150,11 +150,11 @@ fn test_reject_request_missing_app_id_field() {
 
 // ─── Scenario Group 3: Response shape validation ─────────────────────────────
 
-/// Scenario: Response contains "user_id" string.
+/// Scenario: Response contains "`user_id`" string.
 ///
-/// Given: valid principal_effective request.
+/// Given: valid `principal_effective` request.
 /// When: we construct a Response.
-/// Then: the response body has a "user_id" field of type string.
+/// Then: the response body has a "`user_id`" field of type string.
 #[test]
 fn test_response_contains_user_id_string() {
     // When: we construct a response
@@ -179,7 +179,7 @@ fn test_response_contains_user_id_string() {
 
 /// Scenario: Response contains "roles" array.
 ///
-/// Given: valid principal_effective request.
+/// Given: valid `principal_effective` request.
 /// When: we construct a Response.
 /// Then: the response body has a "roles" field of type array.
 #[test]
@@ -210,7 +210,7 @@ fn test_response_contains_roles_array() {
 
 /// Scenario: Response contains "permissions" array.
 ///
-/// Given: valid principal_effective request.
+/// Given: valid `principal_effective` request.
 /// When: we construct a Response.
 /// Then: the response body has a "permissions" field of type array.
 #[test]
@@ -238,11 +238,11 @@ fn test_response_contains_permissions_array() {
 
 // ─── Scenario Group 4: Optional fields ───────────────────────────────────────
 
-/// Scenario: Accept request with optional "org_id" field.
+/// Scenario: Accept request with optional "`org_id`" field.
 ///
-/// Given: valid request plus optional "org_id".
+/// Given: valid request plus optional "`org_id`".
 /// When: we construct a Request.
-/// Then: deserialization succeeds and org_id is Some(...).
+/// Then: deserialization succeeds and `org_id` is Some(...).
 #[test]
 fn test_accept_request_with_optional_org_id() {
     let request_data = Request {
@@ -270,7 +270,7 @@ fn test_accept_request_with_optional_org_id() {
 ///
 /// Given: a request with X-Tenant-ID header.
 /// When: we construct a Request from the header.
-/// Then: x_tenant_id and tenant_id are both set from the header.
+/// Then: `x_tenant_id` and `tenant_id` are both set from the header.
 #[test]
 fn test_tenant_isolation_headers() {
     // Given: tenant IDs from header

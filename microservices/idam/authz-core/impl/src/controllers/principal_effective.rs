@@ -16,10 +16,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     let mut metadata = serde_json::Map::new();
     if let Some(include) = req.data.include_inherited {
-        metadata.insert(
-            "include_inherited".to_string(),
-            serde_json::json!(include),
-        );
+        metadata.insert("include_inherited".to_string(), serde_json::json!(include));
     }
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "effective_permissions")

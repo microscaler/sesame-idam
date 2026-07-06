@@ -10,7 +10,7 @@ use std::time::Duration;
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
 use brrtrouter::middleware::Middleware;
 
-/// BRRTRouter middleware that creates a `tracing` span for every
+/// `BRRTRouter` middleware that creates a `tracing` span for every
 /// incoming request and records whether it was allowed or denied.
 ///
 /// The span is named `authz.request` and includes `route`, `method`,

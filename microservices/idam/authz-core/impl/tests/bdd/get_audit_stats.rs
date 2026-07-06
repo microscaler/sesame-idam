@@ -1,13 +1,13 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;
 use sesame_idam_authz_core::controllers::get_audit_stats::handle;
-use sesame_idam_authz_core_gen::handlers::get_audit_stats::{Request, Response};
+use sesame_idam_authz_core_gen::handlers::get_audit_stats::Request;
 
 /// Scenario: Get audit statistics for a tenant.
 ///
-/// Given: a valid request with tenant_id and X-Tenant-ID.
+/// Given: a valid request with `tenant_id` and X-Tenant-ID.
 /// When: the handler is invoked.
-/// Then: the response contains total (0), by_type, by_severity.
+/// Then: the response contains total (0), `by_type`, `by_severity`.
 #[test]
 fn get_audit_stats_returns_valid_response() {
     let request_data = Request {
@@ -22,8 +22,8 @@ fn get_audit_stats_returns_valid_response() {
         method: Method::POST,
         path: "/authz/audit/events/stats".to_string(),
         handler_name: "get_audit_stats".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 
@@ -58,8 +58,8 @@ fn response_total_is_integer() {
         method: Method::POST,
         path: "/authz/audit/events/stats".to_string(),
         handler_name: "get_audit_stats".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 
@@ -77,11 +77,11 @@ fn response_total_is_integer() {
     assert!(json["total"].is_number(), "'total' must be an integer");
 }
 
-/// Scenario: Response "by_type" is an object.
+/// Scenario: Response "`by_type`" is an object.
 ///
 /// Given: a valid request.
 /// When: the handler is invoked.
-/// Then: by_type is an object.
+/// Then: `by_type` is an object.
 #[test]
 fn response_by_type_is_object() {
     let request_data = Request {
@@ -96,8 +96,8 @@ fn response_by_type_is_object() {
         method: Method::POST,
         path: "/authz/audit/events/stats".to_string(),
         handler_name: "get_audit_stats".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 

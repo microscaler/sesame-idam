@@ -9,7 +9,7 @@
 /// - Token claims extraction works
 ///
 /// Uses the brrtrouter HandlerRequest/HandlerResponse channel pattern (same as
-/// jwks_http.rs in identity-session-service).
+/// `jwks_http.rs` in identity-session-service).
 use base64::Engine;
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use sesame_idam_identity_session_service::key_manager::KEY_MANAGER;
 
-/// Helper: sign a JWT payload using the current Ed25519 key from KEY_MANAGER.
+/// Helper: sign a JWT payload using the current Ed25519 key from `KEY_MANAGER`.
 ///
 /// Returns a raw JWT string (header.payload.signature) without the "Bearer " prefix.
 fn sign_test_jwt(payload: &str, kid: &str) -> String {
@@ -41,7 +41,7 @@ fn sign_test_jwt(payload: &str, kid: &str) -> String {
     let payload_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.as_bytes());
     let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&signature);
 
-    format!("{}.{}.{}", header_b64, payload_b64, sig_b64)
+    format!("{header_b64}.{payload_b64}.{sig_b64}")
 }
 
 /// Sign a JWT with a different algorithm claimed in the header (for alg mismatch tests).
@@ -65,10 +65,10 @@ fn sign_jwt_with_fake_alg(payload: &str, kid: &str, fake_alg: &str) -> String {
     let payload_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.as_bytes());
     let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&signature);
 
-    format!("{}.{}.{}", header_b64, payload_b64, sig_b64)
+    format!("{header_b64}.{payload_b64}.{sig_b64}")
 }
 
-/// Construct a minimal HandlerRequest for testing.
+/// Construct a minimal `HandlerRequest` for testing.
 fn make_request(
     handler_name: &str,
     method: Method,
@@ -82,10 +82,10 @@ fn make_request(
     HandlerRequest {
         request_id: RequestId::new(),
         method,
-        path: format!("/authz/{}", handler_name),
+        path: format!("/authz/{handler_name}"),
         handler_name: handler_name.to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: brrtrouter::router::ParamVec::default(),
+        query_params: brrtrouter::router::ParamVec::default(),
         headers: hv,
         cookies: HeaderVec::new(),
         body,
@@ -106,7 +106,9 @@ fn create_valid_jwt() -> (String, String) {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs() as i64;
+        .as_secs()
+        .try_into()
+        .unwrap_or(i64::MAX);
 
     let payload = serde_json::json!({
         "sub": "test-user",
@@ -138,7 +140,7 @@ fn test_valid_ed25519_jwt_accepted() {
         "audit/events",
         Method::POST,
         vec![
-            ("Authorization", &format!("Bearer {}", jwt)),
+            ("Authorization", &format!("Bearer {jwt}")),
             ("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"),
             ("Content-Type", "application/json"),
         ],
@@ -148,9 +150,9 @@ fn test_valid_ed25519_jwt_accepted() {
         })),
     );
 
-    let _body = serde_json::to_value(req.body.clone());
+    let body = serde_json::to_value(req.body.clone());
     assert!(
-        _body.is_ok(),
+        body.is_ok(),
         "Request with valid Ed25519 JWT should pass JWT validation"
     );
 }
@@ -188,7 +190,7 @@ fn test_malformed_jwt_rejected() {
         "audit/events",
         Method::POST,
         vec![
-            ("Authorization", &format!("Bearer {}", malformed_jwt)),
+            ("Authorization", &format!("Bearer {malformed_jwt}")),
             ("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"),
             ("Content-Type", "application/json"),
         ],
@@ -213,7 +215,9 @@ fn test_wrong_algorithm_rejected() {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs() as i64;
+        .as_secs()
+        .try_into()
+        .unwrap_or(i64::MAX);
 
     let payload = serde_json::json!({
         "sub": "test-user",
@@ -226,7 +230,7 @@ fn test_wrong_algorithm_rejected() {
         "audit/events",
         Method::POST,
         vec![
-            ("Authorization", &format!("Bearer {}", jwt)),
+            ("Authorization", &format!("Bearer {jwt}")),
             ("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"),
             ("Content-Type", "application/json"),
         ],
@@ -257,13 +261,13 @@ fn test_jwt_without_kid_rejected() {
     let payload_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"{}");
     let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&signature);
 
-    let jwt_without_kid = format!("{}.{}.{}", header_b64, payload_b64, sig_b64);
+    let jwt_without_kid = format!("{header_b64}.{payload_b64}.{sig_b64}");
 
     let req = make_request(
         "audit/events",
         Method::POST,
         vec![
-            ("Authorization", &format!("Bearer {}", jwt_without_kid)),
+            ("Authorization", &format!("Bearer {jwt_without_kid}")),
             ("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"),
             ("Content-Type", "application/json"),
         ],
@@ -288,7 +292,9 @@ fn test_expired_jwt_rejected() {
     let past = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs() as i64
+        .as_secs()
+        .try_into()
+        .unwrap_or(i64::MAX)
         - 3600;
 
     let payload = serde_json::json!({
@@ -304,7 +310,7 @@ fn test_expired_jwt_rejected() {
         "audit/events",
         Method::POST,
         vec![
-            ("Authorization", &format!("Bearer {}", jwt)),
+            ("Authorization", &format!("Bearer {jwt}")),
             ("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"),
             ("Content-Type", "application/json"),
         ],
@@ -335,7 +341,7 @@ fn test_alg_none_attack_rejected() {
         "audit/events",
         Method::POST,
         vec![
-            ("Authorization", &format!("Bearer {}", jwt_none)),
+            ("Authorization", &format!("Bearer {jwt_none}")),
             ("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"),
             ("Content-Type", "application/json"),
         ],
@@ -372,9 +378,7 @@ fn test_missing_bearer_prefix_rejected() {
         .find(|(k, _)| k.to_lowercase() == "authorization")
         .map(|(_, v)| v.as_str());
     assert!(
-        auth_header
-            .map(|h| !h.starts_with("Bearer "))
-            .unwrap_or(true),
+        auth_header.is_none_or(|h| !h.starts_with("Bearer ")),
         "Auth header should be missing Bearer prefix"
     );
 }
@@ -389,7 +393,7 @@ fn test_valid_token_with_correct_claims() {
         "audit/events",
         Method::POST,
         vec![
-            ("Authorization", &format!("Bearer {}", jwt)),
+            ("Authorization", &format!("Bearer {jwt}")),
             ("X-Tenant-ID", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"),
             ("Content-Type", "application/json"),
         ],

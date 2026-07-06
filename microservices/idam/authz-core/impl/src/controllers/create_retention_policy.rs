@@ -12,9 +12,18 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let policy_id = Uuid::new_v4();
 
     let mut metadata = serde_json::Map::new();
-    metadata.insert("policy_id".to_string(), serde_json::json!(policy_id.to_string()));
-    metadata.insert("event_type".to_string(), serde_json::json!(&req.data.event_type));
-    metadata.insert("retention_days".to_string(), serde_json::json!(req.data.retention_days));
+    metadata.insert(
+        "policy_id".to_string(),
+        serde_json::json!(policy_id.to_string()),
+    );
+    metadata.insert(
+        "event_type".to_string(),
+        serde_json::json!(&req.data.event_type),
+    );
+    metadata.insert(
+        "retention_days".to_string(),
+        serde_json::json!(req.data.retention_days),
+    );
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "retention_policy_created")
         .tenant_id(&req.data.x_tenant_id)

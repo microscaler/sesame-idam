@@ -1,7 +1,7 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
-use sesame_idam_authz_core_gen::handlers::assign_principal_role::{Request, Response};
 use sesame_common::token_versioning::BumpReason;
+use sesame_idam_authz_core_gen::handlers::assign_principal_role::{Request, Response};
 
 /// Assign a role to a principal within a tenant context.
 ///
@@ -21,7 +21,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     // Emit audit event: role assignment
     let mut metadata = serde_json::Map::new();
-    metadata.insert("role_id".to_string(), serde_json::json!(role_id.to_string()));
+    metadata.insert(
+        "role_id".to_string(),
+        serde_json::json!(role_id.to_string()),
+    );
     metadata.insert("role".to_string(), serde_json::json!(&req.data.role));
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "role_assigned")

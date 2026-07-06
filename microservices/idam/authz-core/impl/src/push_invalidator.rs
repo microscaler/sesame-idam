@@ -45,12 +45,7 @@ impl PublisherWrapper {
     /// Inside the spawned closure, Redis uses blocking I/O. This is safe in
     /// may because the coroutine's epoll loop is idle while waiting for the
     /// socket — other coroutines continue to make progress.
-    pub fn publish_tenant(
-        &self,
-        tenant_id: &str,
-        new_version: u64,
-        reason: BumpReason,
-    ) {
+    pub fn publish_tenant(&self, tenant_id: &str, new_version: u64, reason: BumpReason) {
         let url = self.redis_url.clone();
         let secret = self.hmac_secret.clone();
         let tenant_id = tenant_id.to_string();
@@ -138,8 +133,8 @@ impl PublisherWrapper {
 
         type HmacSha256 = Hmac<Sha256>;
 
-        let mut mac = HmacSha256::new_from_slice(secret)
-            .map_err(|e| format!("invalid HMAC secret: {e}"))?;
+        let mut mac =
+            HmacSha256::new_from_slice(secret).map_err(|e| format!("invalid HMAC secret: {e}"))?;
         mac.update(json.as_bytes());
         let sig = hex::encode(mac.finalize().into_bytes());
 
@@ -174,7 +169,7 @@ impl PublisherWrapper {
 
 /// Create a `PublisherWrapper` from Redis config.
 /// Returns `None` if Redis is not configured.
-pub fn create_publisher(config: &crate::config::AppConfig) -> Option<PublisherWrapper> {
+pub fn create_publisher(config: &sesame_common::config::AppConfig) -> Option<PublisherWrapper> {
     let redis = config.redis.as_ref()?;
     let url = redis.url.as_ref()?;
     let secret = redis.hmac_secret.as_ref()?;

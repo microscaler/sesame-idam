@@ -11,7 +11,7 @@ pub static TEST_DB: LazyLock<TestDatabase> = LazyLock::new(|| {
     let pass = std::env::var("TEST_DB_PASS").unwrap_or_else(|_| "postgres".to_string());
     let db_name = std::env::var("TEST_DB_NAME").unwrap_or_else(|_| "idam".to_string());
 
-    let db_url = format!("postgres://{}:{}@{}:{}/{}", user, pass, host, port, db_name);
+    let db_url = format!("postgres://{user}:{pass}@{host}:{port}/{db_name}");
 
     // Set DB environment variables for any code that reads from env
     std::env::set_var("DB_HOST", &host);
@@ -46,17 +46,17 @@ pub static TEST_DB: LazyLock<TestDatabase> = LazyLock::new(|| {
     if seeds_dir.exists() {
         let mut entries: Vec<_> = std::fs::read_dir(&seeds_dir)
             .expect("read seeds dir")
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .map(|e| e.path())
-            .filter(|p| p.is_file() && p.extension().map(|e| e == "sql").unwrap_or(false))
+            .filter(|p| p.is_file() && p.extension().is_some_and(|e| e == "sql"))
             .collect();
         entries.sort();
         for seed in &entries {
             let sql = std::fs::read_to_string(seed)
-                .unwrap_or_else(|e| panic!("read seed {:?}: {e}", seed));
+                .unwrap_or_else(|e| panic!("read seed {}: {e}", seed.display()));
             let full_sql = format!("SET search_path TO sesame_idam, public;\n{sql}");
             if let Err(e) = client.batch_execute(&full_sql) {
-                eprintln!("Seed {seed:?} warning: {e}");
+                eprintln!("Seed {} warning: {e}", seed.display());
             } else {
                 eprintln!("Applied seed: {:?}", seed.file_name());
             }

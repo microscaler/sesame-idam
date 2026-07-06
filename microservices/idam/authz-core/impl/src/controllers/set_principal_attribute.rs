@@ -1,7 +1,7 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
-use sesame_idam_authz_core_gen::handlers::set_principal_attribute::{Request, Response};
 use sesame_common::token_versioning::BumpReason;
+use sesame_idam_authz_core_gen::handlers::set_principal_attribute::{Request, Response};
 
 /// Handler for Set Principal Attribute - sets a metadata attribute on a principal.
 ///
@@ -14,7 +14,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     let mut metadata = serde_json::Map::new();
     metadata.insert("key".to_string(), serde_json::json!(&req.data.key));
-    metadata.insert("value_set".to_string(), serde_json::json!(!req.data.value.is_empty()));
+    metadata.insert(
+        "value_set".to_string(),
+        serde_json::json!(!req.data.value.is_empty()),
+    );
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "attribute_updated")
         .tenant_id(&req.data.tenant_id)

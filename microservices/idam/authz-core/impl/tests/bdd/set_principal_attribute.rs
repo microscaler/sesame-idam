@@ -21,7 +21,7 @@ fn context() -> Arc<Mutex<AttributeTestContext>> {
     }))
 }
 
-/// Build a valid set_principal_attribute Request and wrap it in TypedHandlerRequest.
+/// Build a valid `set_principal_attribute` Request and wrap it in `TypedHandlerRequest`.
 fn make_set_attribute_request() -> TypedHandlerRequest<AttrReq> {
     let data = AttrReq {
         user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
@@ -35,8 +35,8 @@ fn make_set_attribute_request() -> TypedHandlerRequest<AttrReq> {
         method: Method::POST,
         path: "/authz/principals/attributes".to_string(),
         handler_name: "set_principal_attribute".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data,
     }
 }

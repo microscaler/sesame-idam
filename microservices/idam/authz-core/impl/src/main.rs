@@ -1,10 +1,10 @@
-/// Application entry point.
-///
-/// Loads configuration, initializes the security chain (JwksBearerProvider),
-/// registers middleware and handlers, and runs the BRRTRouter HTTP server.
-///
-/// The service is a pure stateless authorization gate — it does not store
-/// any state beyond what the JWKS client caches in memory.
+//! Application entry point.
+//!
+//! Loads configuration, initializes the security chain (`JwksBearerProvider`),
+//! registers middleware and handlers, and runs the `BRRTRouter` HTTP server.
+//!
+//! The service is a pure stateless authorization gate — it does not store
+//! any state beyond what the JWKS client caches in memory.
 
 // Use jemalloc as the global allocator for better memory performance.
 #[cfg(feature = "jemalloc")]
@@ -14,15 +14,13 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-mod audit;
 mod authz_span_middleware;
-mod config;
-mod denylist_middleware;
-mod push_invalidator;
-mod security;
+// Denylist middleware is constructed once Redis-backed revocation is wired
+// into the request path (Story 5.x) — keep the module compiled with the lib.
+use sesame_idam_authz_core::security::init_security;
 
 use sesame_idam_authz_core_gen::registry;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use brrtrouter::dispatcher::Dispatcher;
 use brrtrouter::middleware::MetricsMiddleware;
@@ -34,11 +32,7 @@ use brrtrouter::spec::{RouteMeta, SecurityScheme};
 use clap::Parser;
 use std::collections::HashMap;
 
-use audit::EMITTER;
-use config::load_config;
-use push_invalidator::PublisherWrapper;
-use security::init_security;
-
+use sesame_common::config::load_config;
 /// Command-line arguments.
 #[derive(Parser)]
 #[command(
@@ -46,7 +40,7 @@ use security::init_security;
     about = "Stateless authorization gate for Sesame-IDAM"
 )]
 struct Args {
-    /// Path to the OpenAPI spec file.
+    /// Path to the `OpenAPI` spec file.
     #[arg(short, long, default_value = "./doc/openapi.yaml")]
     spec: PathBuf,
 
@@ -54,11 +48,11 @@ struct Args {
     #[arg(long)]
     static_dir: Option<PathBuf>,
 
-    /// Directory for serving the OpenAPI documentation.
+    /// Directory for serving the `OpenAPI` documentation.
     #[arg(long, default_value = "./doc")]
     doc_dir: PathBuf,
 
-    /// Enable hot-reload of the OpenAPI spec.
+    /// Enable hot-reload of the `OpenAPI` spec.
     #[arg(long, default_value_t = false)]
     hot_reload: bool,
 
@@ -174,18 +168,18 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-/// Resolve the OpenAPI spec path — relative paths are joined to the crate root.
-fn resolve_spec_path(spec: &PathBuf) -> PathBuf {
+/// Resolve the `OpenAPI` spec path — relative paths are joined to the crate root.
+fn resolve_spec_path(spec: &Path) -> PathBuf {
     if spec.is_relative() {
         let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         base.join(spec)
     } else {
-        spec.clone()
+        spec.to_path_buf()
     }
 }
 
-/// Load and parse the OpenAPI spec, exiting on any error.
-fn load_spec(spec_path: &PathBuf) -> (Vec<RouteMeta>, HashMap<String, SecurityScheme>, PathBuf) {
+/// Load and parse the `OpenAPI` spec, exiting on any error.
+fn load_spec(spec_path: &Path) -> (Vec<RouteMeta>, HashMap<String, SecurityScheme>, PathBuf) {
     let spec_str = spec_path.to_str().unwrap_or_else(|| {
         eprintln!("[startup][error] OpenAPI spec path contains invalid UTF-8");
         std::process::exit(1);
@@ -194,5 +188,5 @@ fn load_spec(spec_path: &PathBuf) -> (Vec<RouteMeta>, HashMap<String, SecuritySc
         eprintln!("[startup][error] failed to load OpenAPI spec: {e}");
         std::process::exit(1);
     });
-    (routes, schemes, spec_path.clone())
+    (routes, schemes, spec_path.to_path_buf())
 }

@@ -1,22 +1,10 @@
-/// BDD feature: Authorization Check (POST /authz/authorize)
-///
-/// Tests exercise the Request/Response schema contract for the authorize endpoint.
-/// These verify:
-/// - Required fields are enforced by deserialization
-/// - Optional fields accept valid values
-/// - Response shape matches the OpenAPI spec
-/// - Tenant isolation headers are extracted correctly
-use brrtrouter::dispatcher::HeaderVec;
-use brrtrouter::ids::RequestId;
-use http::Method;
 use sesame_idam_authz_core_gen::handlers::authorize::{Request, Response};
-use std::sync::Arc;
 
 // ─── Scenario Group 1: Successful authorization ─────────────────────────────
 
 /// Scenario: Allow read action on a resource.
 ///
-/// Given: valid request with required fields (user_id, action, resource).
+/// Given: valid request with required fields (`user_id`, action, resource).
 /// When: we construct a Request and serialize the response.
 /// Then: the response body has field "allowed" set to true.
 #[test]
@@ -108,11 +96,11 @@ fn test_reject_request_missing_resource_field() {
 
 // ─── Scenario Group 3: Optional fields ───────────────────────────────────────
 
-/// Scenario: Accept request with optional "org_id" field.
+/// Scenario: Accept request with optional "`org_id`" field.
 ///
-/// Given: valid request plus optional "org_id".
+/// Given: valid request plus optional "`org_id`".
 /// When: we construct a Request.
-/// Then: deserialization succeeds and org_id is Some(...).
+/// Then: deserialization succeeds and `org_id` is Some(...).
 #[test]
 fn test_accept_request_with_optional_org_id() {
     // Given: valid request with org_id
@@ -137,11 +125,11 @@ fn test_accept_request_with_optional_org_id() {
     assert_eq!(json["org_id"], "22222222-8a2d-4c41-8b4b-ae43ce79a493");
 }
 
-/// Scenario: Accept request with optional "app_id" field.
+/// Scenario: Accept request with optional "`app_id`" field.
 ///
-/// Given: valid request plus optional "app_id".
+/// Given: valid request plus optional "`app_id`".
 /// When: we construct a Request.
-/// Then: deserialization succeeds and app_id is Some(...).
+/// Then: deserialization succeeds and `app_id` is Some(...).
 #[test]
 fn test_accept_request_with_optional_app_id() {
     // Given: valid request with app_id
@@ -196,11 +184,11 @@ fn test_response_contains_allowed_boolean() {
     assert!(response_json["allowed"].as_bool().unwrap_or(false));
 }
 
-/// Scenario: Response may contain optional "permissions_used" array.
+/// Scenario: Response may contain optional "`permissions_used`" array.
 ///
 /// Given: valid authorization request.
 /// When: we construct a Response.
-/// Then: the response body MAY contain a "permissions_used" field of type array.
+/// Then: the response body MAY contain a "`permissions_used`" field of type array.
 #[test]
 fn test_response_may_contain_permissions_used_array() {
     // When: we construct a response with permissions_used
@@ -249,9 +237,9 @@ fn test_response_may_contain_reason_string() {
 
 /// Scenario: X-Tenant-ID header is extracted and validated.
 ///
-/// Given: a HandlerRequest with X-Tenant-ID header.
+/// Given: a `HandlerRequest` with X-Tenant-ID header.
 /// When: we construct a Request from the header.
-/// Then: x_tenant_id and tenant_id are both set from the header.
+/// Then: `x_tenant_id` and `tenant_id` are both set from the header.
 #[test]
 fn test_tenant_isolation_headers() {
     // Given: tenant IDs from header

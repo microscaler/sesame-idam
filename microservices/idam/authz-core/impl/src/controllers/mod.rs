@@ -1,3 +1,6 @@
+// The `#[handler]` macro requires `handle(req: TypedHandlerRequest<Request>)`
+// by value — suppress clippy::needless_pass_by_value for all controllers.
+#![allow(clippy::needless_pass_by_value)]
 pub mod assign_principal_role;
 pub mod authorize;
 pub mod check_export_status;

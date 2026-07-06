@@ -1,13 +1,13 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;
 use sesame_idam_authz_core::controllers::get_audit_event::handle;
-use sesame_idam_authz_core_gen::handlers::get_audit_event::{Request, Response};
+use sesame_idam_authz_core_gen::handlers::get_audit_event::Request;
 
 /// Scenario: Retrieve a single audit event by ID.
 ///
 /// Given: a request with id and X-Tenant-ID.
 /// When: the handler is invoked.
-/// Then: the response contains id, actor, event_action, event_type, ip_address, timestamp.
+/// Then: the response contains id, actor, `event_action`, `event_type`, `ip_address`, timestamp.
 #[test]
 fn get_audit_event_retrieves_event_by_id() {
     let request_data = Request {
@@ -19,8 +19,8 @@ fn get_audit_event_retrieves_event_by_id() {
         method: Method::GET,
         path: "/authz/audit/events/550e8400-e29b-41d4-a716-446655440000".to_string(),
         handler_name: "get_audit_event".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 
@@ -64,8 +64,8 @@ fn response_id_is_string() {
         method: Method::GET,
         path: "/authz/audit/events/550e8400-e29b-41d4-a716-446655440000".to_string(),
         handler_name: "get_audit_event".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 
@@ -75,11 +75,11 @@ fn response_id_is_string() {
     assert!(json["id"].is_string(), "'id' must be a string");
 }
 
-/// Scenario: Response "hmac_signature" is optional (string or null).
+/// Scenario: Response "`hmac_signature`" is optional (string or null).
 ///
 /// Given: a request with id and X-Tenant-ID.
 /// When: the handler is invoked.
-/// Then: hmac_signature is null in the response.
+/// Then: `hmac_signature` is null in the response.
 #[test]
 fn response_hmac_signature_is_null() {
     let request_data = Request {
@@ -91,8 +91,8 @@ fn response_hmac_signature_is_null() {
         method: Method::GET,
         path: "/authz/audit/events/550e8400-e29b-41d4-a716-446655440000".to_string(),
         handler_name: "get_audit_event".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 
@@ -106,11 +106,11 @@ fn response_hmac_signature_is_null() {
     }
 }
 
-/// Scenario: Response "user_agent" is optional (string or null).
+/// Scenario: Response "`user_agent`" is optional (string or null).
 ///
 /// Given: a request with id and X-Tenant-ID.
 /// When: the handler is invoked.
-/// Then: user_agent is null in the response.
+/// Then: `user_agent` is null in the response.
 #[test]
 fn response_user_agent_is_null() {
     let request_data = Request {
@@ -122,8 +122,8 @@ fn response_user_agent_is_null() {
         method: Method::GET,
         path: "/authz/audit/events/550e8400-e29b-41d4-a716-446655440000".to_string(),
         handler_name: "get_audit_event".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 

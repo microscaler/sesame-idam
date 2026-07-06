@@ -24,12 +24,12 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     Response {
         id: req.data.id,
-        event_type: "".to_string(),
-        event_action: "".to_string(),
-        actor: "".to_string(),
-        ip_address: "".to_string(),
+        event_type: String::new(),
+        event_action: String::new(),
+        actor: String::new(),
+        ip_address: String::new(),
         hmac_signature: None,
-        timestamp: "".to_string(),
+        timestamp: String::new(),
         metadata: None,
         org_id: None,
         session_id: None,

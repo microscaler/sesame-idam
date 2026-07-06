@@ -11,9 +11,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let filters = req.data.filters.as_ref();
     let mut metadata = serde_json::Map::new();
     if let Some(f) = filters {
-        metadata.insert("filter_event_type".to_string(), serde_json::json!(&f.event_type));
+        metadata.insert(
+            "filter_event_type".to_string(),
+            serde_json::json!(&f.event_type),
+        );
         metadata.insert("filter_actor".to_string(), serde_json::json!(&f.actor));
-        metadata.insert("filter_action".to_string(), serde_json::json!(&f.event_action));
+        metadata.insert(
+            "filter_action".to_string(),
+            serde_json::json!(&f.event_action),
+        );
     }
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "audit_events_searched")

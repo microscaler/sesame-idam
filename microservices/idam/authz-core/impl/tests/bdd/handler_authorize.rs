@@ -35,8 +35,8 @@ fn when_authorize_valid() {
         method: Method::POST,
         path: "/authz/authorize".to_string(),
         handler_name: "authorize".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: Request {
             user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
             action: "read".to_string(),
@@ -103,8 +103,8 @@ fn when_authorize_disallowed() {
         method: Method::POST,
         path: "/authz/authorize".to_string(),
         handler_name: "authorize".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: Request {
             user_id: "victim-user".to_string(),
             action: "delete".to_string(),
@@ -160,8 +160,8 @@ fn when_authorize_with_tenant() {
         method: Method::POST,
         path: "/authz/authorize".to_string(),
         handler_name: "authorize".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: Request {
             user_id: "tenant-specific-user".to_string(),
             action: "write".to_string(),

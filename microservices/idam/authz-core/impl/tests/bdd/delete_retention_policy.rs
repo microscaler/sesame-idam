@@ -1,16 +1,16 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;
 use sesame_idam_authz_core::controllers::delete_retention_policy::handle;
-use sesame_idam_authz_core_gen::handlers::delete_retention_policy::{Request, Response};
+use sesame_idam_authz_core_gen::handlers::delete_retention_policy::Request;
 
-/// Construct a minimal TypedHandlerRequest for delete_retention_policy.
+/// Construct a minimal `TypedHandlerRequest` for `delete_retention_policy`.
 fn make_request(id: &str) -> TypedHandlerRequest<Request> {
     TypedHandlerRequest {
         method: Method::DELETE,
         path: format!("/authz/audit/events/retention/{id}"),
         handler_name: "delete_retention_policy".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: Request {
             id: id.to_string(),
             x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
@@ -50,11 +50,11 @@ fn response_error_is_string() {
     assert!(json["error"].is_string(), "'error' must be a string");
 }
 
-/// Scenario: Response "error_description" is optional string.
+/// Scenario: Response "`error_description`" is optional string.
 ///
 /// Given: a valid request.
 /// When: the handler is invoked.
-/// Then: error_description is string or null.
+/// Then: `error_description` is string or null.
 #[test]
 fn response_error_description_is_optional_string() {
     let typed_req = make_request("policy-123");
@@ -128,7 +128,7 @@ fn reject_missing_x_tenant_id() {
 ///
 /// Given: a request with X-Tenant-ID header.
 /// When: we construct a Request.
-/// Then: x_tenant_id is set from the header.
+/// Then: `x_tenant_id` is set from the header.
 #[test]
 fn tenant_isolation_headers() {
     let tenant_id = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";

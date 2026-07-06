@@ -38,8 +38,8 @@ fn when_assign_valid() {
         method: Method::POST,
         path: "/authz/principals/roles".to_string(),
         handler_name: "assign_principal_role".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: AssignRequest {
             user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
             tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
@@ -93,8 +93,8 @@ fn when_assign_with_expiry() {
         method: Method::POST,
         path: "/authz/principals/roles".to_string(),
         handler_name: "assign_principal_role".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: AssignRequest {
             user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
             tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
@@ -133,8 +133,8 @@ fn when_revoke_valid() {
         method: Method::DELETE,
         path: "/authz/principals/roles".to_string(),
         handler_name: "revoke_principal_role".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: RevokeRequest {
             user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
             app_id: "33333333-8a2d-4c41-8b4b-ae43ce79a494".to_string(),
@@ -165,8 +165,8 @@ fn when_revoke_with_org() {
         method: Method::DELETE,
         path: "/authz/principals/roles".to_string(),
         handler_name: "revoke_principal_role".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: RevokeRequest {
             user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
             app_id: "33333333-8a2d-4c41-8b4b-ae43ce79a494".to_string(),

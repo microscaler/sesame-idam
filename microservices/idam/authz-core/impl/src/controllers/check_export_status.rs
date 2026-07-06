@@ -9,7 +9,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
     let mut metadata = serde_json::Map::new();
-    metadata.insert("export_id".to_string(), serde_json::json!(&req.data.export_id));
+    metadata.insert(
+        "export_id".to_string(),
+        serde_json::json!(&req.data.export_id),
+    );
 
     let entry = AuditLogEntry::new(AuditEventType::Delegation, "export_status_checked")
         .tenant_id(&req.data.x_tenant_id)

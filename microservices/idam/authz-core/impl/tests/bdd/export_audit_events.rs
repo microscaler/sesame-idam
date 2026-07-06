@@ -1,13 +1,13 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;
 use sesame_idam_authz_core::controllers::export_audit_events::handle;
-use sesame_idam_authz_core_gen::handlers::export_audit_events::{Request, Response};
+use sesame_idam_authz_core_gen::handlers::export_audit_events::Request;
 
 /// Scenario: Export audit events with format csv.
 ///
-/// Given: a valid request with tenant_id, X-Tenant-ID, format=csv.
+/// Given: a valid request with `tenant_id`, X-Tenant-ID, format=csv.
 /// When: the handler is invoked.
-/// Then: the response has export_id, status="pending", estimated_completion, download_url.
+/// Then: the response has `export_id`, status="pending", `estimated_completion`, `download_url`.
 #[test]
 fn export_csv_returns_pending() {
     let request_data = Request {
@@ -22,8 +22,8 @@ fn export_csv_returns_pending() {
         method: Method::POST,
         path: "/authz/audit/events/export".to_string(),
         handler_name: "export_audit_events".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 
@@ -56,7 +56,7 @@ fn export_csv_returns_pending() {
 ///
 /// Given: a valid request with format=json.
 /// When: the handler is invoked.
-/// Then: the response has export_id and status.
+/// Then: the response has `export_id` and status.
 #[test]
 fn export_json_returns_pending() {
     let request_data = Request {
@@ -71,8 +71,8 @@ fn export_json_returns_pending() {
         method: Method::POST,
         path: "/authz/audit/events/export".to_string(),
         handler_name: "export_audit_events".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 
@@ -113,9 +113,9 @@ fn reject_missing_x_tenant_id() {
     assert!(result.is_err(), "Missing 'X-Tenant-ID' should fail");
 }
 
-/// Scenario: Reject request missing required "tenant_id" field.
+/// Scenario: Reject request missing required "`tenant_id`" field.
 ///
-/// Given: a JSON body without "tenant_id".
+/// Given: a JSON body without "`tenant_id`".
 /// When: we attempt to deserialize.
 /// Then: deserialization fails.
 #[test]
@@ -128,11 +128,11 @@ fn reject_missing_tenant_id() {
     assert!(result.is_err(), "Missing 'tenant_id' should fail");
 }
 
-/// Scenario: Response "export_id" is a non-empty string.
+/// Scenario: Response "`export_id`" is a non-empty string.
 ///
 /// Given: a valid request with format=csv.
 /// When: the handler is invoked.
-/// Then: export_id is a non-empty string.
+/// Then: `export_id` is a non-empty string.
 #[test]
 fn export_id_is_nonempty_string() {
     let request_data = Request {
@@ -147,8 +147,8 @@ fn export_id_is_nonempty_string() {
         method: Method::POST,
         path: "/authz/audit/events/export".to_string(),
         handler_name: "export_audit_events".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 
@@ -180,8 +180,8 @@ fn status_is_pending_string() {
         method: Method::POST,
         path: "/authz/audit/events/export".to_string(),
         handler_name: "export_audit_events".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
 

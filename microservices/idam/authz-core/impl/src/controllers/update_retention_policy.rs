@@ -33,7 +33,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     Response {
         id: Some(req.data.id),
-        event_type: "".to_string(),
+        event_type: String::new(),
         retention_days,
         archive_after_days: req.data.archive_after_days,
         delete_after_days: req.data.delete_after_days,

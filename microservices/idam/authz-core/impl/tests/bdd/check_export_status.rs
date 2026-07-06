@@ -1,4 +1,4 @@
-/// BDD feature: Check Export Status (GET /authz/audit/events/export/{export_id})
+/// BDD feature: Check Export Status (GET /`authz/audit/events/export/{export_id`})
 ///
 /// Tests verify the request/response schema contract and audit event emission
 /// for the export status polling endpoint.
@@ -10,7 +10,7 @@ use sesame_idam_authz_core_gen::handlers::check_export_status::{Request, Respons
 
 // ─── Test Helpers ────────────────────────────────────────────────────────────
 
-/// Construct a minimal HandlerRequest for export status check.
+/// Construct a minimal `HandlerRequest` for export status check.
 fn make_export_status_request(
     path: &str,
     method: Method,
@@ -26,8 +26,8 @@ fn make_export_status_request(
         method,
         path: path.to_string(),
         handler_name: "check_export_status".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: brrtrouter::router::ParamVec::default(),
+        query_params: brrtrouter::router::ParamVec::default(),
         headers: hv,
         cookies: HeaderVec::new(),
         body,
@@ -37,7 +37,8 @@ fn make_export_status_request(
     }
 }
 
-/// Invoke the check_export_status handler and return the response data.
+/// Invoke the `check_export_status` handler and return the response data.
+#[allow(clippy::needless_pass_by_value)] // mirrors dispatch semantics
 fn invoke_export_status_request(
     req: brrtrouter::dispatcher::HandlerRequest,
     request_data: Request,
@@ -46,8 +47,8 @@ fn invoke_export_status_request(
         method: req.method.clone(),
         path: req.path.clone(),
         handler_name: req.handler_name.clone(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: request_data,
     };
     check_export_status::handle(typed_req)
@@ -57,8 +58,8 @@ fn invoke_export_status_request(
 
 /// Scenario: Check status of a pending export.
 ///
-/// Given: valid request with required fields (export_id, X-Tenant-ID).
-/// When: we invoke the check_export_status handler.
+/// Given: valid request with required fields (`export_id`, X-Tenant-ID).
+/// When: we invoke the `check_export_status` handler.
 /// Then: the response returns status "pending".
 #[test]
 fn test_check_export_status_pending() {
@@ -145,9 +146,9 @@ fn test_reject_missing_x_tenant_id() {
     );
 }
 
-/// Scenario: Reject request missing required "export_id" field.
+/// Scenario: Reject request missing required "`export_id`" field.
 ///
-/// Given: request body without "export_id" field.
+/// Given: request body without "`export_id`" field.
 /// When: we attempt to construct a Request.
 /// Then: serde deserialization fails (missing required field).
 #[test]
@@ -165,11 +166,11 @@ fn test_reject_missing_export_id() {
 
 // ─── Scenario Group 3: Response shape validation ─────────────────────────────
 
-/// Scenario: Response contains "export_id" string.
+/// Scenario: Response contains "`export_id`" string.
 ///
 /// Given: valid export status request.
 /// When: we invoke the handler.
-/// Then: the response body has an "export_id" field of type string.
+/// Then: the response body has an "`export_id`" field of type string.
 #[test]
 fn test_response_contains_export_id() {
     let request_data = Request {
@@ -226,11 +227,11 @@ fn test_response_contains_status() {
     assert!(json["status"].is_string(), "'status' must be a string");
 }
 
-/// Scenario: Response contains optional "download_url" string.
+/// Scenario: Response contains optional "`download_url`" string.
 ///
 /// Given: valid export status request.
 /// When: we invoke the handler.
-/// Then: the response body has a "download_url" field of type string or null.
+/// Then: the response body has a "`download_url`" field of type string or null.
 #[test]
 fn test_response_may_contain_download_url() {
     let request_data = Request {
@@ -257,11 +258,11 @@ fn test_response_may_contain_download_url() {
     }
 }
 
-/// Scenario: Response contains optional "estimated_completion" string.
+/// Scenario: Response contains optional "`estimated_completion`" string.
 ///
 /// Given: valid export status request.
 /// When: we invoke the handler.
-/// Then: the response body has an "estimated_completion" field of type string or null.
+/// Then: the response body has an "`estimated_completion`" field of type string or null.
 #[test]
 fn test_response_may_contain_estimated_completion() {
     let request_data = Request {
@@ -294,7 +295,7 @@ fn test_response_may_contain_estimated_completion() {
 ///
 /// Given: a request with X-Tenant-ID header.
 /// When: we construct a Request from the header.
-/// Then: x_tenant_id is set from the header.
+/// Then: `x_tenant_id` is set from the header.
 #[test]
 fn test_tenant_isolation_headers() {
     let header_tenant_id = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";

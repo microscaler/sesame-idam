@@ -1,7 +1,7 @@
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
-use sesame_idam_authz_core_gen::handlers::revoke_principal_role::{Request, Response};
 use sesame_common::token_versioning::BumpReason;
+use sesame_idam_authz_core_gen::handlers::revoke_principal_role::{Request, Response};
 
 /// Revoke a role from a principal within a tenant context.
 ///

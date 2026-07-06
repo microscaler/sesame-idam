@@ -38,7 +38,7 @@ use sesame_common::denylist::{DenylistCache, DenylistConfig, DenylistMetrics, De
 /// Denylist middleware that checks JTI revocation on every request.
 ///
 /// Extracts the JTI from the JWT claims (stored in `jwt_claims` by
-/// BRRTRouter's security layer) and checks it against the local
+/// `BRRTRouter`'s security layer) and checks it against the local
 /// denylist cache. On cache miss, Redis is consulted.
 pub struct DenylistMiddleware {
     /// The denylist cache shared across all requests.
@@ -94,15 +94,12 @@ impl DenylistMiddleware {
     ///
     /// Returns true if the token is definitely revoked (cache hit), false otherwise.
     pub fn check_revocation(&self, jti: &str, token_exp_epoch: Option<u64>) -> bool {
-
-        let result = self
-            .cache
-            .is_revoked(jti, token_exp_epoch, |key| {
-                // Placeholder: actual Redis client integration.
-                // Production code will inject a Redis client here.
-                let _ = key;
-                false // Treat as not revoked if Redis is down (fail-open)
-            });
+        let result = self.cache.is_revoked(jti, token_exp_epoch, |key| {
+            // Placeholder: actual Redis client integration.
+            // Production code will inject a Redis client here.
+            let _ = key;
+            false // Treat as not revoked if Redis is down (fail-open)
+        });
 
         match result {
             DenylistResult::CacheHit => {
@@ -180,18 +177,21 @@ impl DenylistMiddlewareBuilder {
     }
 
     /// Set the denylist cache.
+    #[must_use]
     pub fn with_cache(mut self, cache: Arc<DenylistCache>) -> Self {
         self.cache = Some(cache);
         self
     }
 
     /// Set the metrics.
+    #[must_use]
     pub fn with_metrics(mut self, metrics: Arc<DenylistMetrics>) -> Self {
         self.metrics = Some(metrics);
         self
     }
 
     /// Set the Redis URL.
+    #[must_use]
     pub fn with_redis_url(mut self, url: &str) -> Self {
         self.redis_url = url.to_string();
         self

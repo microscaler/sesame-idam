@@ -1,327 +1,6 @@
-//! Authentication/authorization error types and HTTP response generation.
-//!
-//! This module provides the `AuthError` enum used throughout authz-core for
-//! version mismatch and token validation failures. It maps to proper HTTP
-//! responses with WWW-Authenticate and Retry-After headers per RFC 7235.
-
-use brrtrouter::dispatcher::{HandlerResponse, HeaderVec};
-use http::StatusCode;
-use prometheus::{Histogram, IntCounterVec, Registry};
-use serde::Serialize;
-use std::sync::Arc;
-
-// ─── Metrics ─────────────────────────────────────────────────────────────────
-
-/// Metrics registry singleton for version mismatch tracking.
-static VERSION_METRICS: std::sync::LazyLock<Result<VersionMismatchMetrics, String>> =
-    std::sync::LazyLock::new(|| {
-        let registry = Registry::new();
-        VersionMismatchMetrics::register(&registry).map_err(|e| e.to_string())
-    });
-
-/// Version mismatch metrics counters and histograms.
-pub struct VersionMismatchMetrics {
-    /// Total version mismatch events, labeled by gap size category.
-    pub version_mismatch_total: IntCounterVec,
-    /// Latency of the version cache lookup (milliseconds).
-    pub version_lookup_latency_ms: Histogram,
-}
-
-impl VersionMismatchMetrics {
-    /// Create and register metrics with a Prometheus registry.
-    pub fn register(registry: &Registry) -> Result<Self, prometheus::Error> {
-        let version_mismatch_total = IntCounterVec::new(
-            prometheus::Opts::new(
-                "version_mismatch_total",
-                "Total number of version mismatch events, labeled by gap size",
-            ),
-            &["result"],
-        )?;
-
-        let version_lookup_latency_ms = Histogram::with_opts(
-            prometheus::HistogramOpts::new(
-                "version_lookup_latency_ms",
-                "Latency of the version cache lookup in milliseconds",
-            )
-            .buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]),
-        )?;
-
-        registry.register(Box::new(version_mismatch_total.clone()))?;
-        registry.register(Box::new(version_lookup_latency_ms.clone()))?;
-
-        Ok(Self {
-            version_mismatch_total,
-            version_lookup_latency_ms,
-        })
-    }
-
-    /// Record a version mismatch event (thread-safe via global lazy).
-    pub fn record_mismatch(gap: GapSize) {
-        let label = match gap {
-            GapSize::Small => "small",
-            GapSize::Large => "large",
-            GapSize::Current => "current",
-        };
-        if let Ok(metrics) = VERSION_METRICS.as_ref() {
-            metrics
-                .version_mismatch_total
-                .with_label_values(&[label])
-                .inc();
-        }
-    }
-
-    /// Record version cache lookup latency (thread-safe via global lazy).
-    pub fn record_latency_ms(latency_ms: f64) {
-        if let Ok(metrics) = VERSION_METRICS.as_ref() {
-            metrics.version_lookup_latency_ms.observe(latency_ms);
-        }
-    }
-}
-
-/// Version mismatch gap threshold.
-/// When the gap between cached and claimed version exceeds this value,
-/// retry_after is set to 0 (immediate re-authentication required).
-pub const VERSION_GAP_LARGE: u64 = 100;
-
-/// Standard retry-after interval for small version gaps (seconds).
-/// Clients may refresh their token within this window.
-pub const RETRY_AFTER_SMALL_GAP: u64 = 300;
-
-/// Machine-readable reason for stale_auth_token errors.
-pub const REASON_STALE_AUTHZ_SNAPSHOT: &str = "stale_authz_snapshot";
-
-/// Error code for version mismatch.
-pub const ERROR_STALE_AUTH_TOKEN: &str = "stale_auth_token";
-
-/// Human-friendly message for version mismatch.
-pub const MESSAGE_STALE_AUTH_TOKEN: &str =
-    "Your token has been revoked due to a privilege change. Please log in again.";
-
-/// Version mismatch gap size categories.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GapSize {
-    /// Token version equals or exceeds cached version (no mismatch).
-    Current,
-    /// Small gap (1-10): allow token refresh within retry_after window.
-    Small,
-    /// Large gap (>100): immediate re-authentication required.
-    Large,
-}
-
-/// Auth error variants for version mismatch and token validation.
-#[derive(Debug, Clone, Serialize)]
-pub enum AuthError {
-    /// Token version is stale — claims.ver < cached_ver.
-    ///
-    /// The JWT contains a version snapshot that is older than the current
-    /// authorization state. The client must refresh or re-authenticate
-    /// to obtain a fresh token with the updated version.
-    StaleAuthToken {
-        /// Seconds to wait before retrying.
-        /// 0 = immediate re-authentication required.
-        retry_after: u64,
-        /// The cached (current) version from the version store.
-        expected_min_version: u64,
-        /// The version claim embedded in the JWT.
-        actual_version: u64,
-    },
-}
-
-impl AuthError {
-    /// Calculate the retry-after value based on version gap size.
-    ///
-    /// Returns the gap size classification along with the retry_after value.
-    ///
-    /// # Gap calculation
-    ///
-    /// - If `claims_ver >= cached_ver`: token is current, no mismatch
-    /// - If gap is 1-10: `retry_after = 300` (allow refresh)
-    /// - If gap > 100: `retry_after = 0` (immediate re-auth)
-    ///
-    /// Note: gaps of 11-100 are treated as "small" (retry_after = 300) since
-    /// they represent normal privilege changes that can be recovered via refresh.
-    pub fn calculate_retry_after(cached_ver: u64, claims_ver: u64) -> (GapSize, u64) {
-        if claims_ver >= cached_ver {
-            return (GapSize::Current, RETRY_AFTER_SMALL_GAP);
-        }
-
-        let gap = cached_ver - claims_ver;
-
-        if gap > VERSION_GAP_LARGE {
-            (GapSize::Large, 0)
-        } else {
-            (GapSize::Small, RETRY_AFTER_SMALL_GAP)
-        }
-    }
-
-    /// Determine the gap size category.
-    ///
-    /// Returns `GapSize::Current` if no mismatch, otherwise `Small` or `Large`.
-    pub fn gap_size(cached_ver: u64, claims_ver: u64) -> GapSize {
-        if claims_ver >= cached_ver {
-            GapSize::Current
-        } else if cached_ver - claims_ver > VERSION_GAP_LARGE {
-            GapSize::Large
-        } else {
-            GapSize::Small
-        }
-    }
-
-    /// Handle a version mismatch detection and return the appropriate error.
-    ///
-    /// This is the primary entry point for version mismatch handling.
-    /// It takes the cached version (from Redis/version store) and the
-    /// claims version (from the JWT) and returns either `Ok(())` if the
-    /// token is current, or an `AuthError::StaleAuthToken` if stale.
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(())` if `claims_ver >= cached_ver` (token is current)
-    /// - `Err(AuthError::StaleAuthToken)` if `claims_ver < cached_ver`
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use crate::auth_error::AuthError;
-    ///
-    /// // Token is current
-    /// assert!(AuthError::handle_version_mismatch(42, 42).is_ok());
-    /// assert!(AuthError::handle_version_mismatch(45, 42).is_ok());
-    ///
-    /// // Token is stale
-    /// match AuthError::handle_version_mismatch(45, 42) {
-    ///     Err(AuthError::StaleAuthToken { retry_after, .. }) => {
-    ///         assert_eq!(retry_after, 300); // small gap
-    ///     }
-    ///     _ => panic!("expected StaleAuthToken"),
-    /// }
-    /// ```
-    ///
-    /// Records metrics for the version mismatch event (mismatch total,
-    /// gap size label) and the cache lookup latency.
-    pub fn handle_version_mismatch(cached_ver: u64, claims_ver: u64) -> Result<(), AuthError> {
-        let (gap_size, retry_after) = Self::calculate_retry_after(cached_ver, claims_ver);
-
-        // Record metrics
-        VersionMismatchMetrics::record_mismatch(gap_size);
-
-        match gap_size {
-            GapSize::Current => Ok(()),
-            GapSize::Small | GapSize::Large => Err(AuthError::StaleAuthToken {
-                retry_after,
-                expected_min_version: cached_ver,
-                actual_version: claims_ver,
-            }),
-        }
-    }
-
-    /// Convert this error to a human-friendly message string.
-    pub fn message(&self) -> &'static str {
-        match self {
-            AuthError::StaleAuthToken { .. } => MESSAGE_STALE_AUTH_TOKEN,
-        }
-    }
-
-    /// Get the machine-readable error code.
-    pub fn error_code(&self) -> &'static str {
-        match self {
-            AuthError::StaleAuthToken { .. } => ERROR_STALE_AUTH_TOKEN,
-        }
-    }
-
-    /// Get the machine-readable reason string.
-    pub fn reason(&self) -> &'static str {
-        match self {
-            AuthError::StaleAuthToken { .. } => REASON_STALE_AUTHZ_SNAPSHOT,
-        }
-    }
-
-    /// Extract retry_after for metrics purposes.
-    pub fn retry_after(&self) -> u64 {
-        match self {
-            AuthError::StaleAuthToken { retry_after, .. } => *retry_after,
-        }
-    }
-
-    /// Extract the gap size for metrics purposes.
-    pub fn gap_size_for(&self) -> GapSize {
-        match self {
-            AuthError::StaleAuthToken {
-                retry_after: _,
-                expected_min_version,
-                actual_version,
-            } => {
-                let gap = expected_min_version - actual_version;
-                if gap > VERSION_GAP_LARGE {
-                    GapSize::Large
-                } else {
-                    GapSize::Small
-                }
-            }
-        }
-    }
-
-    /// Convert this error to an HTTP `HandlerResponse`.
-    ///
-    /// Returns a `401 Unauthorized` response with:
-    /// - `WWW-Authenticate: Bearer error="stale_auth_token", retry_after=NNN`
-    /// - `Retry-After: NNN` header
-    /// - `Content-Type: application/json` header
-    /// - JSON body with `error`, `message`, `retry_after`, and `reason` fields
-    pub fn to_http_response(&self) -> HandlerResponse {
-        let (gap_size, retry_after) = match self {
-            AuthError::StaleAuthToken {
-                retry_after,
-                expected_min_version,
-                actual_version,
-            } => {
-                let gap = *expected_min_version - *actual_version;
-                if gap > VERSION_GAP_LARGE {
-                    (GapSize::Large, 0)
-                } else {
-                    (GapSize::Small, *retry_after)
-                }
-            }
-        };
-
-        // Build the JSON body
-        let body = serde_json::json!({
-            "error": self.error_code(),
-            "message": self.message(),
-            "retry_after": retry_after,
-            "reason": self.reason()
-        });
-
-        // Build headers
-        let mut headers = HeaderVec::new();
-        headers.push((Arc::from("Content-Type"), "application/json".to_string()));
-        headers.push((
-            Arc::from("WWW-Authenticate"),
-            format!(
-                "Bearer error=\"stale_auth_token\", retry_after={}",
-                retry_after
-            ),
-        ));
-        headers.push((Arc::from("Retry-After"), retry_after.to_string()));
-
-        HandlerResponse {
-            status: StatusCode::UNAUTHORIZED.as_u16(),
-            body,
-            headers,
-        }
-    }
-
-    /// Check if this error represents a version mismatch condition.
-    pub fn is_version_mismatch(&self) -> bool {
-        matches!(self, AuthError::StaleAuthToken { .. })
-    }
-}
-
-// ─── Unit Tests ──────────────────────────────────────────────────────────────
-
 #[cfg(test)]
-mod tests {
-    use super::*;
+mod auth_error_tests {
+    use crate::auth_error::*;
 
     // ═══════════════════════════════════════════════════════════
     // Version Mismatch Detection
@@ -384,7 +63,7 @@ mod tests {
         // Ensure message is user-friendly (no technical stack traces)
         assert!(!err.message().contains("panic"));
         assert!(!err.message().contains("at "));
-        assert!(!err.message().contains(":"));
+        assert!(!err.message().contains(':'));
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -443,7 +122,7 @@ mod tests {
         };
         let resp = err.to_http_response();
         if let Some(obj) = resp.body.as_object() {
-            let retry_val = obj.get("retry_after").and_then(|v| v.as_u64());
+            let retry_val = obj.get("retry_after").and_then(serde_json::Value::as_u64);
             assert_eq!(retry_val, Some(300));
         } else {
             panic!("Response body should be a JSON object");
@@ -611,14 +290,14 @@ mod tests {
     #[test]
     fn test_equal_versions_returns_current() {
         // cached=42, claims=42 → no mismatch
-        let (gap, retry) = AuthError::calculate_retry_after(42, 42);
+        let (gap, _retry) = AuthError::calculate_retry_after(42, 42);
         assert_eq!(gap, GapSize::Current);
     }
 
     #[test]
     fn test_claims_newer_returns_current() {
         // cached=42, claims=50 → token is newer, no mismatch
-        let (gap, retry) = AuthError::calculate_retry_after(42, 50);
+        let (gap, _retry) = AuthError::calculate_retry_after(42, 50);
         assert_eq!(gap, GapSize::Current);
     }
 
@@ -642,7 +321,7 @@ mod tests {
         let result = AuthError::handle_version_mismatch(43, 40);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(err.retry_after, 300);
+        assert_eq!(err.retry_after(), 300);
     }
 
     #[test]
@@ -651,9 +330,9 @@ mod tests {
         let result = AuthError::handle_version_mismatch(150, 40);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(err.retry_after, 0);
-        assert_eq!(err.expected_min_version, 150);
-        assert_eq!(err.actual_version, 40);
+        assert_eq!(err.retry_after(), 0);
+        assert_eq!(err.expected_min_version(), 150);
+        assert_eq!(err.actual_version(), 40);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -711,7 +390,7 @@ mod tests {
             expected_min_version: 45,
             actual_version: 42,
         };
-        assert_eq!(err.expected_min_version, 45);
+        assert_eq!(err.expected_min_version(), 45);
     }
 
     #[test]
@@ -721,7 +400,7 @@ mod tests {
             expected_min_version: 45,
             actual_version: 42,
         };
-        assert_eq!(err.actual_version, 42);
+        assert_eq!(err.actual_version(), 42);
     }
 
     #[test]
@@ -829,7 +508,7 @@ mod tests {
             actual_version: 42,
         };
         // The retry_after is fixed by the error construction, not mutable externally
-        assert_eq!(err.retry_after, 300);
+        assert_eq!(err.retry_after(), 300);
     }
 
     #[test]
@@ -837,7 +516,7 @@ mod tests {
         // Error response must not include stack traces or internal state
         let err = AuthError::StaleAuthToken {
             retry_after: 300,
-            expected_min_version: 999999,
+            expected_min_version: 999_999,
             actual_version: 0,
         };
         let resp = err.to_http_response();
@@ -873,7 +552,7 @@ mod tests {
                     .into_iter()
                     .collect();
             let actual_keys: std::collections::HashSet<&str> =
-                obj.keys().map(|k| k.as_str()).collect();
+                obj.keys().map(std::string::String::as_str).collect();
             assert_eq!(
                 actual_keys, expected_keys,
                 "Response body must contain exactly the expected fields"
@@ -927,8 +606,7 @@ mod tests {
             .headers
             .iter()
             .find(|(k, _)| k.as_ref() == "Retry-After")
-            .map(|(_, v)| v.parse::<i64>().ok())
-            .flatten();
+            .and_then(|(_, v)| v.parse::<i64>().ok());
         assert!(retry_header.is_some());
         assert_eq!(retry_header.unwrap(), 300);
     }
@@ -988,8 +666,7 @@ mod tests {
             .headers
             .iter()
             .find(|(k, _)| k.as_ref() == "Retry-After")
-            .map(|(_, v)| v.parse::<u64>().ok())
-            .flatten()
+            .and_then(|(_, v)| v.parse::<u64>().ok())
             .unwrap_or(0);
         assert_eq!(json_retry, header_retry);
     }
@@ -1008,8 +685,7 @@ mod tests {
             .headers
             .iter()
             .find(|(k, _)| k.as_ref() == "Retry-After")
-            .map(|(_, v)| v.parse::<u64>().ok())
-            .flatten()
+            .and_then(|(_, v)| v.parse::<u64>().ok())
             .unwrap_or(0);
         assert_eq!(json_retry, header_retry);
     }

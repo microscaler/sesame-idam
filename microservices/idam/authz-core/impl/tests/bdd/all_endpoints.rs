@@ -11,19 +11,11 @@ use sesame_idam_authz_core::controllers::authorize::handle as auth_handle;
 use sesame_idam_authz_core::controllers::principal_effective::handle as effective_handle;
 use sesame_idam_authz_core::controllers::revoke_principal_role::handle as revoke_handle;
 use sesame_idam_authz_core::controllers::set_principal_attribute::handle as attr_handle;
-use sesame_idam_authz_core_gen::handlers::assign_principal_role::{
-    Request as RoleReq, Response as RoleResp,
-};
-use sesame_idam_authz_core_gen::handlers::authorize::{Request as AuthReq, Response as AuthResp};
-use sesame_idam_authz_core_gen::handlers::principal_effective::{
-    Request as EffectiveReq, Response as EffectiveResp,
-};
-use sesame_idam_authz_core_gen::handlers::revoke_principal_role::{
-    Request as RevokeReq, Response as RevokeResp,
-};
-use sesame_idam_authz_core_gen::handlers::set_principal_attribute::{
-    Request as AttrReq, Response as AttrResp,
-};
+use sesame_idam_authz_core_gen::handlers::assign_principal_role::Request as RoleReq;
+use sesame_idam_authz_core_gen::handlers::authorize::Request as AuthReq;
+use sesame_idam_authz_core_gen::handlers::principal_effective::Request as EffectiveReq;
+use sesame_idam_authz_core_gen::handlers::revoke_principal_role::Request as RevokeReq;
+use sesame_idam_authz_core_gen::handlers::set_principal_attribute::Request as AttrReq;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -36,8 +28,8 @@ fn make_auth_request(
         method: Method::POST,
         path: "/authz/authorize".to_string(),
         handler_name: "authorize".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: AuthReq {
             user_id: user_id.into(),
             action: action.to_string(),
@@ -56,8 +48,8 @@ fn make_effective_request(user_id: impl Into<String>) -> TypedHandlerRequest<Eff
         method: Method::POST,
         path: "/authz/principals/effective".to_string(),
         handler_name: "principal_effective".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: EffectiveReq {
             user_id: user_id.into(),
             tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
@@ -78,8 +70,8 @@ fn make_attr_request(
         method: Method::POST,
         path: "/authz/principals/attributes".to_string(),
         handler_name: "set_principal_attribute".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: AttrReq {
             user_id: user_id.into(),
             tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
@@ -96,8 +88,8 @@ fn make_role_request(user_id: impl Into<String>, role: &str) -> TypedHandlerRequ
         method: Method::POST,
         path: "/authz/principals/roles".to_string(),
         handler_name: "assign_principal_role".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: RoleReq {
             user_id: user_id.into(),
             tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
@@ -115,8 +107,8 @@ fn make_revoke_request(user_id: impl Into<String>, role: &str) -> TypedHandlerRe
         method: Method::DELETE,
         path: "/authz/principals/roles".to_string(),
         handler_name: "revoke_principal_role".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: RevokeReq {
             user_id: user_id.into(),
             app_id: "33333333-8a2d-4c41-8b4b-ae43ce79a494".to_string(),
@@ -130,7 +122,7 @@ fn make_revoke_request(user_id: impl Into<String>, role: &str) -> TypedHandlerRe
 
 /// Scenario: Allow read action on a resource.
 ///
-/// Given: valid request with required fields (user_id, action, resource).
+/// Given: valid request with required fields (`user_id`, action, resource).
 /// When: we call the authorize handler.
 /// Then: the response body has field "allowed" set to true.
 #[rstest]
@@ -161,9 +153,9 @@ fn authorization_response_has_allowed_boolean() {
 
 /// Scenario: Get effective permissions for a user.
 ///
-/// Given: valid request with required fields (user_id, app_id, tenant_id).
-/// When: we call the principal_effective handler.
-/// Then: the response has user_id, roles, and permissions fields.
+/// Given: valid request with required fields (`user_id`, `app_id`, `tenant_id`).
+/// When: we call the `principal_effective` handler.
+/// Then: the response has `user_id`, roles, and permissions fields.
 #[rstest]
 fn effective_permissions_returns_valid_response() {
     let typed_req = make_effective_request("test-user-1");
@@ -181,8 +173,8 @@ fn effective_permissions_returns_valid_response() {
 
 /// Scenario: Set an attribute on a principal.
 ///
-/// Given: valid request with required fields (user_id, tenant_id, key, value).
-/// When: we call the set_principal_attribute handler.
+/// Given: valid request with required fields (`user_id`, `tenant_id`, key, value).
+/// When: we call the `set_principal_attribute` handler.
 /// Then: the response is returned with an error field.
 #[rstest]
 fn set_attribute_returns_success() {
@@ -200,7 +192,7 @@ fn set_attribute_returns_success() {
 /// Scenario: Assign a role to a principal.
 ///
 /// Given: valid request with required fields.
-/// When: we call the assign_principal_role handler.
+/// When: we call the `assign_principal_role` handler.
 /// Then: the response has an error field.
 #[rstest]
 fn assign_role_returns_success() {
@@ -218,7 +210,7 @@ fn assign_role_returns_success() {
 /// Scenario: Revoke a role from a principal.
 ///
 /// Given: valid request with required fields.
-/// When: we call the revoke_principal_role handler.
+/// When: we call the `revoke_principal_role` handler.
 /// Then: the response has an error field.
 #[rstest]
 fn revoke_role_returns_success() {

@@ -32,8 +32,8 @@ fn when_attr_valid() {
         method: Method::POST,
         path: "/authz/principals/attributes".to_string(),
         handler_name: "set_principal_attribute".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: Request {
             user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
             tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
@@ -79,8 +79,8 @@ fn when_empty_value() {
         method: Method::POST,
         path: "/authz/principals/attributes".to_string(),
         handler_name: "set_principal_attribute".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: Request {
             user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
             tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
@@ -121,8 +121,8 @@ fn when_org_context() {
         method: Method::POST,
         path: "/authz/principals/attributes".to_string(),
         handler_name: "set_principal_attribute".to_string(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
         data: Request {
             user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
             tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
