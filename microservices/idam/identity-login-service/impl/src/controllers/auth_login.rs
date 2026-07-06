@@ -52,11 +52,25 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     }
 
     let user_id = user.id.to_string();
+
+    // JWT enrichment: fetch effective roles from authz-core (the single
+    // sanctioned cross-service call). Degrades to empty roles on failure —
+    // login must not hard-fail when authz-core is briefly unavailable.
+    let roles = crate::services::authz_client::fetch_effective_roles(
+        &user_id,
+        &tenant_id,
+        DEFAULT_PORTAL,
+    )
+    .unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "auth_login: authz-core enrichment failed — issuing token without roles");
+        vec![]
+    });
+
     let tokens = match token_issuer::issue_tokens(
         &user_id,
         &tenant_id,
         DEFAULT_PORTAL,
-        vec![],
+        roles.clone(),
         "customer",
     ) {
         Ok(tokens) => tokens,
@@ -80,7 +94,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         refresh_token_expires_in: Some(
             i32::try_from(tokens.refresh_expires_in).unwrap_or(i32::MAX),
         ),
-        roles: Some(vec![]),
+        roles: Some(roles),
         scope: Some(tokens.scope),
         token_type: "Bearer".to_string(),
         token_version: i32::try_from(tokens.token_version).ok(),

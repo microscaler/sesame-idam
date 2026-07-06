@@ -4,6 +4,7 @@ pub mod common;
 
 pub mod bdd {
     pub mod auth_flow;
+    pub mod authz_enrichment;
     pub mod jwt_ttl;
     pub mod jwt_validation;
     pub mod pii_entitlements;

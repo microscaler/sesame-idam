@@ -61,6 +61,10 @@ tracing = "0.1"
 argon2 = { workspace = true }
 redis = { workspace = true }
 thiserror = { workspace = true }
+# authz-core enrichment call (single HTTP client policy: may_http only;
+# http_legacy = http 0.2, the version may_http pins)
+may_http = { workspace = true }
+http_legacy = { workspace = true }
 
 [build-dependencies]
 lifeguard-migrate = { workspace = true }
