@@ -50,7 +50,7 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-tenancy-model](./topics/topic-tenancy-model.md) | Hard-segment multi-tenant model, X-Tenant-ID, isolation guarantees |
 ||| [topic-openapi-tenancy-strategy](./topics/topic-openapi-tenancy-strategy.md) | Global spec + middleware injection pattern, why not per-tenant specs |
 ||| [topic-jwt-schema](./topics/topic-jwt-schema.md) | JWT enrichment claims, coarse vs fine-grained auth |
-||| [topic-login-flow](./topics/topic-login-flow.md) | User login flow: login → authz-core → JWT |
+||| [topic-login-flow](./topics/topic-login-flow.md) | User login flow: login → authz-core → JWT. **Implemented 2026-07-06** (argon2id + Ed25519 + Redis refresh + role enrichment); OTP/social/magic-link variants still stubs |
 ||| [topic-authorization-flow](./topics/topic-authorization-flow.md) | Per-request authorization: Redis cache, role evaluation |
 ||| [topic-api-key-validation](./topics/topic-api-key-validation.md) | M2M key validation flow |
 ||| [topic-rls-bridge](./topics/topic-rls-bridge.md) | RLS helpers, session injection, database security |

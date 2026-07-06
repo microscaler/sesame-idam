@@ -101,11 +101,15 @@ All gen/impl package names follow `sesame_idam_<svc>_gen` / `sesame_idam_<svc>` 
 - HTTP server configuration (address, port, timeouts)
 - Database pool configuration
 
-### 2.3 Add `services/` layer to each impl crate ⏳
+### 2.3 Add `services/` layer to each impl crate 🔶 (2026-07-06)
 
 - Controllers call services (not database directly)
-- Services implement business logic
-- Services receive `PooledLifeExecutor` for DB access
+- Services are stateless and generic over `LifeExecutor` (hauliage
+  pattern); controllers obtain the executor via `sesame_idam_database::db()`
+- **Done:** identity-login-service (password, user_service, token_issuer,
+  authz_client), identity-session-service (token_rotation, profile_service),
+  authz-core (principal_service)
+- **Pending:** api-keys, org-mgmt, identity-user-mgmt-service
 
 ## Phase 3: Add Supporting Files (MINOR)
 
@@ -137,13 +141,24 @@ All gen/impl package names follow `sesame_idam_<svc>_gen` / `sesame_idam_<svc>` 
 
 ## Phase 5: Tiltfile Validation & Data Wiring
 
-**Status: Not started**
+**Status: Partially completed (2026-07-06)**
 
-5a. Run `tilt trigger docker-<service>` for each service and verify builds
-5b. Verify port forwards work (postgres 5432, redis 6379)
-5c. Verify live_update sync (edit source → save → service restarts)
-5d. Create database env manifests (secrets/configmaps for postgres)
-5e. Wire Redis deployment via K8s manifest
+5a. Run `tilt trigger docker-<service>` for each service and verify builds ⏳
+5b. Verify port forwards work (postgres 5432, redis 6379) ⏳
+5c. Verify live_update sync (edit source → save → service restarts) ⏳
+5d. Database env wiring ✅ — Helm deployment.yaml injects `DB_*` from values
+    + `sesame-idam-db-credentials` Secret (optional, dev fallback), plus
+    `REDIS_URL`, `AUTHZ_CORE_URL` (login), and the shared JWT signing key
+    from the `sesame-idam-jwt-signing` Secret (`just jwt-signing-secret`).
+    Values files corrected to database/role `sesame_idam` (were pointing at
+    the `postgres` superuser DB).
+5e. Redis manifest exists (`k8s/data/redis.yaml`, namespace sesame-idam) ✅
+
+Migrations/seeds: `./migrations` + `apply_order.txt` are now committed and
+applied to the shared Kind postgres via `scripts/setup-db.sh`
+(`sesame-idam-db-init` / `SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1`). Seeds:
+hauliage demo users + role assignments. Regenerate `seed_order.txt` with
+`cargo run -p sesame_idam_migrator` after adding seed files.
 
 ## Risk Assessment
 

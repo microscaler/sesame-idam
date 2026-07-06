@@ -1,35 +1,45 @@
 ---
 title: Login Flow
-status: partially-verified
-updated: 2026-01-22
-sources: [design-doc.md, service-topology-design.md]
+status: verified
+updated: 2026-07-06
+sources: [identity-login-service/impl/src/controllers/auth_login.rs, services/token_issuer.rs, services/authz_client.rs]
 ---
 
 # Login Flow
 
-## Complete Flow
+## Complete Flow (IMPLEMENTED 2026-07-06)
 
 ```
-Client → POST /auth/login {email, password} →
+Client → POST /auth/login {email, password} + X-Tenant-ID →
   identity-login-service:
-    1. Query PG: user by email
-    2. Verify password hash (bcrypt/scrypt)
-    3. Call authz-core POST /authz/principals/effective {user_id, org_id}
+    1. Query PG: user by (tenant_id, email)          [UserService]
+    2. Verify password hash (argon2id)               [services::password]
+    3. Call authz-core POST /authz/principals/effective  [services::authz_client, may_http, 500ms timeout]
        authz-core:
-         a. Query PG: resolve roles + permissions
-         b. Return effective claims
-    4. Sign JWT with all claims (RS256)
-    5. Store session in PG + Redis
-    6. Return {access_token, refresh_token, user}
+         a. Query PG: role_assignments + principal_attributes (tenant-scoped)
+         b. Return effective roles (permissions pending org-mgmt mapping)
+       — best-effort: on failure login proceeds with empty roles
+    4. Sign JWT (EdDSA/Ed25519, typ=at+jwt) with roles in sx claims
+       [sesame_common::jwt::Ed25519Signer, shared key via
+        SESAME_JWT_SIGNING_KEY_PKCS8_B64 — same key session-service
+        publishes in JWKS]
+    5. Store refresh token metadata in Redis (refresh:{jti}, family:{sid})
+       compatible with session-service rotation
+    6. Return TokenResponse {access_token, refresh_token, roles, ...}
 ```
+
+Failure modes: unknown user / wrong password / non-active account all
+return an identical 401 `invalid_credentials` (no user enumeration).
+`ver` claim comes from the Redis `VersionStore` (fallback 1 when Redis is
+down).
 
 ## Key Points
 
-1. **authz-core is called ONCE at login.** The resulting JWT contains all role/permission claims. Subsequent requests use the JWT directly.
-2. **Login routes are NOT protected by JWT common-path authz.** They CREATE trust, not evaluate it. Authentication IS the authorization.
-3. **Password hashing is the bottleneck.** CPU-bound operation. Needs to scale vertically.
-4. **Session is stored in both PG and Redis.** Redis for fast refresh lookups, PG for persistence.
-5. **Post-2026 hybrid model (Epic 4):** All per-request auth after login uses the hybrid model (jwt-only, jwt-with-fallback, online-only), NOT authz-core for every request.
+1. **authz-core is called ONCE at login** (decision confirmed + implemented; Epics INDEX open question #1 resolved). The JWT carries role claims; per-request hybrid authz is Epic 4.
+2. **Enrichment is best-effort.** Login availability never depends on authz-core; tokens degrade to empty roles.
+3. **Login routes are NOT protected by JWT common-path authz.** They CREATE trust, not evaluate it.
+4. **Password hashing is the bottleneck.** argon2id, CPU-bound. Needs to scale vertically.
+5. **Refresh state is Redis-only today** (refresh:{jti} + family sets). PG persistence of sessions is not implemented.
 
 ## Variants
 
@@ -54,9 +64,13 @@ Client → POST /auth/login {email, password} →
 
 ## Code Anchors
 
-- `microservices/idam/identity-login-service/impl/src/` — Login handler logic
-- `openapi/identity-login-service/openapi.yaml` — Login/request/response schemas
+- `microservices/idam/identity-login-service/impl/src/controllers/auth_login.rs` — password login (real)
+- `microservices/idam/identity-login-service/impl/src/controllers/auth_register.rs` — registration (real)
+- `microservices/idam/identity-login-service/impl/src/services/` — password, user_service, token_issuer, authz_client
+- `microservices/idam/identity-login-service/impl/tests/bdd/auth_flow.rs` — live-DB BDD (register→login round trip, tenant isolation)
+- `openapi/idam/identity-login-service/openapi.yaml` — request/response schemas
 
 ## Gaps / Drift
 
-> **Open:** Verify actual flow against implementation. The design doc describes the ideal flow; the actual implementation may differ.
+- Only email+password login and registration are implemented. All variants in the table below (OTP, social OAuth, magic links, MFA/step-up) are still gen-stub mocks.
+- `POST /auth/token` (refresh/token-exchange in login-service) still uses placeholder signing — real refresh goes through session-service `/auth/refresh`.

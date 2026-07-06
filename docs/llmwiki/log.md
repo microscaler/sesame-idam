@@ -158,6 +158,31 @@ Wired OTEL tracing spans across all 6 sesame-idam microservices following the ha
 - **Story 9.7 alerting**: No Loki/Grafana alert rules created yet (spans/logs are ready for them)
 - **Controller coverage**: Only representative controllers instrumented; many CRUD read/list controllers still lack spans
 
+## [2026-07-06 pm3] Wiki State Sync — Implementation Status Snapshot
+
+### Current implementation state (for future sessions)
+
+**Real, DB/Redis-backed, tested (live Kind postgres + redis):**
+
+| Endpoint | Service | Notes |
+|----------|---------|-------|
+| `POST /auth/register` | identity-login-service | argon2id, tenant-scoped, real Ed25519 tokens |
+| `POST /auth/login` | identity-login-service | credential verify + authz-core role enrichment (best-effort) |
+| `POST /auth/refresh` | identity-session-service | Redis rotation (works on login-issued tokens) |
+| `GET /.well-known/jwks.json` | identity-session-service | shared signing key via Secret, rotation/revocation |
+| `POST /authz/principals/effective` | authz-core | roles + attributes from PG; permissions pending |
+| `GET/PATCH /identity/me` | identity-session-service | raw handlers (JWT principal), user_profiles upsert |
+
+**Key architectural facts learned:**
+
+- Typed BRRTRouter handlers drop `jwt_claims` — principal-dependent endpoints must use raw handlers (`identity-session-service/impl/src/raw_handler.rs`).
+- Shared Ed25519 signing key distributed via `sesame-idam-jwt-signing` K8s Secret (`just jwt-signing-secret`); login signs, session publishes JWKS.
+- Tenant ids are plain strings (slugs like `hauliage`); `format: uuid` removed from X-Tenant-ID in all specs.
+- Builds/tests run on ms02 (`ssh ms02`, `export PATH=$HOME/.cargo/bin:$PATH`); local Mac builds over NFS are ~100x slower.
+- Live-DB BDD pattern: `db_available()` skip-gate + `DB_POOL_MAX=2` (nextest is process-per-test; bigger pools exhaust postgres max_connections).
+
+**Everything else** (OTP, social, magic links, MFA, SCIM, SSO, org-mgmt CRUD, api-keys, user-mgmt admin CRUD, `authorize` decisioning) is still gen-stub mocks.
+
 ## [2026-07-06 pm2] /identity/me DB-Backed + Helm Env Wiring + Tenant Format Fix
 
 ### Summary
