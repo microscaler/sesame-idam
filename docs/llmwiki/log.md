@@ -487,3 +487,26 @@ ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/seasame-idam/microse
 
 All 3 tests **passed** on ms02 (~0.6s with postgres/redis on localhost:5432/6379). Mac without port-forwards skips gracefully.
 
+## [2026-07-06 pm12] Cross-repo BRRTRouter refactor backlog (workaround cleanup)
+
+### Summary
+
+Documented BRRTRouter refactor tasks needed to remove sesame-idam workarounds across three repos. Next staged work: **BR-1** (`security: []` semantics) → **SI-1/SI-2** (restore global security on IDAM specs) → **HI-1** (H7.2 hauliage JWKS smoke).
+
+### Wiki pages
+
+| Repo | Page |
+|------|------|
+| sesame-idam | [`topics/topic-brrtrouter-refactor-backlog.md`](./topics/topic-brrtrouter-refactor-backlog.md) |
+| BRRTRouter | [`../../BRRTRouter/docs/llmwiki/topics/sesame-idam-workarounds-cleanup.md`](../../BRRTRouter/docs/llmwiki/topics/sesame-idam-workarounds-cleanup.md) |
+| hauliage | [`../../hauliage/docs/llmwiki/topics/sesame-idam-brrtrouter-integration.md`](../../hauliage/docs/llmwiki/topics/sesame-idam-brrtrouter-integration.md) |
+
+Also updated `topic-brrtrouter-codegen.md` (security + raw-handler gaps) and closed Open item in `topic-http-client-policy.md`.
+
+### Workarounds catalogued
+
+1. No global OpenAPI security on login/session specs (H6.1 deploy 401)
+2. Raw handlers for principal endpoints (`jwt_claims` dropped by typed dispatch)
+3. Full `init_security` in impl vs slim JWKS-only init
+4. Refresh errors → HTTP 200 + empty body (typed handler limitation)
+

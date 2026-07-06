@@ -112,7 +112,7 @@ Phase 5  OTEL — grpc-only export, shed opentelemetry-http reqwest
 Phase 6  sesame-idam — pin updated BRRTRouter, verify musl + no openssl-sys
 ```
 
-> **Open:** Decide whether `brrtrouter::http` lives in BRRTRouter (preferred — all consumers benefit) or `sesame-common` (sesame-only). Hauliage also uses BRRTRouter → **BRRTRouter is the right home**.
+> **Resolved (2026-07-06):** `brrtrouter::http` lives in BRRTRouter; sesame consumes via `sesame_common::http`. Remaining BRRTRouter work tracked in [`topic-brrtrouter-refactor-backlog.md`](./topic-brrtrouter-refactor-backlog.md) (BR-5..BR-7).
 
 ## TLS Backend: rustls Only
 

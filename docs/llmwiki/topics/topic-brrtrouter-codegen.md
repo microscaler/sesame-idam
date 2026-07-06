@@ -83,6 +83,18 @@ Shared schemas (User, UserProfile, Org) are **duplicated** in each consuming spe
 2. **Every UI-dynamic field** must be in the OpenAPI spec. BRRTRouter silently drops unrecognized fields.
 3. **After spec changes**, run `just gen` and verify the generated code compiles.
 
+## Security codegen gap (workaround active)
+
+OpenAPI 3: operation `security: []` means **no auth**. BRRTRouter `build.rs` treats empty operation security as “inherit global security” because `oas3` cannot distinguish omitted vs explicit `[]`.
+
+**Sesame workaround (2026-07-06):** removed global `security` from login/session specs; protected routes use per-operation `BearerAuth`. Public routes need no security block.
+
+**Proper fix:** BRRTRouter **BR-1** — see [`topic-brrtrouter-refactor-backlog.md`](./topic-brrtrouter-refactor-backlog.md).
+
+## Principal endpoints → raw handlers
+
+Typed dispatch drops `jwt_claims`. Endpoints that need the authenticated principal (`/identity/me`, userinfo) use `raw_handler.rs` instead of generated typed handlers. **BR-2** tracks the framework fix.
+
 ## Current Codegen State
 
 | Item | Status |

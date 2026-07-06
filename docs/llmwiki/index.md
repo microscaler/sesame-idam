@@ -55,6 +55,7 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-api-key-validation](./topics/topic-api-key-validation.md) | M2M key validation flow |
 ||| [topic-rls-bridge](./topics/topic-rls-bridge.md) | RLS helpers, session injection, database security |
 |||| [topic-brrtrouter-codegen](./topics/topic-brrtrouter-codegen.md) | OpenAPI → codegen workflow, gen/ vs impl/, package naming warning |
+|||| [topic-brrtrouter-refactor-backlog](./topics/topic-brrtrouter-refactor-backlog.md) | Cross-repo BRRTRouter refactor tasks to remove sesame workarounds (BR-1..BR-7, SI-*, HI-*) |
 |||| [topic-jsf-linting](./topics/jsf-linting.md) | JSF-inspired clippy profile: pedantic mode, `-D warnings`, JSF-aligned thresholds in `clippy.toml`, Phase 1 warn → Phase 2 deny plan |
 |||| [topic-data-model](./topics/topic-data-model.md) | Full ERD, key design decisions |
 |||| [topic-entity-relationship-diagram](./topics/topic-entity-relationship-diagram.md) | Comprehensive ERD reconciled from OpenAPI specs + impl model verification |
