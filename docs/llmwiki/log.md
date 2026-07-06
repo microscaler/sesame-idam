@@ -525,5 +525,10 @@ Implemented **BR-1** in BRRTRouter: explicit operation `security: []` is now pub
 ```bash
 cargo test --test spec_security_tests          # BRRTRouter — 3 passed
 cargo test -p sesame_idam_identity_login_service --test openapi_security  # 4 passed
+cargo test -p hauliage_fleet --test sesame_jwks_smoke  # skips until fleet redeploy + demo seed
 ```
+
+## [2026-07-06 pm14] Hauliage HI-2/HI-1/HI-3 — fleet JWKS integration
+
+Cross-repo: hauliage fleet wired to sesame-idam cluster JWKS (`_sesame-idam-kubernetes.yaml` + fleet helm/config). `GET /vehicles` requires BearerAuth. Smoke test `hauliage/microservices/fleet/impl/tests/sesame_jwks_smoke.rs` exercises login → fleet (curl, skips when services/seeds unavailable).
 
