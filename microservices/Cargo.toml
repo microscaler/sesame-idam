@@ -41,7 +41,8 @@ serde_yaml = "0.9"
 config = "0.14"
 http = "1.0"
 may = "0.3"
-may_minihttp = "0.1"
+# Microscaler fork — provides TestClient (see AGENTS.md dependency rules)
+may_minihttp = { git = "https://github.com/microscaler/may_minihttp.git", branch = "integration/microscaler-fork" }
 may_http = { git = "https://github.com/rust-may/may_http.git" }
 http_legacy = { package = "http", version = "0.2" }
 anyhow = "1.0"
@@ -50,6 +51,7 @@ clap = { version = "4.5", features = ["derive"] }
 tikv-jemallocator = { version = "0.6", features = ["profiling"] }
 jsonwebtoken = "9.3"
 ring = "0.17"
+argon2 = "0.5"
 base64 = { version = "0.22", features = ["alloc"] }
 redis = { version = "0.25", features = ["aio", "tokio-comp", "connection-manager"] }
 blake3 = "1.5"
