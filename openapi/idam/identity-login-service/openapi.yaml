@@ -25,9 +25,6 @@ tags:
   description: Passwordless magic link authentication
 - name: UserManagement
   description: User profile management and PII retrieval endpoints
-security:
-- BearerAuth: []
-- ApiKeyHeader: []
 paths:
   /auth/login:
     post:
