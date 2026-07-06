@@ -532,3 +532,17 @@ cargo test -p hauliage_fleet --test sesame_jwks_smoke  # skips until fleet redep
 
 Cross-repo: hauliage fleet wired to sesame-idam cluster JWKS (`_sesame-idam-kubernetes.yaml` + fleet helm/config). `GET /vehicles` requires BearerAuth. Smoke test `hauliage/microservices/fleet/impl/tests/sesame_jwks_smoke.rs` exercises login → fleet (curl, skips when services/seeds unavailable).
 
+## [2026-07-06 pm22] E2E green + JWKS response fix
+
+- Session `JwkOnly` now serializes `alg: EdDSA` (fixes JWKS 500 from response schema validation).
+- Tiltfile: `BRRTRouter/src` in microservice build deps; `build-tooling` as build dep.
+- ms02: `sesame_jwks_smoke` 3/3 pass; manual login → fleet 200 verified.
+
+## [2026-07-06 pm22] BRRTRouter HTTP fetch path fix
+
+`fetch_get_http` / `fetch_post_http` now send path+query only to `may_http` (not full URL). Unblocks in-cluster JWKS fetch from hauliage fleet pods.
+
+## [2026-07-07] Hauliage HI-5 + JWKS company/BFF
+
+Cross-repo: hauliage identity/company/fleet global BearerAuth; company + BFF JWKS config; BFF login (HI-4) committed.
+

@@ -245,6 +245,8 @@ pub struct JwkOnly {
     pub use_claim: JwkUse,
     pub crv: JwkCurve,
     pub x: String,
+    /// Intended signing algorithm (RFC 7517 + OpenAPI JWKS schema).
+    pub alg: String,
 }
 
 // ─── Internal key representation ─────────────────────────────────────────────
@@ -316,6 +318,7 @@ impl JwtSigningKey {
             use_claim: JwkUse::Sig,
             crv: JwkCurve::Ed25519,
             x: URL_SAFE_NO_PAD.encode(public_key_bytes),
+            alg: "EdDSA".to_string(),
         };
 
         Ok(Self {
@@ -348,6 +351,7 @@ impl JwtSigningKey {
             use_claim: JwkUse::Sig,
             crv: JwkCurve::Ed25519,
             x: URL_SAFE_NO_PAD.encode(public_key_bytes),
+            alg: "EdDSA".to_string(),
         };
 
         Ok(Self {

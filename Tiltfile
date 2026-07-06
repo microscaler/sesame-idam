@@ -230,13 +230,14 @@ def create_microservice_build(name):
             './microservices/idam/%s/impl/Cargo.toml' % name,
             './microservices/idam/%s/gen/src' % name,
             './microservices/idam/%s/impl/src' % name,
+            '%s/src' % brrtrouter_root,
             'tooling/pyproject.toml',
         ],
         ignore=[
             './microservices/target',
             './build_artifacts',
         ],
-        resource_deps=['%s-service-gen' % name],
+        resource_deps=['%s-service-gen' % name, 'build-tooling'],
         labels=[name],
         allow_parallel=True,
     )

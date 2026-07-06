@@ -246,18 +246,17 @@ fn test_jwks_response_not_jwt() {
     let req = make_request("/.well-known/jwks.json", Method::GET, vec![]);
     let hr = invoke_jwks_request(req);
 
-    // Then: response is NOT a JWT (JWTs have 3 dot-separated segments)
+    // Then: response is NOT a JWT (JWTs are compact strings with 3 dot-separated segments)
     let json_str = serde_json::to_string(&hr.body).expect("body must serialize");
 
-    // A JWT has the format: header.payload.signature (3 base64 segments)
-    // The JWKS response has a "keys" array, not the JWT structure
-    assert!(
-        !json_str.contains("\"alg\":\""),
-        "JWKS response must not look like a JWT"
-    );
     assert!(
         json_str.contains("\"keys\""),
         "JWKS response must contain 'keys' field"
+    );
+    // Root document is JSON object, not a bare JWT compact serialization.
+    assert!(
+        !json_str.starts_with("eyJ"),
+        "JWKS response must not be a bare JWT string"
     );
 }
 

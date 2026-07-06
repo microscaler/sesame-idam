@@ -72,7 +72,10 @@ Done (2026-07-06)
   BR-1 + SI-1 + SI-2
 
 Sprint next
-  HI-2 (H6.3 cluster URLs) → HI-1 (H7.2 JWKS smoke) → HI-3 (E2E)
+  HI-4 (OpenAPI client) — roll JWKS to more hauliage services
+
+Done (2026-07-06)
+  HI-2 + HI-1 + HI-3 (fleet JWKS smoke + E2E test in hauliage)
 
 Then (P2)
   BR-2/BR-3 → SI-3/SI-4
