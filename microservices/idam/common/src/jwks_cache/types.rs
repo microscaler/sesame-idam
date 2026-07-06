@@ -15,7 +15,7 @@
 //! # Security
 //!
 //! Addresses HACK-711 through HACK-714:
-//! - TLS with certificate validation (reqwest defaults)
+//! - TLS with certificate validation via `brrtrouter::http` (rustls for HTTPS)
 //! - Fetch rate limiting: max 1 fetch per second per instance
 //! - Size limits: max 10 keys, max 10KB per key, max 100KB total document
 //! - Single-flight pattern: concurrent requests deduplicate to one fetch

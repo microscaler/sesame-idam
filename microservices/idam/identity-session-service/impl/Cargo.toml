@@ -61,9 +61,7 @@ ring = { workspace = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 redis = { workspace = true }
 prometheus = { workspace = true }
-
-# JWKS cache: reqwest for background HTTP fetches.
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+thiserror = { workspace = true }
 
 [build-dependencies]
 lifeguard-migrate = { workspace = true }

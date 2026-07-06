@@ -59,6 +59,8 @@ pub enum RotationOutcome {
         new_refresh_token: String,
         access_expires_in: i32,
         refresh_expires_in: i32,
+        user_id: String,
+        scope: String,
     },
     /// Reuse detected — entire token family revoked.
     ReuseDetected {
@@ -96,27 +98,9 @@ impl From<anyhow::Error> for RotationError {
 
 /// Rotate a refresh token.
 ///
-/// Implements the rotation flow from Story 3.1:
-/// 1. Look up the refresh token in Redis by its JTI
-/// 2. Check if the JTI is in the denylist (reuse detection)
-/// 3. If found in denylist → revoke family → return `ReuseDetected`
-/// 4. If clean → delete old token, issue new tokens, add old JTI to denylist
-///
-/// # Parameters
-/// - `refresh_token_value`: The refresh token string from the client
-/// - `family_id`: The token family ID (used for reuse detection)
-/// - `user_id`: The user ID (for metrics and logging)
-///
-/// # Returns
-/// - `RotationOutcome::Rotated` with new tokens on success
-/// - `RotationOutcome::ReuseDetected` if the old JTI was in the denylist
-/// - `RotationOutcome::InvalidToken` if the token is not in Redis
-/// - `RotationOutcome::RedisUnavailable` if Redis is down
-pub fn rotate_refresh_token(
-    refresh_token_value: &str,
-    family_id: &str,
-    _user_id: &str,
-) -> RotationOutcome {
+/// Validates the old token, checks for reuse, and issues new access + refresh
+/// tokens signed with the shared Ed25519 key.
+pub fn rotate_refresh_token(refresh_token_value: &str, tenant_id: &str) -> RotationOutcome {
     let parts: Vec<&str> = refresh_token_value.split('.').collect();
     if parts.len() != 3 {
         TOKEN_REFRESH_TOTAL
@@ -154,15 +138,8 @@ pub fn rotate_refresh_token(
         }
     };
 
-    // Prefer the family recorded on the stored token (set at login time)
-    // over the caller-supplied hint, so reuse revocation targets the right
-    // family even when the handler cannot supply one.
-    let family_id: String = if token.family_id.is_empty() {
-        family_id.to_string()
-    } else {
-        token.family_id.clone()
-    };
-    let family_id = family_id.as_str();
+    // Prefer the family recorded on the stored token (set at login time).
+    let family_id = token.family_id.as_str();
 
     // Step 2: Check if this JTI is in the denylist (reuse detection)
     // This detects the "tear" scenario where an attacker used the token
@@ -215,7 +192,7 @@ pub fn rotate_refresh_token(
         token.scopes.clone(),
     );
 
-    // Store new refresh token in Redis
+    // Store new refresh token in Redis and register in the family set.
     if let Err(e) = redis::store_refresh_token(&new_token) {
         tracing::error!(
             event = "rotation_new_token_store_failed",
@@ -224,6 +201,15 @@ pub fn rotate_refresh_token(
             "Failed to store new refresh token"
         );
         return RotationOutcome::RedisUnavailable;
+    }
+    if let Err(e) = redis::add_family_member(family_id, &new_jti) {
+        tracing::warn!(
+            event = "rotation_family_register_failed",
+            family_id = family_id,
+            new_jti = new_jti,
+            error = e.to_string(),
+            "Failed to register rotated refresh token in family set"
+        );
     }
 
     // Step 5: Add old JTI to denylist (24h TTL — prevents replay)
@@ -241,26 +227,28 @@ pub fn rotate_refresh_token(
         .with_label_values(&["success", "rotated"])
         .inc();
 
-    // Step 6: Generate new tokens (access + refresh)
-    let access_expires_in = 300; // 5 minutes
-    let refresh_expires_in =
-        i32::try_from(crate::models::refresh_token::REFRESH_TOKEN_TTL).unwrap_or(i32::MAX);
-
-    let new_access_token = generate_access_token(
-        &token.sub,
-        &token.client_id,
-        &token.scopes,
-        family_id,
-        &jti, // old JTI as version indicator
-    );
-
-    let new_refresh = new_token.to_json().unwrap_or_default();
-
-    RotationOutcome::Rotated {
-        new_access_token,
-        new_refresh_token: new_refresh,
-        access_expires_in,
-        refresh_expires_in,
+    // Step 6: Sign new access + refresh JWTs with the shared Ed25519 key
+    match super::token_issuer::issue_rotated_tokens(&new_token, tenant_id) {
+        Ok(issued) => RotationOutcome::Rotated {
+            new_access_token: issued.access_token,
+            new_refresh_token: issued.refresh_token,
+            access_expires_in: issued.access_expires_in,
+            refresh_expires_in: issued.refresh_expires_in,
+            user_id: issued.user_id,
+            scope: issued.scope,
+        },
+        Err(e) => {
+            tracing::error!(
+                event = "rotation_signing_failed",
+                error = e.to_string(),
+                "Failed to sign rotated tokens"
+            );
+            REFRESH_ROTATION_FAILURES_TOTAL.inc();
+            TOKEN_REFRESH_TOTAL
+                .with_label_values(&["failure", "signing_error"])
+                .inc();
+            RotationOutcome::RedisUnavailable
+        }
     }
 }
 
@@ -294,47 +282,6 @@ fn base64_decode_url(input: &str) -> Option<String> {
     String::from_utf8(bytes).ok()
 }
 
-/// Generate a new access token for the refreshed session.
-///
-/// In production, this would use the real JWT signing key (RS256/ES256).
-/// For now, we generate a placeholder token.
-fn generate_access_token(
-    user_id: &str,
-    client_id: &str,
-    scopes: &str,
-    family_id: &str,
-    _version_hint: &str,
-) -> String {
-    use base64::Engine;
-    let engine = base64::engine::general_purpose::URL_SAFE_NO_PAD;
-
-    // Header
-    let header = serde_json::json!({
-        "alg": "RS256",
-        "typ": "JWT",
-        "kid": "default-key",
-    });
-    let header_b64 = engine.encode(serde_json::to_string(&header).unwrap());
-
-    // Payload
-    let now = chrono::Utc::now().timestamp();
-    let payload = serde_json::json!({
-        "iss": "https://idam.example.com",
-        "sub": user_id,
-        "aud": ["identity-session-service"],
-        "iat": now,
-        "exp": now + 300,
-        "jti": Uuid::new_v4().to_string(),
-        "sid": family_id,
-        "client_id": client_id,
-        "scope": scopes,
-        "ver": 1,
-    });
-    let payload_b64 = engine.encode(serde_json::to_string(&payload).unwrap());
-
-    // Signature (placeholder — replace with real signing in production)
-    format!("{header_b64}.{payload_b64}.placeholder_signature")
-}
 
 /// Check if a token has been reused (for reuse detection).
 ///

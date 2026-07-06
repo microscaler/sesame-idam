@@ -13,4 +13,5 @@
 //! against the real persistence layer.
 
 pub mod auth_login;
+pub mod auth_logout;
 pub mod auth_register;

@@ -1,17 +1,15 @@
 //! Client for authz-core `POST /authz/principals/effective` — the single
 //! sanctioned cross-service dependency (login-time JWT claim enrichment).
 //!
-//! Uses `may_http` per the single-HTTP-client policy (see
+//! Uses `brrtrouter::http` via [`sesame_common::http`] (see
 //! `docs/llmwiki/topics/topic-http-client-policy.md`). Failures degrade
 //! gracefully to empty roles: login must not hard-fail when authz-core is
 //! briefly unavailable — the token is simply issued without role claims and
 //! the client can refresh once authz-core is back.
 
-use std::io::Read;
 use std::time::Duration;
 
-use http_legacy::{Method, Uri};
-use may_http::client::HttpClient;
+use sesame_common::{fetch_post, HttpFetchOptions};
 
 /// Env var for the authz-core base URL.
 pub const AUTHZ_CORE_URL_ENV: &str = "AUTHZ_CORE_URL";
@@ -23,21 +21,10 @@ const DEFAULT_AUTHZ_CORE_URL: &str = "http://authz-core:8102";
 const TIMEOUT_MS: u64 = 500;
 
 /// Maximum response body size we are willing to read (64 KB).
-const MAX_BODY_BYTES: u64 = 64 * 1024;
+const MAX_BODY_BYTES: usize = 64 * 1024;
 
 fn authz_core_url() -> String {
     std::env::var(AUTHZ_CORE_URL_ENV).unwrap_or_else(|_| DEFAULT_AUTHZ_CORE_URL.to_string())
-}
-
-/// Parse `http://host[:port]` into (host, port). No TLS support — authz-core
-/// is cluster-internal.
-fn parse_host_port(url: &str) -> Option<(String, u16)> {
-    let rest = url.strip_prefix("http://")?;
-    let host_port = rest.split('/').next()?;
-    match host_port.split_once(':') {
-        Some((h, p)) => Some((h.to_string(), p.parse().ok()?)),
-        None => Some((host_port.to_string(), 80)),
-    }
 }
 
 /// Fetch effective role names for a user from authz-core.
@@ -55,16 +42,7 @@ pub fn fetch_effective_roles(
     app_id: &str,
 ) -> Result<Vec<String>, String> {
     let base = authz_core_url();
-    let (host, port) =
-        parse_host_port(&base).ok_or_else(|| format!("invalid {AUTHZ_CORE_URL_ENV}: {base}"))?;
-
-    let mut client = HttpClient::connect((host.as_str(), port))
-        .map_err(|e| format!("connect {host}:{port}: {e}"))?;
-    client.set_timeout(Some(Duration::from_millis(TIMEOUT_MS)));
-
-    let uri: Uri = format!("{base}/authz/principals/effective")
-        .parse()
-        .map_err(|e| format!("uri: {e}"))?;
+    let url = format!("{base}/authz/principals/effective");
 
     let body = serde_json::json!({
         "user_id": user_id,
@@ -74,29 +52,19 @@ pub fn fetch_effective_roles(
     })
     .to_string();
 
-    let mut req = client.new_request(Method::POST, uri);
-    req.headers_mut().insert(
-        "content-type",
-        http_legacy::HeaderValue::from_static("application/json"),
-    );
-    if let Ok(tenant_header) = http_legacy::HeaderValue::from_str(tenant_id) {
-        req.headers_mut().insert("x-tenant-id", tenant_header);
-    }
-    req.send(body.as_bytes())
-        .map_err(|e| format!("send: {e}"))?;
+    let options = HttpFetchOptions {
+        timeout: Duration::from_millis(TIMEOUT_MS),
+        max_body_bytes: MAX_BODY_BYTES,
+        extra_headers: vec![
+            ("content-type".to_string(), "application/json".to_string()),
+            ("x-tenant-id".to_string(), tenant_id.to_string()),
+        ],
+    };
 
-    let mut response = client
-        .send_request(req)
-        .map_err(|e| format!("response: {e}"))?;
+    let (_status, response_body) = fetch_post(&url, body.as_bytes(), &options)
+        .map_err(|e| format!("authz-core POST {url}: {e}"))?;
 
-    let mut buf = Vec::with_capacity(1024);
-    response
-        .by_ref()
-        .take(MAX_BODY_BYTES)
-        .read_to_end(&mut buf)
-        .map_err(|e| format!("read body: {e}"))?;
-
-    parse_roles(&buf)
+    parse_roles(&response_body)
 }
 
 /// Extract role names from an `EffectiveResponse` body.
@@ -148,18 +116,5 @@ mod tests {
     fn parse_roles_rejects_missing_array() {
         assert!(parse_roles(br#"{"user_id":"u1"}"#).is_err());
         assert!(parse_roles(b"not json").is_err());
-    }
-
-    #[test]
-    fn parse_host_port_variants() {
-        assert_eq!(
-            parse_host_port("http://authz-core:8102"),
-            Some(("authz-core".to_string(), 8102))
-        );
-        assert_eq!(
-            parse_host_port("http://127.0.0.1"),
-            Some(("127.0.0.1".to_string(), 80))
-        );
-        assert_eq!(parse_host_port("https://x"), None);
     }
 }

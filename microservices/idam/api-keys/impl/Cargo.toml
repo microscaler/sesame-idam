@@ -26,6 +26,10 @@ sesame_common = { workspace = true }
 lifeguard = { workspace = true }
 lifeguard-derive = { workspace = true }
 chrono = { workspace = true }
+# API key generation/hashing
+sha2 = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true }
 uuid = { workspace = true }
 rust_decimal = { workspace = true }
 

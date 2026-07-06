@@ -1,10 +1,7 @@
 use crate::jwks_cache::types::JwksCacheInner;
 use crate::jwks_cache::{Jwk, JwksCacheError, JwksDocument, JwksHealthCheck};
-// may_http is pinned to http 0.2, while the workspace default `http` is 1.x.
-use http_legacy::Uri;
-use may_http::client::HttpClient;
+use crate::http::{fetch_get, HttpFetchOptions};
 use std::collections::HashMap;
-use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -25,6 +22,8 @@ pub const DEFAULT_MAX_KEY_SIZE_BYTES: usize = 10 * 1024;
 pub const DEFAULT_MAX_JWKS_SIZE_BYTES: usize = 100 * 1024;
 /// Minimum fetch interval (1 second) — prevents refresh storms.
 pub const MIN_FETCH_INTERVAL_SECS: u64 = 1;
+/// Default timeout for JWKS endpoint fetches.
+const JWKS_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 /// Maximum response body size (256 KB) — hard limit for `read_to_end`.
 pub const MAX_BODY_READ_BYTES: usize = 256 * 1024;
 
@@ -312,13 +311,10 @@ impl JwksCache {
     pub fn refresh(&self) -> Result<usize, JwksCacheError> {
         let now = std::time::Instant::now();
 
-        // Parse endpoint to host:port
-        let (host, port) = Self::parse_host_port(&self.endpoint)?;
+        // Fetch via BRRTRouter coroutine HTTP client
+        let body_bytes = Self::fetch_from_endpoint(&self.endpoint, self.max_jwks_size_bytes)?;
 
-        // Connect and fetch
-        let body_bytes = Self::fetch_body(&host, port, &self.endpoint)?;
-
-        let status = 200; // We only get here on success
+        let status = 200u16;
 
         #[cfg(feature = "metrics")]
         {
@@ -517,8 +513,7 @@ impl JwksCache {
     ) -> Result<(usize, JwksCacheInner), JwksCacheError> {
         let now = std::time::Instant::now();
 
-        let (host, port) = Self::parse_host_port(endpoint)?;
-        let body_bytes = Self::fetch_body(&host, port, endpoint)?;
+        let body_bytes = Self::fetch_from_endpoint(endpoint, max_jwks_size)?;
 
         let status = 200u16; // Only reached on success
 
@@ -564,73 +559,24 @@ impl JwksCache {
         Ok((new_inner.keys.len(), new_inner))
     }
 
-    /// Parse an HTTPS/HTTP URL into (host, port).
-    fn parse_host_port(url: &str) -> Result<(String, u16), JwksCacheError> {
-        // Strip scheme
-        let host_port = url
-            .strip_prefix("https://")
-            .or_else(|| url.strip_prefix("http://"))
-            .ok_or_else(|| JwksCacheError::FetchError {
-                status: 0,
-                message: format!("Invalid URL scheme: {url}"),
-            })?;
-
-        // Strip path
-        let host_port = host_port.split('/').next().unwrap_or(host_port);
-
-        // Parse host:port or just host
-        let (host, port) = if let Some(colon) = host_port.rfind(':') {
-            let h = &host_port[..colon];
-            let p =
-                host_port[colon + 1..]
-                    .parse::<u16>()
-                    .map_err(|_| JwksCacheError::FetchError {
-                        status: 0,
-                        message: format!("Invalid port in URL: {url}"),
-                    })?;
-            (h.to_string(), p)
-        } else {
-            // Default ports based on scheme
-            let default_port = if url.starts_with("https://") {
-                443u16
-            } else {
-                80u16
-            };
-            (host_port.to_string(), default_port)
+    /// Fetch JWKS bytes from `endpoint` using [`crate::http::fetch_get`].
+    fn fetch_from_endpoint(endpoint: &str, max_body: usize) -> Result<Vec<u8>, JwksCacheError> {
+        let options = HttpFetchOptions {
+            timeout: JWKS_FETCH_TIMEOUT,
+            max_body_bytes: max_body.min(MAX_BODY_READ_BYTES),
+            extra_headers: Vec::new(),
         };
-
-        Ok((host, port))
-    }
-
-    /// Fetch body from endpoint using `may_http`.
-    fn fetch_body(host: &str, port: u16, endpoint: &str) -> Result<Vec<u8>, JwksCacheError> {
-        let mut client =
-            HttpClient::connect((host, port)).map_err(|e| JwksCacheError::FetchError {
-                status: 0,
-                message: e.to_string(),
-            })?;
-
-        let uri: Uri = endpoint.parse().map_err(|e| JwksCacheError::FetchError {
-            status: 0,
-            message: format!("Invalid URI '{endpoint}': {e}"),
-        })?;
-
-        let mut response = client.get(uri).map_err(|e| JwksCacheError::FetchError {
+        let (status, body) = fetch_get(endpoint, &options).map_err(|e| JwksCacheError::FetchError {
             status: 0,
             message: e.to_string(),
         })?;
-
-        // Read response body
-        let mut buf = Vec::with_capacity(4096);
-        response
-            .read_to_end(&mut buf)
-            .map_err(|e| JwksCacheError::FetchError {
-                status: 0,
-                message: e.to_string(),
-            })?;
-
-        // Return body with status info
-        Ok(buf)
+        if !(200..300).contains(&status) {
+            return Err(JwksCacheError::FetchError {
+                status,
+                message: format!("HTTP {status}"),
+            });
+        }
+        Ok(body)
     }
 
     /// Helper for size error.

@@ -8,6 +8,10 @@
 #![allow(clippy::missing_errors_doc)] // build script docs are auto-generated
 #![allow(clippy::uninlined_format_args)] // build script format strings
 #![allow(clippy::missing_panics_doc)] // build script panic docs are auto-generated
-//! API keys — library target for migrator access.
+//! API keys — library target for the migrator, the binary, and BDD tests.
 
+pub mod audit;
+pub mod controllers;
 pub mod models;
+pub mod security;
+pub mod services;

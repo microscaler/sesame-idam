@@ -1,4 +1,4 @@
-//! JWT enrichment via authz-core: verifies the `may_http` client path by
+//! JWT enrichment via authz-core: verifies the `brrtrouter::http` client path by
 //! serving a mock `/authz/principals/effective` on a local port and checking
 //! the roles land in the login response and the signed token's sx claims.
 //!

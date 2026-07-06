@@ -12,10 +12,9 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-mod audit;
-mod security;
-
-use security::init_security;
+// All application modules live in the lib crate (see lib.rs) so the bin,
+// tests, and migrator share one compilation of them.
+use sesame_idam_api_keys::{controllers, security::init_security};
 use sesame_common::config::load_config;
 
 use sesame_idam_api_keys_gen::registry;
@@ -94,9 +93,31 @@ fn main() -> io::Result<()> {
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
-    // Register handlers from generated crate
+    // Register & Overwrite pattern (hauliage ADR 0001): register all gen
+    // stubs first, then overwrite implemented routes with impl controllers.
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);
+        for route in &routes {
+            match route.handler_name.as_ref() {
+                "create_api_key" => {
+                    let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                        controllers::create_api_key::CreateApiKeyController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "validate_api_key" => {
+                    let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                        controllers::validate_api_key::ValidateApiKeyController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                _ => {} // gen stubs serve everything else for now
+            }
+        }
     }
 
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
@@ -135,6 +156,10 @@ fn main() -> io::Result<()> {
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
         lifeguard::metrics::prometheus_scrape_text()
     })));
+
+    // Warm Lifeguard on the main OS thread before may-scheduled HTTP handlers:
+    // lazy pool init inside a may coroutine can deadlock the runtime.
+    let _ = sesame_idam_database::db();
 
     // Port selection: PORT env var (K8s) > default 8080
     let port = std::env::var("PORT")

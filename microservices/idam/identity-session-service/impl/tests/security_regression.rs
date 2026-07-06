@@ -99,7 +99,7 @@ fn test_stale_refresh_token_rejected() {
     assert!(restored.exp < restored.iat, "Expired token has exp < iat");
 
     // Verify the rotation service rejects malformed tokens
-    let result = rotate_refresh_token("not.valid.jwt", "fam", "user");
+    let result = rotate_refresh_token("not.valid.jwt", "hauliage");
     assert!(matches!(result, RotationOutcome::InvalidToken));
 }
 
@@ -122,6 +122,8 @@ fn test_replay_attack_on_active_token_detected() {
         new_refresh_token: "new-refresh-token".to_string(),
         access_expires_in: 300,
         refresh_expires_in: i32::try_from(REFRESH_TOKEN_TTL).unwrap_or(i32::MAX),
+        user_id: "user-123".to_string(),
+        scope: "openid profile email".to_string(),
     };
 
     match legitimate_rotation {
@@ -142,7 +144,7 @@ fn test_replay_attack_on_active_token_detected() {
     }
 
     // Attacker tries to replay the old token
-    let attacker_rotation = rotate_refresh_token("old-token-from-attacker", "fam-abc", "user-123");
+    let attacker_rotation = rotate_refresh_token("old-token-from-attacker", "hauliage");
 
     // Without Redis, this returns InvalidToken
     // With Redis (in production), the old jti would be in denylist

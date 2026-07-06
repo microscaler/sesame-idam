@@ -4,6 +4,8 @@ use brrtrouter_macros::handler;
 use sesame_common::audit::AuditEventType;
 use sesame_idam_identity_session_service_gen::handlers::openid_configuration::{Request, Response};
 
+use crate::services::discovery;
+
 #[handler(OpenidConfigurationController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
@@ -20,22 +22,24 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         EMITTER.emit(entry);
     }
 
+    let doc = discovery::openid_configuration();
+
     Response {
-        authorization_endpoint: None,
-        code_challenge_methods_supported: None,
-        grant_types_supported: None,
-        id_token_signing_alg_values_supported: None,
-        issuer: None,
-        jwks_uri: None,
+        authorization_endpoint: Some(doc.authorization_endpoint),
+        code_challenge_methods_supported: Some(doc.code_challenge_methods_supported),
+        grant_types_supported: Some(doc.grant_types_supported),
+        id_token_signing_alg_values_supported: Some(doc.id_token_signing_alg_values_supported),
+        issuer: Some(doc.issuer),
+        jwks_uri: Some(doc.jwks_uri),
         registration_endpoint: None,
-        response_modes_supported: None,
-        response_types_supported: None,
-        scopes_supported: None,
-        subject_types_supported: None,
-        token_endpoint: None,
-        userinfo_encryption_alg_values_supported: None,
-        userinfo_encryption_enc_values_supported: None,
-        userinfo_endpoint: None,
-        userinfo_signing_alg_values_supported: None,
+        response_modes_supported: Some(doc.response_modes_supported),
+        response_types_supported: Some(doc.response_types_supported),
+        scopes_supported: Some(doc.scopes_supported),
+        subject_types_supported: Some(doc.subject_types_supported),
+        token_endpoint: Some(doc.token_endpoint),
+        userinfo_encryption_alg_values_supported: Some(doc.userinfo_encryption_alg_values_supported),
+        userinfo_encryption_enc_values_supported: Some(doc.userinfo_encryption_enc_values_supported),
+        userinfo_endpoint: Some(doc.userinfo_endpoint),
+        userinfo_signing_alg_values_supported: Some(doc.userinfo_signing_alg_values_supported),
     }
 }

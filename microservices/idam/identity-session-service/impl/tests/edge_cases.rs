@@ -44,7 +44,7 @@ fn test_concurrent_refresh_requests() {
 
     // Verify rotation service rejects malformed tokens (simulating
     // the second request with a stale token)
-    let result = rotate_refresh_token("not.valid", "fam-concurrent", "user-123");
+    let result = rotate_refresh_token("not.valid", "hauliage");
     assert!(matches!(result, RotationOutcome::InvalidToken));
 }
 
@@ -62,7 +62,7 @@ fn test_concurrent_refresh_requests() {
 fn test_redis_unavailable_fails_closed() {
     // Verify that when Redis is unavailable, the service returns
     // RedisUnavailable (which the handler rejects)
-    let result = rotate_refresh_token("valid.jwt.token", "fam-abc", "user-123");
+    let result = rotate_refresh_token("valid.jwt.token", "hauliage");
 
     // Without Redis, the result is RedisUnavailable or InvalidToken
     // Both are acceptable "fail closed" outcomes
@@ -88,7 +88,7 @@ fn test_empty_family_set() {
     // returns false for non-existent keys.
 
     // Verify the service handles empty family context gracefully
-    let result = rotate_refresh_token("not.valid", "", "user-123");
+    let result = rotate_refresh_token("not.valid", "hauliage");
 
     // Empty family_id should not crash
     assert!(
@@ -132,7 +132,7 @@ fn test_very_large_family_id() {
     assert_eq!(restored.family_id, large_family_id);
 
     // Verify rotation service doesn't crash with large family_id
-    let result = rotate_refresh_token("not.valid", &large_family_id, "user-123");
+    let result = rotate_refresh_token("not.valid", "hauliage");
     assert!(
         !matches!(result, RotationOutcome::Rotated { .. }),
         "Should not rotate invalid token regardless of family_id size"

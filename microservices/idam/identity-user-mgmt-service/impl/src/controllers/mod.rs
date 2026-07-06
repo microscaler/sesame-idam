@@ -1,30 +1,16 @@
-/// Controller handlers for User lifecycle management (CRUD, MFA, email/phone).
-///
-/// Each controller corresponds to a single API endpoint. Controllers audit every
-/// request via the global `EMITTER`, then delegate to the service layer.
+// The `#[handler]` macro requires `handle(req: TypedHandlerRequest<Request>)`
+// by value — suppress clippy::needless_pass_by_value for all controllers.
+#![allow(clippy::needless_pass_by_value)]
+//! Controller handlers for User lifecycle management.
+//!
+//! Only implemented controllers are declared here and registered in main.rs
+//! via the Register & Overwrite pattern (gen stubs serve the rest). The
+//! remaining controller files in this directory are earlier echo drafts —
+//! re-enable them one at a time as they are implemented against the real
+//! persistence layer.
 
 pub mod create_user;
-pub mod fetch_user_by_email;
-pub mod migrate_user;
-pub mod migrate_user_passwords;
-pub mod query_users;
-pub mod fetch_user_by_username;
-pub mod delete_user;
 pub mod disable_user;
-pub mod update_user_email;
-pub mod verify_user_email;
-pub mod fetch_employee;
 pub mod enable_user;
-pub mod logout_all_sessions;
-pub mod create_magic_link;
-pub mod disable_user_mfa;
-pub mod setup_user_mfa_totp;
-pub mod verify_user_mfa;
-pub mod clear_user_password;
-pub mod setup_user_phone;
-pub mod verify_user_phone;
-pub mod resend_email_confirmation;
-pub mod link_social_account;
-pub mod fetch_user_oauth_tokens;
-pub mod fetch_fresh_oauth_token;
-pub mod oauth_logout;
+pub mod fetch_user_by_email;
+pub mod user_status;

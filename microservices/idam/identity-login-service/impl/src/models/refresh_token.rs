@@ -49,4 +49,13 @@ impl RefreshToken {
     pub fn to_json(&self) -> serde_json::Result<String> {
         serde_json::to_string(self)
     }
+
+    /// Deserialize from JSON (from Redis).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `serde_json::Error` if deserialization fails.
+    pub fn from_json(json: &str) -> serde_json::Result<Self> {
+        serde_json::from_str(json)
+    }
 }

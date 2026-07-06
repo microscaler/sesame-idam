@@ -20,6 +20,7 @@
 pub mod config;
 pub mod dpop;
 pub mod fallback_cache;
+pub mod http;
 pub mod jwks_cache;
 pub mod jwt;
 pub mod middleware;
@@ -68,3 +69,6 @@ pub use token_versioning::{
     subject_key, tenant_key, BumpReason, VersionBumpEvent, VersionBumpPublisher,
     VersionBumpSubscriber, VersionStore, VersionStoreConfig,
 };
+
+// Re-export outbound HTTP (brrtrouter::http)
+pub use http::{fetch_get, fetch_get_text_with_retry, fetch_post, HttpFetchError, HttpFetchOptions};

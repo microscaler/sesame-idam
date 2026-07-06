@@ -293,3 +293,197 @@ Audit found `reqwest::Client` in `jwks_cache.rs` (real usage, not comments), and
 - Updated `index.md` — Added topic-http-client-policy link
 - Updated `log.md` — This entry
 
+## [2026-07-06 pm4] rustls Confirmed — openssl-sys Removed
+
+### Summary
+
+Confirmed `rustls` is the effective TLS stack and `openssl-sys` is absent from the workspace dependency graph (including `x86_64-unknown-linux-musl`).
+
+### Root cause of musl failure
+
+The direct `reqwest` dependency on `identity-session-service` used default features, which pull `native-tls` → `openssl-sys`. That direct dep was removed in the prior session.
+
+### Additional cleanup
+
+- Removed unused workspace `reqwest = { version = "0.12", features = ["json"] }` from `microservices/Cargo.toml` — no crate referenced it, and default features would reintroduce `native-tls` if someone added it back carelessly.
+- Documented rustls-only policy in `topics/topic-http-client-policy.md`.
+
+### Verification
+
+```bash
+cargo tree --target x86_64-unknown-linux-musl -p sesame_idam_identity_session_service -i openssl-sys
+# → "did not match any packages"
+```
+
+Transitive `reqwest` from BRRTRouter uses `default-features = false, features = ["rustls", ...]`. Service code uses `may_http` only.
+
+### Open Issues
+
+- H6.1 in-cluster login smoke still returns 401 (security provider registration) — separate from TLS stack.
+
+## [2026-07-06 pm5] may_http as Zero-reqwest Target
+
+### Summary
+
+User direction: move fully off `reqwest`; use coroutine-compliant HTTP client for inter-controller calls. Reviewed `wrk-rs/src/main.rs` and `may_http` source.
+
+### Findings
+
+- **Client is `may_http`, not `may_minihttp`.** `may_minihttp` is server-only; `may_http` (`rust-may/may_http`) has `HttpClient` in `src/client/client_impl.rs` — blocking I/O on `may::net::TcpStream`, cooperative inside coroutines.
+- **`wrk-rs`** is the canonical usage: `HttpClient::connect((host, port))`, `client.get(uri)`, read body in coroutine scope.
+- **sesame-idam service code** already on `may_http` (`authz_client.rs`, `jwks_cache/cache.rs`).
+- **Remaining reqwest** is BRRTRouter-only: `jwks_bearer`, `remote_api_key`, `spiffe/validation` use `reqwest::blocking`; OTEL HTTP exporter is transitive.
+- **may_http gaps:** no TLS, no DNS (empty `dns.rs`), no connection pool. Blocks external HTTPS JWKS until rustls layer added (fork candidate).
+
+### Wiki
+
+Updated `topics/topic-http-client-policy.md` — migration goal, wrk-rs pattern, gap table, BRRTRouter targets.
+
+## [2026-07-06 pm6] BRRTRouter Refactor Scope for Zero-reqwest
+
+### Summary
+
+User confirmed BRRTRouter likely needs refactoring too (not just sesame-idam). Mapped all reqwest call sites and transitive deps in BRRTRouter sibling repo.
+
+### Production reqwest usage (3 files)
+
+- `security/jwks_bearer/mod.rs` — blocking client + `std::thread` background JWKS refresh
+- `security/spiffe/validation.rs` — duplicated JWKS fetch logic
+- `security/remote_api_key.rs` — blocking GET on request validation path
+
+### Architectural issues beyond reqwest swap
+
+- JWKS refresh uses OS threads + `thread::sleep`, not may coroutines
+- JWKS fetch logic duplicated between JWKS bearer and SPIFFE providers
+- External HTTPS JWKS blocked until may_http gets rustls TLS
+
+### Transitive reqwest
+
+- `opentelemetry-http` (OTLP HTTP exporter) — mitigate via grpc-tonic-only
+- `jsonschema` — remote schema fetch; check feature flags
+- `goose` — dev-deps only
+
+### Decision
+
+`brrtrouter::http` wrapper over `may_http` should live in **BRRTRouter** (benefits hauliage + sesame-idam). Documented 6-phase sequencing in `topic-http-client-policy.md`.
+
+## [2026-07-06 pm7] BRRTRouter Phase 1 — `brrtrouter::http` + Security Provider Migration
+
+### Summary
+
+Implemented Phase 1 in BRRTRouter sibling repo: new `brrtrouter::http` module and migrated all three production `reqwest::blocking` call sites.
+
+### Changes (BRRTRouter repo)
+
+- `src/http/mod.rs`, `src/http/fetch.rs` — `fetch_get`, `fetch_get_text_with_retry`
+- HTTP: `may_http::HttpClient`; HTTPS: rustls + `may::net::TcpStream` + httparse
+- `security/remote_api_key.rs` — may_http fetch with `X-API-Key` header
+- `security/jwks_bearer/mod.rs`, `security/spiffe/validation.rs` — shared retry fetch
+- `Cargo.toml` — added `may_http`, `http_legacy`, `httparse`, `rustls`, `rustls-platform-verifier`
+
+### Remaining
+
+- JWKS background refresh still on `std::thread` (Phase 3)
+- Direct `reqwest` dep retained for OTEL/jsonschema transitive
+- Test helpers still use reqwest blocking
+- Full `cargo check` blocked locally by pre-existing `prost-types` env issue (unrelated to this change)
+
+## [2026-07-06 pm8] BRRTRouter HTTP Fetch Test Coverage
+
+### Summary
+
+Added unit + integration tests for `brrtrouter::http` and provider wiring after may_http migration.
+
+### Tests added (BRRTRouter repo)
+
+**Unit (`src/http/fetch.rs`):** parse 404, partial headers, bounded read, malformed URL, error Display
+
+**Integration (`tests/http_fetch_tests.rs`):**
+- `fetch_get_http_returns_json_body`
+- `fetch_get_http_rejects_oversize_body`
+- `fetch_get_http_sends_extra_headers`
+- `fetch_get_text_with_retry_succeeds_after_transient_failure`
+- `fetch_get_text_with_retry_returns_none_when_all_attempts_fail`
+- `remote_api_key_provider_validates_via_http_fetch`
+- `fetch_get_jwks_shaped_document_via_retry_helper`
+- `jwks_bearer_provider_loads_keys_via_http_fetch` — end-to-end JWKS refresh + JWT validate
+- `fetch_get_connect_error_on_dead_port`
+
+### Wiki
+
+Updated `topic-http-client-policy.md` Phase 1 status.
+
+## [2026-07-06 pm9] Sesame Adopts `brrtrouter::http` End-to-End
+
+### Summary
+
+Migrated all Sesame-IDAM outbound HTTP to `brrtrouter::http` via `sesame_common::http` re-export. Removed direct `may_http` usage from service/common code.
+
+### Changes
+
+**BRRTRouter (sibling):** Added `fetch_post` to `brrtrouter::http`; POST integration test in `http_fetch_tests.rs`.
+
+**sesame-idam:**
+- `sesame-common/src/http.rs` — re-exports `fetch_get`, `fetch_post`, `fetch_get_text_with_retry`, options/errors; unit tests for GET+POST
+- `jwks_cache/cache.rs` — uses `crate::http::fetch_get` (HTTPS via rustls in BRRTRouter layer)
+- `authz_client.rs` — uses `sesame_common::fetch_post` for authz-core enrichment
+- Removed `may_http` from `sesame-common` and `identity-login-service` impl `Cargo.toml`
+- Updated `topic-http-client-policy.md` — canonical path is `sesame_common::http` → `brrtrouter::http`
+
+### Test coverage
+
+- `sesame-common/src/http.rs` — live mock-server GET + POST tests
+- Existing `authz_enrichment` BDD + `authz_client` parse_roles unit tests unchanged
+- BRRTRouter `http_fetch_tests.rs` — added `fetch_post_http_sends_json_body`
+
+## [2026-07-06 pm10] Core Session Flows — Refresh, Discovery, Userinfo, Logout
+
+### Summary
+
+Implemented hauliage-blocking session/auth flows on top of existing login/register work. Token refresh now issues real Ed25519 JWTs (same key as login); OIDC discovery returns a populated document; userinfo and logout are DB/Redis-backed.
+
+### Changes
+
+**identity-session-service:**
+- `services/token_issuer.rs` — shared `Ed25519Signer`; signs access + refresh JWTs on rotation
+- `services/token_rotation.rs` — removed placeholder RS256 tokens; signed refresh JWT (was raw JSON); family set registration
+- `services/discovery.rs` + `controllers/openid_configuration.rs` — env-driven OIDC discovery (`SESAME_JWT_ISSUER`, `SESAME_IDAM_PUBLIC_URL`)
+- `controllers/auth_refresh.rs` — correct `user_id` + `scope` in success response; wired in `main.rs`
+- `controllers/oauth_userinfo.rs` — raw handler, DB-backed profile (same path as `/identity/me`)
+- `main.rs` — registers `auth_refresh`, `openid_configuration`, `oauth_userinfo`; eager `SIGNER` init
+
+**identity-login-service:**
+- `controllers/auth_logout.rs` — revokes refresh token family in Redis; wired in `main.rs`
+- `redis.rs` — `revoke_refresh_token()` for logout
+- `models/refresh_token.rs` — `from_json()` for logout lookup
+
+### Open
+
+- In-cluster login 401 ("Security provider not found") still needs deploy smoke (H6.1)
+- Refresh error paths still return typed 200 with empty tokens (OpenAPI/typed-handler limitation)
+- Full E2E: register → login → refresh → userinfo → logout (H7.1)
+
+## [2026-07-06 pm11] H7.1 Token Lifecycle BDD + ms02 Test Run
+
+### Summary
+
+Added cross-service BDD tests for the hauliage P1 gate (H7.1) and verified them on **ms02** against live Kind postgres/redis.
+
+### Tests added
+
+**identity-login-service** `tests/bdd/token_lifecycle.rs`:
+- `full_token_lifecycle_register_userinfo_refresh_logout` — register → userinfo → login → refresh → reuse rejected → logout → refresh rejected
+- `register_token_response_matches_hauliage_contract` — H2.5 TokenResponse shape (EdDSA, Bearer, expires_in, refresh fields)
+
+**identity-session-service** `tests/bdd/oidc_discovery.rs`:
+- `openid_configuration_returns_populated_document`
+
+### ms02 verification (canonical)
+
+```bash
+ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/seasame-idam/microservices && \
+  cargo test -p sesame_idam_identity_login_service --test main_bdd token_lifecycle -- --nocapture'
+```
+
+All 3 tests **passed** on ms02 (~0.6s with postgres/redis on localhost:5432/6379). Mac without port-forwards skips gracefully.
+

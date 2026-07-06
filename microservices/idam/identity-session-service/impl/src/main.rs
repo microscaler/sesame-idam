@@ -157,6 +157,30 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "auth_refresh" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::auth_refresh::AuthRefreshController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "openid_configuration" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::openid_configuration::OpenidConfigurationController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "oauth_userinfo" => {
+                    let tx = raw_handler::spawn_raw_handler(
+                        "oauth_userinfo",
+                        20480,
+                        controllers::oauth_userinfo::handle_raw,
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 _ => {} // fallback to gen stubs for everything else
             }
         }
@@ -215,6 +239,9 @@ fn main() -> io::Result<()> {
     // Warm Lifeguard on the main OS thread before may-scheduled HTTP handlers:
     // lazy pool init inside a may coroutine can deadlock the runtime.
     let _ = sesame_idam_database::db();
+
+    // Fail fast on malformed signing key material (shared with login-service).
+    let _ = &*sesame_idam_identity_session_service::services::token_issuer::SIGNER;
 
     println!("🚀 server listening on {addr}");
     let handle = HttpServer(service).start(&addr)?;

@@ -1,54 +1,66 @@
+//! `POST /admin/users` — admin user creation, idempotent by email.
+//!
+//! Returns 201 on creation, 200 with the existing user when the email is
+//! already registered on the tenant. Admin-created users have no password
+//! until a password flow assigns one.
+
+use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
-use sesame_idam_identity_user_mgmt_service_gen::handlers::create_user::{Request, Response};
-use brrtrouter::typed::TypedHandlerRequest;
+use sesame_idam_identity_user_mgmt_service_gen::handlers::create_user::Request;
 
-/// Handler for Create User.
+use crate::audit::EMITTER;
+use crate::services::user_admin_service::{user_response_json, UserAdminService};
+use sesame_common::audit::{AuditEventType, AuditLogEntry};
+
 #[handler(CreateUserController)]
-pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // Span: user.created
-    let span = tracing::span!(
-        tracing::Level::INFO,
-        "user.created",
-        tenant_id = tracing::field::Empty,
-        result = tracing::field::Empty
-    );
-    let _guard = span.enter();
-    use crate::audit::EMITTER;
-    use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
-    use uuid::Uuid;
+pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
+    let tenant_id = req.data.x_tenant_id.clone();
+    let email = req.data.email.trim().to_lowercase();
 
-    let user_id = Uuid::new_v7();
-    
-    let mut event = AuditEvent::new(
-        AuditEventType::UserManagement,
-        "user_created",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::Admin,
-        "internal".to_string(),
-    );
-    event.user_id = Some(user_id);
-    event.metadata = serde_json::json!({
-        "email": req.inner.email,
-        "username": req.inner.username,
-    }).into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
-
-    // TODO: INSERT INTO users WITH tenant_id, email, username, password_hash (bcrypt)
-    // TODO: Send email confirmation if not already verified
-    
-    Response {
-        id: user_id.to_string(),
-        email: req.inner.email.clone(),
-        username: req.inner.username.clone(),
-        first_name: req.inner.first_name.clone(),
-        last_name: req.inner.last_name.clone(),
-        phone: req.inner.phone.clone(),
-        email_verified: false,
-        phone_verified: false,
-        auth_methods: vec![],
-        mfa_enabled: false,
-        tenant_id: req.inner.tenant_id,
-        org_id: req.inner.org_id,
+    if email.is_empty() || !email.contains('@') {
+        return HttpJson::new(
+            400,
+            serde_json::json!({
+                "error": "invalid_request",
+                "error_description": "a valid email is required",
+            }),
+        );
     }
+
+    let exec = sesame_idam_database::db();
+    let outcome = match UserAdminService::create_idempotent(
+        &tenant_id,
+        &email,
+        req.data.email_confirmed.unwrap_or(false),
+        exec,
+    ) {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            tracing::error!(error = %e, "create_user: insert failed");
+            return internal_error();
+        }
+    };
+
+    let entry = AuditLogEntry::new(AuditEventType::JwtIssued, "identity-user-mgmt-service")
+        .tenant_id(tenant_id)
+        .user_id(outcome.user.id.to_string())
+        .decision_source("admin_create_user")
+        .result(if outcome.created { "allowed" } else { "idempotent" })
+        .build();
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
+
+    let status = if outcome.created { 201 } else { 200 };
+    HttpJson::new(status, user_response_json(&outcome.user))
+}
+
+fn internal_error() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        500,
+        serde_json::json!({
+            "error": "internal_error",
+            "error_description": "An unexpected error occurred",
+        }),
+    )
 }

@@ -6,4 +6,5 @@ pub mod bdd {
     pub mod jwt_ttl;
     pub mod jwt_validation;
     pub mod smoke;
+    pub mod user_admin_flow;
 }

@@ -61,10 +61,7 @@ tracing = "0.1"
 argon2 = { workspace = true }
 redis = { workspace = true }
 thiserror = { workspace = true }
-# authz-core enrichment call (single HTTP client policy: may_http only;
-# http_legacy = http 0.2, the version may_http pins)
-may_http = { workspace = true }
-http_legacy = { workspace = true }
+base64 = { workspace = true }
 
 [build-dependencies]
 lifeguard-migrate = { workspace = true }
@@ -77,5 +74,7 @@ base64 = { workspace = true }
 ring = { workspace = true }
 sha2 = { workspace = true }
 jsonwebtoken = { workspace = true }
+redis = { workspace = true }
 sesame_idam_identity_session_service = { path = "../../identity-session-service/impl" }
+sesame_idam_identity_session_service_gen = { path = "../../identity-session-service/gen" }
 

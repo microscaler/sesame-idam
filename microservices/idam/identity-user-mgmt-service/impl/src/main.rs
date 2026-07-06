@@ -1,9 +1,11 @@
-/// Application entry point.
-///
-/// Loads configuration, initializes the security chain (JwksBearerProvider),
-/// registers middleware and handlers, and runs the BRRTRouter HTTP server.
-mod audit;
-mod security;
+//! Application entry point.
+//!
+//! Loads configuration, initializes the security chain (`JwksBearerProvider`),
+//! registers middleware and handlers, and runs the `BRRTRouter` HTTP server.
+
+// All application modules live in the lib crate (see lib.rs) so the bin,
+// tests, and migrator share one compilation of them.
+use sesame_idam_identity_user_mgmt_service::{controllers, security};
 
 use sesame_idam_identity_user_mgmt_service_gen::registry;
 use std::collections::HashMap;
@@ -95,9 +97,47 @@ fn main() -> io::Result<()> {
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
-    // Register generated handlers from the spec.
+    // Register & Overwrite pattern (hauliage ADR 0001): register all gen
+    // stubs first, then overwrite implemented routes with impl controllers.
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);
+        for route in &routes {
+            match route.handler_name.as_ref() {
+                "create_user" => {
+                    let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                        controllers::create_user::CreateUserController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "fetch_user_by_email" => {
+                    let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                        controllers::fetch_user_by_email::FetchUserByEmailController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "disable_user" => {
+                    let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                        controllers::disable_user::DisableUserController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "enable_user" => {
+                    let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                        controllers::enable_user::EnableUserController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                _ => {} // gen stubs serve everything else for now
+            }
+        }
     }
 
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
@@ -137,6 +177,10 @@ fn main() -> io::Result<()> {
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
         lifeguard::metrics::prometheus_scrape_text()
     })));
+
+    // Warm Lifeguard on the main OS thread before may-scheduled HTTP handlers:
+    // lazy pool init inside a may coroutine can deadlock the runtime.
+    let _ = sesame_idam_database::db();
 
     // Port selection: PORT env var (K8s) > default 8080.
     let port = std::env::var("PORT")
