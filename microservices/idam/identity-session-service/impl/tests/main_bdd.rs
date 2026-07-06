@@ -7,4 +7,5 @@ pub mod bdd {
     pub mod jwks_http;
     pub mod jwt_ttl;
     pub mod smoke;
+    pub mod users_me_db;
 }

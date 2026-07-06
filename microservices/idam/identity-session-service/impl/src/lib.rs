@@ -13,6 +13,8 @@ pub mod jwt;
 pub mod key_manager;
 pub mod middleware;
 pub mod models;
+// Raw (untyped) handler support for JWT-principal endpoints
+pub mod raw_handler;
 // Redis client and helpers for refresh token rotation
 pub mod redis;
 pub mod security;

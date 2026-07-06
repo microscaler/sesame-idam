@@ -14,7 +14,7 @@ use sesame_common::config::load_config;
 use sesame_idam_identity_session_service_gen::registry;
 // All application modules live in the lib crate (see lib.rs) so the bin,
 // tests, and migrator share one compilation of them.
-use sesame_idam_identity_session_service::{controllers, middleware, security};
+use sesame_idam_identity_session_service::{controllers, middleware, raw_handler, security};
 
 use brrtrouter::dispatcher::Dispatcher;
 
@@ -139,6 +139,24 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                // Raw handlers: these need the validated JWT principal, which
+                // typed dispatch drops (see raw_handler module docs).
+                "users_me_get" => {
+                    let tx = raw_handler::spawn_raw_handler(
+                        "users_me_get",
+                        20480,
+                        controllers::users_me_get::handle_raw,
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "users_me_patch" => {
+                    let tx = raw_handler::spawn_raw_handler(
+                        "users_me_patch",
+                        20480,
+                        controllers::users_me_patch::handle_raw,
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 _ => {} // fallback to gen stubs for everything else
             }
         }
@@ -194,6 +212,10 @@ fn main() -> io::Result<()> {
     } else {
         format!("0.0.0.0:{port}")
     };
+    // Warm Lifeguard on the main OS thread before may-scheduled HTTP handlers:
+    // lazy pool init inside a may coroutine can deadlock the runtime.
+    let _ = sesame_idam_database::db();
+
     println!("🚀 server listening on {addr}");
     let handle = HttpServer(service).start(&addr)?;
     handle
