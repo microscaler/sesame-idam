@@ -76,17 +76,13 @@ Done (2026-07-07)
   Commits: BRRTRouter 73744df, sesame-idam ced7b92, hauliage 16fae98
 
 Wave 2 (hauliage + sesame)
-  HI-7  Pin BRRTRouter 73744df in hauliage Cargo.toml
-  H6.3  Redeploy company + bff with JWKS; verify in-cluster Bearer
-  HI-3+ Extend smoke (company org route)
+  HI-7  Pin BRRTRouter 73744df in hauliage Cargo.toml ✅
+  H6.3  Redeploy company/bff/consignments with JWKS ✅
+  HI-3+ company smoke; consignments JWKS ✅
+
+Wave 3
   HI-4+ Generated sesame OpenAPI client crate
-  JWKS  consignments when routes protected
-
-Then (P2)
-  BR-2/BR-3 → SI-3/SI-4, HI-6
-
-Later (P3)
-  BR-4..BR-7, HI-8 workers
+  Fleet ownership WIP; BR-2/BR-3; HI-8 workers
 ```
 
 ## Code anchors

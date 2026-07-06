@@ -548,7 +548,7 @@ Cross-repo: hauliage identity/company/fleet global BearerAuth; company + BFF JWK
 
 **Wave 2 staged:** HI-7 pin → redeploy company/bff → smoke extend → consignments JWKS → OpenAPI client. See hauliage [`sesame-idam-brrtrouter-integration.md`](../../hauliage/docs/llmwiki/topics/sesame-idam-brrtrouter-integration.md).
 
-## [2026-07-07] docs | Wave 2 staged — wiki sync
+## [2026-07-07] Wave 2 complete (hauliage)
 
-Updated [`topic-brrtrouter-refactor-backlog.md`](./topics/topic-brrtrouter-refactor-backlog.md) with BR-1b/BR-1c commit refs and Wave 2 sequencing.
+HI-7 verified, company smoke 2/2, consignments JWKS, BFF login 200 after 30s fetch timeout. Wave 3: OpenAPI client, fleet ownership, BR-2/BR-3.
 
