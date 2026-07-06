@@ -3,8 +3,8 @@
 //! and token versioning for Sesame-IDAM microservices.
 //!
 //! This crate provides:
-//! - `jwt` module — JWT claim structures (AccessClaims, SesameAuthzClaims, ActorClaim)
-//! - `middleware` module — JWT Common-Path Authorization Middleware for BRRTRouter
+//! - `jwt` module — JWT claim structures (`AccessClaims`, `SesameAuthzClaims`, `ActorClaim`)
+//! - `middleware` module — JWT Common-Path Authorization Middleware for `BRRTRouter`
 //! - `jwks_cache` module — JWKS cache with background refresh, stale tolerance, and security protections
 //! - `fallback_cache` module — Selective online fallback with Redis caching (Story 4.3)
 //! - `audit` module — Security audit logging (structured JSON, priority queues, rate limiting)
@@ -17,10 +17,9 @@
 //! calling authz-core, by evaluating policy locally from JWT claims.
 
 // Existing modules
+pub mod config;
 pub mod dpop;
-#[cfg(feature = "fallback_cache")]
 pub mod fallback_cache;
-#[cfg(feature = "jwks_cache")]
 pub mod jwks_cache;
 pub mod jwt;
 pub mod middleware;
@@ -40,29 +39,32 @@ pub use jwt::{
 
 // Re-export from audit module
 pub use audit::{
-    AuditActor, AuditEmitter, AuditEvent, AuditEventType, AuditLevel, AuditLogEntry,
-    AuditLogEntryBuilder, AuditMetrics, AuditQueue, RateLimitConfig, RateLimiter,
-    generate_key, sign_entry, verify_entry, allowed_event_types, is_valid_event_type,
+    allowed_event_types, generate_key, is_valid_event_type, sign_entry, verify_entry, AuditActor,
+    AuditEmitter, AuditEvent, AuditEventType, AuditLevel, AuditLogEntry, AuditLogEntryBuilder,
+    AuditMetrics, AuditQueue, RateLimitConfig, RateLimiter,
 };
 
 // Re-export from denylist module
-pub use denylist::{DenylistCache, DenylistConfig, register_denylist_metrics, DenylistMetrics, DenylistResult};
+pub use denylist::{
+    register_denylist_metrics, DenylistCache, DenylistConfig, DenylistMetrics, DenylistResult,
+};
 
 // Re-export from entitlement_cache module
 pub use entitlement_cache::{
-    EntitlementSnapshot, EntitlementComplexity, CacheLookupResult, Permission, CacheConfig, CacheError, EntitlementSnapshotCache,
+    CacheConfig, CacheError, CacheLookupResult, EntitlementComplexity, EntitlementSnapshot,
+    EntitlementSnapshotCache, Permission,
 };
 
 // Re-export from jwt_common_path module
 pub use jwt_common_path::{
-    AuthDecision, AuthError, DpopConfirmation, DpopError, DpopJwk, InMemoryProofStore,
-    compute_jkt, generate_ed25519_keypair, generate_p256_keypair, verify_dpop_proof,
-    extract_bearer_token, parse_claims, pre_validate_expiry, evaluate_local_policy,
-    JwtAuthMiddleware, RouteAuthCategory, RoutePolicy, RoutePolicyStore,
+    compute_jkt, evaluate_local_policy, extract_bearer_token, generate_ed25519_keypair,
+    generate_p256_keypair, parse_claims, pre_validate_expiry, verify_dpop_proof, AuthDecision,
+    AuthError, DpopConfirmation, DpopError, DpopJwk, InMemoryProofStore, JwtAuthMiddleware,
+    RouteAuthCategory, RoutePolicy, RoutePolicyStore,
 };
 
 // Re-export from token_versioning module
 pub use token_versioning::{
-    BumpReason, VersionBumpEvent, VersionBumpPublisher, VersionBumpSubscriber,
-    VersionStore, VersionStoreConfig, subject_key, tenant_key,
+    subject_key, tenant_key, BumpReason, VersionBumpEvent, VersionBumpPublisher,
+    VersionBumpSubscriber, VersionStore, VersionStoreConfig,
 };

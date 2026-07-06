@@ -25,7 +25,6 @@ pub struct AuditEmitter {
     queue: Arc<AuditQueue>,
     rate_limiter: Arc<RateLimiter>,
     hmac_key: Option<Vec<u8>>,
-
 }
 
 impl AuditEmitter {
@@ -39,7 +38,7 @@ impl AuditEmitter {
             queue: Arc::new(AuditQueue::new()),
             rate_limiter: Arc::new(RateLimiter::new(RateLimitConfig::default())),
             hmac_key,
-// shutdown: removed — Notify was dead code (never awaited),
+            // shutdown: removed — Notify was dead code (never awaited),
         }
     }
 
@@ -54,7 +53,7 @@ impl AuditEmitter {
             queue: Arc::new(AuditQueue::new()),
             rate_limiter: Arc::new(RateLimiter::new(config)),
             hmac_key,
-// shutdown: removed — Notify was dead code (never awaited),
+            // shutdown: removed — Notify was dead code (never awaited),
         }
     }
 
@@ -256,8 +255,7 @@ impl AuditEmitter {
             .result("denied")
             .error("stale_auth_token")
             .reason(format!(
-                "claims.ver ({}) < cached_ver ({})",
-                token_ver, cached_ver
+                "claims.ver ({token_ver}) < cached_ver ({cached_ver})"
             ))
             .build();
 
@@ -293,11 +291,9 @@ impl AuditEmitter {
     /// Core emit method — rate limiting, validation, queueing, and HMAC signing.
     pub fn emit(&self, mut entry: AuditLogEntry) {
         // HACK-835: Rate limit DEBUG events (HACK-833)
-        if entry.level == AuditLevel::Debug {
-            if !self.rate_limiter.allow_debug(&self.service) {
-                // Dropped — don't enqueue
-                return;
-            }
+        if entry.level == AuditLevel::Debug && !self.rate_limiter.allow_debug(&self.service) {
+            // Dropped — don't enqueue
+            return;
         }
         // Security events (WARN/ERROR) are always allowed
 
@@ -374,7 +370,7 @@ impl Clone for AuditEmitter {
             queue: Arc::clone(&self.queue),
             rate_limiter: Arc::clone(&self.rate_limiter),
             hmac_key: self.hmac_key.clone(),
-// shutdown: removed — Notify was dead code (never awaited),
+            // shutdown: removed — Notify was dead code (never awaited),
         }
     }
 }

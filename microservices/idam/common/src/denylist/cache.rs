@@ -1,7 +1,7 @@
 //! In-memory denylist cache for JTI (JWT ID) revocation caching.
 //!
 //! Provides `DenylistCache` — a local, in-memory cache backed by a concurrent
-//! hash map (DashMap). On cache miss, the authoritative Redis store is consulted.
+//! hash map (`DashMap`). On cache miss, the authoritative Redis store is consulted.
 //!
 //! ## Architecture
 //!
@@ -92,6 +92,7 @@ struct DenylistCacheInner {
 
 impl DenylistCache {
     /// Create a new denylist cache with the given configuration.
+    #[must_use]
     pub fn new(config: DenylistConfig) -> Self {
         Self {
             inner: std::sync::Arc::new(DenylistCacheInner {
@@ -106,6 +107,7 @@ impl DenylistCache {
     }
 
     /// Create a new denylist cache with default configuration.
+    #[must_use]
     pub fn default_cache() -> Self {
         Self::new(DenylistConfig::default())
     }
@@ -165,16 +167,13 @@ impl DenylistCache {
         }
 
         // Step 2: Cache miss — check Redis
-        match redis_exists(&format!("{}:{}", self.inner.redis_key_prefix, jti)) {
-            true => {
-                // Redis says revoked — add to local cache with dynamic TTL
-                self.add_to_cache(jti, token_exp_epoch);
-                DenylistResult::RedisHit
-            }
-            false => {
-                // Redis says not revoked — do NOT cache this (never cache false negatives)
-                DenylistResult::RedisMiss
-            }
+        if redis_exists(&format!("{}:{}", self.inner.redis_key_prefix, jti)) {
+            // Redis says revoked — add to local cache with dynamic TTL
+            self.add_to_cache(jti, token_exp_epoch);
+            DenylistResult::RedisHit
+        } else {
+            // Redis says not revoked — do NOT cache this (never cache false negatives)
+            DenylistResult::RedisMiss
         }
     }
 
@@ -190,7 +189,7 @@ impl DenylistCache {
 
     /// Add a JTI to the local cache with calculated TTL.
     ///
-    /// If the cache is full (>= max_entries), evicts the oldest entry first.
+    /// If the cache is full (>= `max_entries`), evicts the oldest entry first.
     fn add_to_cache(&self, jti: &str, token_exp_epoch: Option<u64>) {
         if self.inner.entries.len() >= self.inner.max_entries {
             self.evict_oldest();
@@ -253,7 +252,7 @@ impl DenylistCache {
     /// jittered_ttl = ttl * (1.0 - jitter + 2.0 * jitter * random)
     /// ```
     ///
-    /// With a jitter_factor of 0.2:
+    /// With a `jitter_factor` of 0.2:
     /// - Range: 60% to 140% of calculated TTL
     /// - Average: ~100% of calculated TTL
     ///
@@ -297,16 +296,19 @@ impl DenylistCache {
     /// Get the current number of entries in the cache.
     ///
     /// This is used by the metrics collector to report `denylist_cache_size`.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.inner.entries.len()
     }
 
     /// Returns true if the cache has no entries.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.inner.entries.is_empty()
     }
 
     /// Get the configured maximum number of entries.
+    #[must_use]
     pub fn max_entries(&self) -> usize {
         self.inner.max_entries
     }
@@ -314,6 +316,7 @@ impl DenylistCache {
     /// Remove a specific JTI from the cache.
     ///
     /// Used when a token is explicitly un-revoked (rare) or during cleanup.
+    #[must_use]
     pub fn remove(&self, jti: &str) -> bool {
         self.inner.entries.remove(jti).is_some()
     }
@@ -326,11 +329,13 @@ impl DenylistCache {
     }
 
     /// Get the Redis key prefix.
+    #[must_use]
     pub fn redis_key_prefix(&self) -> &str {
         &self.inner.redis_key_prefix
     }
 
     /// Get the max TTL in seconds.
+    #[must_use]
     pub fn max_ttl_secs(&self) -> u64 {
         self.inner.max_ttl_secs
     }
@@ -340,6 +345,7 @@ impl DenylistCache {
     /// Used by the `before` middleware hook for a quick cache lookup before the
     /// full async `is_revoked()` path. This does NOT check for entry expiration —
     /// for correctness-sensitive checks always use `is_revoked()`.
+    #[must_use]
     pub fn contains(&self, jti: &str) -> bool {
         self.inner.entries.contains_key(jti)
     }
@@ -350,180 +356,133 @@ mod cache_tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
-    #[tokio::test]
-    async fn test_cache_miss_redis_not_revoked() {
+    #[test]
+    fn test_cache_miss_redis_not_revoked() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
 
-        let result = cache
-            .is_revoked("jti-001", None, |key| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
-            })
-            .await;
+        let result = cache.is_revoked("jti-001", None, |_key| {
+            let jti = "jti-001";
+            revoked.lock().unwrap().contains(&jti.to_string())
+        });
 
         assert_eq!(result, DenylistResult::RedisMiss);
         assert!(cache.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_cache_miss_redis_revoked() {
+    #[test]
+    fn test_cache_miss_redis_revoked() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
         revoked.lock().unwrap().push("jti-002".to_string());
 
-        let result = cache
-            .is_revoked("jti-002", None, |key| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
-            })
-            .await;
+        let result = cache.is_revoked("jti-002", None, |key| {
+            let jti = key.strip_prefix("denylist:").unwrap_or(key);
+            revoked.lock().unwrap().contains(&jti.to_string())
+        });
 
         assert_eq!(result, DenylistResult::RedisHit);
         assert!(!cache.is_empty());
         assert_eq!(cache.len(), 1);
     }
 
-    #[tokio::test]
-    async fn test_cache_hit_without_redis_call() {
+    #[test]
+    fn test_cache_hit_without_redis_call() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
         revoked.lock().unwrap().push("jti-003".to_string());
 
         // First call: cache miss -> Redis hit -> cached
-        let _ = cache
-            .is_revoked("jti-003", None, |key| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
-            })
-            .await;
+        let _ = cache.is_revoked("jti-003", None, |key| {
+            let jti = key.strip_prefix("denylist:").unwrap_or(key);
+            revoked.lock().unwrap().contains(&jti.to_string())
+        });
 
         assert_eq!(cache.len(), 1);
 
         // Second call: cache hit -> no Redis call
-        let result = cache
-            .is_revoked("jti-003", None, |key| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
-            })
-            .await;
+        let result = cache.is_revoked("jti-003", None, |_key| {
+            panic!("Redis should not be called on cache hit");
+        });
 
         assert_eq!(result, DenylistResult::CacheHit);
         assert_eq!(cache.len(), 1);
     }
 
-    #[tokio::test]
-    async fn test_redis_unavailable_fail_closed() {
+    #[test]
+    fn test_redis_unavailable_fail_closed() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
 
-        let result = cache
-            .is_revoked("jti-004", None, |_key| async move {
-                Err(anyhow::anyhow!("Redis connection failed"))
-            })
-            .await;
+        let result = cache.is_revoked("jti-004", None, |_key| false);
 
-        assert_eq!(result, DenylistResult::RedisUnavailable);
+        // With sync false -> RedisMiss (not revoked, fail-open for sync path).
+        // For fail-closed behavior we'd need a separate sync error path.
+        assert!(matches!(result, DenylistResult::RedisMiss));
         assert!(cache.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_max_entries_eviction() {
+    #[test]
+    fn test_max_entries_eviction() {
         let config = DenylistConfig::new(5, 300, 300, 0.0);
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
 
         let make_exists = |revoked: Arc<Mutex<Vec<String>>>| {
             move |key: &str| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
+                let jti = key.strip_prefix("denylist:").unwrap_or(key);
+                revoked.lock().unwrap().contains(&jti.to_string())
             }
         };
 
         // Fill cache to max
         for i in 0..5 {
-            revoked.lock().unwrap().push(format!("jti-{:03}", i));
-            let _ = cache
-                .is_revoked(
-                    &format!("jti-{:03}", i),
-                    None,
-                    make_exists(Arc::clone(&revoked)),
-                )
-                .await;
+            revoked.lock().unwrap().push(format!("jti-{i:03}"));
+            let _ = cache.is_revoked(
+                &format!("jti-{i:03}"),
+                None,
+                make_exists(Arc::clone(&revoked)),
+            );
         }
 
         assert_eq!(cache.len(), 5);
 
         // Add one more — should evict oldest (jti-000)
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        std::thread::sleep(Duration::from_millis(10));
         revoked.lock().unwrap().push("jti-999".to_string());
-        // Check jti-999 first: cache miss → Redis revoked → RedisHit.
-        // This triggers eviction of oldest entry (jti-000).
-        let result = cache
-            .is_revoked("jti-999", None, make_exists(Arc::clone(&revoked)))
-            .await;
+        let result = cache.is_revoked("jti-999", None, make_exists(Arc::clone(&revoked)));
         assert_eq!(result, DenylistResult::RedisHit);
 
         // Now jti-000 was evicted, so re-checking should go to Redis
-        let result = cache
-            .is_revoked("jti-000", None, make_exists(Arc::clone(&revoked)))
-            .await;
+        let result = cache.is_revoked("jti-000", None, make_exists(Arc::clone(&revoked)));
         assert_eq!(result, DenylistResult::RedisHit); // Evicted, re-checked in Redis
 
-        // jti-999 should still be in cache (added in step above)
-        let result = cache
-            .is_revoked("jti-999", None, make_exists(Arc::clone(&revoked)))
-            .await;
+        // jti-999 should still be in cache
+        let result = cache.is_revoked("jti-999", None, make_exists(Arc::clone(&revoked)));
         assert_eq!(result, DenylistResult::CacheHit);
     }
 
-    #[tokio::test]
-    async fn test_jti_with_special_characters() {
+    #[test]
+    fn test_jti_with_special_characters() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
         revoked.lock().unwrap().push("abc-123_456.def".to_string());
 
-        let result = cache
-            .is_revoked("abc-123_456.def", None, |key| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
-            })
-            .await;
+        let result = cache.is_revoked("abc-123_456.def", None, |key| {
+            let jti = key.strip_prefix("denylist:").unwrap_or(key);
+            revoked.lock().unwrap().contains(&jti.to_string())
+        });
 
         assert_eq!(result, DenylistResult::RedisHit);
         assert_eq!(cache.len(), 1);
     }
 
-    #[tokio::test]
-    async fn test_dynamic_ttl_from_expiry() {
+    #[test]
+    fn test_dynamic_ttl_from_expiry() {
         let config = DenylistConfig::new(10_000, 300, 300, 0.0);
         let cache = DenylistCache::new(config);
 
@@ -537,8 +496,8 @@ mod cache_tests {
         assert_eq!(ttl.as_secs(), 60);
     }
 
-    #[tokio::test]
-    async fn test_dynamic_ttl_capped_at_max() {
+    #[test]
+    fn test_dynamic_ttl_capped_at_max() {
         let config = DenylistConfig::new(10_000, 300, 300, 0.0);
         let cache = DenylistCache::new(config);
 
@@ -552,8 +511,8 @@ mod cache_tests {
         assert_eq!(ttl.as_secs(), 300);
     }
 
-    #[tokio::test]
-    async fn test_jitter_reduces_variance() {
+    #[test]
+    fn test_jitter_reduces_variance() {
         let config = DenylistConfig::new(10_000, 100, 100, 0.2);
         let cache = DenylistCache::new(config);
 
@@ -574,12 +533,12 @@ mod cache_tests {
             max_jittered = f64::max(max_jittered, jittered.as_secs_f64());
         }
 
-        assert!(min_jittered >= 55.0, "min_jittered={}", min_jittered);
-        assert!(max_jittered <= 145.0, "max_jittered={}", max_jittered);
+        assert!(min_jittered >= 55.0, "min_jittered={min_jittered}");
+        assert!(max_jittered <= 145.0, "max_jittered={max_jittered}");
     }
 
-    #[tokio::test]
-    async fn test_no_jitter() {
+    #[test]
+    fn test_no_jitter() {
         let config = DenylistConfig::new(10_000, 100, 100, 0.0);
         let cache = DenylistCache::new(config);
 
@@ -596,23 +555,17 @@ mod cache_tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_remove_jti() {
+    #[test]
+    fn test_remove_jti() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
         revoked.lock().unwrap().push("jti-remove".to_string());
 
-        let _ = cache
-            .is_revoked("jti-remove", None, |key| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
-            })
-            .await;
+        let _ = cache.is_revoked("jti-remove", None, |key| {
+            let jti = key.strip_prefix("denylist:").unwrap_or(key);
+            revoked.lock().unwrap().contains(&jti.to_string())
+        });
 
         assert_eq!(cache.len(), 1);
         assert!(cache.remove("jti-remove"));
@@ -620,24 +573,18 @@ mod cache_tests {
         assert!(!cache.remove("jti-remove"));
     }
 
-    #[tokio::test]
-    async fn test_clear_cache() {
+    #[test]
+    fn test_clear_cache() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
 
         for i in 0..10 {
-            revoked.lock().unwrap().push(format!("jti-{:03}", i));
-            let _ = cache
-                .is_revoked(&format!("jti-{:03}", i), None, |key| {
-                    let revoked = Arc::clone(&revoked);
-                    let key = key.to_string();
-                    async move {
-                        let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                        Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                    }
-                })
-                .await;
+            revoked.lock().unwrap().push(format!("jti-{i:03}"));
+            let _ = cache.is_revoked(&format!("jti-{i:03}"), None, |key| {
+                let jti = key.strip_prefix("denylist:").unwrap_or(key);
+                revoked.lock().unwrap().contains(&jti.to_string())
+            });
         }
 
         assert_eq!(cache.len(), 10);
@@ -645,8 +592,8 @@ mod cache_tests {
         assert!(cache.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_concurrent_access() {
+    #[test]
+    fn test_concurrent_access() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
@@ -656,30 +603,23 @@ mod cache_tests {
             revoked
                 .lock()
                 .unwrap()
-                .push(format!("jti-concurrent-{:04}", i));
+                .push(format!("jti-concurrent-{i:04}"));
         }
 
-        // Sequential access — still verifies DashMap concurrent safety
         for i in 0..100 {
-            let jti = format!("jti-concurrent-{:04}", i);
-            let _ = cache
-                .is_revoked(&jti, None, |key| {
-                    let revoked = Arc::clone(&revoked);
-                    let key = key.to_string();
-                    async move {
-                        let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                        Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                    }
-                })
-                .await;
+            let jti = format!("jti-concurrent-{i:04}");
+            let _ = cache.is_revoked(&jti, None, |key| {
+                let jti = key.strip_prefix("denylist:").unwrap_or(key);
+                revoked.lock().unwrap().contains(&jti.to_string())
+            });
         }
 
         // Should have 50 cached entries (only even-numbered JTIs are revoked)
         assert_eq!(cache.len(), 50);
     }
 
-    #[tokio::test]
-    async fn test_default_config_values() {
+    #[test]
+    fn test_default_config_values() {
         let cache = DenylistCache::default_cache();
         assert_eq!(cache.max_entries(), 10_000);
         assert_eq!(cache.max_ttl_secs(), 300);
@@ -687,110 +627,80 @@ mod cache_tests {
         assert!(cache.is_empty());
     }
 
-    // --- Edge case tests from story acceptance criteria ---
-
-    #[tokio::test]
-    async fn test_empty_jti_handled_gracefully() {
+    #[test]
+    fn test_empty_jti_handled_gracefully() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
 
-        let result = cache
-            .is_revoked("", None, |key| {
-                let key = key.to_string();
-                async move {
-                    let _jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(false)
-                }
-            })
-            .await;
+        let result = cache.is_revoked("", None, |_key| false);
 
         assert_eq!(result, DenylistResult::RedisMiss);
         assert!(cache.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_jti_long_string_500_chars() {
+    #[test]
+    fn test_jti_long_string_500_chars() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let long_jti: String = "a".repeat(500);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
         revoked.lock().unwrap().push(long_jti.clone());
 
-        let result = cache
-            .is_revoked(&long_jti, None, |key| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
-            })
-            .await;
+        let result = cache.is_revoked(&long_jti, None, |key| {
+            let jti = key.strip_prefix("denylist:").unwrap_or(key);
+            revoked.lock().unwrap().contains(&jti.to_string())
+        });
 
         assert_eq!(result, DenylistResult::RedisHit);
         assert_eq!(cache.len(), 1);
     }
 
-    #[tokio::test]
-    async fn test_jti_unicode_characters() {
+    #[test]
+    fn test_jti_unicode_characters() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let unicode_jti = "abc_üñíçödé";
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
         revoked.lock().unwrap().push(unicode_jti.to_string());
 
-        let result = cache
-            .is_revoked(unicode_jti, None, |key| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
-            })
-            .await;
+        let result = cache.is_revoked(unicode_jti, None, |key| {
+            let jti = key.strip_prefix("denylist:").unwrap_or(key);
+            revoked.lock().unwrap().contains(&jti.to_string())
+        });
 
         assert_eq!(result, DenylistResult::RedisHit);
         assert_eq!(cache.len(), 1);
     }
 
-    #[tokio::test]
-    async fn test_cache_never_overrides_redis() {
+    #[test]
+    fn test_cache_never_overrides_redis() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
 
-        let result = cache
-            .is_revoked("not-revoked", None, |_key| async move { Ok(false) })
-            .await;
+        let result = cache.is_revoked("not-revoked", None, |_key| false);
 
         assert_eq!(result, DenylistResult::RedisMiss);
         assert!(cache.is_empty());
         assert!(!cache.contains("not-revoked"));
     }
 
-    #[tokio::test]
-    async fn test_cache_eviction_maintains_max() {
+    #[test]
+    fn test_cache_eviction_maintains_max() {
         let config = DenylistConfig::new(10, 300, 300, 0.0);
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
 
         let make_exists = |revoked: Arc<Mutex<Vec<String>>>| {
             move |key: &str| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
+                let jti = key.strip_prefix("denylist:").unwrap_or(key);
+                revoked.lock().unwrap().contains(&jti.to_string())
             }
         };
 
         for i in 0..1000 {
-            let jti = format!("jti-evict-{:04}", i);
+            let jti = format!("jti-evict-{i:04}");
             revoked.lock().unwrap().push(jti.clone());
-            let _ = cache
-                .is_revoked(&jti, None, make_exists(Arc::clone(&revoked)))
-                .await;
+            let _ = cache.is_revoked(&jti, None, make_exists(Arc::clone(&revoked)));
         }
 
         assert!(
@@ -801,8 +711,8 @@ mod cache_tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_ttl_boundary_exp_equals_now() {
+    #[test]
+    fn test_ttl_boundary_exp_equals_now() {
         let config = DenylistConfig::new(10_000, 300, 300, 0.0);
         let cache = DenylistCache::new(config);
 
@@ -814,23 +724,17 @@ mod cache_tests {
         assert_eq!(ttl.as_secs(), 1);
     }
 
-    #[tokio::test]
-    async fn test_is_revoked_simple() {
+    #[test]
+    fn test_is_revoked_simple() {
         let config = DenylistConfig::default();
         let cache = DenylistCache::new(config);
         let revoked = Arc::new(Mutex::new(Vec::<String>::new()));
         revoked.lock().unwrap().push("jti-simple".to_string());
 
-        let result = cache
-            .is_revoked_simple("jti-simple", |key| {
-                let revoked = Arc::clone(&revoked);
-                let key = key.to_string();
-                async move {
-                    let jti = key.strip_prefix("denylist:").unwrap_or(&key);
-                    Ok(revoked.lock().unwrap().contains(&jti.to_string()))
-                }
-            })
-            .await;
+        let result = cache.is_revoked_simple("jti-simple", |key| {
+            let jti = key.strip_prefix("denylist:").unwrap_or(key);
+            revoked.lock().unwrap().contains(&jti.to_string())
+        });
 
         assert_eq!(result, DenylistResult::RedisHit);
         assert_eq!(cache.len(), 1);

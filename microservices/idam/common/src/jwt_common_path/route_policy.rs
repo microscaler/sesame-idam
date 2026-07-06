@@ -75,11 +75,13 @@ impl Default for RouteAuthCategory {
 impl RouteAuthCategory {
     /// Returns true if this category allows local policy evaluation without
     /// calling authz-core.
+    #[must_use]
     pub fn is_jwt_only(&self) -> bool {
         matches!(self, RouteAuthCategory::JwtOnly)
     }
 
     /// Returns the cache TTL if this category supports caching.
+    #[must_use]
     pub fn cache_ttl_secs(&self) -> Option<u64> {
         match self {
             RouteAuthCategory::JwtWithFallback { cache_ttl_secs, .. } => Some(*cache_ttl_secs),
@@ -88,6 +90,7 @@ impl RouteAuthCategory {
     }
 
     /// Returns true if this category requires token version checking.
+    #[must_use]
     pub fn requires_fresh_version(&self) -> bool {
         match self {
             RouteAuthCategory::JwtWithFallback {
@@ -232,7 +235,7 @@ impl RoutePolicyStore {
     /// Returns `None` if no policy matches.
     #[must_use]
     pub fn get_policy(&self, path: &str, method: &str) -> Option<&RoutePolicy> {
-        let key = format!("{}:{}", path, method);
+        let key = format!("{path}:{method}");
         self.lookup.get(&key)
     }
 
@@ -268,7 +271,7 @@ impl RoutePolicyStore {
     pub fn get_category(&self, path: &str, method: &str) -> RouteAuthCategory {
         self.get_policy(path, method)
             .map(|p| p.category.clone())
-            .unwrap_or_else(RouteAuthCategory::default)
+            .unwrap_or_default()
     }
 }
 
@@ -283,7 +286,7 @@ impl Default for RoutePolicyStore {
 }
 
 impl RoutePolicyStore {
-    /// Test helper: build a RoutePolicyStore directly from policies and lookup map.
+    /// Test helper: build a `RoutePolicyStore` directly from policies and lookup map.
     #[cfg(test)]
     pub(crate) fn from_parts(
         policies: Vec<RoutePolicy>,
@@ -318,6 +321,7 @@ pub struct RoutePolicyYamlEntry {
 
 impl RoutePolicyYamlEntry {
     /// Convert the YAML representation to the runtime category.
+    #[must_use]
     pub fn to_route_category(&self) -> RouteAuthCategory {
         match self.category {
             RouteCategoryYaml::JwtOnly => RouteAuthCategory::JwtOnly,
@@ -341,6 +345,7 @@ pub enum RouteCategoryYaml {
 
 impl RouteCategoryYaml {
     /// Convert YAML category to runtime `RouteAuthCategory`.
+    #[must_use]
     pub fn into_category(self) -> RouteAuthCategory {
         match self {
             RouteCategoryYaml::JwtOnly => RouteAuthCategory::JwtOnly,

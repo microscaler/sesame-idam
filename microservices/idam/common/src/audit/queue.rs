@@ -31,6 +31,7 @@ pub struct AuditQueue {
 }
 
 impl AuditQueue {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             high: Arc::new(DashMap::new()),
@@ -81,11 +82,9 @@ impl AuditQueue {
         }
 
         // Rate limit DEBUG entries
-        if entry.level == AuditLevel::Debug {
-            if !self.rate_limiter.allow_debug(1000) {
-                AuditMetrics::increment_debug_dropped();
-                return false;
-            }
+        if entry.level == AuditLevel::Debug && !self.rate_limiter.allow_debug(1000) {
+            AuditMetrics::increment_debug_dropped();
+            return false;
         }
 
         let low_len = self.low.len();
@@ -209,7 +208,7 @@ mod tests {
         // Fill HIGH queue
         for i in 0..HIGH_QUEUE_MAX {
             let mut entry = make_entry(AuditLevel::Warn, AuditEventType::ValidationFailed);
-            entry.tenant_id = Some(format!("tenant_{}", i));
+            entry.tenant_id = Some(format!("tenant_{i}"));
             let _ = queue.enqueue(entry);
         }
         // Next security entry should be dropped

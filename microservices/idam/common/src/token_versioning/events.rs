@@ -58,7 +58,7 @@ pub enum BumpReason {
 /// - If Redis pub/sub is unavailable, the next Redis lookup (polling) catches up within the version cache TTL.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VersionBumpEvent {
-    /// Event type discriminator. Must be "version_bump".
+    /// Event type discriminator. Must be "`version_bump`".
     pub event: String,
     /// Tenant ID for the affected tenant.
     pub tenant_id: String,
@@ -76,6 +76,7 @@ pub struct VersionBumpEvent {
 
 impl VersionBumpEvent {
     /// Create a new version bump event for a subject (user-specific).
+    #[must_use]
     pub fn for_subject(
         tenant_id: &str,
         user_id: &str,
@@ -93,6 +94,7 @@ impl VersionBumpEvent {
     }
 
     /// Create a new version bump event for a tenant (tenant-wide, no user).
+    #[must_use]
     pub fn for_tenant(tenant_id: &str, new_version: u64, reason: BumpReason) -> Self {
         Self {
             event: "version_bump".to_string(),
@@ -123,18 +125,19 @@ impl VersionBumpEvent {
     }
 
     /// Check if this is a subject-specific bump.
+    #[must_use]
     pub fn is_subject_specific(&self) -> bool {
         self.user_id.is_some()
     }
 
     /// Get the cache key for a subject-specific event.
+    #[must_use]
     pub fn subject_cache_key(&self) -> Option<String> {
-        self.user_id
-            .as_ref()
-            .map(|uid| format!("authz_ver:{}", uid))
+        self.user_id.as_ref().map(|uid| format!("authz_ver:{uid}"))
     }
 
     /// Get the tenant cache key.
+    #[must_use]
     pub fn tenant_cache_key(&self) -> String {
         format!("authz_ver:tenant:{}", self.tenant_id)
     }
@@ -203,7 +206,7 @@ mod tests {
     fn test_validation_empty_tenant_id() {
         let event = VersionBumpEvent {
             event: "version_bump".to_string(),
-            tenant_id: "".to_string(),
+            tenant_id: String::new(),
             user_id: None,
             new_version: 10,
             reason: BumpReason::Other("test".to_string()),

@@ -1,8 +1,8 @@
-//! DPoP (Demonstrating Proof-of-Possession, RFC 9449) core implementation.
+//! `DPoP` (Demonstrating Proof-of-Possession, RFC 9449) core implementation.
 //!
-//! This module provides cryptographic primitives for DPoP token binding:
+//! This module provides cryptographic primitives for `DPoP` token binding:
 //! - Ed25519 and P-256 key pair generation
-//! - DPoP proof JWT construction and validation
+//! - `DPoP` proof JWT construction and validation
 //! - cnf.jkt thumbprint computation (SHA-256 of public key)
 //! - Key validation (kty, curve, size limits)
 
@@ -10,21 +10,19 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 pub use ed25519_dalek::Signer as Ed25519Signer;
 use ed25519_dalek::SigningKey as Ed25519SigningKey;
-use ed25519_dalek::{VerifyingKey as EdVerKey, SIGNATURE_LENGTH};
-use ed25519_zebra::VerificationKey as EdVerKeyZebra;
+use ed25519_dalek::VerifyingKey as EdVerKey;
 use p256::ecdsa::VerifyingKey as EcVerKey;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/// Maximum DPoP JWK size in bytes.
+/// Maximum `DPoP` JWK size in bytes.
 pub const MAX_JWK_BYTES: usize = 500;
-/// DPoP proof freshness window in seconds.
+/// `DPoP` proof freshness window in seconds.
 pub const DPPOP_PROOF_FRESHNESS_SECS: u64 = 60;
 
 // ---------------------------------------------------------------------------
@@ -104,7 +102,7 @@ pub fn generate_dpop_key_pair() -> (Vec<u8>, DpopJwk) {
 pub fn generate_dpop_key_pair_p256() -> (Vec<u8>, DpopJwk) {
     use p256::ecdsa::SigningKey;
     let signing_key = SigningKey::random(&mut OsRng);
-    let verifying_key: EcVerKey = signing_key.verifying_key().clone();
+    let verifying_key: EcVerKey = *signing_key.verifying_key();
     let point = verifying_key.to_encoded_point(false);
     let x_bytes = point.x().expect("P-256 must have X");
     let y_bytes = point.y().expect("P-256 must have Y");
@@ -122,6 +120,7 @@ pub fn generate_dpop_key_pair_p256() -> (Vec<u8>, DpopJwk) {
 // cnf.jkt computation
 // ---------------------------------------------------------------------------
 
+#[must_use]
 pub fn compute_jkt(jwk: &DpopJwk) -> String {
     let mut map = std::collections::BTreeMap::new();
     map.insert("kty".to_string(), serde_json::to_value(&jwk.kty).unwrap());
@@ -160,6 +159,7 @@ pub enum DpopError {
 }
 
 impl DpopError {
+    #[must_use]
     pub fn status_code(&self) -> u16 {
         match self {
             DpopError::MissingHeader
@@ -216,6 +216,7 @@ pub struct InMemoryJtiStore {
 }
 
 impl InMemoryJtiStore {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             seen: std::sync::Arc::new(std::sync::RwLock::new(std::collections::HashSet::new())),
@@ -362,6 +363,7 @@ fn verify_proof_signature(jwk: &DpopJwk) -> Result<(), DpopError> {
 // Construct & parse DPoP proof JWT
 // ---------------------------------------------------------------------------
 
+#[must_use]
 pub fn create_dpop_proof_jwt(
     jwk: &DpopJwk,
     jti: &str,
@@ -378,11 +380,11 @@ pub fn create_dpop_proof_jwt(
         "jti": jti, "iat": iat, "htm": htm, "htu": htu,
     });
     let payload_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_string(&payload).unwrap());
-    let message = format!("{}.{}", header_b64, payload_b64);
+    let message = format!("{header_b64}.{payload_b64}");
     let signing_key = Ed25519SigningKey::from_bytes(private_key.try_into().unwrap());
     let signature = signing_key.sign(message.as_bytes());
     let sig_b64 = URL_SAFE_NO_PAD.encode(signature.to_bytes());
-    format!("{}.{}", message, sig_b64)
+    format!("{message}.{sig_b64}")
 }
 
 pub fn parse_dpop_proof(raw_jwt: &str) -> Result<DpopProof, DpopError> {
@@ -391,10 +393,10 @@ pub fn parse_dpop_proof(raw_jwt: &str) -> Result<DpopProof, DpopError> {
         return Err(DpopError::InvalidSignature);
     }
     let header_raw = URL_SAFE_NO_PAD
-        .decode(&parts[0])
+        .decode(parts[0])
         .map_err(|_| DpopError::InvalidSignature)?;
     let payload_raw = URL_SAFE_NO_PAD
-        .decode(&parts[1])
+        .decode(parts[1])
         .map_err(|_| DpopError::InvalidSignature)?;
     let header_str = String::from_utf8(header_raw).map_err(|_| DpopError::MalformedJwk)?;
     let payload_str = String::from_utf8(payload_raw).map_err(|_| DpopError::MalformedJwk)?;
@@ -437,6 +439,7 @@ struct DpopProofPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn test_proof_with_correct_jkt_accepted() {
@@ -651,7 +654,7 @@ mod tests {
     #[test]
     fn test_proof_missing_jwk_rejected() {
         let (_k, mut jwk) = generate_dpop_key_pair();
-        jwk.x = "".into();
+        jwk.x = String::new();
         let iat = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -849,7 +852,7 @@ mod tests {
             typ: "dpop+jwt".into(),
             alg: "EdDSA".into(),
             jwk,
-            jti: "".into(),
+            jti: String::new(),
             iat,
             htm: "POST".into(),
             htu: "/auth/token".into(),

@@ -36,7 +36,7 @@ pub struct VersionBumpPublisher {
 /// Configuration for the publisher.
 #[derive(Debug, Clone)]
 pub struct PublisherConfig {
-    /// Redis connection URL (e.g., "redis://127.0.0.1:6379").
+    /// Redis connection URL (e.g., "<redis://127.0.0.1:6379>").
     pub redis_url: String,
     /// HMAC-SHA256 shared secret for signing events.
     /// Must be known to both publisher and subscriber for verification.
@@ -45,6 +45,7 @@ pub struct PublisherConfig {
 
 impl PublisherConfig {
     /// Create a new publisher config.
+    #[must_use]
     pub fn new(redis_url: &str, hmac_secret: &[u8]) -> Self {
         Self {
             redis_url: redis_url.to_string(),
@@ -95,7 +96,7 @@ impl VersionBumpPublisher {
         let sig_hex = hex::encode(signature);
 
         // Create the signed message: `<json>|<hex_signature>`
-        let message = format!("{}|{}", json, sig_hex);
+        let message = format!("{json}|{sig_hex}");
 
         // Publish to Redis (blocking)
         let mut conn = self
@@ -220,7 +221,7 @@ mod tests {
 
     #[test]
     fn test_hmac_verification_invalid_signature() {
-        let secret = test_hmac_secret();
+        let _secret = test_hmac_secret();
         let json = r#"{"event":"version_bump","tenant_id":"t","new_version":1,"reason":"role_revoked","timestamp":1}"#;
 
         // Verify with wrong secret
@@ -231,7 +232,7 @@ mod tests {
     fn test_parse_signed_message_valid() {
         let json = r#"{"event":"version_bump"}"#;
         let sig = "abc123";
-        let message = format!("{}|{}", json, sig);
+        let message = format!("{json}|{sig}");
 
         let (parsed_json, parsed_sig) = parse_signed_message(&message).unwrap();
         assert_eq!(parsed_json, json);

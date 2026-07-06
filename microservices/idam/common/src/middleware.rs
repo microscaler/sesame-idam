@@ -157,7 +157,7 @@ pub enum RouteAuthCategory {
         required_roles: Vec<String>,
         /// Minimum permissions required (if any).
         required_permissions: Vec<String>,
-        /// Required user type (e.g., "registered", "social", "api_key").
+        /// Required user type (e.g., "registered", "social", "`api_key`").
         required_user_type: Option<String>,
     },
     /// JWT-with-fallback: validate JWT, pass claims to handler for optional online check.
@@ -195,10 +195,10 @@ impl RoutePolicy {
 
 /// Thread-safe store of route policies, populated from Story 4.1 classifications.
 ///
-/// Uses an in-memory HashMap keyed by `path:method` for O(1) lookups.
+/// Uses an in-memory `HashMap` keyed by `path:method` for O(1) lookups.
 #[derive(Debug, Clone)]
 pub struct RoutePolicyStore {
-    /// Maps "GET:/api/v1/..." -> RoutePolicy
+    /// Maps "<GET:/api/v1>/..." -> `RoutePolicy`
     policies: HashMap<String, RoutePolicy>,
 }
 
@@ -220,14 +220,14 @@ impl RoutePolicyStore {
     /// Look up policy by path and method.
     #[must_use]
     pub fn get_policy(&self, path: &str, method: &str) -> Option<&RoutePolicy> {
-        let key = format!("{}:{}", method, path);
+        let key = format!("{method}:{path}");
         self.policies.get(&key)
     }
 
     /// Check if a policy exists for the given path+method.
     #[must_use]
     pub fn has_policy(&self, path: &str, method: &str) -> bool {
-        let key = format!("{}:{}", method, path);
+        let key = format!("{method}:{path}");
         self.policies.contains_key(&key)
     }
 
@@ -280,7 +280,7 @@ pub enum AuthDecision {
     },
     /// Authorization denied. Contains reason for the denial.
     Denied {
-        /// Reason for denial (e.g., "missing_role:admin").
+        /// Reason for denial (e.g., "`missing_role:admin`").
         reason: String,
         /// The underlying error (for structured logging).
         error: AuthError,
@@ -496,7 +496,7 @@ impl RoutePolicyStore {
 // JWT Auth Middleware (BRRTRouter integration)
 // ===========================================================================
 
-/// JWT Common-Path Authorization Middleware for BRRTRouter.
+/// JWT Common-Path Authorization Middleware for `BRRTRouter`.
 ///
 /// This middleware:
 /// 1. Extracts the Bearer token from the request.
@@ -577,11 +577,11 @@ impl JwtAuthMiddleware {
     }
 }
 
-/// BRRTRouter middleware implementation for JWT auth.
+/// `BRRTRouter` middleware implementation for JWT auth.
 ///
 /// This struct wraps `JwtAuthMiddleware` and implements the
 /// `brrtrouter::middleware::Middleware` trait to integrate with the
-/// BRRTRouter dispatcher pipeline.
+/// `BRRTRouter` dispatcher pipeline.
 #[derive(Debug, Clone)]
 pub struct BrrtJwtMiddleware {
     /// The underlying JWT auth logic.
@@ -695,8 +695,8 @@ impl brrtrouter::middleware::Middleware for BrrtJwtMiddleware {
 
 #[cfg(test)]
 mod tests {
-    use crate::jwt::{AccessClaimsBuilder, SesameAuthzClaimsBuilder};
     use super::*;
+    use crate::jwt::{AccessClaimsBuilder, SesameAuthzClaimsBuilder};
 
     fn make_valid_claims() -> AccessClaims {
         let sx = SesameAuthzClaimsBuilder::new()
@@ -852,7 +852,7 @@ mod tests {
 
     #[test]
     fn test_jwt_only_user_type_mismatch() {
-        let mut sx = SesameAuthzClaimsBuilder::new()
+        let sx = SesameAuthzClaimsBuilder::new()
             .tenant("tenant-abc")
             .portal("hauliage-web")
             .roles(vec![])
@@ -918,7 +918,7 @@ mod tests {
 
     #[test]
     fn test_jwt_only_role_check_fail() {
-        let mut sx = SesameAuthzClaimsBuilder::new()
+        let sx = SesameAuthzClaimsBuilder::new()
             .tenant("tenant-abc")
             .portal("hauliage-web")
             .roles(vec!["driver".into()]) // No dispatcher
@@ -1091,7 +1091,7 @@ mod tests {
 
     #[test]
     fn test_jwt_only_no_policy() {
-        let claims = make_valid_claims();
+        let _claims = make_valid_claims();
         let store = RoutePolicyStore::new();
         let policy = store.get_policy("/api/v1/unknown", "GET");
         assert!(policy.is_none());

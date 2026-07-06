@@ -27,7 +27,7 @@ use crate::AccessClaims;
 ///    to the handler with `AccessClaims` in context.
 /// 2. **Denied** — jwt-only route, local policy rejected. The client receives
 ///    a 403 Forbidden with the denial reason.
-/// 3. **JwtCommonPath** — jwt-with-fallback or online-only route. The JWT has
+/// 3. **`JwtCommonPath`** — jwt-with-fallback or online-only route. The JWT has
 ///    been validated but the authorization decision is deferred to the handler
 ///    (which may call authz-core for online evaluation).
 #[derive(Debug, Clone, Serialize, Deserialize)]

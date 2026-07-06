@@ -185,7 +185,7 @@ pub struct AuditLogEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 
-    /// IP address from X-Forwarded-For or remote_addr.
+    /// IP address from X-Forwarded-For or `remote_addr`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ip_address: Option<String>,
 
@@ -326,7 +326,7 @@ impl AuditLogEntry {
     /// SECURITY: This check must happen before the entry is written to any log.
     /// HACK-832: Raw token strings must never appear in audit logs.
     /// HACK-837: Event type must be in the allowed set.
-    /// HACK-835: All fields are JSON-escaped by serde_json, so injection is impossible
+    /// HACK-835: All fields are JSON-escaped by `serde_json`, so injection is impossible
     ///           through normal field population. This function checks for red flags.
     pub fn validate(&self) -> Result<(), String> {
         // HACK-837: Validate event type
@@ -339,7 +339,7 @@ impl AuditLogEntry {
         if let Ok(json) = serde_json::to_string(self) {
             // JWT tokens start with "eyJ" (base64url for '{"')
             // Check that no field value looks like a raw JWT
-            if json.contains("eyJ") && json.contains("base64url") == false {
+            if json.contains("eyJ") && !json.contains("base64url") {
                 // Heuristic: if the JSON contains "eyJ" in a value context, it might be a raw token
                 // Only flag if it appears outside the event name
                 let suspicious = json
@@ -357,8 +357,7 @@ impl AuditLogEntry {
         if let Some(ref reason) = self.reason {
             if reason.len() > MAX_FIELD_LENGTH {
                 return Err(format!(
-                    "Reason field exceeds {} chars: truncated",
-                    MAX_FIELD_LENGTH
+                    "Reason field exceeds {MAX_FIELD_LENGTH} chars: truncated"
                 ));
             }
         }
@@ -397,7 +396,7 @@ impl AuditLogEntry {
 
     /// Serialize the entry to a JSON string.
     ///
-    /// This uses serde_json which handles all JSON escaping automatically,
+    /// This uses `serde_json` which handles all JSON escaping automatically,
     /// preventing log injection attacks (HACK-835).
     #[must_use]
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
@@ -585,7 +584,7 @@ impl AuditLogEntry {
 }
 
 /// Minimal output structure — only fields meant for log consumers.
-/// Internal fields (level, event_type, event_id, hmac_signature) excluded.
+/// Internal fields (level, `event_type`, `event_id`, `hmac_signature`) excluded.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AuditLogOutput {
     pub event: String,
@@ -840,7 +839,7 @@ impl AuditLogEntryBuilder {
         self
     }
 
-    /// Set the logging level explicitly (overrides the default from event_type).
+    /// Set the logging level explicitly (overrides the default from `event_type`).
     #[must_use]
     pub fn level(mut self, level: AuditLevel) -> Self {
         self.entry.level = level;

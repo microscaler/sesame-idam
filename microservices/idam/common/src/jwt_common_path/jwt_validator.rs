@@ -88,7 +88,7 @@ pub fn pre_validate_expiry(token: &str) -> Result<(), AuthError> {
         .map_err(|_| AuthError::JwtInvalid("JWT payload is not valid JSON".into()))?;
 
     // Check exp — reject immediately if expired
-    if let Some(exp) = claims_json.get("exp").and_then(|v| v.as_i64()) {
+    if let Some(exp) = claims_json.get("exp").and_then(serde_json::Value::as_i64) {
         let now = now_secs();
         if exp < now {
             return Err(AuthError::JwtExpired { exp });
@@ -96,7 +96,7 @@ pub fn pre_validate_expiry(token: &str) -> Result<(), AuthError> {
     }
 
     // Check nbf — reject if not yet valid (with 60s clock skew tolerance)
-    if let Some(nbf) = claims_json.get("nbf").and_then(|v| v.as_i64()) {
+    if let Some(nbf) = claims_json.get("nbf").and_then(serde_json::Value::as_i64) {
         let now = now_secs();
         if nbf > now + 60 {
             return Err(AuthError::JwtNotYetValid { nbf });
@@ -219,9 +219,7 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
             crate::JwtValidationError::InvalidTokenVersion => {
                 AuthError::JwtInvalid("JWT contains invalid 'ver' value".into())
             }
-            crate::JwtValidationError::Expired => {
-                AuthError::JwtInvalid("JWT is expired".into())
-            }
+            crate::JwtValidationError::Expired => AuthError::JwtInvalid("JWT is expired".into()),
             crate::JwtValidationError::NotYetValid => {
                 AuthError::JwtInvalid("JWT is not yet valid".into())
             }
@@ -246,10 +244,10 @@ fn now_secs() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use brrtrouter::ids::RequestId;
-    use http::Method;
-    use brrtrouter::router::ParamVec;
     use brrtrouter::dispatcher::HeaderVec;
+    use brrtrouter::ids::RequestId;
+    use brrtrouter::router::ParamVec;
+    use http::Method;
 
     fn create_reply_tx() -> may::sync::mpsc::Sender<brrtrouter::dispatcher::HandlerResponse> {
         let (_tx, _rx) = may::sync::mpsc::channel();
@@ -264,39 +262,35 @@ mod tests {
 
     // ─── Bearer Token Extraction Tests ──────────────────────────────────
 
-    fn create_request(auth: &str) -> HandlerRequest {
-        let mut headers = std::collections::HashMap::new();
-        if auth.is_empty() {
-            HandlerRequest {
-                request_id: RequestId::new(),
-                method: Method::GET,
-                path: "/test".to_string(),
-                handler_name: "test".to_string(),
-                path_params: ParamVec::new(),
-                query_params: ParamVec::new(),
-                headers: HeaderVec::new(),
-                cookies: HeaderVec::new(),
-                body: None,
-                jwt_claims: None,
-                reply_tx: (**REPLY_TX).clone(),
-                queue_guard: None,
-            }
+    /// Build a `HandlerRequest` with the given raw Authorization header value.
+    /// An empty string means no Authorization header at all.
+    fn create_request_raw(auth_header: &str) -> HandlerRequest {
+        let mut headers = HeaderVec::new();
+        if !auth_header.is_empty() {
+            headers.push(("authorization".into(), auth_header.to_string()));
+        }
+        HandlerRequest {
+            request_id: RequestId::new(),
+            method: Method::GET,
+            path: "/test".to_string(),
+            handler_name: "test".to_string(),
+            path_params: ParamVec::new(),
+            query_params: ParamVec::new(),
+            headers,
+            cookies: HeaderVec::new(),
+            body: None,
+            jwt_claims: None,
+            reply_tx: (**REPLY_TX).clone(),
+            queue_guard: None,
+        }
+    }
+
+    /// Build a `HandlerRequest` with `Bearer {token}` (or no header if empty).
+    fn create_request(token: &str) -> HandlerRequest {
+        if token.is_empty() {
+            create_request_raw("")
         } else {
-            headers.insert("Authorization".to_string(), format!("Bearer {}", auth));
-            HandlerRequest {
-                request_id: RequestId::new(),
-                method: Method::GET,
-                path: "/test".to_string(),
-                handler_name: "test".to_string(),
-                path_params: ParamVec::new(),
-                query_params: ParamVec::new(),
-                headers: HeaderVec::new(),
-                cookies: HeaderVec::new(),
-                body: None,
-                jwt_claims: None,
-                reply_tx: (**REPLY_TX).clone(),
-                queue_guard: None,
-            }
+            create_request_raw(&format!("Bearer {token}"))
         }
     }
 
@@ -318,7 +312,7 @@ mod tests {
 
     #[test]
     fn extract_bearer_token_rejects_non_bearer_scheme() {
-        let req = create_request("Basic dXNlcjpwYXNz");
+        let req = create_request_raw("Basic dXNlcjpwYXNz");
         assert_eq!(
             extract_bearer_token(&req),
             Err(AuthError::InvalidBearerScheme)
@@ -327,13 +321,13 @@ mod tests {
 
     #[test]
     fn extract_bearer_token_rejects_empty_token() {
-        let req = create_request("Bearer ");
+        let req = create_request_raw("Bearer ");
         assert_eq!(extract_bearer_token(&req), Err(AuthError::MissingJwt));
     }
 
     #[test]
     fn extract_bearer_token_with_whitespace() {
-        let req = create_request("Bearer   token  ");
+        let req = create_request_raw("Bearer   token  ");
         let token = extract_bearer_token(&req).unwrap();
         assert_eq!(token, "token");
     }
@@ -398,7 +392,7 @@ mod tests {
         AccessClaims::builder()
             .iss("https://idam.example.com")
             .sub("user-1")
-            .aud(vec!["identity-login-service".into()])
+            .aud(vec!["sesame-idam".into()])
             .client_id("test-app")
             .scope("read".to_string())
             .exp(i64::MAX - 3600)
@@ -425,7 +419,7 @@ mod tests {
     fn make_claims_token(claims: &AccessClaims) -> String {
         let header = base64url_encode(r#"{"alg":"RS256","typ":"at+jwt"}"#);
         let payload = base64url_encode(&serde_json::to_string(claims).unwrap());
-        format!("{}.{}.fake_signature", header, payload)
+        format!("{header}.{payload}.fake_signature")
     }
 
     fn base64url_encode(input: &str) -> String {
@@ -441,7 +435,7 @@ mod tests {
         let header = base64url_encode(r#"{"alg":"RS256","typ":"at+jwt"}"#);
         let payload_str = serde_json::to_string(payload).unwrap();
         let payload_b64 = base64url_encode(&payload_str);
-        format!("{}.{}.fake", header, payload_b64)
+        format!("{header}.{payload_b64}.fake")
     }
 
     #[test]

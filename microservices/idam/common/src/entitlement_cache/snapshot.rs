@@ -18,6 +18,7 @@ pub struct Permission {
 
 impl Permission {
     /// Create a new permission.
+    #[must_use]
     pub fn new(action: &str, resource: &str) -> Self {
         Self {
             action: action.to_string(),
@@ -26,17 +27,20 @@ impl Permission {
     }
 
     /// Check if this permission grants a specific action on a specific resource.
+    #[must_use]
     pub fn matches(&self, action: &str, resource: &str) -> bool {
         self.action == action && self.resource == resource
     }
 
     /// Check if this permission is a high-risk permission.
+    #[must_use]
     pub fn is_high_risk(&self) -> bool {
         is_high_risk_action(&self.action)
     }
 }
 
 /// Check if an action is considered high-risk.
+#[must_use]
 pub fn is_high_risk_action(action: &str) -> bool {
     matches_high_risk(action)
 }
@@ -78,6 +82,7 @@ pub enum EntitlementComplexity {
 
 impl EntitlementComplexity {
     /// Get the default TTL in seconds for this complexity level.
+    #[must_use]
     pub fn default_ttl_seconds(&self) -> f64 {
         match self {
             EntitlementComplexity::Static => 300.0,
@@ -88,6 +93,7 @@ impl EntitlementComplexity {
     }
 
     /// Check if any permission in this complexity level is high-risk.
+    #[must_use]
     pub fn is_complexity_high_risk(&self) -> bool {
         // Dynamic and Custom complexity levels are more likely to contain high-risk perms
         matches!(
@@ -100,7 +106,7 @@ impl EntitlementComplexity {
 /// A pre-computed ACL snapshot for a user/org pair.
 ///
 /// This is the data stored in the cache when authz-core resolves an
-/// entitlements_ref. It contains the full list of permissions that
+/// `entitlements_ref`. It contains the full list of permissions that
 /// can be evaluated locally without another authz-core call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EntitlementSnapshot {
@@ -118,6 +124,7 @@ pub struct EntitlementSnapshot {
 
 impl EntitlementSnapshot {
     /// Create a new entitlement snapshot.
+    #[must_use]
     pub fn new(
         user_id: &str,
         org_id: &str,
@@ -134,23 +141,27 @@ impl EntitlementSnapshot {
     }
 
     /// Check if this snapshot contains any high-risk permissions.
+    #[must_use]
     pub fn contains_high_risk(&self) -> bool {
-        self.permissions.iter().any(|p| p.is_high_risk())
+        self.permissions.iter().any(Permission::is_high_risk)
     }
 
     /// Check if this snapshot grants a specific action on a specific resource.
+    #[must_use]
     pub fn has_permission(&self, action: &str, resource: &str) -> bool {
         self.permissions.iter().any(|p| p.matches(action, resource))
     }
 
     /// Get the TTL in seconds for this snapshot based on its complexity.
+    #[must_use]
     pub fn ttl_seconds(&self) -> f64 {
         self.complexity.default_ttl_seconds()
     }
 
     /// Get the estimated serialized size in bytes (JSON).
+    #[must_use]
     pub fn serialized_size_bytes(&self) -> usize {
-        serde_json::to_string(self).map(|s| s.len()).unwrap_or(0)
+        serde_json::to_string(self).map_or(0, |s| s.len())
     }
 }
 
@@ -164,6 +175,7 @@ pub struct CacheLookupResult {
 }
 
 impl CacheLookupResult {
+    #[must_use]
     pub fn hit(snapshot: EntitlementSnapshot) -> Self {
         Self {
             snapshot,
@@ -171,6 +183,7 @@ impl CacheLookupResult {
         }
     }
 
+    #[must_use]
     pub fn miss(snapshot: EntitlementSnapshot) -> Self {
         Self {
             snapshot,

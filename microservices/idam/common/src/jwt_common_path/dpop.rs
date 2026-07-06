@@ -1,23 +1,23 @@
-//! # DPoP (Demonstrating Proof-of-Possession) — RFC 9449
+//! # `DPoP` (Demonstrating Proof-of-Possession) — RFC 9449
 //!
-//! Implements the DPoP protocol for binding access tokens and refresh tokens
+//! Implements the `DPoP` protocol for binding access tokens and refresh tokens
 //! to client-held cryptographic key pairs.
 //!
 //! ## Flow
 //!
-//! 1. Client generates an Ed25519/P-256 key pair (DPoP key)
-//! 2. Client sends a DPoP proof JWT with login/token request:
+//! 1. Client generates an Ed25519/P-256 key pair (`DPoP` key)
+//! 2. Client sends a `DPoP` proof JWT with login/token request:
 //!    - Header: `{"typ": "dpop+jwt", "alg": "EdDSA", "jwk": {...}}`
 //!    - Payload: `{"jti": "...", "iat": ..., "htm": "POST", "htu": "/auth/token"}`
-//! 3. Server validates the DPoP proof and issues access token with `cnf.jkt`
+//! 3. Server validates the `DPoP` proof and issues access token with `cnf.jkt`
 //! 4. On subsequent requests, client includes `DPoP` header with proof JWT
-//! 5. Server validates `cnf.jkt` matches the DPoP proof's `jwk` thumbprint
+//! 5. Server validates `cnf.jkt` matches the `DPoP` proof's `jwk` thumbprint
 //!
 //! ## Security Requirements
 //!
-//! - HACK-801: DPoP MUST be enforced in production
-//! - HACK-802: DPoP proof JTI replay tracked in Redis with 60s TTL
-//! - HACK-803: Refresh token dpop_jkt must match on every refresh
+//! - HACK-801: `DPoP` MUST be enforced in production
+//! - HACK-802: `DPoP` proof JTI replay tracked in Redis with 60s TTL
+//! - HACK-803: Refresh token `dpop_jkt` must match on every refresh
 //! - HACK-807: Reject oversized jwk (>500 bytes), invalid kty, invalid curves
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
@@ -25,7 +25,7 @@ use prometheus::{IntCounter, Registry};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 use p256::elliptic_curve::sec1::ToEncodedPoint;
 
@@ -33,7 +33,7 @@ use p256::elliptic_curve::sec1::ToEncodedPoint;
 // DPoP Proof JWK Types
 // ---------------------------------------------------------------------------
 
-/// Allowed key types for DPoP (RFC 9449).
+/// Allowed key types for `DPoP` (RFC 9449).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum DpopKeyTypeId {
@@ -41,7 +41,7 @@ pub enum DpopKeyTypeId {
     Ec,  // EC = Elliptic Curve (P-256)
 }
 
-/// Allowed curves for DPoP key types.
+/// Allowed curves for `DPoP` key types.
 pub enum DpopCurve {
     Ed25519,
     P256, // We use the Rust name "P256" but serialize as "P-256" per RFC 7518
@@ -105,8 +105,8 @@ impl<'de> Deserialize<'de> for DpopCurve {
     }
 }
 
-/// JSON Web Key (JWK) as used in DPoP proofs.
-/// Only contains the fields relevant for DPoP validation.
+/// JSON Web Key (JWK) as used in `DPoP` proofs.
+/// Only contains the fields relevant for `DPoP` validation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DpopJwk {
     /// Key type: OKP or EC
@@ -153,7 +153,8 @@ impl DpopJwk {
     }
 
     /// Returns the base64url-encoded JWK JSON thumbprint (JKT).
-    /// Per RFC 7638: JKT = base64url(sha256(jwk_json))
+    /// Per RFC 7638: JKT = `base64url(sha256(jwk_json))`
+    #[must_use]
     pub fn jkt(&self) -> String {
         let jwk_json = serde_json::to_string(self).unwrap_or_default();
         let hash = Sha256::digest(jwk_json.as_bytes());
@@ -175,13 +176,13 @@ impl DpopJwk {
 // DPoP Proof JWT
 // ---------------------------------------------------------------------------
 
-/// Standard DPoP proof JWT claims per RFC 9449.
+/// Standard `DPoP` proof JWT claims per RFC 9449.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DpopProofClaims {
     /// Proof type: must be "dpop+jwt"
     #[serde(rename = "typ")]
     pub typ: Option<String>,
-    /// Algorithm: must be "EdDSA"
+    /// Algorithm: must be "`EdDSA`"
     pub alg: String,
     /// The client's public key as a JWK
     pub jwk: DpopJwk,
@@ -196,7 +197,7 @@ pub struct DpopProofClaims {
 }
 
 impl DpopProofClaims {
-    /// Validates the DPoP proof claims before signature verification.
+    /// Validates the `DPoP` proof claims before signature verification.
     pub fn validate(&self) -> Result<(), DpopError> {
         // Check typ
         if self.typ.as_deref() != Some("dpop+jwt") {
@@ -221,35 +222,35 @@ impl DpopProofClaims {
 /// DPoP-specific errors.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DpopError {
-    /// DPoP proof header missing from request
+    /// `DPoP` proof header missing from request
     MissingDpopProof,
-    /// DPoP proof is not a valid JWT (3 segments)
+    /// `DPoP` proof is not a valid JWT (3 segments)
     InvalidDpopProof(String),
-    /// DPoP proof typ is not "dpop+jwt"
+    /// `DPoP` proof typ is not "dpop+jwt"
     InvalidProofTyp(String),
-    /// DPoP proof alg is not "EdDSA"
+    /// `DPoP` proof alg is not "`EdDSA`"
     InvalidProofAlg(String),
-    /// DPoP proof jkt does not match token's cnf.jkt
+    /// `DPoP` proof jkt does not match token's cnf.jkt
     BindingMismatch,
-    /// DPoP proof htm does not match request method
+    /// `DPoP` proof htm does not match request method
     MethodMismatch { expected: String, actual: String },
-    /// DPoP proof htu does not match request path
+    /// `DPoP` proof htu does not match request path
     UriMismatch { expected: String, actual: String },
-    /// DPoP proof iat is too old (> 60 seconds)
+    /// `DPoP` proof iat is too old (> 60 seconds)
     ProofExpired,
-    /// DPoP proof iat is in the future (clock skew manipulation)
+    /// `DPoP` proof iat is in the future (clock skew manipulation)
     ProofFuture,
-    /// DPoP proof jti has been seen before (replay)
+    /// `DPoP` proof jti has been seen before (replay)
     ProofReplay,
-    /// DPoP proof jwk size exceeds limit
+    /// `DPoP` proof jwk size exceeds limit
     JwkTooLarge(usize),
-    /// DPoP proof jwk has invalid key type
+    /// `DPoP` proof jwk has invalid key type
     InvalidJwk(String),
-    /// DPoP proof jwk has invalid curve
+    /// `DPoP` proof jwk has invalid curve
     InvalidCurve(String),
-    /// DPoP proof signature verification failed
+    /// `DPoP` proof signature verification failed
     SignatureInvalid(String),
-    /// DPoP required in production but not provided
+    /// `DPoP` required in production but not provided
     DpopRequired,
 }
 
@@ -261,7 +262,7 @@ pub enum DpopError {
 /// Per RFC 9449: `cnf: { "jkt": "<base64url(SHA-256(DPoP_public_key))>" }`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DpopConfirmation {
-    /// The base64url-encoded SHA-256 thumbprint of the DPoP public key.
+    /// The base64url-encoded SHA-256 thumbprint of the `DPoP` public key.
     pub jkt: String,
 }
 
@@ -270,11 +271,11 @@ pub struct DpopConfirmation {
 // ---------------------------------------------------------------------------
 
 /// Prometheus counter for token binding mismatch events.
-/// Incremented whenever a client presents a DPoP proof whose key
+/// Incremented whenever a client presents a `DPoP` proof whose key
 /// does not match the cnf.jkt embedded in the access token.
 static mut TOKEN_BINDING_MISMATCH_TOTAL: Option<IntCounter> = None;
 
-/// Initialize the DPoP metrics with the given Prometheus registry.
+/// Initialize the `DPoP` metrics with the given Prometheus registry.
 /// Must be called once at application startup.
 pub fn init_dpop_metrics(registry: &Registry) {
     let counter = IntCounter::new(
@@ -292,7 +293,7 @@ pub fn init_dpop_metrics(registry: &Registry) {
 /// Safe to call even if metrics were not initialized (no-op).
 pub fn emit_token_binding_mismatch() {
     unsafe {
-        let ptr = &TOKEN_BINDING_MISMATCH_TOTAL as *const Option<IntCounter>;
+        let ptr = &raw const TOKEN_BINDING_MISMATCH_TOTAL;
         if let Some(counter) = &*ptr {
             counter.inc();
         }
@@ -303,7 +304,7 @@ pub fn emit_token_binding_mismatch() {
 // Proof Replay Detection (Redis-backed)
 // ---------------------------------------------------------------------------
 
-/// Interface for DPoP proof JTI replay detection.
+/// Interface for `DPoP` proof JTI replay detection.
 /// Implemented by Redis-backed store; used during proof verification.
 #[async_trait::async_trait]
 pub trait DpopProofStore: Send + Sync {
@@ -313,7 +314,7 @@ pub trait DpopProofStore: Send + Sync {
 
     /// Record a JTI with a 60-second TTL.
     async fn record(&self, jti: &str) -> Result<(), DpopError>;
-    
+
     /// Synchronous JTI check for non-async contexts. Default: skip replay check.
     fn is_seen_sync(&self, _jti: &str) -> Result<bool, DpopError> {
         Ok(false)
@@ -379,7 +380,10 @@ impl RedisProofStore {
             .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?
             .get_connection()
             .map_err(|e| DpopError::InvalidJwk(format!("Redis connection failed: {e}")))?;
-        let mut guard = self.conn.lock().map_err(|e| DpopError::InvalidJwk(format!("Mutex poisoned: {e}")))?;
+        let mut guard = self
+            .conn
+            .lock()
+            .map_err(|e| DpopError::InvalidJwk(format!("Mutex poisoned: {e}")))?;
         *guard = Some(conn);
         Ok(())
     }
@@ -388,24 +392,34 @@ impl RedisProofStore {
 #[async_trait::async_trait]
 impl DpopProofStore for RedisProofStore {
     async fn is_seen(&self, jti: &str) -> Result<bool, DpopError> {
-        let mut conn = self.conn.lock().map_err(|e| DpopError::InvalidJwk(format!("Mutex poisoned: {e}")))?;
+        let mut conn = self
+            .conn
+            .lock()
+            .map_err(|e| DpopError::InvalidJwk(format!("Mutex poisoned: {e}")))?;
         let conn = conn
             .as_mut()
             .ok_or_else(|| DpopError::InvalidJwk("Redis not initialized".into()))?;
         let key = format!("dpop_jti:{jti}");
         use redis::Commands;
-        let exists: i64 = conn.exists(&key).map_err(|e| DpopError::InvalidJwk(format!("Redis EXISTS failed: {e}")))?;
+        let exists: i64 = conn
+            .exists(&key)
+            .map_err(|e| DpopError::InvalidJwk(format!("Redis EXISTS failed: {e}")))?;
         Ok(exists > 0)
     }
 
     async fn record(&self, jti: &str) -> Result<(), DpopError> {
-        let mut conn = self.conn.lock().map_err(|e| DpopError::InvalidJwk(format!("Mutex poisoned: {e}")))?;
+        let mut conn = self
+            .conn
+            .lock()
+            .map_err(|e| DpopError::InvalidJwk(format!("Mutex poisoned: {e}")))?;
         let conn = conn
             .as_mut()
             .ok_or_else(|| DpopError::InvalidJwk("Redis not initialized".into()))?;
         let key = format!("dpop_jti:{jti}");
         use redis::Commands;
-        let _: () = conn.set_ex(&key, "seen", 60u64).map_err(|e| DpopError::InvalidJwk(format!("Redis SET failed: {e}")))?;
+        let _: () = conn
+            .set_ex(&key, "seen", 60u64)
+            .map_err(|e| DpopError::InvalidJwk(format!("Redis SET failed: {e}")))?;
         Ok(())
     }
 }
@@ -414,7 +428,7 @@ impl DpopProofStore for RedisProofStore {
 // DPoP Proof Verification
 // ---------------------------------------------------------------------------
 
-/// Verify a DPoP proof JWT against an access token's claims.
+/// Verify a `DPoP` proof JWT against an access token's claims.
 ///
 /// Checks:
 /// 1. `jwk` thumbprint matches `claims.cnf.jkt`
@@ -435,15 +449,11 @@ pub async fn verify_dpop_proof(
     proof.validate()?;
 
     // Check that claims have a cnf.jkt (this token was DPoP-bound)
-    let expected_jkt = match claims
-        .cnf
-        .as_ref()
-    {
-        Some(cnf) => cnf.jkt.clone(),
-        None => {
-            emit_token_binding_mismatch();
-            return Err(DpopError::BindingMismatch);
-        }
+    let expected_jkt = if let Some(cnf) = claims.cnf.as_ref() {
+        cnf.jkt.clone()
+    } else {
+        emit_token_binding_mismatch();
+        return Err(DpopError::BindingMismatch);
     };
 
     // 1. Verify jkt match
@@ -469,12 +479,13 @@ pub async fn verify_dpop_proof(
         });
     }
 
-    // 4. Verify freshness (iat within 60 seconds)
+    // 4. Verify freshness (iat strictly younger than 60 seconds — a proof
+    // exactly 60s old is already expired)
     let age = now - proof.iat;
     if age < 0 {
         return Err(DpopError::ProofFuture);
     }
-    if age > 60 {
+    if age >= 60 {
         return Err(DpopError::ProofExpired);
     }
 
@@ -491,13 +502,15 @@ pub async fn verify_dpop_proof(
 // ---------------------------------------------------------------------------
 
 /// Compute the jkt (thumbprint) for a JWK.
-/// jkt = base64url(sha256(jwk_json))
+/// jkt = `base64url(sha256(jwk_json))`
+#[must_use]
 pub fn compute_jkt(jwk: &DpopJwk) -> String {
     jwk.jkt()
 }
 
-/// Generate a fresh Ed25519 key pair for DPoP.
-/// Returns (private_key_hex, DpopJwk).
+/// Generate a fresh Ed25519 key pair for `DPoP`.
+/// Returns (`private_key_hex`, `DpopJwk`).
+#[must_use]
 pub fn generate_ed25519_keypair() -> (String, DpopJwk) {
     use ed25519_dalek::SigningKey;
 
@@ -517,8 +530,9 @@ pub fn generate_ed25519_keypair() -> (String, DpopJwk) {
     (private_hex, jwk)
 }
 
-/// Generate a fresh P-256 key pair for DPoP.
-/// Returns (private_key_hex, DpopJwk).
+/// Generate a fresh P-256 key pair for `DPoP`.
+/// Returns (`private_key_hex`, `DpopJwk`).
+#[must_use]
 pub fn generate_p256_keypair() -> (String, DpopJwk) {
     use p256::ecdsa::SigningKey;
 
@@ -548,32 +562,27 @@ pub fn generate_p256_keypair() -> (String, DpopJwk) {
 // DPoP Enforcement Check
 // ---------------------------------------------------------------------------
 
-/// Check whether DPoP is enabled based on environment.
+/// Check whether `DPoP` is enabled based on environment.
 ///
-/// In production: DPoP is always enforced (no env var can disable it).
+/// In production: `DPoP` is always enforced (no env var can disable it).
 /// In development: `DPoP_ENABLED` env var controls enforcement.
 ///
-/// Returns `true` if DPoP should be enforced for incoming requests.
+/// Returns `true` if `DPoP` should be enforced for incoming requests.
+#[must_use]
 pub fn is_dpop_enabled() -> bool {
     // In production (no dev flag), DPoP is always enabled.
     // In development, check the explicit env var.
-    let is_dev = std::env::var("RUST_ENV")
-        .ok()
-        .map(|v| v == "development" || v == "dev")
-        .unwrap_or(false);
+    let is_dev = std::env::var("RUST_ENV").is_ok_and(|v| v == "development" || v == "dev");
 
     if is_dev {
-        std::env::var("DPoP_ENABLED")
-            .ok()
-            .map(|v| v != "false")
-            .unwrap_or(false)
+        std::env::var("DPoP_ENABLED").is_ok_and(|v| v != "false")
     } else {
         true // Production: always enforce
     }
 }
 
-/// Validate that a request includes a DPoP proof when required.
-/// Returns `DpopError::DpopRequired` if DPoP is mandatory but proof is missing.
+/// Validate that a request includes a `DPoP` proof when required.
+/// Returns `DpopError::DpopRequired` if `DPoP` is mandatory but proof is missing.
 pub fn require_dpop_proof(
     request: &brrtrouter::dispatcher::HandlerRequest,
 ) -> Result<(), DpopError> {
@@ -581,7 +590,10 @@ pub fn require_dpop_proof(
         return Ok(()); // DPoP not required
     }
 
-    let has_dpop = request.headers.iter().any(|(k, _)| k.eq_ignore_ascii_case("DPoP"));
+    let has_dpop = request
+        .headers
+        .iter()
+        .any(|(k, _)| k.eq_ignore_ascii_case("DPoP"));
     if !has_dpop {
         return Err(DpopError::DpopRequired);
     }
@@ -593,7 +605,7 @@ pub fn require_dpop_proof(
 mod tests {
     use super::*;
     use crate::SesameAuthzClaimsBuilder;
-    use crate::dpop::DpopConfirmation as JwtDpopConfirmation;
+
     use std::time::{SystemTime, UNIX_EPOCH};
 
     // ─── JWK Thumbprint Tests ─────────────────────────────────────────
@@ -630,7 +642,7 @@ mod tests {
         let big_jwk = DpopJwk {
             kty: DpopKeyTypeId::Okp,
             crv: DpopCurve::Ed25519,
-            x: URL_SAFE_NO_PAD.encode(&vec![0u8; 10_000]), // 10KB fake key
+            x: URL_SAFE_NO_PAD.encode(vec![0u8; 10_000]), // 10KB fake key
             y: None,
             additional: serde_json::Value::Null,
         };
@@ -695,8 +707,7 @@ mod tests {
 
     // ─── Proof Verification ────────────────────────────────────────────
 
-    fn make_test_claims_with_cnf(jkt: &str) -> crate::AccessClaims {
-        use crate::SesameAuthzClaims;
+    fn make_test_claims_with_cnf(_jkt: &str) -> crate::AccessClaims {
         crate::AccessClaims::builder()
             .iss("https://idam.example.com")
             .sub("user-1")
@@ -726,7 +737,7 @@ mod tests {
             typ: Some("dpop+jwt".to_string()),
             alg: "EdDSA".to_string(),
             jwk,
-            jti: format!("proof-jti-iat{}", iat_offset_secs),
+            jti: format!("proof-jti-iat{iat_offset_secs}"),
             iat: now_secs() + iat_offset_secs,
             htm: htm.to_string(),
             htu: htu.to_string(),
@@ -748,7 +759,9 @@ mod tests {
         let store = make_store();
 
         assert!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await.is_ok()
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store)
+                .await
+                .is_ok()
         );
     }
 
@@ -757,14 +770,15 @@ mod tests {
         let (_priv, jwk) = generate_ed25519_keypair();
         let wrong_jkt = "wrong-thumbprint-xyz";
         let mut claims = make_test_claims_with_cnf(wrong_jkt);
-claims.cnf = Some(crate::dpop::DpopConfirmation {
+        claims.cnf = Some(crate::dpop::DpopConfirmation {
             jkt: wrong_jkt.to_string(),
         });
 
         let proof = make_proof(jwk, 0, "POST", "/auth/token");
         let store = make_store();
 
-        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        let proof_result =
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
         assert!(matches!(proof_result, Err(DpopError::BindingMismatch)));
     }
 
@@ -778,8 +792,12 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
         let proof = make_proof(jwk, 0, "GET", "/auth/token"); // Proof says GET
         let store = make_store();
 
-        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
-        assert!(matches!(proof_result, Err(DpopError::MethodMismatch { .. })));
+        let proof_result =
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        assert!(matches!(
+            proof_result,
+            Err(DpopError::MethodMismatch { .. })
+        ));
     }
 
     #[tokio::test]
@@ -792,7 +810,8 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
         let proof = make_proof(jwk, 0, "POST", "/other/path"); // Proof says different path
         let store = make_store();
 
-        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        let proof_result =
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
         assert!(matches!(proof_result, Err(DpopError::UriMismatch { .. })));
     }
 
@@ -806,7 +825,8 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
         let proof = make_proof(jwk, -120, "POST", "/auth/token"); // iat = 120s ago
         let store = make_store();
 
-        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        let proof_result =
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
         assert!(matches!(proof_result, Err(DpopError::ProofExpired)));
     }
 
@@ -821,7 +841,9 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
         let store = make_store();
 
         assert!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await.is_ok()
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store)
+                .await
+                .is_ok()
         );
     }
 
@@ -835,7 +857,8 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
         let proof = make_proof(jwk, 5, "POST", "/auth/token"); // iat = 5s in future
         let store = make_store();
 
-        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        let proof_result =
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
         assert!(matches!(proof_result, Err(DpopError::ProofFuture)));
     }
 
@@ -853,7 +876,8 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
         store.record(&proof.jti).await.unwrap();
 
         // Second use should be rejected as replay
-        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        let proof_result =
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
         assert!(matches!(proof_result, Err(DpopError::ProofReplay)));
     }
 
@@ -866,7 +890,8 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
         let proof = make_proof(jwk, 0, "POST", "/auth/token");
         let store = make_store();
 
-        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        let proof_result =
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
         assert!(matches!(proof_result, Err(DpopError::BindingMismatch)));
     }
 
@@ -882,7 +907,8 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
         let proof = make_proof(jwk, -60, "POST", "/auth/token"); // iat = exactly 60s ago
         let store = make_store();
 
-        let proof_result = verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
+        let proof_result =
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await;
         assert!(matches!(proof_result, Err(DpopError::ProofExpired)));
     }
 
@@ -897,7 +923,9 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
         let store = make_store();
 
         assert!(
-            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store).await.is_ok()
+            verify_dpop_proof(&claims, &proof, "POST", "/auth/token", now_secs(), &*store)
+                .await
+                .is_ok()
         );
     }
 
@@ -989,10 +1017,7 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
     fn require_dpop_accepts_header_present() {
         let (reply_tx, _reply_rx) = may::sync::mpsc::channel();
         let mut headers = brrtrouter::dispatcher::HeaderVec::new();
-        headers.push((
-            std::sync::Arc::from("DPoP"),
-            "dpop-proof-jwt".to_string()
-        ));
+        headers.push((std::sync::Arc::from("DPoP"), "dpop-proof-jwt".to_string()));
         let req = brrtrouter::dispatcher::HandlerRequest {
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
@@ -1069,7 +1094,7 @@ claims.cnf = Some(crate::dpop::DpopConfirmation {
 
     #[test]
     fn jwk_with_extra_fields_validated() {
-        let mut jwk: DpopJwk = serde_json::from_value(serde_json::json!({
+        let jwk: DpopJwk = serde_json::from_value(serde_json::json!({
             "kty": "OKP",
             "crv": "Ed25519",
             "x": "f7eb5e7c0f3e1c4d5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8",

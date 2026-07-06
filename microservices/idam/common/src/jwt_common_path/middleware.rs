@@ -1,8 +1,8 @@
-//! # JwtAuthMiddleware — JWT Common-Path Authorization
+//! # `JwtAuthMiddleware` — JWT Common-Path Authorization
 //!
 //! The primary middleware component for the hybrid authorization model.
 //!
-//! This middleware sits between BRRTRouter's router and the handler:
+//! This middleware sits between `BRRTRouter`'s router and the handler:
 //!
 //! ```text
 //! Client Request -> BRRTRouter Router -> JwtAuthMiddleware -> Handler
@@ -20,12 +20,12 @@
 //!
 //! ## Security Requirements
 //!
-//! - HACK-401: Tenant validation MUST compare claims.tenant_id against X-Tenant-ID
+//! - HACK-401: Tenant validation MUST compare `claims.tenant_id` against X-Tenant-ID
 //! - HACK-403: ALL routes must validate X-Tenant-ID presence
 //! - HACK-405: NEVER fail open — all errors reject (503/401/403)
 //! - HACK-407: Token expiry check before expensive JWKS operations
 //! - Path matching MUST be exact, not prefix-based
-//! - DPoP: verify dpop proof on every request (Story 8.2)
+//! - `DPoP`: verify dpop proof on every request (Story 8.2)
 
 use std::sync::Arc;
 
@@ -73,7 +73,7 @@ impl JwtAuthMiddleware {
     /// 3. Look up route policy by path+method
     /// 4. Parse JWT claims
     /// 5. Evaluate local policy for jwt-only routes
-    /// 6. Return appropriate AuthDecision
+    /// 6. Return appropriate `AuthDecision`
     ///
     /// # Failure Behavior (HACK-405)
     ///
@@ -104,22 +104,19 @@ impl JwtAuthMiddleware {
         let token = extract_bearer_token(request)?;
 
         // Step 2: Quick expiry check (HACK-407 — before expensive JWKS ops)
-        if let Err(err) = pre_validate_expiry(&token) {
-            return Err(err);
-        }
+        pre_validate_expiry(&token)?;
 
         // Step 3: Look up route policy
         let policy = self.route_policies.get_policy(&route, &method);
-        let policy = match policy {
-            Some(p) => p,
-            None => {
-                // Default: jwt-with-fallback for unknown routes (fail-safe)
-                // But for middleware purposes, we need at least a policy to evaluate
-                // If no policy found, we still validate JWT but can't classify
-                // Return JwtCommonPath — handler will use default category
-                let claims = parse_claims(&token)?;
-                return Ok(AuthDecision::JwtCommonPath { claims });
-            }
+        let policy = if let Some(p) = policy {
+            p
+        } else {
+            // Default: jwt-with-fallback for unknown routes (fail-safe)
+            // But for middleware purposes, we need at least a policy to evaluate
+            // If no policy found, we still validate JWT but can't classify
+            // Return JwtCommonPath — handler will use default category
+            let claims = parse_claims(&token)?;
+            return Ok(AuthDecision::JwtCommonPath { claims });
         };
 
         // Step 4: Parse JWT claims (includes iss, aud, tenant_id validation)
@@ -174,16 +171,14 @@ impl JwtAuthMiddleware {
         x_tenant_id: &str,
     ) -> Result<AuthDecision, AuthError> {
         // Full local policy evaluation
-        if let Err(err) = evaluate_local_policy(
+        evaluate_local_policy(
             claims,
             x_tenant_id,
             &[],  // No specific roles required for jwt-only
             &[],  // No specific permissions required for jwt-only
             None, // No risk requirement for jwt-only
             None, // No user type requirement
-        ) {
-            return Err(err);
-        }
+        )?;
 
         Ok(AuthDecision::Allowed {
             claims: claims.clone(),
@@ -252,15 +247,14 @@ impl Middleware for JwtAuthMiddleware {
 
 #[cfg(test)]
 mod tests {
-    use super::super::dpop::DpopJwk;
+
     use super::*;
-    use brrtrouter::ids::RequestId;
-    use smallvec::smallvec;
+
     type ParamVec = smallvec::SmallVec<[(std::sync::Arc<str>, std::string::String); 8]>;
     type HeaderVec = smallvec::SmallVec<[(std::sync::Arc<str>, std::string::String); 16]>;
-    use brrtrouter::dispatcher::HandlerResponse;
-    use crate::{AccessClaims, RoutePolicy, SesameAuthzClaims, SesameAuthzClaimsBuilder};
+
     use crate::SesameAuthzClaimsBuilder as SAZCB;
+    use crate::{AccessClaims, RoutePolicy};
 
     fn create_reply_tx() -> may::sync::mpsc::Sender<brrtrouter::dispatcher::HandlerResponse> {
         let (_tx, _rx) = may::sync::mpsc::channel();
@@ -299,12 +293,6 @@ mod tests {
             ),
         ];
 
-        let store = RoutePolicyStore::from_config(
-            serde_yaml::from_str(&serde_yaml::to_string(&serde_yaml::Mapping::new()).unwrap())
-                .unwrap(),
-        )
-        .unwrap_or_default();
-
         // Build manually since from_config needs a YAML config
         let mut lookup: std::collections::HashMap<String, RoutePolicy> =
             std::collections::HashMap::new();
@@ -322,7 +310,7 @@ mod tests {
         AccessClaims::builder()
             .iss("https://idam.example.com")
             .sub("user-1")
-            .aud(vec!["identity-login-service".into()])
+            .aud(vec!["sesame-idam".into()])
             .client_id("test-app")
             .scope("read".to_string())
             .exp(i64::MAX - 3600)
@@ -357,7 +345,7 @@ mod tests {
         let mut headers = HeaderVec::new();
         headers.push((
             std::sync::Arc::from("Authorization"),
-            format!("Bearer {}", token),
+            format!("Bearer {token}"),
         ));
         if !tenant_id.is_empty() {
             headers.push((std::sync::Arc::from("X-Tenant-ID"), tenant_id.to_string()));
@@ -404,7 +392,7 @@ mod tests {
     fn make_claims_token(claims: &AccessClaims) -> String {
         let header = base64url_encode(r#"{"alg":"RS256","typ":"at+jwt"}"#);
         let payload = base64url_encode(&serde_json::to_string(claims).unwrap());
-        format!("{}.{}.fake_signature", header, payload)
+        format!("{header}.{payload}.fake_signature")
     }
 
     fn base64url_encode(input: &str) -> String {
@@ -589,10 +577,10 @@ mod tests {
         // JWT with empty JSON payload
         let header = base64url_encode(r#"{"alg":"RS256","typ":"at+jwt"}"#);
         let empty_payload = base64url_encode("{}");
-        let token = format!("{}.{}.sig", header, empty_payload);
+        let token = format!("{header}.{empty_payload}.sig");
         use brrtrouter::dispatcher::HeaderVec;
         let mut headers = HeaderVec::new();
-        headers.push(("Authorization".into(), format!("Bearer {}", token)));
+        headers.push(("Authorization".into(), format!("Bearer {token}")));
         headers.push(("X-Tenant-ID".into(), "tenant-a".to_string()));
         let req = HandlerRequest {
             request_id: brrtrouter::ids::RequestId::new(),
@@ -638,7 +626,7 @@ mod tests {
         let middleware = JwtAuthMiddleware::new(make_test_route_policies());
         let mut claims = make_test_claims();
         // Add large claims to make token > 750 bytes
-        claims.sx.permissions = (0..100).map(|i| format!("permission-{}", i)).collect();
+        claims.sx.permissions = (0..100).map(|i| format!("permission-{i}")).collect();
         let token = make_claims_token(&claims);
         assert!(token.len() > 750);
         let req = create_request_with_claims("GET", "/admin/users/me", "tenant-a", &token);

@@ -25,7 +25,7 @@ use super::route_policy::RouteAuthCategory;
 /// Evaluates local policy for a jwt-only route.
 ///
 /// Returns `true` if the claims satisfy all policy requirements for the route.
-/// Returns `false` if any check fails (with the appropriate AuthError).
+/// Returns `false` if any check fails (with the appropriate `AuthError`).
 ///
 /// # Policy Checks
 ///
@@ -162,7 +162,7 @@ pub fn evaluate_category_policy(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{SesameAuthzClaims, SesameAuthzClaimsBuilder};
+    use crate::SesameAuthzClaimsBuilder;
 
     fn make_test_claims() -> AccessClaims {
         AccessClaims::builder()
@@ -316,8 +316,7 @@ mod tests {
     #[test]
     fn local_policy_denies_with_missing_role() {
         let claims = make_customer_claims();
-        let result =
-            evaluate_local_policy(&claims, "tenant-a", &vec!["admin".into()], &[], None, None);
+        let result = evaluate_local_policy(&claims, "tenant-a", &["admin".into()], &[], None, None);
         assert!(matches!(result, Err(AuthError::RoleCheckFailed { .. })));
     }
 
@@ -330,7 +329,7 @@ mod tests {
             &claims,
             "tenant-a",
             &[],
-            &vec!["prefs:write".into()],
+            &["prefs:write".into()],
             None,
             None,
         );
@@ -344,7 +343,7 @@ mod tests {
             &claims,
             "tenant-a",
             &[],
-            &vec!["prefs:write".into()],
+            &["prefs:write".into()],
             None,
             None,
         );

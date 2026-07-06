@@ -11,7 +11,7 @@
 /// - `default_ttl_secs`: 300 seconds (when token exp is unavailable)
 /// - `jitter_factor`: 0.2 (20% random jitter on TTL)
 /// - `redis_key_prefix`: "denylist" (Redis key prefix)
-/// - `redis_url`: "redis://127.0.0.1:6379"
+/// - `redis_url`: "<redis://127.0.0.1:6379>"
 #[derive(Debug, Clone)]
 pub struct DenylistConfig {
     /// Maximum number of entries in the local cache per service instance.
@@ -24,7 +24,7 @@ pub struct DenylistConfig {
     /// Default TTL in seconds when token expiry is unavailable.
     pub default_ttl_secs: u64,
     /// Jitter factor for TTL randomization (0.0 to 1.0).
-    /// Actual TTL = calculated_ttl * (1.0 - jitter + 2.0 * jitter * random).
+    /// Actual TTL = `calculated_ttl` * (1.0 - jitter + 2.0 * jitter * random).
     /// A factor of 0.2 means TTL varies between 60% and 140% of calculated.
     pub jitter_factor: f64,
     /// Redis key prefix for denylist entries.
@@ -48,6 +48,7 @@ impl Default for DenylistConfig {
 
 impl DenylistConfig {
     /// Create a new configuration with custom values.
+    #[must_use]
     pub fn new(
         max_entries: usize,
         max_ttl_secs: u64,
@@ -65,36 +66,42 @@ impl DenylistConfig {
     }
 
     /// Set the maximum number of entries.
+    #[must_use]
     pub fn with_max_entries(mut self, max_entries: usize) -> Self {
         self.max_entries = max_entries;
         self
     }
 
     /// Set the maximum TTL in seconds.
+    #[must_use]
     pub fn with_max_ttl_secs(mut self, max_ttl_secs: u64) -> Self {
         self.max_ttl_secs = max_ttl_secs;
         self
     }
 
     /// Set the default TTL when token exp is unavailable.
+    #[must_use]
     pub fn with_default_ttl_secs(mut self, default_ttl_secs: u64) -> Self {
         self.default_ttl_secs = default_ttl_secs;
         self
     }
 
     /// Set the jitter factor (0.0 to 1.0).
+    #[must_use]
     pub fn with_jitter_factor(mut self, jitter_factor: f64) -> Self {
         self.jitter_factor = jitter_factor;
         self
     }
 
     /// Set the Redis key prefix.
+    #[must_use]
     pub fn with_redis_key_prefix(mut self, prefix: &str) -> Self {
         self.redis_key_prefix = prefix.to_string();
         self
     }
 
     /// Set the Redis connection URL.
+    #[must_use]
     pub fn with_redis_url(mut self, url: &str) -> Self {
         self.redis_url = url.to_string();
         self
@@ -107,7 +114,8 @@ impl DenylistConfig {
     /// - `DENYLIST_MAX_TTL_SECS`: hard cap TTL in seconds (default: 300)
     /// - `DENYLIST_DEFAULT_TTL_SECS`: default TTL when exp unavailable (default: 300)
     /// - `DENYLIST_JITTER_FACTOR`: jitter factor 0.0-1.0 (default: 0.2)
-    /// - `DENYLIST_REDIS_URL`: Redis connection URL (default: redis://127.0.0.1:6379)
+    /// - `DENYLIST_REDIS_URL`: Redis connection URL (default: <redis://127.0.0.1:6379>)
+    #[must_use]
     pub fn from_env() -> Self {
         let mut config = Self::default();
 

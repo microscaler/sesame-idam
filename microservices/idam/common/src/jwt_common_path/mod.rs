@@ -3,7 +3,7 @@
 //! JWT common-path authorization middleware for Sesame-IDAM.
 //!
 //! This crate implements the JWT middleware for the hybrid authorization model
-//! (Epic 4). It sits between BRRTRouter's router and handlers, validating JWTs
+//! (Epic 4). It sits between `BRRTRouter`'s router and handlers, validating JWTs
 //! and evaluating local policy from claims for `jwt-only` routes.
 //!
 //! ## Architecture
@@ -25,7 +25,7 @@
 //!
 //! ## Security
 //!
-//! - HACK-401: Tenant validation MUST compare claims.tenant_id against X-Tenant-ID
+//! - HACK-401: Tenant validation MUST compare `claims.tenant_id` against X-Tenant-ID
 //! - HACK-403: ALL routes must validate X-Tenant-ID presence
 //! - HACK-405: NEVER fail open — all errors reject (503/401/403)
 //! - HACK-407: Token expiry check BEFORE expensive JWKS operations

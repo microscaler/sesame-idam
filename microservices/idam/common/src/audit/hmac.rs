@@ -12,8 +12,9 @@ type HmacSha256 = Hmac<Sha256>;
 /// The signature covers the canonical log JSON (fields in order) plus the
 /// event timestamp. This allows verification without needing to know the
 /// signing key at query time.
+#[must_use]
 pub fn sign_entry(key: &[u8], log_json: &str, timestamp: &str) -> String {
-    let message = format!("{}:{}", log_json, timestamp);
+    let message = format!("{log_json}:{timestamp}");
     let mut mac = HmacSha256::new_from_slice(key).expect("HMAC can take key of any size");
     mac.update(message.as_bytes());
     hex::encode(mac.finalize().into_bytes())
@@ -22,6 +23,7 @@ pub fn sign_entry(key: &[u8], log_json: &str, timestamp: &str) -> String {
 /// Verifies an HMAC signature on an audit log entry.
 ///
 /// Returns true if the signature is valid.
+#[must_use]
 pub fn verify_entry(key: &[u8], log_json: &str, timestamp: &str, signature: &str) -> bool {
     let expected = sign_entry(key, log_json, timestamp);
     // Constant-time comparison to prevent timing attacks
@@ -39,6 +41,7 @@ pub fn verify_entry(key: &[u8], log_json: &str, timestamp: &str, signature: &str
 }
 
 /// Generates a random HMAC key (32 bytes / 256 bits).
+#[must_use]
 pub fn generate_key() -> Vec<u8> {
     use rand::{thread_rng, Rng};
     let mut key = vec![0u8; 32];

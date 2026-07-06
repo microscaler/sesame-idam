@@ -14,13 +14,15 @@ pub const SUBJECT_KEY_PREFIX: &str = "authz_ver:";
 pub const TENANT_KEY_PREFIX: &str = "authz_ver:tenant:";
 
 /// Generate a subject-specific version key.
+#[must_use]
 pub fn subject_key(subject: &str) -> String {
-    format!("{}{}", SUBJECT_KEY_PREFIX, subject)
+    format!("{SUBJECT_KEY_PREFIX}{subject}")
 }
 
 /// Generate a tenant-specific version key.
+#[must_use]
 pub fn tenant_key(tenant_id: &str) -> String {
-    format!("{}{}", TENANT_KEY_PREFIX, tenant_id)
+    format!("{TENANT_KEY_PREFIX}{tenant_id}")
 }
 
 /// Configuration for the version store.
@@ -90,14 +92,16 @@ impl VersionStore {
         let mut conn = self.get_conn()?;
 
         use redis::Commands;
-        
-        // Use INCR for atomic increment
-        let version: u64 = conn.incr(&key, 0)?;
+
+        // Use INCRBY 1 for atomic increment (delta 0 would never advance)
+        let version: u64 = conn.incr(&key, 1)?;
 
         // Set TTL only if this is the first time the key is set
         // INCR returns 1 when the key was just created
         if version == 1 {
-            let _: () = conn.expire(&key, self.subject_ttl as i64).map_err(|e| anyhow::anyhow!("expire failed: {}", e))?;
+            let _: () = conn
+                .expire(&key, self.subject_ttl as i64)
+                .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
         }
 
         Ok(version)
@@ -109,11 +113,13 @@ impl VersionStore {
         let mut conn = self.get_conn()?;
 
         use redis::Commands;
-        
-        let version: u64 = conn.incr(&key, 0)?;
+
+        let version: u64 = conn.incr(&key, 1)?;
 
         if version == 1 {
-            let _: () = conn.expire(&key, self.tenant_ttl as i64).map_err(|e| anyhow::anyhow!("expire failed: {}", e))?;
+            let _: () = conn
+                .expire(&key, self.tenant_ttl as i64)
+                .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
         }
 
         Ok(version)
@@ -154,7 +160,8 @@ impl VersionStore {
     pub fn delete_key(&self, key: &str) -> Result<()> {
         let mut conn = self.get_conn()?;
         use redis::Commands;
-        conn.del::<_, ()>(key).map_err(|e| anyhow::anyhow!("del failed: {}", e))?;
+        conn.del::<_, ()>(key)
+            .map_err(|e| anyhow::anyhow!("del failed: {e}"))?;
         Ok(())
     }
 
@@ -162,7 +169,8 @@ impl VersionStore {
     pub fn key_exists(&self, key: &str) -> Result<bool> {
         let mut conn = self.get_conn()?;
         use redis::Commands;
-        conn.exists(key).map_err(|e| anyhow::anyhow!("redis exists failed: {}", e))
+        conn.exists(key)
+            .map_err(|e| anyhow::anyhow!("redis exists failed: {e}"))
     }
 
     /// Get the remaining TTL for a key in seconds.
@@ -182,34 +190,40 @@ impl VersionStore {
         let mut conn = self.get_conn()?;
         use redis::Commands;
         for key in keys {
-            conn.del::<_, ()>(key).map_err(|e| anyhow::anyhow!("del failed: {}", e))?;
+            conn.del::<_, ()>(key)
+                .map_err(|e| anyhow::anyhow!("del failed: {e}"))?;
         }
         Ok(())
     }
 
     /// Get the subject TTL (in seconds).
+    #[must_use]
     pub fn subject_ttl(&self) -> u64 {
         self.subject_ttl
     }
 
     /// Get the tenant TTL (in seconds).
+    #[must_use]
     pub fn tenant_ttl(&self) -> u64 {
         self.tenant_ttl
     }
 
     /// Wrapper around the free function `subject_key` for use in tests.
     #[doc(hidden)]
+    #[must_use]
     pub fn subject_key(&self, subject: &str) -> String {
         subject_key(subject)
     }
 
     /// Wrapper around the free function `tenant_key` for use in tests.
     #[doc(hidden)]
+    #[must_use]
     pub fn tenant_key(&self, tenant_id: &str) -> String {
         tenant_key(tenant_id)
     }
 
     /// Get the current Unix timestamp in seconds.
+    #[must_use]
     pub fn current_unix_seconds() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -233,10 +247,7 @@ mod tests {
         let url = test_redis_url();
         let client = Client::open(url.as_str());
         match client {
-            Ok(c) => match c.get_connection() {
-                Ok(_) => true,
-                Err(_) => false,
-            },
+            Ok(c) => c.get_connection().is_ok(),
             Err(_) => false,
         }
     }
@@ -253,8 +264,9 @@ mod tests {
         )
     }
 
-    #[test] fn test_increment_subject_returns_sequential() {
-        if !redis_available().await {
+    #[test]
+    fn test_increment_subject_returns_sequential() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -264,7 +276,7 @@ mod tests {
         let key = store.subject_key(&user);
 
         // Clean up before test
-        store.delete_key(&key);;
+        store.delete_key(&key);
 
         let v1 = store.increment_subject(&user).unwrap();
         assert_eq!(v1, 1);
@@ -278,11 +290,12 @@ mod tests {
         assert!(v1 < v2 && v2 < v3);
 
         // Clean up
-        store.delete_key(&key);;
+        store.delete_key(&key);
     }
 
-    #[test] fn test_get_subject_version_returns_zero_for_new_user() {
-        if !redis_available().await {
+    #[test]
+    fn test_get_subject_version_returns_zero_for_new_user() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -302,11 +315,12 @@ mod tests {
         assert_eq!(ver, 0);
 
         // Clean up
-        store.delete_key(&key);;
+        store.delete_key(&key);
     }
 
-    #[test] fn test_get_subject_version_after_increment() {
-        if !redis_available().await {
+    #[test]
+    fn test_get_subject_version_after_increment() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -327,11 +341,12 @@ mod tests {
         let ver = store.get_subject_version(&user).unwrap();
         assert_eq!(ver, 1);
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
     }
 
-    #[test] fn test_increment_tenant_returns_sequential() {
-        if !redis_available().await {
+    #[test]
+    fn test_increment_tenant_returns_sequential() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -347,7 +362,7 @@ mod tests {
         );
         let key = store.tenant_key(&tenant);
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
 
         let v1 = store.increment_tenant(&tenant).unwrap();
         assert_eq!(v1, 1);
@@ -355,11 +370,12 @@ mod tests {
         let v2 = store.increment_tenant(&tenant).unwrap();
         assert_eq!(v2, 2);
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
     }
 
-    #[test] fn test_get_tenant_version_returns_zero_for_new_tenant() {
-        if !redis_available().await {
+    #[test]
+    fn test_get_tenant_version_returns_zero_for_new_tenant() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -377,11 +393,12 @@ mod tests {
         let ver = store.get_tenant_version(&tenant).unwrap();
         assert_eq!(ver, 0);
 
-        store.delete_key(&store.tenant_key(&tenant));;
+        store.delete_key(&store.tenant_key(&tenant));
     }
 
-    #[test] fn test_independent_subject_and_tenant_versions() {
-        if !redis_available().await {
+    #[test]
+    fn test_independent_subject_and_tenant_versions() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -411,12 +428,13 @@ mod tests {
         let user_ver_after = store.get_subject_version(&user).unwrap();
         assert_eq!(user_ver_after, 1); // unchanged
 
-        store.delete_key(&store.subject_key(&user));;
-        store.delete_key(&store.tenant_key(&tenant));;
+        store.delete_key(&store.subject_key(&user));
+        store.delete_key(&store.tenant_key(&tenant));
     }
 
-    #[test] fn test_ttl_is_set_on_increment() {
-        if !redis_available().await {
+    #[test]
+    fn test_ttl_is_set_on_increment() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -434,13 +452,14 @@ mod tests {
 
         let ttl = store.get_ttl(&store.subject_key(&user)).unwrap();
         // TTL should be close to 30 (within 5 seconds due to timing)
-        assert!(ttl > 20 && ttl <= 30, "TTL was {}s, expected ~30s", ttl);
+        assert!(ttl > 20 && ttl <= 30, "TTL was {ttl}s, expected ~30s");
 
-        store.delete_key(&store.subject_key(&user));;
+        store.delete_key(&store.subject_key(&user));
     }
 
-    #[test] fn test_issue_version_returns_tuple() {
-        if !redis_available().await {
+    #[test]
+    fn test_issue_version_returns_tuple() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -456,17 +475,18 @@ mod tests {
         );
         let key = store.subject_key(&user);
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
 
         let (ver, ttl) = store.issue_version(&user).unwrap();
         assert_eq!(ver, 1);
         assert_eq!(ttl, 15); // default subject TTL
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
     }
 
-    #[test] fn test_key_exists_true_after_increment() {
-        if !redis_available().await {
+    #[test]
+    fn test_key_exists_true_after_increment() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -482,18 +502,19 @@ mod tests {
         );
         let key = store.subject_key(&user);
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
 
         assert!(!store.key_exists(&key).unwrap());
 
         store.increment_subject(&user).unwrap();
         assert!(store.key_exists(&key).unwrap());
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
     }
 
-    #[test] fn test_concurrent_increments_no_duplicates() {
-        if !redis_available().await {
+    #[test]
+    fn test_concurrent_increments_no_duplicates() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -502,25 +523,21 @@ mod tests {
         let user = unique_key("test_concurrent");
         let key = store.subject_key(&user);
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
 
-        // Run 10 concurrent increments
+        // Run 10 concurrent increments using std::thread
         let mut handles = vec![];
         for _ in 0..10 {
             let store_clone = store.clone();
             let user_clone = user.clone();
-            handles.push(tokio::spawn(async move {
+            handles.push(std::thread::spawn(move || {
                 store_clone.increment_subject(&user_clone).unwrap()
             }));
         }
 
-        let versions: Vec<u64> = futures_util::future::join_all(handles)
-            .await
-            .into_iter()
-            .map(|r| r.unwrap())
-            .collect();
+        let versions: Vec<u64> = handles.into_iter().map(|h| h.join().unwrap()).collect();
         let mut sorted_versions = versions.clone();
-        sorted_versions.sort();
+        sorted_versions.sort_unstable();
 
         // Should be 1 through 10, no duplicates
         assert_eq!(sorted_versions.len(), 10);
@@ -528,11 +545,12 @@ mod tests {
             assert_eq!(*v, (i + 1) as u64, "Expected {} but got {}", i + 1, v);
         }
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
     }
 
-    #[test] fn test_flush_keys_cleans_targeted_keys() {
-        if !redis_available().await {
+    #[test]
+    fn test_flush_keys_cleans_targeted_keys() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -560,8 +578,9 @@ mod tests {
         assert_eq!(tenant_ver, 0);
     }
 
-    #[test] fn test_monotonically_increasing_across_calls() {
-        if !redis_available().await {
+    #[test]
+    fn test_monotonically_increasing_across_calls() {
+        if !redis_available() {
             println!("SKIP: Redis not available");
             return;
         }
@@ -570,21 +589,19 @@ mod tests {
         let user = unique_key("test_mono");
         let key = store.subject_key(&user);
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
 
         let mut last_ver = 0u64;
         for i in 1..=20 {
             let ver = store.increment_subject(&user).unwrap();
             assert!(
                 ver > last_ver,
-                "Version {} was not greater than {}",
-                ver,
-                last_ver
+                "Version {ver} was not greater than {last_ver}"
             );
-            assert_eq!(ver, i, "Expected {} but got {}", i, ver);
+            assert_eq!(ver, i, "Expected {i} but got {ver}");
             last_ver = ver;
         }
 
-        store.delete_key(&key);;
+        store.delete_key(&key);
     }
 }

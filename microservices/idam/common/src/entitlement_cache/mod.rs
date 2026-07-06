@@ -8,7 +8,7 @@
 //! ## Architecture
 //!
 //! The cache follows a standard read-through pattern:
-//! 1. Check local cache for the requested entitlements_ref
+//! 1. Check local cache for the requested `entitlements_ref`
 //! 2. On cache hit, return the snapshot immediately
 //! 3. On cache miss, call authz-core to fetch the full ACL, then cache the result
 //!
@@ -18,7 +18,7 @@
 //! ## Security Gotchas Addressed
 //!
 //! - **HACK-751**: High-risk permissions force short TTL (30s) to minimize stale permission windows
-//! - **HACK-752**: LRU eviction enforces max_entries (5,000) to prevent memory exhaustion
+//! - **HACK-752**: LRU eviction enforces `max_entries` (5,000) to prevent memory exhaustion
 //! - **HACK-753**: Exact key matching (no hashing) prevents reference collision attacks
 //!
 //! ## Example
@@ -37,8 +37,8 @@ pub use snapshot::{CacheLookupResult, EntitlementComplexity, EntitlementSnapshot
 use prometheus::{IntCounter, IntGauge, Registry};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
 use std::sync::RwLock;
+use std::time::Duration;
 use tracing::debug;
 
 /// Inner cache entry with expiry tracking.
@@ -49,7 +49,7 @@ struct CachedEntry {
     access_count: AtomicU64,
 }
 
-/// Inner cache state protected by a RwLock.
+/// Inner cache state protected by a `RwLock`.
 struct CacheState {
     entries: HashMap<String, CachedEntry>,
     /// Track access order for LRU eviction (simple counter-based).
@@ -72,9 +72,9 @@ impl std::fmt::Display for CacheError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CacheError::AclTooLarge { requested, max } => {
-                write!(f, "ACL too large: {} bytes (max {})", requested, max)
+                write!(f, "ACL too large: {requested} bytes (max {max})")
             }
-            CacheError::FetchError(msg) => write!(f, "Fetch error: {}", msg),
+            CacheError::FetchError(msg) => write!(f, "Fetch error: {msg}"),
         }
     }
 }
@@ -127,6 +127,7 @@ pub struct EntitlementSnapshotCache {
 
 impl EntitlementSnapshotCache {
     /// Create a new entitlement snapshot cache and register its metrics with the given registry.
+    #[must_use]
     pub fn new(config: CacheConfig) -> Self {
         let registry = Registry::new();
 
@@ -222,7 +223,7 @@ impl EntitlementSnapshotCache {
         Fut: std::future::Future<Output = Result<EntitlementSnapshot, E>>,
         E: std::fmt::Display + std::marker::Send + Sync,
     {
-        let cache_key = format!("entitlements:{}", entitlements_ref);
+        let cache_key = format!("entitlements:{entitlements_ref}");
 
         // 1. Check cache
         {
@@ -353,7 +354,7 @@ impl EntitlementSnapshotCache {
     /// Useful when a user's permissions change and you want to force
     /// an immediate refresh rather than waiting for TTL expiry.
     pub fn invalidate(&self, entitlements_ref: &str) {
-        let cache_key = format!("entitlements:{}", entitlements_ref);
+        let cache_key = format!("entitlements:{entitlements_ref}");
         let mut state = self.state.write().unwrap();
         if state.entries.remove(&cache_key).is_some() {
             state.access_order.remove(&cache_key);
@@ -392,7 +393,7 @@ impl EntitlementSnapshotCache {
     }
 }
 
-/// Truncate an entitlements_ref for log messages to prevent log pollution.
+/// Truncate an `entitlements_ref` for log messages to prevent log pollution.
 fn truncate_ref(ref_id: &str) -> &str {
     if ref_id.len() > 40 {
         &ref_id[..40]
@@ -562,7 +563,7 @@ mod tests {
         assert!(result.is_err());
         match result.unwrap_err() {
             CacheError::FetchError(msg) => assert_eq!(msg, "fetch failed"),
-            other => panic!("expected FetchError, got {:?}", other),
+            other => panic!("expected FetchError, got {other:?}"),
         }
     }
 
@@ -602,7 +603,7 @@ mod tests {
                 assert!(requested > max);
                 assert_eq!(max, 100);
             }
-            other => panic!("expected AclTooLarge, got {:?}", other),
+            other => panic!("expected AclTooLarge, got {other:?}"),
         }
     }
 
@@ -623,14 +624,16 @@ mod tests {
 
         // Fill cache to capacity
         for i in 0..3 {
-            let snap = make_snapshot(&format!("u{}", i), vec![Permission::new("read", "docs")]);
+            let snap = make_snapshot(&format!("u{i}"), vec![Permission::new("read", "docs")]);
             cache
-                .get_or_insert(&format!("ent_{}", i), || async move { Ok::<EntitlementSnapshot, String>(snap) })
+                .get_or_insert(&format!("ent_{i}"), || async move {
+                    Ok::<EntitlementSnapshot, String>(snap)
+                })
                 .await
                 .unwrap();
         }
 
-        assert_eq!(cache.len().await, 3);
+        assert_eq!(cache.len(), 3);
 
         // Adding a 4th should evict the least recently used (ent_0)
         let snap4 = make_snapshot("u4", vec![Permission::new("read", "docs")]);
@@ -641,7 +644,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(cache.len().await, 3);
+        assert_eq!(cache.len(), 3);
 
         // ent_0 should be evicted
         let result = cache
@@ -675,17 +678,17 @@ mod tests {
             })
             .await
             .unwrap();
-        assert_eq!(cache.len().await, 1);
+        assert_eq!(cache.len(), 1);
 
-        cache.invalidate("ent_inv").await;
-        assert_eq!(cache.len().await, 0);
+        cache.invalidate("ent_inv");
+        assert_eq!(cache.len(), 0);
     }
 
     #[tokio::test]
     async fn test_invalidate_nonexistent_does_nothing() {
         let cache = EntitlementSnapshotCache::new(CacheConfig::default());
-        cache.invalidate("ent_nonexistent").await;
-        assert_eq!(cache.len().await, 0);
+        cache.invalidate("ent_nonexistent");
+        assert_eq!(cache.len(), 0);
     }
 
     #[tokio::test]
@@ -693,16 +696,18 @@ mod tests {
         let cache = EntitlementSnapshotCache::new(CacheConfig::default());
 
         for i in 0..5 {
-            let snap = make_snapshot(&format!("u{}", i), vec![Permission::new("read", "docs")]);
+            let snap = make_snapshot(&format!("u{i}"), vec![Permission::new("read", "docs")]);
             cache
-                .get_or_insert(&format!("ent_{}", i), || async move { Ok::<EntitlementSnapshot, String>(snap) })
+                .get_or_insert(&format!("ent_{i}"), || async move {
+                    Ok::<EntitlementSnapshot, String>(snap)
+                })
                 .await
                 .unwrap();
         }
-        assert_eq!(cache.len().await, 5);
+        assert_eq!(cache.len(), 5);
 
-        cache.clear().await;
-        assert_eq!(cache.len().await, 0);
+        cache.clear();
+        assert_eq!(cache.len(), 0);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -726,8 +731,8 @@ mod tests {
     #[tokio::test]
     async fn test_cache_empty_check() {
         let cache = EntitlementSnapshotCache::new(CacheConfig::default());
-        assert!(cache.is_empty().await);
-        assert_eq!(cache.len().await, 0);
+        assert!(cache.is_empty());
+        assert_eq!(cache.len(), 0);
 
         let snap = make_snapshot("u1", vec![Permission::new("read", "docs")]);
         cache
@@ -736,8 +741,8 @@ mod tests {
             })
             .await
             .unwrap();
-        assert!(!cache.is_empty().await);
-        assert_eq!(cache.len().await, 1);
+        assert!(!cache.is_empty());
+        assert_eq!(cache.len(), 1);
     }
 
     #[tokio::test]

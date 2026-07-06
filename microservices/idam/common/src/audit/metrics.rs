@@ -85,6 +85,7 @@ pub struct RateLimiterState {
 
 impl RateLimiterState {
     /// Create a new rate limiter state with a 1-second window.
+    #[must_use]
     pub const fn new(window_ns: u64) -> Self {
         Self {
             debug_count: AtomicU64::new(0),

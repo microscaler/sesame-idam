@@ -174,7 +174,10 @@ mod tests {
 
         // Verify all metrics are registered
         let metrics_families = registry.gather();
-        let metric_names: Vec<_> = metrics_families.iter().map(|mf| mf.get_name()).collect();
+        let metric_names: Vec<_> = metrics_families
+            .iter()
+            .map(prometheus::proto::MetricFamily::get_name)
+            .collect();
 
         assert!(metric_names.contains(&"denylist_cache_size"));
         assert!(metric_names.contains(&"denylist_cache_hits_total"));

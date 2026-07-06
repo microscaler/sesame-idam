@@ -1,10 +1,3 @@
-/// Rate limiting for audit log entries.
-///
-/// Implements:
-/// - DEBUG rate limit: max 1000 entries/sec per service (HACK-833)
-/// - INFO/WARN/ERROR: no rate limiting (always logged)
-/// - Metrics for dropped entries
-use std::sync::Arc;
 use std::time::Instant;
 
 /// Rate limiter configuration.
@@ -38,6 +31,7 @@ struct CounterState {
 }
 
 impl RateLimiter {
+    #[must_use]
     pub fn new(config: RateLimitConfig) -> Self {
         Self {
             config,
@@ -46,6 +40,7 @@ impl RateLimiter {
     }
 
     /// Check if a DEBUG-level entry should be allowed.
+    #[must_use]
     pub fn allow_debug(&self, service: &str) -> bool {
         let now = Instant::now();
         let mut map = self.counters.lock().unwrap();
@@ -67,7 +62,7 @@ impl RateLimiter {
 
         // Check limit
         if state.count >= self.config.max_debug_per_second {
-super::metrics::AuditMetrics::increment_debug_dropped();
+            super::metrics::AuditMetrics::increment_debug_dropped();
             return false;
         }
 

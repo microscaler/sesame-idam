@@ -28,7 +28,6 @@ rand = "0.8"
 # Audit module deps (always available)
 async-trait = "0.1"
 futures-util = "0.3"
-arc-swap = { workspace = true }
 dashmap = { workspace = true }
 once_cell = { workspace = true }
 lazy_static = { workspace = true }
@@ -40,12 +39,16 @@ tokio = { workspace = true, features = ["sync", "time", "macros", "rt-multi-thre
 # Denylist module deps (always available)
 redis = { workspace = true, features = ["aio", "tokio-comp", "connection-manager"] }
 
-# JWT common-path module deps (always available)
+# Common path module deps (always available)
 brrtrouter = { workspace = true, default-features = false }
 http = { workspace = true }
+# may_http pins http 0.2 — needed for Uri values passed to may_http::client
+http_legacy = { workspace = true }
+arc-swap = { workspace = true }
 
-# HTTP client
-reqwest = { workspace = true, features = ["json", "stream", "blocking"] }
+# May runtime for coroutines (common crate runs on may in all services)
+may = { workspace = true }
+may_http = { git = "https://github.com/rust-may/may_http.git" }
 
 # Config / cli (always available)
 anyhow = { workspace = true }
@@ -56,14 +59,13 @@ clap = { workspace = true, features = ["derive"] }
 # Small types
 smallvec = "1"
 
-# Optional: used by fallback_cache module
-blake3 = { workspace = true, optional = true }
+# Blake3: used by fallback_cache module (always loaded)
+blake3 = { workspace = true }
 
 [features]
 default = []
-full = ["metrics", "fallback_cache"]
+full = ["metrics"]
 metrics = []
-fallback_cache = ["blake3"]
 
 [dev-dependencies]
 may = "0.3"
@@ -74,6 +76,7 @@ rstest-bdd = "0.5.0"
 rstest-bdd-macros = "0.5.0"
 tokio = { workspace = true, features = ["full", "test-util"] }
 anyhow = "1.0"
+may_http = { git = "https://github.com/rust-may/may_http.git" }
 http = "1"
 prometheus = { workspace = true }
 smallvec = "1"
