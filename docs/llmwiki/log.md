@@ -544,5 +544,11 @@ Cross-repo: hauliage fleet wired to sesame-idam cluster JWKS (`_sesame-idam-kube
 
 ## [2026-07-07] Hauliage HI-5 + JWKS company/BFF
 
-Cross-repo: hauliage identity/company/fleet global BearerAuth; company + BFF JWKS config; BFF login (HI-4) committed.
+Cross-repo: hauliage identity/company/fleet global BearerAuth; company + BFF JWKS config; BFF login (HI-4) committed (`16fae98`). BRRTRouter `73744df`, sesame `ced7b92`.
+
+**Wave 2 staged:** HI-7 pin → redeploy company/bff → smoke extend → consignments JWKS → OpenAPI client. See hauliage [`sesame-idam-brrtrouter-integration.md`](../../hauliage/docs/llmwiki/topics/sesame-idam-brrtrouter-integration.md).
+
+## [2026-07-07] docs | Wave 2 staged — wiki sync
+
+Updated [`topic-brrtrouter-refactor-backlog.md`](./topics/topic-brrtrouter-refactor-backlog.md) with BR-1b/BR-1c commit refs and Wave 2 sequencing.
 

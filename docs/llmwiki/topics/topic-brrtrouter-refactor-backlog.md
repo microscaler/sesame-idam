@@ -1,7 +1,7 @@
 ---
 title: BRRTRouter Refactor Backlog (Workaround Cleanup)
 status: verified
-updated: 2026-07-06
+updated: 2026-07-07
 sources: [topic-http-client-policy.md, topic-brrtrouter-codegen.md, log.md]
 ---
 
@@ -33,7 +33,9 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 
 | ID | Owner | Task | Status |
 |----|-------|------|--------|
-| **BR-1** | BRRTRouter | Fix `security: []` semantics in `build.rs` + raw-spec presence tracking | ✅ 2026-07-06 |
+| **BR-1** | BRRTRouter | Fix `security: []` semantics in `build.rs` + raw-spec presence tracking | ✅ `a6aa511` |
+| **BR-1b** | BRRTRouter | Allow HTTP JWKS URLs for `*.svc.cluster.local` | ✅ `085e67e` |
+| **BR-1c** | BRRTRouter | HTTP fetch path-only URI for `may_http` (in-cluster JWKS) | ✅ `73744df` |
 | **SI-1** | sesame-idam | Re-add global `BearerAuth` + `ApiKeyHeader` on login/session specs | ✅ 2026-07-06 |
 | **SI-2** | sesame-idam | Regression tests: `tests/openapi_security.rs` + BRRTRouter `spec_security_tests.rs` | ✅ 2026-07-06 |
 
@@ -54,7 +56,7 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 | **BR-5** | BRRTRouter | JWKS background refresh: `std::thread` → `may::go!` | Consistency with coroutine runtime |
 | **BR-6** | BRRTRouter | Shed transitive `reqwest` (OTEL grpc-only, jsonschema no-network) | See [`topic-http-client-policy.md`](./topic-http-client-policy.md) |
 | **BR-7** | BRRTRouter | Sub-spans inside `JwksBearerProvider` (`jwt.signature_verify`, etc.) | Epic 9 / Story 9.1 |
-| **HI-1** | hauliage | Pin BRRTRouter after BR-1+BR-2; verify `JwksBearerProvider` against sesame JWKS (H7.2) | Sesame integration gate |
+| **HI-1** | hauliage | Pin BRRTRouter after BR-1+BR-1c; verify JWKS (H7.2) | ✅ fleet smoke; **HI-7** pin `73744df` next |
 | **HI-2** | hauliage | Adopt `HttpJson` on identity-adjacent routes per existing PRD | [`PRD_HAULIAGE_TYPED_HANDLER_HTTP_STATUS.md`](../../../../hauliage/docs/PRD_HAULIAGE_TYPED_HANDLER_HTTP_STATUS.md) |
 
 ## Already done (do not re-litigate)
@@ -68,20 +70,23 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 ## Recommended sequencing
 
 ```
-Done (2026-07-06)
-  BR-1 + SI-1 + SI-2
+Done (2026-07-07)
+  BR-1 + BR-1b + BR-1c + SI-1 + SI-2
+  Hauliage HI-1..HI-5, HI-4 MVP, JWKS fleet/company/bff
+  Commits: BRRTRouter 73744df, sesame-idam ced7b92, hauliage 16fae98
 
-Sprint next
-  HI-4 (OpenAPI client) — roll JWKS to more hauliage services
-
-Done (2026-07-06)
-  HI-2 + HI-1 + HI-3 (fleet JWKS smoke + E2E test in hauliage)
+Wave 2 (hauliage + sesame)
+  HI-7  Pin BRRTRouter 73744df in hauliage Cargo.toml
+  H6.3  Redeploy company + bff with JWKS; verify in-cluster Bearer
+  HI-3+ Extend smoke (company org route)
+  HI-4+ Generated sesame OpenAPI client crate
+  JWKS  consignments when routes protected
 
 Then (P2)
-  BR-2/BR-3 → SI-3/SI-4
+  BR-2/BR-3 → SI-3/SI-4, HI-6
 
 Later (P3)
-  BR-4..BR-7, HI-5..HI-9
+  BR-4..BR-7, HI-8 workers
 ```
 
 ## Code anchors
