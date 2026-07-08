@@ -501,6 +501,42 @@ pub struct ResetPasswordRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SetActiveOrganizationRequest {
+    pub organization_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SetActiveOrganizationResponse {
+    pub access_token: String,
+
+    pub entitlements_hash: String,
+
+    pub entitlements_ref: String,
+
+    pub expires_in: i32,
+
+    pub id_token: String,
+
+    pub mfa_required: bool,
+
+    pub permissions: Vec<String>,
+
+    pub refresh_token: String,
+
+    pub refresh_token_expires_in: i32,
+
+    pub roles: Vec<String>,
+
+    pub scope: String,
+
+    pub token_type: String,
+
+    pub token_version: i32,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SignupValidateResponse {
     pub allowed: bool,
 

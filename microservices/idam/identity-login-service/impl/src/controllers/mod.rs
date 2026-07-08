@@ -15,3 +15,4 @@
 pub mod auth_login;
 pub mod auth_logout;
 pub mod auth_register;
+pub mod set_active_organization;

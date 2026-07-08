@@ -136,6 +136,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         crate::controllers::oauth_authorize::OauthAuthorizeController,
         24576,
     );
+
+    dispatcher.register_typed_with_stack_size(
+        "set_active_organization",
+        crate::controllers::set_active_organization::SetActiveOrganizationController,
+        20480,
+    );
 }
 
 /// Dynamically register handlers for the provided routes using their handler names.
@@ -319,6 +325,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::oauth_authorize::OauthAuthorizeController,
                     24576,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "set_active_organization" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::set_active_organization::SetActiveOrganizationController,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

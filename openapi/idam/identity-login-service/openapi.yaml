@@ -785,6 +785,42 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call for new user registration
       x-brrtrouter-impl: true
+  /sessions/active-organization:
+    post:
+      tags:
+      - AuthFlows
+      summary: Set active organization and re-issue tokens with org_id claim
+      operationId: set_active_organization
+      security:
+      - BearerAuth: []
+      parameters:
+      - *id007
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - organization_id
+              properties:
+                organization_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: New tokens including org_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '403':
+          description: Not a member of the organization
+        '401':
+          description: Unauthorized
+          content: *id009
+      x-consumer: tenant-bff
+      x-brrtrouter-impl: true
   /auth/signup/validate:
     get:
       tags:

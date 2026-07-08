@@ -44,3 +44,5 @@ pub mod verify_email_otp;
 pub mod verify_phone_otp;
 
 pub mod oauth_authorize;
+
+pub mod set_active_organization;
