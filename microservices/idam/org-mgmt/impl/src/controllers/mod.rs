@@ -4,7 +4,9 @@
 /// request via the global `EMITTER`, then delegate to the service layer.
 
 pub mod list_applications;
+pub mod list_my_memberships;
 pub mod create_application;
+pub mod create_organization;
 pub mod get_application;
 pub mod list_permissions;
 pub mod create_permission;
@@ -18,6 +20,7 @@ pub mod query_orgs;
 pub mod fetch_org;
 pub mod update_org;
 pub mod delete_org;
+pub mod accept_invitation;
 pub mod add_user_to_org;
 pub mod allow_org_saml;
 pub mod change_user_role_in_org;

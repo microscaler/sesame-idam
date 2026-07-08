@@ -761,6 +761,113 @@ paths:
           content: *id002
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Query/list organizations, not direct frontend'
+    post:
+      tags:
+      - Organizations
+      summary: Create organization (tenant consumer)
+      description: |
+        Self-service org creation for authenticated users. Caller becomes owner.
+        Product BFFs call this before provisioning domain profiles in product DB.
+      operationId: create_organization
+      parameters:
+      - *id003
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - name
+              properties:
+                name:
+                  type: string
+                metadata:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  tenant_id:
+                    type: string
+        '409':
+          description: User already has an organization
+        '401':
+          description: Unauthorized
+          content: *id001
+      x-consumer: tenant-bff
+      x-brrtrouter-impl: true
+  /users/me/memberships:
+    get:
+      tags:
+      - Membership
+      summary: List current user's organization memberships
+      operationId: list_my_memberships
+      parameters:
+      - *id003
+      responses:
+        '200':
+          description: Membership list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    organization_id:
+                      type: string
+                      format: uuid
+                    organization_name:
+                      type: string
+                    role:
+                      type: string
+                    status:
+                      type: string
+        '401':
+          description: Unauthorized
+          content: *id001
+      x-consumer: tenant-bff
+      x-brrtrouter-impl: true
+  /invitations/accept:
+    post:
+      tags:
+      - Membership
+      summary: Accept organization invitation
+      operationId: accept_invitation
+      parameters:
+      - *id003
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - token
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Invitation accepted
+        '404':
+          description: Invite not found
+        '401':
+          description: Unauthorized
+          content: *id001
+      x-consumer: tenant-bff
+      x-brrtrouter-impl: true
   /organizations/admin/users/{user_id}/invalidate-all-keys:
     post:
       tags:

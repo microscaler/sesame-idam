@@ -1,7 +1,7 @@
 service:
   name: identity-user-mgmt-service
-  port: 8106
-  containerPort: 8106
+  port: 8080
+  containerPort: 8080
   nodePort: null
 
 image:
@@ -68,7 +68,7 @@ env:
   BRRTR_LOG_FORMAT: "json"
   BRRTR_STACK_SIZE: "0x8000"
 
-serviceType: NodePort
+serviceType: ClusterIP
 
 prometheus:
   enabled: true

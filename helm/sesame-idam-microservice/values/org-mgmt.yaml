@@ -1,7 +1,7 @@
 service:
   name: org-mgmt
-  port: 8104
-  containerPort: 8104
+  port: 8080
+  containerPort: 8080
   nodePort: null
 
 image:
@@ -68,7 +68,7 @@ env:
   BRRTR_LOG_FORMAT: "json"
   BRRTR_STACK_SIZE: "0x8000"
 
-serviceType: NodePort
+serviceType: ClusterIP
 
 prometheus:
   enabled: true

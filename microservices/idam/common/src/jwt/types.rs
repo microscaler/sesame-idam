@@ -160,6 +160,9 @@ pub struct AccessClaims {
     pub tenant_id: String,
     pub user_id: String,
     pub user_type: String,
+    /// Active organization workspace (Sesame org id). Omitted until user creates or joins an org.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
     // Namespaced authz claims
     #[serde(rename = "https://sesame-idam.dev/claims")]
     pub sx: SesameAuthzClaims,

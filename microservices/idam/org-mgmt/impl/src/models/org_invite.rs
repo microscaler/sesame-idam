@@ -30,5 +30,5 @@ pub struct OrgInvite {
     pub created_at: chrono::DateTime<chrono::Utc>,
 
     #[column_type = "TIMESTAMP WITH TIME ZONE"]
-    pub accepted_at: chrono::DateTime<chrono::Utc>,
+    pub accepted_at: Option<chrono::DateTime<chrono::Utc>>,
 }

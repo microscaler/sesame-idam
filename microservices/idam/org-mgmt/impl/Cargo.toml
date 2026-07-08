@@ -34,6 +34,7 @@ sesame_idam_database = { path = "../../../database" }
 
 sesame_idam_org_mgmt_gen = { path = "../gen" }
 
+base64 = { workspace = true }
 brrtrouter = { workspace = true }
 brrtrouter_macros = { workspace = true }
 serde = { workspace = true }

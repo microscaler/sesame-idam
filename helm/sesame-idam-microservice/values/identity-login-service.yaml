@@ -1,7 +1,7 @@
 service:
   name: identity-login-service
-  port: 8101
-  containerPort: 8101
+  port: 8080
+  containerPort: 8080
   nodePort: null
 
 image:
@@ -19,7 +19,7 @@ app:
   serviceName: identity-login-service
   config:
     # authz-core enrichment endpoint (same namespace)
-    authzCoreUrl: "http://authz-core:8102"
+    authzCoreUrl: "http://authz-core:8080"
     security:
       api_keys:
         ApiKeyHeader:
@@ -70,7 +70,7 @@ env:
   BRRTR_LOG_FORMAT: "json"
   BRRTR_STACK_SIZE: "0x8000"
 
-serviceType: NodePort
+serviceType: ClusterIP
 
 prometheus:
   enabled: true

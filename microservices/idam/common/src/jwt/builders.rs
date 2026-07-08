@@ -108,6 +108,7 @@ pub struct AccessClaimsBuilder {
     tenant_id: Option<String>,
     user_id: Option<String>,
     user_type: Option<String>,
+    org_id: Option<String>,
     sx: Option<SesameAuthzClaims>,
     act: Option<super::types::ActorClaim>,
     cnf: Option<crate::dpop::DpopConfirmation>,
@@ -131,6 +132,7 @@ impl AccessClaimsBuilder {
             tenant_id: None,
             user_id: None,
             user_type: None,
+            org_id: None,
             sx: None,
             act: None,
             cnf: None,
@@ -212,6 +214,17 @@ impl AccessClaimsBuilder {
         self
     }
 
+    pub fn org_id(mut self, org_id: impl Into<String>) -> Self {
+        self.org_id = Some(org_id.into());
+        self
+    }
+
+    #[must_use]
+    pub fn org_id_opt(mut self, org_id: Option<String>) -> Self {
+        self.org_id = org_id;
+        self
+    }
+
     #[must_use]
     pub fn sx(mut self, sx: SesameAuthzClaims) -> Self {
         self.sx = Some(sx);
@@ -290,6 +303,7 @@ impl AccessClaimsBuilder {
             tenant_id,
             user_id,
             user_type,
+            org_id: self.org_id,
             sx,
             act: self.act,
             cnf: self.cnf,

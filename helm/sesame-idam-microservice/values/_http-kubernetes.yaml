@@ -1,0 +1,7 @@
+# Cluster-wide HTTP port (PRD: all Sesame-IDAM app Services listen on 8080).
+service:
+  port: 8080
+  containerPort: 8080
+  nodePort: null
+
+serviceType: ClusterIP

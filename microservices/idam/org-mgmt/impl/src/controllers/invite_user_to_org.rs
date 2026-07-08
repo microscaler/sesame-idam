@@ -1,32 +1,49 @@
-use brrtrouter_macros::handler;
-use sesame_idam_org_mgmt_gen::handlers::invite_user_to_org::{Request, Response};
-use brrtrouter::typed::TypedHandlerRequest;
+//! Invite user by email — Sesame persists invite and logs magic-link token (dev).
 
-/// Handler for Invite User To Org.
-#[handler(InviteUserToOrgController)]
-pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    use crate::audit::EMITTER;
-    use sesame_common::audit::{AuditEventType, AuditLevel, AuditLogEntry};
-    use uuid::Uuid;
+use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
+use sesame_idam_database::db;
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "org-mgmt")
-        .tenant_id(req.inner.tenant_id.clone())
-        .metadata(serde_json::json!({
-            "email": req.inner.email,
-            "org_id": req.inner.org_id,
-        }))
-        .build();
+use crate::services::org_lifecycle::{self, OrgLifecycleError};
 
-    if let Ok(entry) = entry {
-        if let Ok(uid) = req.inner.user_id.parse::<Uuid>() {
-            EMITTER.emit(entry.user_id(uid.to_string()));
-        } else {
-            EMITTER.emit(entry);
-        }
+pub fn handle(req: HandlerRequest) -> HandlerResponse {
+    let tenant_id = req
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("x-tenant-id"))
+        .map(|(_, v)| v.clone())
+        .unwrap_or_default();
+    let org_id = req.get_path_param("org_id").unwrap_or_default();
+
+    let body = req.body.clone().unwrap_or(serde_json::json!({}));
+    let email = body
+        .get("email")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let role = body
+        .get("role")
+        .and_then(|v| v.as_str())
+        .unwrap_or("member");
+
+    if tenant_id.is_empty() || org_id.is_empty() || email.is_empty() {
+        return HandlerResponse::json(
+            400,
+            serde_json::json!({
+                "error": "validation_error",
+                "message": "X-Tenant-ID, org_id, and email are required"
+            }),
+        );
     }
 
-    Response {
-        success: req.inner.success.unwrap_or(false),
-        error: req.inner.error.clone().unwrap_or_default(),
+    let exec = db();
+    match org_lifecycle::invite_by_email(exec, &tenant_id, &org_id, email, role) {
+        Ok(_) => HandlerResponse::json(200, serde_json::json!({ "success": true })),
+        Err(OrgLifecycleError::NotFound) => HandlerResponse::json(
+            404,
+            serde_json::json!({
+                "error": "not_found",
+                "error_description": "Organization not found"
+            }),
+        ),
+        Err(e) => HandlerResponse::error(500, &format!("{e:?}")),
     }
 }

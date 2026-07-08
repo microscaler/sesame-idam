@@ -15,7 +15,7 @@ use sesame_common::{fetch_post, HttpFetchOptions};
 pub const AUTHZ_CORE_URL_ENV: &str = "AUTHZ_CORE_URL";
 
 /// Default authz-core URL (Kubernetes service DNS, port from repo topology).
-const DEFAULT_AUTHZ_CORE_URL: &str = "http://authz-core:8102";
+const DEFAULT_AUTHZ_CORE_URL: &str = "http://authz-core:8080";
 
 /// Request timeout — login sits on the hot path, keep enrichment bounded.
 const TIMEOUT_MS: u64 = 500;

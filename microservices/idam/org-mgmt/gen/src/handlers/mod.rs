@@ -27,7 +27,11 @@ pub mod assign_permission_to_role;
 
 pub mod revoke_permission_from_role;
 
+pub mod accept_invitation;
+
 pub mod query_orgs;
+
+pub mod create_organization;
 
 pub mod invalidate_user_api_keys;
 
@@ -90,3 +94,5 @@ pub mod enable_saml;
 pub mod create_saml_link;
 
 pub mod set_saml_idp_metadata;
+
+pub mod list_my_memberships;

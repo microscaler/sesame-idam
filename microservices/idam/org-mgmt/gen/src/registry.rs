@@ -78,9 +78,21 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "accept_invitation",
+        crate::controllers::accept_invitation::AcceptInvitationController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "query_orgs",
         crate::controllers::query_orgs::QueryOrgsController,
         24576,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "create_organization",
+        crate::controllers::create_organization::CreateOrganizationController,
+        20480,
     );
 
     dispatcher.register_typed_with_stack_size(
@@ -268,6 +280,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         crate::controllers::set_saml_idp_metadata::SetSamlIdpMetadataController,
         20480,
     );
+
+    dispatcher.register_typed_with_stack_size(
+        "list_my_memberships",
+        crate::controllers::list_my_memberships::ListMyMembershipsController,
+        20480,
+    );
 }
 
 /// Dynamically register handlers for the provided routes using their handler names.
@@ -375,10 +393,26 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "accept_invitation" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::accept_invitation::AcceptInvitationController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "query_orgs" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::query_orgs::QueryOrgsController,
                     24576,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "create_organization" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::create_organization::CreateOrganizationController,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);
@@ -626,6 +660,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "set_saml_idp_metadata" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::set_saml_idp_metadata::SetSamlIdpMetadataController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "list_my_memberships" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::list_my_memberships::ListMyMembershipsController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

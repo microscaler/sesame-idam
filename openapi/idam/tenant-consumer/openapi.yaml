@@ -1,0 +1,311 @@
+openapi: 3.1.0
+info:
+  title: Sesame IDAM — Tenant Consumer API
+  version: 0.1.0
+  description: |
+    **Product-facing IDAM API** for SaaS tenants (Hauliage, PriceWhisperer, …).
+
+    Called from product BFFs and (via BFF) end-user clients. Cross-cloud safe:
+    no shared database with product services.
+
+    - Tenant isolation: `X-Tenant-ID` header (e.g. `hauliage`, `pricewhisperer`).
+    - Sesame owns users, orgs, memberships, invites, and **invite email delivery**.
+    - Product databases store domain profiles keyed by `org_id` from JWT.
+
+    Platform admin / SCIM / SAML remain in `org-mgmt/openapi.yaml`.
+  contact:
+    name: Platform / Security
+
+servers:
+  - url: /idam/v1
+    description: IDAM API v1
+
+tags:
+  - name: Account
+    description: Registration and session (delegates to identity-login-service)
+  - name: Me
+    description: Authenticated user's memberships and active org
+  - name: Organizations
+    description: Self-service org creation within a tenant
+  - name: Invitations
+    description: Invite lifecycle — Sesame sends email; user accepts via magic link
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [Account]
+      operationId: register_user
+      summary: Create user account (no organization)
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XTenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registered; token may omit org_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  /users/me/memberships:
+    get:
+      tags: [Me]
+      operationId: list_my_memberships
+      summary: List organizations the current user belongs to (or pending invites)
+      parameters:
+        - $ref: '#/components/parameters/XTenantId'
+      responses:
+        '200':
+          description: Membership list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipSummary'
+
+  /organizations:
+    post:
+      tags: [Organizations]
+      operationId: create_organization
+      summary: Create a new organization; caller becomes owner
+      description: |
+        Creates org scoped to tenant. Caller must not already have an active org
+        if product policy is single-org-per-user (enforce in impl or document per-tenant).
+        Product-specific attributes (e.g. Hauliage SHIPPER vs HAULIER) go in `metadata`.
+      parameters:
+        - $ref: '#/components/parameters/XTenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationRequest'
+      responses:
+        '201':
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSummary'
+        '409':
+          description: User already has an organization (tenant policy)
+
+  /organizations/{org_id}/invitations:
+    post:
+      tags: [Invitations]
+      operationId: invite_user_to_organization
+      summary: Invite user by email — Sesame sends the magic-link email
+      parameters:
+        - $ref: '#/components/parameters/XTenantId'
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteByEmailRequest'
+      responses:
+        '200':
+          description: Invitation queued/sent
+
+  /invitations/accept:
+    post:
+      tags: [Invitations]
+      operationId: accept_invitation
+      summary: Accept invite token (authenticated user; email must match invite)
+      parameters:
+        - $ref: '#/components/parameters/XTenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+      responses:
+        '200':
+          description: Membership active; client should refresh token for org_id claim
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSummary'
+
+  /invitations/preview:
+    get:
+      tags: [Invitations]
+      operationId: preview_invitation
+      summary: Preview invite (org name) from token — optional UX before login
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XTenantId'
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Invite still valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationPreview'
+
+  /sessions/active-organization:
+    post:
+      tags: [Me]
+      operationId: set_active_organization
+      summary: Set active org and return tokens including org_id claim
+      parameters:
+        - $ref: '#/components/parameters/XTenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organization_id]
+              properties:
+                organization_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: New tokens with org_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    XTenantId:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+      description: SaaS product tenant slug (`hauliage`, `pricewhisperer`, …)
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, first_name, last_name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        first_name:
+          type: string
+        last_name:
+          type: string
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        user_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+          description: Present when user has an active org context
+
+    CreateOrganizationRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Display / legal name
+        metadata:
+          type: object
+          additionalProperties: true
+          description: |
+            Tenant-specific conventions, e.g. Hauliage `{ "profile_type": "SHIPPER" }`
+
+    OrganizationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    MembershipSummary:
+      type: object
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+        organization_name:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+          enum: [pending, active]
+
+    InviteByEmailRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          description: Tenant-defined role slug (e.g. DRIVER, DISPATCHER)
+
+    AcceptInvitationRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          format: uuid
+
+    InvitationPreview:
+      type: object
+      properties:
+        organization_name:
+          type: string
+        inviter_email:
+          type: string
+        expires_at:
+          type: string
+          format: date-time

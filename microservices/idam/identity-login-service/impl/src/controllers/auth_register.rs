@@ -94,6 +94,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         DEFAULT_PORTAL,
         vec![],
         "customer",
+        None,
     ) {
         Ok(tokens) => tokens,
         Err(e) => {

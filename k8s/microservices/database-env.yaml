@@ -1,0 +1,28 @@
+# Apply before Helm deploys: `kubectl apply -f k8s/microservices/database-env.yaml`
+# (also applied by Tilt). Shared DB ConfigMap + Secret for all sesame-idam microservices.
+# Postgres lives in namespace `data` (shared-k8s-cluster platform stack).
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sesame-idam-database-config
+  namespace: sesame-idam
+  labels:
+    app: sesame-idam
+data:
+  DB_HOST: "postgres.data.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "sesame_idam"
+  DB_USER: "sesame_idam"
+---
+# Must match scripts/setup-db.sh SESAME_IDAM_DB_PASSWORD and helm app.config.database.password.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sesame-idam-db-credentials
+  namespace: sesame-idam
+type: Opaque
+stringData:
+  password: dev_password_change_in_prod
+  DB_PASS: dev_password_change_in_prod
+  SESAME_IDAM_DB_PASSWORD: dev_password_change_in_prod

@@ -9,5 +9,5 @@ CREATE TABLE IF NOT EXISTS sesame_idam.org_invites (
     token VARCHAR(64) NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    accepted_at TIMESTAMP WITH TIME ZONE NOT NULL
+    accepted_at TIMESTAMP WITH TIME ZONE
 );

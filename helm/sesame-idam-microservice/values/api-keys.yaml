@@ -1,7 +1,7 @@
 service:
   name: api-keys
-  port: 8103
-  containerPort: 8103
+  port: 8080
+  containerPort: 8080
   nodePort: null
 
 image:
@@ -68,7 +68,7 @@ env:
   BRRTR_LOG_FORMAT: "json"
   BRRTR_STACK_SIZE: "0x8000"
 
-serviceType: NodePort
+serviceType: ClusterIP
 
 prometheus:
   enabled: true

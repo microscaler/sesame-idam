@@ -1,11 +1,9 @@
 # Sesame-IDAM justfile
-# Repo layout: 6 services split by access pattern for independent scaling:
-#   identity-login-service   — login, register, social, OTP flows (8101)
-#   identity-session-service — refresh, OIDC, JWKS (8105)
-#   identity-user-mgmt-service — user CRUD, MFA, email/phone (8106)
-#   authz-core               — per-request authorization checks (8102)
-#   api-keys                 — M2M key management/validation (8103)
-#   org-mgmt                 — org lifecycle & SSO admin (8104)
+# Repo layout: 6 services split by access pattern for independent scaling.
+# In-cluster HTTP: all Services listen on :8080 (ClusterIP). Tilt optional host PF:
+#   identity-login-service   — 8101:8080 (login, register, social, OTP)
+#   identity-session-service — 8105:8080 (refresh, OIDC, JWKS)
+#   identity-user-mgmt-service, authz-core, api-keys, org-mgmt — ClusterIP only
 # OpenAPI specs: openapi/{identity-login-service,identity-session-service,identity-user-mgmt-service,authz-core,api-keys,org-mgmt}/openapi.yaml
 # Consumes shared BRRTRouter tooling (brrtrouter-gen) for codegen, lint, serve.
 # Set BRRTRouter_DIR if BRRTRouter is not a sibling repo (e.g. export BRRTRouter_DIR=/path/to/BRRTRouter).
@@ -21,6 +19,9 @@ brrtrouter_dir := "../BRRTRouter"
 # microscaler-supabase side-clone (for Supabase stack)
 # Override with: SUPABASE_DIR=/path/to/microscaler-supabase just supabase-apply
 supabase_dir := "../microscaler-supabase"
+
+shared_k8s_root := "../shared-k8s-cluster"
+shared_k8s_kubeconfig := shared_k8s_root + "/kubeconfig/shared-k8s.yaml"
 
 # OpenAPI spec paths (6 services split by access pattern)
 spec_identity_login     := "openapi/idam/identity-login-service/openapi.yaml"
@@ -319,7 +320,7 @@ lint-unused-imports:
   tooling/.venv/bin/ruff check tooling/ --select F401 --fix
 
 # =============================================================================
-# Development Environment (Kind + Tilt) — same DX as RERP
+# Development Environment (shared-k8s + Tilt) — same DX as RERP
 # =============================================================================
 # Run `just init` before first dev-up so sesame tilt setup-kind-registry is available.
 
@@ -330,29 +331,36 @@ lint-unused-imports:
 jwt-signing-secret:
   cd microservices && cargo run -q -p sesame-common --bin sesame_keygen | kubectl apply -f -
 
-# Start development environment (shared Kind cluster; owned by shared-kind-cluster).
+# Start development environment (shared-k8s cluster; owned by shared-k8s-cluster).
 # Platform infra (postgres, postgres-meta, parquet-lake) lives in namespace data
-# from shared-kind-cluster. Sesame-IDAM adds Redis in namespace sesame-idam.
+# from shared-k8s-cluster. Sesame-IDAM adds Redis in namespace sesame-idam.
 dev-up:
   #!/usr/bin/env bash
   set -euo pipefail
+  export KUBECONFIG="$(realpath {{shared_k8s_kubeconfig}})"
   echo "🚀 Starting Sesame-IDAM development environment..."
   if [ ! -d tooling/.venv ]; then
     echo "❌ tooling/.venv not found. Run: just init"
     exit 1
   fi
 
-  # Verify shared Kind cluster exists (owned by shared-kind-cluster; DO NOT create/delete here)
-  echo "📦 Checking shared Kind cluster..."
-  if ! kind get clusters 2>/dev/null | grep -qxF kind; then
-    echo "[FAIL] Shared Kind cluster not found."
-    echo "  Create it: cd ../shared-kind-cluster && just dev-up"
+  echo "📦 Checking shared-k8s cluster..."
+  if [[ ! -f "${KUBECONFIG}" ]]; then
+    echo "[FAIL] shared-k8s kubeconfig missing."
+    echo "  Create it: cd {{shared_k8s_root}} && just cluster-create"
     exit 1
   fi
-  echo "[OK] Shared Kind cluster exists"
+  (cd "{{shared_k8s_root}}" && just check-ready) || exit 1
 
-  echo "📦 Setting up local registry (localhost:5001)..."
-  tooling/.venv/bin/sesame tilt setup-kind-registry
+  echo "📦 Configuring local registry mirror (localhost:5001 → MetalLB)..."
+  (cd "{{shared_k8s_root}}" && just registry-configure-host) 2>/dev/null || \
+    tooling/.venv/bin/sesame tilt setup-kind-registry
+
+  if ! kubectl get svc -n data minio >/dev/null 2>&1; then
+    echo "Platform Tilt not up — starting shared-k8s platform..."
+    (cd "{{shared_k8s_root}}" && just systemd-tilt-up) || true
+  fi
+
   echo "⏳ Waiting for cluster to be ready..."
   kubectl wait --for=condition=Ready nodes --all --timeout=300s
 
@@ -367,17 +375,26 @@ dev-up:
   mkdir -p /tmp/sesame-idam-data/postgres /tmp/sesame-idam-data/parquet-lake /tmp/sesame-idam-data/redis /tmp/sesame-idam-data/prometheus /tmp/sesame-idam-data/grafana
 
   echo "📦 Apply Supabase stack once: just supabase-apply (then start Tilt)"
-  echo "🎯 Starting Tilt (loads Redis, tooling; Postgres from microscaler-supabase in namespace data)..."
-  tilt up --host=0.0.0.0 --port=10351
+  echo "🎯 Starting Sesame-IDAM Tilt via systemd (port 10351)..."
+  systemctl --user start tilt-sesame-idam.service
+  for i in $(seq 1 60); do
+    if curl -sf http://localhost:10351/api/v1/info >/dev/null 2>&1; then
+      echo "Tilt is ready at http://0.0.0.0:10351"
+      exit 0
+    fi
+    sleep 2
+  done
+  echo "WARNING: Tilt did not become ready within 2 minutes"
+  exit 1
 
-# Stop Sesame-IDAM Tilt only (cluster owned by shared-kind-cluster; registry left running)
+# Stop Sesame-IDAM Tilt only (cluster owned by shared-k8s-cluster; registry left running)
 dev-down:
   #!/usr/bin/env bash
   set -euo pipefail
   echo "🛑 Stopping Sesame-IDAM development environment..."
-  pkill -f "tilt up" 2>/dev/null || true
+  systemctl --user stop tilt-sesame-idam.service || true
   echo "✅ Development environment stopped"
-  echo "   (Kind cluster unchanged — owned by shared-kind-cluster. Registry kind-registry left running.)"
+  echo "   (shared-k8s cluster unchanged — owned by shared-k8s-cluster.)"
 
 # Stop development environment and remove the local registry
 dev-down-full: dev-down
@@ -410,13 +427,14 @@ up-k8s:
 down:
   @tilt down --port 10351
 
-# Show cluster and service status (shared cluster)
+# Show cluster and service status (shared-k8s cluster)
 status:
   #!/usr/bin/env bash
   set -euo pipefail
+  export KUBECONFIG="$(realpath {{shared_k8s_kubeconfig}} 2>/dev/null || echo {{shared_k8s_kubeconfig}})"
   echo "Cluster status:"
   echo "  Current context: $(kubectl config current-context 2>/dev/null)"
-  echo "  Kind clusters: $(kind get clusters 2>/dev/null | tr '\n' ', ' || echo 'none')"
+  (cd "{{shared_k8s_root}}" && just check-ready) 2>/dev/null || echo "  shared-k8s not ready — cd {{shared_k8s_root}} && just infra-up"
   echo ""
   echo "Pods (sesame-idam):"
   kubectl get pods -n sesame-idam 2>/dev/null || echo "Namespace not found (run dev-up first)"
@@ -647,9 +665,9 @@ lint-openapi-org-mgmt:
   fi
   cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- lint --spec "$(cd - >/dev/null && pwd)/{{spec_org_mgmt}}" --fail-on-error
 
-# Serve identity-login-service API with echo handlers (for local try-out)
+# Serve identity-login-service API with echo handlers (host PF 8101:8080 when using Tilt)
 # Usage: just serve-identity-login [addr]
-serve-identity-login addr="0.0.0.0:8101":
+serve-identity-login addr="0.0.0.0:8080":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -660,9 +678,9 @@ serve-identity-login addr="0.0.0.0:8101":
     --spec "$(cd - >/dev/null && pwd)/{{spec_identity_login}}" \
     --addr {{addr}}
 
-# Serve identity-session-service API with echo handlers (for local try-out)
+# Serve identity-session-service API with echo handlers (host PF 8105:8080 when using Tilt)
 # Usage: just serve-identity-session [addr]
-serve-identity-session addr="0.0.0.0:8105":
+serve-identity-session addr="0.0.0.0:8080":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then

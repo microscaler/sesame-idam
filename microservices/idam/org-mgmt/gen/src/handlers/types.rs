@@ -5,6 +5,22 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AcceptInvitationRequest {
+    pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AcceptInvitationResponse {
+    pub error: String,
+
+    pub error_description: String,
+
+    pub hint: String,
+
+    pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AddUserToOrgRequest {
     pub role: String,
 }
@@ -141,6 +157,22 @@ pub struct CreateOrgRequest {
     pub password_rotation_period: i32,
 
     pub slug: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CreateOrganizationRequest {
+    pub metadata: serde_json::Value,
+
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CreateOrganizationResponse {
+    pub id: String,
+
+    pub name: String,
+
+    pub tenant_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -454,6 +486,11 @@ pub struct InviteUserToOrgResponse {
     pub hint: String,
 
     pub retry_after: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ListMyMembershipsResponse {
+    pub items: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

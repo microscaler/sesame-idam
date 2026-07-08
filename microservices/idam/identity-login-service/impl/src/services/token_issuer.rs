@@ -70,6 +70,7 @@ pub fn issue_tokens(
     portal: &str,
     roles: Vec<String>,
     role_for_ttl: &str,
+    org_id: Option<&str>,
 ) -> Result<IssuedTokens, IssueError> {
     let ttl_config = TtlConfig::from_env();
     let now = chrono::Utc::now().timestamp();
@@ -118,6 +119,7 @@ pub fn issue_tokens(
         .tenant_id(tenant_id)
         .user_id(user_id)
         .user_type("customer")
+        .org_id_opt(org_id.map(str::to_string))
         .sx(sx)
         .build()
         .map_err(|e| IssueError::Claims(e.to_string()))?;

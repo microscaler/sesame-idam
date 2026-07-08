@@ -40,6 +40,7 @@ Architectural concepts, workflows, and cross-cutting concerns.
 
 ||| Page | Description |
 |||------|-------------|
+||| [../PRD_k8s-native-idam-platform-and-hauliage-integration.md](../PRD_k8s-native-idam-platform-and-hauliage-integration.md) | **Authoritative PRD:** 8080/8080 ClusterIP, data-namespace Postgres formalization, JWT/JWKS alignment, role-split demo users, Tilt/Helm/Just updates, Hauliage consumer URLs. |
 ||| [topic-architecture-overview](./topics/topic-architecture-overview.md) | Six-service split rationale, service map, 133 endpoints, 12 workspace crates. `cargo check --workspace` passes with 0 errors. |
 ||| [topic-package-naming-convention](./topics/topic-package-naming-convention.md) | Gen/impl package naming mismatch that breaks `brrtrouter client build` — current vs target |
 ||| [topic-build-infrastructure](./topics/topic-build-infrastructure.md) | Missing build.rs, config/service.yaml, services layer, tests, seeds |

@@ -36,6 +36,26 @@ VALUES
         'hauliage',
         NOW(),
         NOW()
+    ),
+    (
+        'b3000001-0001-4000-8000-000000000004',
+        'a1000001-0001-4000-8000-000000000004', -- shipper@amecorp.dev
+        'OWNER',
+        'application',
+        NULL,
+        'hauliage',
+        NOW(),
+        NOW()
+    ),
+    (
+        'b3000001-0001-4000-8000-000000000005',
+        'a1000001-0001-4000-8000-000000000005', -- transport@transportservices.dev
+        'OWNER',
+        'application',
+        NULL,
+        'hauliage',
+        NOW(),
+        NOW()
     )
 ON CONFLICT (id) DO UPDATE SET
     role_name = EXCLUDED.role_name,

@@ -11,8 +11,22 @@
 # Configuration
 # ====================
 
-# Shared default cluster: context kind-kind (shared-kind-cluster).
-allow_k8s_contexts(['kind-kind'])
+_SHARED_K8S_KCFG = os.path.abspath('../shared-k8s-cluster/kubeconfig/shared-k8s.yaml')
+_SHARED_K8S_REGISTRY = '10.177.76.220:5000'
+_k8s_mode = os.environ.get('TILT_K8S_CLUSTER', '').strip().lower()
+if _k8s_mode in ('kind', 'kind-kind'):
+    _use_shared_k8s = False
+elif _k8s_mode in ('shared-k8s', 'k3s'):
+    _use_shared_k8s = True
+else:
+    _use_shared_k8s = os.path.exists(_SHARED_K8S_KCFG)
+
+if _use_shared_k8s and os.path.exists(_SHARED_K8S_KCFG):
+    allow_k8s_contexts(['shared-k8s'])
+    os.putenv('KUBECONFIG', _SHARED_K8S_KCFG)
+    default_registry(_SHARED_K8S_REGISTRY)
+else:
+    allow_k8s_contexts(['kind-kind'])
 
 update_settings(k8s_upsert_timeout_secs=60)
 
@@ -134,8 +148,18 @@ SERVICE_NAMES = [
     'org-mgmt',
 ]
 
-# Port mapping
-IDAM_PORTS = {
+# Cluster-wide HTTP port (PRD: all app Services listen on 8080 in-cluster).
+SERVICE_HTTP_PORT = '8080'
+
+# Optional host port-forwards for isolated Sesame debugging (host:container).
+# Container listens on 8080; familiar host ports map legacy dev scripts/smoke tests.
+HOST_PORT_FORWARDS = {
+    'identity-login-service': '8101:8080',
+    'identity-session-service': '8105:8080',
+}
+
+# Legacy reference — service identity is Kubernetes Service name, not port number.
+IDAM_LEGACY_PORTS = {
     'identity-login-service': '8101',
     'identity-session-service': '8105',
     'identity-user-mgmt-service': '8106',
@@ -173,9 +197,8 @@ print("Sesame-IDAM Tilt discovered %d services" % len(DISCOVERED_SERVICES))
 # ====================
 
 def get_service_port(name):
-    if name in IDAM_PORTS:
-        return IDAM_PORTS[name]
-    return '8100'
+    """In-cluster HTTP port (always 8080 after k8s-native migration)."""
+    return SERVICE_HTTP_PORT
 
 def create_microservice_lint(name, spec_file):
     """Lint an OpenAPI spec with brrtrouter-gen."""
@@ -319,17 +342,22 @@ def create_microservice_deployment(name, port):
         ],
     )
 
-    # 4. Deploy using Helm
-    helm_values = ['helm/sesame-idam-microservice/values/%s.yaml' % name]
+    # 4. Deploy using Helm (8080 ClusterIP + shared DB merge files)
+    helm_values = [
+        'helm/sesame-idam-microservice/values/_http-kubernetes.yaml',
+        'helm/sesame-idam-microservice/values/_database-kubernetes.yaml',
+        'helm/sesame-idam-microservice/values/%s.yaml' % name,
+    ]
     k8s_yaml(
         helm('helm/sesame-idam-microservice', name=name, namespace=namespace, values=helm_values),
     )
 
-    # 5. Kubernetes resource configuration
+    # 5. Kubernetes resource — optional PF for login/session only (8101/8105 → pod :8080)
+    _port_forwards = [HOST_PORT_FORWARDS[name]] if name in HOST_PORT_FORWARDS else []
     k8s_resource(
         name,
-        port_forwards=['%s:%s' % (port, port)],
-        resource_deps=['docker-%s' % name],
+        port_forwards=_port_forwards,
+        resource_deps=['sesame-idam-database-env', 'docker-%s' % name],
         labels=[name],
         auto_init=True,
         trigger_mode=TRIGGER_MODE_AUTO,
@@ -342,6 +370,15 @@ def create_microservice_deployment(name, port):
 # Redis and PostgreSQL are managed by shared-kind-cluster's Tilt.
 # Do NOT stand up data infrastructure here — let the shared cluster own it.
 k8s_yaml('k8s/microservices/namespace.yaml')
+k8s_yaml('k8s/microservices/database-env.yaml')
+k8s_resource(
+    new_name='sesame-idam-database-env',
+    objects=[
+        'sesame-idam-database-config:configmap:sesame-idam',
+        'sesame-idam-db-credentials:secret:sesame-idam',
+    ],
+    labels=['data'],
+)
 
 # ====================
 # Per-Service Resources
@@ -465,7 +502,7 @@ for name in DISCOVERED_SERVICES:
     port = get_service_port(name)
     spec_path = IDAM_SPEC_PATHS.get(name, '%s/openapi.yaml' % name)
 
-    print("Sesame-IDAM Tilt: configuring service '%s' (port %s)" % (name, port))
+    print("Sesame-IDAM Tilt: configuring service '%s' (in-cluster :%s)" % (name, port))
 
     # Full build pipeline: lint -> gen -> build -> copy -> docker -> k8s
     create_microservice_lint(name, spec_path)

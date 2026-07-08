@@ -3,6 +3,7 @@
 //! from `sesame_idam_database::db()` at the controller edge.
 
 pub mod authz_client;
+pub mod org_context;
 pub mod password;
 pub mod token_issuer;
 pub mod user_service;

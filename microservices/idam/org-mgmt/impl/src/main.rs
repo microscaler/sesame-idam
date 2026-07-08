@@ -13,7 +13,18 @@ use tikv_jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 
 mod audit;
+mod jwt_context;
 mod security;
+mod services;
+
+/// Only consumer/org-lifecycle controllers — not the full admin stub set.
+mod controllers {
+    pub mod accept_invitation;
+    pub mod add_user_to_org;
+    pub mod create_organization;
+    pub mod invite_user_to_org;
+    pub mod list_my_memberships;
+}
 
 use std::path::{Path, PathBuf};
 
@@ -99,9 +110,59 @@ fn main() -> std::io::Result<()> {
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
-    // Register generated handlers from the spec.
+    // Register generated handlers, then override with impl controllers.
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);
+        for route in &routes {
+            match route.handler_name.as_ref() {
+                "invite_user_to_org" => {
+                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
+                        |req| controllers::invite_user_to_org::handle(req),
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    ) {
+                        dispatcher.add_route(route.clone(), tx);
+                    }
+                }
+                "add_user_to_org" => {
+                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
+                        |req| controllers::add_user_to_org::handle(req),
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    ) {
+                        dispatcher.add_route(route.clone(), tx);
+                    }
+                }
+                "create_organization" => {
+                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
+                        |req| controllers::create_organization::handle(req),
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    ) {
+                        dispatcher.add_route(route.clone(), tx);
+                    }
+                }
+                "list_my_memberships" => {
+                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
+                        |req| controllers::list_my_memberships::handle(req),
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    ) {
+                        dispatcher.add_route(route.clone(), tx);
+                    }
+                }
+                "accept_invitation" => {
+                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
+                        |req| controllers::accept_invitation::handle(req),
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    ) {
+                        dispatcher.add_route(route.clone(), tx);
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));

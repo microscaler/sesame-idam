@@ -66,12 +66,23 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         vec![]
     });
 
+    let exec = sesame_idam_database::db();
+    let preferred_org = req.data.organization_id.as_deref();
+    let active_org = crate::services::org_context::resolve_active_org_id(
+        exec,
+        &user_id,
+        &tenant_id,
+        preferred_org,
+    );
+    let org_id_str = active_org.map(|id| id.to_string());
+
     let tokens = match token_issuer::issue_tokens(
         &user_id,
         &tenant_id,
         DEFAULT_PORTAL,
         roles.clone(),
         "customer",
+        org_id_str.as_deref(),
     ) {
         Ok(tokens) => tokens,
         Err(e) => {

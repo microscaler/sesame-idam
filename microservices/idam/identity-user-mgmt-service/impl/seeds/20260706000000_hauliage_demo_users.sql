@@ -41,6 +41,30 @@ VALUES
         false,
         NOW(),
         NOW()
+    ),
+    (
+        'a1000001-0001-4000-8000-000000000004',
+        'shipper@amecorp.dev',
+        '$argon2id$v=19$m=19456,t=2,p=1$eLP8jC1l/A/lL9DP6A86eg$xlODypgdg/4v+VvL/aNJ91YM777HmbiErxcMX9W+2bo',
+        'hauliage',
+        'active',
+        true,
+        NULL,
+        false,
+        NOW(),
+        NOW()
+    ),
+    (
+        'a1000001-0001-4000-8000-000000000005',
+        'transport@transportservices.dev',
+        '$argon2id$v=19$m=19456,t=2,p=1$eLP8jC1l/A/lL9DP6A86eg$xlODypgdg/4v+VvL/aNJ91YM777HmbiErxcMX9W+2bo',
+        'hauliage',
+        'active',
+        true,
+        NULL,
+        false,
+        NOW(),
+        NOW()
     )
 ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email,
