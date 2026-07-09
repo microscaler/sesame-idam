@@ -368,6 +368,17 @@ dev-up:
   echo "📁 Creating sesame-idam namespace..."
   kubectl apply -f k8s/microservices/namespace.yaml
 
+  # Shared JWT signing key: login signs with it, session publishes it in JWKS.
+  # Without it both services fall back to mismatched ephemeral keys and every
+  # protected route 401s (kid not in JWKS). Create once; rotate explicitly
+  # with `just jwt-signing-secret`.
+  if ! kubectl get secret -n sesame-idam sesame-idam-jwt-signing >/dev/null 2>&1; then
+    echo "🔑 Provisioning shared JWT signing key Secret (sesame-idam-jwt-signing)..."
+    just jwt-signing-secret
+  else
+    echo "🔑 JWT signing Secret already present."
+  fi
+
   echo "💾 Creating PersistentVolumes (monitoring PVs; data stack is shared-k8s)..."
   tooling/.venv/bin/sesame tilt setup-persistent-volumes || true
 

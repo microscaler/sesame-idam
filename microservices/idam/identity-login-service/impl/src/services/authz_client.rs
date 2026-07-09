@@ -17,6 +17,9 @@ pub const AUTHZ_CORE_URL_ENV: &str = "AUTHZ_CORE_URL";
 /// Default authz-core URL (Kubernetes service DNS, port from repo topology).
 const DEFAULT_AUTHZ_CORE_URL: &str = "http://authz-core:8080";
 
+/// Versioned base path all authz-core routes are served under (spec `servers`).
+const AUTHZ_BASE_PATH: &str = "/idam/v1";
+
 /// Request timeout — login sits on the hot path, keep enrichment bounded.
 const TIMEOUT_MS: u64 = 500;
 
@@ -25,6 +28,15 @@ const MAX_BODY_BYTES: usize = 64 * 1024;
 
 fn authz_core_url() -> String {
     std::env::var(AUTHZ_CORE_URL_ENV).unwrap_or_else(|_| DEFAULT_AUTHZ_CORE_URL.to_string())
+}
+
+/// Full URL of the effective-roles endpoint under `base`.
+///
+/// authz-core serves every route under the versioned `/idam/v1` base path
+/// (spec `servers`); omitting it 404s (regression 2026-07-09: role enrichment
+/// silently degraded to empty roles).
+fn effective_roles_url(base: &str) -> String {
+    format!("{base}{AUTHZ_BASE_PATH}/authz/principals/effective")
 }
 
 /// Fetch effective role names for a user from authz-core.
@@ -41,8 +53,7 @@ pub fn fetch_effective_roles(
     tenant_id: &str,
     app_id: &str,
 ) -> Result<Vec<String>, String> {
-    let base = authz_core_url();
-    let url = format!("{base}/authz/principals/effective");
+    let url = effective_roles_url(&authz_core_url());
 
     let body = serde_json::json!({
         "user_id": user_id,
@@ -116,5 +127,21 @@ mod tests {
     fn parse_roles_rejects_missing_array() {
         assert!(parse_roles(br#"{"user_id":"u1"}"#).is_err());
         assert!(parse_roles(b"not json").is_err());
+    }
+
+    #[test]
+    fn effective_roles_url_includes_versioned_base_path() {
+        assert_eq!(
+            effective_roles_url(DEFAULT_AUTHZ_CORE_URL),
+            "http://authz-core:8080/idam/v1/authz/principals/effective"
+        );
+    }
+
+    #[test]
+    fn effective_roles_url_respects_custom_base() {
+        assert_eq!(
+            effective_roles_url("http://127.0.0.1:8102"),
+            "http://127.0.0.1:8102/idam/v1/authz/principals/effective"
+        );
     }
 }

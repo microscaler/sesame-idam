@@ -4,9 +4,9 @@
 security:
   jwks:
     BearerAuth:
-      jwks_url: "http://identity-session-service:8105/.well-known/jwks.json"
+      jwks_url: "http://identity-session-service:8080/idam/v1/.well-known/jwks.json"
       iss: "https://idam.example.com"
-      aud: "org-mgmt.myapp.com"
+      aud: "sesame-idam"
       leeway_secs: 60
       cache_ttl_secs: 300
   api_keys:

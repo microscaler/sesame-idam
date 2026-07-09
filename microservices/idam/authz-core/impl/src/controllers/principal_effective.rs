@@ -9,6 +9,28 @@ use uuid::Uuid;
 
 use crate::services::principal_service::PrincipalService;
 
+/// JSON role object for one assignment.
+///
+/// Tenant/application-scoped assignments have no `resource_id`; the response
+/// schema types `org_id` as string, so the key is omitted rather than set to
+/// `null` (a `null` fails response validation and turned the whole enrichment
+/// call into a 500 — regression 2026-07-09).
+fn assignment_role_json(
+    role_name: &str,
+    app_id: &str,
+    resource_id: Option<Uuid>,
+) -> serde_json::Value {
+    let mut role = serde_json::json!({
+        "role": role_name,
+        "app_id": app_id,
+        "inherited": false,
+    });
+    if let Some(resource_id) = resource_id {
+        role["org_id"] = serde_json::json!(resource_id);
+    }
+    role
+}
+
 /// Principal effective permissions controller.
 ///
 /// Resolves role assignments and custom attributes for the principal from
@@ -52,14 +74,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let roles = match PrincipalService::role_assignments(&req.data.tenant_id, principal_id, exec) {
         Ok(assignments) => assignments
             .into_iter()
-            .map(|a| {
-                serde_json::json!({
-                    "role": a.role_name,
-                    "app_id": req.data.app_id,
-                    "org_id": a.resource_id,
-                    "inherited": false,
-                })
-            })
+            .map(|a| assignment_role_json(&a.role_name, &req.data.app_id, a.resource_id))
             .collect(),
         Err(e) => {
             tracing::error!(error = %e, "principal_effective: role query failed");
@@ -88,5 +103,28 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         permissions: vec![],
         roles,
         user_id: req.data.user_id,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn org_scoped_assignment_carries_org_id() {
+        let org = Uuid::parse_str("b2000002-0002-4000-8000-000000000002").unwrap();
+        let role = assignment_role_json("OWNER", "hauliage", Some(org));
+        assert_eq!(role["role"], "OWNER");
+        assert_eq!(role["app_id"], "hauliage");
+        assert_eq!(role["org_id"], org.to_string());
+        assert_eq!(role["inherited"], false);
+    }
+
+    #[test]
+    fn tenant_scoped_assignment_omits_org_id_key() {
+        let role = assignment_role_json("ADMIN", "hauliage", None);
+        // Schema types org_id as string — the key must be absent, not null.
+        assert!(role.get("org_id").is_none());
+        assert_eq!(role["role"], "ADMIN");
     }
 }

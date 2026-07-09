@@ -20,6 +20,12 @@ ms02, or GKE staging). Mirrors the hauliage pattern. PRD FR-DB-05.
    deploys **no app-local data stack**.
 2. **sesame-idam namespace** — `k8s/microservices/namespace.yaml`
    (applied by Tilt; `just dev-up` also ensures it).
+   - **JWT signing Secret** — `just dev-up` provisions
+     `sesame-idam-jwt-signing` (idempotent; explicit rotation via
+     `just jwt-signing-secret`). identity-login-service signs with this key
+     and identity-session-service publishes its public half in JWKS — without
+     it both fall back to mismatched ephemeral keys and every protected route
+     returns 401 (JWT `kid` not in JWKS).
 3. **Database env** — `k8s/microservices/database-env.yaml`: ConfigMap
    `sesame-idam-database-config` + Secret `sesame-idam-db-credentials`.
    Applied by Tilt (`sesame-idam-database-env` resource) **before** any Helm

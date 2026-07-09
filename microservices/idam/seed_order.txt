@@ -1,3 +1,4 @@
 # Auto-generated FK-safe seed order. Regenerate with: cargo run -p <your-migrator>
 identity-user-mgmt-service/impl/seeds/20260706000000_hauliage_demo_users.sql
+org-mgmt/impl/seeds/20260706000002_hauliage_demo_orgs.sql
 authz-core/impl/seeds/20260706000001_hauliage_demo_roles.sql

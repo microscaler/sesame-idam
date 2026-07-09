@@ -795,6 +795,9 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: principal_effective
+      x-consumer-note: 'Backend-only: called by identity-login-service for JWT
+        enrichment at token issuance (no user token exists yet) — S2S, not exposed via BFF'
+      security: []
       requestBody:
         required: true
         content:

@@ -63,7 +63,7 @@ management, and a deployable stack reachable from the hauliage Kind cluster.
 | H1.1 ✅ | Land the in-flight refactor (config→common, jwt/jwks_cache/fallback_cache splits); `just nt` + `just lint-rust` green | **Done 2026-07-06** — 4 compile errors fixed, 852/852 tests pass, lint gate repaired (was referencing deleted `sesame-audit`) and passes; `sesame-common` pedantic backlog split to `just lint-common` (Phase 1 warn) |
 | H1.2 🔶 | Wire `services/` layer: controllers call services, never DB directly | **Started** — hauliage-pattern services layer live in identity-login-service (`password`, `user_service`, `token_issuer`); remaining services still stubs |
 | H1.3 ✅ | Generate, review migrations from lifeguard entities; `apply_order.txt`; apply to cluster | **Done 2026-07-06** — migrator path bug fixed (wrote outside repo), migrations + `apply_order.txt` in `./migrations/`, applied to Kind postgres; users table has `UNIQUE(tenant_id, email)` |
-| H1.4 🔶 | Seed data: hauliage tenant demo users, roles, orgs | **Started** — demo users seed applied (owner/dispatcher/driver@hauliage.dev); roles/orgs/applications seeds pending org-mgmt work |
+| H1.4 ✅ | Seed data: hauliage tenant demo users, roles, orgs | **Done 2026-07-09** — demo users + role assignments + org/membership seeds applied (`20260706000002_hauliage_demo_orgs.sql`: Transport Services `b2000001-…`, AME Corp `b2000002-…`, memberships for all five demo users). Login JWTs now carry `org_id` per persona |
 | H1.5 | RLS bridge live: `SET LOCAL current_tenant_id` per transaction via SesameExecutor + RLS policies in migrations | Tenancy is a launch guarantee, not a later add-on |
 | H1.6 | Create the `db_integration_suite` test target so `just nt-db-suite` actually runs against Kind postgres | Profile exists in nextest.toml; binary missing. (Interim: login auth-flow BDD tests hit live postgres and skip gracefully when absent.) |
 
@@ -83,10 +83,10 @@ management, and a deployable stack reachable from the hauliage Kind cluster.
 | Story | Description | Notes |
 |-------|-------------|-------|
 | H3.1 ✅ | authz-core call pattern decided: **login-time enrichment only** for hauliage v1 (JWT-first; hybrid per Epic 4 later) | Implemented as best-effort: login degrades to empty roles when authz-core is unavailable |
-| H3.2 🔶 | Claims schema v1: `sub`, `tenant_id`, `roles[]`, `sid`, `ver`, `typ=at+jwt` under the namespaced claims URI | **Mostly live** — login-issued tokens carry all of these; `org_id` claim still absent (needs org-membership data, H4) |
+| H3.2 ✅ | Claims schema v1: `sub`, `tenant_id`, `roles[]`, `sid`, `ver`, `typ=at+jwt` under the namespaced claims URI | **Done 2026-07-09** — login-issued tokens carry all of these including `org_id` (resolved from org-membership seeds); verified live on ms02 for both demo personas |
 | H3.3 🔶 | `principal_effective` real implementation | **Done for roles + attributes 2026-07-06** — queries `role_assignments`/`principal_attributes` tenant-scoped (live-DB BDD incl. tenant isolation). Permissions (role→permission mapping in org-mgmt tables) + Redis caching still pending |
 | H3.4 | `authorize` real decision evaluation (role→permission mapping); remove always-allow | EXTREME-traffic service; needs the Epic 7 caches eventually, simple DB+Redis for v1 |
-| H3.5 ✅ | Wire login → authz-core `/principal/effective` via `may_http` | **Done 2026-07-06** — `services/authz_client.rs` (500ms timeout, AUTHZ_CORE_URL env), roles land in TokenResponse + sx claims; BDD with mock authz-core + graceful-degradation test. Demo role seed: OWNER/DISPATCHER/DRIVER for the hauliage users |
+| H3.5 ✅ | Wire login → authz-core `/principal/effective` via `may_http` | **Done 2026-07-06**, fixed 2026-07-09 — `services/authz_client.rs` (500ms timeout, AUTHZ_CORE_URL env), roles land in TokenResponse + sx claims; BDD with mock authz-core + graceful-degradation test. Demo role seed: OWNER/DISPATCHER/DRIVER for the hauliage users. 2026-07-09 fixes: client was missing the `/idam/v1` base path (404), and `principal_effective` emitted `"org_id": null` for tenant-scoped assignments which failed response schema validation — endpoint also marked `security: []` (S2S, called before any user token exists) |
 
 ## Epic H4 — Users & orgs (minimum viable surface)
 
