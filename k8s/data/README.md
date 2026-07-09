@@ -1,8 +1,17 @@
-# Sesame-IDAM data components (Redis; Supabase externalised to microscaler-supabase)
+# Sesame-IDAM data components
 
-- **persistent-volumes.yaml** — Redis PV only. Postgres/parquet PVs come from microscaler-supabase (see `just supabase-apply`). Kind node: sesame-idam-control-plane. Requires kind-config `extraMounts`: `/tmp/sesame-idam-data` → `/mnt/sesame-idam-data`.
-- **redis.yaml** — Redis 7 (Deployment, Service `redis`, PVC). Port-forward: `kubectl port-forward -n sesame-idam svc/redis 6379:6379`.
+Sesame-IDAM runs **no app-local data stack**. Postgres and Redis are the shared
+platform instances in namespace `data`, managed by
+[`shared-k8s-cluster`](../../../shared-k8s-cluster/) (`k8s/platform-data/data`):
 
-**Supabase stack (Postgres, etc.):** Apply from microscaler-supabase side-clone: `just supabase-apply`. That applies `k8s/overlays/seasame-idam` from `../microscaler-supabase`, creating namespace `data`, postgres, postgres-meta, etc. Port-forward postgres: `kubectl port-forward -n data svc/postgres 5432:5432`.
+- **Postgres:** `postgres.data.svc.cluster.local:5432` (primary; read replicas
+  `postgres-replica-0` / `postgres-replica-1` in the same namespace). Database
+  `sesame_idam` is bootstrapped by `scripts/setup-db.sh` (Tilt
+  `sesame-idam-db-init`).
+- **Redis:** `redis.data.svc.cluster.local:6379`.
 
-**Tilt:** Loads namespace, Redis PV, Redis. Run `just supabase-apply` once before or after cluster is up, then `tilt up`.
+Local access: `just port-forward` (postgres `5432`, redis `6379`, both from
+namespace `data`).
+
+The previous app-local Redis manifest (`redis.yaml`) and its PV were removed to
+avoid duplicating the platform data stack.

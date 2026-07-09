@@ -368,11 +368,11 @@ dev-up:
   echo "📁 Creating sesame-idam namespace..."
   kubectl apply -f k8s/microservices/namespace.yaml
 
-  echo "💾 Creating PersistentVolumes (Redis PV)..."
+  echo "💾 Creating PersistentVolumes (monitoring PVs; data stack is shared-k8s)..."
   tooling/.venv/bin/sesame tilt setup-persistent-volumes || true
 
   echo "📦 Creating data dir on host for PVs (if using extraMounts)..."
-  mkdir -p /tmp/sesame-idam-data/postgres /tmp/sesame-idam-data/parquet-lake /tmp/sesame-idam-data/redis /tmp/sesame-idam-data/prometheus /tmp/sesame-idam-data/grafana
+  mkdir -p /tmp/sesame-idam-data/prometheus /tmp/sesame-idam-data/grafana
 
   echo "📦 Apply Supabase stack once: just supabase-apply (then start Tilt)"
   echo "🎯 Starting Sesame-IDAM Tilt via systemd (port 10351)..."
@@ -455,14 +455,14 @@ supabase-apply:
   cd "{{supabase_dir}}" && kubectl apply -k k8s/overlays/seasame-idam
   echo "✅ Supabase stack applied (namespace: data). Run tilt up then just port-forward for postgres + redis."
 
-# Port-forward PostgreSQL (namespace data) and Redis (namespace sesame-idam). Run after tilt up.
+# Port-forward PostgreSQL and Redis (both shared platform instances in namespace data). Run after tilt up.
 port-forward:
   #!/usr/bin/env bash
   set -euo pipefail
   echo "Setting up port forwards..."
   kubectl port-forward -n data svc/postgres 5432:5432 &
-  kubectl port-forward -n sesame-idam svc/redis 6379:6379 &
-  echo "Port forwards: postgres 5432 (data), redis 6379 (sesame-idam). Press Ctrl+C to stop."
+  kubectl port-forward -n data svc/redis 6379:6379 &
+  echo "Port forwards: postgres 5432 (data), redis 6379 (data). Press Ctrl+C to stop."
   wait
 
 # =============================================================================
@@ -691,9 +691,10 @@ serve-identity-session addr="0.0.0.0:8080":
     --spec "$(cd - >/dev/null && pwd)/{{spec_identity_session}}" \
     --addr {{addr}}
 
-# Serve identity-user-mgmt-service API with echo handlers (for local try-out)
+# Serve identity-user-mgmt-service API with echo handlers (for local try-out;
+# in-cluster the service is ClusterIP :8080 — pass addr to override)
 # Usage: just serve-identity-user-mgmt [addr]
-serve-identity-user-mgmt addr="0.0.0.0:8106":
+serve-identity-user-mgmt addr="0.0.0.0:8080":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -704,9 +705,10 @@ serve-identity-user-mgmt addr="0.0.0.0:8106":
     --spec "$(cd - >/dev/null && pwd)/{{spec_identity_user_mgmt}}" \
     --addr {{addr}}
 
-# Serve authz-core API with echo handlers (for local try-out)
+# Serve authz-core API with echo handlers (for local try-out;
+# in-cluster the service is ClusterIP :8080 — pass addr to override)
 # Usage: just serve-authz-core [addr]
-serve-authz-core addr="0.0.0.0:8102":
+serve-authz-core addr="0.0.0.0:8080":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -717,9 +719,10 @@ serve-authz-core addr="0.0.0.0:8102":
     --spec "$(cd - >/dev/null && pwd)/{{spec_authz_core}}" \
     --addr {{addr}}
 
-# Serve api-keys API with echo handlers (for local try-out)
+# Serve api-keys API with echo handlers (for local try-out;
+# in-cluster the service is ClusterIP :8080 — pass addr to override)
 # Usage: just serve-api-keys [addr]
-serve-api-keys addr="0.0.0.0:8103":
+serve-api-keys addr="0.0.0.0:8080":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then
@@ -730,9 +733,10 @@ serve-api-keys addr="0.0.0.0:8103":
     --spec "$(cd - >/dev/null && pwd)/{{spec_api_keys}}" \
     --addr {{addr}}
 
-# Serve org-mgmt API with echo handlers (for local try-out)
+# Serve org-mgmt API with echo handlers (for local try-out;
+# in-cluster the service is ClusterIP :8080 — pass addr to override)
 # Usage: just serve-org-mgmt [addr]
-serve-org-mgmt addr="0.0.0.0:8104":
+serve-org-mgmt addr="0.0.0.0:8080":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -d "{{brrtrouter_dir}}" ]; then

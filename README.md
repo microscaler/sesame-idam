@@ -62,12 +62,12 @@ graph TB
     end
 
     subgraph "Sesame-IDAM Services"
-        IL[identity-login-service<br/>Port 8101<br/>Login, register, social, OTP]
-        IS[identity-session-service<br/>Port 8105<br/>Refresh, OIDC, JWKS]
-        IU[identity-user-mgmt-service<br/>Port 8106<br/>User CRUD, MFA, email/phone]
-        AC[authz-core<br/>Port 8102<br/>EXTREME frequency]
-        AK[api-keys<br/>Port 8103<br/>HIGH frequency]
-        OM[org-mgmt<br/>Port 8104<br/>LOW frequency]
+        IL[identity-login-service<br/>ClusterIP :8080<br/>Login, register, social, OTP]
+        IS[identity-session-service<br/>ClusterIP :8080<br/>Refresh, OIDC, JWKS]
+        IU[identity-user-mgmt-service<br/>ClusterIP :8080<br/>User CRUD, MFA, email/phone]
+        AC[authz-core<br/>ClusterIP :8080<br/>EXTREME frequency]
+        AK[api-keys<br/>ClusterIP :8080<br/>HIGH frequency]
+        OM[org-mgmt<br/>ClusterIP :8080<br/>LOW frequency]
     end
 
     subgraph "Storage"

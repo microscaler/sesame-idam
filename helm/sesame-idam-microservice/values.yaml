@@ -38,7 +38,8 @@ app:
       password: "dev_password_change_in_prod"
       max_connections: 10
     redis:
-      host: "redis"
+      # Shared platform Redis (namespace data, shared-k8s-cluster)
+      host: "redis.data.svc.cluster.local"
       port: 6379
       db: 0
       max_connections: 10

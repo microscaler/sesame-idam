@@ -45,6 +45,7 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-package-naming-convention](./topics/topic-package-naming-convention.md) | Gen/impl package naming mismatch that breaks `brrtrouter client build` — current vs target |
 ||| [topic-build-infrastructure](./topics/topic-build-infrastructure.md) | Missing build.rs, config/service.yaml, services layer, tests, seeds |
 ||| [topic-tiltfile-architecture](./topics/topic-tiltfile-architecture.md) | Tiltfile is broken — rewrite plan based on hauliage pattern, infra wiring |
+||| [topic-bootstrap-order](./topics/topic-bootstrap-order.md) | Fresh-cluster bootstrap order: platform → namespace → database-env → redis → db-init → services (:8080 ClusterIP) |
 ||| [topic-tooling-architecture](./topics/topic-tooling-architecture.md) | sesame-idam CLI shim, brrtrouter_tooling delegation map, justfile recipes |
 ||| [topic-remediation-plan](./topics/topic-remediation-plan.md) | 5-phase remediation plan (naming fix → build infra → Tiltfile → workspace cleanup → validation) |
 ||| [topic-hybrid-authz](./topics/topic-hybrid-authz.md) | Hybrid authorization model: JWT claims for common path, selective online fallback. Route classification (jwt-only, jwt-with-fallback, online-only), JWT middleware, route-specific decisions (Story 4.4), selective fallback caching (Story 4.3), RFC 7662 introspection (Story 4.5). |

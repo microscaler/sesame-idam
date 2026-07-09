@@ -215,7 +215,7 @@ Demo seeds (`shipper@amecorp.dev`, `transport@transportservices.dev`) retain pre
 | **FR-Tilt-03** | Optional: port-forward **identity-login-service** and **identity-session-service** only at `8080:8080` (debug flag or comment). |
 | **FR-Tilt-04** | `bundled_data_stack = False` remains; document dependency on shared-k8s `data/postgres-primary`. |
 | **FR-Tilt-05** | Apply `k8s/microservices/database-env.yaml` in Tiltfile (like Hauliage). |
-| **FR-Tilt-06** | Wire Redis manifest (`k8s/data/redis.yaml`) into Tilt if not already applied. |
+| **FR-Tilt-06** | ~~Wire Redis manifest (`k8s/data/redis.yaml`) into Tilt~~ **Superseded:** use shared platform Redis in namespace `data` (shared-k8s-cluster); app-local manifest removed. |
 | **FR-Just-01** | Update `just port-forward`: postgres + redis only; remove 8101/8105 host forwards from docs. |
 | **FR-Just-02** | Update `serve-identity-*` recipes to default `:8080` or mark deprecated in favour of k8s. |
 
@@ -377,7 +377,7 @@ Legacy Kind/host ports → Kubernetes Service name (all TCP **8080** after migra
 | **Q1** | Port-forward login+session in Tilt by default? | **Yes** — optional PF for isolated Sesame debug |
 | **Q2** | Should shipper user get fleet API access? | **No** — 403 or empty; transport only sees fleet |
 | **Q3** | Deprecate `owner@hauliage.dev`? | **Keep** — maps to transport org for backward compat |
-| **Q4** | Redis: sesame-idam local vs platform `data/redis`? | **Keep app-local** redis in sesame-idam for now |
+| **Q4** | Redis: sesame-idam local vs platform `data/redis`? | **RESOLVED 2026-07-09:** use shared platform Redis (`redis.data.svc.cluster.local:6379`); app-local manifest removed — do not duplicate the data stack |
 
 ---
 

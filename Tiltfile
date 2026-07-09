@@ -342,11 +342,13 @@ def create_microservice_deployment(name, port):
         ],
     )
 
-    # 4. Deploy using Helm (8080 ClusterIP + shared DB merge files)
+    # 4. Deploy using Helm (8080 ClusterIP + shared DB merge files).
+    # Per-service values first; shared overlays last so they are authoritative
+    # for ports and database wiring (mirrors hauliage helm_values ordering).
     helm_values = [
+        'helm/sesame-idam-microservice/values/%s.yaml' % name,
         'helm/sesame-idam-microservice/values/_http-kubernetes.yaml',
         'helm/sesame-idam-microservice/values/_database-kubernetes.yaml',
-        'helm/sesame-idam-microservice/values/%s.yaml' % name,
     ]
     k8s_yaml(
         helm('helm/sesame-idam-microservice', name=name, namespace=namespace, values=helm_values),
@@ -379,6 +381,10 @@ k8s_resource(
     ],
     labels=['data'],
 )
+
+# Redis: shared platform instance in namespace `data`
+# (redis.data.svc.cluster.local:6379, managed by shared-k8s-cluster).
+# No app-local Redis — do not duplicate the data stack here.
 
 # ====================
 # Per-Service Resources

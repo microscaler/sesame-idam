@@ -13,14 +13,17 @@ Sesame-IDAM is NOT a monolith. It is **six independent services** split by acces
 
 > **Note:** Endpoint count was 119, updated to 133 per PRD-SEASAME-AUDIT-REMEDIATION.md. The existing wiki pages (entities, topics, references) were based on the old count and should be re-verified against the current OpenAPI specs.
 
-| Service | Port | Frequency | Cost | Endpoints | Responsibility |
-|---------|------|-----------|------|-----------|----------------|
-| **identity-login-service** | 8101 | HIGH | Medium-High | 20 | Login, register, social OAuth, OTP, passwordless, dual OTP, signup validation |
-| **identity-session-service** | 8105 | HIGH | Low | 13 | Token refresh, OIDC discovery, JWKS, step-up MFA, impersonation, direct token, MCP |
-| **identity-user-mgmt-service** | 8106 | MEDIUM | Medium | 25 | User CRUD, MFA, email/phone, social, migrations, password clearing |
-| **authz-core** | 8102 | EXTREME | Low-Medium | 4 | Per-request authorization checks |
-| **api-keys** | 8103 | HIGH | Low | 10 | M2M key management/validation |
-| **org-mgmt** | 8104 | LOW | High | 34 | Org lifecycle, SSO/SCIM, webhooks, application RBAC |
+All services listen on ClusterIP **:8080** in-cluster; service identity is the
+Kubernetes Service name (legacy Kind-era host ports 8101–8106 are retired).
+
+| Service | Frequency | Cost | Endpoints | Responsibility |
+|---------|-----------|------|-----------|----------------|
+| **identity-login-service** | HIGH | Medium-High | 20 | Login, register, social OAuth, OTP, passwordless, dual OTP, signup validation |
+| **identity-session-service** | HIGH | Low | 13 | Token refresh, OIDC discovery, JWKS, step-up MFA, impersonation, direct token, MCP |
+| **identity-user-mgmt-service** | MEDIUM | Medium | 25 | User CRUD, MFA, email/phone, social, migrations, password clearing |
+| **authz-core** | EXTREME | Low-Medium | 4 | Per-request authorization checks |
+| **api-keys** | HIGH | Low | 10 | M2M key management/validation |
+| **org-mgmt** | LOW | High | 34 | Org lifecycle, SSO/SCIM, webhooks, application RBAC |
 
 ## Why Six Services
 

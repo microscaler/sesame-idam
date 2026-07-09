@@ -90,14 +90,18 @@ Epics and stories are in `docs/Epics/{N}-{name}/` (e.g., `docs/Epics/01-asymmetr
 
 Six Rust microservices, each with `gen/` (BRRTRouter-generated from OpenAPI) + `impl/` (binary + lifeguard/persistence). Total: **119 endpoints, 26 tags**.
 
-| Service | Path | Port | Access Pattern | Endpoints |
-|---------|------|------|----------------|-----------|
-| identity-login-service | `microservices/idam/identity-login-service/` | 8101 | HIGH — login, register, social OAuth, OTP, passwordless | 20 |
-| identity-session-service | `microservices/idam/identity-session-service/` | 8105 | HIGH — refresh, OIDC, JWKS, step-up, impersonation, MCP | 13 |
-| identity-user-mgmt-service | `microservices/idam/identity-user-mgmt-service/` | 8106 | MEDIUM — user CRUD, MFA, email/phone, passwordless | 25 |
-| authz-core | `microservices/idam/authz-core/` | 8102 | EXTREME — every consumer API request | 4 |
-| api-keys | `microservices/idam/api-keys/` | 8103 | HIGH — M2M key validation, archiving | 10 |
-| org-mgmt | `microservices/idam/org-mgmt/` | 8104 | LOW — org lifecycle, SSO/SCIM, webhooks, SCIM | 34 |
+All services listen on ClusterIP **:8080** in-cluster (service identity is the
+Kubernetes Service name). Optional Tilt host port-forwards for isolated debug:
+login `8101:8080`, session `8105:8080`.
+
+| Service | Path | Access Pattern | Endpoints |
+|---------|------|----------------|-----------|
+| identity-login-service | `microservices/idam/identity-login-service/` | HIGH — login, register, social OAuth, OTP, passwordless | 20 |
+| identity-session-service | `microservices/idam/identity-session-service/` | HIGH — refresh, OIDC, JWKS, step-up, impersonation, MCP | 13 |
+| identity-user-mgmt-service | `microservices/idam/identity-user-mgmt-service/` | MEDIUM — user CRUD, MFA, email/phone, passwordless | 25 |
+| authz-core | `microservices/idam/authz-core/` | EXTREME — every consumer API request | 4 |
+| api-keys | `microservices/idam/api-keys/` | HIGH — M2M key validation, archiving | 10 |
+| org-mgmt | `microservices/idam/org-mgmt/` | LOW — org lifecycle, SSO/SCIM, webhooks, SCIM | 34 |
 
 OpenAPI specs: `openapi/idam/{service}/openapi.yaml` (6 directories, no canonical/merged spec).
 Workspace: `microservices/Cargo.toml` (all 12 crates registered: gen+impl for each service).
@@ -159,7 +163,7 @@ The workspace uses `cargo nextest` for test execution with configuration in `.co
 just dev-up          # Kind (shared cluster) + Tilt (port 10351)
 just dev-down        # Stop Tilt
 just supabase-apply  # Apply Supabase stack once (namespace: data)
-just port-forward    # Forward postgres (data) + redis (sesame-idam)
+just port-forward    # Forward postgres + redis (shared platform, namespace data)
 just tilt-up         # Start Tilt via systemd
 just tilt-log        # Tail Tilt logs
 ```

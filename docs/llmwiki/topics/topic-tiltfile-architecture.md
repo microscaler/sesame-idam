@@ -37,14 +37,17 @@ The Tiltfile has been rewritten (~320 lines) following hauliage patterns, adapte
 
 ### Service Configuration
 
-| Service | Port | Gen Package |
-|---------|------|-------------|
-| identity-login-service | 8101 | sesame_idam_identity_login_service_gen |
-| identity-session-service | 8105 | sesame_idam_identity_session_service_gen |
-| identity-user-mgmt-service | 8106 | sesame_idam_identity_user_mgmt_service_gen |
-| authz-core | 8102 | sesame_idam_authz_core_gen |
-| api-keys | 8103 | sesame_idam_api_keys_gen |
-| org-mgmt | 8104 | sesame_idam_org_mgmt_gen |
+All services listen on ClusterIP **:8080** in-cluster (`SERVICE_HTTP_PORT`).
+Optional Tilt host port-forwards: login `8101:8080`, session `8105:8080`.
+
+| Service | In-cluster port | Gen Package |
+|---------|-----------------|-------------|
+| identity-login-service | 8080 | sesame_idam_identity_login_service_gen |
+| identity-session-service | 8080 | sesame_idam_identity_session_service_gen |
+| identity-user-mgmt-service | 8080 | sesame_idam_identity_user_mgmt_service_gen |
+| authz-core | 8080 | sesame_idam_authz_core_gen |
+| api-keys | 8080 | sesame_idam_api_keys_gen |
+| org-mgmt | 8080 | sesame_idam_org_mgmt_gen |
 
 ### Build-image-simple CLI Fix (Critical)
 

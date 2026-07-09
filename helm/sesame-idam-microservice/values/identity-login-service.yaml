@@ -28,21 +28,8 @@ app:
       keep_alive: true
       timeout_secs: 5
       max_requests: 50000
-    database:
-      host: "postgres.data.svc.cluster.local"
-      port: 5432
-      name: "sesame_idam"
-      user: "sesame_idam"
-      # Local Kind dev default — must match scripts/setup-db.sh
-      # (SESAME_IDAM_DB_PASSWORD); real deployments override via the
-      # sesame-idam-db-credentials Secret.
-      password: "dev_password_change_in_prod"
-      max_connections: 10
-    redis:
-      host: "redis"
-      port: 6379
-      db: 0
-      max_connections: 10
+    # database/redis wiring comes from values/_database-kubernetes.yaml
+    # (merged after this file by the Tiltfile helm() call).
 
 resources:
   requests:
