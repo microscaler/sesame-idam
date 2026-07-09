@@ -1,3 +1,5 @@
+// BRRTRouter: user-owned
+
 //! Add existing user to organization — creates active membership.
 
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};

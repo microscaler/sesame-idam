@@ -35,8 +35,8 @@ pub fn create_organization<E: LifeExecutor>(
     user_id: &str,
     name: &str,
 ) -> Result<OrganizationSummary, OrgLifecycleError> {
-    let user_uuid = Uuid::parse_str(user_id)
-        .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let user_uuid =
+        Uuid::parse_str(user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
 
     if user_has_active_org(exec, user_uuid, tenant_id)? {
         return Err(OrgLifecycleError::AlreadyHasOrganization);
@@ -82,8 +82,8 @@ pub fn list_memberships<E: LifeExecutor>(
     tenant_id: &str,
     user_id: &str,
 ) -> Result<Vec<MembershipSummary>, OrgLifecycleError> {
-    let user_uuid = Uuid::parse_str(user_id)
-        .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let user_uuid =
+        Uuid::parse_str(user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
 
     let rows = exec
         .query_all_values(
@@ -120,8 +120,8 @@ pub fn invite_by_email<E: LifeExecutor>(
     email: &str,
     role: &str,
 ) -> Result<Uuid, OrgLifecycleError> {
-    let org_uuid = Uuid::parse_str(org_id)
-        .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
     ensure_org_tenant(exec, org_uuid, tenant_id)?;
 
     let invite_id = Uuid::new_v4();
@@ -161,8 +161,8 @@ pub fn accept_invitation<E: LifeExecutor>(
     user_email: &str,
     token: &str,
 ) -> Result<OrganizationSummary, OrgLifecycleError> {
-    let user_uuid = Uuid::parse_str(user_id)
-        .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let user_uuid =
+        Uuid::parse_str(user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
 
     if user_has_active_org(exec, user_uuid, tenant_id)? {
         return Err(OrgLifecycleError::AlreadyHasOrganization);
@@ -193,10 +193,10 @@ pub fn accept_invitation<E: LifeExecutor>(
         return Err(OrgLifecycleError::EmailMismatch);
     }
 
-    let org_uuid = Uuid::parse_str(&org_id)
-        .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
-    let invite_uuid = Uuid::parse_str(&invite_id)
-        .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let org_uuid =
+        Uuid::parse_str(&org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let invite_uuid =
+        Uuid::parse_str(&invite_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
     let now = Utc::now();
     let membership_id = Uuid::new_v4();
 
@@ -263,10 +263,10 @@ pub fn add_user_membership<E: LifeExecutor>(
     user_id: &str,
     role: &str,
 ) -> Result<(), OrgLifecycleError> {
-    let org_uuid = Uuid::parse_str(org_id)
-        .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
-    let user_uuid = Uuid::parse_str(user_id)
-        .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let user_uuid =
+        Uuid::parse_str(user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
     ensure_org_tenant(exec, org_uuid, tenant_id)?;
 
     let membership_id = Uuid::new_v4();

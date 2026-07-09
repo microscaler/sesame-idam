@@ -1,3 +1,5 @@
+// BRRTRouter: user-owned
+
 //! GET /users/me/memberships — list org memberships for authenticated user.
 
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};

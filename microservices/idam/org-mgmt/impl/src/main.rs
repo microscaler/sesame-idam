@@ -25,6 +25,7 @@ mod controllers {
     pub mod invite_user_to_org;
     pub mod list_my_memberships;
 }
+mod impl_registry;
 
 use std::path::{Path, PathBuf};
 
@@ -36,7 +37,7 @@ use brrtrouter::server::AppService;
 use brrtrouter::server::HttpServer;
 use brrtrouter::spec::{RouteMeta, SecurityScheme};
 use clap::Parser;
-use sesame_idam_org_mgmt_gen::registry;
+use sesame_idam_org_mgmt_gen::registry as gen_registry;
 use std::collections::HashMap;
 
 use security::init_security;
@@ -112,57 +113,8 @@ fn main() -> std::io::Result<()> {
 
     // Register generated handlers, then override with impl controllers.
     unsafe {
-        registry::register_from_spec(&mut dispatcher, &routes);
-        for route in &routes {
-            match route.handler_name.as_ref() {
-                "invite_user_to_org" => {
-                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
-                        |req| controllers::invite_user_to_org::handle(req),
-                        20480,
-                        Some(route.handler_name.as_ref()),
-                    ) {
-                        dispatcher.add_route(route.clone(), tx);
-                    }
-                }
-                "add_user_to_org" => {
-                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
-                        |req| controllers::add_user_to_org::handle(req),
-                        20480,
-                        Some(route.handler_name.as_ref()),
-                    ) {
-                        dispatcher.add_route(route.clone(), tx);
-                    }
-                }
-                "create_organization" => {
-                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
-                        |req| controllers::create_organization::handle(req),
-                        20480,
-                        Some(route.handler_name.as_ref()),
-                    ) {
-                        dispatcher.add_route(route.clone(), tx);
-                    }
-                }
-                "list_my_memberships" => {
-                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
-                        |req| controllers::list_my_memberships::handle(req),
-                        20480,
-                        Some(route.handler_name.as_ref()),
-                    ) {
-                        dispatcher.add_route(route.clone(), tx);
-                    }
-                }
-                "accept_invitation" => {
-                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
-                        |req| controllers::accept_invitation::handle(req),
-                        20480,
-                        Some(route.handler_name.as_ref()),
-                    ) {
-                        dispatcher.add_route(route.clone(), tx);
-                    }
-                }
-                _ => {}
-            }
-        }
+        gen_registry::register_from_spec(&mut dispatcher, &routes);
+        impl_registry::register_impl(&mut dispatcher, &routes);
     }
 
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));

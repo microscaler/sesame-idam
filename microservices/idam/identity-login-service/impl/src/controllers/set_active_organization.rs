@@ -1,3 +1,5 @@
+// BRRTRouter: user-owned
+
 //! POST /sessions/active-organization — re-issue JWT with `org_id` after org create/accept.
 
 use base64::Engine;

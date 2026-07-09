@@ -1,3 +1,5 @@
+// BRRTRouter: user-owned
+
 //! POST /invitations/accept — accept org invite token (authenticated user).
 
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};

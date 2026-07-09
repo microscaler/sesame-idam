@@ -1,3 +1,5 @@
+// BRRTRouter: user-owned
+
 //! `POST /auth/login` — password login.
 //!
 //! Verifies credentials against `sesame_idam.users` (tenant-scoped), then

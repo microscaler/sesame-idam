@@ -1,3 +1,5 @@
+// BRRTRouter: user-owned
+
 //! `POST /auth/register` — create a user with email + password.
 //!
 //! Hashes the password with argon2id, inserts the user (tenant-scoped,

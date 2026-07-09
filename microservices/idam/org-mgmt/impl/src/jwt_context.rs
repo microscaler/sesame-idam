@@ -36,7 +36,10 @@ fn bearer_token(req: &HandlerRequest) -> Option<&str> {
     req.headers
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("authorization"))
-        .and_then(|(_, v)| v.strip_prefix("Bearer ").or_else(|| v.strip_prefix("bearer ")))
+        .and_then(|(_, v)| {
+            v.strip_prefix("Bearer ")
+                .or_else(|| v.strip_prefix("bearer "))
+        })
 }
 
 fn decode_jwt_payload_unverified(token: &str) -> Option<serde_json::Value> {

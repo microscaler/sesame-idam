@@ -1,3 +1,5 @@
+// BRRTRouter: user-owned
+
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_logout::{Request, Response};

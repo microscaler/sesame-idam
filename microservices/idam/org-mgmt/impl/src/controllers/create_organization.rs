@@ -1,3 +1,5 @@
+// BRRTRouter: user-owned
+
 //! POST /organizations — tenant consumer self-service org creation.
 
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};

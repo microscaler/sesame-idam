@@ -1,3 +1,5 @@
+// BRRTRouter: user-owned
+
 //! Invite user by email — Sesame persists invite and logs magic-link token (dev).
 
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
@@ -15,10 +17,7 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
     let org_id = req.get_path_param("org_id").unwrap_or_default();
 
     let body = req.body.clone().unwrap_or(serde_json::json!({}));
-    let email = body
-        .get("email")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
     let role = body
         .get("role")
         .and_then(|v| v.as_str())
