@@ -552,3 +552,10 @@ Cross-repo: hauliage identity/company/fleet global BearerAuth; company + BFF JWK
 
 HI-7 verified, company smoke 2/2, consignments JWKS, BFF login 200 after 30s fetch timeout. Wave 3: OpenAPI client, fleet ownership, BR-2/BR-3.
 
+## [2026-07-08] ingest | account-first onboarding checkpoint (Sesame side)
+
+Consumer org lifecycle + JWT `org_id` implemented; E2E with Hauliage BFF paused for BRRTRouter stub lifecycle work.
+
+- **New wiki:** [`topics/topic-account-first-onboarding-checkpoint.md`](./topics/topic-account-first-onboarding-checkpoint.md) — identity-login `set_active_organization`, org-mgmt consumer API, ports, protected controllers.
+- **Cross-repo:** Hauliage [`account-first-onboarding-checkpoint.md`](../../hauliage/docs/llmwiki/topics/account-first-onboarding-checkpoint.md); BRRTRouter [`PRD_IMPL_CONTROLLER_LIFECYCLE.md`](../../BRRTRouter/docs/PRD_IMPL_CONTROLLER_LIFECYCLE.md).
+- **`index.md`:** registered checkpoint page (pending manual index row if table format requires edit).
