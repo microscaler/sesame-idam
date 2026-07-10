@@ -11,8 +11,10 @@ info:
   contact:
     name: Platform / Security
 servers:
+- url: http://api-keys:8080/idam/v1
+  description: In-cluster (sesame-idam namespace, ClusterIP :8080)
 - url: /idam/v1
-  description: IDAM API v1
+  description: Relative path behind gateway
 tags:
 - name: APIKeys
   description: API key lifecycle and validation (M2M keys, service accounts)

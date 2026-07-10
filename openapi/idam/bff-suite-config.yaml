@@ -1,32 +1,27 @@
 # Sesame-IDAM Service Configuration
-# This file is parsed by the Tiltfile to discover IDAM services and their ports.
-# Used for service discovery, build ordering, and k8s_resource port forwarding.
+# Parsed by Tiltfile for service discovery and build ordering.
 #
-# Structure:
-#   bff_service_name: the BFF suite name (not used for IDAM, kept for compatibility)
-#   services: list of service directories under microservices/idam/
-#     Each service has:
-#       port: the HTTP port the service listens on
-#       spec_path: path to the OpenAPI spec relative to openapi/idam/
+# In-cluster: all Services listen on ClusterIP :8080 (see EPIC-001 / justfile header).
+# Optional Tilt host port-forwards (debug only): login 8101→8080, session 8105→8080.
 
 bff_service_name: idam
 
 services:
   identity-login-service:
-    port: 8101
+    port: 8080
     spec_path: "identity-login-service"
   identity-session-service:
-    port: 8105
+    port: 8080
     spec_path: "identity-session-service"
   identity-user-mgmt-service:
-    port: 8106
+    port: 8080
     spec_path: "identity-user-mgmt-service"
   authz-core:
-    port: 8102
+    port: 8080
     spec_path: "authz-core"
   api-keys:
-    port: 8103
+    port: 8080
     spec_path: "api-keys"
   org-mgmt:
-    port: 8104
+    port: 8080
     spec_path: "org-mgmt"
