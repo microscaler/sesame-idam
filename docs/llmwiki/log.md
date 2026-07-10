@@ -559,3 +559,14 @@ Consumer org lifecycle + JWT `org_id` implemented; E2E with Hauliage BFF paused 
 - **New wiki:** [`topics/topic-account-first-onboarding-checkpoint.md`](./topics/topic-account-first-onboarding-checkpoint.md) — identity-login `set_active_organization`, org-mgmt consumer API, ports, protected controllers.
 - **Cross-repo:** Hauliage [`account-first-onboarding-checkpoint.md`](../../hauliage/docs/llmwiki/topics/account-first-onboarding-checkpoint.md); BRRTRouter [`PRD_IMPL_CONTROLLER_LIFECYCLE.md`](../../BRRTRouter/docs/PRD_IMPL_CONTROLLER_LIFECYCLE.md).
 - **`index.md`:** registered checkpoint page (pending manual index row if table format requires edit).
+
+## [2026-07-10] refactor | SI-3 — typed handlers for /identity/me + userinfo (BR-2)
+
+Removed `raw_handler.rs` workaround now that `TypedHandlerRequest` carries `jwt_claims`.
+
+- **Controllers:** `users_me_get`, `users_me_patch`, `oauth_userinfo` use `auth_context::authenticated_principal` + typed `handle`.
+- **Dispatch:** `impl/src/main.rs` registers all three via `spawn_typed_with_stack_size_and_name`.
+- **Tests:** `users_me_db.rs` + `token_lifecycle.rs` call typed handlers via `TypedHandlerRequest::from_handler`; BDD fixtures add `jwt_claims: None` where structs are built manually (BR-2 field).
+- **Build:** workspace `may_minihttp` path pin + lockfile regen (local fork `client` feature).
+
+Next: **SI-4** (auth_refresh OAuth 401) after **BR-3**.

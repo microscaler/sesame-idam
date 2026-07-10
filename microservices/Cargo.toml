@@ -42,7 +42,7 @@ config = "0.14"
 http = "1.0"
 may = "0.3"
 # Microscaler fork — provides TestClient (see AGENTS.md dependency rules)
-may_minihttp = { git = "https://github.com/microscaler/may_minihttp.git", branch = "integration/microscaler-fork" }
+may_minihttp = { path = "../../may_minihttp" }
 may_http = { git = "https://github.com/rust-may/may_http.git" }
 http_legacy = { package = "http", version = "0.2" }
 anyhow = "1.0"
@@ -89,3 +89,7 @@ sea-query = { version = "=1.0.0-rc.29", features = ["with-json", "with-chrono", 
 # Patch may_postgres to use local fork for dev
 [patch."https://github.com/microscaler/may_postgres.git"]
 may_postgres = { path = "../../may_postgres" }
+
+# Patch crates.io may_minihttp → microscaler fork (client feature for gen outbound HTTP)
+[patch.crates-io]
+may_minihttp = { path = "../../may_minihttp" }

@@ -70,6 +70,7 @@ fn invoke_jwks_request(req: HandlerRequest) -> HandlerResponse {
         path_params,
         query_params,
         data,
+        jwt_claims: None,
     };
 
     // Call the handler directly

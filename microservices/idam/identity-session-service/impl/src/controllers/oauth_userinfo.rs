@@ -1,18 +1,19 @@
+// BRRTRouter: user-owned
+
 //! `GET /identity/userinfo` — OIDC userinfo (DB-backed profile).
-//!
-//! Uses a raw handler so the validated JWT principal is available (see
-//! [`crate::raw_handler`]).
 
-use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
+use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
+use brrtrouter_macros::handler;
+use sesame_idam_identity_session_service_gen::handlers::oauth_userinfo::Request;
 
+use crate::auth_context::authenticated_principal;
 use crate::controllers::users_me_get::profile_json;
 use crate::models::user::UserModel;
 use crate::models::user_profile::UserProfileModel;
-use crate::raw_handler::authenticated_principal;
 use crate::services::profile_service::ProfileService;
 
-fn internal_error() -> HandlerResponse {
-    HandlerResponse::json(
+fn internal_error() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
         500,
         serde_json::json!({
             "error": "internal_error",
@@ -44,14 +45,15 @@ fn userinfo_json(user: &UserModel, profile: Option<&UserProfileModel>) -> serde_
     })
 }
 
-/// Raw handler for `GET /identity/userinfo`.
-pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
+#[handler(OauthUserinfoController)]
+pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
     use crate::audit::EMITTER;
     use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
-    let (user_id, tenant_id) = match authenticated_principal(req) {
+    let (user_id, tenant_id) = match authenticated_principal(&req.jwt_claims, &req.data.x_tenant_id)
+    {
         Ok(principal) => principal,
-        Err(response) => return *response,
+        Err(response) => return response,
     };
 
     let entry = AuditLogEntry::new(AuditEventType::JwtValidated, "identity-session-service")
@@ -69,7 +71,7 @@ pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
     let user = match ProfileService::find_user(&tenant_id, user_id, exec) {
         Ok(Some(user)) => user,
         Ok(None) => {
-            return HandlerResponse::json(
+            return HttpJson::new(
                 401,
                 serde_json::json!({
                     "error": "invalid_request",
@@ -91,5 +93,5 @@ pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
         }
     };
 
-    HandlerResponse::json(200, userinfo_json(&user, profile.as_ref()))
+    HttpJson::ok(userinfo_json(&user, profile.as_ref()))
 }

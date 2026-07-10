@@ -1,36 +1,33 @@
+// BRRTRouter: user-owned
+
 //! `PATCH /identity/me` — partial update of the current user's profile.
-//!
-//! Raw handler (needs the JWT principal — see [`crate::raw_handler`]).
-//! Accepts `first_name`, `last_name`, `avatar_url` from
-//! `UpdateUserProfileRequest`; other spec fields (`name`,
-//! `preferred_username`) have no storage column yet and are ignored.
 
-use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
+use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
+use brrtrouter_macros::handler;
+use sesame_idam_identity_session_service_gen::handlers::users_me_patch::Request;
 
+use crate::auth_context::authenticated_principal;
 use crate::controllers::users_me_get::profile_json;
-use crate::raw_handler::authenticated_principal;
 use crate::services::profile_service::{ProfileService, ProfileUpdate};
 
 /// Maximum accepted length for name fields (per spec `maxLength: 100`).
 const MAX_NAME_LEN: usize = 100;
 
-/// Raw handler for `PATCH /identity/me`.
-pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
+#[handler(UsersMePatchController)]
+pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
     use crate::audit::EMITTER;
     use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
-    let (user_id, tenant_id) = match authenticated_principal(req) {
+    let (user_id, tenant_id) = match authenticated_principal(&req.jwt_claims, &req.data.x_tenant_id)
+    {
         Ok(principal) => principal,
-        Err(response) => return *response,
+        Err(response) => return response,
     };
 
-    // Parse the update body.
-    let body = req.body.clone().unwrap_or(serde_json::Value::Null);
-    let field = |name: &str| body.get(name).and_then(|v| v.as_str()).map(String::from);
     let update = ProfileUpdate {
-        first_name: field("first_name"),
-        last_name: field("last_name"),
-        avatar_url: field("avatar_url"),
+        first_name: req.data.first_name.clone(),
+        last_name: req.data.last_name.clone(),
+        avatar_url: req.data.picture_url.clone(),
     };
 
     for (label, value) in [
@@ -39,7 +36,7 @@ pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
     ] {
         if let Some(v) = value {
             if v.chars().count() > MAX_NAME_LEN {
-                return HandlerResponse::json(
+                return HttpJson::new(
                     400,
                     serde_json::json!({
                         "error": "validation_error",
@@ -62,11 +59,10 @@ pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
 
     let exec = sesame_idam_database::db();
 
-    // The user must exist on this tenant before any profile write.
     let user = match ProfileService::find_user(&tenant_id, user_id, exec) {
         Ok(Some(user)) => user,
         Ok(None) => {
-            return HandlerResponse::json(
+            return HttpJson::new(
                 401,
                 serde_json::json!({
                     "error": "invalid_request",
@@ -81,7 +77,6 @@ pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
     };
 
     let profile = if update.is_empty() {
-        // Nothing to change — return the current profile.
         match ProfileService::find_profile(user_id, exec) {
             Ok(profile) => profile,
             Err(e) => {
@@ -99,11 +94,11 @@ pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
         }
     };
 
-    HandlerResponse::json(200, profile_json(&user, profile.as_ref()))
+    HttpJson::ok(profile_json(&user, profile.as_ref()))
 }
 
-fn internal_error() -> HandlerResponse {
-    HandlerResponse::json(
+fn internal_error() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
         500,
         serde_json::json!({
             "error": "internal_error",

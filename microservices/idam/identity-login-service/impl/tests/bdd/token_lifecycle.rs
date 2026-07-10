@@ -21,7 +21,7 @@ use std::time::Duration;
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
 use brrtrouter::router::ParamVec;
-use brrtrouter::typed::TypedHandlerRequest;
+use brrtrouter::typed::{TypedHandlerFor, TypedHandlerRequest};
 use http::Method;
 use sesame_common::jwt::{Ed25519Signer, SIGNING_KID_ENV, SIGNING_KEY_ENV};
 use uuid::Uuid;
@@ -31,6 +31,7 @@ use sesame_idam_identity_login_service_gen::handlers::auth_logout::Request as Lo
 use sesame_idam_identity_login_service_gen::handlers::auth_login::Request as LoginRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as RegisterRequest;
 use sesame_idam_identity_session_service::controllers::{auth_refresh, oauth_userinfo};
+use sesame_idam_identity_session_service_gen::handlers::oauth_userinfo::Request as UserinfoRequest;
 
 const TEST_TENANT: &str = "bdd-lifecycle-tenant";
 const TEST_KID: &str = "bdd-lifecycle-kid";
@@ -114,6 +115,7 @@ fn register_request(email: &str, password: &str) -> TypedHandlerRequest<Register
             username: None,
             x_tenant_id: TEST_TENANT.to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -130,6 +132,7 @@ fn login_request(email: &str, password: &str) -> TypedHandlerRequest<LoginReques
             password: password.to_string(),
             x_tenant_id: TEST_TENANT.to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -144,6 +147,7 @@ fn refresh_request(refresh_token: &str) -> TypedHandlerRequest<sesame_idam_ident
             refresh_token: refresh_token.to_string(),
             x_tenant_id: TEST_TENANT.to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -158,6 +162,7 @@ fn logout_request(refresh_token: &str) -> TypedHandlerRequest<LogoutRequest> {
             refresh_token: Some(refresh_token.to_string()),
             x_tenant_id: TEST_TENANT.to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -263,7 +268,10 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
     signer.verify(access_token).expect("register access token signature");
 
     // ── Userinfo (session service, DB-backed profile) ──
-    let userinfo = oauth_userinfo::handle_raw(&userinfo_request(access_token));
+    let userinfo_req = userinfo_request(access_token);
+    let userinfo_typed = TypedHandlerRequest::<UserinfoRequest>::from_handler(userinfo_req)
+        .expect("typed userinfo request");
+    let userinfo = oauth_userinfo::handle(userinfo_typed);
     assert_eq!(userinfo.status, 200, "userinfo: {}", userinfo.body);
     assert_eq!(userinfo.body["sub"], user_id);
     assert_eq!(userinfo.body["user_id"], user_id);

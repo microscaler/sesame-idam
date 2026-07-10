@@ -1,15 +1,17 @@
+// BRRTRouter: user-owned
+
 //! `GET /identity/me` — current user profile (DB-backed).
 //!
-//! Identity comes from the validated JWT (`sub` + `tenant_id` claims), which
-//! typed dispatch cannot see — this is a raw handler (see
-//! [`crate::raw_handler`]). PII lives here by design: it was removed from
-//! access tokens (Story 2.3) and consumers fetch it from this endpoint.
+//! Identity comes from validated JWT claims on [`TypedHandlerRequest::jwt_claims`]
+//! (BR-2). PII lives here by design: it was removed from access tokens (Story 2.3).
 
-use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
+use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
+use brrtrouter_macros::handler;
+use sesame_idam_identity_session_service_gen::handlers::users_me_get::Request;
 
+use crate::auth_context::authenticated_principal;
 use crate::models::user::UserModel;
 use crate::models::user_profile::UserProfileModel;
-use crate::raw_handler::authenticated_principal;
 use crate::services::profile_service::ProfileService;
 
 /// Build the spec `UserProfile` JSON from the user row + optional profile.
@@ -40,14 +42,15 @@ pub fn profile_json(user: &UserModel, profile: Option<&UserProfileModel>) -> ser
     })
 }
 
-/// Raw handler for `GET /identity/me`.
-pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
+#[handler(UsersMeGetController)]
+pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
     use crate::audit::EMITTER;
     use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
-    let (user_id, tenant_id) = match authenticated_principal(req) {
+    let (user_id, tenant_id) = match authenticated_principal(&req.jwt_claims, &req.data.x_tenant_id)
+    {
         Ok(principal) => principal,
-        Err(response) => return *response,
+        Err(response) => return response,
     };
 
     let entry = AuditLogEntry::new(AuditEventType::JwtValidated, "identity-session-service")
@@ -65,8 +68,7 @@ pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
     let user = match ProfileService::find_user(&tenant_id, user_id, exec) {
         Ok(Some(user)) => user,
         Ok(None) => {
-            // Token references a user that no longer exists on this tenant.
-            return HandlerResponse::json(
+            return HttpJson::new(
                 401,
                 serde_json::json!({
                     "error": "invalid_request",
@@ -88,11 +90,11 @@ pub fn handle_raw(req: &HandlerRequest) -> HandlerResponse {
         }
     };
 
-    HandlerResponse::json(200, profile_json(&user, profile.as_ref()))
+    HttpJson::ok(profile_json(&user, profile.as_ref()))
 }
 
-fn internal_error() -> HandlerResponse {
-    HandlerResponse::json(
+fn internal_error() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
         500,
         serde_json::json!({
             "error": "internal_error",

@@ -21,7 +21,7 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 | Workaround | Where | Trigger |
 |------------|-------|---------|
 | No global `security` on login/session specs | ~~Removed~~ — global security restored 2026-07-06 after **BR-1** | Was workaround for H6.1 deploy 401 |
-| Raw handlers for principal endpoints | `identity-session-service/impl/src/raw_handler.rs` | Typed dispatch drops `HandlerRequest::jwt_claims` |
+| Raw handlers for principal endpoints | ~~Removed~~ SI-3 2026-07-10 — typed handlers use `TypedHandlerRequest::jwt_claims` (BR-2) | Was: typed dispatch dropped claims |
 | Per-route explicit `BearerAuth` | All protected ops in login/session specs | Compensates for removed global security |
 | Full `init_security` in impl `main.rs` | `identity-login-service/impl/src/security.rs` | Gen `main.rs` registers providers; impl had JWKS-only init → deploy 401 |
 | Refresh errors → HTTP 200 + empty body | `identity-session-service/impl/src/controllers/auth_refresh.rs` | Typed handler success-schema-only; no 401 path |
@@ -43,10 +43,10 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 
 | ID | Owner | Task | Unblocks |
 |----|-------|------|----------|
-| **BR-2** | BRRTRouter | Pass validated `jwt_claims` into typed handler context | Delete `raw_handler.rs` pattern for `/identity/me`, userinfo |
+| **BR-2** | BRRTRouter | Pass validated `jwt_claims` into typed handler context | ✅ 2026-07-10 (`TypedHandlerRequest.jwt_claims`) |
 | **BR-3** | BRRTRouter | Typed multi-status responses (or codegen `HttpJson` for error schemas) | OAuth-compliant 401 on refresh failure |
 | **BR-4** | BRRTRouter | Codegen `init_security` helper from spec security schemes | Stop impl/gen provider registration drift |
-| **SI-3** | sesame-idam | Migrate `/identity/me`, userinfo to typed handlers after BR-2 | Less boilerplate |
+| **SI-3** | sesame-idam | Migrate `/identity/me`, userinfo to typed handlers after BR-2 | ✅ 2026-07-10 — `auth_context.rs`, typed dispatch in `main.rs` |
 | **SI-4** | sesame-idam | Migrate `auth_refresh` error paths after BR-3 | Proper 401/400 on bad refresh |
 
 ### P3 — Platform hygiene (post-hauliage)
@@ -88,7 +88,7 @@ Wave 3
 ## Code anchors
 
 - BRRTRouter security resolution: `BRRTRouter/src/spec/security_presence.rs`
-- Sesame raw handler: `microservices/idam/identity-session-service/impl/src/raw_handler.rs`
+- SI-3 typed handlers: `identity-session-service/impl/src/auth_context.rs` (replaces deleted `raw_handler.rs`)
 - Global security workaround (reverted): commit `26b4aba`
 
 ## Gaps / Drift

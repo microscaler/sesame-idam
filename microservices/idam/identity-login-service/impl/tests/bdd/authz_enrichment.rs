@@ -91,6 +91,7 @@ fn register_request(email: &str) -> TypedHandlerRequest<RegisterRequest> {
             username: None,
             x_tenant_id: TEST_TENANT.to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -107,6 +108,7 @@ fn login_request(email: &str) -> TypedHandlerRequest<LoginRequest> {
             password: "SecureP@ss123!".to_string(),
             x_tenant_id: TEST_TENANT.to_string(),
         },
+        jwt_claims: None,
     }
 }
 

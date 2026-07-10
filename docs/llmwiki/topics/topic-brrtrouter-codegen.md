@@ -91,9 +91,9 @@ OpenAPI 3: operation `security: []` means **no auth**. BRRTRouter `build.rs` tre
 
 **Proper fix:** BRRTRouter **BR-1** — ✅ landed 2026-07-06 (`OperationSecurityPresence` + `resolve_operation_security`). Global security restored on login/session specs.
 
-## Principal endpoints → raw handlers
+## Principal endpoints (SI-3 complete)
 
-Typed dispatch drops `jwt_claims`. Endpoints that need the authenticated principal (`/identity/me`, userinfo) use `raw_handler.rs` instead of generated typed handlers. **BR-2** tracks the framework fix.
+BR-2 landed 2026-07-10: `TypedHandlerRequest` carries `jwt_claims`. `/identity/me`, `/identity/userinfo` use typed handlers + `auth_context::authenticated_principal` — `raw_handler.rs` removed.
 
 ## Current Codegen State
 

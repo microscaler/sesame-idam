@@ -14,6 +14,7 @@ fn openid_configuration_returns_populated_document() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: Request {},
+        jwt_claims: None,
     };
 
     let resp = openid_configuration::handle(req);

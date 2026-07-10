@@ -1,20 +1,24 @@
-//! Live-database BDD tests for `GET/PATCH /identity/me` (raw handlers).
+//! Live-database BDD tests for `GET/PATCH /identity/me` (typed handlers, BR-2 jwt_claims).
 //!
 //! Builds `HandlerRequest`s with validated-JWT claims attached (as the
-//! security provider would) and exercises the DB-backed profile flow against
-//! the shared Kind postgres. Skips gracefully when Postgres is unreachable.
+//! security provider would), converts to `TypedHandlerRequest`, and exercises
+//! the DB-backed profile flow against the shared Kind postgres. Skips
+//! gracefully when Postgres is unreachable.
 
 use std::net::TcpStream;
 use std::sync::{Arc, Once};
 use std::time::Duration;
 
-use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse, HeaderVec};
+use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
 use brrtrouter::router::ParamVec;
+use brrtrouter::typed::{HttpJson, TypedHandlerFor, TypedHandlerRequest};
 use http::Method;
 use uuid::Uuid;
 
 use sesame_idam_identity_session_service::controllers::{users_me_get, users_me_patch};
+use sesame_idam_identity_session_service_gen::handlers::users_me_get::Request as UsersMeGetRequest;
+use sesame_idam_identity_session_service_gen::handlers::users_me_patch::Request as UsersMePatchRequest;
 
 const TEST_TENANT: &str = "bdd-me-tenant";
 
@@ -95,8 +99,8 @@ fn me_request(
     claims: Option<serde_json::Value>,
     header_tenant: Option<&str>,
     body: Option<serde_json::Value>,
-) -> (HandlerRequest, may::sync::mpsc::Receiver<HandlerResponse>) {
-    let (tx, rx) = may::sync::mpsc::channel();
+) -> HandlerRequest {
+    let (tx, _rx) = may::sync::mpsc::channel();
     let mut headers = HeaderVec::new();
     if let Some(tenant) = header_tenant {
         headers.push((Arc::from("x-tenant-id"), tenant.to_string()));
@@ -115,7 +119,19 @@ fn me_request(
         reply_tx: tx,
         queue_guard: None,
     };
-    (req, rx)
+    req
+}
+
+fn invoke_get(req: HandlerRequest) -> HttpJson<serde_json::Value> {
+    let typed =
+        TypedHandlerRequest::<UsersMeGetRequest>::from_handler(req).expect("typed GET request");
+    users_me_get::handle(typed)
+}
+
+fn invoke_patch(req: HandlerRequest) -> HttpJson<serde_json::Value> {
+    let typed =
+        TypedHandlerRequest::<UsersMePatchRequest>::from_handler(req).expect("typed PATCH request");
+    users_me_patch::handle(typed)
 }
 
 fn claims_for(user_id: Uuid, tenant: &str) -> serde_json::Value {
@@ -139,13 +155,13 @@ fn get_me_returns_user_with_null_profile_fields() {
     let user_id = Uuid::new_v4();
     insert_user(&client, user_id, TEST_TENANT);
 
-    let (req, _rx) = me_request(
+    let req = me_request(
         Method::GET,
         Some(claims_for(user_id, TEST_TENANT)),
         Some(TEST_TENANT),
         None,
     );
-    let resp = users_me_get::handle_raw(&req);
+    let resp = invoke_get(req);
 
     assert_eq!(resp.status, 200, "body: {}", resp.body);
     assert_eq!(resp.body["user_id"], user_id.to_string());
@@ -175,25 +191,25 @@ fn patch_me_upserts_profile_and_get_reflects_it() {
     insert_user(&client, user_id, TEST_TENANT);
 
     // PATCH with first/last name
-    let (req, _rx) = me_request(
+    let req = me_request(
         Method::PATCH,
         Some(claims_for(user_id, TEST_TENANT)),
         Some(TEST_TENANT),
         Some(serde_json::json!({"first_name": "Alice", "last_name": "Smith"})),
     );
-    let resp = users_me_patch::handle_raw(&req);
+    let resp = invoke_patch(req);
     assert_eq!(resp.status, 200, "body: {}", resp.body);
     assert_eq!(resp.body["first_name"], "Alice");
     assert_eq!(resp.body["name"], "Alice Smith");
 
     // Second PATCH updates only avatar_url — names must be preserved
-    let (req, _rx) = me_request(
+    let req = me_request(
         Method::PATCH,
         Some(claims_for(user_id, TEST_TENANT)),
         Some(TEST_TENANT),
         Some(serde_json::json!({"avatar_url": "https://example.com/a.png"})),
     );
-    let resp = users_me_patch::handle_raw(&req);
+    let resp = invoke_patch(req);
     assert_eq!(resp.status, 200);
     assert_eq!(
         resp.body["first_name"], "Alice",
@@ -202,13 +218,13 @@ fn patch_me_upserts_profile_and_get_reflects_it() {
     assert_eq!(resp.body["avatar_url"], "https://example.com/a.png");
 
     // GET reflects the stored profile
-    let (req, _rx) = me_request(
+    let req = me_request(
         Method::GET,
         Some(claims_for(user_id, TEST_TENANT)),
         Some(TEST_TENANT),
         None,
     );
-    let resp = users_me_get::handle_raw(&req);
+    let resp = invoke_get(req);
     assert_eq!(resp.status, 200);
     assert_eq!(resp.body["last_name"], "Smith");
     assert_eq!(resp.body["avatar_url"], "https://example.com/a.png");
@@ -220,21 +236,21 @@ fn patch_me_upserts_profile_and_get_reflects_it() {
 #[test]
 fn get_me_without_claims_is_unauthorized() {
     // No DB needed: the request is rejected before any query.
-    let (req, _rx) = me_request(Method::GET, None, Some(TEST_TENANT), None);
-    let resp = users_me_get::handle_raw(&req);
+    let req = me_request(Method::GET, None, Some(TEST_TENANT), None);
+    let resp = invoke_get(req);
     assert_eq!(resp.status, 401);
 }
 
 /// Scenario: X-Tenant-ID header disagreeing with the token tenant → 401.
 #[test]
 fn get_me_tenant_mismatch_is_unauthorized() {
-    let (req, _rx) = me_request(
+    let req = me_request(
         Method::GET,
         Some(claims_for(Uuid::new_v4(), TEST_TENANT)),
         Some("some-other-tenant"),
         None,
     );
-    let resp = users_me_get::handle_raw(&req);
+    let resp = invoke_get(req);
     assert_eq!(resp.status, 401);
 }
 
@@ -253,13 +269,13 @@ fn get_me_cross_tenant_user_is_unauthorized() {
 
     // Claims + header both say TEST_TENANT, but the user lives on another
     // tenant — the tenant-scoped lookup must not find them.
-    let (req, _rx) = me_request(
+    let req = me_request(
         Method::GET,
         Some(claims_for(user_id, TEST_TENANT)),
         Some(TEST_TENANT),
         None,
     );
-    let resp = users_me_get::handle_raw(&req);
+    let resp = invoke_get(req);
     assert_eq!(resp.status, 401);
 
     cleanup_user(&client, user_id);
@@ -268,13 +284,13 @@ fn get_me_cross_tenant_user_is_unauthorized() {
 /// Scenario: PATCH exceeding maxLength is rejected with 400.
 #[test]
 fn patch_me_rejects_oversized_names() {
-    let (req, _rx) = me_request(
+    let req = me_request(
         Method::PATCH,
         Some(claims_for(Uuid::new_v4(), TEST_TENANT)),
         Some(TEST_TENANT),
         Some(serde_json::json!({"first_name": "x".repeat(101)})),
     );
-    let resp = users_me_patch::handle_raw(&req);
+    let resp = invoke_patch(req);
     assert_eq!(resp.status, 400);
     assert_eq!(resp.body["error"], "validation_error");
 }
