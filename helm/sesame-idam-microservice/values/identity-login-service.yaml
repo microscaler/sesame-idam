@@ -21,6 +21,11 @@ app:
     # authz-core enrichment endpoint (same namespace)
     authzCoreUrl: "http://authz-core:8080"
     security:
+      jwks:
+        BearerAuth:
+          jwks_url: "http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json"
+          iss: "https://idam.example.com"
+          aud: "sesame-idam"
       api_keys:
         ApiKeyHeader:
           key: "test123"
