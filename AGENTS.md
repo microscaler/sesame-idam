@@ -160,13 +160,31 @@ The workspace uses `cargo nextest` for test execution with configuration in `.co
 ### Dev environment
 
 ```
-just dev-up          # Kind (shared cluster) + Tilt (port 10351)
+just dev-up          # shared-k8s cluster + Tilt (port 10351)
 just dev-down        # Stop Tilt
 just supabase-apply  # Apply Supabase stack once (namespace: data)
-just port-forward    # Forward postgres + redis (shared platform, namespace data)
+just port-forward    # Forward postgres + redis (legacy; prefer LAN proxy below)
 just tilt-up         # Start Tilt via systemd
 just tilt-log        # Tail Tilt logs
 ```
+
+### Build and deploy on ms02 — remote Tilt from Mac
+
+**Rule**: On desktop dev (Mac + ms02 NFS), **run `cargo check` / `cargo test` on ms02** via `ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/seasame-idam/microservices && …'`. Mac-local `cargo` is unreliable (toolchain / `ring` / NFS latency).
+
+Tilt for this repo: **systemd `tilt-sesame-idam.service`**, port **10351**, host `0.0.0.0`.
+
+| Action | Command |
+|--------|---------|
+| Trigger rebuild | `tilt trigger identity-session-service --host 192.168.1.189 --port 10351` |
+| Trigger + wait | `cd ../shared-k8s-cluster && just tilt-remote-cycle sesame identity-session-service` |
+| Tail build logs | `just tilt-remote-logs sesame identity-session-service` |
+| Tilt UI | `http://tilt-sesame.dev.microscaler.local/` |
+| BDD (token lifecycle, etc.) | On ms02 with `TEST_DB_HOST=192.168.1.189 TEST_DB_PORT=5433 REDIS_URL=redis://192.168.1.189:6390` |
+
+Do **not** run `tilt up` on Mac. Use systemd on ms02 or the remote trigger recipes above.
+
+Authority: [`../shared-k8s-cluster/docs/remote-tilt-workflow.md`](../shared-k8s-cluster/docs/remote-tilt-workflow.md).
 
 ---
 
