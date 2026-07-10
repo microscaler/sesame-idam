@@ -24,7 +24,7 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 | Raw handlers for principal endpoints | ~~Removed~~ SI-3 2026-07-10 — typed handlers use `TypedHandlerRequest::jwt_claims` (BR-2) | Was: typed dispatch dropped claims |
 | Per-route explicit `BearerAuth` | All protected ops in login/session specs | Compensates for removed global security |
 | Full `init_security` in impl `main.rs` | `identity-login-service/impl/src/security.rs` | Gen `main.rs` registers providers; impl had JWKS-only init → deploy 401 |
-| Refresh errors → HTTP 200 + empty body | `identity-session-service/impl/src/controllers/auth_refresh.rs` | Typed handler success-schema-only; no 401 path |
+| Refresh errors → HTTP 200 + empty body | ~~`identity-session-service/impl/src/controllers/auth_refresh.rs`~~ | ✅ SI-4 2026-07-10 — `HttpJson` 401/500 on failure paths |
 | `sesame_common::http` re-export | `microservices/common/src/http.rs` | Correct — not a workaround; canonical outbound path |
 
 ## Task backlog (cross-repo IDs)
@@ -44,10 +44,10 @@ Cross-repo backlog for removing Sesame-IDAM workarounds that exist because of BR
 | ID | Owner | Task | Unblocks |
 |----|-------|------|----------|
 | **BR-2** | BRRTRouter | Pass validated `jwt_claims` into typed handler context | ✅ 2026-07-10 (`TypedHandlerRequest.jwt_claims`) |
-| **BR-3** | BRRTRouter | Typed multi-status responses (or codegen `HttpJson` for error schemas) | OAuth-compliant 401 on refresh failure |
+| **BR-3** | BRRTRouter | Typed multi-status responses (or codegen `HttpJson` for error schemas) | ✅ 2026-07-10 (`f553984`) |
 | **BR-4** | BRRTRouter | Codegen `init_security` helper from spec security schemes | Stop impl/gen provider registration drift |
 | **SI-3** | sesame-idam | Migrate `/identity/me`, userinfo to typed handlers after BR-2 | ✅ 2026-07-10 — `auth_context.rs`, typed dispatch in `main.rs` |
-| **SI-4** | sesame-idam | Migrate `auth_refresh` error paths after BR-3 | Proper 401/400 on bad refresh |
+| **SI-4** | sesame-idam | Migrate `auth_refresh` error paths after BR-3 | ✅ 2026-07-10 — OAuth 401/500 via `HttpJson` |
 
 ### P3 — Platform hygiene (post-hauliage)
 

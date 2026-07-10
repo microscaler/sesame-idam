@@ -570,3 +570,24 @@ Removed `raw_handler.rs` workaround now that `TypedHandlerRequest` carries `jwt_
 - **Build:** workspace `may_minihttp` path pin + lockfile regen (local fork `client` feature).
 
 Next: **SI-4** (auth_refresh OAuth 401) after **BR-3**.
+
+## [2026-07-10] fix | SI-4 — OAuth-compliant auth_refresh errors (BR-3)
+
+`identity-session-service/impl/src/controllers/auth_refresh.rs` returns `HttpJson<serde_json::Value>`:
+
+- **200** — rotated token pair (`TokenResponse` JSON)
+- **401** — `invalid_grant` for invalid/reused refresh tokens
+- **500** — Redis unavailable during rotation
+
+**Tests:** `identity-login-service/impl/tests/bdd/token_lifecycle.rs` asserts `status == 401` on reuse and post-logout refresh.
+
+OpenAPI already had `401` + `ErrorResponse` schema on `/session/refresh` (BR-3 trigger for new stubs).
+
+## [2026-07-10] feat | Wave A — typed active-organization + account-first BDD
+
+- **Staging:** [`docs/audit/first-delivery-wave-a.md`](../audit/first-delivery-wave-a.md) — D1–D3 delivery backlog (A1–A9).
+- **A2:** `identity-login-service` — `auth_context.rs`; `set_active_organization` typed handler + `jwt_claims` (no base64 decode); `main.rs` uses typed dispatch.
+- **A5:** `tests/bdd/account_first_onboarding.rs` — org_id in JWT + 403 for non-member.
+- **BRRTRouter:** `ImplControllerStubParams.uses_http_json` field fix (unblocks workspace compile during BR-3 work).
+
+Enriched [`docs/audit/epic-delivery-audit-2026-07-10.md`](../audit/epic-delivery-audit-2026-07-10.md) with delivery-tier model (D0–D6), stub vs impl matrix, cross-repo/platform gaps (k8s `:8080`, BR-3/SI-4, account-first E2E), and Waves A–D priority roadmap. Noted SI-3 merged (§7.1 done); `set_active_organization` remains raw-handler outlier.

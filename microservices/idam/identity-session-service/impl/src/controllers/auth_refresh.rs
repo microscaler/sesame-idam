@@ -1,7 +1,9 @@
+// BRRTRouter: user-owned
+
 /// Handler for Auth Refresh — refreshes an access token using a refresh token.
 /// Implements token rotation per Story 3.1: validates old token, issues new
 /// refresh token with new JTI, adds old JTI to denylist.
-use brrtrouter::typed::TypedHandlerRequest;
+use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
 use sesame_idam_identity_session_service_gen::handlers::auth_refresh::{Request, Response};
 
@@ -11,7 +13,7 @@ use crate::services::token_rotation::{self, RotationOutcome};
 use sesame_common::audit::AuditEventType;
 
 #[handler(AuthRefreshController)]
-pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
     let span = tracing::span!(
         tracing::Level::INFO,
         "token.refreshed",
@@ -80,7 +82,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 EMITTER.emit(entry);
             }
 
-            Response {
+            let body = Response {
                 access_token: new_access_token,
                 email: None,
                 email_verified: None,
@@ -93,6 +95,13 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 scope: Some(scope),
                 token_type: "Bearer".to_string(),
                 user_id,
+            };
+            match serde_json::to_value(body) {
+                Ok(json) => HttpJson::ok(json),
+                Err(e) => {
+                    tracing::error!(error = %e, "auth_refresh: failed to serialize token response");
+                    refresh_internal_error()
+                }
             }
         }
         RotationOutcome::ReuseDetected {
@@ -112,7 +121,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 "Triggering cross-session notification for token reuse"
             );
 
-            denied_response(&tenant_id)
+            refresh_unauthorized("invalid_grant", "Refresh token reuse detected")
         }
         RotationOutcome::InvalidToken => {
             tracing::warn!(
@@ -136,7 +145,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 EMITTER.emit(entry);
             }
 
-            denied_response(&tenant_id)
+            refresh_unauthorized(
+                "invalid_grant",
+                "Invalid or expired refresh token",
+            )
         }
         RotationOutcome::RedisUnavailable => {
             tracing::error!(
@@ -160,24 +172,27 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
                 EMITTER.emit(entry);
             }
 
-            denied_response(&tenant_id)
+            refresh_internal_error()
         }
     }
 }
 
-fn denied_response(_tenant_id: &str) -> Response {
-    Response {
-        access_token: String::new(),
-        email: None,
-        email_verified: None,
-        expires_in: 0,
-        id_token: None,
-        mfa_required: Some(true),
-        phone_verified: None,
-        refresh_token: String::new(),
-        refresh_token_expires_in: None,
-        scope: None,
-        token_type: "Bearer".to_string(),
-        user_id: String::new(),
-    }
+fn refresh_unauthorized(error: &str, error_description: &str) -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        401,
+        serde_json::json!({
+            "error": error,
+            "error_description": error_description,
+        }),
+    )
+}
+
+fn refresh_internal_error() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        500,
+        serde_json::json!({
+            "error": "internal_error",
+            "error_description": "An unexpected error occurred",
+        }),
+    )
 }

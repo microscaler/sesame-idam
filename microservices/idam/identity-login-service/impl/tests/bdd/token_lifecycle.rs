@@ -58,7 +58,7 @@ fn redis_reachable() -> bool {
 
 /// Configure DB, Redis, and a shared Ed25519 signing key before any handler
 /// touches the process-wide `SIGNER` lazy statics in login/session services.
-fn infra_available() -> bool {
+pub(crate) fn infra_available() -> bool {
     if !postgres_reachable() || !redis_reachable() {
         return false;
     }
@@ -95,7 +95,7 @@ fn infra_available() -> bool {
     true
 }
 
-fn unique_email(prefix: &str) -> String {
+pub(crate) fn unique_email(prefix: &str) -> String {
     format!("bddtest_{}_{}@example.com", prefix, Uuid::new_v4())
 }
 
@@ -208,7 +208,7 @@ fn userinfo_request(access_token: &str) -> HandlerRequest {
 }
 
 /// Assert the JSON body matches the hauliage E2E `TokenResponse` contract (H2.5).
-fn assert_token_response_shape(body: &serde_json::Value, expected_user_id: Option<&str>) {
+pub(crate) fn assert_token_response_shape(body: &serde_json::Value, expected_user_id: Option<&str>) {
     assert_eq!(body["token_type"], "Bearer");
     assert!(body["expires_in"].as_i64().unwrap_or(0) > 0);
     assert!(!body["access_token"].as_str().unwrap_or("").is_empty());
@@ -291,32 +291,31 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
 
     // ── Refresh (session service, Redis rotation) ──
     let refreshed = auth_refresh::handle(refresh_request(&refresh_token));
-    assert!(
-        !refreshed.access_token.is_empty(),
-        "refresh should issue a new access token"
-    );
-    assert_eq!(refreshed.user_id, user_id);
-    assert_eq!(refreshed.token_type, "Bearer");
-    assert!(refreshed.expires_in > 0);
-    assert!(
-        refreshed.refresh_token_expires_in.unwrap_or(0) > 0,
-        "refresh_token_expires_in must be set"
-    );
+    assert_eq!(refreshed.status, 200, "refresh: {:?}", refreshed.body);
+    assert_token_response_shape(&refreshed.body, Some(&user_id));
+    let refresh_body = &refreshed.body;
     signer
-        .verify(&refreshed.access_token)
+        .verify(refresh_body["access_token"].as_str().unwrap())
         .expect("refreshed access token signature");
     assert!(
-        refreshed.refresh_token.contains('.'),
+        refresh_body["refresh_token"]
+            .as_str()
+            .unwrap_or("")
+            .contains('.'),
         "rotated refresh token must be a signed JWT"
     );
 
-    let rotated_refresh = refreshed.refresh_token.clone();
+    let rotated_refresh = refresh_body["refresh_token"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     // Old refresh token must not rotate again (denylisted after rotation)
     let reuse = auth_refresh::handle(refresh_request(&refresh_token));
+    assert_eq!(reuse.status, 401, "pre-rotation refresh must return 401: {:?}", reuse.body);
     assert!(
-        reuse.access_token.is_empty(),
-        "pre-rotation refresh token must be rejected"
+        reuse.body["error"].as_str().is_some(),
+        "401 body must include OAuth error code"
     );
 
     // ── Logout (revoke family in Redis) ──
@@ -325,9 +324,10 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
 
     // ── Post-logout refresh rejected ──
     let after_logout = auth_refresh::handle(refresh_request(&rotated_refresh));
-    assert!(
-        after_logout.access_token.is_empty(),
-        "refresh after logout must fail"
+    assert_eq!(
+        after_logout.status, 401,
+        "refresh after logout must return 401: {:?}",
+        after_logout.body
     );
 }
 
