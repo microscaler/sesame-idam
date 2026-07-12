@@ -1,9 +1,9 @@
 # Account-first onboarding — Sesame implementation checkpoint (2026-07-08)
 
-- **Status**: `partially-verified` — compiles on ms02; consumer E2E with Hauliage BFF pending
+- **Status**: `partially-verified` — A2/A5 live BDD green; A6 Playwright E2E green (2026-07-12)
 - **Source docs**: [`../ADR-002-tenant-consumer-idam-api-boundary.md`](../../ADR-002-tenant-consumer-idam-api-boundary.md), [`openapi/idam/tenant-consumer/openapi.yaml`](../../openapi/idam/tenant-consumer/openapi.yaml), Hauliage [`PRD_account-first-onboarding.md`](../../../hauliage/docs/PRD_account-first-onboarding.md)
-- **Last updated**: 2026-07-08
-- **Paused for**: BRRTRouter [`PRD_IMPL_CONTROLLER_LIFECYCLE.md`](../../../BRRTRouter/docs/PRD_IMPL_CONTROLLER_LIFECYCLE.md)
+- **Last updated**: 2026-07-12
+- **Paused for**: Wave A commit + A8 in-cluster verify (optional)
 
 ## What it is
 
@@ -11,10 +11,12 @@ Sesame owns **users, orgs, memberships, invites**, and JWT **`org_id`**. Tenant 
 
 ## Resume here (next session)
 
-1. Redeploy identity-login + org-mgmt after ms02 `cargo check` passes
-2. Smoke: register → `POST /idam/v1/organizations` → `POST /idam/v1/sessions/active-organization` → verify JWT `org_id`
-3. With Hauliage BFF: full chain through `POST /api/v1/organizations/me`
-4. Align demo seed users to `org_memberships` + Hauliage `organization_profiles` (same org UUID)
+1. **Port-forward (ms02):** `export KUBECONFIG=../shared-k8s-cluster/kubeconfig/shared-k8s.yaml` then forward `data/postgres:5432` and `data/redis:6379`
+2. ~~Run account_first BDD~~ ✅ 2/2 pass (2026-07-12)
+3. ~~Hauliage E2E (A6)~~ ✅ Playwright green 2026-07-12
+4. Commit sesame-idam Wave A changes when ready
+
+See [`docs/audit/first-delivery-wave-a.md`](../../audit/first-delivery-wave-a.md) for full staged backlog.
 
 ## Implemented
 
@@ -28,14 +30,14 @@ Sesame owns **users, orgs, memberships, invites**, and JWT **`org_id`**. Tenant 
 
 | Controller | Path | Notes |
 |------------|------|--------|
-| `set_active_organization.rs` | `POST /sessions/active-organization` | Re-issue JWT after org create/accept |
+| `set_active_organization.rs` | `POST /sessions/active-organization` | Re-issue JWT after org create/accept (**typed handler + `auth_context`**, Wave A2) |
 | `auth_login.rs` | `POST /auth/login` | Resolves active org when membership exists |
 | `auth_register.rs` | `POST /auth/register` | Identity only |
 | `auth_logout.rs` | `POST /auth/logout` | Refresh revoke |
 
 OpenAPI: `openapi/idam/identity-login-service/openapi.yaml` — `/sessions/active-organization` added.
 
-Wired in `impl/src/main.rs` via Register & Overwrite (untyped for `set_active_organization`).
+Wired in `impl/src/main.rs` via Register & Overwrite (typed dispatch for `set_active_organization`).
 
 ### org-mgmt (consumer API)
 
@@ -66,8 +68,8 @@ Hauliage client default: login URL `:8101` → org-mgmt `:8104` when `SESAME_ORG
 ## Not done
 
 - Full OpenAPI regen for all org-mgmt admin stubs (only consumer handlers wired in `main.rs`)
-- Frontend / BFF onboarding UX (Hauliage repo)
-- Demo user re-seed for account-first model
+- Frontend / BFF onboarding UX (Hauliage repo) — Playwright spec exists; needs live stack (`REAL_LOGIN=1`)
+- Live DB verification of account-first BDD ✅ (ms02 2026-07-12)
 - ADR-002 S2+ consumer paths beyond org lifecycle
 
 ## Protected impl files

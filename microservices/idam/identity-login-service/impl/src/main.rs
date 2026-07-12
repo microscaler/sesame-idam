@@ -134,13 +134,12 @@ fn main() -> io::Result<()> {
                     dispatcher.add_route(route.clone(), tx);
                 }
                 "set_active_organization" => {
-                    if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
-                        |req| controllers::set_active_organization::handle(req),
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::set_active_organization::SetActiveOrganizationController,
                         20480,
                         Some(route.handler_name.as_ref()),
-                    ) {
-                        dispatcher.add_route(route.clone(), tx);
-                    }
+                    );
+                    dispatcher.add_route(route.clone(), tx);
                 }
                 _ => {} // gen stubs serve everything else for now
             }

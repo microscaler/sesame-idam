@@ -591,3 +591,16 @@ OpenAPI already had `401` + `ErrorResponse` schema on `/session/refresh` (BR-3 t
 - **BRRTRouter:** `ImplControllerStubParams.uses_http_json` field fix (unblocks workspace compile during BR-3 work).
 
 Enriched [`docs/audit/epic-delivery-audit-2026-07-10.md`](../audit/epic-delivery-audit-2026-07-10.md) with delivery-tier model (D0–D6), stub vs impl matrix, cross-repo/platform gaps (k8s `:8080`, BR-3/SI-4, account-first E2E), and Waves A–D priority roadmap. Noted SI-3 merged (§7.1 done); `set_active_organization` remains raw-handler outlier.
+
+## [2026-07-12] verify | Wave A redeploy + backlog reconciliation
+
+- **Tilt (ms02, port 10351):** triggered `build`/`docker`/`deploy` for `identity-login-service` and `identity-session-service`.
+- **Compile:** `cargo check` for login + session services — clean.
+- **BDD:** `account_first` (2) and `users_me` (6) pass with **SKIP** (Postgres/Redis unreachable).
+- **Blocker resolved:** shared-k8s cluster healthy; use `KUBECONFIG=../shared-k8s-cluster/kubeconfig/shared-k8s.yaml` (default kubectl context unset).
+- **Port-forward:** postgres + redis from namespace `data` (not `sesame-idam` for redis).
+- **Live BDD (all pass):** `account_first` 2/2, `token_lifecycle` 2/2, `users_me` 6/6, `api_keys` 14/14.
+- **Fix:** `api_key_flow.rs` — add `jwt_claims: None` to `TypedHandlerRequest` (BR-2 field).
+- **Backlog update:** [`first-delivery-wave-a.md`](../audit/first-delivery-wave-a.md) — A7 seeds ✅, A9 validate+BDD ✅, A8 helm/database-env 🟡, A6 Playwright spec 🟡 (`REAL_LOGIN=1`).
+- **A6 green:** Hauliage Playwright `real_account_first_onboarding.spec.ts` — register → onboarding → `POST /api/v1/organizations/me` → shipper dashboard (4.1s). Required frontend pod restart (stuck nginx `/api/v1/` proxy).
+- **Uncommitted:** Wave A sesame-idam code + audit docs on ms02 working tree.

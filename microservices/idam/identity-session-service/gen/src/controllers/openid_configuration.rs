@@ -1,12 +1,13 @@
 // User-owned controller for handler 'openid_configuration'.
 
 use crate::handlers::openid_configuration::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(OpenidConfigurationController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
+    HttpJson::ok(Response {
         authorization_endpoint: Some("example".to_string()),
         code_challenge_methods_supported: Some(vec![]),
         grant_types_supported: Some(vec![]),
@@ -23,5 +24,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         userinfo_encryption_enc_values_supported: Some(vec![]),
         userinfo_endpoint: Some("example".to_string()),
         userinfo_signing_alg_values_supported: Some(vec![]),
-    }
+    })
 }

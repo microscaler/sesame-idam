@@ -12,6 +12,7 @@
 //! and BDD tests (which call controllers/services directly).
 
 pub mod audit;
+pub mod auth_context;
 pub mod controllers;
 pub mod jwt;
 pub mod models;

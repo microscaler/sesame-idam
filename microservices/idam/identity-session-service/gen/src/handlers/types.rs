@@ -499,6 +499,8 @@ pub struct OAuthTokenResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OauthUserinfoResponse {
+    pub avatar_url: serde_json::Value,
+
     pub email: String,
 
     pub email_verified: bool,
@@ -516,8 +518,6 @@ pub struct OauthUserinfoResponse {
     pub phone_number: serde_json::Value,
 
     pub phone_verified: bool,
-
-    pub picture_url: serde_json::Value,
 
     pub preferred_username: serde_json::Value,
 
@@ -817,13 +817,13 @@ pub struct UpdatePasswordRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateUserProfileRequest {
+    pub avatar_url: String,
+
     pub first_name: String,
 
     pub last_name: String,
 
     pub name: String,
-
-    pub picture_url: String,
 
     pub preferred_username: String,
 }
@@ -894,6 +894,8 @@ pub struct User {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UserProfile {
+    pub avatar_url: serde_json::Value,
+
     pub email: String,
 
     pub email_verified: bool,
@@ -911,8 +913,6 @@ pub struct UserProfile {
     pub phone_number: serde_json::Value,
 
     pub phone_verified: bool,
-
-    pub picture_url: serde_json::Value,
 
     pub preferred_username: serde_json::Value,
 
@@ -971,6 +971,8 @@ pub struct UserQueryResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UsersMeGetResponse {
+    pub avatar_url: serde_json::Value,
+
     pub email: String,
 
     pub email_verified: bool,
@@ -988,8 +990,6 @@ pub struct UsersMeGetResponse {
     pub phone_number: serde_json::Value,
 
     pub phone_verified: bool,
-
-    pub picture_url: serde_json::Value,
 
     pub preferred_username: serde_json::Value,
 
@@ -1010,19 +1010,21 @@ pub struct UsersMeGetResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UsersMePatchRequest {
+    pub avatar_url: String,
+
     pub first_name: String,
 
     pub last_name: String,
 
     pub name: String,
 
-    pub picture_url: String,
-
     pub preferred_username: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UsersMePatchResponse {
+    pub avatar_url: serde_json::Value,
+
     pub email: String,
 
     pub email_verified: bool,
@@ -1040,8 +1042,6 @@ pub struct UsersMePatchResponse {
     pub phone_number: serde_json::Value,
 
     pub phone_verified: bool,
-
-    pub picture_url: serde_json::Value,
 
     pub preferred_username: serde_json::Value,
 

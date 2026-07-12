@@ -3,6 +3,7 @@
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
 use brrtrouter::dispatcher::HandlerRequest;
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
@@ -16,6 +17,10 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "avatar_url")]
+    pub avatar_url: Option<serde_json::Value>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "email")]
     pub email: Option<String>,
@@ -51,10 +56,6 @@ pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "phone_verified")]
     pub phone_verified: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "picture_url")]
-    pub picture_url: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "preferred_username")]
@@ -129,6 +130,6 @@ impl TryFrom<HandlerRequest> for Request {
 }
 
 #[allow(dead_code)]
-pub fn handler(req: TypedHandlerRequest<Request>) -> Response {
+pub fn handler(req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     crate::controllers::oauth_userinfo::handle(req)
 }

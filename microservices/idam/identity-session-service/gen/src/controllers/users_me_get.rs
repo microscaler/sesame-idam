@@ -1,11 +1,12 @@
 // User-owned controller for handler 'users_me_get'.
 
 use crate::handlers::users_me_get::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(UsersMeGetController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "avatar_url": "https://example.com/avatars/alice.png",
@@ -39,14 +40,17 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "username": "alice"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
+        avatar_url: Some(serde_json::Value::String(
+            "https://example.com/avatars/alice.png".to_string(),
+        )),
         email: Some("alice@example.com".to_string()),
         email_verified: Some(true),
         first_name: Some("Alice".to_string()),
@@ -56,7 +60,6 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         org_name: Some(Default::default()),
         phone_number: Some(Default::default()),
         phone_verified: Some(false),
-        picture_url: Some(Default::default()),
         preferred_username: Some(Default::default()),
         properties: Some(Default::default()),
         sub: Some("example".to_string()),
@@ -65,5 +68,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         user_permissions: Some(Default::default()),
         user_role: Some(Default::default()),
         username: Some("alice".to_string()),
-    }
+    })
 }

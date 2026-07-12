@@ -1,12 +1,13 @@
 // User-owned controller for handler 'admin_issue_token'.
 
 use crate::handlers::admin_issue_token::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(AdminIssueTokenController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
+    HttpJson::ok(Response {
         access_token: "example".to_string(),
         email: Some("example".to_string()),
         email_verified: Some(true),
@@ -19,5 +20,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         scope: Some("example".to_string()),
         token_type: "example".to_string(),
         user_id: "example".to_string(),
-    }
+    })
 }

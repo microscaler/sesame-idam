@@ -1,11 +1,12 @@
 // User-owned controller for handler 'jwks'.
 
 use crate::handlers::jwks::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(JwksController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "keys": [
@@ -33,16 +34,16 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   ]
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         keys: vec![
             serde_json::json!({"alg":"EdDSA","crv":"Ed25519","kid":"key-2026-05-18-12","kty":"OKP","use":"sig","x":"pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM"}),
         ],
-    }
+    })
 }

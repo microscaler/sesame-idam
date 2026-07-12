@@ -1,12 +1,14 @@
 // User-owned controller for handler 'oauth_userinfo'.
 
 use crate::handlers::oauth_userinfo::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(OauthUserinfoController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
+    HttpJson::ok(Response {
+        avatar_url: Some(Default::default()),
         email: Some("example".to_string()),
         email_verified: Some(true),
         first_name: Some("example".to_string()),
@@ -16,7 +18,6 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         org_name: Some(Default::default()),
         phone_number: Some(Default::default()),
         phone_verified: Some(true),
-        picture_url: Some(Default::default()),
         preferred_username: Some(Default::default()),
         properties: Some(Default::default()),
         sub: Some("example".to_string()),
@@ -25,5 +26,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         user_permissions: Some(Default::default()),
         user_role: Some(Default::default()),
         username: Some("example".to_string()),
-    }
+    })
 }

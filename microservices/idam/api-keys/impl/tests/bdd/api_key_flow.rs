@@ -107,6 +107,7 @@ fn create_request(
             user_id: Some(serde_json::Value::String(user_id.to_string())),
             x_tenant_id: tenant.to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -126,6 +127,7 @@ fn validate_request(
             key_type: key_type.map(String::from),
             x_tenant_id: tenant.to_string(),
         },
+        jwt_claims: None,
     }
 }
 

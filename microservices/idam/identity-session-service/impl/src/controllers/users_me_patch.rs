@@ -27,7 +27,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let update = ProfileUpdate {
         first_name: req.data.first_name.clone(),
         last_name: req.data.last_name.clone(),
-        avatar_url: req.data.picture_url.clone(),
+        avatar_url: req.data.avatar_url.clone(),
     };
 
     for (label, value) in [

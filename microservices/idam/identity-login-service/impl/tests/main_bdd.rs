@@ -3,6 +3,7 @@
 pub mod common;
 
 pub mod bdd {
+    pub mod account_first_onboarding;
     pub mod auth_flow;
     pub mod authz_enrichment;
     pub mod jwt_ttl;
