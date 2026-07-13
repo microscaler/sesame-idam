@@ -1,11 +1,12 @@
 // User-owned controller for handler 'verify_dual_otp'.
 
 use crate::handlers::verify_dual_otp::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(VerifyDualOtpController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "access_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig",
@@ -31,15 +32,15 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         newly_verified_email: Some(true),
         newly_verified_phone: Some(true),
-    }
+    })
 }

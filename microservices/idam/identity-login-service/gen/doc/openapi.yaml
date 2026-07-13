@@ -833,6 +833,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: signup_validate
+      x-brrtrouter-impl: true
       security: []
       parameters:
       - *id007

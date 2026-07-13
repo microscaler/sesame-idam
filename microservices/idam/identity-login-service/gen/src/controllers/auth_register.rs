@@ -1,11 +1,12 @@
 // User-owned controller for handler 'auth_register'.
 
 use crate::handlers::auth_register::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(AuthRegisterController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "access_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6Im5ld3VzZXJAZXhwLmNvbSJ9.sig",
@@ -31,14 +32,14 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         access_token:
             "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6Im5ld3VzZXJAZXhwLmNvbSJ9.sig"
                 .to_string(),
@@ -55,5 +56,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         token_type: "Bearer".to_string(),
         token_version: Some(42),
         user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d".to_string(),
-    }
+    })
 }

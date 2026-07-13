@@ -1,11 +1,12 @@
 // User-owned controller for handler 'magic_link_verify'.
 
 use crate::handlers::magic_link_verify::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(MagicLinkVerifyController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "access_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig",
@@ -31,14 +32,14 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         access_token: "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig"
             .to_string(),
         entitlements_hash: Some("example".to_string()),
@@ -54,5 +55,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         token_type: "Bearer".to_string(),
         token_version: Some(42),
         user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d".to_string(),
-    }
+    })
 }
