@@ -10,6 +10,7 @@ use lifeguard::{ColumnTrait, LifeExecutor, LifeModelTrait};
 use uuid::Uuid;
 
 use crate::models::org::{Column as OrgColumn, Entity as OrgEntity, OrgRecord};
+use crate::models::org_invite::OrgInviteRecord;
 use crate::models::org_membership::{
     Column as MembershipColumn, Entity as MembershipEntity, OrgMembershipRecord,
 };
@@ -200,20 +201,19 @@ pub fn invite_by_email<E: LifeExecutor>(
     let now = Utc::now();
     let expires = now + Duration::days(7);
 
-    exec.execute_values(
-        "INSERT INTO sesame_idam.org_invites (id, org_id, email, role, token, expires_at, created_at, accepted_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)",
-        &sea_query::Values(vec![
-            invite_id.into(),
-            org_uuid.into(),
-            email.to_lowercase().into(),
-            role.into(),
-            token.clone().into(),
-            expires.into(),
-            now.into(),
-        ]),
-    )
-    .map_err(|e| OrgLifecycleError::Db(format!("org_invites: {e}")))?;
+    let mut invite_rec = OrgInviteRecord::new();
+    invite_rec
+        .set_id(invite_id)
+        .set_org_id(org_uuid)
+        .set_email(email.to_lowercase())
+        .set_role(role.to_string())
+        .set_token(token.clone())
+        .set_expires_at(expires)
+        .set_created_at(now)
+        .set_accepted_at(None);
+    invite_rec
+        .insert(exec)
+        .map_err(|e| OrgLifecycleError::Db(format!("org_invites: {e}")))?;
 
     tracing::info!(
         email = %email,
@@ -302,16 +302,24 @@ fn user_has_active_org<E: LifeExecutor>(
     user_id: Uuid,
     tenant_id: &str,
 ) -> Result<bool, OrgLifecycleError> {
-    let exists = exec
-        .query_one_values(
-            "SELECT 1 FROM sesame_idam.org_memberships om
-             INNER JOIN sesame_idam.organizations o ON o.id = om.org_id
-             WHERE om.user_id = $1 AND om.status = 'active' AND o.tenant_id = $2
-             LIMIT 1",
-            &sea_query::Values(vec![user_id.into(), tenant_id.into()]),
-        )
-        .is_ok();
-    Ok(exists)
+    let memberships = MembershipEntity::find()
+        .filter(MembershipColumn::UserId.eq(user_id))
+        .filter(MembershipColumn::Status.eq("active".to_string()))
+        .all(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?;
+
+    for m in memberships {
+        let in_tenant = OrgEntity::find()
+            .filter(OrgColumn::Id.eq(m.org_id))
+            .filter(OrgColumn::TenantId.eq(tenant_id.to_string()))
+            .find_one(exec)
+            .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+            .is_some();
+        if in_tenant {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn ensure_org_tenant<E: LifeExecutor>(
@@ -319,11 +327,12 @@ fn ensure_org_tenant<E: LifeExecutor>(
     org_id: Uuid,
     tenant_id: &str,
 ) -> Result<(), OrgLifecycleError> {
-    exec.query_one_values(
-        "SELECT 1 FROM sesame_idam.organizations WHERE id = $1 AND tenant_id = $2",
-        &sea_query::Values(vec![org_id.into(), tenant_id.into()]),
-    )
-    .map_err(|_| OrgLifecycleError::NotFound)?;
+    OrgEntity::find()
+        .filter(OrgColumn::Id.eq(org_id))
+        .filter(OrgColumn::TenantId.eq(tenant_id.to_string()))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+        .ok_or(OrgLifecycleError::NotFound)?;
     Ok(())
 }
 
@@ -340,22 +349,32 @@ pub fn add_user_membership<E: LifeExecutor>(
         Uuid::parse_str(user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
     ensure_org_tenant(exec, org_uuid, tenant_id)?;
 
-    let membership_id = Uuid::new_v4();
+    // Idempotent (replaces the raw INSERT ... ON CONFLICT DO NOTHING): skip when
+    // the user is already a member of the org.
+    let already_member = MembershipEntity::find()
+        .filter(MembershipColumn::OrgId.eq(org_uuid))
+        .filter(MembershipColumn::UserId.eq(user_uuid))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+        .is_some();
+    if already_member {
+        return Ok(());
+    }
+
     let now = Utc::now();
 
-    exec.execute_values(
-        "INSERT INTO sesame_idam.org_memberships (id, org_id, user_id, role, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, 'active', $5, $5)
-         ON CONFLICT DO NOTHING",
-        &sea_query::Values(vec![
-            membership_id.into(),
-            org_uuid.into(),
-            user_uuid.into(),
-            role.into(),
-            now.into(),
-        ]),
-    )
-    .map_err(|e| OrgLifecycleError::Db(format!("org_memberships: {e}")))?;
+    let mut membership_rec = OrgMembershipRecord::new();
+    membership_rec
+        .set_id(Uuid::new_v4())
+        .set_org_id(org_uuid)
+        .set_user_id(user_uuid)
+        .set_role(role.to_string())
+        .set_status("active".to_string())
+        .set_created_at(now)
+        .set_updated_at(now);
+    membership_rec
+        .insert(exec)
+        .map_err(|e| OrgLifecycleError::Db(format!("org_memberships: {e}")))?;
 
     Ok(())
 }

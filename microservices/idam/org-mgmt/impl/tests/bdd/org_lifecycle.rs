@@ -127,6 +127,54 @@ fn create_and_fetch_org_roundtrips_metadata() {
     assert_eq!(detail.name, "Shipper Co");
 }
 
+/// Scenario: ORM invite + idempotent add-membership; the added user can then read the org.
+#[test]
+fn invite_and_add_membership_via_orm() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("invite");
+    let owner = Uuid::new_v4();
+    seed_user(&tenant, owner);
+
+    let exec = sesame_idam_database::db();
+    let org = org_lifecycle::create_organization(
+        exec,
+        &tenant,
+        &owner.to_string(),
+        "Inviter Co",
+        None,
+    )
+    .expect("create org");
+
+    let invite_id = org_lifecycle::invite_by_email(
+        exec,
+        &tenant,
+        &org.id.to_string(),
+        "Newbie@Example.com",
+        "member",
+    )
+    .expect("invite by email");
+    assert!(!invite_id.is_nil());
+
+    let newbie = Uuid::new_v4();
+    seed_user(&tenant, newbie);
+    let org_id = org.id.to_string();
+
+    // First add + idempotent repeat must both succeed.
+    org_lifecycle::add_user_membership(exec, &tenant, &org_id, &newbie.to_string(), "member")
+        .expect("add membership");
+    org_lifecycle::add_user_membership(exec, &tenant, &org_id, &newbie.to_string(), "member")
+        .expect("add membership idempotent");
+
+    // Added user is now a member and can read the org.
+    let detail = org_lifecycle::get_organization(exec, &tenant, &org_id, &newbie.to_string())
+        .expect("added member reads org");
+    assert_eq!(detail.name, "Inviter Co");
+}
+
 /// Scenario: a non-member is forbidden (does not leak org existence).
 #[test]
 fn get_organization_forbidden_for_non_member() {
