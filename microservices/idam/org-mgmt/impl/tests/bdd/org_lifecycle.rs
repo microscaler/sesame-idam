@@ -175,6 +175,40 @@ fn invite_and_add_membership_via_orm() {
     assert_eq!(detail.name, "Inviter Co");
 }
 
+/// Scenario: list_memberships returns the user's orgs in the caller's tenant only.
+#[test]
+fn list_memberships_is_tenant_scoped() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("memlist");
+    let other_tenant = unique_tenant("memlist-other");
+    let user_id = Uuid::new_v4();
+    seed_user(&tenant, user_id);
+
+    let org_a = Uuid::new_v4();
+    let org_b = Uuid::new_v4();
+    let org_other = Uuid::new_v4();
+    seed_org(&tenant, org_a, "Org A");
+    seed_org(&tenant, org_b, "Org B");
+    seed_org(&other_tenant, org_other, "Foreign Org");
+    seed_membership(org_a, user_id, "owner");
+    seed_membership(org_b, user_id, "member");
+    seed_membership(org_other, user_id, "member");
+
+    let exec = sesame_idam_database::db();
+    let memberships = org_lifecycle::list_memberships(exec, &tenant, &user_id.to_string())
+        .expect("list memberships");
+
+    // Only the two orgs in `tenant` — the other-tenant membership is excluded.
+    assert_eq!(memberships.len(), 2, "got {memberships:?}");
+    let names: Vec<&str> = memberships.iter().map(|m| m.org_name.as_str()).collect();
+    assert!(names.contains(&"Org A") && names.contains(&"Org B"));
+    assert!(!names.contains(&"Foreign Org"));
+}
+
 /// Scenario: a non-member is forbidden (does not leak org existence).
 #[test]
 fn get_organization_forbidden_for_non_member() {

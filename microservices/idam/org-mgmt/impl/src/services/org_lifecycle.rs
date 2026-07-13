@@ -32,6 +32,7 @@ pub struct OrganizationSummary {
     pub tenant_id: String,
 }
 
+#[derive(Debug)]
 pub struct MembershipSummary {
     pub org_id: Uuid,
     pub org_name: String,
@@ -157,30 +158,29 @@ pub fn list_memberships<E: LifeExecutor>(
     let user_uuid =
         Uuid::parse_str(user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
 
-    let rows = exec
-        .query_all_values(
-            "SELECT o.id::text, o.name, om.role, om.status
-             FROM sesame_idam.org_memberships om
-             INNER JOIN sesame_idam.organizations o ON o.id = om.org_id
-             WHERE om.user_id = $1 AND o.tenant_id = $2
-             ORDER BY om.created_at ASC",
-            &sea_query::Values(vec![user_uuid.into(), tenant_id.into()]),
-        )
+    let mut memberships = MembershipEntity::find()
+        .filter(MembershipColumn::UserId.eq(user_uuid))
+        .all(exec)
         .map_err(|e| OrgLifecycleError::Db(e.to_string()))?;
+    // ORDER BY created_at ASC (sorted client-side to keep the query single-column).
+    memberships.sort_by(|a, b| a.created_at.cmp(&b.created_at));
 
     let mut out = Vec::new();
-    for row in rows {
-        let org_id: String = row.get(0);
-        let org_name: String = row.get(1);
-        let role: String = row.get(2);
-        let status: String = row.get(3);
-        out.push(MembershipSummary {
-            org_id: Uuid::parse_str(&org_id)
-                .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?,
-            org_name,
-            role,
-            status,
-        });
+    for m in memberships {
+        // Only include memberships whose org belongs to the caller's tenant.
+        if let Some(org) = OrgEntity::find()
+            .filter(OrgColumn::Id.eq(m.org_id))
+            .filter(OrgColumn::TenantId.eq(tenant_id.to_string()))
+            .find_one(exec)
+            .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+        {
+            out.push(MembershipSummary {
+                org_id: m.org_id,
+                org_name: org.name,
+                role: m.role,
+                status: m.status,
+            });
+        }
     }
     Ok(out)
 }
