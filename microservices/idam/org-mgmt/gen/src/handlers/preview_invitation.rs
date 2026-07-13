@@ -3,7 +3,6 @@
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
 use brrtrouter::dispatcher::HandlerRequest;
-use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
@@ -13,27 +12,24 @@ pub struct Request {
     #[serde(rename = "X-Tenant-ID")]
     pub x_tenant_id: String,
 
-    #[serde(rename = "org_id")]
-    pub org_id: String,
+    #[serde(rename = "token")]
+    pub token: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(rename = "error")]
-    pub error: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "expired")]
+    pub expired: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "error_description")]
-    pub error_description: Option<String>,
+    #[serde(rename = "organization_name")]
+    pub organization_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "hint")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "retry_after")]
-    pub retry_after: Option<i32>,
+    #[serde(rename = "valid")]
+    pub valid: Option<bool>,
 }
 
 impl TryFrom<HandlerRequest> for Request {
@@ -58,18 +54,18 @@ impl TryFrom<HandlerRequest> for Request {
             return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
         }
 
-        if let Some(v) = req.get_path_param("org_id") {
+        if let Some(v) = req.get_query_param("token") {
             data_map.insert(
-                "org_id".to_string(),
+                "token".to_string(),
                 brrtrouter::server::request::decode_param_value(
                     v,
-                    Some(&serde_json::json!({"format":"uuid","type":"string"})),
+                    Some(&serde_json::json!({"type":"string"})),
                     None,
                     None,
                 ),
             );
         } else {
-            return Err(anyhow::anyhow!("Missing required parameter 'org_id'"));
+            return Err(anyhow::anyhow!("Missing required parameter 'token'"));
         }
 
         if let Some(body) = req.body {
@@ -90,6 +86,6 @@ impl TryFrom<HandlerRequest> for Request {
 }
 
 #[allow(dead_code)]
-pub fn handler(req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
-    crate::controllers::set_saml_idp_metadata::handle(req)
+pub fn handler(req: TypedHandlerRequest<Request>) -> Response {
+    crate::controllers::preview_invitation::handle(req)
 }

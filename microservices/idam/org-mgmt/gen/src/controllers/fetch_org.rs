@@ -1,12 +1,13 @@
 // User-owned controller for handler 'fetch_org'.
 
 use crate::handlers::fetch_org::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(FetchOrgController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
+    HttpJson::ok(Response {
         can_setup_saml: Some(true),
         created_at: "example".to_string(),
         domain: Some("example".to_string()),
@@ -28,5 +29,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         slug: "example".to_string(),
         sso_trust_level: Some(Default::default()),
         updated_at: Some("example".to_string()),
-    }
+    })
 }

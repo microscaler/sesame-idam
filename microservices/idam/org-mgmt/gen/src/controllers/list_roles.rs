@@ -1,11 +1,12 @@
 // User-owned controller for handler 'list_roles'.
 
 use crate::handlers::list_roles::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(ListRolesController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "limit": 20,
@@ -63,12 +64,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "total": 2
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {}
+    HttpJson::ok(Response {})
 }

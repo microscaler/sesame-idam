@@ -1,12 +1,13 @@
 // User-owned controller for handler 'scim_create_user'.
 
 use crate::handlers::scim_create_user::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(ScimCreateUserController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
+    HttpJson::ok(Response {
         active: Some(true),
         emails: vec![],
         id: "example".to_string(),
@@ -14,5 +15,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         roles: Some(vec![]),
         schemas: Some(vec![]),
         user_name: "example".to_string(),
-    }
+    })
 }

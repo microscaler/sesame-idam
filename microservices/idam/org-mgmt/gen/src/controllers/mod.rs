@@ -27,6 +27,8 @@ pub mod revoke_permission_from_role;
 
 pub mod accept_invitation;
 
+pub mod preview_invitation;
+
 pub mod query_orgs;
 
 pub mod create_organization;

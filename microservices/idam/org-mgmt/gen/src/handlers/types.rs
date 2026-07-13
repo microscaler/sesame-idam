@@ -607,6 +607,15 @@ pub struct Permission {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PreviewInvitationResponse {
+    pub expired: bool,
+
+    pub organization_name: String,
+
+    pub valid: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct RemoveUserFromOrgResponse {
     pub error: String,
 

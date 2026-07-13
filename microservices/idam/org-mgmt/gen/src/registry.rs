@@ -90,6 +90,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "preview_invitation",
+        crate::controllers::preview_invitation::PreviewInvitationController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "query_orgs",
         crate::controllers::query_orgs::QueryOrgsController,
         24576,
@@ -399,6 +405,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "accept_invitation" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::accept_invitation::AcceptInvitationController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "preview_invitation" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::preview_invitation::PreviewInvitationController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
