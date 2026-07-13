@@ -53,6 +53,37 @@ webhooks-admin, OTP/social login, MFA, user-mgmt admin CRUD) is **out of launch 
 
 ---
 
+## Progress — 2026-07-13 (this session)
+
+**The D3/D4 frozen contract (ADR-002 §3.1) is now functionally complete and tested.**
+Commits on `feat/d4-hauliage-consumer-surface`:
+
+| Commit | Delivered |
+|--------|-----------|
+| `479b30d` | `GET /organizations/{id}` (`fetch_org`) — real, ORM, membership + tenant-isolation BDD |
+| `a8123ca` | `GET /auth/signup/validate` — real tenant-scoped availability pre-check + BDD |
+| `97fb99a` | Org `metadata` JSONB (persona, ADR-002 §3.3) via entity+migrator; `create`/`get` migrated raw SQL → **Lifeguard ORM** |
+| `88b094e` | Logout denylists the access-token `jti` (revocation **write-path**) + BDD |
+
+Verification: **login 49/49 + org-mgmt 14/14** green under the serial gate
+(`lifeguard-shared-postgres` test-group). The lone parallel-run flake is a
+pre-existing shared-`AUTHZ_CORE_URL`-env race in `authz_enrichment.rs` (untouched),
+which the `db-serial` nextest profile already serializes.
+
+Dev-env: added the `metadata` column to the live shared DB as `postgres` and granted
+`sesame_idam` DML on `sesame_idam.*` (DDL stays with `postgres` via the migrator).
+
+**Remaining for launch:**
+- **Revocation enforcement (read-side)** — write-path done; `DenylistMiddleware` is a
+  stub (Redis closure is a placeholder returning `false`; only checks an unpopulated L1
+  cache). Needs Redis integration + per-service wiring + fail-open tests. Bounded for
+  Hauliage by the deferred hybrid online-fallback; interim mitigation is the 300s access
+  TTL + refresh/access denylist-on-logout. **Decision needed:** invest the cross-cutting
+  enforcement now, or accept the MVP mitigation and defer enforcement to the hybrid work.
+- **`invitations/preview`** — optional (ADR-002); needs an OpenAPI addition + `brrtrouter-gen`
+  regen and an inviter column. Deferred.
+- **A6** Hauliage BFF Playwright E2E (cross-repo) and **A8** k8s parity — unchanged.
+
 ## Where the last agent stopped (2026-07-12)
 
 Wave A (D1–D3) is functionally done but **uncommitted on the ms02 working tree**. Live

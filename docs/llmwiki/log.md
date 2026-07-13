@@ -1,5 +1,17 @@
 # LLM Wiki — Session Log
 
+## [2026-07-13] feat | D3/D4 frozen-contract build — fetch_org, signup_validate, org metadata, logout revocation
+
+Branch `feat/d4-hauliage-consumer-surface`. The ADR-002 §3.1 Hauliage consumer contract is now functionally complete.
+
+- **`fetch_org`** (`GET /organizations/{id}`, `479b30d`) — real controller + `org_lifecycle::get_organization` with membership + cross-tenant isolation (Forbidden, no existence leak). BDD member/non-member/cross-tenant (live DB).
+- **`signup_validate`** (`GET /auth/signup/validate`, `a8123ca`) — tenant-scoped availability pre-check (email_required/invalid/tenant_required/email_taken); register stays the authoritative gate. Was unregistered stub.
+- **Org `metadata`** (`97fb99a`) — JSONB column via `Org` LifeModel + migrator (`20260713065042_organizations.sql`, additive ALTER); `create_organization` persists opaque persona metadata (ADR-002 §3.3), `fetch_org` echoes it. **Migrated `create_organization`/`get_organization` from raw sea_query SQL → Lifeguard ORM** per policy; remaining invite/accept/list fns flagged legacy.
+- **Logout revocation write-path** (`88b094e`) — logout denylists the access `jti` (`denylist:{jti}`, TTL=remaining life) via validated `jwt_claims`, aligned with `sesame_common::denylist` key scheme. Read-side enforcement (`DenylistMiddleware`) still stubbed (placeholder Redis closure) — bounded by deferred hybrid fallback.
+- **Verify:** login 49/49 + org-mgmt 14/14 serial-green. Pre-existing parallel flake = `authz_enrichment` shared-env race (serialized by nextest `db-serial`). Dev DB: added `metadata` column as `postgres`, granted `sesame_idam` DML.
+
+See [`../audit/delivery-roadmap-2026-07-13.md`](../audit/delivery-roadmap-2026-07-13.md) "Progress — 2026-07-13".
+
 ## [2026-07-13] docs | Delivery roadmap re-scoped to 6-week D3/D4 Hauliage launch
 
 - **New:** [`docs/audit/delivery-roadmap-2026-07-13.md`](../audit/delivery-roadmap-2026-07-13.md).
