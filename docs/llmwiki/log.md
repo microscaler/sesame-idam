@@ -1,5 +1,13 @@
 # LLM Wiki — Session Log
 
+## [2026-07-13] docs | Delivery roadmap re-scoped to 6-week D3/D4 Hauliage launch
+
+- **New:** [`docs/audit/delivery-roadmap-2026-07-13.md`](../audit/delivery-roadmap-2026-07-13.md).
+- **Scope decision:** deliver narrow **D3/D4 Hauliage-consumer** target first — launch ≈6 weeks (2026-08-24). Full aspirational surface (RLS bridge, TS SDK, hosted UI, 119-endpoint parity, hybrid online-fallback authz) deferred to post-launch (Appendix A).
+- **Gap map (launch-scope only):** real = create org / memberships / accept+send invite / register / active-org / core auth. **Stub or missing** = `fetch_org`, `fetch_users_in_org`, `change_user_role_in_org`, `remove_user_from_org`, `revoke_pending_invite`, `invitations/preview` (no controller), role→permission mapping in `principal_effective`.
+- **6-week plan:** W1 commit Wave A + A8 verify + freeze BFF contract; W2 org read surface; W3 invite/membership lifecycle; W4 role→perm + persona claims; W5 revocation minimum (jti denylist + `ver` rejection, launch blocker); W6 E2E + tenant-isolation suite.
+- **Open decisions:** ADR-002 S3 webhook/worker provisioning in/out; api-keys rotation in/out; RLS bridge confirmed OUT (Hauliage self-enforces tenancy).
+
 ## [2026-05-17] Entity Wiki Pages — Comprehensive Audit and Fix
 
 ### Summary

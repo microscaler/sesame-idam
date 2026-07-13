@@ -11,3 +11,4 @@
 //! Org management — library target for migrator access.
 
 pub mod models;
+pub mod services;

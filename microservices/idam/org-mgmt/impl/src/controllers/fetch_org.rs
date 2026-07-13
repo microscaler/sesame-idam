@@ -1,50 +1,83 @@
+// BRRTRouter: user-owned
 
-// Implementation stub for handler 'fetch_org'
-// This file is a starting point for your implementation.
-// You can modify this file freely - it will NOT be auto-regenerated.
-// To regenerate this stub, use: brrtrouter-gen generate-stubs --path fetch_org --force
+//! Fetch org metadata for an authenticated member (`GET /organizations/{org_id}`).
 
-use brrtrouter_macros::handler;
-use sesame_idam_org_mgmt_gen::handlers::fetch_org::{Request, Response};
-use brrtrouter::typed::TypedHandlerRequest;
+use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
+use sesame_idam_database::db;
 
+use crate::jwt_context;
+use crate::services::org_lifecycle::{self, OrgLifecycleError};
 
+pub fn handle(req: HandlerRequest) -> HandlerResponse {
+    let Some(tenant_id) = jwt_context::tenant_from_request(&req) else {
+        return HandlerResponse::json(
+            400,
+            serde_json::json!({
+                "error": "missing_tenant",
+                "message": "X-Tenant-ID header is required"
+            }),
+        );
+    };
 
-/// Handler for Fetch Org.
-#[handler(FetchOrgController)]
-pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    // TODO: Implement your business logic here
-    // 
-    // Example: Access request data
-    // let org_id = req.inner.org_id;
-    //
-    // Example: Database query, validation, etc.
-    // let result = your_service.process(&req.inner)?;
-    //
-    // Example: Return response
-    
-    Response {
-        can_setup_saml: None, // TODO: Set from your business logic
-        created_at: "example".to_string(), // TODO: Set from your business logic
-        domain: None, // TODO: Set from your business logic
-        domain_auto_join: None, // TODO: Set from your business logic
-        domain_restrict: None, // TODO: Set from your business logic
-        domains: None, // TODO: Set from your business logic
-        id: "example".to_string(), // TODO: Set from your business logic
-        is_saml_configured: None, // TODO: Set from your business logic
-        is_saml_in_test_mode: None, // TODO: Set from your business logic
-        isolated: None, // TODO: Set from your business logic
-        legacy_org_id: None, // TODO: Set from your business logic
-        logo_url: None, // TODO: Set from your business logic
-        max_users: None, // TODO: Set from your business logic
-        metadata: None, // TODO: Set from your business logic
-        name: "example".to_string(), // TODO: Set from your business logic
-        password_rotation_enabled: None, // TODO: Set from your business logic
-        password_rotation_history_size: None, // TODO: Set from your business logic
-        password_rotation_period: None, // TODO: Set from your business logic
-        slug: "example".to_string(), // TODO: Set from your business logic
-        sso_trust_level: None, // TODO: Set from your business logic
-        updated_at: None, // TODO: Set from your business logic
+    let Some(user_id) = jwt_context::user_id_from_request(&req) else {
+        return HandlerResponse::json(
+            401,
+            serde_json::json!({
+                "error": "unauthorized",
+                "message": "Authentication required"
+            }),
+        );
+    };
+
+    let Some(org_id) = req
+        .path_params
+        .iter()
+        .find(|(k, _)| k.as_ref() == "org_id")
+        .map(|(_, v)| v.clone())
+    else {
+        return HandlerResponse::json(
+            400,
+            serde_json::json!({
+                "error": "validation_error",
+                "message": "org_id path parameter is required"
+            }),
+        );
+    };
+
+    let exec = db();
+    match org_lifecycle::get_organization(exec, &tenant_id, &org_id, &user_id) {
+        Ok(org) => HandlerResponse::json(
+            200,
+            serde_json::json!({
+                "id": org.id.to_string(),
+                "name": org.name,
+                "tenant_id": org.tenant_id,
+                "status": org.status,
+                "created_at": org.created_at.to_rfc3339(),
+                "updated_at": org.updated_at.to_rfc3339(),
+            }),
+        ),
+        Err(OrgLifecycleError::Forbidden) => HandlerResponse::json(
+            403,
+            serde_json::json!({
+                "error": "forbidden",
+                "message": "You are not a member of this organization"
+            }),
+        ),
+        Err(OrgLifecycleError::NotFound) => HandlerResponse::json(
+            404,
+            serde_json::json!({
+                "error": "not_found",
+                "message": "Organization not found"
+            }),
+        ),
+        Err(OrgLifecycleError::InvalidId(msg)) => HandlerResponse::json(
+            400,
+            serde_json::json!({
+                "error": "validation_error",
+                "message": msg
+            }),
+        ),
+        Err(e) => HandlerResponse::error(500, &format!("{e:?}")),
     }
-    
 }

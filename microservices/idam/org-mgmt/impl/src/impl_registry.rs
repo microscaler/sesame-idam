@@ -48,6 +48,15 @@ pub unsafe fn register_impl(dispatcher: &mut Dispatcher, routes: &[RouteMeta]) {
                     dispatcher.add_route(route.clone(), tx);
                 }
             }
+            "fetch_org" => {
+                if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
+                    |req| crate::controllers::fetch_org::handle(req),
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                ) {
+                    dispatcher.add_route(route.clone(), tx);
+                }
+            }
             "invite_user_to_org" => {
                 if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
                     |req| crate::controllers::invite_user_to_org::handle(req),

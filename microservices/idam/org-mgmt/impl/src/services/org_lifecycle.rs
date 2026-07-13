@@ -28,6 +28,66 @@ pub struct MembershipSummary {
     pub status: String,
 }
 
+#[derive(Debug)]
+pub struct OrgDetail {
+    pub id: Uuid,
+    pub name: String,
+    pub tenant_id: String,
+    pub status: String,
+    pub created_at: chrono::DateTime<Utc>,
+    pub updated_at: chrono::DateTime<Utc>,
+}
+
+/// Fetch org metadata. Caller must be a member of the org within the tenant.
+///
+/// Returns `Forbidden` when the user is not a member (indistinguishable from a
+/// non-existent org across tenants — avoids leaking org existence), `NotFound`
+/// when the org row is absent within the tenant.
+pub fn get_organization<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: &str,
+    user_id: &str,
+) -> Result<OrgDetail, OrgLifecycleError> {
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let user_uuid =
+        Uuid::parse_str(user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+
+    // Membership check — also enforces tenant scoping via the org join.
+    let is_member = exec
+        .query_one_values(
+            "SELECT 1 FROM sesame_idam.org_memberships om
+             INNER JOIN sesame_idam.organizations o ON o.id = om.org_id
+             WHERE om.org_id = $1 AND om.user_id = $2 AND o.tenant_id = $3
+             LIMIT 1",
+            &sea_query::Values(vec![org_uuid.into(), user_uuid.into(), tenant_id.into()]),
+        )
+        .is_ok();
+    if !is_member {
+        return Err(OrgLifecycleError::Forbidden);
+    }
+
+    let row = exec
+        .query_one_values(
+            "SELECT o.id::text, o.name, o.tenant_id, o.status, o.created_at, o.updated_at
+             FROM sesame_idam.organizations o
+             WHERE o.id = $1 AND o.tenant_id = $2",
+            &sea_query::Values(vec![org_uuid.into(), tenant_id.into()]),
+        )
+        .map_err(|_| OrgLifecycleError::NotFound)?;
+
+    let id: String = row.get(0);
+    Ok(OrgDetail {
+        id: Uuid::parse_str(&id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?,
+        name: row.get(1),
+        tenant_id: row.get(2),
+        status: row.get(3),
+        created_at: row.get(4),
+        updated_at: row.get(5),
+    })
+}
+
 /// Create org + owner membership. Caller becomes active owner.
 pub fn create_organization<E: LifeExecutor>(
     exec: &E,
