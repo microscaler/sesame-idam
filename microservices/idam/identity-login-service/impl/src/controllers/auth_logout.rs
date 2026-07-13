@@ -22,6 +22,22 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         }
     }
 
+    // Denylist the presented access token so it cannot be used until it expires.
+    // The bearer is JWKS-validated upstream, so `jwt_claims` carries a trusted
+    // `jti`/`exp`; TTL is the token's remaining lifetime (bounded by access TTL).
+    if let Some(claims) = req.jwt_claims.as_ref() {
+        if let Some(jti) = claims.get("jti").and_then(|v| v.as_str()) {
+            let ttl = access_token_remaining_ttl(claims);
+            if let Err(e) = crate::redis::deny_access_jti(jti, ttl) {
+                tracing::warn!(
+                    error = %e,
+                    tenant_id = %tenant_id,
+                    "logout: failed to denylist access jti in Redis"
+                );
+            }
+        }
+    }
+
     let entry = AuditLogEntry::new(AuditEventType::TokenRevoked, "identity-login-service")
         .tenant_id(tenant_id)
         .decision_source("auth_logout")
@@ -38,4 +54,24 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         hint: None,
         retry_after: None,
     }
+}
+
+/// Remaining lifetime (seconds) of the access token from its `exp` claim, so the
+/// denylist entry lives exactly as long as the token could still be accepted.
+/// Capped against clock-skewed/forged `exp`; falls back to the normal access TTL
+/// when `exp` is absent or already elapsed.
+fn access_token_remaining_ttl(claims: &serde_json::Value) -> u64 {
+    const FALLBACK_TTL_SECS: u64 = 300; // normal access-token TTL
+    const MAX_DENY_TTL_SECS: u64 = 3600; // safety cap against skewed/forged exp
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+
+    claims
+        .get("exp")
+        .and_then(serde_json::Value::as_u64)
+        .map(|exp| exp.saturating_sub(now))
+        .filter(|&ttl| ttl > 0)
+        .map_or(FALLBACK_TTL_SECS, |ttl| ttl.min(MAX_DENY_TTL_SECS))
 }

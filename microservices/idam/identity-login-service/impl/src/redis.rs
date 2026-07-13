@@ -37,6 +37,27 @@ pub fn store_refresh_token(token: &RefreshToken) -> Result<()> {
     Ok(())
 }
 
+/// Add an access-token `jti` to the denylist (`denylist:{jti}`) with a TTL that
+/// matches the token's remaining lifetime.
+///
+/// This is the write half of access-token revocation: a logged-out access token
+/// is recorded as revoked so denylist-aware validation (`sesame_common::denylist`,
+/// same `denylist:` key scheme) rejects it until it would have expired anyway.
+/// No-op for an empty jti or a zero/elapsed TTL.
+///
+/// # Errors
+///
+/// Returns an error when Redis is unavailable or the write fails.
+pub fn deny_access_jti(jti: &str, ttl_secs: u64) -> Result<()> {
+    if jti.is_empty() || ttl_secs == 0 {
+        return Ok(());
+    }
+    let mut conn = get_redis_connection()?;
+    let key = format!("denylist:{jti}");
+    let _: () = conn.set_ex(&key, "revoked", ttl_secs)?;
+    Ok(())
+}
+
 /// Decode the `jti` claim from a signed refresh token JWT.
 fn decode_refresh_token_jti(token: &str) -> Option<String> {
     let parts: Vec<&str> = token.split('.').collect();

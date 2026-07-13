@@ -8,6 +8,7 @@ pub mod bdd {
     pub mod authz_enrichment;
     pub mod jwt_ttl;
     pub mod jwt_validation;
+    pub mod logout_revocation;
     pub mod pii_entitlements;
     pub mod signup_validate;
     pub mod smoke;
