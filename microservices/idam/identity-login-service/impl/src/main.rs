@@ -141,6 +141,14 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "signup_validate" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::signup_validate::SignupValidateController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 _ => {} // gen stubs serve everything else for now
             }
         }
