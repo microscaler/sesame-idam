@@ -10,7 +10,9 @@ use lifeguard::{ColumnTrait, LifeExecutor, LifeModelTrait};
 use uuid::Uuid;
 
 use crate::models::org::{Column as OrgColumn, Entity as OrgEntity, OrgRecord};
-use crate::models::org_invite::OrgInviteRecord;
+use crate::models::org_invite::{
+    Column as InviteColumn, Entity as InviteEntity, OrgInviteRecord,
+};
 use crate::models::org_membership::{
     Column as MembershipColumn, Entity as MembershipEntity, OrgMembershipRecord,
 };
@@ -26,6 +28,7 @@ pub enum OrgLifecycleError {
     EmailMismatch,
 }
 
+#[derive(Debug)]
 pub struct OrganizationSummary {
     pub id: Uuid,
     pub name: String,
@@ -239,60 +242,63 @@ pub fn accept_invitation<E: LifeExecutor>(
         return Err(OrgLifecycleError::AlreadyHasOrganization);
     }
 
-    let row = exec
-        .query_one_values(
-            "SELECT i.id::text, i.org_id::text, i.email, i.role, i.expires_at, o.name, o.tenant_id
-             FROM sesame_idam.org_invites i
-             INNER JOIN sesame_idam.organizations o ON o.id = i.org_id
-             WHERE i.token = $1 AND i.accepted_at IS NULL AND o.tenant_id = $2",
-            &sea_query::Values(vec![token.into(), tenant_id.into()]),
-        )
-        .map_err(|_| OrgLifecycleError::NotFound)?;
+    // Find the pending (unaccepted) invite by token.
+    let invite = InviteEntity::find()
+        .filter(InviteColumn::Token.eq(token.to_string()))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+        .filter(|i| i.accepted_at.is_none())
+        .ok_or(OrgLifecycleError::NotFound)?;
 
-    let invite_id: String = row.get(0);
-    let org_id: String = row.get(1);
-    let invite_email: String = row.get(2);
-    let role: String = row.get(3);
-    let expires_at: chrono::DateTime<Utc> = row.get(4);
-    let org_name: String = row.get(5);
+    // The invite's org must belong to the caller's tenant.
+    let org = OrgEntity::find()
+        .filter(OrgColumn::Id.eq(invite.org_id))
+        .filter(OrgColumn::TenantId.eq(tenant_id.to_string()))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+        .ok_or(OrgLifecycleError::NotFound)?;
 
-    if expires_at < Utc::now() {
+    if invite.expires_at < Utc::now() {
         return Err(OrgLifecycleError::InviteExpired);
     }
 
-    if invite_email.trim().to_lowercase() != user_email.trim().to_lowercase() {
+    if invite.email.trim().to_lowercase() != user_email.trim().to_lowercase() {
         return Err(OrgLifecycleError::EmailMismatch);
     }
 
-    let org_uuid =
-        Uuid::parse_str(&org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
-    let invite_uuid =
-        Uuid::parse_str(&invite_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
     let now = Utc::now();
-    let membership_id = Uuid::new_v4();
 
-    exec.execute_values(
-        "INSERT INTO sesame_idam.org_memberships (id, org_id, user_id, role, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, 'active', $5, $5)",
-        &sea_query::Values(vec![
-            membership_id.into(),
-            org_uuid.into(),
-            user_uuid.into(),
-            role.into(),
-            now.into(),
-        ]),
-    )
-    .map_err(|e| OrgLifecycleError::Db(format!("org_memberships: {e}")))?;
+    let mut membership_rec = OrgMembershipRecord::new();
+    membership_rec
+        .set_id(Uuid::new_v4())
+        .set_org_id(invite.org_id)
+        .set_user_id(user_uuid)
+        .set_role(invite.role.clone())
+        .set_status("active".to_string())
+        .set_created_at(now)
+        .set_updated_at(now);
+    membership_rec
+        .insert(exec)
+        .map_err(|e| OrgLifecycleError::Db(format!("org_memberships: {e}")))?;
 
-    exec.execute_values(
-        "UPDATE sesame_idam.org_invites SET accepted_at = $1 WHERE id = $2",
-        &sea_query::Values(vec![now.into(), invite_uuid.into()]),
-    )
-    .map_err(|e| OrgLifecycleError::Db(format!("org_invites accept: {e}")))?;
+    // Mark the invite accepted (full-record update by primary key).
+    let mut invite_rec = OrgInviteRecord::new();
+    invite_rec
+        .set_id(invite.id)
+        .set_org_id(invite.org_id)
+        .set_email(invite.email.clone())
+        .set_role(invite.role.clone())
+        .set_token(invite.token.clone())
+        .set_expires_at(invite.expires_at)
+        .set_created_at(invite.created_at)
+        .set_accepted_at(Some(now));
+    invite_rec
+        .update(exec)
+        .map_err(|e| OrgLifecycleError::Db(format!("org_invites accept: {e}")))?;
 
     Ok(OrganizationSummary {
-        id: org_uuid,
-        name: org_name,
+        id: invite.org_id,
+        name: org.name,
         tenant_id: tenant_id.to_string(),
     })
 }

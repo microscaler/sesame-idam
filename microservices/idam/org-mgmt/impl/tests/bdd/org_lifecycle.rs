@@ -209,6 +209,102 @@ fn list_memberships_is_tenant_scoped() {
     assert!(!names.contains(&"Foreign Org"));
 }
 
+/// Scenario: accept a valid invite → membership created + invite marked accepted.
+#[test]
+fn accept_invitation_adds_membership_and_marks_accepted() {
+    use lifeguard::{ColumnTrait, LifeModelTrait};
+    use sesame_idam_org_mgmt::models::org_invite;
+
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("accept");
+    let owner = Uuid::new_v4();
+    seed_user(&tenant, owner);
+
+    let exec = sesame_idam_database::db();
+    let org = org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Accept Co", None)
+        .expect("create org");
+
+    let email = "Invitee@Example.com";
+    let invite_id =
+        org_lifecycle::invite_by_email(exec, &tenant, &org.id.to_string(), email, "member")
+            .expect("invite");
+
+    // Recover the generated token via the ORM.
+    let token = org_invite::Entity::find()
+        .filter(org_invite::Column::Id.eq(invite_id))
+        .find_one(exec)
+        .unwrap()
+        .expect("invite row")
+        .token;
+
+    let invitee = Uuid::new_v4();
+    seed_user(&tenant, invitee);
+    let summary =
+        org_lifecycle::accept_invitation(exec, &tenant, &invitee.to_string(), email, &token)
+            .expect("accept invitation");
+    assert_eq!(summary.name, "Accept Co");
+
+    // Invite marked accepted.
+    let accepted = org_invite::Entity::find()
+        .filter(org_invite::Column::Id.eq(invite_id))
+        .find_one(exec)
+        .unwrap()
+        .expect("invite row");
+    assert!(accepted.accepted_at.is_some(), "invite must be marked accepted");
+
+    // Invitee is now a member and can read the org.
+    let detail =
+        org_lifecycle::get_organization(exec, &tenant, &org.id.to_string(), &invitee.to_string())
+            .expect("member read");
+    assert_eq!(detail.name, "Accept Co");
+}
+
+/// Scenario: accepting with an email that does not match the invite is rejected.
+#[test]
+fn accept_invitation_rejects_email_mismatch() {
+    use lifeguard::{ColumnTrait, LifeModelTrait};
+    use sesame_idam_org_mgmt::models::org_invite;
+    use sesame_idam_org_mgmt::services::org_lifecycle::OrgLifecycleError;
+
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("accept-mismatch");
+    let owner = Uuid::new_v4();
+    seed_user(&tenant, owner);
+
+    let exec = sesame_idam_database::db();
+    let org = org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Mismatch Co", None)
+        .expect("create org");
+    let invite_id =
+        org_lifecycle::invite_by_email(exec, &tenant, &org.id.to_string(), "right@example.com", "member")
+            .expect("invite");
+    let token = org_invite::Entity::find()
+        .filter(org_invite::Column::Id.eq(invite_id))
+        .find_one(exec)
+        .unwrap()
+        .expect("invite row")
+        .token;
+
+    let wrong_user = Uuid::new_v4();
+    seed_user(&tenant, wrong_user);
+    let err = org_lifecycle::accept_invitation(
+        exec,
+        &tenant,
+        &wrong_user.to_string(),
+        "wrong@example.com",
+        &token,
+    )
+    .expect_err("email mismatch must be rejected");
+    assert!(matches!(err, OrgLifecycleError::EmailMismatch), "got {err:?}");
+}
+
 /// Scenario: a non-member is forbidden (does not leak org existence).
 #[test]
 fn get_organization_forbidden_for_non_member() {
