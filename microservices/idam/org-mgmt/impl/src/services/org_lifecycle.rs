@@ -228,6 +228,44 @@ pub fn invite_by_email<E: LifeExecutor>(
     Ok(invite_id)
 }
 
+#[derive(Debug)]
+pub struct InvitePreview {
+    pub organization_name: String,
+    pub valid: bool,
+    pub expired: bool,
+}
+
+/// Public-ish preview of an invitation by token (org name + validity) for the
+/// onboarding UX. Tenant-scoped; the token itself is the capability. `NotFound`
+/// when the token is unknown or its org is outside the tenant.
+pub fn preview_invitation<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    token: &str,
+) -> Result<InvitePreview, OrgLifecycleError> {
+    let invite = InviteEntity::find()
+        .filter(InviteColumn::Token.eq(token.to_string()))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+        .ok_or(OrgLifecycleError::NotFound)?;
+
+    let org = OrgEntity::find()
+        .filter(OrgColumn::Id.eq(invite.org_id))
+        .filter(OrgColumn::TenantId.eq(tenant_id.to_string()))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+        .ok_or(OrgLifecycleError::NotFound)?;
+
+    let expired = invite.expires_at < Utc::now();
+    let valid = invite.accepted_at.is_none() && !expired;
+
+    Ok(InvitePreview {
+        organization_name: org.name,
+        valid,
+        expired,
+    })
+}
+
 pub fn accept_invitation<E: LifeExecutor>(
     exec: &E,
     tenant_id: &str,

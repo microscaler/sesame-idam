@@ -305,6 +305,51 @@ fn accept_invitation_rejects_email_mismatch() {
     assert!(matches!(err, OrgLifecycleError::EmailMismatch), "got {err:?}");
 }
 
+/// Scenario: preview a pending invite by token → org name + valid; unknown token → NotFound.
+#[test]
+fn preview_invitation_reports_org_and_validity() {
+    use lifeguard::{ColumnTrait, LifeModelTrait};
+    use sesame_idam_org_mgmt::models::org_invite;
+    use sesame_idam_org_mgmt::services::org_lifecycle::OrgLifecycleError;
+
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("preview");
+    let owner = Uuid::new_v4();
+    seed_user(&tenant, owner);
+
+    let exec = sesame_idam_database::db();
+    let org = org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Preview Co", None)
+        .expect("create org");
+    let invite_id =
+        org_lifecycle::invite_by_email(exec, &tenant, &org.id.to_string(), "guest@example.com", "member")
+            .expect("invite");
+    let token = org_invite::Entity::find()
+        .filter(org_invite::Column::Id.eq(invite_id))
+        .find_one(exec)
+        .unwrap()
+        .expect("invite row")
+        .token;
+
+    let preview = org_lifecycle::preview_invitation(exec, &tenant, &token).expect("preview");
+    assert_eq!(preview.organization_name, "Preview Co");
+    assert!(preview.valid && !preview.expired);
+
+    // Unknown token → NotFound.
+    let err = org_lifecycle::preview_invitation(exec, &tenant, "no-such-token")
+        .expect_err("unknown token");
+    assert!(matches!(err, OrgLifecycleError::NotFound), "got {err:?}");
+
+    // Cross-tenant preview is not found (org outside tenant).
+    let other = unique_tenant("preview-other");
+    let err2 = org_lifecycle::preview_invitation(exec, &other, &token)
+        .expect_err("cross-tenant");
+    assert!(matches!(err2, OrgLifecycleError::NotFound), "got {err2:?}");
+}
+
 /// Scenario: a non-member is forbidden (does not leak org existence).
 #[test]
 fn get_organization_forbidden_for_non_member() {

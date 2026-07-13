@@ -31,6 +31,7 @@ mod controllers {
     pub mod fetch_org;
     pub mod invite_user_to_org;
     pub mod list_my_memberships;
+    pub mod preview_invitation;
 }
 mod impl_registry;
 

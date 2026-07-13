@@ -870,6 +870,38 @@ paths:
           content: *id001
       x-consumer: tenant-bff
       x-brrtrouter-impl: true
+  /invitations/preview:
+    get:
+      tags:
+      - Membership
+      summary: Preview an organization invitation by token
+      operationId: preview_invitation
+      parameters:
+      - *id003
+      - name: token
+        in: query
+        required: true
+        schema:
+          type: string
+        description: The invitation token from the invite link.
+      responses:
+        '200':
+          description: Invitation preview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organization_name:
+                    type: string
+                  valid:
+                    type: boolean
+                  expired:
+                    type: boolean
+        '404':
+          description: Invite not found
+      x-consumer: tenant-bff
+      x-brrtrouter-impl: true
   /organizations/admin/users/{user_id}/invalidate-all-keys:
     post:
       tags:

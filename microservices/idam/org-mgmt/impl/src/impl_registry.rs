@@ -75,6 +75,15 @@ pub unsafe fn register_impl(dispatcher: &mut Dispatcher, routes: &[RouteMeta]) {
                     dispatcher.add_route(route.clone(), tx);
                 }
             }
+            "preview_invitation" => {
+                if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
+                    |req| crate::controllers::preview_invitation::handle(req),
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                ) {
+                    dispatcher.add_route(route.clone(), tx);
+                }
+            }
             _ => {}
         }
     }
