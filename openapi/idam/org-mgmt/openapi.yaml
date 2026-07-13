@@ -974,6 +974,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: fetch_org
+      x-brrtrouter-impl: true
       parameters:
       - *id003
       - name: org_id
