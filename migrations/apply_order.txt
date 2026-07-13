@@ -34,3 +34,4 @@ identity-user-mgmt-service/20260516192317_mfa_setup.sql
 identity-user-mgmt-service/20260516192317_social_accounts.sql
 org-mgmt/20260516192317_org_memberships.sql
 api-keys/20260516192347_api_keys.sql
+org-mgmt/20260713065042_organizations.sql

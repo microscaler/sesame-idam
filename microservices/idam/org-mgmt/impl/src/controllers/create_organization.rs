@@ -46,14 +46,19 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
         );
     }
 
+    // Opaque tenant product metadata (e.g. Hauliage `hauliage_profile_type`).
+    // Persisted verbatim; Sesame does not interpret persona semantics.
+    let metadata = body.get("metadata").filter(|v| v.is_object());
+
     let exec = db();
-    match org_lifecycle::create_organization(exec, &tenant_id, &user_id, name) {
+    match org_lifecycle::create_organization(exec, &tenant_id, &user_id, name, metadata) {
         Ok(org) => HandlerResponse::json(
             201,
             serde_json::json!({
                 "id": org.id.to_string(),
                 "name": org.name,
                 "tenant_id": org.tenant_id,
+                "metadata": metadata,
             }),
         ),
         Err(OrgLifecycleError::AlreadyHasOrganization) => HandlerResponse::json(

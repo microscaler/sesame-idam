@@ -92,6 +92,41 @@ fn get_organization_returns_org_for_member() {
     assert_eq!(org.status, "active");
 }
 
+/// Scenario: create org with opaque persona metadata → fetch echoes it verbatim.
+#[test]
+fn create_and_fetch_org_roundtrips_metadata() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgmeta");
+    let user_id = Uuid::new_v4();
+    seed_user(&tenant, user_id);
+
+    let exec = sesame_idam_database::db();
+    let meta = serde_json::json!({ "hauliage_profile_type": "SHIPPER" });
+    let summary = org_lifecycle::create_organization(
+        exec,
+        &tenant,
+        &user_id.to_string(),
+        "Shipper Co",
+        Some(&meta),
+    )
+    .expect("create org with metadata");
+
+    let detail = org_lifecycle::get_organization(
+        exec,
+        &tenant,
+        &summary.id.to_string(),
+        &user_id.to_string(),
+    )
+    .expect("creator reads own org");
+
+    assert_eq!(detail.metadata, Some(meta));
+    assert_eq!(detail.name, "Shipper Co");
+}
+
 /// Scenario: a non-member is forbidden (does not leak org existence).
 #[test]
 fn get_organization_forbidden_for_non_member() {

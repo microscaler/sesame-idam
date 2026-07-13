@@ -53,6 +53,7 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
                 "name": org.name,
                 "tenant_id": org.tenant_id,
                 "status": org.status,
+                "metadata": org.metadata,
                 "created_at": org.created_at.to_rfc3339(),
                 "updated_at": org.updated_at.to_rfc3339(),
             }),

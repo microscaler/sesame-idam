@@ -14,6 +14,12 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 mod audit;
 mod jwt_context;
+// Models are shared with the lib target (migrator entity registry) which suppresses
+// these derive/dead-code lints crate-wide; the binary constructs only a subset, so
+// scope the same allowances here. TODO: align with the login-service pattern (bin
+// uses `sesame_idam_org_mgmt::{services, models}` from the lib instead of re-declaring).
+#[allow(dead_code, clippy::pub_underscore_fields)]
+mod models;
 mod security;
 mod services;
 

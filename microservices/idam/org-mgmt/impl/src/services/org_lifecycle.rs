@@ -1,8 +1,18 @@
 //! Organization lifecycle — create org, membership, invites (Sesame source of truth).
+//!
+//! New/edited data access uses the Lifeguard ORM (Entity/Column/Record). The
+//! invite/accept/list functions below still use raw `sea_query` SQL — legacy,
+//! to be migrated to the ORM opportunistically.
 
 use chrono::{Duration, Utc};
-use lifeguard::LifeExecutor;
+use lifeguard::active_model::ActiveModelTrait;
+use lifeguard::{ColumnTrait, LifeExecutor, LifeModelTrait};
 use uuid::Uuid;
+
+use crate::models::org::{Column as OrgColumn, Entity as OrgEntity, OrgRecord};
+use crate::models::org_membership::{
+    Column as MembershipColumn, Entity as MembershipEntity, OrgMembershipRecord,
+};
 
 #[derive(Debug)]
 pub enum OrgLifecycleError {
@@ -34,6 +44,7 @@ pub struct OrgDetail {
     pub name: String,
     pub tenant_id: String,
     pub status: String,
+    pub metadata: Option<serde_json::Value>,
     pub created_at: chrono::DateTime<Utc>,
     pub updated_at: chrono::DateTime<Utc>,
 }
@@ -54,46 +65,45 @@ pub fn get_organization<E: LifeExecutor>(
     let user_uuid =
         Uuid::parse_str(user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
 
-    // Membership check — also enforces tenant scoping via the org join.
-    let is_member = exec
-        .query_one_values(
-            "SELECT 1 FROM sesame_idam.org_memberships om
-             INNER JOIN sesame_idam.organizations o ON o.id = om.org_id
-             WHERE om.org_id = $1 AND om.user_id = $2 AND o.tenant_id = $3
-             LIMIT 1",
-            &sea_query::Values(vec![org_uuid.into(), user_uuid.into(), tenant_id.into()]),
-        )
-        .is_ok();
-    if !is_member {
+    // Org must exist within the caller's tenant. Scoping the lookup by tenant_id
+    // enforces cross-tenant isolation and avoids leaking org existence: a missing
+    // or wrong-tenant org is reported as Forbidden, identical to a non-member.
+    let org = OrgEntity::find()
+        .filter(OrgColumn::Id.eq(org_uuid))
+        .filter(OrgColumn::TenantId.eq(tenant_id.to_string()))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+        .ok_or(OrgLifecycleError::Forbidden)?;
+
+    // Caller must be a member of the org.
+    let membership = MembershipEntity::find()
+        .filter(MembershipColumn::OrgId.eq(org_uuid))
+        .filter(MembershipColumn::UserId.eq(user_uuid))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?;
+    if membership.is_none() {
         return Err(OrgLifecycleError::Forbidden);
     }
 
-    let row = exec
-        .query_one_values(
-            "SELECT o.id::text, o.name, o.tenant_id, o.status, o.created_at, o.updated_at
-             FROM sesame_idam.organizations o
-             WHERE o.id = $1 AND o.tenant_id = $2",
-            &sea_query::Values(vec![org_uuid.into(), tenant_id.into()]),
-        )
-        .map_err(|_| OrgLifecycleError::NotFound)?;
-
-    let id: String = row.get(0);
     Ok(OrgDetail {
-        id: Uuid::parse_str(&id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?,
-        name: row.get(1),
-        tenant_id: row.get(2),
-        status: row.get(3),
-        created_at: row.get(4),
-        updated_at: row.get(5),
+        id: org.id,
+        name: org.name,
+        tenant_id: org.tenant_id,
+        status: org.status,
+        metadata: org.metadata,
+        created_at: org.created_at,
+        updated_at: org.updated_at,
     })
 }
 
-/// Create org + owner membership. Caller becomes active owner.
+/// Create org + owner membership. Caller becomes active owner. `metadata` is
+/// opaque tenant product metadata (e.g. Hauliage persona) persisted verbatim.
 pub fn create_organization<E: LifeExecutor>(
     exec: &E,
     tenant_id: &str,
     user_id: &str,
     name: &str,
+    metadata: Option<&serde_json::Value>,
 ) -> Result<OrganizationSummary, OrgLifecycleError> {
     let user_uuid =
         Uuid::parse_str(user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
@@ -103,32 +113,33 @@ pub fn create_organization<E: LifeExecutor>(
     }
 
     let org_id = Uuid::new_v4();
-    let membership_id = Uuid::new_v4();
     let now = Utc::now();
 
-    exec.execute_values(
-        "INSERT INTO sesame_idam.organizations (id, name, tenant_id, status, created_at, updated_at)
-         VALUES ($1, $2, $3, 'active', $4, $4)",
-        &sea_query::Values(vec![
-            org_id.into(),
-            name.into(),
-            tenant_id.into(),
-            now.into(),
-        ]),
-    )
-    .map_err(|e| OrgLifecycleError::Db(format!("organizations: {e}")))?;
+    let mut org_rec = OrgRecord::new();
+    org_rec
+        .set_id(org_id)
+        .set_name(name.to_string())
+        .set_tenant_id(tenant_id.to_string())
+        .set_status("active".to_string())
+        .set_metadata(metadata.cloned())
+        .set_created_at(now)
+        .set_updated_at(now);
+    org_rec
+        .insert(exec)
+        .map_err(|e| OrgLifecycleError::Db(format!("organizations: {e}")))?;
 
-    exec.execute_values(
-        "INSERT INTO sesame_idam.org_memberships (id, org_id, user_id, role, status, created_at, updated_at)
-         VALUES ($1, $2, $3, 'owner', 'active', $4, $4)",
-        &sea_query::Values(vec![
-            membership_id.into(),
-            org_id.into(),
-            user_uuid.into(),
-            now.into(),
-        ]),
-    )
-    .map_err(|e| OrgLifecycleError::Db(format!("org_memberships: {e}")))?;
+    let mut membership_rec = OrgMembershipRecord::new();
+    membership_rec
+        .set_id(Uuid::new_v4())
+        .set_org_id(org_id)
+        .set_user_id(user_uuid)
+        .set_role("owner".to_string())
+        .set_status("active".to_string())
+        .set_created_at(now)
+        .set_updated_at(now);
+    membership_rec
+        .insert(exec)
+        .map_err(|e| OrgLifecycleError::Db(format!("org_memberships: {e}")))?;
 
     Ok(OrganizationSummary {
         id: org_id,
