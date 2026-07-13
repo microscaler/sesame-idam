@@ -1,5 +1,19 @@
 # LLM Wiki — Session Log
 
+## [2026-07-13] docs | Launch 1.0 product roadmap (deliver on the README)
+
+- **New:** [`docs/ROADMAP-launch-1.0.md`](../ROADMAP-launch-1.0.md) — full-product roadmap to
+  make Sesame competitive with PropelAuth/Clerk and the adoption wedge for BRRTRouter.
+- **Grounded in** a competitive gap analysis: Sesame ≈12% of a full IdP today (~16/136
+  endpoints real). Strong verticals = asymmetric JWT/JWKS + org lifecycle + tenant isolation.
+  Missing = user-mgmt (0/26), MFA/social/passwordless, SSO/SCIM, API-key lifecycle, webhooks,
+  **RLS bridge (0 lines — the README killer feature)**, TS SDK, hosted UI.
+- **Thesis:** lead with the moat (security + **RLS bridge**) + DX (SDK/hosted UI) for envy;
+  interleave table-stakes. **Launch 1.0 = P0 harden + P1 RLS bridge + P2 auth surface + P4
+  developer contract** (~3–4mo). P3 enterprise SSO/SCIM + P5 trust/SOC2 = 1.1/1.2 fast-follow.
+- **Immediate:** P0 revocation enforcement in BRRTRouter `JwksBearerProvider` (also a BRRTRouter
+  selling feature); de-risk P1 with a `SesameExecutor` + zero-bleed spike before scoping.
+
 ## [2026-07-13] feat | D3/D4 frozen-contract build — fetch_org, signup_validate, org metadata, logout revocation
 
 Branch `feat/d4-hauliage-consumer-surface`. The ADR-002 §3.1 Hauliage consumer contract is now functionally complete.
