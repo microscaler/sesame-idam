@@ -350,6 +350,76 @@ fn preview_invitation_reports_org_and_validity() {
     assert!(matches!(err2, OrgLifecycleError::NotFound), "got {err2:?}");
 }
 
+/// Isolation: inviting to an org under a different tenant is NotFound (zero bleed).
+#[test]
+fn invite_by_email_rejects_cross_tenant_org() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant_a = unique_tenant("inviso-a");
+    let tenant_b = unique_tenant("inviso-b");
+    let owner = Uuid::new_v4();
+    seed_user(&tenant_a, owner);
+
+    let exec = sesame_idam_database::db();
+    let org = org_lifecycle::create_organization(exec, &tenant_a, &owner.to_string(), "Iso Co", None)
+        .expect("create org");
+
+    let err = org_lifecycle::invite_by_email(
+        exec,
+        &tenant_b,
+        &org.id.to_string(),
+        "x@example.com",
+        "member",
+    )
+    .expect_err("cross-tenant invite must be rejected");
+    assert!(matches!(err, OrgLifecycleError::NotFound), "got {err:?}");
+}
+
+/// Isolation: accepting an invite under a different tenant is NotFound (zero bleed).
+#[test]
+fn accept_invitation_rejects_cross_tenant() {
+    use lifeguard::{ColumnTrait, LifeModelTrait};
+    use sesame_idam_org_mgmt::models::org_invite;
+
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant_a = unique_tenant("acciso-a");
+    let tenant_b = unique_tenant("acciso-b");
+    let owner = Uuid::new_v4();
+    seed_user(&tenant_a, owner);
+
+    let exec = sesame_idam_database::db();
+    let org = org_lifecycle::create_organization(exec, &tenant_a, &owner.to_string(), "Iso Accept Co", None)
+        .expect("create org");
+    let invite_id =
+        org_lifecycle::invite_by_email(exec, &tenant_a, &org.id.to_string(), "guest@example.com", "member")
+            .expect("invite");
+    let token = org_invite::Entity::find()
+        .filter(org_invite::Column::Id.eq(invite_id))
+        .find_one(exec)
+        .unwrap()
+        .expect("invite row")
+        .token;
+
+    let invitee = Uuid::new_v4();
+    seed_user(&tenant_b, invitee);
+    let err = org_lifecycle::accept_invitation(
+        exec,
+        &tenant_b,
+        &invitee.to_string(),
+        "guest@example.com",
+        &token,
+    )
+    .expect_err("cross-tenant accept must be rejected");
+    assert!(matches!(err, OrgLifecycleError::NotFound), "got {err:?}");
+}
+
 /// Scenario: a non-member is forbidden (does not leak org existence).
 #[test]
 fn get_organization_forbidden_for_non_member() {
