@@ -64,6 +64,12 @@ Commits on `feat/d4-hauliage-consumer-surface`:
 | `a8123ca` | `GET /auth/signup/validate` — real tenant-scoped availability pre-check + BDD |
 | `97fb99a` | Org `metadata` JSONB (persona, ADR-002 §3.3) via entity+migrator; `create`/`get` migrated raw SQL → **Lifeguard ORM** |
 | `88b094e` | Logout denylists the access-token `jti` (revocation **write-path**) + BDD |
+| `44aef72` | Migrate non-join `org_lifecycle` fns to **Lifeguard ORM** (policy); caught+fixed a live-DB drift (`org_invites.accepted_at` stale `NOT NULL`) that would have broken the invite flow |
+| `ea56665`+`7df220b` | Migrate `list_memberships` + `accept_invitation` to ORM — `org_lifecycle` now **raw-SQL-free** (+ accept/mismatch tests) |
+| `fd8fabb` | `GET /invitations/preview` — completes the ADR-002 §3.1 consumer surface (no codegen regen; runtime spec route + `impl_registry` override) |
+
+**ADR-002 §3.1 Hauliage consumer contract is now 100% real + tested.** Remaining launch
+items are the bounded revocation *enforcement* (write-path done) and cross-repo A6/A8.
 
 Verification: **login 49/49 + org-mgmt 14/14** green under the serial gate
 (`lifeguard-shared-postgres` test-group). The lone parallel-run flake is a
