@@ -50,18 +50,22 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         );
     }
 
-    let roles = crate::services::authz_client::fetch_effective_roles(
+    let authz = crate::services::authz_client::fetch_effective_authz(
         &user_id_str,
         &tenant_id,
         DEFAULT_PORTAL,
     )
-    .unwrap_or_default();
+    .unwrap_or_else(|_| crate::services::authz_client::EffectiveAuthz {
+        roles: vec![],
+        permissions: vec![],
+    });
 
     let tokens = match crate::services::token_issuer::issue_tokens(
         &user_id_str,
         &tenant_id,
         DEFAULT_PORTAL,
-        roles.clone(),
+        authz.roles.clone(),
+        authz.permissions,
         "customer",
         Some(org_id),
     ) {
@@ -90,7 +94,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         refresh_token_expires_in: Some(
             i32::try_from(tokens.refresh_expires_in).unwrap_or(i32::MAX),
         ),
-        roles: Some(roles),
+        roles: Some(authz.roles.clone()),
         scope: Some(tokens.scope),
         token_type: "Bearer".to_string(),
         token_version: i32::try_from(tokens.token_version).ok(),

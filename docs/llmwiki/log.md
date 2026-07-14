@@ -1,5 +1,15 @@
 # LLM Wiki — Session Log
 
+## [2026-07-14] feat | Hauliage enablement — permissions, org-admin, revocation evidence
+
+- **`principal_effective`:** `app_role_permissions` table + hauliage seed; permissions resolved
+  from role assignments and flow into JWT `sx.permissions` via `fetch_effective_authz`.
+- **Org-admin:** real `fetch_users_in_org`, `change_user_role_in_org`, `remove_user_from_org`,
+  `revoke_pending_invite` + `org_lifecycle` service methods + BDD.
+- **Revocation:** `token_lifecycle` BDD asserts `SesameTokenStatusChecker` returns `Revoked` after
+  logout denylist write.
+- **Tests:** org BDD `seed_user` uses `with_pre_auth_tenant` under forced users RLS.
+
 ## [2026-07-14] fix | Hauliage demo logins — pre-auth RLS tenant context + seed order
 
 - **Root cause:** Forced RLS on `sesame_idam.users` filtered all rows when login/register did not set

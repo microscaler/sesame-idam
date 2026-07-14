@@ -6,5 +6,6 @@ pub mod entity_registry {
 
 pub mod audit_retention_policy;
 pub mod authorization;
+pub mod app_role_permission;
 pub mod principal_attribute;
 pub mod role_assignment;

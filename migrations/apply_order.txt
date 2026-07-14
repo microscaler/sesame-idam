@@ -19,6 +19,7 @@ api-keys/20260516192317_api_key_usage.sql
 authz-core/20260516192317_authorizations.sql
 authz-core/20260516192317_principal_attributes.sql
 authz-core/20260516192317_role_assignments.sql
+authz-core/20260715000000_app_role_permissions.sql
 identity-login-service/20260516192317_magic_link_tokens.sql
 identity-login-service/20260516192317_otp_tokens.sql
 identity-login-service/20260516192317_social_credentials.sql

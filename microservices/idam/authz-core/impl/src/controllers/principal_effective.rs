@@ -75,9 +75,27 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         Ok(assignments) => assignments
             .into_iter()
             .map(|a| assignment_role_json(&a.role_name, &req.data.app_id, a.resource_id))
-            .collect(),
+            .collect::<Vec<_>>(),
         Err(e) => {
             tracing::error!(error = %e, "principal_effective: role query failed");
+            vec![]
+        }
+    };
+
+    let role_names: Vec<String> = roles
+        .iter()
+        .filter_map(|r| r.get("role").and_then(|v| v.as_str()).map(str::to_string))
+        .collect();
+
+    let permissions = match PrincipalService::permissions_for_roles(
+        &req.data.tenant_id,
+        &req.data.app_id,
+        &role_names,
+        exec,
+    ) {
+        Ok(perms) => perms,
+        Err(e) => {
+            tracing::error!(error = %e, "principal_effective: permission query failed");
             vec![]
         }
     };
@@ -98,9 +116,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     Response {
         attributes,
-        // Role→permission mapping lives in org-mgmt's tables — resolved via
-        // the entitlements snapshot work (Epic 2/7), not here yet.
-        permissions: vec![],
+        permissions,
         roles,
         user_id: req.data.user_id,
     }

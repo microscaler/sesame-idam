@@ -106,6 +106,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         &tenant_id,
         DEFAULT_PORTAL,
         vec![],
+        vec![],
         "customer",
         None,
     ) {

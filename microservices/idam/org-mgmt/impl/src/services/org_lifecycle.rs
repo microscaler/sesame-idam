@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::models::org::{Column as OrgColumn, Entity as OrgEntity, OrgRecord};
 use crate::models::org_invite::{Column as InviteColumn, Entity as InviteEntity, OrgInviteRecord};
 use crate::models::org_membership::{
-    Column as MembershipColumn, Entity as MembershipEntity, OrgMembershipRecord,
+    Column as MembershipColumn, Entity as MembershipEntity, OrgMembershipModel, OrgMembershipRecord,
 };
 
 #[derive(Debug)]
@@ -434,5 +434,250 @@ pub fn add_user_membership<E: LifeExecutor>(
         .insert(exec)
         .map_err(|e| OrgLifecycleError::Db(format!("org_memberships: {e}")))?;
 
+    Ok(())
+}
+
+#[derive(Debug)]
+pub struct OrgMemberSummary {
+    pub user_id: Uuid,
+    pub email: String,
+    pub role: String,
+    pub created_at: chrono::DateTime<Utc>,
+}
+
+#[derive(Debug)]
+pub struct PaginatedMembers {
+    pub items: Vec<OrgMemberSummary>,
+    pub total: i32,
+    pub page: i32,
+    pub page_size: i32,
+}
+
+fn membership_for_user<E: LifeExecutor>(
+    exec: &E,
+    org_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<OrgMembershipModel>, OrgLifecycleError> {
+    MembershipEntity::find()
+        .filter(MembershipColumn::OrgId.eq(org_id))
+        .filter(MembershipColumn::UserId.eq(user_id))
+        .filter(MembershipColumn::Status.eq("active".to_string()))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))
+}
+
+fn require_org_member<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), OrgLifecycleError> {
+    ensure_org_tenant(exec, org_id, tenant_id)?;
+    let membership = membership_for_user(exec, org_id, user_id)?;
+    if membership.is_none() {
+        return Err(OrgLifecycleError::Forbidden);
+    }
+    Ok(())
+}
+
+fn require_org_admin<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), OrgLifecycleError> {
+    ensure_org_tenant(exec, org_id, tenant_id)?;
+    let Some(membership) = membership_for_user(exec, org_id, user_id)? else {
+        return Err(OrgLifecycleError::Forbidden);
+    };
+    let role = membership.role.to_ascii_lowercase();
+    if role != "owner" && role != "admin" {
+        return Err(OrgLifecycleError::Forbidden);
+    }
+    Ok(())
+}
+
+/// List active members of an organization. Caller must be a member.
+pub fn list_org_members<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: &str,
+    caller_user_id: &str,
+    role_filter: Option<&str>,
+    page_number: i32,
+    page_size: i32,
+) -> Result<PaginatedMembers, OrgLifecycleError> {
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let caller_uuid =
+        Uuid::parse_str(caller_user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    require_org_member(exec, tenant_id, org_uuid, caller_uuid)?;
+
+    let page_size = page_size.clamp(1, 100);
+    let page_number = page_number.max(0);
+    let offset = i64::from(page_number) * i64::from(page_size);
+
+    let mut memberships = MembershipEntity::find()
+        .filter(MembershipColumn::OrgId.eq(org_uuid))
+        .filter(MembershipColumn::Status.eq("active".to_string()))
+        .all(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?;
+    memberships.sort_by_key(|m| m.created_at);
+
+    if let Some(role) = role_filter {
+        memberships.retain(|m| m.role == role);
+    }
+
+    let total = i32::try_from(memberships.len()).unwrap_or(i32::MAX);
+    let page_items: Vec<_> = memberships
+        .into_iter()
+        .skip(usize::try_from(offset).unwrap_or(usize::MAX))
+        .take(usize::try_from(page_size).unwrap_or(0))
+        .collect();
+
+    let mut items = Vec::with_capacity(page_items.len());
+    for membership in page_items {
+        let email = lifeguard::query_value::<String, _>(
+            exec,
+            "SELECT email FROM sesame_idam.users WHERE id = $1",
+            &[&membership.user_id],
+        )
+        .ok()
+        .unwrap_or_else(|| format!("user-{}", membership.user_id));
+        items.push(OrgMemberSummary {
+            user_id: membership.user_id,
+            email,
+            role: membership.role.clone(),
+            created_at: membership.created_at,
+        });
+    }
+
+    Ok(PaginatedMembers {
+        items,
+        total,
+        page: page_number,
+        page_size,
+    })
+}
+
+/// Change a member's primary role. Caller must be org owner/admin.
+pub fn change_member_role<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: &str,
+    caller_user_id: &str,
+    target_user_id: &str,
+    primary_role: &str,
+) -> Result<(), OrgLifecycleError> {
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let caller_uuid =
+        Uuid::parse_str(caller_user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let target_uuid =
+        Uuid::parse_str(target_user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    require_org_admin(exec, tenant_id, org_uuid, caller_uuid)?;
+
+    let role = primary_role.trim();
+    if role.is_empty() {
+        return Err(OrgLifecycleError::InvalidId(
+            "primary_role is required".to_string(),
+        ));
+    }
+
+    let Some(membership) = MembershipEntity::find()
+        .filter(MembershipColumn::OrgId.eq(org_uuid))
+        .filter(MembershipColumn::UserId.eq(target_uuid))
+        .filter(MembershipColumn::Status.eq("active".to_string()))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+    else {
+        return Err(OrgLifecycleError::NotFound);
+    };
+
+    let now = Utc::now();
+    let mut rec = OrgMembershipRecord::new();
+    rec.set_id(membership.id)
+        .set_org_id(membership.org_id)
+        .set_user_id(membership.user_id)
+        .set_role(role.to_string())
+        .set_status(membership.status.clone())
+        .set_created_at(membership.created_at)
+        .set_updated_at(now);
+    rec.update(exec)
+        .map_err(|e| OrgLifecycleError::Db(format!("org_memberships update: {e}")))?;
+    Ok(())
+}
+
+/// Remove a member from an organization. Caller must be org owner/admin.
+pub fn remove_member<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: &str,
+    caller_user_id: &str,
+    target_user_id: &str,
+) -> Result<(), OrgLifecycleError> {
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let caller_uuid =
+        Uuid::parse_str(caller_user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let target_uuid =
+        Uuid::parse_str(target_user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    require_org_admin(exec, tenant_id, org_uuid, caller_uuid)?;
+
+    if caller_uuid == target_uuid {
+        return Err(OrgLifecycleError::Forbidden);
+    }
+
+    let Some(membership) = MembershipEntity::find()
+        .filter(MembershipColumn::OrgId.eq(org_uuid))
+        .filter(MembershipColumn::UserId.eq(target_uuid))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+    else {
+        return Err(OrgLifecycleError::NotFound);
+    };
+
+    lifeguard::execute_statement(
+        exec,
+        "DELETE FROM sesame_idam.org_memberships WHERE id = $1",
+        &[&membership.id],
+    )
+    .map_err(|e| OrgLifecycleError::Db(format!("org_memberships delete: {e}")))?;
+    Ok(())
+}
+
+/// Revoke a pending invitation. Caller must be org owner/admin.
+pub fn revoke_invite<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: &str,
+    caller_user_id: &str,
+    invite_id: &str,
+) -> Result<(), OrgLifecycleError> {
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let caller_uuid =
+        Uuid::parse_str(caller_user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let invite_uuid =
+        Uuid::parse_str(invite_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    require_org_admin(exec, tenant_id, org_uuid, caller_uuid)?;
+
+    let invite = InviteEntity::find()
+        .filter(InviteColumn::Id.eq(invite_uuid))
+        .filter(InviteColumn::OrgId.eq(org_uuid))
+        .find_one(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?
+        .ok_or(OrgLifecycleError::NotFound)?;
+
+    if invite.accepted_at.is_some() {
+        return Err(OrgLifecycleError::NotFound);
+    }
+
+    lifeguard::execute_statement(
+        exec,
+        "DELETE FROM sesame_idam.org_invites WHERE id = $1",
+        &[&invite.id],
+    )
+    .map_err(|e| OrgLifecycleError::Db(format!("org_invites delete: {e}")))?;
     Ok(())
 }

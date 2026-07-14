@@ -42,6 +42,7 @@ pub mod fetch_scim_group;
 pub mod subscribe_org_to_role_mapping;
 pub mod fetch_users_in_org;
 pub mod fetch_webhook_subscriptions;
+pub mod preview_invitation;
 pub mod delete_webhook_subscription;
 pub mod test_webhook_delivery;
 pub mod scim_create_user;

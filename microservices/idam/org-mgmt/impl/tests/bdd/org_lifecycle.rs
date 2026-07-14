@@ -28,19 +28,20 @@ fn seed_org(tenant_id: &str, org_id: Uuid, name: &str) {
 }
 
 fn seed_user(tenant_id: &str, user_id: Uuid) {
-    let exec = sesame_idam_database::db();
     let now = Utc::now();
-    exec.execute_values(
-        "INSERT INTO sesame_idam.users (id, email, password_hash, tenant_id, status, created_at, updated_at)
-         VALUES ($1, $2, 'x', $3, 'active', $4, $4)
-         ON CONFLICT (id) DO NOTHING",
-        &sea_query::Values(vec![
-            user_id.into(),
-            format!("orgtest_{user_id}@example.com").into(),
-            tenant_id.into(),
-            now.into(),
-        ]),
-    )
+    sesame_idam_database::with_pre_auth_tenant(tenant_id, |exec| {
+        exec.execute_values(
+            "INSERT INTO sesame_idam.users (id, email, password_hash, tenant_id, status, created_at, updated_at)
+             VALUES ($1, $2, 'x', $3, 'active', $4, $4)
+             ON CONFLICT (id) DO NOTHING",
+            &sea_query::Values(vec![
+                user_id.into(),
+                format!("orgtest_{user_id}@example.com").into(),
+                tenant_id.into(),
+                now.into(),
+            ]),
+        )
+    })
     .expect("seed user");
 }
 
@@ -485,4 +486,109 @@ fn get_organization_enforces_tenant_isolation() {
             .expect_err("cross-tenant read must be forbidden");
 
     assert!(matches!(err, OrgLifecycleError::Forbidden), "got {err:?}");
+}
+
+/// Scenario: org owner lists members; non-member is forbidden.
+#[test]
+fn list_org_members_returns_active_members() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orglist");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Listable Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, member, "member");
+
+    let exec = sesame_idam_database::db();
+    let page = org_lifecycle::list_org_members(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        None,
+        0,
+        10,
+    )
+    .expect("owner lists members");
+
+    assert_eq!(page.total, 2);
+    assert_eq!(page.items.len(), 2);
+
+    let outsider = Uuid::new_v4();
+    let err = org_lifecycle::list_org_members(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &outsider.to_string(),
+        None,
+        0,
+        10,
+    )
+    .expect_err("outsider cannot list");
+    assert!(matches!(err, OrgLifecycleError::Forbidden));
+}
+
+/// Scenario: owner changes a member role; member cannot escalate.
+#[test]
+fn change_member_role_requires_org_admin() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgrole");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Role Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, member, "member");
+
+    let exec = sesame_idam_database::db();
+    org_lifecycle::change_member_role(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        &member.to_string(),
+        "dispatcher",
+    )
+    .expect("owner changes role");
+
+    let page = org_lifecycle::list_org_members(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        None,
+        0,
+        10,
+    )
+    .expect("list after role change");
+    assert!(
+        page
+            .items
+            .iter()
+            .any(|m| m.user_id == member && m.role == "dispatcher")
+    );
+
+    let err = org_lifecycle::change_member_role(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &member.to_string(),
+        &owner.to_string(),
+        "member",
+    )
+    .expect_err("member cannot change roles");
+    assert!(matches!(err, OrgLifecycleError::Forbidden));
 }

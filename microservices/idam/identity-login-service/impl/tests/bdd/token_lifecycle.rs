@@ -18,6 +18,7 @@ use std::sync::Arc;
 use std::sync::Once;
 use std::time::Duration;
 
+use brrtrouter::security::JwtTokenStatusChecker;
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
 use brrtrouter::router::ParamVec;
@@ -333,8 +334,30 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
     );
 
     // ── Logout (revoke family in Redis) ──
-    let logout = auth_logout::handle(logout_request(&rotated_refresh));
+    let access_payload = decode_jwt_payload(login.body["access_token"].as_str().unwrap());
+    let access_jti = access_payload["jti"].as_str().expect("access jti").to_string();
+    let access_exp = access_payload["exp"].as_u64().expect("access exp");
+
+    let mut logout_req = logout_request(&rotated_refresh);
+    logout_req.jwt_claims = Some(serde_json::json!({
+        "sub": user_id,
+        "tenant_id": TEST_TENANT,
+        "jti": access_jti,
+        "exp": access_exp,
+    }));
+    let logout = auth_logout::handle(logout_req);
     assert!(logout.error.is_empty(), "logout error: {:?}", logout.error);
+
+    // ── Denylisted access token rejected by token-status read side ──
+    let checker = sesame_common::token_status::SesameTokenStatusChecker::from_redis_url(
+        &std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
+    )
+    .expect("token status checker");
+    assert_eq!(
+        checker.check(&access_payload),
+        brrtrouter::security::JwtTokenStatus::Revoked,
+        "logged-out access token must be denylisted"
+    );
 
     // ── Post-logout refresh rejected ──
     let after_logout = auth_refresh::handle(refresh_request(&rotated_refresh));

@@ -66,14 +66,17 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     // JWT enrichment: fetch effective roles from authz-core (the single
     // sanctioned cross-service call). Degrades to empty roles on failure —
     // login must not hard-fail when authz-core is briefly unavailable.
-    let roles = crate::services::authz_client::fetch_effective_roles(
+    let authz = crate::services::authz_client::fetch_effective_authz(
         &user_id,
         &tenant_id,
         DEFAULT_PORTAL,
     )
     .unwrap_or_else(|e| {
         tracing::warn!(error = %e, "auth_login: authz-core enrichment failed — issuing token without roles");
-        vec![]
+        crate::services::authz_client::EffectiveAuthz {
+            roles: vec![],
+            permissions: vec![],
+        }
     });
 
     let exec = sesame_idam_database::db();
@@ -90,7 +93,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         &user_id,
         &tenant_id,
         DEFAULT_PORTAL,
-        roles.clone(),
+        authz.roles.clone(),
+        authz.permissions,
         "customer",
         org_id_str.as_deref(),
     ) {
@@ -115,7 +119,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         refresh_token_expires_in: Some(
             i32::try_from(tokens.refresh_expires_in).unwrap_or(i32::MAX),
         ),
-        roles: Some(roles),
+        roles: Some(authz.roles.clone()),
         scope: Some(tokens.scope),
         token_type: "Bearer".to_string(),
         token_version: i32::try_from(tokens.token_version).ok(),

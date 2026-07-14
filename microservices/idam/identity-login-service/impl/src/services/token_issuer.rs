@@ -69,6 +69,7 @@ pub fn issue_tokens(
     tenant_id: &str,
     portal: &str,
     roles: Vec<String>,
+    permissions: Vec<String>,
     role_for_ttl: &str,
     org_id: Option<&str>,
 ) -> Result<IssuedTokens, IssueError> {
@@ -101,6 +102,7 @@ pub fn issue_tokens(
         .tenant(tenant_id)
         .portal(portal)
         .roles(roles)
+        .permissions(permissions)
         .build()
         .map_err(|e| IssueError::Claims(e.to_string()))?;
 

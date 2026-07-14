@@ -39,6 +39,12 @@ fn effective_roles_url(base: &str) -> String {
     format!("{base}{AUTHZ_BASE_PATH}/authz/principals/effective")
 }
 
+/// Effective roles + permissions from authz-core.
+pub struct EffectiveAuthz {
+    pub roles: Vec<String>,
+    pub permissions: Vec<String>,
+}
+
 /// Fetch effective role names for a user from authz-core.
 ///
 /// Returns `Ok(roles)` on success; on any transport/parse failure returns
@@ -53,6 +59,20 @@ pub fn fetch_effective_roles(
     tenant_id: &str,
     app_id: &str,
 ) -> Result<Vec<String>, String> {
+    fetch_effective_authz(user_id, tenant_id, app_id).map(|authz| authz.roles)
+}
+
+/// Fetch effective roles and permissions for JWT enrichment.
+///
+/// # Errors
+///
+/// Returns an error string when authz-core is unreachable, times out, or
+/// returns an unparseable body.
+pub fn fetch_effective_authz(
+    user_id: &str,
+    tenant_id: &str,
+    app_id: &str,
+) -> Result<EffectiveAuthz, String> {
     let url = effective_roles_url(&authz_core_url());
 
     let body = serde_json::json!({
@@ -75,7 +95,17 @@ pub fn fetch_effective_roles(
     let (_status, response_body) = fetch_post(&url, body.as_bytes(), &options)
         .map_err(|e| format!("authz-core POST {url}: {e}"))?;
 
-    parse_roles(&response_body)
+    parse_effective_authz(&response_body)
+}
+
+fn parse_effective_authz(body: &[u8]) -> Result<EffectiveAuthz, String> {
+    let value: serde_json::Value =
+        serde_json::from_slice(body).map_err(|e| format!("parse EffectiveResponse: {e}"))?;
+
+    Ok(EffectiveAuthz {
+        roles: parse_roles_from_value(&value)?,
+        permissions: parse_permissions_from_value(&value)?,
+    })
 }
 
 /// Extract role names from an `EffectiveResponse` body.
@@ -85,11 +115,14 @@ pub fn fetch_effective_roles(
 fn parse_roles(body: &[u8]) -> Result<Vec<String>, String> {
     let value: serde_json::Value =
         serde_json::from_slice(body).map_err(|e| format!("parse EffectiveResponse: {e}"))?;
+    parse_roles_from_value(&value)
+}
 
+fn parse_roles_from_value(value: &serde_json::Value) -> Result<Vec<String>, String> {
     let Some(roles) = value.get("roles").and_then(|r| r.as_array()) else {
         return Err(format!(
             "EffectiveResponse missing roles array: {}",
-            String::from_utf8_lossy(&body[..body.len().min(200)])
+            value
         ));
     };
 
@@ -101,6 +134,17 @@ fn parse_roles(body: &[u8]) -> Result<Vec<String>, String> {
                 .or_else(|| r.as_str())
                 .map(String::from)
         })
+        .collect())
+}
+
+fn parse_permissions_from_value(value: &serde_json::Value) -> Result<Vec<String>, String> {
+    let Some(permissions) = value.get("permissions").and_then(|p| p.as_array()) else {
+        return Ok(vec![]);
+    };
+
+    Ok(permissions
+        .iter()
+        .filter_map(|p| p.as_str().map(String::from))
         .collect())
 }
 
@@ -127,6 +171,17 @@ mod tests {
     fn parse_roles_rejects_missing_array() {
         assert!(parse_roles(br#"{"user_id":"u1"}"#).is_err());
         assert!(parse_roles(b"not json").is_err());
+    }
+
+    #[test]
+    fn parse_effective_authz_includes_permissions() {
+        let body = br#"{"user_id":"u1","roles":[{"role":"OWNER"}],"permissions":["organization:read","organization:write"]}"#;
+        let authz = parse_effective_authz(body).unwrap();
+        assert_eq!(authz.roles, vec!["OWNER"]);
+        assert_eq!(
+            authz.permissions,
+            vec!["organization:read", "organization:write"]
+        );
     }
 
     #[test]

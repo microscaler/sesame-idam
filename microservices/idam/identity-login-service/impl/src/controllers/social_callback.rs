@@ -125,11 +125,22 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     }
 
     let user_id_str = user.id.to_string();
+    let authz = crate::services::authz_client::fetch_effective_authz(
+        &user_id_str,
+        tenant_id,
+        DEFAULT_PORTAL,
+    )
+    .unwrap_or_else(|_| crate::services::authz_client::EffectiveAuthz {
+        roles: vec![],
+        permissions: vec![],
+    });
+
     let tokens = match token_issuer::issue_tokens(
         &user_id_str,
         tenant_id,
         DEFAULT_PORTAL,
-        vec![],
+        authz.roles,
+        authz.permissions,
         "customer",
         None,
     ) {

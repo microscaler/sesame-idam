@@ -14,10 +14,8 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 mod audit;
 mod jwt_context;
-// Models are shared with the lib target (migrator entity registry) which suppresses
-// these derive/dead-code lints crate-wide; the binary constructs only a subset, so
-// scope the same allowances here. TODO: align with the login-service pattern (bin
-// uses `sesame_idam_org_mgmt::{services, models}` from the lib instead of re-declaring).
+mod security;
+// Models are shared with the lib target (migrator entity registry).
 #[allow(
     dead_code,
     clippy::needless_raw_string_hashes,
@@ -25,21 +23,22 @@ mod jwt_context;
     clippy::uninlined_format_args
 )]
 mod models;
-mod security;
 mod services;
 
-/// Only consumer/org-lifecycle controllers — not the full admin stub set.
-// Untyped dispatcher handlers must accept HandlerRequest by value to match the
-// coroutine registration API, even when a particular handler only borrows it.
+/// Consumer + org-admin controllers wired for the binary and BDD tests.
 #[allow(clippy::needless_pass_by_value)]
 mod controllers {
     pub mod accept_invitation;
     pub mod add_user_to_org;
+    pub mod change_user_role_in_org;
     pub mod create_organization;
     pub mod fetch_org;
+    pub mod fetch_users_in_org;
     pub mod invite_user_to_org;
     pub mod list_my_memberships;
     pub mod preview_invitation;
+    pub mod remove_user_from_org;
+    pub mod revoke_pending_invite;
 }
 // Generated registry code may contain unused typed imports when every
 // discovered controller is untyped, and closures preserve its stable template.
