@@ -57,13 +57,15 @@ does not add the deferred SDK, hosted UI, enterprise identity, or curl-like HTTP
     forced tenant/organization policy. The executable acceptance query intentionally has no
     organization predicate, sees one row, rejects cross-organization insert, and sees zero rows
     without context in the next transaction.
-- [ ] **B6 Zero-bleed proof suite.** Exercise two tenants/organizations, concurrency, commit,
+- [x] **B6 Zero-bleed proof suite.** Exercise two tenants/organizations, concurrency, commit,
   rollback, injected error, missing context, forged header, and repeated pool-slot reuse.
   - Acceptance: zero cross-tenant observations over the repeat matrix; context is unset after the
     transaction and a context-free query cannot see protected rows.
-  - Current evidence: Lifeguard covers commit, returned error, panic, missing helper, and pool-slot
-    reuse; Hauliage covers two rows, unqualified read, cross-org write rejection, and next-
-    transaction reset. The concurrent two-context repeat matrix remains open.
+  - Evidence: Lifeguard covers commit, returned error, panic, missing helper, and repeated pool-slot
+    reuse; its two-organization concurrency test performs 100 interleaved reads per context and
+    then probes both slots context-free. Hauliage covers unqualified reads, cross-org write
+    rejection, a valid context from another platform tenant, forged tenant-header conflict, and
+    next-transaction reset.
 
 ## Track C — east-west client completion
 
