@@ -34,7 +34,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return tenant_http_error(&e);
     }
 
-    let user = match UserService::find_by_tenant_and_email(&tenant_id, &email, exec) {
+    let user = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+        UserService::find_by_tenant_and_email(&tenant_id, &email, exec)
+    }) {
         Ok(user) => user,
         Err(e) => {
             tracing::error!(error = %e, "auth_login: user lookup failed");

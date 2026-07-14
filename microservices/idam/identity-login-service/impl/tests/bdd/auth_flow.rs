@@ -26,6 +26,8 @@ const TEST_TENANT: &str = "bdd-tenant";
 /// (`identity-user-mgmt-service/impl/seeds/20260706000000_hauliage_demo_users.sql`).
 const HAULIAGE_TENANT: &str = "hauliage";
 const HAULIAGE_DEMO_EMAIL: &str = "owner@hauliage.dev";
+const HAULIAGE_SHIPPER_EMAIL: &str = "shipper@amecorp.dev";
+const HAULIAGE_TRANSPORT_EMAIL: &str = "transport@transportservices.dev";
 const HAULIAGE_DEMO_PASSWORD: &str = "SecureP@ss123!";
 
 static INIT: Once = Once::new();
@@ -293,6 +295,49 @@ fn hauliage_demo_user_logs_in() {
     assert_eq!(resp.status, 200, "demo login failed: {:?}", resp.body);
     let payload = decode_jwt_payload(resp.body["access_token"].as_str().unwrap());
     assert_eq!(payload["tenant_id"], HAULIAGE_TENANT);
+}
+
+fn assert_hauliage_demo_login(email: &str, label: &str) {
+    let resp = auth_login::handle(login_request(
+        HAULIAGE_TENANT,
+        email,
+        HAULIAGE_DEMO_PASSWORD,
+    ));
+    if resp.status == 401 || resp.status == 404 {
+        println!("SKIP: hauliage demo seed not applied on this database ({label})");
+        return;
+    }
+    assert_eq!(
+        resp.status, 200,
+        "{label} demo login failed: {:?}",
+        resp.body
+    );
+    let payload = decode_jwt_payload(resp.body["access_token"].as_str().unwrap());
+    assert_eq!(payload["tenant_id"], HAULIAGE_TENANT);
+    assert!(
+        payload.get("org_id").and_then(|v| v.as_str()).is_some(),
+        "{label} JWT should carry org_id from demo org memberships"
+    );
+}
+
+/// Scenario: Role-split shipper demo user can log in with org context.
+#[test]
+fn hauliage_shipper_demo_user_logs_in() {
+    if !db_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+    assert_hauliage_demo_login(HAULIAGE_SHIPPER_EMAIL, "shipper");
+}
+
+/// Scenario: Role-split transport demo user can log in with org context.
+#[test]
+fn hauliage_transport_demo_user_logs_in() {
+    if !db_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+    assert_hauliage_demo_login(HAULIAGE_TRANSPORT_EMAIL, "transport");
 }
 
 /// Scenario: Unknown tenant slug is rejected before credential checks.

@@ -1,8 +1,5 @@
--- Sesame RLS contract v1.
---
--- Applications validate the JWT before calling this function. No token, key,
--- or unvalidated request value is accepted by the database. Lifeguard calls
--- public.rls_set_session once inside the transaction that owns the work.
+-- Sesame RLS contract v1 (canonical source: sql/rls/v1/install.sql).
+-- Applied via setup-db.sh / apply_order.txt after entity migrations.
 
 CREATE OR REPLACE FUNCTION public.sesame_rls_contract_version()
 RETURNS integer
@@ -156,29 +153,8 @@ $$;
 COMMENT ON FUNCTION public.rls_set_session(text, uuid, uuid, text, jsonb, jsonb, text, text)
 IS 'Sesame RLS v1: inject validated identity context using transaction-local GUCs';
 
-CREATE OR REPLACE FUNCTION public.rls_set_pre_auth_tenant(p_tenant_id text)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY INVOKER
-SET search_path = pg_catalog
-AS $$
-BEGIN
-    IF p_tenant_id IS NULL
-       OR NULLIF(pg_catalog.btrim(p_tenant_id), '') IS NULL THEN
-        RAISE EXCEPTION 'pre-auth tenant id is required'
-            USING ERRCODE = '22023';
-    END IF;
-
-    PERFORM pg_catalog.set_config('sesame.tenant_id', p_tenant_id, true);
-END;
-$$;
-
-COMMENT ON FUNCTION public.rls_set_pre_auth_tenant(text)
-IS 'Sesame RLS v1: set tenant-only context for unauthenticated login/register flows';
-
 REVOKE ALL ON FUNCTION public.sesame_rls_contract_version() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.rls_set_session(text, uuid, uuid, text, jsonb, jsonb, text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.rls_set_pre_auth_tenant(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.sesame_current_tenant_id() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.sesame_current_subject_id() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.sesame_current_organization_id() FROM PUBLIC;
@@ -190,7 +166,4 @@ REVOKE ALL ON FUNCTION public.sesame_current_org_type() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.sesame_has_role(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.sesame_has_permission(text) FROM PUBLIC;
 
--- The database owner grants only the functions required by the application's
--- non-owner runtime role. Example (replace hauliage_app explicitly):
--- GRANT EXECUTE ON FUNCTION public.rls_set_session(text, uuid, uuid, text, jsonb, jsonb, text, text) TO hauliage_app;
--- GRANT EXECUTE ON FUNCTION public.sesame_current_tenant_id(), public.sesame_current_organization_id(), public.sesame_has_role(text), public.sesame_has_permission(text) TO hauliage_app;
+GRANT EXECUTE ON FUNCTION public.rls_set_session(text, uuid, uuid, text, jsonb, jsonb, text, text) TO sesame_idam;

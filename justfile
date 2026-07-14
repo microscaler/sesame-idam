@@ -822,3 +822,11 @@ tilt-reload:
   @echo "Reloading systemd user daemon..."
   @systemctl --user daemon-reload
   @echo "Done — Tilt unit reloaded"
+
+# Trigger a Tilt manual resource (migrations, db-init, service rebuild, BDD, etc.).
+# Examples:
+#   just tilt-trigger sesame-idam-apply-migrations
+#   just tilt-trigger build-identity-login-service && just tilt-trigger copy-identity-login-service && just tilt-trigger docker-identity-login-service && just tilt-trigger identity-login-service
+# Requires tilt-sesame-idam.service running (just tilt-up). Set KUBECONFIG for shared-k8s.
+tilt-trigger resource:
+  @tilt trigger {{resource}} --port 10351

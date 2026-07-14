@@ -10,6 +10,12 @@ use std::sync::{Arc, OnceLock};
 
 use lifeguard::{query_value, DatabaseConfig, LifeguardPool, PooledLifeExecutor};
 
+mod pre_auth_tenant;
+mod rls_context;
+
+pub use pre_auth_tenant::with_pre_auth_tenant;
+pub use rls_context::{session_context_from_validated_claims, RlsContextError};
+
 static EXECUTOR: OnceLock<PooledLifeExecutor> = OnceLock::new();
 
 fn non_empty_env(key: &str) -> Option<String> {

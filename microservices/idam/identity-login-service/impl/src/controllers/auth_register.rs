@@ -45,21 +45,24 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     }
 
     // Pre-check duplicate email (the DB unique constraint is the failsafe).
-    match UserService::find_by_tenant_and_email(&tenant_id, &email, exec) {
-        Ok(Some(_)) => {
-            return HttpJson::new(
-                400,
-                serde_json::json!({
-                    "error": "email_in_use",
-                    "error_description": "An account with this email already exists"
-                }),
-            );
-        }
-        Ok(None) => {}
+    let duplicate = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+        UserService::find_by_tenant_and_email(&tenant_id, &email, exec)
+    }) {
+        Ok(Some(_)) => true,
+        Ok(None) => false,
         Err(e) => {
             tracing::error!(error = %e, "auth_register: duplicate check failed");
             return internal_error();
         }
+    };
+    if duplicate {
+        return HttpJson::new(
+            400,
+            serde_json::json!({
+                "error": "email_in_use",
+                "error_description": "An account with this email already exists"
+            }),
+        );
     }
 
     let password_hash = match password::hash_password(&req.data.password) {
@@ -70,13 +73,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         }
     };
 
-    let user_id = match UserService::create_user(
-        &tenant_id,
-        &email,
-        &password_hash,
-        req.data.phone.clone(),
-        exec,
-    ) {
+    let user_id = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+        UserService::create_user(
+            &tenant_id,
+            &email,
+            &password_hash,
+            req.data.phone.clone(),
+            exec,
+        )
+    }) {
         Ok(id) => id,
         Err(e) => {
             // Unique-constraint race: two concurrent registrations.

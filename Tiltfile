@@ -439,14 +439,17 @@ local_resource(
 
 # Apply ./migrations/*.sql in apply_order.txt order via kubectl exec to
 # deployment/postgres-primary (database sesame_idam).
-# Use after sesame-idam-migrate changes SQL, or when you added hand-written migrations. Skips role/DB bootstrap;
-# run sesame-idam-db-init first on a new cluster. Same GRANT step as full setup-db.sh.
+# Command: SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 ./scripts/setup-db.sh
+# Use after sesame-idam-migrate changes SQL, or when you added hand-written migrations
+# (e.g. migrations/rls/*.sql). Skips role/DB bootstrap; run sesame-idam-db-init first on a
+# new cluster. Same GRANT step as full setup-db.sh.
+# Usage: `tilt trigger sesame-idam-apply-migrations`
 local_resource(
     'sesame-idam-apply-migrations',
     'chmod +x ./scripts/setup-db.sh && SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 ./scripts/setup-db.sh',
     deps=[
         './scripts/setup-db.sh',
-        './migrations/apply_order.txt',
+        './migrations',
         './microservices/idam/identity-login-service/impl/seeds',
         './microservices/idam/identity-session-service/impl/seeds',
         './microservices/idam/identity-user-mgmt-service/impl/seeds',

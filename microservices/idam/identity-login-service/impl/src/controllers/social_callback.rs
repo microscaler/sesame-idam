@@ -17,6 +17,7 @@ use crate::services::tenant_oauth_service::TenantOAuthService;
 use crate::services::tenant_service::TenantService;
 use crate::services::token_issuer;
 use crate::services::user_service::{UserService, STATUS_ACTIVE};
+use crate::models::user::UserModel;
 use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
 const DEFAULT_PORTAL: &str = "frontend";
@@ -98,74 +99,23 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return oauth_error(400, "email_not_verified");
     }
 
-    let user = match SocialCredentialService::find_user_by_provider(
-        tenant_id,
-        provider.as_str(),
-        &profile.provider_user_id,
-        exec,
-    ) {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            match UserService::find_by_tenant_and_email(tenant_id, &profile.email, exec) {
-                Ok(Some(_)) => {
-                    return oauth_error(409, "account_exists_link_required");
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    tracing::error!(error = %e, "social_callback: email lookup failed");
-                    return oauth_error(500, "internal_error");
-                }
-            }
+    let provider_user_id = profile.provider_user_id.clone();
+    let profile_email = profile.email.clone();
+    let provider_str = provider.as_str().to_string();
 
-            let mut random_secret = [0u8; 32];
-            rand::thread_rng().fill_bytes(&mut random_secret);
-            let secret = base64::engine::general_purpose::STANDARD.encode(random_secret);
-            let placeholder_password = match password::hash_password(&secret) {
-                Ok(hash) => hash,
-                Err(e) => {
-                    tracing::error!(error = %e, "social_callback: placeholder hash failed");
-                    return oauth_error(500, "internal_error");
-                }
-            };
-
-            let user_id = match UserService::create_oauth_user(
-                tenant_id,
-                &profile.email,
-                &placeholder_password,
-                exec,
-            ) {
-                Ok(id) => id,
-                Err(e) => {
-                    let msg = e.to_string();
-                    if msg.contains("unique") || msg.contains("duplicate") {
-                        return oauth_error(409, "account_exists_link_required");
-                    }
-                    tracing::error!(error = %e, "social_callback: user create failed");
-                    return oauth_error(500, "internal_error");
-                }
-            };
-
-            if let Err(e) = SocialCredentialService::link_provider(
-                user_id,
-                provider.as_str(),
-                &profile.provider_user_id,
-                exec,
-            ) {
-                tracing::error!(error = %e, "social_callback: link provider failed");
-                return oauth_error(500, "internal_error");
-            }
-
-            match UserService::find_by_tenant_and_email(tenant_id, &profile.email, exec) {
-                Ok(Some(user)) => user,
-                Ok(None) => return oauth_error(500, "internal_error"),
-                Err(e) => {
-                    tracing::error!(error = %e, "social_callback: reload user failed");
-                    return oauth_error(500, "internal_error");
-                }
-            }
-        }
+    let user = match sesame_idam_database::with_pre_auth_tenant(tenant_id, |exec| {
+        resolve_oauth_user(
+            exec,
+            tenant_id,
+            &provider_str,
+            &provider_user_id,
+            &profile_email,
+        )
+    }) {
+        Ok(Ok(user)) => user,
+        Ok(Err(code)) => return oauth_error(oauth_user_error_status(code), code),
         Err(e) => {
-            tracing::error!(error = %e, "social_callback: provider lookup failed");
+            tracing::error!(error = %e, "social_callback: user resolution failed");
             return oauth_error(500, "internal_error");
         }
     };
@@ -224,6 +174,60 @@ fn oauth_error(status: u16, error: &str) -> HttpJson<serde_json::Value> {
             "error_description": error,
         }),
     )
+}
+
+fn oauth_user_error_status(code: &str) -> u16 {
+    match code {
+        "account_exists_link_required" => 409,
+        _ => 500,
+    }
+}
+
+fn resolve_oauth_user<E: lifeguard::LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    provider: &str,
+    provider_user_id: &str,
+    profile_email: &str,
+) -> Result<Result<UserModel, &'static str>, lifeguard::LifeError> {
+    match SocialCredentialService::find_user_by_provider(
+        tenant_id,
+        provider,
+        provider_user_id,
+        exec,
+    )? {
+        Some(user) => return Ok(Ok(user)),
+        None => {}
+    }
+
+    if UserService::find_by_tenant_and_email(tenant_id, profile_email, exec)?.is_some() {
+        return Ok(Err("account_exists_link_required"));
+    }
+
+    let mut random_secret = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut random_secret);
+    let secret = base64::engine::general_purpose::STANDARD.encode(random_secret);
+    let placeholder_password = password::hash_password(&secret)
+        .map_err(|e| lifeguard::LifeError::Other(e))?;
+
+    let user_id = match UserService::create_oauth_user(tenant_id, profile_email, &placeholder_password, exec)
+    {
+        Ok(id) => id,
+        Err(e) => {
+            let msg = e.to_string();
+            if msg.contains("unique") || msg.contains("duplicate") {
+                return Ok(Err("account_exists_link_required"));
+            }
+            return Err(e);
+        }
+    };
+
+    SocialCredentialService::link_provider(user_id, provider, provider_user_id, exec)?;
+
+    match UserService::find_by_tenant_and_email(tenant_id, profile_email, exec)? {
+        Some(user) => Ok(Ok(user)),
+        None => Ok(Err("internal_error")),
+    }
 }
 
 fn emit_social_login_audit(tenant_id: &str, user_id: Option<&str>, provider: &str, success: bool) {

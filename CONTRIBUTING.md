@@ -151,6 +151,31 @@ After `oauth set`, apply the actual OAuth client secret to the cluster (Helm/Til
 - Design: `docs/design-saas-of-saas-multi-tenancy.md`
 - Wiki: `docs/llmwiki/topics/topic-platform-tenants.md`
 
+### RLS bridge (P1)
+
+Sesame maps validated JWT claims to Lifeguard `SessionContext` and injects them transaction-locally
+via `public.rls_set_session` (see [ADR-005](docs/ADR-005-first-class-rls-contract.md)). There is no
+`SesameExecutor` wrapper — use `db().pool().with_session_transaction(&context, |exec| { ... })`.
+
+```bash
+# After entity migrations, apply RLS SQL (included in migrations/apply_order.txt)
+SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 ./scripts/setup-db.sh
+```
+
+Protected handlers should build context with:
+
+```rust
+use sesame_idam_database::{session_context_from_validated_claims, db};
+
+let context = session_context_from_validated_claims(claims, Some(x_tenant_id))?;
+let result = db().pool().with_session_transaction(&context, |exec| {
+    // ORM queries here — RLS policies enforce tenant/org scope without extra WHERE clauses
+    my_query(exec)
+});
+```
+
+References: `microservices/database/src/rls_context.rs`, `sql/rls/v1/`, `topic-rls-bridge.md`.
+
 ## Workflow for Story Implementation
 
 1. Read the story file in `docs/Epics/{N}-{name}/stories/story-N.M.md`

@@ -42,14 +42,23 @@ Every accessor returns `NULL` when no context exists. Policy expressions therefo
 
 ## Code Anchors
 
-- `sql/rls/v1/install.sql` — Canonical install and accessor contract
-- `sql/rls/v1/reference-hauliage.sql` — Executable reference policy
-- `docs/ADR-005-first-class-rls-contract.md` — Ownership and abstraction decision
-- `../lifeguard/src/executor.rs` — Direct/base executor context support
-- `../lifeguard/src/pool/pooled.rs` — Pooled one-shot and pinned transaction support
+| Area | Path |
+|------|------|
+| SQL contract | `sql/rls/v1/install.sql` |
+| IDAM users policy | `sql/rls/v1/reference-idam-users.sql` |
+| Hauliage org policy | `sql/rls/v1/reference-hauliage.sql` |
+| Migrations | `migrations/rls/20260714180000_sesame_rls_contract_v1.sql`, `..._users_tenant_rls.sql` |
+| Claims → context | `microservices/database/src/rls_context.rs` |
+| Zero-bleed test | `microservices/database/tests/rls_users_zero_bleed.rs` |
+| ADR | `docs/ADR-005-first-class-rls-contract.md` |
+| Lifeguard | `../lifeguard/src/executor.rs`, `../lifeguard/src/pool/pooled.rs` |
 
 ## Delivered Evidence
 
+- **Sesame-IDAM slice:** `sesame_idam_database::session_context_from_validated_claims` maps
+  BRRTRouter-validated JWT claims to Lifeguard `SessionContext`. Migrations apply the v1 SQL
+  contract and forced tenant RLS on `sesame_idam.users`. Integration test
+  `rls_users_zero_bleed` proves unqualified `SELECT` is tenant-scoped (AC-P1-001 partial).
 - Hauliage's Company service maps only BRRTRouter-validated claims into `SessionContext` and runs
   every delivered `organization_profiles` read/write in `with_session_transaction`.
 - The installed Company policy forces RLS on `organization_profiles`; the application query used
@@ -62,5 +71,13 @@ Every accessor returns `NULL` when no context exists. Policy expressions therefo
 
 ## Gaps / Drift
 
+> **Resolved (2026-07-14):** Pre-auth flows (`auth_login`, `auth_register`, `signup_validate`,
+> `social_callback`) call `sesame_idam_database::with_pre_auth_tenant` so user lookups work under
+> forced RLS. Migration `20260714180002_pre_auth_tenant_and_grants.sql` adds `rls_set_pre_auth_tenant`
+> and grants `sesame_current_tenant_id()` to `sesame_idam`.
+>
+> **Open:** Wire remaining protected IDAM controllers to `db().pool().with_session_transaction` (today most
+> services still append `WHERE tenant_id = ?` in application code).
+>
 > **Open:** The delivered Hauliage policy is the first production-shaped slice, not general policy
 > generation or the complete Launch 1.0 compatibility/benchmark/recovery evidence set.

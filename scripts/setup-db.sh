@@ -149,6 +149,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA sesame_idam TO sesa
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA sesame_idam TO sesame_idam;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA sesame_idam GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sesame_idam;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA sesame_idam GRANT USAGE, SELECT ON SEQUENCES TO sesame_idam;
+GRANT EXECUTE ON FUNCTION public.rls_set_session(text, uuid, uuid, text, jsonb, jsonb, text, text) TO sesame_idam;
+GRANT EXECUTE ON FUNCTION public.rls_set_pre_auth_tenant(text) TO sesame_idam;
+GRANT EXECUTE ON FUNCTION public.sesame_current_tenant_id() TO sesame_idam;
+GRANT EXECUTE ON FUNCTION public.sesame_rls_contract_version() TO sesame_idam;
 EOF
 }
 

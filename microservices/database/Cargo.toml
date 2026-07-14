@@ -6,3 +6,9 @@ edition = "2021"
 [dependencies]
 lifeguard = { workspace = true }
 tracing = "0.1"
+serde_json = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+uuid = { workspace = true }

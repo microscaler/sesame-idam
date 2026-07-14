@@ -34,8 +34,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
             Err(TenantGateError::NotActive) => reasons.push("tenant_not_active".to_string()),
             Err(TenantGateError::Db(_)) => reasons.push("validation_unavailable".to_string()),
             Ok(_) => {
-                match UserService::find_by_tenant_and_email(tenant_id, &email.to_lowercase(), exec)
-                {
+                match sesame_idam_database::with_pre_auth_tenant(tenant_id, |exec| {
+                    UserService::find_by_tenant_and_email(tenant_id, &email.to_lowercase(), exec)
+                }) {
                     Ok(Some(_)) => reasons.push("email_taken".to_string()),
                     Ok(None) => {}
                     Err(e) => {

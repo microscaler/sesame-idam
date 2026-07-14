@@ -1,5 +1,29 @@
 # LLM Wiki — Session Log
 
+## [2026-07-14] fix | Hauliage demo logins — pre-auth RLS tenant context + seed order
+
+- **Root cause:** Forced RLS on `sesame_idam.users` filtered all rows when login/register did not set
+  `sesame.tenant_id`; `sesame_current_tenant_id()` was also not granted to `sesame_idam`.
+- **`with_pre_auth_tenant`:** `microservices/database/src/pre_auth_tenant.rs` — uses Lifeguard
+  `with_session_transaction` with nil subject/org placeholders (per-job autocommit would clear GUCs).
+- **Migration:** `migrations/rls/20260714180002_pre_auth_tenant_and_grants.sql`.
+- **Controllers:** `auth_login`, `auth_register`, `signup_validate`, `social_callback` use pre-auth context.
+- **Seeds:** `seed_order.txt` — platform tenant registry before demo users (tenant gate).
+- **Tests:** `auth_flow.rs` — shipper + transport demo login BDD.
+- **Hauliage wiki:** reseed + RLS troubleshooting in `sesame-idam-brrtrouter-integration.md`.
+- **Justfile:** `just tilt-trigger <resource>` wraps `tilt trigger … --port 10351`.
+
+## [2026-07-14] feat | Sesame-IDAM RLS bridge — database context + users policy
+
+- **`sesame_idam_database`:** `rls_context.rs` — `session_context_from_validated_claims` (ported from
+  consumer pattern; tenant-agnostic unit tests).
+- **Migrations:** `migrations/rls/20260714180000_sesame_rls_contract_v1.sql` (install + GRANT to
+  `sesame_idam`), `..._users_tenant_rls.sql` (forced tenant policy on `sesame_idam.users`).
+- **Reference:** `sql/rls/v1/reference-idam-users.sql`.
+- **Test:** `database/tests/rls_users_zero_bleed.rs` — unqualified SELECT tenant isolation.
+- **Verify (ms02):** `cargo test -p sesame_idam_database` — 6/6 pass.
+- **Next:** wire protected controllers to `with_session_transaction`; org-scoped policies on more tables.
+
 ## [2026-07-14] feat | Epic 10 P1 — platform tenant admin API, CLI, BDD
 
 - **OpenAPI + codegen (10.1):** `PlatformAdmin` tag, 5 routes, `PlatformServiceAuth` on
