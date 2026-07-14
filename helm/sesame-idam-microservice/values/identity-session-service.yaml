@@ -58,7 +58,11 @@ env:
   RUST_LOG: "debug"
   RUST_BACKTRACE: "1"
   BRRTR_LOG_FORMAT: "json"
-  BRRTR_STACK_SIZE: "0x8000"
+  # This service combines response validation with three dispatcher middleware layers on the
+  # public JWKS hot path. The generic 32 KiB budget overflowed under the shared-stack JWKS
+  # refresh/probe workload and left requests blocked until Kubernetes killed the pod (exit 137).
+  # Keep the larger budget service-local instead of raising every Sesame service's footprint.
+  BRRTR_STACK_SIZE: "0x10000"
 
 serviceType: ClusterIP
 
