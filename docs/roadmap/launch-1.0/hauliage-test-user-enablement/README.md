@@ -13,9 +13,13 @@ This milestone includes only the Sesame endpoints Hauliage calls, the role/perso
 journeys require, the minimum token lifecycle/security behavior safe for named test users, and
 cross-repository environment/E2E proof.
 
-RLS, SDKs, hosted UI, broad user administration, MFA/social/passwordless, enterprise SSO/SCIM,
+SDKs, hosted UI, broad user administration, MFA/social/passwordless, enterprise SSO/SCIM,
 general webhook delivery, full API-key lifecycle, and full endpoint parity are out of scope.
 Deferral here does not remove them from the Launch 1.0 or later product roadmap.
+
+The 2026-07-14 delivery decision adds a narrow RLS slice: one production-shaped Hauliage
+organization-owned path must derive database context only from validated JWT claims and pass the
+transaction/pool zero-bleed suite. General policy generation remains a Launch 1.0 deliverable.
 
 ## Functional requirements
 
@@ -29,6 +33,7 @@ Deferral here does not remove them from the Launch 1.0 or later product roadmap.
 | FR-HTE-006 | Refresh MUST rotate refresh tokens and reject reuse; logout MUST terminate refresh capability, denylist the current access token for its remaining lifetime, and make that access token fail on its next protected request. |
 | FR-HTE-007 | Hauliage's BFF/frontend MUST use the shared-environment Sesame URLs and handle success, unauthenticated, forbidden, expired, and dependency-error responses without mock fallbacks. |
 | FR-HTE-008 | The shared Kubernetes environment MUST expose the agreed service ports, database/Redis dependencies, migrations, seeds, and configuration required for repeatable test-user onboarding. |
+| FR-HTE-009 | A protected Hauliage database path MUST execute through `SesameExecutor`, inject validated tenant/user/organization context with transaction-local semantics, and rely on PostgreSQL RLS rather than a client-supplied tenant predicate. |
 
 ## Non-functional requirements
 
@@ -40,6 +45,7 @@ Deferral here does not remove them from the Launch 1.0 or later product roadmap.
 | NFR-HTE-004 | Authentication and organization journeys MUST emit enough structured telemetry to distinguish Sesame, Hauliage BFF, database, Redis, and configuration failures. |
 | NFR-HTE-005 | The live E2E MUST pass from a clean browser/session with test retries disabled; a retry MUST NOT be used to classify an unstable journey as accepted. |
 | NFR-HTE-006 | Dynamic token-status Redis failure MUST use the accepted fail-closed bounded policy in [ADR-003](../../../ADR-003-token-status-dependency-outage.md); any remaining security deferral MUST have an explicit test-user risk decision. |
+| NFR-HTE-007 | RLS identity context MUST clear on commit, rollback, error, panic/cancellation, and pooled-connection reuse; absent or conflicting context MUST fail closed. |
 
 ## Acceptance criteria
 
@@ -52,6 +58,7 @@ Deferral here does not remove them from the Launch 1.0 or later product roadmap.
 | AC-HTE-005 | The real-login Hauliage Playwright journey passes against the shared Kubernetes stack from a documented clean state with no Sesame or BFF mocks. |
 | AC-HTE-006 | A fresh reset/reseed followed by the full test-user journey succeeds using only the published operator commands and configuration. |
 | AC-HTE-007 | The owner records an explicit go/no-go decision for initial test users, including accepted commits, evidence links, known limitations, rollback, and support contact. |
+| AC-HTE-008 | Two tenants with interleaved organization-owned rows repeatedly share the pool; unqualified reads return only the authenticated organization’s rows, while missing, forged-header, conflicting, rollback, and reuse cases return zero rows or an authorization error. |
 
 ## Exit evidence
 

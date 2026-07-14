@@ -4,7 +4,7 @@
 > Hauliage-consumer target** first — **initial Hauliage test-user enablement in ~6 weeks
 > (target ≈ 2026-08-24)**. This is a “just enough IDAM” integration milestone, not a
 > Sesame product release. Sesame functionality is the critical path / major hurdle. The
-> GA product surface (RLS bridge, TS SDK,
+> GA product surface (general RLS policy generation, TS SDK,
 > hosted UI, 100% PropelAuth parity, hybrid online-fallback authz) is **explicitly
 > deferred to the [Launch 1.0 roadmap](../ROADMAP-launch-1.0.md) or later — see Appendix A.
 > Acceptance is defined by the
@@ -161,9 +161,9 @@ online-fallback authz (C1/C2) · SCIM/SSO admin · webhook delivery system · OT
 magic-link login variants · MFA enrollment · user-mgmt admin CRUD · delegation/`act` ·
 DPoP · caching layer · ES256/HSM.
 
-> **RLS bridge note:** it's the README headline, but it secures the *consuming app's* DB.
-> Hauliage enforces its own tenancy, so the bridge is almost certainly **not** on the
-> test-user milestone critical path — confirm with Hauliage, default OUT.
+> **RLS bridge decision (2026-07-14):** the milestone now includes the narrow H1.5 proof:
+> validated Hauliage claims, transaction-local `SesameExecutor`, one production-shaped policy,
+> and pooled-connection zero-bleed evidence. General policy generation remains out of scope.
 
 ---
 
@@ -184,8 +184,9 @@ DPoP · caching layer · ES256/HSM.
 Retained from the original 2026-07-13 roadmap for Launch 1.0 and later. Delivers the
 full README vision beyond D4.
 
-- **Phase 2 — RLS bridge:** `sesame_set_session()` / `sesame_current_*()` SQL helpers +
-  `SesameExecutor` (Lifeguard wrapper) + zero-bleed BDD. Headline differentiator; 0% today.
+- **Phase 2 — RLS bridge:** the narrow H1.5/Hauliage proof moved into the delivery milestone on
+  2026-07-14. Launch 1.0 retains generalized policy templates, compatibility/upgrade evidence,
+  and the broader developer contract.
 - **Phase 3 — Hybrid authz (Wave C):** route classification (C1, needs full endpoint
   reconciliation), selective per-request online fallback (C2), entitlements
   ref/hash/cache wiring (C4/C5), refresh-reuse detection (C6), `typ=at+jwt`/algorithm
