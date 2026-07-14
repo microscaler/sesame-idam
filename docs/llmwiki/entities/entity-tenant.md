@@ -1,19 +1,19 @@
 ---
-title: Tenant Concept
+title: Platform Tenant
 status: verified
-updated: 2026-05-16
-sources: [openapi/*/openapi.yaml, microservices/*/impl/src/models/]
+updated: 2026-07-14
+sources: [microservices/idam/identity-login-service/impl/src/models/tenant.rs, migrations/identity-login-service/20260714102157_tenants.sql]
 ---
 
-# Entity: Tenant (Conceptual)
+# Entity: Platform Tenant
 
-Owned by: **ALL services** (as a boundary concept, not a table)
+Owned by: **identity-login-service**; consumed as an isolation boundary by all services
 
 ## Description
 
-**Tenant = Logical isolation boundary.** A tenant represents an entire customer organization. Tenants are completely isolated from each other — zero bleed between tenants. All users, orgs, keys, roles, and permissions within a tenant are shared across all applications in that tenant.
+**Tenant = SaaS product isolation boundary.** A tenant represents a product ecosystem such as Hauliage or RERP, not an end-customer organization. Tenants are completely isolated from each other. Users, customer organizations, keys, roles, and permissions belong to exactly one tenant.
 
-**CRITICAL:** There is NO `tenants` table in the database. Tenants are identified purely by the `tenant_id` column on every other table. The `X-Tenant-ID` request header maps to this column. This is a logical boundary, not a database entity.
+The canonical `sesame_idam.tenants` registry must contain an active row before authentication traffic is accepted. Its UUID `id` is internal registry identity; its unique string `slug` (`hauliage`, `rerp`) is the value carried by `X-Tenant-ID`, JWT `tenant_id`, the RLS context, and dependent tables' string `tenant_id` columns. Headers are cross-checks after authentication and never create identity.
 
 **Examples:**
 - `hauliage` = one tenant (includes hauliage-web, hauliage-api, hauliage-admin, hauliage-mobile)
@@ -23,9 +23,9 @@ Owned by: **ALL services** (as a boundary concept, not a table)
 
 Tenant isolation is enforced at three layers:
 
-1. **Application layer:** BRRTRouter middleware extracts `tenant_id` from `X-Tenant-ID` header, appends `WHERE tenant_id = ?` to all queries.
-2. **Database layer:** `SesameExecutor` runs `SET LOCAL current_tenant_id = ?` per transaction.
-3. **RLS policies:** PostgreSQL policies enforce `WHERE tenant_id = current_tenant_id` as a failsafe.
+1. **Application layer:** BRRTRouter validates the credential and cross-checks any `X-Tenant-ID` header against the validated string tenant claim.
+2. **Database layer:** Lifeguard's base pool/executors inject the validated `SessionContext` through the versioned helper on a pinned transaction.
+3. **RLS policies:** PostgreSQL policies use the typed Sesame accessors as a failsafe when an application predicate is absent.
 
 ## tenant_id Column Across All Services
 
@@ -39,17 +39,16 @@ Tenant isolation is enforced at three layers:
 
 ## Key Design Decisions
 
-1. **Tenant = isolation boundary only.** There is NO `tenants` table. Every table uses `tenant_id` (varchar(255)) as a partitioning column.
+1. **Tenant = registered isolation boundary.** `sesame_idam.tenants` is the provisioned source of valid platform tenant slugs; dependent tables use the slug as `tenant_id`.
 2. **Applications are children of tenant.** Each tenant can have multiple applications that share the same data.
-3. **X-Tenant-ID maps to tenant_id column.** Every API request header resolves to the tenant boundary.
-4. **tenant_id is varchar(255), NOT uuid.** This is consistent across all services.
-5. **No soft delete for tenants.** Tenants are deactivated by removing the `X-Tenant-ID` header; there is no `deleted_at` on a non-existent table.
+3. **X-Tenant-ID is a claimed tenant selector.** Authentication verifies the registered slug and subsequent requests cross-check it against the credential.
+4. **External `tenant_id` is a string, not the registry UUID.** This is the RLS v1 contract and the dependent-table representation.
+5. **Tenant lifecycle is explicit.** Registry status is `active`, `suspended`, or `provisioning`; there is no implicit tenant creation.
 
-## Drift Found (verified 2026-05-16)
+## Historical drift resolved
 
 | Wiki Claim | Actual Impl | Impact |
 |------------|-------------|--------|--------|
-| `tenants` table exists | NO TABLE EXISTS — tenant is purely logical | Critical — schema section was fabricated |
-| `POST /tenants` | Stale paths; tenant management is conceptual | Medium — no tenant CRUD endpoints |
-| `name`, `domain`, `is_active`, `deleted_at` columns | NOT in any table (no tenants table) | Medium — schema was fabricated |
-| `tenant_id` is uuid | `tenant_id` is varchar(255) in ALL services | Low — type mismatch |
+| Earlier wiki said no `tenants` table | The platform registry was delivered in `20260714102157_tenants.sql` | Resolved; tenant provisioning is now explicit |
+| Earlier designs conflated tenant and customer organization | Tenant is the SaaS product partition; `org_id` is the customer workspace | Resolved in claims and RLS v1 |
+| Earlier designs typed external tenant identity as UUID | External tenant identity is the registered string slug; subject and organization remain UUIDs | Resolved in code, SQL, and this documentation |

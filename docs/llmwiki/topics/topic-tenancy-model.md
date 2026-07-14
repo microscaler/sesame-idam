@@ -51,14 +51,14 @@ All hauliage applications share the same tenant data (same users, orgs, keys). A
 
 ## Database Schema
 
-Every major entity includes a `tenant_id` (UUID) column:
+Every major entity includes a string `tenant_id` column containing the platform tenant slug:
 
 ### `users`
 | Column | Type | Constraint |
 |--------|------|------------|
 | `id` | UUID | PK |
 | `email` | String | `UNIQUE(tenant_id, email)` |
-| `tenant_id` | UUID | `NOT NULL` — partitions data |
+| `tenant_id` | VARCHAR(255) | `NOT NULL` — partitions data |
 | `created_at` | Timestamp | |
 
 ### `organizations`
@@ -66,26 +66,26 @@ Every major entity includes a `tenant_id` (UUID) column:
 |--------|------|------------|
 | `id` | UUID | PK |
 | `name` | String | `UNIQUE(tenant_id, name)` |
-| `tenant_id` | UUID | `NOT NULL` |
+| `tenant_id` | VARCHAR(255) | `NOT NULL` |
 
 ### `api_keys`
 | Column | Type | Constraint |
 |--------|------|------------|
 | `id` | UUID | PK |
 | `key_value` | String | `UNIQUE(tenant_id, key_value)` |
-| `tenant_id` | UUID | `NOT NULL` |
+| `tenant_id` | VARCHAR(255) | `NOT NULL` |
 | `scope_type` | String | `user` or `org` |
 
 ## Isolation Mechanisms (Defense in Depth)
 
 ### Layer 1: BRRTRouter Middleware
-BRRTRouter middleware extracts `tenant_id` from the `X-Tenant-ID` header or JWT and stores it in the request context. All database queries automatically include `WHERE tenant_id = ?`.
+BRRTRouter cryptographically validates the credential and exposes its `tenant_id` claim. `X-Tenant-ID`, when present, is only a consistency check and cannot establish identity.
 
-### Layer 2: SesameExecutor
-The `SesameExecutor` wrapper on the database connection injects `SET LOCAL current_tenant_id = ?` at the start of every transaction.
+### Layer 2: Lifeguard base executors
+Protected work uses the existing Lifeguard pool/executor capability to pin a connection, begin a transaction, inject the validated `SessionContext` through the versioned helper, and commit or roll back before pool release. There is no Sesame-specific executor hierarchy.
 
 ### Layer 3: PostgreSQL RLS
-PostgreSQL RLS policies on every table enforce `WHERE tenant_id = current_tenant_id`. Even if application-layer filtering is missed, the database silently strips cross-tenant data.
+PostgreSQL RLS policies enforce the appropriate tenant and active-organization accessors. Even if application-layer filtering is missed, the database strips unauthorized rows.
 
 ## Deployment Scenarios
 

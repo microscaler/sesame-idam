@@ -75,17 +75,18 @@ Same endpoint, same body, different `X-Tenant-ID`. The middleware intercepts the
 ### Layer 1: BRRTRouter Middleware
 
 A global middleware runs on every request:
-1. Extracts `X-Tenant-ID` from the header (or JWT/API key context)
-2. Resolves it to a `tenant_id` UUID
-3. Injects it into the request context (`BRRTRouterContext::tenant_id`)
-4. All subsequent handlers have access to `current_tenant_id`
+1. Cryptographically validates the JWT or API key
+2. Exposes the validated string `tenant_id` and UUID subject/organization claims
+3. Cross-checks `X-Tenant-ID`, when supplied; the header never creates identity
+4. Makes only the validated claims available to handlers
 
-### Layer 2: Lifeguard / SesameExecutor
+### Layer 2: Lifeguard base executors
 
-The database wrapper intercepts queries:
-1. At transaction start: `SET LOCAL current_tenant_id = ?`
-2. Every query automatically includes `WHERE tenant_id = ?`
-3. No code changes needed in handlers — context is transparent
+The existing executor/pool capability owns the transaction:
+1. Pin one connection and begin a transaction
+2. Call the versioned `rls_set_session(...)` helper with parameterized validated context
+3. Execute all protected ORM work on that same connection
+4. Commit or roll back before returning the connection to the pool
 
 ### Layer 3: PostgreSQL RLS (Safety Net)
 
@@ -93,7 +94,7 @@ Database policies enforce isolation:
 ```sql
 CREATE POLICY tenant_isolation ON users
   FOR ALL
-  USING (tenant_id = current_setting('app.tenant_id'));
+  USING (tenant_id = public.sesame_current_tenant_id());
 ```
 
 If a handler accidentally forgets to scope by tenant, the database silently strips cross-tenant data.

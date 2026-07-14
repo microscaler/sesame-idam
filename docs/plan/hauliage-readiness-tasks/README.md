@@ -24,11 +24,14 @@ does not add the deferred SDK, hosted UI, enterprise identity, or curl-like HTTP
 
 ## Track B — transaction-local RLS (H1.5)
 
-- [ ] **B1 Freeze the RLS context contract.** Required: tenant, subject, active organization,
+- [x] **B1 Freeze the RLS context contract.** Required: tenant, subject, active organization,
   session, roles, permissions, and optional organization/user type. Context originates only from
   cryptographically validated claims; request headers may only be cross-checked.
   - Acceptance: missing/malformed required claims and tenant conflicts return a typed error before
     a protected query starts; logs contain field names/categories, never token payloads.
+  - Evidence: Hauliage's typed adapter requires text `tenant_id`, UUID `sub = user_id`, UUID
+    `org_id`, `sid`, and namespaced tenant/roles/permissions; its unit suite covers missing,
+    malformed, conflicting, and non-echoing error cases.
 - [x] **B2 Publish versioned helper SQL.** Provide idempotent install/version functions and typed
   `sesame_current_*` accessors using a locked `search_path` and least-privilege grants.
   - Acceptance: context uses `set_config(..., true)`/`SET LOCAL`; helpers return `NULL` when unset;
@@ -45,14 +48,22 @@ does not add the deferred SDK, hosted UI, enterprise identity, or curl-like HTTP
   role/permission example on a production-shaped Hauliage table.
   - Acceptance: an unqualified `SELECT` returns only authorized rows; insert/update with a
     mismatched tenant or organization is rejected by `WITH CHECK`.
-- [ ] **B5 Wire the first Hauliage path.** Use the executor in a representative BFF → backend →
+- [x] **B5 Wire the first Hauliage path.** Use the base executor capability in a representative BFF → backend →
   PostgreSQL journey; retain application predicates only as defense in depth during migration.
   - Acceptance: removing the application tenant predicate in the test fixture does not broaden
     database results.
+  - Evidence: all five delivered Company reads/writes of `organization_profiles` run in
+    `LifeguardPool::with_session_transaction`; Hauliage installs the Sesame v1 contract and a
+    forced tenant/organization policy. The executable acceptance query intentionally has no
+    organization predicate, sees one row, rejects cross-organization insert, and sees zero rows
+    without context in the next transaction.
 - [ ] **B6 Zero-bleed proof suite.** Exercise two tenants/organizations, concurrency, commit,
   rollback, injected error, missing context, forged header, and repeated pool-slot reuse.
   - Acceptance: zero cross-tenant observations over the repeat matrix; context is unset after the
     transaction and a context-free query cannot see protected rows.
+  - Current evidence: Lifeguard covers commit, returned error, panic, missing helper, and pool-slot
+    reuse; Hauliage covers two rows, unqualified read, cross-org write rejection, and next-
+    transaction reset. The concurrent two-context repeat matrix remains open.
 
 ## Track C — east-west client completion
 
