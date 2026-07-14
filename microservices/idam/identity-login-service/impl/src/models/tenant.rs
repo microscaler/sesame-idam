@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Platform tenant registry — canonical definition for identity-login-service.
 ///
-/// A tenant is a SaaS product partition (`hauliage`, `pricewhisperer`, …).
+/// A tenant is a `SaaS` product partition (`hauliage`, `pricewhisperer`, …).
 /// Slug matches `X-Tenant-ID`. Tenants must be provisioned before any auth
 /// traffic is accepted (no implicit / magic tenants).
 #[derive(Clone, Debug, Serialize, Deserialize, LifeModel, LifeRecord)]
@@ -26,7 +26,7 @@ pub struct Tenant {
     #[column_type = "VARCHAR(32)"]
     pub status: String,
 
-    /// `platform` (ops minted) | `self_service` (SaaS signup)
+    /// `platform` (ops minted) | `self_service` (`SaaS` signup)
     #[column_type = "VARCHAR(32)"]
     pub provisioning_mode: String,
 

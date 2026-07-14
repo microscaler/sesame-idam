@@ -48,7 +48,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> SocialLoginOutcome {
 
     let exec = sesame_idam_database::db();
     if let Err(e) = TenantService::require_active(tenant_id, exec) {
-        return SocialLoginOutcome::Error(tenant_http_error(e));
+        return SocialLoginOutcome::Error(tenant_http_error(&e));
     }
 
     let resolved = match TenantOAuthService::resolve(tenant_id, provider.as_str(), exec) {

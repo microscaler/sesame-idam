@@ -58,7 +58,7 @@ pub fn validate_platform_key(presented: Option<&str>) -> Result<(), PlatformAuth
 }
 
 #[must_use]
-pub fn platform_auth_http_error(err: PlatformAuthError) -> HttpJson<serde_json::Value> {
+pub fn platform_auth_http_error(err: &PlatformAuthError) -> HttpJson<serde_json::Value> {
     HttpJson::new(
         err.http_status(),
         serde_json::json!({

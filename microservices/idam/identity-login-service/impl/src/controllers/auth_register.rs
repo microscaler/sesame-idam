@@ -41,7 +41,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let exec = sesame_idam_database::db();
 
     if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
-        return tenant_http_error(e);
+        return tenant_http_error(&e);
     }
 
     // Pre-check duplicate email (the DB unique constraint is the failsafe).

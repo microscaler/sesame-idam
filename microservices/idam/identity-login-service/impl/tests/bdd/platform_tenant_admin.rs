@@ -251,7 +251,7 @@ fn suspend_blocks_login() {
     assert_eq!(login.body["error"], "tenant_not_active");
 }
 
-/// Scenario: OAuth rotate bumps config_version visible on GET.
+/// Scenario: OAuth rotate bumps `config_version` visible on GET.
 #[test]
 fn oauth_rotate_bumps_config_version() {
     if !db_available() {

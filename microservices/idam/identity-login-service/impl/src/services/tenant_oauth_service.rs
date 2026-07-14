@@ -126,7 +126,7 @@ impl TenantOAuthService {
                 return Err(LifeError::Other("tenant_not_found".to_string()));
             }
             Err(e) => return Err(e),
-        };
+        }
 
         let now = Utc::now();
         if let Some(existing) = OauthEntity::find()

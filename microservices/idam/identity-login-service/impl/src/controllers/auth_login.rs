@@ -31,7 +31,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let exec = sesame_idam_database::db();
 
     if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
-        return tenant_http_error(e);
+        return tenant_http_error(&e);
     }
 
     let user = match UserService::find_by_tenant_and_email(&tenant_id, &email, exec) {

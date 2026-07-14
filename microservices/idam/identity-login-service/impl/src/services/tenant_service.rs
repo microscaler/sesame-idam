@@ -227,10 +227,8 @@ impl StatusTransitionError {
 fn is_allowed_transition(from: &str, to: &str) -> bool {
     matches!(
         (from, to),
-        (STATUS_ACTIVE, STATUS_SUSPENDED)
-            | (STATUS_SUSPENDED, STATUS_ACTIVE)
-            | (STATUS_ACTIVE, STATUS_DEPROVISIONED)
-            | (STATUS_PROVISIONING, STATUS_ACTIVE)
+        (STATUS_ACTIVE, STATUS_SUSPENDED | STATUS_DEPROVISIONED)
+            | (STATUS_SUSPENDED | STATUS_PROVISIONING, STATUS_ACTIVE)
             | (STATUS_PROVISIONING, STATUS_FAILED)
     )
 }

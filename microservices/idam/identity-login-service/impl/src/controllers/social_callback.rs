@@ -65,7 +65,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
 
     let exec = sesame_idam_database::db();
     if let Err(e) = TenantService::require_active(tenant_id, exec) {
-        return tenant_http_error(e);
+        return tenant_http_error(&e);
     }
 
     let resolved = match TenantOAuthService::resolve(tenant_id, provider.as_str(), exec) {

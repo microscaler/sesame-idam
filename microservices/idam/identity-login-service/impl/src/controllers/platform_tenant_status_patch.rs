@@ -6,7 +6,7 @@ use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::platform_tenant_status_patch::Request;
 
-use crate::services::tenant_service::{StatusTransitionError, TenantService};
+use crate::services::tenant_service::TenantService;
 
 #[handler(PlatformTenantStatusPatchController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
