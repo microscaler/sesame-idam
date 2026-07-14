@@ -201,8 +201,9 @@ Authority: [`../shared-k8s-cluster/docs/remote-tilt-workflow.md`](../shared-k8s-
     *   **Self-Hosted Model:** The `sesame_idam` database/schema is isolated from the tenant's business logic (e.g., `app` schema) to prevent table name collisions.
 *   **Zero Bleed:** Enforced at three layers:
     1.  **Application layer:** BRRTRouter middleware extracts `tenant_id` from `X-Tenant-ID` header, appends `WHERE tenant_id = ?` to all queries.
-    2.  **Database layer:** `SesameExecutor` runs `SET LOCAL current_tenant_id = ?` per transaction.
-    3.  **RLS policies:** PostgreSQL policies enforce `WHERE tenant_id = current_tenant_id` as a failsafe.
+    2.  **Database layer:** Lifeguard's base executors inject validated `SessionContext` using the
+        transaction-local Sesame RLS contract. There is no separate `SesameExecutor`.
+    3.  **RLS policies:** PostgreSQL policies enforce tenant and active-organization ownership as a failsafe.
 
 ## Core rules the agent must obey
 

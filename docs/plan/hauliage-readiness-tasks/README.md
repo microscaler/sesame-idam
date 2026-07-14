@@ -29,15 +29,19 @@ does not add the deferred SDK, hosted UI, enterprise identity, or curl-like HTTP
   cryptographically validated claims; request headers may only be cross-checked.
   - Acceptance: missing/malformed required claims and tenant conflicts return a typed error before
     a protected query starts; logs contain field names/categories, never token payloads.
-- [ ] **B2 Publish versioned helper SQL.** Provide idempotent install/version functions and typed
+- [x] **B2 Publish versioned helper SQL.** Provide idempotent install/version functions and typed
   `sesame_current_*` accessors using a locked `search_path` and least-privilege grants.
   - Acceptance: context uses `set_config(..., true)`/`SET LOCAL`; helpers return `NULL` when unset;
     caller-controlled identifiers are never interpolated into SQL.
-- [ ] **B3 Implement `SesameExecutor`.** Pin one primary Lifeguard pool slot, `BEGIN`, inject the
-  validated context, execute all ORM work on that same connection, then commit/rollback.
+- [x] **B3 Complete first-class RLS on Lifeguard's base executors.** Do not add a
+  Sesame-specific executor wrapper. `MayPostgresExecutor` and `PooledLifeExecutor` use
+  `Option<SessionContext>` as the RLS toggle; add the missing base API that pins one primary pool
+  slot, begins a contextual transaction, executes all ORM work on that connection, then
+  commits/rolls back.
   - Acceptance: no protected query can run before injection; injection failure rolls back and
-    fails closed; `Drop`/error paths do not release a live transaction.
-- [ ] **B4 Add reference policies.** Cover tenant ownership, active organization ownership, and a
+    fails closed; `Drop`/error paths do not release a live transaction; non-RLS callers do not
+    acquire a new wrapper type or pay contextual transaction overhead.
+- [x] **B4 Add reference policies.** Cover tenant ownership, active organization ownership, and a
   role/permission example on a production-shaped Hauliage table.
   - Acceptance: an unqualified `SELECT` returns only authorized rows; insert/update with a
     mismatched tenant or organization is rejected by `WITH CHECK`.

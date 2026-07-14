@@ -743,3 +743,14 @@ Enriched [`docs/audit/epic-delivery-audit-2026-07-10.md`](../audit/epic-delivery
 - Updated all shared `AccessClaims` fixtures for the delivered optional `org_id` claim; focused `sesame-common` run passes 367/367.
 - Serialized handler-level live-Postgres BDD modules through the existing Nextest mutex group after API-key scenarios exposed connection-contention retries.
 - Verification on ms02: `cargo check --workspace` passes; `just lint-rust` passes; workspace Nextest passes 907/907 with retries disabled.
+
+## [2026-07-14] feat | first-class RLS without SesameExecutor
+
+- Accepted [`ADR-005-first-class-rls-contract.md`](../ADR-005-first-class-rls-contract.md): RLS is an optional capability of Lifeguard's existing executors, not a new wrapper hierarchy.
+- Expanded Lifeguard `SessionContext` to the mandatory tenant, subject, active organization,
+  session, roles, and permissions contract, with optional user/org classifications.
+- Added `LifeguardPool::with_session_transaction` over the existing pinned primary executor.
+- Published `sql/rls/v1/install.sql` plus executable Hauliage reference policies with locked
+  `search_path`, `SECURITY INVOKER`, transaction-local GUCs, and explicit grants.
+- Lifeguard verification on ms02: 485 unit tests pass; RLS integration suite 19/19 passes,
+  including commit, rollback, application error, panic, missing helper, and pool-slot reuse.
