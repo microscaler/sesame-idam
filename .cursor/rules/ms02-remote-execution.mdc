@@ -1,0 +1,65 @@
+---
+description: Run all shell commands on ms02 via SSH — never execute builds/tests on the Mac.
+alwaysApply: true
+---
+
+# ms02 remote execution (desktop dev environment)
+
+You are on a **Mac**. Microscaler code lives on **NFS** and **executes on ms02** (`casibbald-MS-02-Ultra`). The Mac path and ms02 path are the same files:
+
+| Mac (Cursor workspace) | ms02 (where commands run) |
+|------------------------|---------------------------|
+| `/Users/casibbald/Workspace/remote/microscaler/<repo>` | `~/Workspace/microscaler/<repo>` |
+
+Canonical topology: [`cylon-local-infra/docs/desktop-dev-environment.md`](https://github.com/microscaler/cylon-local-infra/blob/main/docs/desktop-dev-environment.md)
+
+## CRITICAL: Do not run commands on the Mac
+
+**Never** use the local Shell tool against the Mac for:
+
+- `cargo` / `cargo test` / `cargo build`
+- `yarn` / `npm` / `vitest` / `playwright`
+- `just` (build, test, dev-up, tilt, migrations)
+- `kubectl` / `docker` / `tilt`
+- `psql` / `setup-db.sh` / cluster migrations
+- Any install that writes `node_modules`, `target/`, or native binaries
+
+Running on the Mac causes **wrong-platform artifacts** on shared NFS (`esbuild` darwin vs linux, Rust `target/` confusion) and misses the **Kind cluster**, **LAN Postgres**, and **Tilt** that only exist on ms02.
+
+## Always SSH to ms02
+
+```bash
+ssh ms02 'cd ~/Workspace/microscaler/<repo> && <command>'
+```
+
+**Always** `source ~/.cargo/env` before `cargo` / `just` Rust builds on ms02:
+
+```bash
+ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/seasame-idam/microservices && cargo nextest run'
+```
+
+Examples:
+
+```bash
+# Frontend unit tests
+ssh ms02 'cd ~/Workspace/microscaler/hauliage/frontend && yarn test'
+
+# Rust workspace tests
+ssh ms02 'cd ~/Workspace/microscaler/hauliage/microservices && cargo test -p hauliage_bidding notification_pipeline'
+
+# Sesame-IDAM nextest
+ssh ms02 'cd ~/Workspace/microscaler/seasame-idam/microservices && cargo nextest run'
+
+# kubectl (shared Kind)
+ssh ms02 'KUBECONFIG=~/Workspace/microscaler/shared-k8s-cluster/kubeconfig/shared-k8s.yaml kubectl get pods -n hauliage'
+```
+
+## What the Mac is for
+
+- Read/edit files in Cursor (NFS-backed)
+- Browser verification via tunneled hostnames (e.g. `hauliage.dev.microscaler.local`)
+- Git status/diff when not mutating build artifacts (prefer `ssh ms02` for git if hooks run builds)
+
+## When in doubt
+
+If a command compiles, installs deps, hits the database, or talks to Kubernetes → **ssh ms02 first**.
