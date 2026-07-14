@@ -443,7 +443,7 @@ local_resource(
 # run sesame-idam-db-init first on a new cluster. Same GRANT step as full setup-db.sh.
 local_resource(
     'sesame-idam-apply-migrations',
-    'SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 chmod +x ./scripts/setup-db.sh && ./scripts/setup-db.sh',
+    'chmod +x ./scripts/setup-db.sh && SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 ./scripts/setup-db.sh',
     deps=[
         './scripts/setup-db.sh',
         './migrations/apply_order.txt',
