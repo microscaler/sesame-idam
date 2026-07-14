@@ -144,6 +144,36 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "platform_tenant_create",
+        crate::controllers::platform_tenant_create::PlatformTenantCreateController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "platform_tenant_get",
+        crate::controllers::platform_tenant_get::PlatformTenantGetController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "platform_tenant_oauth_upsert",
+        crate::controllers::platform_tenant_oauth_upsert::PlatformTenantOauthUpsertController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "platform_tenant_oauth_rotate",
+        crate::controllers::platform_tenant_oauth_rotate::PlatformTenantOauthRotateController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "platform_tenant_status_patch",
+        crate::controllers::platform_tenant_status_patch::PlatformTenantStatusPatchController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "set_active_organization",
         crate::controllers::set_active_organization::SetActiveOrganizationController,
         20480,
@@ -328,6 +358,46 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::oauth_authorize::OauthAuthorizeController,
                     24576,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "platform_tenant_create" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::platform_tenant_create::PlatformTenantCreateController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "platform_tenant_get" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::platform_tenant_get::PlatformTenantGetController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "platform_tenant_oauth_upsert" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::platform_tenant_oauth_upsert::PlatformTenantOauthUpsertController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "platform_tenant_oauth_rotate" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::platform_tenant_oauth_rotate::PlatformTenantOauthRotateController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "platform_tenant_status_patch" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::platform_tenant_status_patch::PlatformTenantStatusPatchController,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

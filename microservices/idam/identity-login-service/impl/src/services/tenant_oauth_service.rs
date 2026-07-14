@@ -120,8 +120,13 @@ impl TenantOAuthService {
         client_id_env_key: Option<&str>,
         exec: &E,
     ) -> Result<Uuid, LifeError> {
-        TenantService::require_active(tenant_slug, exec)
-            .map_err(|e| LifeError::Other(e.api_error().to_string()))?;
+        match TenantService::find_by_slug(tenant_slug, exec) {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                return Err(LifeError::Other("tenant_not_found".to_string()));
+            }
+            Err(e) => return Err(e),
+        };
 
         let now = Utc::now();
         if let Some(existing) = OauthEntity::find()
@@ -170,6 +175,30 @@ impl TenantOAuthService {
             .insert(exec)
             .map_err(|e| LifeError::Other(e.to_string()))?;
         Ok(id)
+    }
+
+    /// Serialize stored OAuth metadata (no secret values).
+    pub fn metadata_json<E: LifeExecutor>(
+        tenant_slug: &str,
+        provider: &str,
+        exec: &E,
+    ) -> Result<Option<serde_json::Value>, LifeError> {
+        let row = OauthEntity::find()
+            .filter(OauthColumn::TenantSlug.eq(tenant_slug.to_string()))
+            .filter(OauthColumn::Provider.eq(provider.to_string()))
+            .find_one(exec)?;
+
+        Ok(row.map(|row| {
+            serde_json::json!({
+                "provider": row.provider,
+                "client_id": row.client_id,
+                "redirect_uris": row.redirect_uris.split(',').map(str::trim).filter(|s| !s.is_empty()).collect::<Vec<_>>(),
+                "secret_env_key": row.secret_env_key,
+                "client_id_env_key": row.client_id_env_key,
+                "config_version": row.config_version,
+                "enabled": row.enabled,
+            })
+        }))
     }
 }
 

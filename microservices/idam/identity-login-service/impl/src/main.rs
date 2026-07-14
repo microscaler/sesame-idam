@@ -166,6 +166,46 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "platform_tenant_create" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::platform_tenant_create::PlatformTenantCreateController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "platform_tenant_get" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::platform_tenant_get::PlatformTenantGetController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "platform_tenant_status_patch" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::platform_tenant_status_patch::PlatformTenantStatusPatchController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "platform_tenant_oauth_upsert" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::platform_tenant_oauth_upsert::PlatformTenantOauthUpsertController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "platform_tenant_oauth_rotate" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::platform_tenant_oauth_rotate::PlatformTenantOauthRotateController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 _ => {} // gen stubs serve everything else for now
             }
         }

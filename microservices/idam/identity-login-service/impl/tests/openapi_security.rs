@@ -67,6 +67,27 @@ fn login_spec_explicit_bearer_routes_require_bearer() {
 }
 
 #[test]
+fn login_spec_platform_routes_require_platform_service_auth() {
+    let routes = load_idam_routes("openapi/idam/identity-login-service/openapi.yaml");
+
+    for handler in [
+        "platform_tenant_create",
+        "platform_tenant_get",
+        "platform_tenant_status_patch",
+        "platform_tenant_oauth_upsert",
+        "platform_tenant_oauth_rotate",
+    ] {
+        let security = security_for(&routes, handler);
+        assert!(
+            security
+                .iter()
+                .any(|req| req.0.contains_key("PlatformServiceAuth")),
+            "{handler} must require PlatformServiceAuth (not global BearerAuth)"
+        );
+    }
+}
+
+#[test]
 fn session_spec_public_discovery_routes_have_no_security() {
     let routes = load_idam_routes("openapi/idam/identity-session-service/openapi.yaml");
 

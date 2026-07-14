@@ -59,17 +59,21 @@ Distinct from org-mgmt `Application` (org-scoped B2B OIDC).
 | Platform ops | `platform` | SQL seed + `ensure_active_tenant` in BDD | `POST /platform/tenants` + CLI |
 | Self-service | `self_service` | — | P2 worker + store |
 
-## Platform API (P1 — in progress)
+## Platform API (P1 — implemented)
 
 Tag: `PlatformAdmin` on identity-login-service OpenAPI. Auth: `X-Platform-Admin-Key` (`PlatformServiceAuth`).
 
 | Method | Path | Story |
 |--------|------|-------|
-| `POST` | `/platform/tenants` | 10.2 |
-| `GET` | `/platform/tenants/{slug}` | 10.2 |
-| `PATCH` | `/platform/tenants/{slug}/status` | 10.3 |
-| `PUT` | `/platform/tenants/{slug}/oauth/{provider}` | 10.4 |
-| `POST` | `/platform/tenants/{slug}/oauth/{provider}/rotate` | 10.5 |
+| `POST` | `/platform/tenants` | 10.2 ✓ |
+| `GET` | `/platform/tenants/{slug}` | 10.2 ✓ |
+| `PATCH` | `/platform/tenants/{slug}/status` | 10.3 ✓ |
+| `PUT` | `/platform/tenants/{slug}/oauth/{provider}` | 10.4 ✓ |
+| `POST` | `/platform/tenants/{slug}/oauth/{provider}/rotate` | 10.5 ✓ |
+
+CLI mirror: `sesame-idam tenant {create,get,status set,oauth set,oauth rotate}` (story 10.6).
+
+BDD: `impl/tests/bdd/platform_tenant_admin.rs` — mint → register → login; suspend; OAuth rotate (10.8).
 
 ## Dev seed
 
@@ -85,6 +89,10 @@ Tag: `PlatformAdmin` on identity-login-service OpenAPI. Auth: `X-Platform-Admin-
 | Seed | `impl/seeds/20260714000000_platform_tenants.sql` |
 | BDD helper | `impl/tests/common/mod.rs` → `ensure_active_tenant` |
 | BDD gate | `impl/tests/bdd/auth_flow.rs` → `unknown_tenant_rejected` |
+| Platform API | `impl/src/controllers/platform_tenant_*.rs` |
+| Platform auth | `impl/src/services/platform_auth.rs`, `security.rs` |
+| CLI | `tooling/src/sesame_idam_tooling/cli/tenant.py` |
+| BDD platform | `impl/tests/bdd/platform_tenant_admin.rs` |
 
 ## Build order (Epic 10 P1)
 
@@ -92,6 +100,8 @@ Tag: `PlatformAdmin` on identity-login-service OpenAPI. Auth: `X-Platform-Admin-
 
 ## Gaps / drift
 
-> **Open:** Platform REST not yet implemented (story 10.1+). Rotation audit event type may need `AuditEventType` extension (10.5).
+> **Open:** Rotation audit event type may need `AuditEventType` extension (10.5 follow-up).
 >
 > **Open:** K8s secrets still manual per tenant; self-service dynamic secrets deferred to P4.
+>
+> **Open:** P2 `POST /platform/tenants/provision` + Stripe worker not started.

@@ -293,9 +293,19 @@ def patched_regenerate_service(
 _regenerate.regenerate_service = patched_regenerate_service
 
 # ---------------------------------------------------------------------------
-# Delegate to brrtrouter_tooling workspace CLI
+# Entry point: tenant admin CLI or brrtrouter workspace CLI
 # ---------------------------------------------------------------------------
 
-from brrtrouter_tooling.workspace.cli.main import main
+
+def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "tenant":
+        from sesame_idam_tooling.cli.tenant import run_tenant_cli
+
+        return run_tenant_cli(sys.argv[2:])
+
+    from brrtrouter_tooling.workspace.cli.main import main as br_main
+
+    return br_main()
+
 
 __all__ = ["main"]

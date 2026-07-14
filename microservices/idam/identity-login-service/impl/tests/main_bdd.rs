@@ -9,6 +9,7 @@ pub mod bdd {
     pub mod jwt_ttl;
     pub mod jwt_validation;
     pub mod logout_revocation;
+    pub mod platform_tenant_admin;
     pub mod pii_entitlements;
     pub mod signup_validate;
     pub mod smoke;

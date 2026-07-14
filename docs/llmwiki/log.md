@@ -1,5 +1,18 @@
 # LLM Wiki — Session Log
 
+## [2026-07-14] feat | Epic 10 P1 — platform tenant admin API, CLI, BDD
+
+- **OpenAPI + codegen (10.1):** `PlatformAdmin` tag, 5 routes, `PlatformServiceAuth` on
+  `identity-login-service` spec; `just gen-identity-login`.
+- **Platform auth (10.7):** `platform_auth.rs` constant-time key check; `security.rs` registers
+  `SESAME_PLATFORM_ADMIN_KEY` (fallback `dev-platform-admin`).
+- **Controllers (10.2–10.5):** `platform_tenant_{create,get,status_patch,oauth_upsert,oauth_rotate}`.
+  OAuth upsert returns DB metadata (not `resolve` — avoids secret env requirement on PUT).
+- **CLI (10.6):** `sesame-idam tenant {create,get,status set,oauth set,oauth rotate}` in
+  `tooling/src/sesame_idam_tooling/cli/tenant.py`; unit tests in `tooling/tests/test_tenant_cli.py`.
+- **BDD (10.8):** `platform_tenant_admin.rs` — mint→register→login, unknown slug, suspend, rotate.
+- **Verify:** `cargo nextest run -p sesame_idam_identity_login_service` on ms02.
+
 ## [2026-07-14] docs | PRD-P1 platform tenant admin + stories 10.1–10.8
 
 - **PRD:** [PRD-P1-platform-tenant-admin.md](../PRD-P1-platform-tenant-admin.md) — platform REST API,

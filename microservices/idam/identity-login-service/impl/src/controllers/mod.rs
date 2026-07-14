@@ -15,6 +15,11 @@
 pub mod auth_login;
 pub mod auth_logout;
 pub mod auth_register;
+pub mod platform_tenant_create;
+pub mod platform_tenant_get;
+pub mod platform_tenant_oauth_rotate;
+pub mod platform_tenant_oauth_upsert;
+pub mod platform_tenant_status_patch;
 pub mod set_active_organization;
 pub mod signup_validate;
 pub mod social_callback;

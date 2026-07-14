@@ -65,6 +65,22 @@ pub fn init_security(
                     }
                 }
                 let fallback = std::env::var("BRRTR_API_KEY").unwrap_or_else(|_| "test123".into());
+                if scheme_name == "PlatformServiceAuth" {
+                    let key = std::env::var("SESAME_PLATFORM_ADMIN_KEY")
+                        .ok()
+                        .filter(|s| !s.trim().is_empty())
+                        .unwrap_or_else(|| "dev-platform-admin".to_string());
+                    println!(
+                        "[auth] register StaticApiKeyProvider scheme={} from=SESAME_PLATFORM_ADMIN_KEY key_len={}",
+                        scheme_name,
+                        key.len()
+                    );
+                    service.register_security_provider(
+                        &scheme_name,
+                        Arc::new(StaticApiKeyProvider { key }),
+                    );
+                    continue;
+                }
                 println!(
                     "[auth] register StaticApiKeyProvider scheme={} from=fallback key_len={}",
                     scheme_name,

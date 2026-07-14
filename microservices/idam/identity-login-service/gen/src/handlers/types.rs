@@ -445,6 +445,16 @@ pub struct MfaRequiredResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OAuthRotateRequest {
+    pub rotated_by: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OAuthRotateResponse {
+    pub config_version: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OauthAuthorizeResponse {
     pub error: String,
 
@@ -476,6 +486,122 @@ pub struct PhoneOTPVerifyRequest {
     pub code: String,
 
     pub phone: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenant {
+    pub created_at: String,
+
+    pub display_name: String,
+
+    pub id: String,
+
+    pub provisioning_mode: String,
+
+    pub slug: String,
+
+    pub status: String,
+
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantCreateRequest {
+    pub activate: bool,
+
+    pub display_name: String,
+
+    pub provisioning_mode: String,
+
+    pub slug: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantCreateResponse {
+    pub created_at: String,
+
+    pub display_name: String,
+
+    pub id: String,
+
+    pub provisioning_mode: String,
+
+    pub slug: String,
+
+    pub status: String,
+
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantOauthRotateRequest {
+    pub rotated_by: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantOauthRotateResponse {
+    pub config_version: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantOauthUpsertRequest {
+    pub client_id: String,
+
+    pub client_id_env_key: String,
+
+    pub enabled: bool,
+
+    pub redirect_uris: Vec<String>,
+
+    pub secret_env_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantOauthUpsertResponse {
+    pub client_id: String,
+
+    pub client_id_env_key: String,
+
+    pub config_version: i32,
+
+    pub enabled: bool,
+
+    pub last_rotated_at: String,
+
+    pub last_rotated_by: String,
+
+    pub provider: String,
+
+    pub redirect_uris: Vec<String>,
+
+    pub secret_env_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantStatusPatch {
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantStatusPatchRequest {
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantStatusPatchResponse {
+    pub created_at: String,
+
+    pub display_name: String,
+
+    pub id: String,
+
+    pub provisioning_mode: String,
+
+    pub slug: String,
+
+    pub status: String,
+
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -664,6 +790,40 @@ pub struct SocialLoginResponse {
     pub token_type: String,
 
     pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOAuthConfigRequest {
+    pub client_id: String,
+
+    pub client_id_env_key: String,
+
+    pub enabled: bool,
+
+    pub redirect_uris: Vec<String>,
+
+    pub secret_env_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOAuthConfigResponse {
+    pub client_id: String,
+
+    pub client_id_env_key: String,
+
+    pub config_version: i32,
+
+    pub enabled: bool,
+
+    pub last_rotated_at: String,
+
+    pub last_rotated_by: String,
+
+    pub provider: String,
+
+    pub redirect_uris: Vec<String>,
+
+    pub secret_env_key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

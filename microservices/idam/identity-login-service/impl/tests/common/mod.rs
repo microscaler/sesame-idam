@@ -16,7 +16,7 @@ pub fn ensure_active_tenant(slug: &str) {
             // Suspended/provisioning — recreate is not supported; tests use fresh slugs.
         }
         Ok(None) => {
-            TenantService::create(slug, slug, PROVISIONING_PLATFORM, exec)
+            TenantService::create_active_platform(slug, slug, exec)
                 .unwrap_or_else(|e| panic!("ensure_active_tenant({slug}): {e}"));
         }
         Err(e) => panic!("ensure_active_tenant({slug}) lookup: {e}"),

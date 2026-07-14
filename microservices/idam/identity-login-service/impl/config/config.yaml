@@ -12,6 +12,8 @@ security:
   api_keys:
     ApiKeyHeader:
       key: "test123"
+    PlatformServiceAuth:
+      key: "dev-platform-admin"
 http:
   keep_alive: true
   timeout_secs: 5
@@ -28,6 +30,7 @@ cors:
     - "Authorization"
     - "Accept"
     - "X-API-Key"
+    - "X-Platform-Admin-Key"
   allowed_methods:
     - "GET"
     - "POST"

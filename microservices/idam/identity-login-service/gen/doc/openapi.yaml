@@ -25,6 +25,8 @@ tags:
   description: Pre-registration validation
 - name: Passwordless
   description: Passwordless magic link authentication
+- name: PlatformAdmin
+  description: Platform tenant provisioning and OAuth metadata (ops / service account only)
 - name: UserManagement
   description: User profile management and PII retrieval endpoints
 security:
@@ -1399,6 +1401,244 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: OAuth authorization endpoint called by frontend browser
+  /platform/tenants:
+    post:
+      tags:
+      - PlatformAdmin
+      summary: Create platform tenant (ops mint)
+      description: 'Mint a new SaaS tenant partition. Used by platform operators and CLI.
+
+        Does not accept `provisioning_mode=self_service` — use provision endpoint (P2).
+
+        Requires `X-Platform-Admin-Key` header.'
+      operationId: platform_tenant_create
+      security:
+      - PlatformServiceAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformTenantCreateRequest'
+      responses:
+        '201':
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformTenant'
+        '400':
+          description: Invalid slug or reserved slug
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Slug already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /platform/tenants/{slug}:
+    get:
+      tags:
+      - PlatformAdmin
+      summary: Get platform tenant and OAuth metadata
+      operationId: platform_tenant_get
+      security:
+      - PlatformServiceAuth: []
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,63}$'
+        description: Tenant slug (X-Tenant-ID)
+      responses:
+        '200':
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformTenantDetail'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /platform/tenants/{slug}/status:
+    patch:
+      tags:
+      - PlatformAdmin
+      summary: Update tenant lifecycle status
+      operationId: platform_tenant_status_patch
+      security:
+      - PlatformServiceAuth: []
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,63}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformTenantStatusPatch'
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformTenant'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /platform/tenants/{slug}/oauth/{provider}:
+    put:
+      tags:
+      - PlatformAdmin
+      summary: Upsert tenant OAuth metadata (no secret in DB)
+      operationId: platform_tenant_oauth_upsert
+      security:
+      - PlatformServiceAuth: []
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,63}$'
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - google
+          - microsoft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantOAuthConfigRequest'
+      responses:
+        '200':
+          description: OAuth metadata upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantOAuthConfigResponse'
+        '400':
+          description: Unsupported provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Tenant deprovisioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /platform/tenants/{slug}/oauth/{provider}/rotate:
+    post:
+      tags:
+      - PlatformAdmin
+      summary: Record OAuth credential rotation (secret updated out-of-band)
+      operationId: platform_tenant_oauth_rotate
+      security:
+      - PlatformServiceAuth: []
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,63}$'
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - google
+          - microsoft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthRotateRequest'
+      responses:
+        '200':
+          description: Rotation recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthRotateResponse'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant or OAuth config not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
   /auth/users/me:
     get:
       tags:
@@ -1484,6 +1724,11 @@ components:
       type: apiKey
       in: header
       name: X-API-KEY
+    PlatformServiceAuth:
+      type: apiKey
+      in: header
+      name: X-Platform-Admin-Key
+      description: Platform operator / provisioning worker service key (not end-user JWT)
   schemas:
     ErrorResponse:
       type: object
@@ -2220,3 +2465,160 @@ components:
           type: string
           nullable: true
           description: Preferred username
+    PlatformTenant:
+      type: object
+      required:
+      - id
+      - slug
+      - display_name
+      - status
+      - provisioning_mode
+      - created_at
+      - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,63}$'
+        display_name:
+          type: string
+        status:
+          type: string
+          enum:
+          - provisioning
+          - active
+          - suspended
+          - deprovisioned
+          - failed
+        provisioning_mode:
+          type: string
+          enum:
+          - platform
+          - self_service
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    PlatformTenantCreateRequest:
+      type: object
+      required:
+      - slug
+      - display_name
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,63}$'
+        display_name:
+          type: string
+        provisioning_mode:
+          type: string
+          enum:
+          - platform
+          default: platform
+        activate:
+          type: boolean
+          default: true
+          description: When true, status is active immediately; otherwise provisioning
+    PlatformTenantStatusPatch:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - provisioning
+          - active
+          - suspended
+          - deprovisioned
+          - failed
+    PlatformTenantDetail:
+      allOf:
+      - $ref: '#/components/schemas/PlatformTenant'
+      - type: object
+        properties:
+          oauth_providers:
+            type: array
+            items:
+              $ref: '#/components/schemas/TenantOAuthConfigResponse'
+    TenantOAuthConfigRequest:
+      type: object
+      required:
+      - client_id
+      - redirect_uris
+      - secret_env_key
+      properties:
+        client_id:
+          type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+        secret_env_key:
+          type: string
+          description: Env var name for client secret (K8s → pod)
+        client_id_env_key:
+          type: string
+          nullable: true
+          description: Optional env var override for client_id
+        enabled:
+          type: boolean
+          default: true
+    TenantOAuthConfigResponse:
+      type: object
+      required:
+      - provider
+      - client_id
+      - redirect_uris
+      - secret_env_key
+      - config_version
+      - enabled
+      properties:
+        provider:
+          type: string
+          enum:
+          - google
+          - microsoft
+        client_id:
+          type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+        secret_env_key:
+          type: string
+        client_id_env_key:
+          type: string
+          nullable: true
+        config_version:
+          type: integer
+        enabled:
+          type: boolean
+        last_rotated_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_rotated_by:
+          type: string
+          nullable: true
+    OAuthRotateRequest:
+      type: object
+      required:
+      - rotated_by
+      properties:
+        rotated_by:
+          type: string
+          description: Operator email or service identity
+    OAuthRotateResponse:
+      type: object
+      required:
+      - config_version
+      properties:
+        config_version:
+          type: integer
