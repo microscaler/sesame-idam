@@ -13,7 +13,13 @@
   (live counts), `HaulierTeamSummary` on profile/business-details, `TeamAccessPanel` on
   `HaulierAbout`, fixed summary import path, haulier team remove-button parity.
 
-## [2026-07-15] fix | org-mgmt impl_registry — fetch_users_in_org + org-admin handlers
+## [2026-07-15] deploy | org-mgmt live — fetch_users + invite_token
+
+- **Tilt blocker fixed:** removed dead `bff_service_to_suite` call in `sesame_idam_tooling` patched `regenerate_service` (was breaking `org-mgmt-service-gen` on Tilt restart).
+- **Manual deploy path:** `sesame-idam build microservice org-mgmt` + `docker copy-binary` (musl target) + `tilt trigger org-mgmt` — new pod **~36s** age; logs show `fetch_users_in_org` impl override registered.
+- **Verified live:** `GET /idam/v1/organizations/{org_id}/users` returns `page:0, total:1` (not gen stub `page:42`). Demo shipper org `b2000002-…0002`.
+- **`invite_user_to_org`:** HTTP 200 now includes `invite_id` + `invite_token` (`InviteCreated` in `org_lifecycle`). OpenAPI `InviteUserToOrgResponse` added.
+- **Hauliage BFF:** `invite_team_member` passes `invite_token` through to `POST /organizations/me/team` for accept-invite E2E.
 
 - **`impl_registry.rs`:** wired `fetch_users_in_org`, `change_user_role_in_org`, `remove_user_from_org`, `revoke_pending_invite` (matches `main.rs` controller mods).
 - **Symptom when missing:** `GET …/users` returns gen stub `{"items":[],"page":42,...}`; Hauliage BFF team list falls back to company shadow rows.

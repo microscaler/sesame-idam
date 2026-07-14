@@ -202,13 +202,19 @@ pub fn list_memberships<E: LifeExecutor>(
     Ok(out)
 }
 
+#[derive(Debug, Clone)]
+pub struct InviteCreated {
+    pub invite_id: Uuid,
+    pub invite_token: String,
+}
+
 pub fn invite_by_email<E: LifeExecutor>(
     exec: &E,
     tenant_id: &str,
     org_id: &str,
     email: &str,
     role: &str,
-) -> Result<Uuid, OrgLifecycleError> {
+) -> Result<InviteCreated, OrgLifecycleError> {
     let org_uuid =
         Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
     ensure_org_tenant(exec, org_uuid, tenant_id)?;
@@ -239,7 +245,10 @@ pub fn invite_by_email<E: LifeExecutor>(
         "org invite created"
     );
 
-    Ok(invite_id)
+    Ok(InviteCreated {
+        invite_id,
+        invite_token: token,
+    })
 }
 
 #[derive(Debug)]

@@ -141,7 +141,7 @@ fn invite_and_add_membership_via_orm() {
         org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Inviter Co", None)
             .expect("create org");
 
-    let invite_id = org_lifecycle::invite_by_email(
+    let created = org_lifecycle::invite_by_email(
         exec,
         &tenant,
         &org.id.to_string(),
@@ -149,7 +149,7 @@ fn invite_and_add_membership_via_orm() {
         "member",
     )
     .expect("invite by email");
-    assert!(!invite_id.is_nil());
+    assert!(!created.invite_id.is_nil());
 
     let newbie = Uuid::new_v4();
     seed_user(&tenant, newbie);
@@ -222,17 +222,11 @@ fn accept_invitation_adds_membership_and_marks_accepted() {
             .expect("create org");
 
     let email = "Invitee@Example.com";
-    let invite_id =
+    let created =
         org_lifecycle::invite_by_email(exec, &tenant, &org.id.to_string(), email, "member")
             .expect("invite");
-
-    // Recover the generated token via the ORM.
-    let token = org_invite::Entity::find()
-        .filter(org_invite::Column::Id.eq(invite_id))
-        .find_one(exec)
-        .unwrap()
-        .expect("invite row")
-        .token;
+    let invite_id = created.invite_id;
+    let token = created.invite_token;
 
     let invitee = Uuid::new_v4();
     seed_user(&tenant, invitee);
@@ -279,7 +273,7 @@ fn accept_invitation_rejects_email_mismatch() {
     let org =
         org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Mismatch Co", None)
             .expect("create org");
-    let invite_id = org_lifecycle::invite_by_email(
+    let created = org_lifecycle::invite_by_email(
         exec,
         &tenant,
         &org.id.to_string(),
@@ -287,12 +281,7 @@ fn accept_invitation_rejects_email_mismatch() {
         "member",
     )
     .expect("invite");
-    let token = org_invite::Entity::find()
-        .filter(org_invite::Column::Id.eq(invite_id))
-        .find_one(exec)
-        .unwrap()
-        .expect("invite row")
-        .token;
+    let token = created.invite_token;
 
     let wrong_user = Uuid::new_v4();
     seed_user(&tenant, wrong_user);
@@ -330,7 +319,7 @@ fn preview_invitation_reports_org_and_validity() {
     let org =
         org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Preview Co", None)
             .expect("create org");
-    let invite_id = org_lifecycle::invite_by_email(
+    let created = org_lifecycle::invite_by_email(
         exec,
         &tenant,
         &org.id.to_string(),
@@ -338,12 +327,7 @@ fn preview_invitation_reports_org_and_validity() {
         "member",
     )
     .expect("invite");
-    let token = org_invite::Entity::find()
-        .filter(org_invite::Column::Id.eq(invite_id))
-        .find_one(exec)
-        .unwrap()
-        .expect("invite row")
-        .token;
+    let token = created.invite_token;
 
     let preview = org_lifecycle::preview_invitation(exec, &tenant, &token).expect("preview");
     assert_eq!(preview.organization_name, "Preview Co");
@@ -414,7 +398,7 @@ fn accept_invitation_rejects_cross_tenant() {
         None,
     )
     .expect("create org");
-    let invite_id = org_lifecycle::invite_by_email(
+    let created = org_lifecycle::invite_by_email(
         exec,
         &tenant_a,
         &org.id.to_string(),
@@ -422,12 +406,7 @@ fn accept_invitation_rejects_cross_tenant() {
         "member",
     )
     .expect("invite");
-    let token = org_invite::Entity::find()
-        .filter(org_invite::Column::Id.eq(invite_id))
-        .find_one(exec)
-        .unwrap()
-        .expect("invite row")
-        .token;
+    let token = created.invite_token;
 
     let invitee = Uuid::new_v4();
     seed_user(&tenant_b, invitee);
@@ -687,7 +666,8 @@ fn revoke_pending_invite_requires_org_admin() {
         "pending@example.com",
         "member",
     )
-    .expect("invite");
+    .expect("invite")
+    .invite_id;
 
     org_lifecycle::revoke_invite(
         exec,
@@ -711,7 +691,8 @@ fn revoke_pending_invite_requires_org_admin() {
         "another@example.com",
         "member",
     )
-    .expect("second invite");
+    .expect("second invite")
+    .invite_id;
 
     let err = org_lifecycle::revoke_invite(
         exec,

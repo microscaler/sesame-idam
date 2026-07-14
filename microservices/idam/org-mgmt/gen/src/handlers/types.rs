@@ -580,16 +580,11 @@ pub struct InviteUserToOrgRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct InviteUserToOrgResponse {
-    pub error: String,
+    pub invite_id: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
+    pub invite_token: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
+    pub success: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

@@ -1213,6 +1213,10 @@ paths:
       responses:
         '200':
           description: Invite sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteUserToOrgResponse'
         '400':
           description: Invalid request
           content:
@@ -3019,6 +3023,21 @@ components:
         role:
           type: string
           description: Role to assign
+    InviteUserToOrgResponse:
+      type: object
+      required:
+      - success
+      - invite_id
+      - invite_token
+      properties:
+        success:
+          type: boolean
+        invite_id:
+          type: string
+          format: uuid
+        invite_token:
+          type: string
+          description: Opaque token for accept-invite flow (dev/E2E; production delivery via email)
     InviteUserToOrgByIdRequest:
       type: object
       required:

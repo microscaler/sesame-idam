@@ -261,8 +261,6 @@ def patched_regenerate_service(
     if brrtrouter_path is None:
         brrtrouter_path = _regenerate.discover_brrtrouter_root(project_root)
 
-    is_bff = _regenerate.bff_service_to_suite(project_root, service_name) == suite
-
     try:
         result = _regenerate.call_brrtrouter_generate(
             spec_path=spec_path,
