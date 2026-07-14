@@ -46,7 +46,7 @@ Sesame-IDAM uses BRRTRouter's existing OTEL tracing and structured logging stack
 | `token.refreshed` | identity-session-service | `impl/src/controllers/auth_refresh.rs` | `user_id`, `tenant_id`, `result` | INFO |
 | `token.issued` | identity-session-service | `impl/src/controllers/admin_issue_token.rs` | `tenant_id`, `user_id` | INFO |
 
-**Missing:** `token.revoked` and `token.refresh_reuse_detected` — no token revocation endpoint exists yet in the codebase.
+`POST /auth/logout` now revokes refresh-token state and denylists the presented access-token `jti`. Refresh-token reuse is detected during rotation and logged as `event="refresh_reuse_detected"`. Dedicated `token.revoked` and `token.refresh_reuse_detected` spans are still missing.
 
 ### Controller-Level Spans (Epic 9.x baseline)
 
@@ -68,6 +68,7 @@ Sesame-IDAM uses BRRTRouter's existing OTEL tracing and structured logging stack
 |-------|-------|--------|
 | `token_issued` | INFO | `user_id`, `tenant_id`, `grant_type` |
 | `token_refreshed` | INFO | `user_id`, `tenant_id`, `result` |
+| `refresh_reuse_detected` | WARN | `reused_jti`, `family_id` |
 | `jwks_cache_refresh_failure` | WARN | Poisoning detection with "JWKS cache refresh REJECTED" |
 | `authz request started` | DEBUG | `route`, `method` |
 | `authz request completed` | DEBUG | `route`, `method`, `status`, `result` |
@@ -78,7 +79,7 @@ Sesame-IDAM uses BRRTRouter's existing OTEL tracing and structured logging stack
 |-------|-------|--------|
 | JWT validation failures | WARN | `route`, `user_id`, `error` (planned for per-validation spans) |
 | JWKS poisoning | WARN | `error`, `cache_status` |
-| Token theft indicators | WARN (planned) | `user_id` (when refresh reuse detected endpoint exists) |
+| Token theft indicators | WARN | `reused_jti`, `family_id` from refresh reuse detection |
 
 ## What Is NOT Implemented (Blocked)
 
@@ -95,7 +96,7 @@ Sesame-IDAM uses BRRTRouter's existing OTEL tracing and structured logging stack
 - Per-request structured JWT logging with claim fields (`issuer`, `subject`, `client_id`, `session_id`, `token_id`, `token_version`, `actor_subject`)
 
 ### Blocked on Infrastructure
-- `token.revoked` and `token.refresh_reuse_detected` spans (endpoint doesn't exist yet)
+- Dedicated `token.revoked` and `token.refresh_reuse_detected` spans (the logout and reuse-detection paths exist; span instrumentation does not)
 - Alerting rules in Loki/Grafana (Story 9.7 — requires Loki/Grafana pipeline deployment)
 
 ## Security Constraints on Observability Data
@@ -103,6 +104,7 @@ Sesame-IDAM uses BRRTRouter's existing OTEL tracing and structured logging stack
 ### PII Safety — NEVER Log These
 - Email, phone, or name fields in span attributes or structured logs
 - Raw JWT tokens (access or refresh)
+- Invitation and other bearer capability tokens
 - Full JWT payload contents
 
 ### What IS Logged (Safe Fields)

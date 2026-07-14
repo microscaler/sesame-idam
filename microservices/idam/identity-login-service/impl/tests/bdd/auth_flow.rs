@@ -16,6 +16,8 @@ use sesame_idam_identity_login_service::controllers::{auth_login, auth_register}
 use sesame_idam_identity_login_service_gen::handlers::auth_login::Request as LoginRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as RegisterRequest;
 
+use crate::common::ensure_active_tenant;
+
 /// Tenant used by controller-level tests (any string; spec-level UUID
 /// validation happens in the HTTP layer, not here).
 const TEST_TENANT: &str = "bdd-tenant";
@@ -131,6 +133,7 @@ fn register_then_login_round_trip() {
         println!("SKIP: Postgres not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     let email = unique_email("roundtrip");
     let password = "SecureP@ss123!";
@@ -184,6 +187,7 @@ fn login_wrong_password_rejected() {
         println!("SKIP: Postgres not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     let email = unique_email("wrongpw");
     let resp = auth_register::handle(register_request(&email, "SecureP@ss123!"));
@@ -202,6 +206,7 @@ fn login_unknown_user_indistinguishable() {
         println!("SKIP: Postgres not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     let resp = auth_login::handle(login_request(
         TEST_TENANT,
@@ -220,6 +225,8 @@ fn tenant_isolation_same_email_different_tenant() {
         println!("SKIP: Postgres not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
+    ensure_active_tenant("other-tenant");
 
     let email = unique_email("xtenant");
     let resp = auth_register::handle(register_request(&email, "SecureP@ss123!"));
@@ -237,6 +244,7 @@ fn duplicate_registration_rejected() {
         println!("SKIP: Postgres not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     let email = unique_email("dup");
     let resp = auth_register::handle(register_request(&email, "SecureP@ss123!"));
@@ -254,6 +262,7 @@ fn weak_password_rejected() {
         println!("SKIP: Postgres not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     let resp = auth_register::handle(register_request(&unique_email("weak"), "short"));
     assert_eq!(resp.status, 400);
@@ -276,13 +285,29 @@ fn hauliage_demo_user_logs_in() {
         HAULIAGE_DEMO_EMAIL,
         HAULIAGE_DEMO_PASSWORD,
     ));
-    // The seed may not be applied on every environment — tolerate 401 only
-    // when the user is absent, otherwise require success.
-    if resp.status == 401 {
+    // Seed may not be applied — tolerate 401 (no user) or 404 (no tenant registry).
+    if resp.status == 401 || resp.status == 404 {
         println!("SKIP: hauliage demo seed not applied on this database");
         return;
     }
     assert_eq!(resp.status, 200, "demo login failed: {:?}", resp.body);
     let payload = decode_jwt_payload(resp.body["access_token"].as_str().unwrap());
     assert_eq!(payload["tenant_id"], HAULIAGE_TENANT);
+}
+
+/// Scenario: Unknown tenant slug is rejected before credential checks.
+#[test]
+fn unknown_tenant_rejected() {
+    if !db_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let resp = auth_login::handle(login_request(
+        "totally-unprovisioned-tenant-slug",
+        "nobody@example.com",
+        "whatever",
+    ));
+    assert_eq!(resp.status, 404);
+    assert_eq!(resp.body["error"], "tenant_unknown");
 }

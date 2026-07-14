@@ -17,3 +17,5 @@ pub mod auth_logout;
 pub mod auth_register;
 pub mod set_active_organization;
 pub mod signup_validate;
+pub mod social_callback;
+pub mod social_login;

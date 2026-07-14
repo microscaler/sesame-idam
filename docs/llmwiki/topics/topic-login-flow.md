@@ -1,17 +1,27 @@
 ---
 title: Login Flow
 status: verified
-updated: 2026-07-06
+updated: 2026-07-14
 sources: [identity-login-service/impl/src/controllers/auth_login.rs, services/token_issuer.rs, services/authz_client.rs]
 ---
 
 # Login Flow
+
+## Tenant gate (2026-07-14)
+
+All auth entry points call `TenantService::require_active` **before** credentials:
+
+- Unknown `X-Tenant-ID` → `404 tenant_unknown`
+- Non-`active` tenant → `403 tenant_not_active`
+
+See [topic-platform-tenants.md](./topic-platform-tenants.md).
 
 ## Complete Flow (IMPLEMENTED 2026-07-06)
 
 ```
 Client → POST /auth/login {email, password} + X-Tenant-ID →
   identity-login-service:
+    0. TenantService::require_active(X-Tenant-ID)     [tenant gate]
     1. Query PG: user by (tenant_id, email)          [UserService]
     2. Verify password hash (argon2id)               [services::password]
     3. Call authz-core POST /authz/principals/effective  [services::authz_client, may_http, 500ms timeout]
@@ -72,5 +82,6 @@ down).
 
 ## Gaps / Drift
 
-- Only email+password login and registration are implemented. All variants in the table below (OTP, social OAuth, magic links, MFA/step-up) are still gen-stub mocks.
+- Email+password login/register and **Google/Microsoft OAuth** (`social_login` + `social_callback`) are implemented (2026-07-14 MVP). OAuth uses `tenant_oauth_providers` metadata + K8s env secrets. OTP, magic links, GitHub, MFA/step-up remain stubs.
+- **Platform admin API** (`/platform/tenants/*`) not yet implemented — see [PRD-P1](../../PRD-P1-platform-tenant-admin.md).
 - `POST /auth/token` (refresh/token-exchange in login-service) still uses placeholder signing — real refresh goes through session-service `/auth/refresh`.

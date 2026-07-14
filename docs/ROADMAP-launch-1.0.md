@@ -5,9 +5,13 @@
 > *auth with zero logic in your app, standards-based asymmetric JWTs, and
 > database-native RLS security nobody else offers.*
 >
-> **Authored:** 2026-07-13. Supersedes the narrow Hauliage-only
-> [`audit/delivery-roadmap-2026-07-13.md`](./audit/delivery-roadmap-2026-07-13.md)
-> for product scope; that doc remains the record of the D3/D4 integration slice.
+> **Authored:** 2026-07-13. **Expanded:** 2026-07-13 in the
+> [Launch 1.0 specification set](./roadmap/launch-1.0/README.md). This strategic roadmap
+> governs the general-availability product scope. The narrower
+> [Hauliage delivery roadmap](./audit/delivery-roadmap-2026-07-13.md) governs the preceding
+> **test-user enablement milestone**: just enough IDAM to onboard initial Hauliage users.
+> Its testable scope is defined in the
+> [Hauliage enablement specification](./roadmap/launch-1.0/hauliage-test-user-enablement/README.md).
 >
 > **Grounded in:** the competitive gap analysis (Sesame ≈12% of a full IdP today;
 > ~16/136 endpoints real) and the delivery-tier model (D0–D6) in
@@ -69,14 +73,20 @@ P4 THE DEVELOPER CONTRACT  → SDK + hosted UI + "auth in an afternoon"     ← 
 P5 Trust & scale          → audit UI, breach/bot defense, DPoP, SOC2 readiness
 ```
 
-**Launch 1.0 = P0 + P1 + P2 + P4** (moat + credible auth surface + the DX that sells it).
-**P3 enterprise depth + P5 trust** land as **1.1/1.2** fast-follows. Rationale below (§6).
+**Launch 1.0 GA = P0 + P1 + P2 + P4** (moat + credible auth surface + the DX that sells it).
+The bounded D3/D4 Hauliage cut is a **test-user enablement milestone**, not a Sesame product
+release and not a competing definition of GA.
+**P3 enterprise depth + P5 trust** land as **1.1/1.2** fast-follows. See the
+[scope evaluation](./roadmap/launch-1.0/README.md#roadmap-evaluation) and rationale below (§6).
 
 ---
 
 ## 4. Phased roadmap
 
 ### P0 — Harden the core *(1–2 wks)*
+
+[Detailed requirements, acceptance criteria, and exit gate](./roadmap/launch-1.0/p0-harden-core/README.md)
+
 Close the credibility gaps in the part that already works.
 - **Revocation enforcement (read-side).** Write-path exists; add denylist check to the
   validation path. **Decision:** do it in **BRRTRouter's `JwksBearerProvider`** (one place,
@@ -85,6 +95,9 @@ Close the credibility gaps in the part that already works.
 - **Gate:** revoked access token is rejected end-to-end; BDD proves it.
 
 ### P1 — The RLS Bridge *(3–4 wks) — THE HEADLINE*
+
+[Detailed requirements, acceptance criteria, and exit gate](./roadmap/launch-1.0/p1-rls-bridge/README.md)
+
 The README's killer feature. Currently **0 lines**. Make it the demo everyone screenshots.
 - Ship `sesame_set_session()` / `sesame_current_user_org_id()` / `sesame_current_*()` SQL as
   a **versioned, deploy-once artifact** (+ migration + docs).
@@ -98,6 +111,9 @@ The README's killer feature. Currently **0 lines**. Make it the demo everyone sc
   guide published.
 
 ### P2 — Complete the auth surface *(4–6 wks) — table-stakes*
+
+[Detailed requirements, acceptance criteria, and exit gate](./roadmap/launch-1.0/p2-auth-surface/README.md)
+
 So it never looks like a toy next to Clerk. `identity-user-mgmt` is **0/26 real** today.
 - **User management**: get/update/disable/enable/delete/search (+ tenant-isolation BDD each).
 - **MFA**: TOTP enrollment/verify + recovery codes; step-up (files exist).
@@ -107,6 +123,9 @@ So it never looks like a toy next to Clerk. `identity-user-mgmt` is **0/26 real*
 - **Gate:** a user can register→verify→enable MFA→social-login; all BDD-covered.
 
 ### P3 — B2B/RBAC + enterprise wedge *(5–7 wks) — the PropelAuth/WorkOS fight*
+
+[Detailed requirements, acceptance criteria, and exit gate](./roadmap/launch-1.0/p3-b2b-enterprise/README.md)
+
 - **Permissions in the token**: wire org-mgmt role→permission tables into `principal/effective`
   (returns `permissions:[]` today) so JWTs carry fine-grained perms; add `POST /authorize`
   (RFC 7662-style) for the hybrid path.
@@ -117,6 +136,9 @@ So it never looks like a toy next to Clerk. `identity-user-mgmt` is **0/26 real*
 - **Gate:** an org admin configures SSO + SCIM self-serve; API keys rotate; webhooks deliver.
 
 ### P4 — The Developer Contract *(4–5 wks) — THE ENVY ENGINE*
+
+[Detailed requirements, acceptance criteria, and exit gate](./roadmap/launch-1.0/p4-developer-contract/README.md)
+
 This is what makes engineers *switch*. Without it, Sesame is a raw API; Clerk ships
 pixel-perfect components.
 - **TypeScript SDK**: `@sesame-idam/frontend` (`useAuth`, `<SignIn/>`, `<OrgSwitcher/>`) +
@@ -128,6 +150,9 @@ pixel-perfect components.
 - **Gate:** a new SaaS integrates login + orgs + RLS in <1 day following the guide.
 
 ### P5 — Trust & scale *(ongoing, 1.2+)*
+
+[Detailed requirements, acceptance criteria, and exit gate](./roadmap/launch-1.0/p5-trust-scale/README.md)
+
 - Audit-log **UI + streaming**; admin dashboard.
 - **Breach/bot defense**: HIBP breached-password check, brute-force/anomaly throttling.
 - **DPoP** (RFC 9449) token binding; delegation/`act` claims; impersonation (stubs exist).
@@ -151,7 +176,7 @@ pixel-perfect components.
 
 ## 6. Launch 1.0 definition (the compelling cut)
 
-**1.0 ships = P0 + P1 + P2 + P4.** That is: hardened asymmetric-JWT core, the **RLS bridge
+**1.0 GA ships = P0 + P1 + P2 + P4.** That is: hardened asymmetric-JWT core, the **RLS bridge
 (the moat)**, a **complete-enough auth surface** (password/social/MFA/passwordless + user
 mgmt), the **B2B org model already built**, and the **SDK + hosted UI + quickstart** that make
 it feel like Clerk but self-hosted with RLS.
@@ -163,6 +188,10 @@ from RLS + DX, not from SCIM. Ship the wedge; fast-follow the enterprise checkbo
 **Rough calendar:** P0–P2 + P4 ≈ **3–4 months** with focused effort; P3 + P5 as 1.1/1.2 over
 the following 2–3 months. Parallelizable: P1 (RLS) and P2 (auth surface) are independent; P4
 (SDK/UI) starts once P2 endpoints stabilize.
+
+The preceding **Hauliage test-user enablement slice** may deploy when its own acceptance gate
+is met; it does not imply the GA capabilities above are complete. Its relationship to GA and
+the shared quality gate are defined in the [expanded roadmap](./roadmap/launch-1.0/README.md).
 
 ---
 

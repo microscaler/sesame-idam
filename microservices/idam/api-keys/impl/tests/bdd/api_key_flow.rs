@@ -59,14 +59,14 @@ fn raw_client() -> may_postgres::Client {
     let host = std::env::var("TEST_DB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = std::env::var("TEST_DB_PORT").unwrap_or_else(|_| "5432".to_string());
     let user = std::env::var("TEST_DB_USER").unwrap_or_else(|_| "sesame_idam".to_string());
-    let pass = std::env::var("TEST_DB_PASS")
-        .unwrap_or_else(|_| "dev_password_change_in_prod".to_string());
+    let pass =
+        std::env::var("TEST_DB_PASS").unwrap_or_else(|_| "dev_password_change_in_prod".to_string());
     let db = std::env::var("TEST_DB_NAME").unwrap_or_else(|_| "sesame_idam".to_string());
     may_postgres::connect(&format!("postgres://{user}:{pass}@{host}:{port}/{db}"))
         .expect("connect test DB")
 }
 
-/// Fixture user (api_keys.user_id FK targets users).
+/// Fixture user (`api_keys.user_id` FK targets users).
 fn insert_user(client: &may_postgres::Client, user_id: Uuid, tenant: &str) {
     let email = format!("bddtest_apikey_{user_id}@example.com");
     client
@@ -175,10 +175,14 @@ fn create_then_validate_round_trip() {
     assert_eq!(resp.body["permissions"], serde_json::json!(["jobs:read"]));
 
     // key_type=personal matches; key_type=org does not
-    let resp = validate_api_key::handle(validate_request(TEST_TENANT, &plaintext, Some("personal")));
+    let resp =
+        validate_api_key::handle(validate_request(TEST_TENANT, &plaintext, Some("personal")));
     assert_eq!(resp.status, 200);
     let resp = validate_api_key::handle(validate_request(TEST_TENANT, &plaintext, Some("org")));
-    assert_eq!(resp.status, 401, "org-type filter must reject a personal key");
+    assert_eq!(
+        resp.status, 401,
+        "org-type filter must reject a personal key"
+    );
 
     cleanup_user(&client, user_id);
 }
@@ -211,7 +215,7 @@ fn invalid_and_cross_tenant_keys_rejected() {
     cleanup_user(&client, user_id);
 }
 
-/// Scenario: Expired keys report valid=false, is_expired=true (200).
+/// Scenario: Expired keys report valid=false, `is_expired=true` (200).
 #[test]
 fn expired_key_reports_expired() {
     if !db_available() {

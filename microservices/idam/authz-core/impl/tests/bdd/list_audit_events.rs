@@ -37,6 +37,7 @@ fn make_request(
             start_time,
             end_time,
         },
+        jwt_claims: None,
     }
 }
 

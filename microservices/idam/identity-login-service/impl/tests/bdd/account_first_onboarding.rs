@@ -20,6 +20,8 @@ use sesame_idam_identity_login_service_gen::handlers::set_active_organization::R
 
 use super::token_lifecycle::{assert_token_response_shape, infra_available, unique_email};
 
+use crate::common::ensure_active_tenant;
+
 const TEST_TENANT: &str = "bdd-account-first-tenant";
 
 fn register_request(email: &str, password: &str) -> TypedHandlerRequest<RegisterRequest> {
@@ -135,13 +137,14 @@ fn decode_payload(token: &str) -> serde_json::Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
-/// Scenario: User with membership can set active org and receive JWT with org_id.
+/// Scenario: User with membership can set active org and receive JWT with `org_id`.
 #[test]
 fn account_first_set_active_organization_embeds_org_id() {
     if !infra_available() {
         println!("SKIP: Postgres and/or Redis not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     let email = unique_email("account-first");
     let password = "SecureP@ss123!";
@@ -181,6 +184,7 @@ fn account_first_rejects_non_member_org() {
         println!("SKIP: Postgres and/or Redis not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     let email = unique_email("account-first-deny");
     let password = "SecureP@ss123!";
@@ -192,10 +196,7 @@ fn account_first_rejects_non_member_org() {
 
     seed_org_only(&foreign_org);
 
-    let resp = set_active_organization::handle(set_active_org_request(
-        &foreign_org,
-        access_token,
-    ));
+    let resp = set_active_organization::handle(set_active_org_request(&foreign_org, access_token));
     assert_eq!(resp.status, 403, "expected forbidden: {:?}", resp.body);
     assert_eq!(resp.body["error"], "forbidden");
 }

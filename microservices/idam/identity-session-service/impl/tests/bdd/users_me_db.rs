@@ -1,4 +1,4 @@
-//! Live-database BDD tests for `GET/PATCH /identity/me` (typed handlers, BR-2 jwt_claims).
+//! Live-database BDD tests for `GET/PATCH /identity/me` (typed handlers, BR-2 `jwt_claims`).
 //!
 //! Builds `HandlerRequest`s with validated-JWT claims attached (as the
 //! security provider would), converts to `TypedHandlerRequest`, and exercises
@@ -105,7 +105,7 @@ fn me_request(
     if let Some(tenant) = header_tenant {
         headers.push((Arc::from("x-tenant-id"), tenant.to_string()));
     }
-    let req = HandlerRequest {
+    HandlerRequest {
         request_id: RequestId::new(),
         method,
         path: "/identity/me".to_string(),
@@ -118,8 +118,7 @@ fn me_request(
         jwt_claims: claims,
         reply_tx: tx,
         queue_guard: None,
-    };
-    req
+    }
 }
 
 fn invoke_get(req: HandlerRequest) -> HttpJson<serde_json::Value> {

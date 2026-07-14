@@ -317,23 +317,20 @@ mod tests {
         let config = TtlConfig::from_env();
 
         // Normal user
-        assert_eq!(config.ttl_for_role("customer"), Duration::from_secs(300));
-        assert_eq!(config.ttl_for_role("user"), Duration::from_secs(300));
+        assert_eq!(config.ttl_for_role("customer"), Duration::from_mins(5));
+        assert_eq!(config.ttl_for_role("user"), Duration::from_mins(5));
 
         // F-010 aligned: all roles return same 5-minute TTL
-        assert_eq!(config.ttl_for_role("elevated"), Duration::from_secs(300));
-        assert_eq!(config.ttl_for_role("org_admin"), Duration::from_secs(300));
+        assert_eq!(config.ttl_for_role("elevated"), Duration::from_mins(5));
+        assert_eq!(config.ttl_for_role("org_admin"), Duration::from_mins(5));
         assert_eq!(
             config.ttl_for_role("platform_admin"),
-            Duration::from_secs(300)
+            Duration::from_mins(5)
         );
-        assert_eq!(config.ttl_for_role("platform"), Duration::from_secs(300));
+        assert_eq!(config.ttl_for_role("platform"), Duration::from_mins(5));
 
         // Unknown role defaults to normal
-        assert_eq!(
-            config.ttl_for_role("unknown_role"),
-            Duration::from_secs(300)
-        );
+        assert_eq!(config.ttl_for_role("unknown_role"), Duration::from_mins(5));
     }
 
     #[test]
@@ -347,7 +344,7 @@ mod tests {
             config.ttl_for_role("org_admin"),
             config.ttl_for_role("platform")
         );
-        assert_eq!(config.ttl_for_role("platform"), Duration::from_secs(300));
+        assert_eq!(config.ttl_for_role("platform"), Duration::from_mins(5));
     }
 
     #[test]
@@ -447,7 +444,7 @@ mod tests {
 
         std::env::set_var("JWT_ACCESS_TTL_NORMAL", "600");
         let config = TtlConfig::from_env();
-        assert_eq!(config.ttl_for_role("customer"), Duration::from_secs(600));
+        assert_eq!(config.ttl_for_role("customer"), Duration::from_mins(10));
 
         match prev {
             Some(v) => std::env::set_var("JWT_ACCESS_TTL_NORMAL", v),
@@ -461,7 +458,7 @@ mod tests {
 
         std::env::set_var("JWT_ACCESS_TTL_ELEVATED", "600");
         let config = TtlConfig::from_env();
-        assert_eq!(config.ttl_for_role("elevated"), Duration::from_secs(600));
+        assert_eq!(config.ttl_for_role("elevated"), Duration::from_mins(10));
 
         match prev {
             Some(v) => std::env::set_var("JWT_ACCESS_TTL_ELEVATED", v),
@@ -475,7 +472,7 @@ mod tests {
 
         std::env::set_var("JWT_ACCESS_TTL_ADMIN", "600");
         let config = TtlConfig::from_env();
-        assert_eq!(config.ttl_for_role("org_admin"), Duration::from_secs(600));
+        assert_eq!(config.ttl_for_role("org_admin"), Duration::from_mins(10));
 
         match prev {
             Some(v) => std::env::set_var("JWT_ACCESS_TTL_ADMIN", v),
@@ -489,7 +486,7 @@ mod tests {
 
         std::env::set_var("JWT_ACCESS_TTL_PLATFORM", "600");
         let config = TtlConfig::from_env();
-        assert_eq!(config.ttl_for_role("platform"), Duration::from_secs(600));
+        assert_eq!(config.ttl_for_role("platform"), Duration::from_mins(10));
 
         match prev {
             Some(v) => std::env::set_var("JWT_ACCESS_TTL_PLATFORM", v),
@@ -540,7 +537,7 @@ mod tests {
 
         std::env::set_var("JWT_ACCESS_TTL_NORMAL", "3600");
         let config = TtlConfig::from_env();
-        assert_eq!(config.ttl_for_role("customer"), Duration::from_secs(3600));
+        assert_eq!(config.ttl_for_role("customer"), Duration::from_hours(1));
         // Validate should pass — 3600 > 60 minimum
         validate_minimum_ttl(&config);
 
@@ -561,7 +558,7 @@ mod tests {
             customer_ttl, admin_ttl,
             "F-010: customer and admin should have same TTL"
         );
-        assert_eq!(customer_ttl, Duration::from_secs(300));
+        assert_eq!(customer_ttl, Duration::from_mins(5));
     }
 
     #[test]

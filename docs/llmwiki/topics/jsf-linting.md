@@ -1,7 +1,7 @@
 ---
 title: JSF-Inspired Linting
 status: verified
-updated: 2026-05-17
+updated: 2026-07-13
 sources: [clippy.toml, justfile (lint-rust), BRRTRouter docs/JSF/]
 ---
 
@@ -24,7 +24,9 @@ Sesame-IDAM uses a JSF-inspired clippy profile aligned with BRRTRouter and lifeg
 just lint-rust
 ```
 
-Runs `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic` on all impl crates + database + audit + migrator (excludes gen/ crates).
+Runs `cargo clippy --all-targets --all-features --no-deps` with `-D warnings -W clippy::pedantic` on the six implementation crates, database, and migrator. Generated crates are excluded. `sesame-common` is intentionally checked by the separate warning-only `just lint-common` recipe while its documented pedantic backlog is reduced.
+
+The 2026-07-13 delivered-code audit restored this gate after it exposed stale `TypedHandlerRequest` fixtures, generated-code lint leakage in org-mgmt, and mechanical pedantic failures across production and test targets.
 
 ## JSF-Aligned Thresholds (clippy.toml)
 

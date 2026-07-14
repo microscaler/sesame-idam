@@ -126,11 +126,12 @@ fn main() -> io::Result<()> {
                     dispatcher.add_route(route.clone(), tx);
                 }
                 "auth_logout" => {
-                    let tx = spawn_typed_with_stack_size_and_name(
-                        controllers::auth_logout::AuthLogoutController,
+                    let tx = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
+                        controllers::auth_logout::handle_http,
                         16384,
                         Some(route.handler_name.as_ref()),
-                    );
+                    )
+                    .unwrap_or_else(|error| panic!("failed to spawn auth_logout handler: {error}"));
                     dispatcher.add_route(route.clone(), tx);
                 }
                 "set_active_organization" => {
@@ -145,6 +146,22 @@ fn main() -> io::Result<()> {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::signup_validate::SignupValidateController,
                         16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "social_login" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::social_login::SocialLoginController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "social_callback" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::social_callback::SocialCallbackController,
+                        32768,
                         Some(route.handler_name.as_ref()),
                     );
                     dispatcher.add_route(route.clone(), tx);
@@ -206,7 +223,11 @@ fn main() -> io::Result<()> {
     // BRRTRouter's scrape response so a single /metrics endpoint covers both
     // the HTTP layer and the Postgres layer.
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
-        lifeguard::metrics::prometheus_scrape_text()
+        format!(
+            "{}\n{}",
+            lifeguard::metrics::prometheus_scrape_text(),
+            sesame_common::token_status_prometheus_scrape_text()
+        )
     })));
 
     // Warm Lifeguard on the main OS thread before may-scheduled HTTP handlers:

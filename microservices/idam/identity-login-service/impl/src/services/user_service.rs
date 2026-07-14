@@ -50,6 +50,38 @@ impl UserService {
         phone: Option<String>,
         exec: &E,
     ) -> Result<Uuid, LifeError> {
+        Self::insert_user(
+            tenant_id,
+            email,
+            password_hash,
+            phone,
+            false,
+            exec,
+        )
+    }
+
+    /// Create a user provisioned via OAuth (email marked verified).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LifeError`] on insert failure (including unique violations).
+    pub fn create_oauth_user<E: LifeExecutor>(
+        tenant_id: &str,
+        email: &str,
+        password_hash: &str,
+        exec: &E,
+    ) -> Result<Uuid, LifeError> {
+        Self::insert_user(tenant_id, email, password_hash, None, true, exec)
+    }
+
+    fn insert_user<E: LifeExecutor>(
+        tenant_id: &str,
+        email: &str,
+        password_hash: &str,
+        phone: Option<String>,
+        email_verified: bool,
+        exec: &E,
+    ) -> Result<Uuid, LifeError> {
         let now = Utc::now();
         let id = Uuid::new_v4();
 
@@ -60,7 +92,7 @@ impl UserService {
             .set_password_hash(password_hash.to_string())
             .set_tenant_id(tenant_id.to_string())
             .set_status(STATUS_ACTIVE.to_string())
-            .set_email_verified(false)
+            .set_email_verified(email_verified)
             .set_phone(phone)
             .set_phone_verified(false)
             .set_created_at(now)

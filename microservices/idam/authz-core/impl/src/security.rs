@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use brrtrouter::security::JwksBearerProvider;
+use brrtrouter::security::{JwksBearerProvider, JwtAlgorithm};
 use brrtrouter::server::AppService;
 
-use sesame_common::config::AppConfig;
+use sesame_common::{config::AppConfig, SesameTokenStatusChecker};
 
 /// Initialize security providers from the application configuration.
 ///
@@ -30,7 +30,9 @@ pub fn init_security(
         // Check for per-scheme JWKS config
         if let Some(jwks_map) = sec_cfg.and_then(|s| s.jwks.as_ref()) {
             if let Some(jwks) = jwks_map.get(&scheme_name) {
-                let mut provider = JwksBearerProvider::new(&jwks.jwks_url);
+                let mut provider = JwksBearerProvider::new(&jwks.jwks_url)
+                    .allowed_algorithms(&[JwtAlgorithm::EdDSA])
+                    .token_status_checker(Arc::new(SesameTokenStatusChecker::from_env()?));
 
                 if let Some(iss) = jwks.iss.as_deref() {
                     provider = provider.issuer(iss);

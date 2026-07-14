@@ -3,6 +3,7 @@
 //! Add existing user to organization — creates active membership.
 
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
+use sesame_common::VersionStore;
 use sesame_idam_database::db;
 
 use crate::services::org_lifecycle::{self, OrgLifecycleError};
@@ -33,9 +34,32 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
         );
     }
 
+    let bumped_version = match VersionStore::from_env()
+        .and_then(|store| store.increment_subject(user_id))
+    {
+        Ok(version) => version,
+        Err(error) => {
+            tracing::error!(%error, user_id, "token version bump failed before membership change");
+            return HandlerResponse::json(
+                503,
+                serde_json::json!({
+                    "error": "security_state_unavailable",
+                    "message": "Session invalidation is temporarily unavailable"
+                }),
+            );
+        }
+    };
+
     let exec = db();
-    match org_lifecycle::add_user_membership(exec, &tenant_id, &org_id, &user_id, role) {
-        Ok(()) => HandlerResponse::json(200, serde_json::json!({ "success": true })),
+    match org_lifecycle::add_user_membership(exec, &tenant_id, org_id, user_id, role) {
+        Ok(()) => {
+            tracing::info!(
+                user_id,
+                token_version = bumped_version,
+                "membership change invalidated existing access tokens"
+            );
+            HandlerResponse::json(200, serde_json::json!({ "success": true }))
+        }
         Err(OrgLifecycleError::NotFound) => HandlerResponse::json(
             404,
             serde_json::json!({

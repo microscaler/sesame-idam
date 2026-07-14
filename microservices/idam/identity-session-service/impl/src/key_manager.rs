@@ -245,7 +245,7 @@ pub struct JwkOnly {
     pub use_claim: JwkUse,
     pub crv: JwkCurve,
     pub x: String,
-    /// Intended signing algorithm (RFC 7517 + OpenAPI JWKS schema).
+    /// Intended signing algorithm (RFC 7517 + `OpenAPI` JWKS schema).
     pub alg: String,
 }
 

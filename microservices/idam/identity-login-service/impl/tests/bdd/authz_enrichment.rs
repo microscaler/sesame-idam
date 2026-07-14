@@ -18,6 +18,8 @@ use sesame_idam_identity_login_service::services::authz_client::AUTHZ_CORE_URL_E
 use sesame_idam_identity_login_service_gen::handlers::auth_login::Request as LoginRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as RegisterRequest;
 
+use crate::common::ensure_active_tenant;
+
 const TEST_TENANT: &str = "bdd-enrich-tenant";
 const MOCK_PORT: u16 = 18102;
 
@@ -120,6 +122,7 @@ fn login_enriches_roles_from_authz_core() {
         println!("SKIP: Postgres not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     // Given — a mock authz-core listening locally
     let server = HttpServer(MockAuthzCore)
@@ -176,6 +179,7 @@ fn login_degrades_gracefully_without_authz_core() {
         println!("SKIP: Postgres not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     // Point at a port nothing listens on.
     std::env::set_var(AUTHZ_CORE_URL_ENV, "http://127.0.0.1:1");

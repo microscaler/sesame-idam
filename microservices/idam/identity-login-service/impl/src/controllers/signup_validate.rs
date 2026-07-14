@@ -11,6 +11,7 @@ use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::signup_validate::{Request, Response};
 
+use crate::services::tenant_service::{TenantGateError, TenantService};
 use crate::services::user_service::UserService;
 
 #[handler(SignupValidateController)]
@@ -28,14 +29,20 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         reasons.push("tenant_required".to_string());
     } else {
         let exec = sesame_idam_database::db();
-        match UserService::find_by_tenant_and_email(tenant_id, &email.to_lowercase(), exec) {
-            Ok(Some(_)) => reasons.push("email_taken".to_string()),
-            Ok(None) => {}
-            Err(e) => {
-                // Fail closed with a distinct reason so the client can tell
-                // "unavailable" apart from "taken"; register re-checks anyway.
-                tracing::error!(error = %e, "signup_validate: availability check failed");
-                reasons.push("validation_unavailable".to_string());
+        match TenantService::require_active(tenant_id, exec) {
+            Err(TenantGateError::Unknown) => reasons.push("tenant_unknown".to_string()),
+            Err(TenantGateError::NotActive) => reasons.push("tenant_not_active".to_string()),
+            Err(TenantGateError::Db(_)) => reasons.push("validation_unavailable".to_string()),
+            Ok(_) => {
+                match UserService::find_by_tenant_and_email(tenant_id, &email.to_lowercase(), exec)
+                {
+                    Ok(Some(_)) => reasons.push("email_taken".to_string()),
+                    Ok(None) => {}
+                    Err(e) => {
+                        tracing::error!(error = %e, "signup_validate: availability check failed");
+                        reasons.push("validation_unavailable".to_string());
+                    }
+                }
             }
         }
     }

@@ -10,6 +10,15 @@
 
 - [docs-catalog.md](./docs-catalog.md) — Inventory of design docs and merge status
 
+## Roadmaps
+
+- [Launch 1.0 strategic roadmap](../ROADMAP-launch-1.0.md) — Product sequencing and release scope
+- [SaaS-of-SaaS multi-tenancy design](../design-saas-of-saas-multi-tenancy.md) — **Canonical** tenant provisioning, self-service, KYC (PRD/story source)
+- [PRD-P1: Platform tenant admin API](../PRD-P1-platform-tenant-admin.md) — REST + CLI for ops mint (Epic 10, stories 10.1–10.8)
+- [Launch 1.0 expanded specifications](../roadmap/launch-1.0/README.md) — Evaluation, phase requirements, acceptance criteria, and evidence gates
+- [Hauliage test-user enablement](../roadmap/launch-1.0/hauliage-test-user-enablement/README.md) — “Just enough IDAM” requirements and evidence gate for initial test users
+- [Hauliage delivery audit](../audit/delivery-roadmap-2026-07-13.md) — Dated D3/D4 execution record behind the enablement milestone
+
 ## Entities
 
 Data structures and database entities across all 6 microservices.
@@ -50,6 +59,7 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-remediation-plan](./topics/topic-remediation-plan.md) | 5-phase remediation plan (naming fix → build infra → Tiltfile → workspace cleanup → validation) |
 ||| [topic-hybrid-authz](./topics/topic-hybrid-authz.md) | Hybrid authorization model: JWT claims for common path, selective online fallback. Route classification (jwt-only, jwt-with-fallback, online-only), JWT middleware, route-specific decisions (Story 4.4), selective fallback caching (Story 4.3), RFC 7662 introspection (Story 4.5). |
 ||| [topic-tenancy-model](./topics/topic-tenancy-model.md) | Hard-segment multi-tenant model, X-Tenant-ID, isolation guarantees |
+||| [topic-platform-tenants](./topics/topic-platform-tenants.md) | SaaS-of-SaaS tenant registry, OAuth metadata, unknown-tenant rejection ([ADR-004](../ADR-004-platform-tenant-provisioning.md), [PRD-P1](../PRD-P1-platform-tenant-admin.md)) |
 ||| [topic-openapi-tenancy-strategy](./topics/topic-openapi-tenancy-strategy.md) | Global spec + middleware injection pattern, why not per-tenant specs |
 ||| [topic-jwt-schema](./topics/topic-jwt-schema.md) | JWT enrichment claims, coarse vs fine-grained auth |
 ||| [topic-login-flow](./topics/topic-login-flow.md) | User login flow: login → authz-core → JWT. **Implemented 2026-07-06** (argon2id + Ed25519 + Redis refresh + role enrichment); OTP/social/magic-link variants still stubs |
@@ -69,7 +79,8 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-org-personas](./topics/topic-org-personas.md) | Platform, provider, consumer org types |
 |||| [topic-developer-contract](./topics/topic-developer-contract.md) | 3-layer SDK, Admin API, RLS helpers |
 ||||| [topic-token-versioning](./topics/topic-token-versioning.md) | ver/sid claims, Redis version storage, validation flow, TTL strategy, version bump on authz change, version mismatch handling (Story 5.1-5.5) |
-||||| [topic-http-client-policy](./topics/topic-http-client-policy.md) | Single HTTP client policy — all outbound HTTP must use `may_http` only. No reqwest, hyper, tokio::spawn, or any other async runtime client.
+||||| [topic-token-status-enforcement](./topics/topic-token-status-enforcement.md) | Central BRRTRouter denylist/version enforcement, positive-only rejection caching, fail-closed Redis policy, and P0 evidence status. |
+||||| [topic-http-client-policy](./topics/topic-http-client-policy.md) | Single HTTP client policy — service code uses `sesame_common::http`; BRRTRouter uses the `may_minihttp` native client for plain HTTP and rustls for HTTPS.
 |||| [topic-delegation](./topics/topic-delegation.md) | RFC 8693 token exchange, act claim structure, delegation chain, actor can_delegate logic, support impersonation flow, step-up MFA, mfa_type strength (Story 6.1-6.3) |
 ||||| [topic-mfa](./topics/topic-mfa.md) | sx.mfa_verified claim, step-up MFA flow, mfa_type strength table, F-006 refresh token invalidation, F-016 SMS restriction (Story 6.3) |
 |||| [topic-observability](./topics/topic-observability.md) | OTEL span catalog for Epic 9 — key lifecycle, JWKS cache, authz request, token lifecycle spans across all 6 services. No custom Prometheus counters for JWT observability. |

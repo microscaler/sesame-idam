@@ -68,7 +68,7 @@ fn logout_denylists_access_jti() {
     assert!(before.is_none(), "jti must not be denylisted before logout");
 
     let resp = auth_logout::handle(logout_request(&jti, exp));
-    assert!(resp.error.is_empty(), "logout should succeed: {:?}", resp);
+    assert!(resp.error.is_empty(), "logout should succeed: {resp:?}");
 
     let after: Option<String> = redis::cmd("GET")
         .arg(format!("denylist:{jti}"))

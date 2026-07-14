@@ -34,7 +34,7 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
     }
 
     let exec = db();
-    match org_lifecycle::invite_by_email(exec, &tenant_id, &org_id, email, role) {
+    match org_lifecycle::invite_by_email(exec, &tenant_id, org_id, email, role) {
         Ok(_) => HandlerResponse::json(200, serde_json::json!({ "success": true })),
         Err(OrgLifecycleError::NotFound) => HandlerResponse::json(
             404,

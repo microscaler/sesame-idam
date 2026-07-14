@@ -78,13 +78,9 @@ fn get_organization_returns_org_for_member() {
     seed_membership(org_id, user_id, "owner");
 
     let exec = sesame_idam_database::db();
-    let org = org_lifecycle::get_organization(
-        exec,
-        &tenant,
-        &org_id.to_string(),
-        &user_id.to_string(),
-    )
-    .expect("member should read org");
+    let org =
+        org_lifecycle::get_organization(exec, &tenant, &org_id.to_string(), &user_id.to_string())
+            .expect("member should read org");
 
     assert_eq!(org.id, org_id);
     assert_eq!(org.name, "Acme Logistics");
@@ -140,14 +136,9 @@ fn invite_and_add_membership_via_orm() {
     seed_user(&tenant, owner);
 
     let exec = sesame_idam_database::db();
-    let org = org_lifecycle::create_organization(
-        exec,
-        &tenant,
-        &owner.to_string(),
-        "Inviter Co",
-        None,
-    )
-    .expect("create org");
+    let org =
+        org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Inviter Co", None)
+            .expect("create org");
 
     let invite_id = org_lifecycle::invite_by_email(
         exec,
@@ -175,7 +166,7 @@ fn invite_and_add_membership_via_orm() {
     assert_eq!(detail.name, "Inviter Co");
 }
 
-/// Scenario: list_memberships returns the user's orgs in the caller's tenant only.
+/// Scenario: `list_memberships` returns the user's orgs in the caller's tenant only.
 #[test]
 fn list_memberships_is_tenant_scoped() {
     if !infra_available() {
@@ -225,8 +216,9 @@ fn accept_invitation_adds_membership_and_marks_accepted() {
     seed_user(&tenant, owner);
 
     let exec = sesame_idam_database::db();
-    let org = org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Accept Co", None)
-        .expect("create org");
+    let org =
+        org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Accept Co", None)
+            .expect("create org");
 
     let email = "Invitee@Example.com";
     let invite_id =
@@ -254,7 +246,10 @@ fn accept_invitation_adds_membership_and_marks_accepted() {
         .find_one(exec)
         .unwrap()
         .expect("invite row");
-    assert!(accepted.accepted_at.is_some(), "invite must be marked accepted");
+    assert!(
+        accepted.accepted_at.is_some(),
+        "invite must be marked accepted"
+    );
 
     // Invitee is now a member and can read the org.
     let detail =
@@ -280,11 +275,17 @@ fn accept_invitation_rejects_email_mismatch() {
     seed_user(&tenant, owner);
 
     let exec = sesame_idam_database::db();
-    let org = org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Mismatch Co", None)
-        .expect("create org");
-    let invite_id =
-        org_lifecycle::invite_by_email(exec, &tenant, &org.id.to_string(), "right@example.com", "member")
-            .expect("invite");
+    let org =
+        org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Mismatch Co", None)
+            .expect("create org");
+    let invite_id = org_lifecycle::invite_by_email(
+        exec,
+        &tenant,
+        &org.id.to_string(),
+        "right@example.com",
+        "member",
+    )
+    .expect("invite");
     let token = org_invite::Entity::find()
         .filter(org_invite::Column::Id.eq(invite_id))
         .find_one(exec)
@@ -302,10 +303,13 @@ fn accept_invitation_rejects_email_mismatch() {
         &token,
     )
     .expect_err("email mismatch must be rejected");
-    assert!(matches!(err, OrgLifecycleError::EmailMismatch), "got {err:?}");
+    assert!(
+        matches!(err, OrgLifecycleError::EmailMismatch),
+        "got {err:?}"
+    );
 }
 
-/// Scenario: preview a pending invite by token → org name + valid; unknown token → NotFound.
+/// Scenario: preview a pending invite by token → org name + valid; unknown token → `NotFound`.
 #[test]
 fn preview_invitation_reports_org_and_validity() {
     use lifeguard::{ColumnTrait, LifeModelTrait};
@@ -322,11 +326,17 @@ fn preview_invitation_reports_org_and_validity() {
     seed_user(&tenant, owner);
 
     let exec = sesame_idam_database::db();
-    let org = org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Preview Co", None)
-        .expect("create org");
-    let invite_id =
-        org_lifecycle::invite_by_email(exec, &tenant, &org.id.to_string(), "guest@example.com", "member")
-            .expect("invite");
+    let org =
+        org_lifecycle::create_organization(exec, &tenant, &owner.to_string(), "Preview Co", None)
+            .expect("create org");
+    let invite_id = org_lifecycle::invite_by_email(
+        exec,
+        &tenant,
+        &org.id.to_string(),
+        "guest@example.com",
+        "member",
+    )
+    .expect("invite");
     let token = org_invite::Entity::find()
         .filter(org_invite::Column::Id.eq(invite_id))
         .find_one(exec)
@@ -345,12 +355,11 @@ fn preview_invitation_reports_org_and_validity() {
 
     // Cross-tenant preview is not found (org outside tenant).
     let other = unique_tenant("preview-other");
-    let err2 = org_lifecycle::preview_invitation(exec, &other, &token)
-        .expect_err("cross-tenant");
+    let err2 = org_lifecycle::preview_invitation(exec, &other, &token).expect_err("cross-tenant");
     assert!(matches!(err2, OrgLifecycleError::NotFound), "got {err2:?}");
 }
 
-/// Isolation: inviting to an org under a different tenant is NotFound (zero bleed).
+/// Isolation: inviting to an org under a different tenant is `NotFound` (zero bleed).
 #[test]
 fn invite_by_email_rejects_cross_tenant_org() {
     if !infra_available() {
@@ -364,8 +373,9 @@ fn invite_by_email_rejects_cross_tenant_org() {
     seed_user(&tenant_a, owner);
 
     let exec = sesame_idam_database::db();
-    let org = org_lifecycle::create_organization(exec, &tenant_a, &owner.to_string(), "Iso Co", None)
-        .expect("create org");
+    let org =
+        org_lifecycle::create_organization(exec, &tenant_a, &owner.to_string(), "Iso Co", None)
+            .expect("create org");
 
     let err = org_lifecycle::invite_by_email(
         exec,
@@ -378,7 +388,7 @@ fn invite_by_email_rejects_cross_tenant_org() {
     assert!(matches!(err, OrgLifecycleError::NotFound), "got {err:?}");
 }
 
-/// Isolation: accepting an invite under a different tenant is NotFound (zero bleed).
+/// Isolation: accepting an invite under a different tenant is `NotFound` (zero bleed).
 #[test]
 fn accept_invitation_rejects_cross_tenant() {
     use lifeguard::{ColumnTrait, LifeModelTrait};
@@ -395,11 +405,22 @@ fn accept_invitation_rejects_cross_tenant() {
     seed_user(&tenant_a, owner);
 
     let exec = sesame_idam_database::db();
-    let org = org_lifecycle::create_organization(exec, &tenant_a, &owner.to_string(), "Iso Accept Co", None)
-        .expect("create org");
-    let invite_id =
-        org_lifecycle::invite_by_email(exec, &tenant_a, &org.id.to_string(), "guest@example.com", "member")
-            .expect("invite");
+    let org = org_lifecycle::create_organization(
+        exec,
+        &tenant_a,
+        &owner.to_string(),
+        "Iso Accept Co",
+        None,
+    )
+    .expect("create org");
+    let invite_id = org_lifecycle::invite_by_email(
+        exec,
+        &tenant_a,
+        &org.id.to_string(),
+        "guest@example.com",
+        "member",
+    )
+    .expect("invite");
     let token = org_invite::Entity::find()
         .filter(org_invite::Column::Id.eq(invite_id))
         .find_one(exec)
@@ -435,13 +456,9 @@ fn get_organization_forbidden_for_non_member() {
     // No membership seeded for `outsider`.
 
     let exec = sesame_idam_database::db();
-    let err = org_lifecycle::get_organization(
-        exec,
-        &tenant,
-        &org_id.to_string(),
-        &outsider.to_string(),
-    )
-    .expect_err("non-member must be forbidden");
+    let err =
+        org_lifecycle::get_organization(exec, &tenant, &org_id.to_string(), &outsider.to_string())
+            .expect_err("non-member must be forbidden");
 
     assert!(matches!(err, OrgLifecycleError::Forbidden), "got {err:?}");
 }
@@ -463,13 +480,9 @@ fn get_organization_enforces_tenant_isolation() {
     seed_membership(org_id, user_id, "owner");
 
     let exec = sesame_idam_database::db();
-    let err = org_lifecycle::get_organization(
-        exec,
-        &tenant_b,
-        &org_id.to_string(),
-        &user_id.to_string(),
-    )
-    .expect_err("cross-tenant read must be forbidden");
+    let err =
+        org_lifecycle::get_organization(exec, &tenant_b, &org_id.to_string(), &user_id.to_string())
+            .expect_err("cross-tenant read must be forbidden");
 
     assert!(matches!(err, OrgLifecycleError::Forbidden), "got {err:?}");
 }

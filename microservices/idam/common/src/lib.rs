@@ -30,6 +30,7 @@ pub mod audit;
 pub mod denylist;
 pub mod entitlement_cache;
 pub mod jwt_common_path;
+pub mod token_status;
 pub mod token_versioning;
 
 // Re-export from existing modules
@@ -65,10 +66,13 @@ pub use jwt_common_path::{
 };
 
 // Re-export from token_versioning module
+pub use token_status::SesameTokenStatusChecker;
 pub use token_versioning::{
     subject_key, tenant_key, BumpReason, VersionBumpEvent, VersionBumpPublisher,
     VersionBumpSubscriber, VersionStore, VersionStoreConfig,
 };
 
 // Re-export outbound HTTP (brrtrouter::http)
-pub use http::{fetch_get, fetch_get_text_with_retry, fetch_post, HttpFetchError, HttpFetchOptions};
+pub use http::{
+    fetch_get, fetch_get_text_with_retry, fetch_post, HttpFetchError, HttpFetchOptions,
+};

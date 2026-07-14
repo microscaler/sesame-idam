@@ -22,6 +22,7 @@ fn make_request(
             sort_by,
             sort_order,
         },
+        jwt_claims: None,
     }
 }
 

@@ -350,7 +350,7 @@ fn test_concurrent_logins_different_roles() {
         admin_ttl, platform_ttl,
         "Admin and platform should have same TTL (F-010)"
     );
-    assert_eq!(customer_ttl, Duration::from_secs(300));
+    assert_eq!(customer_ttl, Duration::from_mins(5));
 }
 
 /// Edge case: Refresh token TTL increases but never decreases.

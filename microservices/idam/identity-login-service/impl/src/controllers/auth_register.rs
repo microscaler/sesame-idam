@@ -14,6 +14,8 @@ use sesame_idam_identity_login_service_gen::handlers::auth_register::{Request, R
 
 use crate::audit::EMITTER;
 use crate::services::password;
+use crate::services::tenant_gate::tenant_http_error;
+use crate::services::tenant_service::TenantService;
 use crate::services::token_issuer;
 use crate::services::user_service::UserService;
 use sesame_common::audit::{AuditEventType, AuditLogEntry};
@@ -37,6 +39,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     }
 
     let exec = sesame_idam_database::db();
+
+    if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
+        return tenant_http_error(e);
+    }
 
     // Pre-check duplicate email (the DB unique constraint is the failsafe).
     match UserService::find_by_tenant_and_email(&tenant_id, &email, exec) {

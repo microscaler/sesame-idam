@@ -3,7 +3,7 @@
 //! Key material: `sk_<64 hex chars>`. Only a SHA-256 hash is stored
 //! (`api_keys.key_hash`); the plaintext key is returned exactly once from
 //! the create endpoint. `key_prefix` keeps the first characters for display
-//! ("sk_ab12…"). Validation is a tenant-scoped hash lookup plus
+//! ("`sk_ab12`…"). Validation is a tenant-scoped hash lookup plus
 //! active/expiry checks.
 
 use chrono::{Duration, Utc};
@@ -79,9 +79,9 @@ impl ApiKeyService {
         let expires_at = params.expires_in_days.map(|d| now + Duration::days(d));
 
         let permissions_json = match &params.permissions {
-            Some(perms) => Some(
-                serde_json::to_string(perms).map_err(|e| LifeError::Other(e.to_string()))?,
-            ),
+            Some(perms) => {
+                Some(serde_json::to_string(perms).map_err(|e| LifeError::Other(e.to_string()))?)
+            }
             None => None,
         };
 

@@ -34,6 +34,14 @@ filter = 'binary(db_integration_suite)'
 test-group = 'lifeguard-shared-postgres'
 slow-timeout = { period = "180s" }
 
+# Handler-level BDD suites below also use the shared Postgres instance. Keeping
+# them in the same mutex group prevents transient pool exhaustion under the
+# workspace-wide, process-per-test run.
+[[profile.default.overrides]]
+filter = 'test(/bdd::(api_key_flow|principal_effective_db|account_first_onboarding|auth_flow|authz_enrichment|signup_validate|token_lifecycle|users_me_db|user_admin_flow|org_lifecycle)::/)'
+test-group = 'lifeguard-shared-postgres'
+slow-timeout = { period = "180s" }
+
 # Override slow timeout for integration tests
 [profile.ci]
 retries = 3
@@ -47,6 +55,11 @@ junit = { path = "test-results.xml" }
 
 [[profile.ci.overrides]]
 filter = 'binary(db_integration_suite)'
+test-group = 'lifeguard-shared-postgres'
+slow-timeout = { period = "300s" }
+
+[[profile.ci.overrides]]
+filter = 'test(/bdd::(api_key_flow|principal_effective_db|account_first_onboarding|auth_flow|authz_enrichment|signup_validate|token_lifecycle|users_me_db|user_admin_flow|org_lifecycle)::/)'
 test-group = 'lifeguard-shared-postgres'
 slow-timeout = { period = "300s" }
 
@@ -74,5 +87,10 @@ status-level = "all"  # Show all test statuses
 
 [[profile.dev.overrides]]
 filter = 'binary(db_integration_suite)'
+test-group = 'lifeguard-shared-postgres'
+slow-timeout = { period = "180s" }
+
+[[profile.dev.overrides]]
+filter = 'test(/bdd::(api_key_flow|principal_effective_db|account_first_onboarding|auth_flow|authz_enrichment|signup_validate|token_lifecycle|users_me_db|user_admin_flow|org_lifecycle)::/)'
 test-group = 'lifeguard-shared-postgres'
 slow-timeout = { period = "180s" }

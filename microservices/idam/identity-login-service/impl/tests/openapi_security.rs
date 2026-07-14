@@ -1,7 +1,7 @@
-//! OpenAPI security inheritance regression (BR-1 / SI-2).
+//! `OpenAPI` security inheritance regression (BR-1 / SI-2).
 //!
 //! Ensures login/session specs keep public auth routes (`security: []`) while
-//! protected routes inherit or declare BearerAuth when global security is set.
+//! protected routes inherit or declare `BearerAuth` when global security is set.
 
 use brrtrouter::load_spec;
 use std::path::PathBuf;

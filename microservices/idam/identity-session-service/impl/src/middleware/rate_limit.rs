@@ -512,7 +512,7 @@ mod tests {
         bucket.record();
         bucket.record();
         // Evict with a large window — all entries should be preserved.
-        let count = bucket.evict(Duration::from_secs(3600));
+        let count = bucket.evict(Duration::from_hours(1));
         assert_eq!(count, 2);
     }
 
@@ -520,7 +520,7 @@ mod tests {
     #[test]
     fn test_retry_after_empty_bucket() {
         let bucket = WindowBucket::new();
-        assert_eq!(bucket.retry_after(Duration::from_secs(60)), 0);
+        assert_eq!(bucket.retry_after(Duration::from_mins(1)), 0);
     }
 
     /// `WindowBucket`: `retry_after` returns positive value for non-empty bucket.
@@ -528,7 +528,7 @@ mod tests {
     fn test_retry_after_non_empty_bucket() {
         let mut bucket = WindowBucket::new();
         bucket.record();
-        let retry = bucket.retry_after(Duration::from_secs(60));
+        let retry = bucket.retry_after(Duration::from_mins(1));
         assert!(retry > 0 && retry <= 60);
     }
 

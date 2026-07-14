@@ -87,6 +87,7 @@ fn make_request(user_id: &str, tenant_id: &str) -> TypedHandlerRequest<Request> 
             include_inherited: Some(true),
             x_tenant_id: tenant_id.to_string(),
         },
+        jwt_claims: None,
     }
 }
 

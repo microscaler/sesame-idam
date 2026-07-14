@@ -66,14 +66,27 @@ impl VersionStore {
     }
 
     /// Create a version store with a direct URL string.
-    /// Uses defaults: subject TTL = 15s, tenant TTL = 60s, min TTL = 15s.
+    ///
+    /// Defaults retain authoritative versions for the full 300-second access-token lifetime plus
+    /// the configured 60-second validation leeway. Shorter TTLs can reset a version while an old
+    /// token is still accepted.
     pub fn from_url(url: &str) -> Result<Self> {
         Self::new(&VersionStoreConfig {
             redis_url: url.to_string(),
-            subject_ttl_secs: 15,
-            tenant_ttl_secs: 60,
-            min_ttl_secs: 15,
+            subject_ttl_secs: 360,
+            tenant_ttl_secs: 360,
+            min_ttl_secs: 360,
         })
+    }
+
+    /// Create a version store from the required `REDIS_URL` environment variable.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `REDIS_URL` is absent or invalid.
+    pub fn from_env() -> Result<Self> {
+        let redis_url = std::env::var("REDIS_URL").context("REDIS_URL is required")?;
+        Self::from_url(&redis_url)
     }
 
     /// Get the Redis connection (blocking).
@@ -96,13 +109,10 @@ impl VersionStore {
         // Use INCRBY 1 for atomic increment (delta 0 would never advance)
         let version: u64 = conn.incr(&key, 1)?;
 
-        // Set TTL only if this is the first time the key is set
-        // INCR returns 1 when the key was just created
-        if version == 1 {
-            let _: () = conn
-                .expire(&key, self.subject_ttl as i64)
-                .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
-        }
+        // Every bump must remain authoritative until all previously issued tokens have expired.
+        let _: () = conn
+            .expire(&key, self.subject_ttl as i64)
+            .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
 
         Ok(version)
     }
@@ -116,11 +126,9 @@ impl VersionStore {
 
         let version: u64 = conn.incr(&key, 1)?;
 
-        if version == 1 {
-            let _: () = conn
-                .expire(&key, self.tenant_ttl as i64)
-                .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
-        }
+        let _: () = conn
+            .expire(&key, self.tenant_ttl as i64)
+            .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
 
         Ok(version)
     }
@@ -147,12 +155,21 @@ impl VersionStore {
         Ok(version.and_then(|v| v.parse().ok()).unwrap_or(0))
     }
 
-    /// Issue a new version for a subject (increment + set TTL).
+    /// Read or initialize the version used for a newly issued access token.
     ///
-    /// Returns the (version, ttl) tuple. The TTL is the subject TTL
-    /// set on the key after incrementing.
+    /// Issuing another token does not itself change authorization state and therefore MUST NOT
+    /// invalidate earlier sessions. The key TTL is refreshed so the version remains authoritative
+    /// for the complete lifetime of the new token.
     pub fn issue_version(&self, subject: &str) -> Result<(u64, u64)> {
-        let version = self.increment_subject(subject)?;
+        let key = subject_key(subject);
+        let mut conn = self.get_conn()?;
+        use redis::Commands;
+
+        let _: bool = conn.set_nx(&key, 1_u64)?;
+        let version: u64 = conn.get(&key)?;
+        let _: () = conn
+            .expire(&key, self.subject_ttl as i64)
+            .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
         Ok((version, self.subject_ttl))
     }
 
@@ -479,7 +496,10 @@ mod tests {
 
         let (ver, ttl) = store.issue_version(&user).unwrap();
         assert_eq!(ver, 1);
-        assert_eq!(ttl, 15); // default subject TTL
+        assert_eq!(ttl, 360); // access TTL + validation leeway
+
+        let (second_ver, _) = store.issue_version(&user).unwrap();
+        assert_eq!(second_ver, 1, "issuing a token must not bump authz state");
 
         store.delete_key(&key);
     }

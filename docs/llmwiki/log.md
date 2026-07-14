@@ -1,5 +1,81 @@
 # LLM Wiki — Session Log
 
+## [2026-07-14] docs | PRD-P1 platform tenant admin + stories 10.1–10.8
+
+- **PRD:** [PRD-P1-platform-tenant-admin.md](../PRD-P1-platform-tenant-admin.md) — platform REST API,
+  `X-Platform-Admin-Key` auth, CLI mirror, OAuth metadata/rotate, acceptance gate.
+- **Stories:** `Epics/10-platform-tenancy/stories/story-10.{1..8}.md` with acceptance criteria.
+- **Build order:** 10.1 → 10.7 → 10.2 → 10.3 → 10.4 → 10.5 → 10.6 → 10.8.
+- **Updated:** Epic 10 README, docs-catalog, index.md, topic-platform-tenants.md, design doc PRD map.
+
+## [2026-07-14] docs | SaaS-of-SaaS multi-tenancy design document
+
+- **Deliverable:** [design-saas-of-saas-multi-tenancy.md](../design-saas-of-saas-multi-tenancy.md) — canonical
+  design for tenant registry, platform vs self-service provisioning, store/Stripe/KYC pipeline,
+  platform OAuth vs org Application, secrets phases, API surface, data model, phased delivery (P1–P4),
+  and epic-ready story backlog (10.1–10.21).
+- **Epic stub:** [Epics/10-platform-tenancy/README.md](../Epics/10-platform-tenancy/README.md).
+- **PRD map:** P1 platform-admin API, P2 self-service worker, P3 online store + KYC, P4 scale.
+- **Updated:** docs-catalog, index.md, topic-platform-tenants.md.
+
+## [2026-07-14] feat | Platform tenant registry — SaaS-of-SaaS (ADR-004)
+
+- **Decisions locked:** both platform-admin and self-service tenant minting; hard reject unknown
+  slugs (`404 tenant_unknown`); OAuth secrets in K8s/env with DB metadata; platform tenant OAuth
+  separate from org `Application`; hauliage + pricewhisperer seeded now to avoid PW migration.
+- **Models:** `tenants`, `tenant_oauth_providers` in identity-login-service.
+- **Services:** `TenantService`, `TenantOAuthService`, `tenant_gate`.
+- **Wired:** `auth_login`, `auth_register`, `signup_validate`, `social_login`, `social_callback`.
+- **Seed:** `impl/seeds/20260714000000_platform_tenants.sql`.
+- **Docs:** [ADR-004](../ADR-004-platform-tenant-provisioning.md), [topic-platform-tenants](./topics/topic-platform-tenants.md).
+- **TODO:** migrator run + apply on ms02; platform admin API + OAuth rotate REST; hauliage BFF social proxy.
+
+## [2026-07-14] harden | P0 dynamic token-status enforcement
+
+- Centralized denylist/version enforcement in BRRTRouter's `JwksBearerProvider` for every Sesame
+  protected consumer; removed the obsolete authz-only fail-open middleware placeholder.
+- Removed active/negative caching so logout is visible on the next protected request; retained
+  only bounded monotonic revoked/stale caching.
+- Added 16 Redis connection shards, 250 ms connect/read/write bounds, uniform fail-closed behavior,
+  and fixed-label `sesame_token_status_checks_total` scrape output without token contents.
+- Added [ADR-003](../ADR-003-token-status-dependency-outage.md), the detailed
+  [FR-P0-005 story](../roadmap/launch-1.0/p0-harden-core/fr-p0-005-denylist-read-side/README.md),
+  and [token-status wiki page](./topics/topic-token-status-enforcement.md).
+- Verification: focused BRRTRouter 7/7; Sesame token-status 9/9 against the shared Redis endpoint;
+  workspace lint; workspace check; and Nextest 891/891 with retries disabled. Cross-service
+  logout-to-401 and a deployed `/metrics` outage scrape remain before marking FR-P0-005 accepted.
+
+## [2026-07-14] feat | OAuth MVP — Google/Microsoft social login (identity-login-service)
+
+- **BRRTRouter:** `HttpRedirect` typed response (302 + `Location` header) in `src/typed/core.rs`.
+- **identity-login-service:** Real `social_login` (authorize redirect + Redis CSRF state) and
+  `social_callback` (code exchange via `sesame_common::http`, user link/create, `token_issuer`).
+  Providers: **google**, **microsoft**. **Per-tenant env** (no global fallback):
+  `SESAME_OAUTH__{TENANT}__GOOGLE_CLIENT_ID/SECRET`, same for Microsoft,
+  `SESAME_OAUTH__{TENANT}__ALLOWED_REDIRECT_URIS` (e.g. `SESAME_OAUTH__HAULIAGE__*`).
+- **Services:** `services/oauth/{config,state,providers}`, `social_credential_service`,
+  `UserService::create_oauth_user`.
+- **Routes:** Registered in `main.rs` (overwrite gen stubs).
+- **Verify (ms02):** `cargo check -p sesame_idam_identity_login_service` + 3 OAuth unit tests green.
+- **Still TODO:** Hauliage BFF proxy + frontend callback page; provider app registration; BDD with
+  live Google/Microsoft; full P2 linking/MFA gates.
+
+
+- Evaluated the strategic and dated roadmaps and clarified their different purposes: the
+  six-week D3/D4 Hauliage cut is **“just enough IDAM” to onboard initial test users**, not a
+  Sesame product release; Launch 1.0 GA remains P0+P1+P2+P4.
+- Added [`docs/roadmap/launch-1.0/`](../roadmap/launch-1.0/README.md) with a current delivery
+  assessment, release relationship, traceability rules, global Definition of Done, and ten
+  cross-cutting non-functional requirements.
+- Broke P0–P5 into linked subdirectories. Each phase now defines scope/dependencies, stable
+  functional and non-functional requirement IDs, observable acceptance criteria, and exit
+  evidence.
+- Added a separate [Hauliage test-user enablement contract](../roadmap/launch-1.0/hauliage-test-user-enablement/README.md)
+  for the shipper/transporter journeys, live BFF/Kubernetes proof, tenant isolation, reset
+  procedure, and an explicit go/no-go decision for initial test users.
+- Cross-linked every phase from [`ROADMAP-launch-1.0.md`](../ROADMAP-launch-1.0.md), clarified
+  the dated Hauliage roadmap banner, and catalogued the new specifications.
+
 ## [2026-07-13] docs | Launch 1.0 product roadmap (deliver on the README)
 
 - **New:** [`docs/ROADMAP-launch-1.0.md`](../ROADMAP-launch-1.0.md) — full-product roadmap to
@@ -638,3 +714,19 @@ Enriched [`docs/audit/epic-delivery-audit-2026-07-10.md`](../audit/epic-delivery
 - **Backlog update:** [`first-delivery-wave-a.md`](../audit/first-delivery-wave-a.md) — A7 seeds ✅, A9 validate+BDD ✅, A8 helm/database-env 🟡, A6 Playwright spec 🟡 (`REAL_LOGIN=1`).
 - **A6 green:** Hauliage Playwright `real_account_first_onboarding.spec.ts` — register → onboarding → `POST /api/v1/organizations/me` → shipper dashboard (4.1s). Required frontend pod restart (stuck nginx `/api/v1/` proxy).
 - **Uncommitted:** Wave A sesame-idam code + audit docs on ms02 working tree.
+
+## [2026-07-13] chore | consume merged may_minihttp native client
+
+- Replaced the local `may_minihttp` path dependency and crates.io patch with the Microscaler `integration/microscaler-fork` Git branch.
+- Removed the retired `may_http` dependency from the active workspace; retained the HTTP 0.2 alias required by the native client API.
+- Reconciled [`topic-http-client-policy.md`](./topics/topic-http-client-policy.md) and `AGENTS.md` with the BRRTRouter → `may_minihttp::client` stack.
+- `Cargo.lock` resolves merge commit `6041097`; login and session service checks pass on ms02.
+
+## [2026-07-13] fix | delivered-code audit and quality gates
+
+- Corrected refresh observability: removed the pre-validation `JwtIssued/allowed` audit event (which falsely marked failed refreshes as successful and duplicated successful events) and declared the recorded `result` span field.
+- Removed invitation capability tokens from org-mgmt info logs; logs retain only `invite_id`, `org_id`, and email delivery context.
+- Restored `just lint-rust`: fixed pedantic findings, scoped unavoidable generated-code allowances, and updated stale `TypedHandlerRequest` test fixtures for `jwt_claims`.
+- Updated all shared `AccessClaims` fixtures for the delivered optional `org_id` claim; focused `sesame-common` run passes 367/367.
+- Serialized handler-level live-Postgres BDD modules through the existing Nextest mutex group after API-key scenarios exposed connection-contention retries.
+- Verification on ms02: `cargo check --workspace` passes; `just lint-rust` passes; workspace Nextest passes 907/907 with retries disabled.

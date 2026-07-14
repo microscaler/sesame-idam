@@ -18,26 +18,14 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         tracing::Level::INFO,
         "token.refreshed",
         user_id = tracing::field::Empty,
-        tenant_id = tracing::field::Empty
+        tenant_id = tracing::field::Empty,
+        result = tracing::field::Empty
     );
     let _guard = span.enter();
 
     let refresh_token = req.data.refresh_token.clone();
     let tenant_id = req.data.x_tenant_id.clone();
     let span_tenant = tenant_id.clone();
-
-    let entry = sesame_common::audit::AuditLogEntry::new(
-        AuditEventType::JwtIssued,
-        "identity-session-service",
-    )
-    .tenant_id(tenant_id.clone())
-    .decision_source("token_refresh")
-    .result("allowed")
-    .build();
-
-    if let Ok(entry) = entry {
-        EMITTER.emit(entry);
-    }
 
     let result = token_rotation::rotate_refresh_token(&refresh_token, &tenant_id);
 
@@ -145,10 +133,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
                 EMITTER.emit(entry);
             }
 
-            refresh_unauthorized(
-                "invalid_grant",
-                "Invalid or expired refresh token",
-            )
+            refresh_unauthorized("invalid_grant", "Invalid or expired refresh token")
         }
         RotationOutcome::RedisUnavailable => {
             tracing::error!(

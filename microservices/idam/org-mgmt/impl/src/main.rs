@@ -18,12 +18,20 @@ mod jwt_context;
 // these derive/dead-code lints crate-wide; the binary constructs only a subset, so
 // scope the same allowances here. TODO: align with the login-service pattern (bin
 // uses `sesame_idam_org_mgmt::{services, models}` from the lib instead of re-declaring).
-#[allow(dead_code, clippy::pub_underscore_fields)]
+#[allow(
+    dead_code,
+    clippy::needless_raw_string_hashes,
+    clippy::pub_underscore_fields,
+    clippy::uninlined_format_args
+)]
 mod models;
 mod security;
 mod services;
 
 /// Only consumer/org-lifecycle controllers — not the full admin stub set.
+// Untyped dispatcher handlers must accept HandlerRequest by value to match the
+// coroutine registration API, even when a particular handler only borrows it.
+#[allow(clippy::needless_pass_by_value)]
 mod controllers {
     pub mod accept_invitation;
     pub mod add_user_to_org;
@@ -33,6 +41,9 @@ mod controllers {
     pub mod list_my_memberships;
     pub mod preview_invitation;
 }
+// Generated registry code may contain unused typed imports when every
+// discovered controller is untyped, and closures preserve its stable template.
+#[allow(unused_imports, clippy::redundant_closure)]
 mod impl_registry;
 
 use std::path::{Path, PathBuf};

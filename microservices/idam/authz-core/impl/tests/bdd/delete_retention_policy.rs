@@ -15,6 +15,7 @@ fn make_request(id: &str) -> TypedHandlerRequest<Request> {
             id: id.to_string(),
             x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
         },
+        jwt_claims: None,
     }
 }
 

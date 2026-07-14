@@ -5,6 +5,7 @@
 //! rotated by `POST /auth/refresh` on the session service.
 
 use anyhow::Result;
+use base64::Engine;
 use redis::Commands;
 
 use crate::models::refresh_token::{
@@ -65,7 +66,6 @@ fn decode_refresh_token_jti(token: &str) -> Option<String> {
         return None;
     }
 
-    use base64::Engine;
     let engine = base64::engine::general_purpose::URL_SAFE_NO_PAD;
     let bytes = engine.decode(parts[1]).ok()?;
     let decoded = String::from_utf8(bytes).ok()?;

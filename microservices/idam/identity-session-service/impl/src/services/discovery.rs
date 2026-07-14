@@ -15,7 +15,7 @@ fn idam_v1_path(path: &str) -> String {
     format!("{}/idam/v1{}", public_base_url(), path)
 }
 
-/// Build the OpenID Connect discovery document per our OpenAPI example.
+/// Build the `OpenID` Connect discovery document per our `OpenAPI` example.
 pub struct OpenIdDiscovery {
     pub issuer: String,
     pub authorization_endpoint: String,
@@ -49,16 +49,8 @@ pub fn openid_configuration() -> OpenIdDiscovery {
             "profile".into(),
             "phone".into(),
         ],
-        response_types_supported: vec![
-            "code".into(),
-            "id_token".into(),
-            "id_token token".into(),
-        ],
-        response_modes_supported: vec![
-            "query".into(),
-            "fragment".into(),
-            "form_post".into(),
-        ],
+        response_types_supported: vec!["code".into(), "id_token".into(), "id_token token".into()],
+        response_modes_supported: vec!["query".into(), "fragment".into(), "form_post".into()],
         grant_types_supported: vec![
             "authorization_code".into(),
             "implicit".into(),

@@ -258,9 +258,9 @@ Tests bind directly to the shared Kind PostgreSQL (namespace `data`, forwarded t
 - Run `just qa` before committing Python changes in `tooling/`.
 - Maintain test coverage for new behavior.
 
-### 8. Single HTTP client: may_http only
+### 8. Single HTTP client: BRRTRouter over may_minihttp
 
-Sesame-IDAM services share a single may coroutine runtime. **No `reqwest`, `tokio::spawn`, or any other async runtime HTTP client is allowed.** Every outbound HTTP call must use `may_http::client::Client`. Background tasks must use `may::task::spawn`.
+Sesame-IDAM services share a single may coroutine runtime. **No `reqwest`, `tokio::spawn`, or any other async runtime HTTP client is allowed.** Service code must use `sesame_common::http` / `brrtrouter::http`; BRRTRouter uses `may_minihttp::client::HttpClient` for plain HTTP. Background tasks must use `may::task::spawn`.
 
 See `docs/llmwiki/topics/topic-http-client-policy.md` for details and migration tracking.
 

@@ -25,6 +25,7 @@ fn export_csv_returns_pending() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);
@@ -74,6 +75,7 @@ fn export_json_returns_pending() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);
@@ -150,6 +152,7 @@ fn export_id_is_nonempty_string() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);
@@ -183,6 +186,7 @@ fn status_is_pending_string() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);

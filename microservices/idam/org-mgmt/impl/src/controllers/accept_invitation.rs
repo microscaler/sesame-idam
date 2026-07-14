@@ -4,6 +4,7 @@
 
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
 use lifeguard::LifeExecutor;
+use sesame_common::VersionStore;
 use sesame_idam_database::db;
 
 use crate::jwt_context;
@@ -31,25 +32,21 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
     };
 
     let exec = db();
-    let email = match user_email(exec, &tenant_id, &user_id) {
-        Some(e) => e,
-        None => {
-            return HandlerResponse::json(
-                404,
-                serde_json::json!({
-                    "error": "user_not_found",
-                    "message": "User profile not found"
-                }),
-            );
-        }
+    let Some(email) = user_email(exec, &tenant_id, &user_id) else {
+        return HandlerResponse::json(
+            404,
+            serde_json::json!({
+                "error": "user_not_found",
+                "message": "User profile not found"
+            }),
+        );
     };
 
     let body = req.body.clone().unwrap_or(serde_json::json!({}));
     let token = body
         .get("token")
         .and_then(|v| v.as_str())
-        .map(str::trim)
-        .unwrap_or("");
+        .map_or("", str::trim);
 
     if token.is_empty() {
         return HandlerResponse::json(
@@ -61,15 +58,38 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
         );
     }
 
+    let bumped_version = match VersionStore::from_env()
+        .and_then(|store| store.increment_subject(&user_id))
+    {
+        Ok(version) => version,
+        Err(error) => {
+            tracing::error!(%error, user_id, "token version bump failed before invitation acceptance");
+            return HandlerResponse::json(
+                503,
+                serde_json::json!({
+                    "error": "security_state_unavailable",
+                    "message": "Session invalidation is temporarily unavailable"
+                }),
+            );
+        }
+    };
+
     match org_lifecycle::accept_invitation(exec, &tenant_id, &user_id, &email, token) {
-        Ok(org) => HandlerResponse::json(
-            200,
-            serde_json::json!({
-                "id": org.id.to_string(),
-                "name": org.name,
-                "tenant_id": org.tenant_id,
-            }),
-        ),
+        Ok(org) => {
+            tracing::info!(
+                user_id,
+                token_version = bumped_version,
+                "invitation acceptance invalidated existing access tokens"
+            );
+            HandlerResponse::json(
+                200,
+                serde_json::json!({
+                    "id": org.id.to_string(),
+                    "name": org.name,
+                    "tenant_id": org.tenant_id,
+                }),
+            )
+        }
         Err(OrgLifecycleError::NotFound) => HandlerResponse::json(
             404,
             serde_json::json!({

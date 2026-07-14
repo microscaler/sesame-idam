@@ -25,6 +25,7 @@ fn get_audit_stats_returns_valid_response() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);
@@ -61,6 +62,7 @@ fn response_total_is_integer() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);
@@ -99,6 +101,7 @@ fn response_by_type_is_object() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);

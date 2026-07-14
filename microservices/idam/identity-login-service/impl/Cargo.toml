@@ -62,6 +62,7 @@ argon2 = { workspace = true }
 redis = { workspace = true }
 thiserror = { workspace = true }
 base64 = { workspace = true }
+rand = { workspace = true }
 
 [build-dependencies]
 lifeguard-migrate = { workspace = true }

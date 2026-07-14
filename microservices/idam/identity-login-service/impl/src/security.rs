@@ -5,11 +5,11 @@
 /// do not fail with "Security provider not found" on protected routes.
 use std::sync::Arc;
 
-use brrtrouter::security::{JwksBearerProvider, SecurityProvider, SecurityRequest};
+use brrtrouter::security::{JwksBearerProvider, JwtAlgorithm, SecurityProvider, SecurityRequest};
 use brrtrouter::server::AppService;
 use brrtrouter::spec::SecurityScheme;
 
-use sesame_common::config::AppConfig;
+use sesame_common::{config::AppConfig, SesameTokenStatusChecker};
 
 /// Static API key provider (dev / M2M).
 struct StaticApiKeyProvider {
@@ -17,12 +17,7 @@ struct StaticApiKeyProvider {
 }
 
 impl SecurityProvider for StaticApiKeyProvider {
-    fn validate(
-        &self,
-        scheme: &SecurityScheme,
-        _scopes: &[String],
-        req: &SecurityRequest,
-    ) -> bool {
+    fn validate(&self, scheme: &SecurityScheme, _scopes: &[String], req: &SecurityRequest) -> bool {
         match scheme {
             SecurityScheme::ApiKey { name, location, .. } => match location.as_str() {
                 "header" => req.get_header(name).is_some_and(|v| v == self.key),
@@ -83,7 +78,9 @@ pub fn init_security(
             SecurityScheme::Http { scheme, .. } if scheme.eq_ignore_ascii_case("bearer") => {
                 if let Some(jwks_map) = sec_cfg.and_then(|s| s.jwks.as_ref()) {
                     if let Some(jwks) = jwks_map.get(&scheme_name) {
-                        let mut provider = JwksBearerProvider::new(&jwks.jwks_url);
+                        let mut provider = JwksBearerProvider::new(&jwks.jwks_url)
+                            .allowed_algorithms(&[JwtAlgorithm::EdDSA])
+                            .token_status_checker(Arc::new(SesameTokenStatusChecker::from_env()?));
                         if let Some(iss) = jwks.iss.as_deref() {
                             provider = provider.issuer(iss);
                         }

@@ -23,15 +23,17 @@ use brrtrouter::ids::RequestId;
 use brrtrouter::router::ParamVec;
 use brrtrouter::typed::{TypedHandlerFor, TypedHandlerRequest};
 use http::Method;
-use sesame_common::jwt::{Ed25519Signer, SIGNING_KID_ENV, SIGNING_KEY_ENV};
+use sesame_common::jwt::{Ed25519Signer, SIGNING_KEY_ENV, SIGNING_KID_ENV};
 use uuid::Uuid;
 
-use sesame_idam_identity_login_service::controllers::{auth_logout, auth_login, auth_register};
-use sesame_idam_identity_login_service_gen::handlers::auth_logout::Request as LogoutRequest;
+use sesame_idam_identity_login_service::controllers::{auth_login, auth_logout, auth_register};
 use sesame_idam_identity_login_service_gen::handlers::auth_login::Request as LoginRequest;
+use sesame_idam_identity_login_service_gen::handlers::auth_logout::Request as LogoutRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as RegisterRequest;
 use sesame_idam_identity_session_service::controllers::{auth_refresh, oauth_userinfo};
 use sesame_idam_identity_session_service_gen::handlers::oauth_userinfo::Request as UserinfoRequest;
+
+use crate::common::ensure_active_tenant;
 
 const TEST_TENANT: &str = "bdd-lifecycle-tenant";
 const TEST_KID: &str = "bdd-lifecycle-kid";
@@ -136,7 +138,10 @@ fn login_request(email: &str, password: &str) -> TypedHandlerRequest<LoginReques
     }
 }
 
-fn refresh_request(refresh_token: &str) -> TypedHandlerRequest<sesame_idam_identity_session_service_gen::handlers::auth_refresh::Request> {
+fn refresh_request(
+    refresh_token: &str,
+) -> TypedHandlerRequest<sesame_idam_identity_session_service_gen::handlers::auth_refresh::Request>
+{
     TypedHandlerRequest {
         method: Method::POST,
         path: "/session/refresh".to_string(),
@@ -208,7 +213,10 @@ fn userinfo_request(access_token: &str) -> HandlerRequest {
 }
 
 /// Assert the JSON body matches the hauliage E2E `TokenResponse` contract (H2.5).
-pub(crate) fn assert_token_response_shape(body: &serde_json::Value, expected_user_id: Option<&str>) {
+pub(crate) fn assert_token_response_shape(
+    body: &serde_json::Value,
+    expected_user_id: Option<&str>,
+) {
     assert_eq!(body["token_type"], "Bearer");
     assert!(body["expires_in"].as_i64().unwrap_or(0) > 0);
     assert!(!body["access_token"].as_str().unwrap_or("").is_empty());
@@ -230,7 +238,12 @@ pub(crate) fn assert_token_response_shape(body: &serde_json::Value, expected_use
     let header: serde_json::Value = {
         use base64::engine::general_purpose::URL_SAFE_NO_PAD;
         use base64::Engine;
-        let h = body["access_token"].as_str().unwrap().split('.').next().unwrap();
+        let h = body["access_token"]
+            .as_str()
+            .unwrap()
+            .split('.')
+            .next()
+            .unwrap();
         serde_json::from_slice(&URL_SAFE_NO_PAD.decode(h).unwrap()).unwrap()
     };
     assert_eq!(header["alg"], "EdDSA");
@@ -254,6 +267,7 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
         println!("SKIP: Postgres and/or Redis not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
     let email = unique_email("lifecycle");
     let password = "SecureP@ss123!";
@@ -265,7 +279,9 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
     assert_token_response_shape(&reg.body, None);
     let user_id = reg.body["user_id"].as_str().unwrap().to_string();
     let access_token = reg.body["access_token"].as_str().unwrap();
-    signer.verify(access_token).expect("register access token signature");
+    signer
+        .verify(access_token)
+        .expect("register access token signature");
 
     // ── Userinfo (session service, DB-backed profile) ──
     let userinfo_req = userinfo_request(access_token);
@@ -281,10 +297,7 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
     let login = auth_login::handle(login_request(&email, password));
     assert_eq!(login.status, 200, "login: {:?}", login.body);
     assert_token_response_shape(&login.body, Some(&user_id));
-    let refresh_token = login.body["refresh_token"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    let refresh_token = login.body["refresh_token"].as_str().unwrap().to_string();
     signer
         .verify(login.body["access_token"].as_str().unwrap())
         .expect("login access token signature");
@@ -305,14 +318,15 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
         "rotated refresh token must be a signed JWT"
     );
 
-    let rotated_refresh = refresh_body["refresh_token"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    let rotated_refresh = refresh_body["refresh_token"].as_str().unwrap().to_string();
 
     // Old refresh token must not rotate again (denylisted after rotation)
     let reuse = auth_refresh::handle(refresh_request(&refresh_token));
-    assert_eq!(reuse.status, 401, "pre-rotation refresh must return 401: {:?}", reuse.body);
+    assert_eq!(
+        reuse.status, 401,
+        "pre-rotation refresh must return 401: {:?}",
+        reuse.body
+    );
     assert!(
         reuse.body["error"].as_str().is_some(),
         "401 body must include OAuth error code"
@@ -331,18 +345,16 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
     );
 }
 
-/// Scenario: Register response alone satisfies the hauliage TokenResponse fixture.
+/// Scenario: Register response alone satisfies the hauliage `TokenResponse` fixture.
 #[test]
 fn register_token_response_matches_hauliage_contract() {
     if !infra_available() {
         println!("SKIP: Postgres and/or Redis not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
 
-    let resp = auth_register::handle(register_request(
-        &unique_email("fixture"),
-        "SecureP@ss123!",
-    ));
+    let resp = auth_register::handle(register_request(&unique_email("fixture"), "SecureP@ss123!"));
     assert_eq!(resp.status, 201);
     assert_token_response_shape(&resp.body, None);
 }

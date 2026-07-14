@@ -40,6 +40,7 @@ fn make_auth_request(
             context: None,
             x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -58,6 +59,7 @@ fn make_effective_request(user_id: impl Into<String>) -> TypedHandlerRequest<Eff
             include_inherited: None,
             x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -80,6 +82,7 @@ fn make_attr_request(
             org_id: None,
             x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -99,6 +102,7 @@ fn make_role_request(user_id: impl Into<String>, role: &str) -> TypedHandlerRequ
             org_id: None,
             x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
         },
+        jwt_claims: None,
     }
 }
 
@@ -115,6 +119,7 @@ fn make_revoke_request(user_id: impl Into<String>, role: &str) -> TypedHandlerRe
             role: role.to_string(),
             x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
         },
+        jwt_claims: None,
     }
 }
 

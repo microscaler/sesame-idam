@@ -38,6 +38,7 @@ fn make_set_attribute_request() -> TypedHandlerRequest<AttrReq> {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data,
+        jwt_claims: None,
     }
 }
 

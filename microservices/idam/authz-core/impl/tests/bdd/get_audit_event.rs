@@ -22,6 +22,7 @@ fn get_audit_event_retrieves_event_by_id() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);
@@ -67,6 +68,7 @@ fn response_id_is_string() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);
@@ -94,6 +96,7 @@ fn response_hmac_signature_is_null() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);
@@ -125,6 +128,7 @@ fn response_user_agent_is_null() {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
 
     let response = handle(typed_req);

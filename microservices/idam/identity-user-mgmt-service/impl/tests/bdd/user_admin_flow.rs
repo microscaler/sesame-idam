@@ -64,8 +64,8 @@ fn raw_client() -> may_postgres::Client {
     let host = std::env::var("TEST_DB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = std::env::var("TEST_DB_PORT").unwrap_or_else(|_| "5432".to_string());
     let user = std::env::var("TEST_DB_USER").unwrap_or_else(|_| "sesame_idam".to_string());
-    let pass = std::env::var("TEST_DB_PASS")
-        .unwrap_or_else(|_| "dev_password_change_in_prod".to_string());
+    let pass =
+        std::env::var("TEST_DB_PASS").unwrap_or_else(|_| "dev_password_change_in_prod".to_string());
     let db = std::env::var("TEST_DB_NAME").unwrap_or_else(|_| "sesame_idam".to_string());
     may_postgres::connect(&format!("postgres://{user}:{pass}@{host}:{port}/{db}"))
         .expect("connect test DB")
@@ -79,6 +79,7 @@ fn typed<T>(handler_name: &str, data: T) -> TypedHandlerRequest<T> {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data,
+        jwt_claims: None,
     }
 }
 

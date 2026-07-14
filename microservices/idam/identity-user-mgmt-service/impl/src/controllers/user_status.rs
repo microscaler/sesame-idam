@@ -5,7 +5,10 @@ use uuid::Uuid;
 
 use crate::audit::EMITTER;
 use crate::services::user_admin_service::{user_response_json, UserAdminService};
-use sesame_common::audit::{AuditEventType, AuditLogEntry};
+use sesame_common::{
+    audit::{AuditEventType, AuditLogEntry},
+    VersionStore,
+};
 
 /// Set the status of a user and return the admin user response.
 pub fn set_user_status(
@@ -22,6 +25,22 @@ pub fn set_user_status(
                 "error_description": "user_id must be a uuid",
             }),
         );
+    };
+
+    let bumped_version = match VersionStore::from_env()
+        .and_then(|store| store.increment_subject(&user_uuid.to_string()))
+    {
+        Ok(version) => version,
+        Err(error) => {
+            tracing::error!(%error, user_id = %user_uuid, "token version bump failed before status change");
+            return HttpJson::new(
+                503,
+                serde_json::json!({
+                    "error": "security_state_unavailable",
+                    "error_description": "Session invalidation is temporarily unavailable",
+                }),
+            );
+        }
     };
 
     let exec = sesame_idam_database::db();
@@ -59,5 +78,6 @@ pub fn set_user_status(
         EMITTER.emit(entry);
     }
 
+    tracing::info!(user_id = %user.id, token_version = bumped_version, "user status invalidated existing access tokens");
     HttpJson::ok(user_response_json(&user))
 }

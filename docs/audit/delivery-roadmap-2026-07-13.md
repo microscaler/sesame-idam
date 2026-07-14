@@ -1,10 +1,14 @@
 # Delivery Roadmap — 2026-07-13
 
-> **SCOPE DECISION (2026-07-13):** Deliver the **narrow D3/D4 Hauliage-consumer target**
-> first — **product launch in ~6 weeks (target ≈ 2026-08-24)**. Sesame functionality is
-> the critical path / major hurdle. The full aspirational surface (RLS bridge, TS SDK,
+> **SCOPE DECISION (2026-07-13, clarified 2026-07-13):** Deliver the **narrow D3/D4
+> Hauliage-consumer target** first — **initial Hauliage test-user enablement in ~6 weeks
+> (target ≈ 2026-08-24)**. This is a “just enough IDAM” integration milestone, not a
+> Sesame product release. Sesame functionality is the critical path / major hurdle. The
+> GA product surface (RLS bridge, TS SDK,
 > hosted UI, 100% PropelAuth parity, hybrid online-fallback authz) is **explicitly
-> deferred to a post-launch track** — see Appendix A.
+> deferred to the [Launch 1.0 roadmap](../ROADMAP-launch-1.0.md) or later — see Appendix A.
+> Acceptance is defined by the
+> [Hauliage test-user enablement specification](../roadmap/launch-1.0/hauliage-test-user-enablement/README.md).
 >
 > **Inherits from:** [`epic-delivery-audit-2026-07-10.md`](./epic-delivery-audit-2026-07-10.md)
 > (delivery tiers D0–D6, stub-vs-impl matrix, Waves A–D),
@@ -18,7 +22,7 @@
 
 ---
 
-## Launch scope = D3 + D4 (Hauliage consumer subset only)
+## Test-user enablement scope = D3 + D4 (Hauliage consumer subset only)
 
 **D3 — MVP identity surface:** email/password login + register, refresh (401-correct),
 logout, `/identity/me`, api-keys validate. **Mostly real today.**
@@ -47,9 +51,9 @@ the exact Hauliage-facing surface is just seven consumer paths plus core auth:
 | Revoke pending invite | `revoke_pending_invite` | 🔴 stub |
 | Role→permission mapping | `principal_effective` returns `permissions: []` | 🔴 not wired |
 
-**That is the entire sesame gap to launch.** Not 119 endpoints — roughly **7 real
+**That is the entire Sesame gap identified for test-user enablement.** Not 119 endpoints — roughly **7 real
 controllers + 1 authz wiring + revocation minimum + E2E**. The long tail (SCIM, SSO,
-webhooks-admin, OTP/social login, MFA, user-mgmt admin CRUD) is **out of launch scope**.
+webhooks-admin, OTP/social login, MFA, user-mgmt admin CRUD) is **out of enablement scope**.
 
 ---
 
@@ -68,7 +72,7 @@ Commits on `feat/d4-hauliage-consumer-surface`:
 | `ea56665`+`7df220b` | Migrate `list_memberships` + `accept_invitation` to ORM — `org_lifecycle` now **raw-SQL-free** (+ accept/mismatch tests) |
 | `fd8fabb` | `GET /invitations/preview` — completes the ADR-002 §3.1 consumer surface (no codegen regen; runtime spec route + `impl_registry` override) |
 
-**ADR-002 §3.1 Hauliage consumer contract is now 100% real + tested.** Remaining launch
+**ADR-002 §3.1 Hauliage consumer contract is now 100% real + tested.** Remaining enablement
 items are the bounded revocation *enforcement* (write-path done) and cross-repo A6/A8.
 
 Verification: **login 49/49 + org-mgmt 14/14** green under the serial gate
@@ -79,7 +83,7 @@ which the `db-serial` nextest profile already serializes.
 Dev-env: added the `metadata` column to the live shared DB as `postgres` and granted
 `sesame_idam` DML on `sesame_idam.*` (DDL stays with `postgres` via the migrator).
 
-**Remaining for launch:**
+**Remaining for initial test-user enablement:**
 - **Revocation enforcement (read-side)** — write-path done; `DenylistMiddleware` is a
   stub (Redis closure is a placeholder returning `false`; only checks an unpopulated L1
   cache). Needs Redis integration + per-service wiring + fail-open tests. Bounded for
@@ -108,7 +112,7 @@ Residue: **A6** (Hauliage Playwright E2E, needs live stack, hauliage side) and *
 - Commit + push uncommitted Wave A (sentinels intact).
 - Verify **A8** (`database-env.yaml`, `:8080` ClusterIP) on live Kind.
 - Hand **A6** to hauliage (`REAL_LOGIN=1` Playwright).
-- **Freeze the launch endpoint list:** diff `tenant-consumer/openapi.yaml` against the
+- **Freeze the test-user endpoint list:** diff `tenant-consumer/openapi.yaml` against the
   Hauliage BFF client's actual calls → lock exactly which org-admin paths are in scope.
   (Reconcile counts for *this subset only* — skip the full F-018 119-endpoint audit.)
 
@@ -128,27 +132,27 @@ Residue: **A6** (Hauliage Playwright E2E, needs live stack, hauliage side) and *
 - Verify **A7 role-split seeds** (`shipper@amecorp.dev`, `transport@transportservices.dev`)
   produce correct JWT claims end-to-end.
 
-### Week 5 — Revocation minimum + security-for-launch
+### Week 5 — Revocation minimum + security for test users
 - Wire **jti denylist** (B2) + **consumer `ver` rejection** (B4) — minimum viable
   revocation so logout / member-removal actually invalidates tokens. **Security-critical;
-  cannot launch without it.**
+  do not onboard test users without an accepted implementation or explicit bounded risk decision.**
 - **Decision gate:** api-keys rotation (B5) — in only if Hauliage workers need it.
 - **Decision gate:** ADR-002 **S3 webhooks / async worker provisioning** — in or out?
-  Default OUT for launch (use synchronous provisioning or seeds); flag if Hauliage
+  Default OUT for test-user enablement (use synchronous provisioning or seeds); flag if Hauliage
   company-profile provisioning depends on it.
 
-### Week 6 — E2E + launch readiness
+### Week 6 — E2E + test-user readiness
 - Full **account-first → create org → invite → accept → role → BFF** Playwright E2E green
   on the live stack (closes A6).
 - **Tenant-isolation regression suite** across every new controller (doubles as the Epic 8
-  isolation test — the one hardening item that *is* in launch scope).
+  isolation test — the one hardening item that *is* in enablement scope).
 - Truthful `x-brrtrouter-impl` markers; refresh `openapi_example_coverage.csv`; update
   `Epics/INDEX.md`.
 - Buffer / bugfix / redeploy verification.
 
 ---
 
-## Explicitly OUT for launch (post-launch track — Appendix A)
+## Explicitly OUT for test-user enablement (Launch 1.0 or later — Appendix A)
 
 RLS bridge SQL · TypeScript SDK · hosted UI · full 119-endpoint surface · hybrid
 online-fallback authz (C1/C2) · SCIM/SSO admin · webhook delivery system · OTP / social /
@@ -157,7 +161,7 @@ DPoP · caching layer · ES256/HSM.
 
 > **RLS bridge note:** it's the README headline, but it secures the *consuming app's* DB.
 > Hauliage enforces its own tenancy, so the bridge is almost certainly **not** on the
-> launch critical path — confirm with hauliage, default OUT.
+> test-user milestone critical path — confirm with Hauliage, default OUT.
 
 ---
 
@@ -166,16 +170,16 @@ DPoP · caching layer · ES256/HSM.
 | Risk | Mitigation |
 |------|------------|
 | Hidden Hauliage-required endpoint outside the frozen list | Week 1 contract freeze against the *actual* BFF client, not the spec alone |
-| Revocation (Week 5) slips → insecure logout at launch | Treat B2+B4 as a launch blocker, not a nice-to-have; do not cut |
+| Revocation (Week 5) slips → insecure logout for test users | Treat B2+B4 as an enablement blocker unless an explicit bounded risk decision accepts the short-TTL mitigation |
 | S3 webhook provisioning turns out to be required | Decide in Week 5, not Week 6; keep a synchronous fallback ready |
 | Cross-repo A6 blocked on hauliage stack availability | Hand off Week 1, not Week 6; sesame BDD proves the chain independently |
 | Stub mistaken for done | Sentinel + truthful `x-brrtrouter-impl` enforced at each week's gate |
 
 ---
 
-## Appendix A — Post-launch aspirational surface (deferred)
+## Appendix A — Product roadmap surface deferred from test-user enablement
 
-Retained from the original 2026-07-13 roadmap for when launch is secured. Delivers the
+Retained from the original 2026-07-13 roadmap for Launch 1.0 and later. Delivers the
 full README vision beyond D4.
 
 - **Phase 2 — RLS bridge:** `sesame_set_session()` / `sesame_current_*()` SQL helpers +
@@ -194,5 +198,6 @@ full README vision beyond D4.
 
 ---
 
-*Authored 2026-07-13. Re-scoped same day to the 6-week D3/D4 Hauliage launch target.
+*Authored 2026-07-13. Re-scoped same day to the six-week D3/D4 Hauliage target and clarified
+as initial test-user enablement rather than a Sesame product launch.
 Extends the Waves A–D model in `epic-delivery-audit-2026-07-10.md` §12.*

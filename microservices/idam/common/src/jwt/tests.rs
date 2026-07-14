@@ -24,6 +24,7 @@ fn test_pii_fields_not_in_token() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims {
             tenant: "tenant-1".to_string(),
             portal: "web".to_string(),
@@ -74,6 +75,7 @@ fn test_pii_values_absent_from_token_payload() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims::new(
             "tenant-1".to_string(),
             "web".to_string(),
@@ -205,6 +207,7 @@ fn test_large_entitlements_set_stays_under_budget() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims {
             tenant: "tenant-1".to_string(),
             portal: "web".to_string(),
@@ -285,6 +288,7 @@ fn test_access_claims_act_present_absent() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
@@ -335,6 +339,7 @@ fn test_valid_claims_pass_validation() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims::new(
             "tenant-1".to_string(),
             "web".to_string(),
@@ -364,6 +369,7 @@ fn test_validation_rejects_missing_ver() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
@@ -388,6 +394,7 @@ fn test_validation_rejects_missing_tenant_id() {
         tenant_id: String::new(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
@@ -412,6 +419,7 @@ fn test_validation_rejects_missing_sx_tenant() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims {
             tenant: String::new(),
             portal: "web".to_string(),
@@ -447,6 +455,7 @@ fn test_validation_rejects_invalid_issuer() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
@@ -471,6 +480,7 @@ fn test_validation_rejects_invalid_audience() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
@@ -496,6 +506,7 @@ fn test_validation_accepts_valid_risk_values() {
             tenant_id: "tenant-1".to_string(),
             user_id: "user-123".to_string(),
             user_type: "customer".to_string(),
+            org_id: None,
             sx: SesameAuthzClaims {
                 tenant: "tenant-1".to_string(),
                 portal: "web".to_string(),
@@ -532,6 +543,7 @@ fn test_validation_rejects_invalid_risk() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims {
             tenant: "tenant-1".to_string(),
             portal: "web".to_string(),
@@ -646,6 +658,7 @@ fn test_token_size_under_budget() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims {
             tenant: "tenant-1".to_string(),
             portal: "web".to_string(),
@@ -791,6 +804,7 @@ fn test_truncated_authz_claims_fits_budget() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: truncated,
         act: None,
         cnf: None,
@@ -871,6 +885,7 @@ fn test_build_time_token_size_within_budget() {
         tenant_id: "tenant-1".to_string(),
         user_id: "user-123".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims {
             tenant: "tenant-1".to_string(),
             portal: "web".to_string(),

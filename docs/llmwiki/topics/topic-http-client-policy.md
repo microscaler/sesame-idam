@@ -1,160 +1,101 @@
 ---
 title: HTTP Client Policy
 status: verified
-updated: 2026-07-06
+updated: 2026-07-13
 ---
 
 # HTTP Client Policy
 
-## Rule: Single HTTP Client — `brrtrouter::http`
+## Rule: one coroutine-native outbound HTTP stack
 
-**Sesame-IDAM services are may coroutines. They share a single runtime.** Using `reqwest` (built on `tokio`) or direct `may_http` calls duplicates logic and bypasses the shared BRRTRouter fetch layer.
+Sesame-IDAM services run on the may coroutine runtime. Service code must use
+sesame_common::http, which re-exports the bounded fetch API from
+brrtrouter::http.
 
-Every outbound HTTP call — including cross-service authz calls, JWKS fetching, and inter-controller calls — must use **`brrtrouter::http`** (re-exported from `sesame_common::http`).
+> **Stack:** sesame_common::http → brrtrouter::http →
+> may_minihttp::client for plain HTTP, or rustls over may::net::TcpStream
+> for HTTPS.
 
-> **Stack:** `sesame_common::http` → `brrtrouter::http` → `may_http` (HTTP) / rustls (HTTPS). Do not import `may_http` directly in service code.
+Do not import may_minihttp::client directly in Sesame service code. Keeping
+connection setup, timeouts, response limits, retries, and TLS policy in
+BRRTRouter prevents each service from creating a subtly different client.
 
-## Canonical usage (wrk-rs pattern)
+## Dependency source
 
-```rust
-use may_http::client::HttpClient;
-use http_legacy::{Method, Uri};  // may_http pins http 0.2
+The native client is supplied by the Microscaler fork:
 
-let mut client = HttpClient::connect((host, port))?;
-client.set_timeout(Some(Duration::from_millis(500)));
+~~~toml
+may_minihttp = {
+  git = "https://github.com/microscaler/may_minihttp.git",
+  branch = "integration/microscaler-fork",
+  features = ["client"],
+}
+~~~
 
-// GET shortcut
-let mut rsp = client.get(uri)?;
+As of 2026-07-13, microservices/Cargo.lock resolves that branch at merge
+commit 604109761be53ed4f2c1d6fc314b658a7f8a3ba7.
 
-// POST with body + headers
-let mut req = client.new_request(Method::POST, uri);
-req.headers_mut().insert("content-type", ...);
-req.send(body.as_bytes())?;
-let mut rsp = client.send_request(req)?;
+The workspace also patches crates.io may_minihttp dependencies to the same
+Git branch. This prevents generated or transitive crates from silently
+resolving the stale crates.io release while BRRTRouter uses the fork.
 
-// Read body (bounded!)
-let mut buf = Vec::new();
-rsp.by_ref().take(MAX_BYTES).read_to_end(&mut buf)?;
-```
+## Canonical usage
 
-**Key properties:** blocking I/O on `may::net::TcpStream` — yields cooperatively inside coroutines; no tokio runtime; one client per connection (no pool yet).
+~~~rust
+use std::time::Duration;
 
-## Current state in sesame-idam (2026-07-06)
+use sesame_common::http::{fetch_get, HttpFetchOptions};
 
-| Location | Client | Status |
-|----------|--------|--------|
-| `sesame-common/src/http.rs` | Re-exports `brrtrouter::http` | ✅ canonical entry point |
-| `identity-login-service/.../authz_client.rs` | `sesame_common::fetch_post` | ✅ migrated |
-| `common/src/jwks_cache/cache.rs` | `sesame_common::fetch_get` | ✅ migrated |
-| Service `Cargo.toml` files | — | ✅ no direct `may_http` / `reqwest` |
-| BRRTRouter security providers | `brrtrouter::http` | ✅ migrated (sibling repo) |
-| OpenTelemetry (transitive) | `reqwest` rustls | ⚠️ OTEL HTTP exporter only |
+let options = HttpFetchOptions {
+    timeout: Duration::from_millis(500),
+    max_body_bytes: 256 * 1024,
+    extra_headers: Vec::new(),
+};
 
-## Migration goal: zero reqwest
+let (status, body) = fetch_get(url, &options)?;
+~~~
 
-Transitive `reqwest` from BRRTRouter is **not** the end state. Target:
+Use fetch_post for JSON or other request bodies and
+fetch_get_text_with_retry for bounded retrying text fetches such as JWKS
+refresh. Always set a finite timeout and response-size limit.
 
-1. **Service code** — already on `may_http` (done).
-2. **BRRTRouter security providers** — replace `reqwest::blocking::Client` in `jwks_bearer`, `remote_api_key`, `spiffe/validation` with `may_http` (cluster-internal HTTP today; HTTPS needs TLS — see gaps).
-3. **Extract shared helper** — factor the `authz_client` connect/POST/read pattern into `sesame-common` (or BRRTRouter) so controllers don't duplicate host/port parsing and body limits.
-4. **OTEL** — keep gRPC-tonic exporter (already enabled); drop HTTP exporter path if possible to shed OTEL's reqwest dep.
+## Current state
 
-## may_http gaps (fork or upstream contributions)
+| Location | Client path | Status |
+|----------|-------------|--------|
+| idam/common/src/http.rs | Re-exports brrtrouter::http | Canonical service entry point |
+| Login authz client | sesame_common::fetch_post | Migrated |
+| Shared JWKS cache | sesame_common::fetch_get | Migrated |
+| BRRTRouter HTTP fetch/proxy | may_minihttp::client::HttpClient | Native client |
+| HTTPS fetch | rustls on may::net::TcpStream | No OpenSSL/native-tls |
+| OTEL and test tooling | May retain transitive reqwest | Not a service HTTP client |
 
-| Gap | Impact | Workaround today |
-|-----|--------|------------------|
-| No TLS | Cannot fetch external HTTPS JWKS | BRRTRouter still uses reqwest+rustls |
-| No async DNS (`dns.rs` empty) | Manual host/port parse | `parse_host_port()` in authz_client |
-| No connection pool / keep-alive reuse | New TCP per request | Acceptable for low-QPS inter-service |
-| Header copy on send (wrk-rs TODO) | Extra alloc on hot path | Not yet a bottleneck |
+may_http is retired from the active Sesame workspace. An excluded historical
+generated crate may still contain a stale manifest reference; generated code
+must not be hand-edited and will inherit the current BRRTRouter template when
+it is regenerated.
 
-Consider a **microscaler fork** of `may_http` for TLS (rustls over `may::net::TcpStream`) if upstream is inactive.
+## TLS policy
 
-## BRRTRouter refactor (required for zero reqwest)
+Use rustls only. Do not introduce openssl-sys or native-tls; they break the
+workspace pure-Rust TLS policy and complicate musl cross-compilation.
 
-Sesame-IDAM service code is migrated; **BRRTRouter is the remaining reqwest consumer** in the hot path. This is a sibling-repo change affecting hauliage and all generated services.
+## Banned
 
-### Direct reqwest call sites (production)
+- Direct reqwest, hyper, surf, ureq, or isahc in service code.
+- Direct may_minihttp::client use outside the shared BRRTRouter HTTP layer.
+- tokio::spawn for service background work; use the may runtime.
+- Unbounded response reads or requests without finite timeouts.
 
-| File | Pattern | Notes |
-|------|---------|-------|
-| `security/jwks_bearer/mod.rs` | `reqwest::blocking` + `std::thread` background refresh | External HTTPS JWKS |
-| `security/spiffe/validation.rs` | Same as JWKS | Duplicated refresh logic |
-| `security/remote_api_key.rs` | `reqwest::blocking` on request path | Validates via GET to verify URL |
+## Code anchors
 
-### Transitive reqwest (dependency tree)
+- microservices/Cargo.toml
+- microservices/idam/common/src/http.rs
+- ../BRRTRouter/src/http/fetch.rs (sibling repository)
+- ../BRRTRouter/src/http/proxy.rs (sibling repository)
 
-| Crate | Why | Mitigation |
-|-------|-----|------------|
-| `opentelemetry-otlp` / `opentelemetry-http` | HTTP OTLP exporter | Already use `grpc-tonic`; disable HTTP exporter feature if possible |
-| `jsonschema` | Remote schema fetch (optional) | Pin without network features if available |
-| `goose` | Dev-only load tests | Accept in dev-deps |
+## Gaps / drift
 
-### Proposed BRRTRouter changes
-
-1. **`brrtrouter::http` module** — ✅ **Phase 1 landed (2026-07-06)** in BRRTRouter sibling repo:
-   - `src/http/fetch.rs` — `fetch_get`, `fetch_get_text_with_retry`, `HttpFetchOptions`
-   - HTTP via `may_http::HttpClient`; HTTPS via rustls on `may::net::TcpStream`
-   - Migrated: `remote_api_key.rs`, `jwks_bearer/mod.rs`, `spiffe/validation.rs`
-2. **Deduplicate JWKS refresh** — partially done via shared `fetch_get_text_with_retry`
-3. **Background refresh: `std::thread` → `may::go!`** — still TODO
-4. **Drop direct `reqwest` dep** — still TODO (OTEL/jsonschema transitive remains)
-5. **Tests** — dev test helpers still use reqwest blocking
-
-### Sequencing (cross-repo)
-
-```
-Phase 1  sesame-common or BRRTRouter::http — shared fetch helper (HTTP only)
-Phase 2  BRRTRouter security providers — swap reqwest → may_http (cluster HTTP paths)
-Phase 3  may_http fork — rustls TLS layer
-Phase 4  BRRTRouter — HTTPS JWKS + drop direct reqwest dep
-Phase 5  OTEL — grpc-only export, shed opentelemetry-http reqwest
-Phase 6  sesame-idam — pin updated BRRTRouter, verify musl + no openssl-sys
-```
-
-> **Resolved (2026-07-06):** `brrtrouter::http` lives in BRRTRouter; sesame consumes via `sesame_common::http`. Remaining BRRTRouter work tracked in [`topic-brrtrouter-refactor-backlog.md`](./topic-brrtrouter-refactor-backlog.md) (BR-5..BR-7).
-
-## TLS Backend: rustls Only
-
-**Do not pull in `openssl-sys` or `native-tls`.** The may ecosystem and our musl container builds require pure-Rust TLS.
-
-| Backend | Status |
-|---------|--------|
-| `rustls` | **Preferred** — used by `may_http`, BRRTRouter's `reqwest` (`default-features = false, features = ["rustls"]`), and `jsonwebtoken` with `rust_crypto` |
-| `openssl-sys` / `native-tls` | **Banned** — breaks `x86_64-unknown-linux-musl` cross-compiles and violates our stack policy |
-
-### Dependency rules
-
-- **Never add `reqwest` directly to service `Cargo.toml`.**
-- **`may_http`** is the only permitted outbound HTTP client for service code and (target) BRRTRouter security fetch paths.
-- Transitive `reqwest` from BRRTRouter/OTEL is **temporary** — migrate to `may_http` and remove once TLS gap is closed.
-
-### Verification
-
-```bash
-cd microservices
-cargo tree -p <service> -i openssl-sys   # should report "did not match any packages"
-cargo build -p <service> --target x86_64-unknown-linux-musl
-```
-
-## What's Banned
-
-| Client | Reason |
-|--------|--------|
-| `reqwest` | Built on `tokio`. Requires separate runtime. |
-| `hyper` (direct) | Lower-level; `may_http` is the correct abstraction. |
-| `surf`, `ureq`, `isahc` | Unrelated runtimes, no may integration. |
-| Any `tokio::spawn` for background tasks | Background tasks must use `may::task::spawn` or the may runtime. |
-
-## What's Allowed
-
-- `may_http::client::Client` — all outbound HTTP
-- `may::task::spawn` — background/coroutine tasks
-- Redis via `may_redis` (separate skill)
-
-## Code Anchors
-
-- `may_http` → `git = "https://github.com/rust-may/may_http.git"` — **client + server**, coroutine-native
-- `may_minihttp` → server only (microscaler fork for TestClient)
-- `wrk-rs/src/main.rs` — reference benchmark using `HttpClient::connect` + `client.get(uri)` in coroutines
-- `identity-login-service/.../authz_client.rs` — production inter-service POST pattern
+> **Open:** Transitive reqwest remains through observability and development
+> dependencies. It is not used by Sesame service request paths, but dependency
+> trimming can continue independently of the native-client migration.

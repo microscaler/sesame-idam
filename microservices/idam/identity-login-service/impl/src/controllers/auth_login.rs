@@ -14,6 +14,8 @@ use sesame_idam_identity_login_service_gen::handlers::auth_login::{Request, Resp
 
 use crate::audit::EMITTER;
 use crate::services::password;
+use crate::services::tenant_gate::tenant_http_error;
+use crate::services::tenant_service::TenantService;
 use crate::services::token_issuer;
 use crate::services::user_service::{UserService, STATUS_ACTIVE};
 use sesame_common::audit::{AuditEventType, AuditLogEntry};
@@ -27,6 +29,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let email = req.data.email.clone();
 
     let exec = sesame_idam_database::db();
+
+    if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
+        return tenant_http_error(e);
+    }
 
     let user = match UserService::find_by_tenant_and_email(&tenant_id, &email, exec) {
         Ok(user) => user,

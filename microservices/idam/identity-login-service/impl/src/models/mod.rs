@@ -8,4 +8,6 @@ pub mod magic_link_token;
 pub mod otp_token;
 pub mod refresh_token;
 pub mod social_credential;
+pub mod tenant;
+pub mod tenant_oauth_provider;
 pub mod user;

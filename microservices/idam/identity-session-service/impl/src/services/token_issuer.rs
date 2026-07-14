@@ -71,10 +71,13 @@ pub fn issue_rotated_tokens(
     let token_version = match VersionStore::from_url(
         &std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
     ) {
-        Ok(store) => store
-            .get_subject_version(&token.sub)
-            .unwrap_or(1)
-            .max(1),
+        Ok(store) => store.issue_version(&token.sub).map_or_else(
+            |error| {
+                tracing::warn!(%error, "version store unavailable on refresh — using ver=1");
+                1
+            },
+            |(version, _ttl)| version,
+        ),
         Err(e) => {
             tracing::warn!(error = %e, "version store unavailable on refresh — using ver=1");
             1

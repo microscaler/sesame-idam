@@ -1,7 +1,8 @@
 //! Outbound HTTP for Sesame-IDAM — delegates to [`brrtrouter::http`].
 //!
 //! All inter-service and JWKS fetch paths must use this module (not `reqwest` or
-//! direct `may_http`). BRRTRouter wraps `may_http` for plain HTTP and rustls for HTTPS.
+//! direct `may_minihttp::client`). BRRTRouter wraps the native client for plain
+//! HTTP and rustls for HTTPS.
 
 pub use brrtrouter::http::{
     fetch_get, fetch_get_text_with_retry, fetch_post, HttpFetchError, HttpFetchOptions,
@@ -53,12 +54,18 @@ mod tests {
     fn fetch_post_via_brrtrouter_http() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
-        let url = format!("http://{}:{}/authz/principals/effective", addr.ip(), addr.port());
+        let url = format!(
+            "http://{}:{}/authz/principals/effective",
+            addr.ip(),
+            addr.port()
+        );
         let server = thread::spawn(move || {
             if let Ok((mut stream, _)) = listener.accept() {
                 let req = read_request(&mut stream);
                 assert!(req.contains("POST "));
-                assert!(req.to_ascii_lowercase().contains("content-type: application/json"));
+                assert!(req
+                    .to_ascii_lowercase()
+                    .contains("content-type: application/json"));
                 let body = r#"{"roles":[{"role":"OWNER"}]}"#;
                 let resp = format!(
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
@@ -72,10 +79,7 @@ mod tests {
         let options = HttpFetchOptions {
             timeout: Duration::from_secs(2),
             max_body_bytes: 4096,
-            extra_headers: vec![(
-                "content-type".to_string(),
-                "application/json".to_string(),
-            )],
+            extra_headers: vec![("content-type".to_string(), "application/json".to_string())],
         };
         let (status, body) = fetch_post(&url, payload, &options).unwrap();
         assert_eq!(status, 200);

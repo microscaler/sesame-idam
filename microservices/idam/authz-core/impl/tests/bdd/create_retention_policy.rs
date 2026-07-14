@@ -23,6 +23,7 @@ fn make_request(
             archive_after_days,
             delete_after_days,
         },
+        jwt_claims: None,
     }
 }
 

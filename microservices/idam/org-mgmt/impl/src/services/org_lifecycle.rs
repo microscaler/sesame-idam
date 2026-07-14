@@ -10,9 +10,7 @@ use lifeguard::{ColumnTrait, LifeExecutor, LifeModelTrait};
 use uuid::Uuid;
 
 use crate::models::org::{Column as OrgColumn, Entity as OrgEntity, OrgRecord};
-use crate::models::org_invite::{
-    Column as InviteColumn, Entity as InviteEntity, OrgInviteRecord,
-};
+use crate::models::org_invite::{Column as InviteColumn, Entity as InviteEntity, OrgInviteRecord};
 use crate::models::org_membership::{
     Column as MembershipColumn, Entity as MembershipEntity, OrgMembershipRecord,
 };
@@ -27,6 +25,22 @@ pub enum OrgLifecycleError {
     InviteExpired,
     EmailMismatch,
 }
+
+impl std::fmt::Display for OrgLifecycleError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Db(message) => write!(formatter, "database error: {message}"),
+            Self::InvalidId(message) => write!(formatter, "invalid id: {message}"),
+            Self::AlreadyHasOrganization => formatter.write_str("user already has an organization"),
+            Self::NotFound => formatter.write_str("organization or invitation not found"),
+            Self::Forbidden => formatter.write_str("organization access forbidden"),
+            Self::InviteExpired => formatter.write_str("invitation expired"),
+            Self::EmailMismatch => formatter.write_str("invitation email does not match user"),
+        }
+    }
+}
+
+impl std::error::Error for OrgLifecycleError {}
 
 #[derive(Debug)]
 pub struct OrganizationSummary {
@@ -166,7 +180,7 @@ pub fn list_memberships<E: LifeExecutor>(
         .all(exec)
         .map_err(|e| OrgLifecycleError::Db(e.to_string()))?;
     // ORDER BY created_at ASC (sorted client-side to keep the query single-column).
-    memberships.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+    memberships.sort_by_key(|membership| membership.created_at);
 
     let mut out = Vec::new();
     for m in memberships {
@@ -221,8 +235,8 @@ pub fn invite_by_email<E: LifeExecutor>(
     tracing::info!(
         email = %email,
         org_id = %org_uuid,
-        token = %token,
-        "org invite created (dev — wire email delivery in production)"
+        invite_id = %invite_id,
+        "org invite created"
     );
 
     Ok(invite_id)

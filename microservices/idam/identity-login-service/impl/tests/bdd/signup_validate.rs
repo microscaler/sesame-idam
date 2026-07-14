@@ -19,6 +19,8 @@ use sesame_idam_identity_login_service_gen::handlers::signup_validate::{
 
 use super::token_lifecycle::{infra_available, unique_email};
 
+use crate::common::ensure_active_tenant;
+
 const TEST_TENANT: &str = "bdd-signup-validate-tenant";
 
 fn validate_request(email: Option<&str>) -> TypedHandlerRequest<ValidateRequest> {
@@ -90,8 +92,13 @@ fn signup_validate_allows_fresh_email() {
         println!("SKIP: Postgres and/or Redis not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
     let resp = signup_validate::handle(validate_request(Some(&unique_email("fresh"))));
-    assert!(resp.allowed, "fresh email should be allowed: {:?}", reasons(&resp));
+    assert!(
+        resp.allowed,
+        "fresh email should be allowed: {:?}",
+        reasons(&resp)
+    );
     assert!(reasons(&resp).is_empty());
 }
 
@@ -102,6 +109,7 @@ fn signup_validate_flags_taken_email() {
         println!("SKIP: Postgres and/or Redis not available");
         return;
     }
+    ensure_active_tenant(TEST_TENANT);
     let email = unique_email("taken");
     let reg = auth_register::handle(register_request(&email, "SecureP@ss123!"));
     assert_eq!(reg.status, 201, "register: {:?}", reg.body);

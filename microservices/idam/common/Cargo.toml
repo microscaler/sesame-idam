@@ -42,7 +42,7 @@ redis = { workspace = true, features = ["aio", "tokio-comp", "connection-manager
 # Common path module deps (always available)
 brrtrouter = { workspace = true, default-features = false }
 http = { workspace = true }
-# http 0.2 alias retained for any legacy may_http consumers in dev-deps/tests
+# http 0.2 alias used by may_minihttp's native client API.
 http_legacy = { workspace = true }
 arc-swap = { workspace = true }
 

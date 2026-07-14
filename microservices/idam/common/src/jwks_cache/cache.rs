@@ -1,6 +1,6 @@
+use crate::http::{fetch_get, HttpFetchOptions};
 use crate::jwks_cache::types::JwksCacheInner;
 use crate::jwks_cache::{Jwk, JwksCacheError, JwksDocument, JwksHealthCheck};
-use crate::http::{fetch_get, HttpFetchOptions};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
@@ -566,10 +566,11 @@ impl JwksCache {
             max_body_bytes: max_body.min(MAX_BODY_READ_BYTES),
             extra_headers: Vec::new(),
         };
-        let (status, body) = fetch_get(endpoint, &options).map_err(|e| JwksCacheError::FetchError {
-            status: 0,
-            message: e.to_string(),
-        })?;
+        let (status, body) =
+            fetch_get(endpoint, &options).map_err(|e| JwksCacheError::FetchError {
+                status: 0,
+                message: e.to_string(),
+            })?;
         if !(200..300).contains(&status) {
             return Err(JwksCacheError::FetchError {
                 status,

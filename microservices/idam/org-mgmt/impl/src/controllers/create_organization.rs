@@ -33,8 +33,7 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
     let name = body
         .get("name")
         .and_then(|v| v.as_str())
-        .map(str::trim)
-        .unwrap_or("");
+        .map_or("", str::trim);
 
     if name.is_empty() {
         return HandlerResponse::json(

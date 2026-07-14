@@ -50,6 +50,7 @@ fn invoke_export_status_request(
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: request_data,
+        jwt_claims: None,
     };
     check_export_status::handle(typed_req)
 }
