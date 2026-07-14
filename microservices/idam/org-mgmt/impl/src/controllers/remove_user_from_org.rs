@@ -7,8 +7,8 @@ use brrtrouter_macros::handler;
 use sesame_common::VersionStore;
 use sesame_idam_org_mgmt_gen::handlers::remove_user_from_org::Request;
 
-use sesame_idam_org_mgmt::org_auth;
 use crate::services::org_lifecycle::{self, OrgLifecycleError};
+use sesame_idam_org_mgmt::org_auth;
 
 #[handler(RemoveUserFromOrgController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
@@ -18,7 +18,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             Err(response) => return response,
         };
 
-    if let Err(error) = VersionStore::from_env().and_then(|store| store.increment_subject(&req.data.user_id)) {
+    if let Err(error) =
+        VersionStore::from_env().and_then(|store| store.increment_subject(&req.data.user_id))
+    {
         tracing::error!(%error, user_id = %req.data.user_id, "token version bump failed");
         return org_auth::error_json(
             503,

@@ -14,7 +14,7 @@ use brrtrouter::dispatcher::Dispatcher;
 use brrtrouter::spec::RouteMeta;
 use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 
-/// Register impl controllers discovered on disk (overrides gen stubs per ADR 0001 Layer 2).
+/// Register impl controllers wired in `main.rs` (overrides gen stubs per ADR 0001 Layer 2).
 ///
 /// # Safety
 /// Spawns handler coroutines. Callers must ensure the coroutine runtime is initialized.
@@ -39,6 +39,14 @@ pub unsafe fn register_impl(dispatcher: &mut Dispatcher, routes: &[RouteMeta]) {
                     dispatcher.add_route(route.clone(), tx);
                 }
             }
+            "change_user_role_in_org" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::change_user_role_in_org::ChangeUserRoleInOrgController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "create_organization" => {
                 if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
                     |req| crate::controllers::create_organization::handle(req),
@@ -56,6 +64,14 @@ pub unsafe fn register_impl(dispatcher: &mut Dispatcher, routes: &[RouteMeta]) {
                 ) {
                     dispatcher.add_route(route.clone(), tx);
                 }
+            }
+            "fetch_users_in_org" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::fetch_users_in_org::FetchUsersInOrgController,
+                    24576,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
             }
             "invite_user_to_org" => {
                 if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
@@ -83,6 +99,22 @@ pub unsafe fn register_impl(dispatcher: &mut Dispatcher, routes: &[RouteMeta]) {
                 ) {
                     dispatcher.add_route(route.clone(), tx);
                 }
+            }
+            "remove_user_from_org" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::remove_user_from_org::RemoveUserFromOrgController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "revoke_pending_invite" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::revoke_pending_invite::RevokePendingInviteController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
             }
             _ => {}
         }

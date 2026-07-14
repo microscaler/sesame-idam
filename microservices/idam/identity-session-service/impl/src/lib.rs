@@ -19,3 +19,4 @@ pub mod redis;
 pub mod security;
 // Token rotation service layer (Story 3.1)
 pub mod services;
+pub mod tenant_db;

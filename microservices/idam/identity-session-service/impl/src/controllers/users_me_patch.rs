@@ -8,7 +8,8 @@ use sesame_idam_identity_session_service_gen::handlers::users_me_patch::Request;
 
 use crate::auth_context::authenticated_principal;
 use crate::controllers::users_me_get::profile_json;
-use crate::services::profile_service::{ProfileService, ProfileUpdate};
+use crate::services::profile_service::ProfileUpdate;
+use crate::tenant_db::{patch_profile, ProfileLoad};
 
 /// Maximum accepted length for name fields (per spec `maxLength: 100`).
 const MAX_NAME_LEN: usize = 100;
@@ -57,11 +58,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         EMITTER.emit(entry);
     }
 
-    let exec = sesame_idam_database::db();
-
-    let user = match ProfileService::find_user(&tenant_id, user_id, exec) {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+    let (user, profile) = match patch_profile(&tenant_id, user_id, &update) {
+        Ok(ProfileLoad::Found(user, profile)) => (user, profile),
+        Ok(ProfileLoad::NotFound) => {
             return HttpJson::new(
                 401,
                 serde_json::json!({
@@ -71,26 +70,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             );
         }
         Err(e) => {
-            tracing::error!(error = %e, "users_me_patch: user lookup failed");
+            tracing::error!(error = %e, "users_me_patch: profile update failed");
             return internal_error();
-        }
-    };
-
-    let profile = if update.is_empty() {
-        match ProfileService::find_profile(user_id, exec) {
-            Ok(profile) => profile,
-            Err(e) => {
-                tracing::error!(error = %e, "users_me_patch: profile lookup failed");
-                return internal_error();
-            }
-        }
-    } else {
-        match ProfileService::upsert_profile(user_id, &update, exec) {
-            Ok(profile) => Some(profile),
-            Err(e) => {
-                tracing::error!(error = %e, "users_me_patch: profile upsert failed");
-                return internal_error();
-            }
         }
     };
 

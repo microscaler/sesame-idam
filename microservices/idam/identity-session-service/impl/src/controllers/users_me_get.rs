@@ -12,7 +12,7 @@ use sesame_idam_identity_session_service_gen::handlers::users_me_get::Request;
 use crate::auth_context::authenticated_principal;
 use crate::models::user::UserModel;
 use crate::models::user_profile::UserProfileModel;
-use crate::services::profile_service::ProfileService;
+use crate::tenant_db::{load_profile, ProfileLoad};
 
 /// Build the spec `UserProfile` JSON from the user row + optional profile.
 pub fn profile_json(user: &UserModel, profile: Option<&UserProfileModel>) -> serde_json::Value {
@@ -63,11 +63,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         EMITTER.emit(entry);
     }
 
-    let exec = sesame_idam_database::db();
-
-    let user = match ProfileService::find_user(&tenant_id, user_id, exec) {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+    let (user, profile) = match load_profile(&tenant_id, user_id) {
+        Ok(ProfileLoad::Found(user, profile)) => (user, profile),
+        Ok(ProfileLoad::NotFound) => {
             return HttpJson::new(
                 401,
                 serde_json::json!({
@@ -78,14 +76,6 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         }
         Err(e) => {
             tracing::error!(error = %e, "users_me_get: user lookup failed");
-            return internal_error();
-        }
-    };
-
-    let profile = match ProfileService::find_profile(user_id, exec) {
-        Ok(profile) => profile,
-        Err(e) => {
-            tracing::error!(error = %e, "users_me_get: profile lookup failed");
             return internal_error();
         }
     };

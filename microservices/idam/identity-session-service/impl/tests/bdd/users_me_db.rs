@@ -14,6 +14,7 @@ use brrtrouter::ids::RequestId;
 use brrtrouter::router::ParamVec;
 use brrtrouter::typed::{HttpJson, TypedHandlerFor, TypedHandlerRequest};
 use http::Method;
+use lifeguard::LifeExecutor;
 use uuid::Uuid;
 
 use sesame_idam_identity_session_service::controllers::{users_me_get, users_me_patch};
@@ -62,34 +63,32 @@ fn db_available() -> bool {
     true
 }
 
-fn raw_client() -> may_postgres::Client {
-    let host = std::env::var("TEST_DB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let port = std::env::var("TEST_DB_PORT").unwrap_or_else(|_| "5432".to_string());
-    let user = std::env::var("TEST_DB_USER").unwrap_or_else(|_| "sesame_idam".to_string());
-    let pass =
-        std::env::var("TEST_DB_PASS").unwrap_or_else(|_| "dev_password_change_in_prod".to_string());
-    let db = std::env::var("TEST_DB_NAME").unwrap_or_else(|_| "sesame_idam".to_string());
-    may_postgres::connect(&format!("postgres://{user}:{pass}@{host}:{port}/{db}"))
-        .expect("connect test DB")
-}
-
-fn insert_user(client: &may_postgres::Client, user_id: Uuid, tenant: &str) {
-    let email = format!("bddtest_me_{user_id}@example.com");
-    client
-        .batch_execute(&format!(
+fn insert_user(tenant: &str, user_id: Uuid) {
+    let now = chrono::Utc::now();
+    sesame_idam_database::with_pre_auth_tenant(tenant, |exec| {
+        exec.execute_values(
             "INSERT INTO sesame_idam.users \
              (id, email, password_hash, tenant_id, status, email_verified, phone, phone_verified, created_at, updated_at) \
-             VALUES ('{user_id}', '{email}', 'x', '{tenant}', 'active', true, NULL, false, NOW(), NOW());"
-        ))
-        .expect("insert user");
+             VALUES ($1, $2, 'x', $3, 'active', true, NULL, false, $4, $4)",
+            &sea_query::Values(vec![
+                user_id.into(),
+                format!("bddtest_me_{user_id}@example.com").into(),
+                tenant.into(),
+                now.into(),
+            ]),
+        )
+    })
+    .expect("insert user");
 }
 
-fn cleanup_user(client: &may_postgres::Client, user_id: Uuid) {
-    client
-        .batch_execute(&format!(
-            "DELETE FROM sesame_idam.users WHERE id = '{user_id}';"
-        ))
-        .expect("cleanup");
+fn cleanup_user(tenant: &str, user_id: Uuid) {
+    sesame_idam_database::with_pre_auth_tenant(tenant, |exec| {
+        exec.execute_values(
+            "DELETE FROM sesame_idam.users WHERE id = $1",
+            &sea_query::Values(vec![user_id.into()]),
+        )
+    })
+    .expect("cleanup");
 }
 
 /// Build a `HandlerRequest` as it arrives after security validation: claims
@@ -150,9 +149,8 @@ fn get_me_returns_user_with_null_profile_fields() {
         return;
     }
 
-    let client = raw_client();
     let user_id = Uuid::new_v4();
-    insert_user(&client, user_id, TEST_TENANT);
+    insert_user(TEST_TENANT, user_id);
 
     let req = me_request(
         Method::GET,
@@ -174,7 +172,7 @@ fn get_me_returns_user_with_null_profile_fields() {
     assert!(resp.body["first_name"].is_null());
     assert!(resp.body["name"].is_null());
 
-    cleanup_user(&client, user_id);
+    cleanup_user(TEST_TENANT, user_id);
 }
 
 /// Scenario: PATCH creates the profile row and GET reflects it.
@@ -185,9 +183,8 @@ fn patch_me_upserts_profile_and_get_reflects_it() {
         return;
     }
 
-    let client = raw_client();
     let user_id = Uuid::new_v4();
-    insert_user(&client, user_id, TEST_TENANT);
+    insert_user(TEST_TENANT, user_id);
 
     // PATCH with first/last name
     let req = me_request(
@@ -228,7 +225,7 @@ fn patch_me_upserts_profile_and_get_reflects_it() {
     assert_eq!(resp.body["last_name"], "Smith");
     assert_eq!(resp.body["avatar_url"], "https://example.com/a.png");
 
-    cleanup_user(&client, user_id);
+    cleanup_user(TEST_TENANT, user_id);
 }
 
 /// Scenario: Missing claims → 401 (never leaks another user's data).
@@ -262,9 +259,8 @@ fn get_me_cross_tenant_user_is_unauthorized() {
         return;
     }
 
-    let client = raw_client();
     let user_id = Uuid::new_v4();
-    insert_user(&client, user_id, "bdd-me-other-tenant");
+    insert_user("bdd-me-other-tenant", user_id);
 
     // Claims + header both say TEST_TENANT, but the user lives on another
     // tenant — the tenant-scoped lookup must not find them.
@@ -277,7 +273,7 @@ fn get_me_cross_tenant_user_is_unauthorized() {
     let resp = invoke_get(req);
     assert_eq!(resp.status, 401);
 
-    cleanup_user(&client, user_id);
+    cleanup_user("bdd-me-other-tenant", user_id);
 }
 
 /// Scenario: PATCH exceeding maxLength is rejected with 400.

@@ -35,8 +35,8 @@ fn assignment_role_json(
 ///
 /// Resolves role assignments and custom attributes for the principal from
 /// `sesame_idam.role_assignments` / `sesame_idam.principal_attributes`,
-/// tenant-scoped. Permissions resolution (role→permission mapping lives in
-/// org-mgmt's tables) is not wired yet and returns empty.
+/// tenant-scoped. Permissions resolve from `sesame_idam.app_role_permissions`
+/// for the request's `app_id` and assigned role names.
 ///
 /// This endpoint audits all requests via `sesame_audit`.
 #[handler(PrincipalEffectiveController)]

@@ -36,11 +36,7 @@ pub fn require_caller(
     }
 
     let Some(user_id) = caller_user_id(jwt_claims) else {
-        return Err(error_json(
-            401,
-            "unauthorized",
-            "Authentication required",
-        ));
+        return Err(error_json(401, "unauthorized", "Authentication required"));
     };
 
     if let Some(claims) = jwt_claims.as_ref() {

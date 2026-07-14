@@ -1,5 +1,52 @@
 # LLM Wiki — Session Log
 
+## [2026-07-14] feat | Team & Permissions — BFF→Sesame invite + list wiring
+
+- **BFF orchestration (Hauliage):** `invite_team_member` + `list_organization_team` impl overrides
+  `POST /organizations/{org_id}/invitations`; list merges Sesame `fetch_users_in_org`
+  with company `PENDING` shadow rows.
+- **`hauliage_sesame_idam_client`:** `invite_user_to_org`, `fetch_users_in_org`.
+- **Company:** team controllers resolve `org_id` from JWT claims (not only env fallback).
+- **UI:** `ShipperTeam.jsx` — loading/error/empty states, `teamMemberDisplay` helpers
+  (matches haulier team page).
+- **Transport parity:** shared BFF paths already persona-agnostic; added `TeamAccessPanel`
+  (live counts), `HaulierTeamSummary` on profile/business-details, `TeamAccessPanel` on
+  `HaulierAbout`, fixed summary import path, haulier team remove-button parity.
+
+## [2026-07-15] fix | org-mgmt impl_registry — fetch_users_in_org + org-admin handlers
+
+- **`impl_registry.rs`:** wired `fetch_users_in_org`, `change_user_role_in_org`, `remove_user_from_org`, `revoke_pending_invite` (matches `main.rs` controller mods).
+- **Symptom when missing:** `GET …/users` returns gen stub `{"items":[],"page":42,...}`; Hauliage BFF team list falls back to company shadow rows.
+- **Deploy:** `tilt trigger org-mgmt` on ms02 after pull — verify response has real `page`/`page_size` and non-empty demo members.
+
+## [2026-07-14] verify | token lifecycle + org-admin BDD + REAL_LOGIN suite
+
+- **`token_lifecycle`:** live test green with `REDIS_URL=redis://192.168.1.189:6390` —
+  register → userinfo → refresh rotation → logout → `SesameTokenStatusChecker::Revoked`
+  + post-logout refresh 401. Fixed `ensure_active_tenant` duplicate-slug race.
+- **Session RLS:** `tenant_db.rs` wraps profile reads/patches in `with_pre_auth_tenant`
+  (`oauth_userinfo`, `users_me_get`, `users_me_patch`) so forced users RLS does not 401
+  authenticated handlers.
+- **Org-admin BDD:** `remove_member_requires_org_admin`, `revoke_pending_invite_requires_org_admin`;
+  fixed `remove_member` / `revoke_invite` deletes to use `execute_values` (pooled executor).
+- **Hauliage Playwright:** grep includes `route guards` / `unauthenticated`; `REAL_LOGIN=1`
+  chromium: **6/11 passed** — dual-browser login (2), route guards (2), notifications (2).
+  Failures are hauliage-side: account-first onboarding UI, accept-invite timeout, financials
+  seed drift ($13,100 → $43,100).
+
+## [2026-07-14] verify | enablement ops — migrations, permissions BDD, REAL_LOGIN E2E
+
+- **Shared stack:** `tilt trigger sesame-idam-apply-migrations` applied
+  `app_role_permissions` migration + hauliage permission seed (11 rows). Rebuilt
+  `authz-core` and `identity-login-service` on shared-k8s.
+- **Authz BDD:** `owner_role_resolves_seeded_permissions` proves hauliage OWNER →
+  `organization:read` / `org:manage` via app `frontend`; fixed
+  `role_assignments_resolved_from_database` fixture to use `with_pre_auth_tenant`.
+- **Org-mgmt:** all 13 `org_lifecycle` DB tests green on LAN Postgres.
+- **Hauliage A6:** `playwright.config.ts` grep now matches `real-login` / `dual-browser`
+  hyphenated spec names; `real_login_dual_browser.spec.ts` 2/2 passed against
+  `hauliage.dev.microscaler.local` (no mocks).
+
 ## [2026-07-14] feat | Hauliage enablement — permissions, org-admin, revocation evidence
 
 - **`principal_effective`:** `app_role_permissions` table + hauliage seed; permissions resolved

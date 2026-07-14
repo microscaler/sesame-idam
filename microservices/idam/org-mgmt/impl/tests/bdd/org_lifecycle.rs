@@ -574,12 +574,10 @@ fn change_member_role_requires_org_admin() {
         10,
     )
     .expect("list after role change");
-    assert!(
-        page
-            .items
-            .iter()
-            .any(|m| m.user_id == member && m.role == "dispatcher")
-    );
+    assert!(page
+        .items
+        .iter()
+        .any(|m| m.user_id == member && m.role == "dispatcher"));
 
     let err = org_lifecycle::change_member_role(
         exec,
@@ -590,5 +588,138 @@ fn change_member_role_requires_org_admin() {
         "member",
     )
     .expect_err("member cannot change roles");
+    assert!(matches!(err, OrgLifecycleError::Forbidden));
+}
+
+/// Scenario: org owner removes a member; member cannot remove others.
+#[test]
+fn remove_member_requires_org_admin() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgremove");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Remove Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, member, "member");
+
+    let exec = sesame_idam_database::db();
+    org_lifecycle::remove_member(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        &member.to_string(),
+    )
+    .expect("owner removes member");
+
+    let page = org_lifecycle::list_org_members(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        None,
+        0,
+        10,
+    )
+    .expect("list after removal");
+    assert_eq!(page.total, 1);
+    assert!(
+        !page.items.iter().any(|m| m.user_id == member),
+        "removed member must not appear"
+    );
+
+    let outsider = Uuid::new_v4();
+    seed_user(&tenant, outsider);
+    let err = org_lifecycle::remove_member(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &outsider.to_string(),
+        &owner.to_string(),
+    )
+    .expect_err("outsider cannot remove");
+    assert!(matches!(err, OrgLifecycleError::Forbidden));
+
+    let err_self = org_lifecycle::remove_member(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        &owner.to_string(),
+    )
+    .expect_err("owner cannot remove self");
+    assert!(matches!(err_self, OrgLifecycleError::Forbidden));
+}
+
+/// Scenario: org owner revokes a pending invite; non-admin is forbidden.
+#[test]
+fn revoke_pending_invite_requires_org_admin() {
+    use lifeguard::{ColumnTrait, LifeModelTrait};
+    use sesame_idam_org_mgmt::models::org_invite;
+
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgrevoke");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Revoke Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, member, "member");
+
+    let exec = sesame_idam_database::db();
+    let invite_id = org_lifecycle::invite_by_email(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        "pending@example.com",
+        "member",
+    )
+    .expect("invite");
+
+    org_lifecycle::revoke_invite(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        &invite_id.to_string(),
+    )
+    .expect("owner revokes invite");
+
+    let gone = org_invite::Entity::find()
+        .filter(org_invite::Column::Id.eq(invite_id))
+        .find_one(exec)
+        .unwrap();
+    assert!(gone.is_none(), "revoked invite row must be deleted");
+
+    let invite_id2 = org_lifecycle::invite_by_email(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        "another@example.com",
+        "member",
+    )
+    .expect("second invite");
+
+    let err = org_lifecycle::revoke_invite(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &member.to_string(),
+        &invite_id2.to_string(),
+    )
+    .expect_err("member cannot revoke");
     assert!(matches!(err, OrgLifecycleError::Forbidden));
 }

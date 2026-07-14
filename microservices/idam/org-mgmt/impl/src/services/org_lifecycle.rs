@@ -637,10 +637,10 @@ pub fn remove_member<E: LifeExecutor>(
         return Err(OrgLifecycleError::NotFound);
     };
 
-    lifeguard::execute_statement(
+    lifeguard::LifeExecutor::execute_values(
         exec,
         "DELETE FROM sesame_idam.org_memberships WHERE id = $1",
-        &[&membership.id],
+        &sea_query::Values(vec![membership.id.into()]),
     )
     .map_err(|e| OrgLifecycleError::Db(format!("org_memberships delete: {e}")))?;
     Ok(())
@@ -673,10 +673,10 @@ pub fn revoke_invite<E: LifeExecutor>(
         return Err(OrgLifecycleError::NotFound);
     }
 
-    lifeguard::execute_statement(
+    lifeguard::LifeExecutor::execute_values(
         exec,
         "DELETE FROM sesame_idam.org_invites WHERE id = $1",
-        &[&invite.id],
+        &sea_query::Values(vec![invite.id.into()]),
     )
     .map_err(|e| OrgLifecycleError::Db(format!("org_invites delete: {e}")))?;
     Ok(())

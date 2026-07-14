@@ -1,9 +1,8 @@
 # Account-first onboarding — Sesame implementation checkpoint (2026-07-08)
 
-- **Status**: `partially-verified` — A2/A5 live BDD green; A6 Playwright E2E green (2026-07-12)
+- **Status**: `partially-verified` — org-admin handlers implemented; `fetch_users_in_org` impl on disk but **deployed image may still serve gen stub** until Tilt rebuild picks up `impl_registry.rs`
 - **Source docs**: [`../ADR-002-tenant-consumer-idam-api-boundary.md`](../../ADR-002-tenant-consumer-idam-api-boundary.md), [`openapi/idam/tenant-consumer/openapi.yaml`](../../openapi/idam/tenant-consumer/openapi.yaml), Hauliage [`PRD_account-first-onboarding.md`](../../../hauliage/docs/PRD_account-first-onboarding.md)
-- **Last updated**: 2026-07-12
-- **Paused for**: Wave A commit + A8 in-cluster verify (optional)
+- **Last updated**: 2026-07-15
 
 ## What it is
 
@@ -11,10 +10,9 @@ Sesame owns **users, orgs, memberships, invites**, and JWT **`org_id`**. Tenant 
 
 ## Resume here (next session)
 
-1. **Port-forward (ms02):** `export KUBECONFIG=../shared-k8s-cluster/kubeconfig/shared-k8s.yaml` then forward `data/postgres:5432` and `data/redis:6379`
-2. ~~Run account_first BDD~~ ✅ 2/2 pass (2026-07-12)
-3. ~~Hauliage E2E (A6)~~ ✅ Playwright green 2026-07-12
-4. Commit sesame-idam Wave A changes when ready
+1. **Deploy org-mgmt with full consumer + org-admin registry** — `brrtrouter-gen regen-impl-registry --apply` wired `fetch_users_in_org`, `remove_user_from_org`, `revoke_pending_invite`, `change_user_role_in_org`; **Tilt rebuild required** so Hauliage BFF stops using company fallback for team list.
+2. **Invite token in HTTP response** — unblock Hauliage `real_accept_invite_onboarding.spec.ts`.
+3. **Hauliage BFF remove/revoke** — expose org-admin mutations on `POST/DELETE` team routes.
 
 See [`docs/audit/first-delivery-wave-a.md`](../../audit/first-delivery-wave-a.md) for full staged backlog.
 
@@ -48,8 +46,14 @@ Wired in `impl/src/main.rs` via Register & Overwrite (typed dispatch for `set_ac
 | `accept_invitation.rs` | `POST /invitations/accept` |
 | `invite_user_to_org.rs` | Invite by email |
 | `add_user_to_org.rs` | Add existing user |
+| `fetch_users_in_org.rs` | `GET /organizations/{org_id}/users` — **org-admin list** (impl on disk) |
+| `change_user_role_in_org.rs` | PATCH role (org admin) |
+| `remove_user_from_org.rs` | Remove member |
+| `revoke_pending_invite.rs` | Revoke pending invite |
 
-Service: `org_lifecycle.rs` — create, invite, accept, list memberships.
+Service: `org_lifecycle.rs` — create, invite, accept, list memberships, **list_org_members**, remove, revoke.
+
+**Registry gotcha:** `main.rs` only `mod`s a subset of controllers; `impl_registry.rs` must list every wired handler. Gen stub for `fetch_users_in_org` returns `page:42` — symptom of missing registry entry or stale image.
 
 OpenAPI: consumer paths in `openapi/idam/org-mgmt/openapi.yaml`; draft tenant-consumer spec at `openapi/idam/tenant-consumer/openapi.yaml`.
 
@@ -67,10 +71,15 @@ Hauliage client default: login URL `:8101` → org-mgmt `:8104` when `SESAME_ORG
 
 ## Not done
 
-- Full OpenAPI regen for all org-mgmt admin stubs (only consumer handlers wired in `main.rs`)
-- Frontend / BFF onboarding UX (Hauliage repo) — Playwright spec exists; needs live stack (`REAL_LOGIN=1`)
-- Live DB verification of account-first BDD ✅ (ms02 2026-07-12)
+- **org-mgmt image parity** — ensure deployed pod serves impl `fetch_users_in_org` (not gen `page:42` stub)
+- Invite HTTP response should include opaque `invite_token` for accept-invite E2E
+- Hauliage BFF remove/revoke team member wiring
+- Full OpenAPI regen for all org-mgmt admin stubs (only consumer + org-admin handlers wired in `main.rs`)
 - ADR-002 S2+ consumer paths beyond org lifecycle
+
+### identity-session-service (2026-07-14)
+
+- `tenant_db.rs` — profile reads/patches wrapped in `with_pre_auth_tenant` under forced users RLS
 
 ## Protected impl files
 

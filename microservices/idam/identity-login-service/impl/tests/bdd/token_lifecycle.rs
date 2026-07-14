@@ -182,13 +182,7 @@ fn decode_jwt_payload(token: &str) -> serde_json::Value {
 }
 
 fn claims_from_access_token(token: &str) -> serde_json::Value {
-    let payload = decode_jwt_payload(token);
-    serde_json::json!({
-        "sub": payload["sub"],
-        "tenant_id": payload["tenant_id"],
-        "iss": payload["iss"],
-        "aud": payload["aud"],
-    })
+    decode_jwt_payload(token)
 }
 
 fn userinfo_request(access_token: &str) -> HandlerRequest {

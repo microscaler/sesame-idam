@@ -6,8 +6,8 @@ use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_gen::handlers::revoke_pending_invite::Request;
 
-use sesame_idam_org_mgmt::org_auth;
 use crate::services::org_lifecycle::{self, OrgLifecycleError};
+use sesame_idam_org_mgmt::org_auth;
 
 #[handler(RevokePendingInviteController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {

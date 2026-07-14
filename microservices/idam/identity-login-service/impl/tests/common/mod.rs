@@ -20,8 +20,23 @@ pub fn ensure_active_tenant(slug: &str) {
             // Suspended/provisioning — recreate is not supported; tests use fresh slugs.
         }
         Ok(None) => {
-            TenantService::create_active_platform(slug, slug, exec)
-                .unwrap_or_else(|e| panic!("ensure_active_tenant({slug}): {e}"));
+            match TenantService::create_active_platform(slug, slug, exec) {
+                Ok(_) => {}
+                Err(e) => {
+                    let msg = e.to_string();
+                    // Parallel BDD tests may race on the same synthetic slug.
+                    if msg.contains("duplicate") || msg.contains("unique") {
+                        match TenantService::find_by_slug(slug, exec) {
+                            Ok(Some(t)) if t.status == STATUS_ACTIVE => {}
+                            other => {
+                                panic!("ensure_active_tenant({slug}) race recovery: {other:?}");
+                            }
+                        }
+                    } else {
+                        panic!("ensure_active_tenant({slug}): {e}");
+                    }
+                }
+            }
         }
         Err(e) => panic!("ensure_active_tenant({slug}) lookup: {e}"),
     }
