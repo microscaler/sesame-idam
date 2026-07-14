@@ -72,8 +72,9 @@ Commits on `feat/d4-hauliage-consumer-surface`:
 | `ea56665`+`7df220b` | Migrate `list_memberships` + `accept_invitation` to ORM — `org_lifecycle` now **raw-SQL-free** (+ accept/mismatch tests) |
 | `fd8fabb` | `GET /invitations/preview` — completes the ADR-002 §3.1 consumer surface (no codegen regen; runtime spec route + `impl_registry` override) |
 
-**ADR-002 §3.1 Hauliage consumer contract is now 100% real + tested.** Remaining enablement
-items are the bounded revocation *enforcement* (write-path done) and cross-repo A6/A8.
+**ADR-002 §3.1 Hauliage consumer contract is now 100% real + tested.** The revocation read-side
+implementation is now centralized at the BRRTRouter JWKS provider boundary; its cross-service
+logout-to-401 evidence and the cross-repo A6/A8 checks remain before enablement acceptance.
 
 Verification: **login 49/49 + org-mgmt 14/14** green under the serial gate
 (`lifeguard-shared-postgres` test-group). The lone parallel-run flake is a
@@ -84,12 +85,13 @@ Dev-env: added the `metadata` column to the live shared DB as `postgres` and gra
 `sesame_idam` DML on `sesame_idam.*` (DDL stays with `postgres` via the migrator).
 
 **Remaining for initial test-user enablement:**
-- **Revocation enforcement (read-side)** — write-path done; `DenylistMiddleware` is a
-  stub (Redis closure is a placeholder returning `false`; only checks an unpopulated L1
-  cache). Needs Redis integration + per-service wiring + fail-open tests. Bounded for
-  Hauliage by the deferred hybrid online-fallback; interim mitigation is the 300s access
-  TTL + refresh/access denylist-on-logout. **Decision needed:** invest the cross-cutting
-  enforcement now, or accept the MVP mitigation and defer enforcement to the hybrid work.
+- **Revocation enforcement evidence** — the obsolete authz-only `DenylistMiddleware` placeholder
+  has been removed. Every Sesame `JwksBearerProvider` now attaches the Redis-backed status checker;
+  active results are not cached, known revocations remain rejected, Redis errors fail closed with
+  bounded I/O, and fixed-label metrics distinguish the result. Remaining: live cross-service
+  logout-to-401 plus Redis-outage timing/scrape evidence. See
+  [FR-P0-005](../roadmap/launch-1.0/p0-harden-core/fr-p0-005-denylist-read-side/README.md)
+  and [ADR-003](../ADR-003-token-status-dependency-outage.md).
 - **`invitations/preview`** — optional (ADR-002); needs an OpenAPI addition + `brrtrouter-gen`
   regen and an inviter column. Deferred.
 - **A6** Hauliage BFF Playwright E2E (cross-repo) and **A8** k8s parity — unchanged.

@@ -50,14 +50,7 @@ impl UserService {
         phone: Option<String>,
         exec: &E,
     ) -> Result<Uuid, LifeError> {
-        Self::insert_user(
-            tenant_id,
-            email,
-            password_hash,
-            phone,
-            false,
-            exec,
-        )
+        Self::insert_user(tenant_id, email, password_hash, phone, false, exec)
     }
 
     /// Create a user provisioned via OAuth (email marked verified).

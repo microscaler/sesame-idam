@@ -55,6 +55,7 @@ struct Args {
     config: PathBuf,
 }
 
+#[allow(clippy::too_many_lines)]
 fn main() -> io::Result<()> {
     // Initialize structured logging
     if let Err(e) =

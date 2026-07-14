@@ -13,7 +13,6 @@
 pub mod audit;
 pub mod auth_error;
 pub mod controllers;
-pub mod denylist_middleware;
 pub mod models;
 pub mod org_resolution;
 pub mod push_invalidator;

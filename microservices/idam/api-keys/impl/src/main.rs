@@ -14,8 +14,8 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 // All application modules live in the lib crate (see lib.rs) so the bin,
 // tests, and migrator share one compilation of them.
-use sesame_idam_api_keys::{controllers, security::init_security};
 use sesame_common::config::load_config;
+use sesame_idam_api_keys::{controllers, security::init_security};
 
 use sesame_idam_api_keys_gen::registry;
 
@@ -154,7 +154,11 @@ fn main() -> io::Result<()> {
     // BRRTRouter's scrape response so a single /metrics endpoint covers both
     // the HTTP layer and the Postgres layer.
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
-        lifeguard::metrics::prometheus_scrape_text()
+        format!(
+            "{}\n{}",
+            lifeguard::metrics::prometheus_scrape_text(),
+            sesame_common::token_status_prometheus_scrape_text()
+        )
     })));
 
     // Warm Lifeguard on the main OS thread before may-scheduled HTTP handlers:

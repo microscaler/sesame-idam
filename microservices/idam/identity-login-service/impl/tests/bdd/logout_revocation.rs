@@ -7,8 +7,13 @@
 //!   cargo test -p sesame_idam_identity_login_service --test main_bdd logout_revocation -- --nocapture'
 //! ```
 
+use std::sync::Arc;
+
 use http::Method;
 
+use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
+use brrtrouter::ids::RequestId;
+use brrtrouter::router::ParamVec;
 use brrtrouter::typed::TypedHandlerRequest;
 use sesame_idam_identity_login_service::controllers::auth_logout;
 use sesame_idam_identity_login_service_gen::handlers::auth_logout::Request as LogoutRequest;
@@ -43,6 +48,44 @@ fn logout_request(jti: &str, exp: u64) -> TypedHandlerRequest<LogoutRequest> {
             "exp": exp,
         })),
     }
+}
+
+fn logout_http_request(jti: &str, exp: u64) -> HandlerRequest {
+    let mut headers = HeaderVec::new();
+    headers.push((Arc::from("x-tenant-id"), TEST_TENANT.to_string()));
+    HandlerRequest {
+        request_id: RequestId::new(),
+        method: Method::POST,
+        path: "/auth/logout".to_string(),
+        handler_name: "auth_logout".to_string(),
+        path_params: ParamVec::new(),
+        query_params: ParamVec::new(),
+        headers,
+        cookies: HeaderVec::new(),
+        body: Some(serde_json::json!({})),
+        jwt_claims: Some(serde_json::json!({
+            "sub": "00000000-0000-0000-0000-000000000001",
+            "tenant_id": TEST_TENANT,
+            "jti": jti,
+            "exp": exp,
+        })),
+        reply_tx: may::sync::mpsc::channel().0,
+        queue_guard: None,
+    }
+}
+
+/// Scenario: the HTTP adapter returns the OpenAPI-declared 204 response rather
+/// than serializing the generated error response as a successful 200.
+#[test]
+fn logout_http_response_matches_no_content_contract() {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let response = auth_logout::handle_http(logout_http_request("http-contract-jti", now + 60));
+
+    assert_eq!(response.status, 204);
+    assert!(response.body.is_null());
 }
 
 /// Scenario: logging out denylists the presented access token's jti.

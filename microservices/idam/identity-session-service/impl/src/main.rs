@@ -221,7 +221,11 @@ fn main() -> io::Result<()> {
     // BRRTRouter's scrape response so a single /metrics endpoint covers both
     // the HTTP layer and the Postgres layer.
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
-        lifeguard::metrics::prometheus_scrape_text()
+        format!(
+            "{}\n{}",
+            lifeguard::metrics::prometheus_scrape_text(),
+            sesame_common::token_status_prometheus_scrape_text()
+        )
     })));
 
     // Port selection: PORT env var (K8s) > default 8080

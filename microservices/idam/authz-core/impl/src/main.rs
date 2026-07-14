@@ -15,8 +15,6 @@ use tikv_jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 
 mod authz_span_middleware;
-// Denylist middleware is constructed once Redis-backed revocation is wired
-// into the request path (Story 5.x) — keep the module compiled with the lib.
 use sesame_idam_authz_core::security::init_security;
 
 use sesame_idam_authz_core_gen::registry;
@@ -156,7 +154,11 @@ fn main() -> std::io::Result<()> {
     // Inject Lifeguard's prometheus text (DB metrics, pool stats) into
     // BRRTRouter's /metrics scrape response for a unified endpoint.
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
-        lifeguard::metrics::prometheus_scrape_text()
+        format!(
+            "{}\n{}",
+            lifeguard::metrics::prometheus_scrape_text(),
+            sesame_common::token_status_prometheus_scrape_text()
+        )
     })));
 
     // Warm Lifeguard on the main OS thread before may-scheduled HTTP handlers:

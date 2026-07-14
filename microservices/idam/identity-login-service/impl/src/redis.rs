@@ -42,8 +42,8 @@ pub fn store_refresh_token(token: &RefreshToken) -> Result<()> {
 /// matches the token's remaining lifetime.
 ///
 /// This is the write half of access-token revocation: a logged-out access token
-/// is recorded as revoked so denylist-aware validation (`sesame_common::denylist`,
-/// same `denylist:` key scheme) rejects it until it would have expired anyway.
+/// is recorded as revoked so `SesameTokenStatusChecker` (using the same `denylist:` key
+/// scheme) rejects it until it would have expired anyway.
 /// No-op for an empty jti or a zero/elapsed TTL.
 ///
 /// # Errors

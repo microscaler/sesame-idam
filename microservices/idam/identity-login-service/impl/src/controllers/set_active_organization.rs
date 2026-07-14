@@ -4,7 +4,9 @@
 
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
-use sesame_idam_identity_login_service_gen::handlers::set_active_organization::{Request, Response};
+use sesame_idam_identity_login_service_gen::handlers::set_active_organization::{
+    Request, Response,
+};
 
 use crate::auth_context::authenticated_principal;
 
@@ -12,7 +14,8 @@ const DEFAULT_PORTAL: &str = "frontend";
 
 #[handler(SetActiveOrganizationController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let (user_id, tenant_id) = match authenticated_principal(&req.jwt_claims, &req.data.x_tenant_id) {
+    let (user_id, tenant_id) = match authenticated_principal(&req.jwt_claims, &req.data.x_tenant_id)
+    {
         Ok(pair) => pair,
         Err(resp) => return resp,
     };

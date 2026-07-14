@@ -171,7 +171,11 @@ fn main() -> std::io::Result<()> {
     // Inject Lifeguard's prometheus text (DB metrics, pool stats) into
     // BRRTRouter's /metrics scrape response for a unified endpoint.
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
-        lifeguard::metrics::prometheus_scrape_text()
+        format!(
+            "{}\n{}",
+            lifeguard::metrics::prometheus_scrape_text(),
+            sesame_common::token_status_prometheus_scrape_text()
+        )
     })));
 
     // Port selection: PORT env var (K8s) > default 8080.

@@ -2,7 +2,7 @@
 name = "sesame-common"
 version.workspace = true
 edition.workspace = true
-description = "Shared JWT claim types, validation, builder, middleware, JWKS cache, audit logging, denylist caching, entitlement snapshot caching, JWT common-path authorization, and token versioning for Sesame-IDAM microservices"
+description = "Shared JWT claim types, validation, builder, middleware, JWKS cache, audit logging, dynamic token-status enforcement, entitlement snapshot caching, JWT common-path authorization, and token versioning for Sesame-IDAM microservices"
 
 [dependencies]
 # Core types (always available)
@@ -36,7 +36,7 @@ prometheus = { workspace = true }
 metrics = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time", "macros", "rt-multi-thread"] }
 
-# Denylist module deps (always available)
+# Dynamic token-status module deps (always available)
 redis = { workspace = true, features = ["aio", "tokio-comp", "connection-manager"] }
 
 # Common path module deps (always available)

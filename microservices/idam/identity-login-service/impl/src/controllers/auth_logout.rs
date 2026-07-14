@@ -1,6 +1,7 @@
 // BRRTRouter: user-owned
 
-use brrtrouter::typed::TypedHandlerRequest;
+use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse, HeaderVec};
+use brrtrouter::typed::{TypedHandlerFor, TypedHandlerRequest};
 use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_logout::{Request, Response};
 
@@ -53,6 +54,30 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         error_description: None,
         hint: None,
         retry_after: None,
+    }
+}
+
+/// HTTP boundary for logout.
+///
+/// The generated typed controller maps a serialized response to HTTP 200, but
+/// the `OpenAPI` contract deliberately defines successful logout as `204 No
+/// Content`. Register this untyped adapter at the dispatcher boundary so the
+/// wire response matches the contract while the typed handler remains reusable
+/// by the BDD suite.
+#[must_use]
+pub fn handle_http(req: HandlerRequest) -> HandlerResponse {
+    match TypedHandlerRequest::<Request>::from_handler(req) {
+        Ok(typed_req) => {
+            let _ = handle(typed_req);
+            HandlerResponse::new(204, HeaderVec::new(), serde_json::Value::Null)
+        }
+        Err(error) => HandlerResponse::json(
+            400,
+            serde_json::json!({
+                "error": "invalid_request",
+                "error_description": error.to_string(),
+            }),
+        ),
     }
 }
 

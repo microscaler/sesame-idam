@@ -20,7 +20,7 @@ DPoP, and enterprise policy evaluation are out of scope.
 | FR-P0-002 | Access tokens MUST use `typ=at+jwt`; missing or different `typ` values MUST be rejected on protected routes. |
 | FR-P0-003 | Consumers MUST reject algorithms outside the configured asymmetric allow-list and MUST never infer the algorithm from an untrusted token alone. |
 | FR-P0-004 | Logout and other explicit revocation operations MUST denylist the access-token `jti` for no less than its remaining lifetime. |
-| FR-P0-005 | Every protected consumer MUST consult the denylist and reject a listed `jti`. Cache behavior MUST NOT allow a known revocation to be re-accepted. |
+| [FR-P0-005](./fr-p0-005-denylist-read-side/README.md) | Every protected consumer MUST consult the denylist and reject a listed `jti`. Cache behavior MUST NOT allow a known revocation to be re-accepted. |
 | FR-P0-006 | Consumers MUST compare the token `ver` with the authoritative principal/session version and reject stale versions. |
 | FR-P0-007 | Security-sensitive membership, credential, session, and account-state changes MUST bump the applicable version or revoke the affected session family. |
 | FR-P0-008 | Unknown `kid` values MUST trigger a bounded JWKS refresh before rejection; refreshes MUST be coalesced or rate-limited. |
@@ -52,3 +52,10 @@ DPoP, and enterprise policy evaluation are out of scope.
 - Attach the validation benchmark, outage-policy ADR, and test run covering every consumer.
 - Confirm configuration and operator runbooks document key rotation, cache behavior, and
   dependency outage response.
+
+## Delivery status
+
+- **FR-P0-005 implementation:** consumer wiring and focused unit/integration coverage are in
+  progress. The cross-service logout-to-401 BDD evidence remains required before acceptance.
+- **Outage policy:** [ADR-003](../../../ADR-003-token-status-dependency-outage.md) specifies
+  fail-closed, bounded Redis behavior for protected requests.

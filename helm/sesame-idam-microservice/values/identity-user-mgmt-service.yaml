@@ -19,6 +19,13 @@ app:
   serviceName: identity-user-mgmt-service
   config:
     security:
+      jwks:
+        BearerAuth:
+          jwks_url: "http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json"
+          iss: "https://idam.example.com"
+          aud: "sesame-idam"
+          leeway_secs: 60
+          cache_ttl_secs: 300
       api_keys:
         ApiKeyHeader:
           key: "test123"

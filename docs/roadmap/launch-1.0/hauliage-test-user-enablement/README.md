@@ -26,7 +26,7 @@ Deferral here does not remove them from the Launch 1.0 or later product roadmap.
 | FR-HTE-003 | The supported invitation journey MUST allow an authorized member to create an invitation and the intended recipient to preview and accept it safely. |
 | FR-HTE-004 | Issued identity context MUST contain the organization, persona/role, issuer, audience, expiry, `jti`, and version data required by the Hauliage authorization path. |
 | FR-HTE-005 | Shipper and transporter test personas MUST resolve to their approved roles/permissions; client-supplied role or tenant data MUST NOT override Sesame's authoritative state. |
-| FR-HTE-006 | Refresh MUST rotate refresh tokens and reject reuse; logout MUST terminate refresh capability and denylist the current access token for its remaining lifetime. |
+| FR-HTE-006 | Refresh MUST rotate refresh tokens and reject reuse; logout MUST terminate refresh capability, denylist the current access token for its remaining lifetime, and make that access token fail on its next protected request. |
 | FR-HTE-007 | Hauliage's BFF/frontend MUST use the shared-environment Sesame URLs and handle success, unauthenticated, forbidden, expired, and dependency-error responses without mock fallbacks. |
 | FR-HTE-008 | The shared Kubernetes environment MUST expose the agreed service ports, database/Redis dependencies, migrations, seeds, and configuration required for repeatable test-user onboarding. |
 
@@ -39,13 +39,13 @@ Deferral here does not remove them from the Launch 1.0 or later product roadmap.
 | NFR-HTE-003 | The shared environment MUST support a documented reset/reseed/retry procedure without manual database surgery for routine test runs. |
 | NFR-HTE-004 | Authentication and organization journeys MUST emit enough structured telemetry to distinguish Sesame, Hauliage BFF, database, Redis, and configuration failures. |
 | NFR-HTE-005 | The live E2E MUST pass from a clean browser/session with test retries disabled; a retry MUST NOT be used to classify an unstable journey as accepted. |
-| NFR-HTE-006 | Known security deferrals, especially access-token revocation read-side behavior, MUST have an explicit bounded test-user risk decision and mitigation before onboarding. |
+| NFR-HTE-006 | Dynamic token-status Redis failure MUST use the accepted fail-closed bounded policy in [ADR-003](../../../ADR-003-token-status-dependency-outage.md); any remaining security deferral MUST have an explicit test-user risk decision. |
 
 ## Acceptance criteria
 
 | ID | Observable evidence |
 |---|---|
-| AC-HTE-001 | A new shipper test user registers, signs in, creates/selects the shipper organization, reaches the expected Hauliage dashboard, refreshes, signs out, and cannot reuse the refresh token. |
+| AC-HTE-001 | A new shipper test user registers, signs in, creates/selects the shipper organization, reaches the expected Hauliage dashboard, refreshes, signs out, and cannot reuse either the refresh token or the denylisted access token. |
 | AC-HTE-002 | A transporter test user signs in, receives the transporter role/persona context, reaches only the transporter journey, and is denied shipper-only actions. |
 | AC-HTE-003 | An authorized inviter creates an invitation; the intended user previews and accepts it, sees the membership, switches active organization, and receives updated authoritative claims. |
 | AC-HTE-004 | Wrong-tenant headers, non-member organization IDs, invitation recipient mismatch, role spoofing, expired tokens, and refresh-token replay are rejected without existence or secret leakage. |
@@ -60,4 +60,3 @@ Deferral here does not remove them from the Launch 1.0 or later product roadmap.
 - Publish the test-user onboarding/reset runbook, supported persona matrix, known limitations,
   and revocation-risk decision.
 - Confirm that the milestone is labelled test-only and is not represented as Launch 1.0 GA.
-

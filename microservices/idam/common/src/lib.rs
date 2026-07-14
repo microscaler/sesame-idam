@@ -1,5 +1,5 @@
 //! Shared JWT claim types, validation, builder, middleware, JWKS cache, audit logging,
-//! denylist caching, entitlement snapshot caching, JWT common-path authorization,
+//! dynamic token-status enforcement, entitlement snapshot caching, JWT common-path authorization,
 //! and token versioning for Sesame-IDAM microservices.
 //!
 //! This crate provides:
@@ -8,7 +8,7 @@
 //! - `jwks_cache` module — JWKS cache with background refresh, stale tolerance, and security protections
 //! - `fallback_cache` module — Selective online fallback with Redis caching (Story 4.3)
 //! - `audit` module — Security audit logging (structured JSON, priority queues, rate limiting)
-//! - `denylist` module — JTI revocation cache (in-memory Redis layer)
+//! - `token_status` module — Redis-backed denylist and version enforcement
 //! - `entitlement_cache` module — Entitlement snapshot cache with TTL eviction
 //! - `jwt_common_path` module — JWT validation + local policy evaluation (hybrid authz Epic 4)
 //! - `token_versioning` module — Version bump events, pub/sub publisher/subscriber, version store
@@ -27,7 +27,6 @@ pub mod middleware;
 
 // Consolidated sibling crate modules
 pub mod audit;
-pub mod denylist;
 pub mod entitlement_cache;
 pub mod jwt_common_path;
 pub mod token_status;
@@ -46,11 +45,6 @@ pub use audit::{
     AuditMetrics, AuditQueue, RateLimitConfig, RateLimiter,
 };
 
-// Re-export from denylist module
-pub use denylist::{
-    register_denylist_metrics, DenylistCache, DenylistConfig, DenylistMetrics, DenylistResult,
-};
-
 // Re-export from entitlement_cache module
 pub use entitlement_cache::{
     CacheConfig, CacheError, CacheLookupResult, EntitlementComplexity, EntitlementSnapshot,
@@ -66,7 +60,7 @@ pub use jwt_common_path::{
 };
 
 // Re-export from token_versioning module
-pub use token_status::SesameTokenStatusChecker;
+pub use token_status::{token_status_prometheus_scrape_text, SesameTokenStatusChecker};
 pub use token_versioning::{
     subject_key, tenant_key, BumpReason, VersionBumpEvent, VersionBumpPublisher,
     VersionBumpSubscriber, VersionStore, VersionStoreConfig,

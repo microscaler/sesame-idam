@@ -10,9 +10,7 @@ data:
     # Sesame-IDAM {{ .Values.service.name }} configuration (Kubernetes) — same shape as RERP
     port: {{ .Values.service.containerPort }}
     security:
-      api_keys:
-        ApiKeyHeader:
-          key: {{ .Values.app.config.security.api_keys.ApiKeyHeader.key | quote }}
+{{ toYaml .Values.app.config.security | nindent 6 }}
     http:
       keep_alive: {{ .Values.app.config.http.keep_alive }}
       timeout_secs: {{ .Values.app.config.http.timeout_secs }}
