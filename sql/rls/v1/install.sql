@@ -13,7 +13,7 @@ SET search_path = pg_catalog
 AS 'SELECT 1';
 
 CREATE OR REPLACE FUNCTION public.rls_set_session(
-    p_tenant_id uuid,
+    p_tenant_id text,
     p_subject_id uuid,
     p_organization_id uuid,
     p_session_id text,
@@ -42,7 +42,7 @@ BEGIN
             USING ERRCODE = '22023';
     END IF;
 
-    PERFORM pg_catalog.set_config('sesame.tenant_id', p_tenant_id::text, true);
+    PERFORM pg_catalog.set_config('sesame.tenant_id', p_tenant_id, true);
     PERFORM pg_catalog.set_config('sesame.subject_id', p_subject_id::text, true);
     PERFORM pg_catalog.set_config('sesame.organization_id', p_organization_id::text, true);
     PERFORM pg_catalog.set_config('sesame.session_id', p_session_id, true);
@@ -54,13 +54,13 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.sesame_current_tenant_id()
-RETURNS uuid
+RETURNS text
 LANGUAGE sql
 STABLE
 PARALLEL SAFE
 SET search_path = pg_catalog
 AS $$
-    SELECT NULLIF(pg_catalog.current_setting('sesame.tenant_id', true), '')::uuid
+    SELECT NULLIF(pg_catalog.current_setting('sesame.tenant_id', true), '')
 $$;
 
 CREATE OR REPLACE FUNCTION public.sesame_current_subject_id()
@@ -153,11 +153,11 @@ AS $$
     SELECT COALESCE(public.sesame_current_permissions() ? p_permission, false)
 $$;
 
-COMMENT ON FUNCTION public.rls_set_session(uuid, uuid, uuid, text, jsonb, jsonb, text, text)
+COMMENT ON FUNCTION public.rls_set_session(text, uuid, uuid, text, jsonb, jsonb, text, text)
 IS 'Sesame RLS v1: inject validated identity context using transaction-local GUCs';
 
 REVOKE ALL ON FUNCTION public.sesame_rls_contract_version() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.rls_set_session(uuid, uuid, uuid, text, jsonb, jsonb, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.rls_set_session(text, uuid, uuid, text, jsonb, jsonb, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.sesame_current_tenant_id() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.sesame_current_subject_id() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.sesame_current_organization_id() FROM PUBLIC;
@@ -171,5 +171,5 @@ REVOKE ALL ON FUNCTION public.sesame_has_permission(text) FROM PUBLIC;
 
 -- The database owner grants only the functions required by the application's
 -- non-owner runtime role. Example (replace hauliage_app explicitly):
--- GRANT EXECUTE ON FUNCTION public.rls_set_session(uuid, uuid, uuid, text, jsonb, jsonb, text, text) TO hauliage_app;
+-- GRANT EXECUTE ON FUNCTION public.rls_set_session(text, uuid, uuid, text, jsonb, jsonb, text, text) TO hauliage_app;
 -- GRANT EXECUTE ON FUNCTION public.sesame_current_tenant_id(), public.sesame_current_organization_id(), public.sesame_has_role(text), public.sesame_has_permission(text) TO hauliage_app;

@@ -23,9 +23,9 @@ semantics and SQL contract. Lifeguard owns connection and transaction lifecycle.
 4. `LifeguardPool::with_session_transaction` is the multi-statement path. It pins the existing
    `ExclusivePrimaryLifeExecutor`, begins a transaction, injects context, runs the closure, and
    commits or rolls back before releasing the pool slot.
-5. The v1 context requires tenant ID, subject ID, active organization ID, session ID, roles, and
-   permissions. User and organization classifications are optional. The database never receives a
-   JWT or an unvalidated bearer payload.
+5. The v1 context requires the opaque tenant ID (`text`), subject UUID, active organization UUID,
+   session ID, roles, and permissions. User and organization classifications are optional. The
+   database never receives a JWT or an unvalidated bearer payload.
 6. Sesame publishes the versioned SQL contract at `sql/rls/v1/install.sql`. The Lifeguard entry
    point remains `public.rls_set_session(...)`; policy authors use typed `sesame_current_*`
    accessors.

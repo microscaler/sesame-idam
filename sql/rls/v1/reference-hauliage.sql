@@ -7,7 +7,7 @@ CREATE SCHEMA IF NOT EXISTS sesame_rls_reference;
 
 CREATE TABLE IF NOT EXISTS sesame_rls_reference.hauliage_consignments (
     id uuid PRIMARY KEY,
-    tenant_id uuid NOT NULL,
+    tenant_id text NOT NULL,
     organization_id uuid NOT NULL,
     reference text NOT NULL,
     payload jsonb NOT NULL DEFAULT '{}'::jsonb

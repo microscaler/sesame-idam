@@ -23,7 +23,7 @@ Sesame provides SQL helper functions that inject RLS context into PostgreSQL ses
 
 - `rls_set_session(...)` — Lifeguard's fail-closed injection entry point
 - `sesame_rls_contract_version()` — Return the installed contract version
-- `sesame_current_tenant_id()` — Return the hard tenant boundary
+- `sesame_current_tenant_id()` — Return the opaque hard tenant boundary as text
 - `sesame_current_subject_id()` — Return the authenticated subject
 - `sesame_current_organization_id()` — Return the active organization
 - `sesame_current_session_id()` — Return the authenticated session

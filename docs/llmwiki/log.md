@@ -754,3 +754,5 @@ Enriched [`docs/audit/epic-delivery-audit-2026-07-10.md`](../audit/epic-delivery
   `search_path`, `SECURITY INVOKER`, transaction-local GUCs, and explicit grants.
 - Lifeguard verification on ms02: 485 unit tests pass; RLS integration suite 19/19 passes,
   including commit, rollback, application error, panic, missing helper, and pool-slot reuse.
+- Consumer validation corrected the tenant field to opaque text (`hauliage`), matching Sesame's
+  delivered access tokens; subject and active organization remain UUIDs.
