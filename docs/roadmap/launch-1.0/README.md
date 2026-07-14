@@ -23,7 +23,7 @@ the integration easy. Three issues previously made it difficult to execute:
 The estimates remain planning ranges, not commitments. A phase is complete only when its exit
 gate is evidenced; elapsed time or endpoint count alone cannot change its status.
 
-## Current delivery assessment (2026-07-13)
+## Current delivery assessment (updated 2026-07-14)
 
 This is a repository-evidence assessment, not a percentage-complete estimate. A phase remains
 unaccepted until every MUST requirement has evidence.
@@ -32,7 +32,7 @@ unaccepted until every MUST requirement has evidence.
 |---|---|---|
 | Hauliage test-user enablement | `in-progress` | The dated audit records the frozen D3/D4 consumer contract as functionally complete. Remaining cross-repo/environment acceptance and minimum revocation evidence must be closed before onboarding test users. |
 | P0 | `in-progress` | Ed25519/JWKS, `typ`/algorithm validation foundations and denylist writes exist. The Sesame denylist middleware still contains a placeholder Redis lookup and is not wired in service `main.rs`; cross-consumer read-side/version evidence is therefore incomplete. |
-| P1 | `not-started` | RLS and `SesameExecutor` appear in design/README material, but no non-document implementation anchors were found. |
+| P1 | `in-progress` | The versioned contract, Lifeguard base-executor contextual transaction, forced Hauliage reference policy, zero-bleed concurrency suite, and a live login-to-RLS proof now exist. GA still requires the remaining compatibility, benchmark, recovery, sample, and review evidence in the P1 exit gate. |
 | P2 | `in-progress` | Password register/login is delivered. The user-management/MFA/verification/social/passwordless surface still contains generated stubs or TODO-only handlers and does not meet the phase journey gate. |
 | P3 | `in-progress` | Organization lifecycle and API-key validation foundations exist. Permissions-in-token, complete key lifecycle, webhook delivery, SSO and SCIM do not meet the phase gate. |
 | P4 | `not-started` | No SDK/client directory or hosted-UI implementation was found; the developer contract remains design material. |

@@ -65,7 +65,11 @@ does not add the deferred SDK, hosted UI, enterprise identity, or curl-like HTTP
     reuse; its two-organization concurrency test performs 100 interleaved reads per context and
     then probes both slots context-free. Hauliage covers unqualified reads, cross-org write
     rejection, a valid context from another platform tenant, forged tenant-header conflict, and
-    next-transaction reset.
+    next-transaction reset. The 2026-07-14 shared-stack run used real BFF logins and kept tokens
+    inside the pod: `shipper@amecorp.dev` resolved only AME Corp
+    (`b2000002-0002-4000-8000-000000000002`), while
+    `transport@transportservices.dev` resolved only Transport Services
+    (`b2000001-0001-4000-8000-000000000001`) through Company and forced RLS.
 
 ## Track C — east-west client completion
 
@@ -85,6 +89,9 @@ without credentials or tokens.
 - [ ] **D1 Complete the existing H1.6 database integration target** and include the RLS suite.
 - [ ] **D2 Run real cross-repo E2E:** login/register → active org → protected Hauliage path →
   refresh → logout → denylisted access token rejected.
+  - Partial evidence 2026-07-14: login → active organization claim → protected BFF/Company/RLS
+    path passed for both seeded personas with no retry and no token output. Register, refresh,
+    logout, and post-logout rejection remain before D2 can be checked complete.
 - [ ] **D3 Run no-retry quality gates** for Sesame, BRRTRouter, Hauliage, and the live shared stack.
 - [ ] **D4 Record the go/no-go bundle:** exact commits/images, commands/output, reset/reseed steps,
   known limits, rollback, and owner.

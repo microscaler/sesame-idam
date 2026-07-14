@@ -756,3 +756,16 @@ Enriched [`docs/audit/epic-delivery-audit-2026-07-10.md`](../audit/epic-delivery
   including commit, rollback, application error, panic, missing helper, and pool-slot reuse.
 - Consumer validation corrected the tenant field to opaque text (`hauliage`), matching Sesame's
   delivered access tokens; subject and active organization remain UUIDs.
+
+## [2026-07-14] verify | live Hauliage RLS path and session stability
+
+- Applied the existing Sesame migrations/seeds to the shared stack after login exposed the missing
+  platform-tenant registry.
+- Verified real login/JWKS → Hauliage BFF → Company → forced PostgreSQL RLS for both seeded
+  personas without printing tokens: shipper resolved only AME Corp; transporter resolved only
+  Transport Services.
+- Closed H1.5/H7.4 and corrected active roadmap references from the rejected `SesameExecutor`
+  wrapper to Lifeguard's base-executor contextual transaction capability.
+- Diagnosed repeated session-service liveness kills as a May coroutine stack overflow on the
+  three-middleware JWKS path. Raised only identity-session-service from 32 KiB to 64 KiB and
+  verified the rendered Helm value plus a 50-request/10-concurrent JWKS burst (50 HTTP 200s).

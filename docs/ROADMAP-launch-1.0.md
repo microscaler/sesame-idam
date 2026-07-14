@@ -90,7 +90,8 @@ release and not a competing definition of GA.
 Close the credibility gaps in the part that already works.
 - **Revocation enforcement (read-side).** Write-path exists; add denylist check to the
   validation path. **Decision:** do it in **BRRTRouter's `JwksBearerProvider`** (one place,
-  every consumer benefits, fail-open) — this is a BRRTRouter feature that *sells* BRRTRouter.
+  every consumer benefits, fail-closed with a bounded Redis deadline) — this is a BRRTRouter
+  feature that *sells* BRRTRouter.
 - `typ=at+jwt` + algorithm hardening (RFC 9068), consumer `ver` rejection on version bump.
 - **Gate:** revoked access token is rejected end-to-end; BDD proves it.
 
@@ -98,11 +99,13 @@ Close the credibility gaps in the part that already works.
 
 [Detailed requirements, acceptance criteria, and exit gate](./roadmap/launch-1.0/p1-rls-bridge/README.md)
 
-The README's killer feature. Currently **0 lines**. Make it the demo everyone screenshots.
-- Ship `sesame_set_session()` / `sesame_current_user_org_id()` / `sesame_current_*()` SQL as
+The README's killer feature. The first production-shaped slice is now delivered; complete the GA
+contract and make it the demo everyone screenshots.
+- Ship `rls_set_session()` / `sesame_current_organization_id()` / `sesame_current_*()` SQL as
   a **versioned, deploy-once artifact** (+ migration + docs).
-- **`SesameExecutor`** wrapping Lifeguard `LifeExecutor`: auto-runs `SET LOCAL auth.*` per
-  transaction from validated JWT claims. Zero app code.
+- **First-class Lifeguard contextual transactions** on the base executor/pool types: inject the
+  versioned Sesame context transaction-locally from validated JWT claims. No parallel
+  `SesameExecutor` type and no session-scoped GUC state.
 - **Zero-bleed proof suite**: property tests + BDD showing RLS policies filter rows by
   `org_id`/`user_type` with a failsafe (NULLIF → zero rows), across tenants.
 - **The "wow" demo**: a sample app where `SELECT * FROM invoices` returns only the caller's
@@ -144,8 +147,8 @@ pixel-perfect components.
 - **TypeScript SDK**: `@sesame-idam/frontend` (`useAuth`, `<SignIn/>`, `<OrgSwitcher/>`) +
   backend admin client (`sesame.users.*`, `sesame.orgs.*`) — the exact API the README shows.
 - **Hosted login/onboarding UI**: themeable, drop-in — the account-first flow already built.
-- **BRRTRouter-native middleware**: `SesameAuthMiddleware` + the RLS `SesameExecutor` as
-  first-class BRRTRouter integrations (the ecosystem hook).
+- **BRRTRouter-native middleware** plus Lifeguard's base-executor RLS capability as first-class
+  ecosystem integrations, without adding another executor abstraction.
 - **"Auth in an afternoon" quickstart**: one guide, one sample repo, RLS SQL deploy, done.
 - **Gate:** a new SaaS integrates login + orgs + RLS in <1 day following the guide.
 
@@ -213,8 +216,8 @@ the shared quality gate are defined in the [expanded roadmap](./roadmap/launch-1
 | Risk | Mitigation |
 |---|---|
 | README over-promises vs. ~12% built | This roadmap *is* the reconciliation; update README status honestly until phases land |
-| RLS bridge (P1) is novel + unbuilt — the whole thesis rests on it | De-risk first: spike `SesameExecutor` + zero-bleed proof in week 1 of P1 before committing the phase |
-| Revocation enforcement touches BRRTRouter (shared) | Coordinate with BRRTRouter owners; fail-open design; it doubles as a BRRTRouter selling feature |
+| RLS bridge (P1) is novel and the whole thesis rests on it | The base-executor slice and zero-bleed proof are delivered; finish the GA compatibility, benchmark, recovery, sample, and independent-review evidence before representing P1 as accepted. |
+| Revocation enforcement touches BRRTRouter (shared) | Keep the accepted fail-closed, bounded Redis policy consistent across every consumer; it doubles as a BRRTRouter selling feature. |
 | Enterprise SSO/SCIM (P3) is deep | Explicitly a 1.1 fast-follow, not 1.0 — don't let it block the wedge |
 | Solo/small team vs. 3–4mo scope | Parallelize P1‖P2; treat SDK/UI (P4) as the highest-leverage adoption spend |
 
@@ -222,10 +225,10 @@ the shared quality gate are defined in the [expanded roadmap](./roadmap/launch-1
 
 ## 9. Immediate next actions
 
-1. **P0 spike:** implement revocation enforcement in `JwksBearerProvider` (fail-open) + BDD —
-   closes the one live security gap and creates a BRRTRouter feature.
-2. **P1 spike (de-risk the thesis):** prototype `SesameExecutor` + one RLS policy + a zero-bleed
-   test *this week* — prove the moat is buildable before scoping the full phase.
+1. **P0 completion:** finish cross-consumer live evidence for the delivered fail-closed denylist
+   and version checks in `JwksBearerProvider`.
+2. **P1 completion:** extend the delivered base-executor policy slice with the GA compatibility,
+   benchmark, recovery, sample, and independent-review evidence required by the P1 exit gate.
 3. **Reconcile `docs/propelauth-gap-analysis.md`** to reality (flag overstated coverage) and
    trim README status claims to match this roadmap.
 

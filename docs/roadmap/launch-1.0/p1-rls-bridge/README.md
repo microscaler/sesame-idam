@@ -8,7 +8,9 @@ so tenant isolation is enforced even when application queries omit tenant predic
 ## Scope and dependencies
 
 P1 depends on P0 claims validation and Lifeguard transaction hooks. It delivers versioned SQL,
-`SesameExecutor`, policy examples, a zero-bleed proof suite, and a runnable demonstration.
+first-class contextual transactions on Lifeguard's base executors, policy examples, a zero-bleed
+proof suite, and a runnable demonstration. A Sesame-specific executor wrapper is deliberately out
+of scope: RLS is an optional capability of the executor types the ecosystem already uses.
 Database portability beyond supported PostgreSQL versions and arbitrary policy generation are
 out of scope.
 
@@ -17,7 +19,7 @@ out of scope.
 | ID | Requirement |
 |---|---|
 | FR-P1-001 | A versioned, deploy-once SQL artifact MUST provide typed helpers for current user, organization, user type, roles, permissions, session, and tenant context required by supported policies. |
-| FR-P1-002 | `SesameExecutor` MUST derive context only from already validated claims and inject it with transaction-local semantics before any protected application query. |
+| FR-P1-002 | Lifeguard's base executors MUST accept context derived only from already validated claims and inject it with transaction-local semantics before any protected application query; consumers MUST NOT need a Sesame-specific executor type. |
 | FR-P1-003 | Missing, malformed, or conflicting required context MUST cause policies to return zero rows or reject the transaction; it MUST never broaden access. |
 | FR-P1-004 | Commit, rollback, cancellation, panic, and pooled-connection reuse MUST clear the prior transaction's identity context. |
 | FR-P1-005 | Reference RLS policies MUST cover organization ownership, platform/user-type separation, and role/permission checks without trusting client headers. |

@@ -33,7 +33,7 @@ transaction/pool zero-bleed suite. General policy generation remains a Launch 1.
 | FR-HTE-006 | Refresh MUST rotate refresh tokens and reject reuse; logout MUST terminate refresh capability, denylist the current access token for its remaining lifetime, and make that access token fail on its next protected request. |
 | FR-HTE-007 | Hauliage's BFF/frontend MUST use the shared-environment Sesame URLs and handle success, unauthenticated, forbidden, expired, and dependency-error responses without mock fallbacks. |
 | FR-HTE-008 | The shared Kubernetes environment MUST expose the agreed service ports, database/Redis dependencies, migrations, seeds, and configuration required for repeatable test-user onboarding. |
-| FR-HTE-009 | A protected Hauliage database path MUST execute through `SesameExecutor`, inject validated tenant/user/organization context with transaction-local semantics, and rely on PostgreSQL RLS rather than a client-supplied tenant predicate. |
+| FR-HTE-009 | A protected Hauliage database path MUST use Lifeguard's base-executor contextual transaction capability, derive tenant/user/organization context from validated claims, and rely on PostgreSQL RLS rather than a client-supplied tenant predicate. A Sesame-specific executor wrapper MUST NOT be required. |
 
 ## Non-functional requirements
 

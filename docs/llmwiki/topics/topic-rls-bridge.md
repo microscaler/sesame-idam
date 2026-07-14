@@ -48,7 +48,19 @@ Every accessor returns `NULL` when no context exists. Policy expressions therefo
 - `../lifeguard/src/executor.rs` — Direct/base executor context support
 - `../lifeguard/src/pool/pooled.rs` — Pooled one-shot and pinned transaction support
 
+## Delivered Evidence
+
+- Hauliage's Company service maps only BRRTRouter-validated claims into `SessionContext` and runs
+  every delivered `organization_profiles` read/write in `with_session_transaction`.
+- The installed Company policy forces RLS on `organization_profiles`; the application query used
+  by the acceptance suite has no organization predicate.
+- Lifeguard's live PostgreSQL suite covers commit, returned error, panic, missing helper, repeated
+  pool reuse, and two concurrent organization contexts with 100 interleaved reads each.
+- The 2026-07-14 shared-stack run proved real Sesame login/JWKS → Hauliage BFF → Company → forced
+  RLS for both seeded organizations: the shipper saw only AME Corp and the transporter saw only
+  Transport Services.
+
 ## Gaps / Drift
 
-> **Open:** Hauliage still needs its validated-claim adapter and first production-shaped protected
-> path. The reference policy is not an application migration.
+> **Open:** The delivered Hauliage policy is the first production-shaped slice, not general policy
+> generation or the complete Launch 1.0 compatibility/benchmark/recovery evidence set.
