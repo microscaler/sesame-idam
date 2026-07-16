@@ -41,3 +41,5 @@ identity-login-service/20260714102157_tenants.sql
 rls/20260714180000_sesame_rls_contract_v1.sql
 rls/20260714180001_users_tenant_rls.sql
 rls/20260714180002_pre_auth_tenant_and_grants.sql
+identity-user-mgmt-service/20260716200000_app_passwords.sql
+rls/20260716200001_rp_directory.sql
