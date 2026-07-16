@@ -1,0 +1,38 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: identity-user-mgmt-service
+spec:
+  interval: 5m
+  timeout: 5m
+  releaseName: identity-user-mgmt-service
+  targetNamespace: sesame-idam
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./helm/sesame-idam-microservice
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: product-sesame-idam
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: sesame-idam-idam-common-helm-values
+      valuesKey: values.yaml
+  values:
+    service:
+      name: identity-user-mgmt-service
+    image:
+      name: sesame-idam-identity-user-mgmt-service
+      tag: dev-0 # {"$imagepolicy": "flux-system:sesame-idam-identity-user-mgmt-service:tag"}
+    app:
+      binaryName: identity-user-mgmt-service
+      serviceName: identity-user-mgmt-service

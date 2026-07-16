@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: sesame-idam
+
+resources:
+  - identity-login-service.yaml
+  - identity-session-service.yaml
+  - identity-user-mgmt-service.yaml
+  - authz-core.yaml
+  - api-keys.yaml
+  - org-mgmt.yaml
+
+configMapGenerator:
+  - name: sesame-idam-idam-common-helm-values
+    files:
+      - values.yaml=values/common.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+  immutable: false

@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sesame-idam-db-init
+  labels:
+    app.kubernetes.io/name: sesame-idam-db-init
+    app.kubernetes.io/part-of: sesame-idam
+    app.kubernetes.io/component: database-bootstrap
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      annotations:
+        deployment.sesame-idam.io/bootstrap-revision: "1"
+      labels:
+        app.kubernetes.io/name: sesame-idam-db-init
+        app.kubernetes.io/part-of: sesame-idam
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: db-init
+          image: 10.177.76.220:5000/sesame-idam-db-init:dev-0 # {"$imagepolicy": "flux-system:sesame-idam-db-init"}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PGHOST
+              value: postgres-ha-pgpool.data.svc.cluster.local
+            - name: POSTGRES_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: postgres-password
+            - name: PGPOOL_CUSTOM_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: usernames
+            - name: PGPOOL_CUSTOM_PASSWORDS
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: passwords
+            - name: SESAME_IDAM_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-bootstrap-db
+                  key: SESAME_IDAM_DB_PASSWORD
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

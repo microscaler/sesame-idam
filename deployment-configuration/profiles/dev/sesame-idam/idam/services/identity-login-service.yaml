@@ -1,0 +1,46 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: identity-login-service
+spec:
+  interval: 5m
+  timeout: 5m
+  releaseName: identity-login-service
+  targetNamespace: sesame-idam
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./helm/sesame-idam-microservice
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: product-sesame-idam
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: sesame-idam-idam-common-helm-values
+      valuesKey: values.yaml
+  values:
+    service:
+      name: identity-login-service
+    image:
+      name: sesame-idam-identity-login-service
+      tag: dev-0 # {"$imagepolicy": "flux-system:sesame-idam-identity-login-service:tag"}
+    app:
+      binaryName: identity-login-service
+      serviceName: identity-login-service
+      config:
+        authzCoreUrl: "http://authz-core:8080"
+        security:
+          jwks:
+            BearerAuth:
+              jwks_url: "http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json"
+              iss: "https://idam.example.com"
+              aud: "sesame-idam"

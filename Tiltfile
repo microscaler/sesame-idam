@@ -4,8 +4,10 @@
 #   tilt up --port 10351 --host 0.0.0.0
 # Full stack: `just dev-up` / `just dev-down` (same port).
 #
-# This Tiltfile orchestrates the build and deployment of all 6 Sesame-IDAM
-# microservices using a base Docker image and pre-built binaries.
+# GitOps cutover (rerp pattern): Flux owns deployment-configuration profiles +
+# HelmReleases. Set FLUX_OWNS_DEPLOY=1 so Tilt skips helm()/k8s_yaml applies
+# and only builds + publishes registry images (dev-<nanoseconds>).
+# Default remains Tilt-owned Helm apply until the first Flux reconcile succeeds.
 
 # ====================
 # Configuration
@@ -28,7 +30,13 @@ if _use_shared_k8s and os.path.exists(_SHARED_K8S_KCFG):
 else:
     allow_k8s_contexts(['kind-kind'])
 
+# When true: Flux product-components owns Helm/Secrets; Tilt publishes images only.
+FLUX_OWNS_DEPLOY = os.environ.get('FLUX_OWNS_DEPLOY', '0').strip() in ('1', 'true', 'TRUE', 'yes')
+
 update_settings(k8s_upsert_timeout_secs=60)
+
+# Rust/cargo on ms02 (rustup) — Tilt local_resource cmd does not load login shells.
+RUST_ENV_PREFIX = 'export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH" && '
 
 # Configure automatic Docker pruning to prevent disk space exhaustion
 docker_prune_settings(
@@ -54,7 +62,7 @@ sesame_idam_bin = '%s/bin/sesame-idam' % brrtrouter_venv
 # Namespace
 namespace = 'sesame-idam'
 
-# Data stack: postgres/redis managed by shared-kind-cluster tilt, not this stack
+# Data stack: postgres/redis managed by shared-k8s-cluster tilt, not this stack
 bundled_data_stack = False
 
 # ====================
@@ -189,8 +197,53 @@ PACKAGE_NAMES = {
     'org-mgmt': 'sesame_idam_org_mgmt',
 }
 
+# just gen-* recipe names (differs from service dir names for identity-* services).
+_GEN_JUST_NAMES = {
+    'identity-login-service': 'gen-identity-login',
+    'identity-session-service': 'gen-identity-session',
+    'identity-user-mgmt-service': 'gen-identity-user-mgmt',
+    'authz-core': 'gen-authz-core',
+    'api-keys': 'gen-api-keys',
+    'org-mgmt': 'gen-org-mgmt',
+}
+
 DISCOVERED_SERVICES = SERVICE_NAMES
 print("Sesame-IDAM Tilt discovered %d services" % len(DISCOVERED_SERVICES))
+
+# Desktop dev test defaults (ms02 LAN Postgres + Redis). Override via OS/Tilt env.
+_TEST_DB_HOST = os.environ.get('TEST_DB_HOST', '192.168.1.189')
+_TEST_DB_PORT = os.environ.get('TEST_DB_PORT', '5433')
+_TEST_REDIS_URL = os.environ.get('TEST_REDIS_URL', 'redis://192.168.1.189:6390')
+_TEST_SSOREADY_URL = os.environ.get('SESAME_SSOREADY_API_URL', 'http://127.0.0.1:9190')
+_TEST_DB_PASS = os.environ.get('TEST_DB_PASS', 'dev_password_change_in_prod')
+_TEST_DATABASE_URL = 'postgres://sesame_idam:%s@%s:%s/sesame_idam' % (
+    _TEST_DB_PASS,
+    _TEST_DB_HOST,
+    _TEST_DB_PORT,
+)
+
+# Prefix for manual test local_resources (export before cargo/just).
+TEST_ENV_SHELL = (
+    'export TEST_DB_HOST="%s" && '
+    + 'export TEST_DB_PORT="%s" && '
+    + 'export TEST_REDIS_URL="%s" && '
+    + 'export SESAME_SSOREADY_API_URL="%s" && '
+    + 'export DATABASE_URL="%s" && '
+    + 'export TEST_DATABASE_URL="%s"'
+) % (
+    _TEST_DB_HOST,
+    _TEST_DB_PORT,
+    _TEST_REDIS_URL,
+    _TEST_SSOREADY_URL,
+    _TEST_DATABASE_URL,
+    _TEST_DATABASE_URL,
+)
+
+_COMMON_TEST_DEPS = [
+    './microservices/Cargo.toml',
+    './justfile',
+    './.config/nextest.toml',
+]
 
 # ====================
 # Helper Functions
@@ -342,45 +395,86 @@ def create_microservice_deployment(name, port):
         ],
     )
 
-    # 4. Deploy using Helm (8080 ClusterIP + shared DB merge files).
-    # Per-service values first; shared overlays last so they are authoritative
-    # for ports and database wiring (mirrors hauliage helm_values ordering).
-    helm_values = [
-        'helm/sesame-idam-microservice/values/%s.yaml' % name,
-        'helm/sesame-idam-microservice/values/_http-kubernetes.yaml',
-        'helm/sesame-idam-microservice/values/_database-kubernetes.yaml',
-    ]
-    k8s_yaml(
-        helm('helm/sesame-idam-microservice', name=name, namespace=namespace, values=helm_values),
-    )
+    if FLUX_OWNS_DEPLOY:
+        # Flux HelmRelease consumes pushed tags; publish monotonic dev-N refs.
+        registry_image = '%s/sesame-idam-%s' % (_SHARED_K8S_REGISTRY, name)
+        local_resource(
+            'image-sesame-idam-%s' % name,
+            '''set -eu
+DEV_REF="%s:dev-$(date +%%s%%N)"
+docker tag localhost:5001/sesame-idam-%s:tilt "$DEV_REF" 2>/dev/null || docker tag sesame-idam-%s:tilt "$DEV_REF"
+docker push "$DEV_REF"
+echo "Published $DEV_REF for Flux image discovery"
+''' % (registry_image, name, name),
+            resource_deps=['docker-%s' % name],
+            labels=[name, 'images'],
+            allow_parallel=True,
+        )
+    else:
+        # 4. Deploy using Helm (8080 ClusterIP + shared DB merge files).
+        helm_values = [
+            'helm/sesame-idam-microservice/values/%s.yaml' % name,
+            'helm/sesame-idam-microservice/values/_http-kubernetes.yaml',
+            'helm/sesame-idam-microservice/values/_database-kubernetes.yaml',
+        ]
+        k8s_yaml(
+            helm('helm/sesame-idam-microservice', name=name, namespace=namespace, values=helm_values),
+        )
 
-    # 5. Kubernetes resource — optional PF for login/session only (8101/8105 → pod :8080)
-    _port_forwards = [HOST_PORT_FORWARDS[name]] if name in HOST_PORT_FORWARDS else []
-    k8s_resource(
-        name,
-        port_forwards=_port_forwards,
-        resource_deps=['sesame-idam-database-env', 'docker-%s' % name],
-        labels=[name],
-        auto_init=True,
-        trigger_mode=TRIGGER_MODE_AUTO,
+        # 5. Kubernetes resource — optional PF for login/session only (8101/8105 → pod :8080)
+        _port_forwards = [HOST_PORT_FORWARDS[name]] if name in HOST_PORT_FORWARDS else []
+        k8s_resource(
+            name,
+            port_forwards=_port_forwards,
+            resource_deps=['sesame-idam-database-env', 'docker-%s' % name],
+            labels=[name],
+            auto_init=True,
+            trigger_mode=TRIGGER_MODE_AUTO,
+        )
+
+def _bdd_impl_deps(name):
+    return [
+        './microservices/idam/%s/impl/src' % name,
+        './microservices/idam/%s/impl/tests' % name,
+    ]
+
+def create_manual_bdd_test(name):
+    """Per-service BDD (main_bdd) against LAN Postgres — manual Tilt trigger."""
+    package = PACKAGE_NAMES[name]
+    local_resource(
+        'test-bdd-%s' % name,
+        RUST_ENV_PREFIX + '''set -e
+echo "=== BDD: %s ==="
+%s
+cd microservices
+cargo nextest run -p %s --test main_bdd --test-threads 1 --fail-fast
+''' % (name, TEST_ENV_SHELL, package),
+        deps=_COMMON_TEST_DEPS + _bdd_impl_deps(name),
+        ignore=['./microservices/target'],
+        labels=['testing', name],
+        trigger_mode=TRIGGER_MODE_MANUAL,
+        auto_init=False,
+        allow_parallel=False,
     )
 
 # ====================
 # Data Infrastructure
 # ====================
 # Create the namespace so Helm manifests have a target.
-# Redis and PostgreSQL are managed by shared-kind-cluster's Tilt.
+# Redis and PostgreSQL are managed by shared-k8s-cluster's Tilt.
 # Do NOT stand up data infrastructure here — let the shared cluster own it.
-k8s_yaml('k8s/microservices/namespace.yaml')
-k8s_yaml('k8s/microservices/database-env.yaml')
-k8s_resource(
-    new_name='sesame-idam-database-env',
-    objects=[
-        'sesame-idam-database-config:configmap:sesame-idam',
-        'sesame-idam-db-credentials:secret:sesame-idam',
-    ],
-    labels=['data'],
-)
+# When FLUX_OWNS_DEPLOY=1, runtime ConfigMap/Secret come from product profiles.
+if not FLUX_OWNS_DEPLOY:
+    k8s_yaml('k8s/microservices/namespace.yaml')
+    k8s_yaml('k8s/microservices/database-env.yaml')
+    k8s_resource(
+        new_name='sesame-idam-database-env',
+        objects=[
+            'sesame-idam-database-config:configmap:sesame-idam',
+            'sesame-idam-db-credentials:secret:sesame-idam',
+        ],
+        labels=['data'],
+    )
 
 # Redis: shared platform instance in namespace `data`
 # (redis.data.svc.cluster.local:6379, managed by shared-k8s-cluster).
@@ -465,42 +559,276 @@ local_resource(
 )
 
 # ====================
-# BDD Test Suite
+# Manual test hooks (Tilt UI or `just tilt-trigger <resource>`)
 # ====================
-# Run BDD integration tests against all 6 microservices. Requires PostgreSQL and
-# Redis to be running (started by the shared-kind-cluster Tilt or dev-up).
-# Usage: `tilt trigger sesame-idam-bdd-tests` (manual trigger).
-# Pass TEST_DATABASE_URL / TEST_REDIS_URL as Tilt env vars or rely on justfile defaults.
+# ms02 defaults: TEST_DB_HOST=192.168.1.189 TEST_DB_PORT=5433, broker :9190 (k8s PF).
+# Remote Mac trigger: tilt trigger <resource> --host 192.168.1.189 --port 10351
+#
+# Suite resources (labels: testing):
+#   sesame-idam-test-saml-proof     — Track A gate (lint + gen sync + broker + SAML BDD)
+#   sesame-idam-test-openapi-lint   — lint all 6 OpenAPI specs
+#   sesame-idam-test-openapi-sync   — cmp canonical specs vs gen/doc (drift detector)
+#   sesame-idam-test-pact-broker      — pact-mock-server contract tests
+#   sesame-idam-test-nt-fast          — `just nt` (workspace nextest, no db_integration_suite)
+#   sesame-idam-test-nt-db-suite      — serial db_integration_suite only
+#   sesame-idam-test-bdd-all          — main_bdd for all 6 services (serial)
+#   test-bdd-<service>                — single-service BDD (one per DISCOVERED_SERVICES)
+
+_openapi_sync_checks = '\n'.join([
+    (
+        'cmp -s openapi/idam/%s/openapi.yaml microservices/idam/%s/gen/doc/openapi.yaml '
+        + '|| { echo "❌ %s gen/doc/openapi.yaml drift — run: just %s"; exit 1; }'
+    ) % (IDAM_SPEC_PATHS[name], name, name, _GEN_JUST_NAMES[name])
+    for name in DISCOVERED_SERVICES
+])
+
+_bdd_all_steps = '\n'.join([
+    (
+        'echo "=== BDD: %s ===" && cargo nextest run -p %s --test main_bdd --test-threads 1 --fail-fast'
+    ) % (name, PACKAGE_NAMES[name])
+    for name in DISCOVERED_SERVICES
+])
+
+_all_bdd_deps = _COMMON_TEST_DEPS
+for _bdd_name in DISCOVERED_SERVICES:
+    _all_bdd_deps = _all_bdd_deps + _bdd_impl_deps(_bdd_name)
+
 local_resource(
-    'sesame-idam-bdd-tests',
+    'sesame-idam-test-saml-proof',
     '''set -e
-echo "=== Sesame-IDAM BDD Tests (all 6 services) ==="
-cd microservices
-export DATABASE_URL="postgres://sesame_idam:dev_password_change_in_prod@127.0.0.1:5432/sesame_idam"
-export TEST_DATABASE_URL="postgres://sesame_idam:dev_password_change_in_prod@127.0.0.1:5432/sesame_idam"
-export TEST_REPLICA_URL="postgres://sesame_idam:dev_password_change_in_prod@127.0.0.1:5432/sesame_idam"
-export TEST_REDIS_URL="redis://127.0.0.1:6379"
-cargo nextest run --workspace --all-features --no-fail-fast --retries 1
-''',
-    deps=[
-        './microservices/idam/identity-login-service/impl/src',
-        './microservices/idam/identity-login-service/impl/tests',
-        './microservices/idam/identity-session-service/impl/src',
-        './microservices/idam/identity-session-service/impl/tests',
-        './microservices/idam/identity-user-mgmt-service/impl/src',
-        './microservices/idam/identity-user-mgmt-service/impl/tests',
-        './microservices/idam/authz-core/impl/src',
-        './microservices/idam/authz-core/impl/tests',
-        './microservices/idam/api-keys/impl/src',
-        './microservices/idam/api-keys/impl/tests',
-        './microservices/idam/org-mgmt/impl/src',
-        './microservices/idam/org-mgmt/impl/tests',
-        './microservices/Cargo.toml',
+echo "=== Track A SAML proof suite ==="
+%s
+just saml-proof-suite
+''' % TEST_ENV_SHELL,
+    deps=_COMMON_TEST_DEPS + [
+        './openapi/idam/org-mgmt/openapi.yaml',
+        './openapi/idam/identity-login-service/openapi.yaml',
+        './microservices/pact-mock-server/tests',
+        './microservices/idam/org-mgmt/impl/tests/bdd',
+        './microservices/idam/identity-login-service/impl/tests/bdd',
+        './microservices/database/src/saml_proof.rs',
     ],
+    ignore=['./microservices/target'],
+    resource_deps=['sesame-idam-broker'],
+    labels=['testing'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    allow_parallel=False,
+)
+
+local_resource(
+    'sesame-idam-test-openapi-sync',
+    '''set -e
+echo "=== OpenAPI gen/doc sync (all 6 services) ==="
+%s
+''' % _openapi_sync_checks,
+    deps=['./openapi/idam'] + [
+        './microservices/idam/%s/gen/doc/openapi.yaml' % name
+        for name in DISCOVERED_SERVICES
+    ],
+    labels=['testing'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    allow_parallel=True,
+)
+
+local_resource(
+    'sesame-idam-test-openapi-lint',
+    '''set -e
+echo "=== OpenAPI lint (all 6 services) ==="
+just lint-openapi
+''',
+    deps=['./openapi/idam'] + _COMMON_TEST_DEPS,
+    labels=['testing'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    allow_parallel=True,
+)
+
+local_resource(
+    'sesame-idam-test-pact-broker',
+    RUST_ENV_PREFIX + '''set -e
+echo "=== pact-mock-server (broker + contracts) ==="
+%s
+cd microservices
+cargo nextest run -p pact-mock-server --test-threads 1 --fail-fast
+''' % TEST_ENV_SHELL,
+    deps=_COMMON_TEST_DEPS + [
+        './microservices/pact-mock-server/src',
+        './microservices/pact-mock-server/tests',
+        './microservices/pact-mock-server/pacts',
+    ],
+    ignore=['./microservices/target'],
+    resource_deps=['sesame-idam-broker'],
+    labels=['testing'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    allow_parallel=False,
+)
+
+local_resource(
+    'sesame-idam-test-nt-fast',
+    RUST_ENV_PREFIX + '''set -e
+echo "=== Workspace nextest (fast — excludes db_integration_suite) ==="
+%s
+just nt
+''' % TEST_ENV_SHELL,
+    deps=_COMMON_TEST_DEPS + ['./microservices'],
     ignore=['./microservices/target'],
     labels=['testing'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
+    allow_parallel=False,
+)
+
+local_resource(
+    'sesame-idam-test-nt-db-suite',
+    RUST_ENV_PREFIX + '''set -e
+echo "=== DB integration suite (serial profile) ==="
+%s
+just nt-db-suite
+''' % TEST_ENV_SHELL,
+    deps=_COMMON_TEST_DEPS + ['./microservices'],
+    ignore=['./microservices/target'],
+    labels=['testing'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    allow_parallel=False,
+)
+
+local_resource(
+    'sesame-idam-test-bdd-all',
+    RUST_ENV_PREFIX + '''set -e
+echo "=== BDD all services (main_bdd, serial) ==="
+%s
+cd microservices
+%s
+echo "✅ All service BDD suites passed"
+''' % (TEST_ENV_SHELL, _bdd_all_steps),
+    deps=_all_bdd_deps,
+    ignore=['./microservices/target'],
+    labels=['testing'],
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    allow_parallel=False,
+)
+
+for _test_svc in DISCOVERED_SERVICES:
+    create_manual_bdd_test(_test_svc)
+
+# ====================
+# Pact broker dev tooling (SAML/OAuth mocks + contract publish)
+# ====================
+# Shared platform pact-broker lives in namespace `data` (shared-k8s-cluster Tilt).
+# Sesame adds:
+#   - sesame-idam-broker: SSOReady-compatible SAML + Google/Microsoft OAuth mocks (:9190)
+#   - sesame-pact-manager: publishes pacts/*.json to pact-broker.data.svc.cluster.local:9292
+#
+# Override from host:
+#   SESAME_BROKER_PORT              — host broker listen port (default 9190)
+#   SESAME_BROKER_BASE_URL          — URLs returned to identity-login-service
+#   SESAME_BROKER_APP_REDIRECT_URL  — post-SAML app callback (Hauliage)
+_PACT_MOCK_DIR = './microservices/pact-mock-server'
+_PACT_MOCK_DEPS = [
+    _PACT_MOCK_DIR + '/src',
+    _PACT_MOCK_DIR + '/Cargo.toml',
+    _PACT_MOCK_DIR + '/pacts',
+]
+_dev_registry = 'localhost:5001'
+
+_sesame_broker_image = '%s/sesame-idam-broker' % _dev_registry
+if _use_shared_k8s and os.path.exists(_SHARED_K8S_KCFG):
+    _sesame_broker_push = 'docker tag %s:tilt $EXPECTED_REF && docker push $EXPECTED_REF' % _sesame_broker_image
+else:
+    _sesame_broker_push = '(docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (_sesame_broker_image, _sesame_broker_image)
+
+custom_build(
+    _sesame_broker_image,
+    'docker build -f docker/microservices/Dockerfile.sesame_idam_broker -t %s:tilt . && %s' % (_sesame_broker_image, _sesame_broker_push),
+    deps=_PACT_MOCK_DEPS + ['./docker/microservices/Dockerfile.sesame_idam_broker'],
+    tag='tilt',
+)
+
+k8s_yaml('k8s/microservices/sesame-idam-broker.yaml')
+k8s_resource(
+    'sesame-idam-broker',
+    port_forwards=['9190:9190'],
+    resource_deps=[],
+    labels=['dev-tools'],
+)
+
+# Pact contracts ConfigMap (regenerated when pacts/*.json change).
+_cmd_pact_configmap = (
+    'kubectl create configmap sesame-pact-contracts -n sesame-idam '
+    + '--from-file=Sesame-SSO-Broker.json=' + _PACT_MOCK_DIR + '/pacts/Sesame-SSO-Broker.json '
+    + '--from-file=Sesame-OAuth-Google.json=' + _PACT_MOCK_DIR + '/pacts/Sesame-OAuth-Google.json '
+    + '--from-file=Sesame-OAuth-Microsoft.json=' + _PACT_MOCK_DIR + '/pacts/Sesame-OAuth-Microsoft.json '
+    + '--dry-run=client -o yaml'
+)
+k8s_yaml(local(_cmd_pact_configmap))
+
+_sesame_pact_manager_image = '%s/sesame-pact-manager' % _dev_registry
+if _use_shared_k8s and os.path.exists(_SHARED_K8S_KCFG):
+    _sesame_pact_manager_push = 'docker tag %s:tilt $EXPECTED_REF && docker push $EXPECTED_REF' % _sesame_pact_manager_image
+else:
+    _sesame_pact_manager_push = '(docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (_sesame_pact_manager_image, _sesame_pact_manager_image)
+
+custom_build(
+    _sesame_pact_manager_image,
+    'docker build -f docker/microservices/Dockerfile.pact_manager -t %s:tilt . && %s' % (_sesame_pact_manager_image, _sesame_pact_manager_push),
+    deps=_PACT_MOCK_DEPS + ['./docker/microservices/Dockerfile.pact_manager'],
+    tag='tilt',
+)
+
+k8s_yaml('k8s/microservices/pact-broker-env.yaml')
+k8s_yaml('k8s/microservices/pact-manager.yaml')
+k8s_resource(
+    new_name='sesame-pact-contracts',
+    objects=['sesame-pact-contracts:configmap:sesame-idam'],
+    labels=['dev-tools'],
+)
+k8s_resource(
+    'sesame-pact-manager',
+    port_forwards=['1238:1238'],
+    resource_deps=['sesame-pact-contracts'],
+    labels=['dev-tools'],
+)
+
+# Fast host loop for broker code changes (optional; cluster broker is primary for login-service).
+# Default host port 9191 avoids clashing with k8s port-forward 9190:9190.
+_sesame_broker_host_port = os.environ.get('SESAME_BROKER_HOST_PORT', '9191')
+_sesame_broker_base = os.environ.get('SESAME_BROKER_BASE_URL', 'http://127.0.0.1:%s' % _sesame_broker_host_port)
+_sesame_broker_redirect = os.environ.get(
+    'SESAME_BROKER_APP_REDIRECT_URL',
+    'http://hauliage.dev.microscaler.local/saml/callback',
+)
+
+local_resource(
+    'sesame-idam-broker-build',
+    RUST_ENV_PREFIX + 'cd microservices && cargo build -p pact-mock-server --bin sesame-idam-broker',
+    deps=_PACT_MOCK_DEPS + ['./microservices/Cargo.toml'],
+    ignore=['./microservices/target'],
+    labels=['dev-tools'],
+    allow_parallel=True,
+)
+
+_sesame_broker_serve_cmd = (
+    RUST_ENV_PREFIX
+    + 'cd microservices && '
+    + 'SESAME_BROKER_PORT=' + _sesame_broker_host_port + ' '
+    + 'SESAME_BROKER_BASE_URL=' + _sesame_broker_base + ' '
+    + 'SESAME_BROKER_APP_REDIRECT_URL=' + _sesame_broker_redirect + ' '
+    + 'cargo run -p pact-mock-server --bin sesame-idam-broker'
+)
+
+local_resource(
+    'sesame-idam-broker-host',
+    serve_cmd=_sesame_broker_serve_cmd,
+    resource_deps=['sesame-idam-broker-build'],
+    deps=_PACT_MOCK_DEPS,
+    labels=['dev-tools'],
+    auto_init=False,
+    trigger_mode=TRIGGER_MODE_MANUAL,
     allow_parallel=True,
 )
 
