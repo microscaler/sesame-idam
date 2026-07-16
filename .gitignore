@@ -21,3 +21,4 @@ node_modules
 
 supabase
 ._*
+**.nfs.*
