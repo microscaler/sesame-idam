@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Flux database bootstrap entrypoint. Owns only the cluster-level database
+# Flux database bootstrap entrypoint. This owns only the cluster-level database
 # contract: Pgpool credentials, role, database, schema, privileges, and login
-# verification. Application migrations remain a Tilt development concern.
+# verification. Application migrations and seeds remain a Tilt development
+# concern and must never be added to this Job.
 set -euo pipefail
 
 PGHOST="${PGHOST:-postgres-ha-pgpool.data.svc.cluster.local}"
@@ -84,19 +85,31 @@ ALTER DATABASE ${DB_NAME} SET search_path TO ${SCHEMA_NAME}, public;
 SQL
 }
 
-verify_login() {
-  echo "Verifying ${ROLE_NAME} login through Pgpool..."
-  PGPASSWORD="${SESAME_IDAM_DB_PASSWORD}" \
-    psql -X -h "${PGHOST}" -p "${PGPORT}" -U "${ROLE_NAME}" \
-      -d "${DB_NAME}" -v ON_ERROR_STOP=1 -c 'SELECT 1'
+grant_application_access() {
+  admin_psql "${DB_NAME}" <<SQL
+SET search_path TO ${SCHEMA_NAME};
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${SCHEMA_NAME} TO ${ROLE_NAME};
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ${SCHEMA_NAME} TO ${ROLE_NAME};
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${SCHEMA_NAME}
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${ROLE_NAME};
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${SCHEMA_NAME}
+  GRANT USAGE, SELECT ON SEQUENCES TO ${ROLE_NAME};
+SQL
 }
 
-main() {
-  validate_pgpool_contract
-  wait_for_postgres
-  bootstrap_database
-  verify_login
-  echo "Sesame-IDAM database bootstrap complete"
+verify_application_login() {
+  local result
+  result="$(PGPASSWORD="${SESAME_IDAM_DB_PASSWORD}" psql -X -h "${PGHOST}" -p "${PGPORT}" \
+    -U "${ROLE_NAME}" -d "${DB_NAME}" -Atqc 'SELECT 1')"
+  [ "${result}" = "1" ] || {
+    echo "Sesame-IDAM database login verification failed" >&2
+    return 1
+  }
 }
 
-main "$@"
+validate_pgpool_contract
+wait_for_postgres
+bootstrap_database
+grant_application_access
+verify_application_login
+echo "Sesame-IDAM role/database bootstrap complete; application migrations remain Tilt-owned"

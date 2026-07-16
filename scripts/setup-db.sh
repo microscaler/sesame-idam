@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
-# Setup script for Sesame-IDAM PostgreSQL database + schema (in-cluster; PostgreSQL listens on 127.0.0.1:5432 in the pod).
-# Waits for deployment/postgres-primary and the main container before kubectl exec (avoids "container not found").
+# Local/Tilt database administration helper. Flux does not run this script.
+#
+# Split of ownership (rerp pattern):
+#   - Flux Job `scripts/db-init-job.sh` — role, database, schema, privileges, Pgpool contract.
+#   - This script's migration-only mode — application migrations, RLS, seeds, post-migration grants.
+#
+# Full mode (no APPLY_MIGRATIONS_ONLY) remains a break-glass path for non-Flux/Kind setups
+# that still need role+DB creation via kubectl exec into postgres-primary.
 #
 # Layout:
-#   - Database `sesame_idam` — app data only (Supabase stack uses database `postgres` on the same server).
+#   - Database `sesame_idam` — app data only.
 #   - Schema `sesame_idam` — all Sesame-IDAM tables (search_path default for this database).
 #   - Role `sesame_idam` — login role matching helm `app.config.database` (password from env below).
-#   - After ./migrations (apply_order.txt), optional microservices/idam/*/impl/seeds/*.sql (not Lifeguard output).
+#   - After ./migrations (apply_order.txt), optional microservices/idam/*/impl/seeds/*.sql.
 #
 # Optional:
-#   SESAME_IDAM_DB_INIT_TIMEOUT (default 600s), SESAME_IDAM_DB_PASSWORD (must match helm dev password).
-#   SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 — skip role/DB creation; only wait for postgres, apply ./migrations (apply_order.txt), then GRANTs.
-#     Use after `cargo run -p sesame_idam_migrator` (or Tilt `sesame-idam-migrate`) when SQL files already exist.
+#   SESAME_IDAM_DB_INIT_TIMEOUT (default 600s), SESAME_IDAM_DB_PASSWORD (must match helm/SOPS password).
+#   SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 — skip role/DB creation; only wait for postgres, apply ./migrations, then GRANTs.
+#     Prefer this after Flux bootstrap is Ready (Tilt resource `sesame-idam-apply-migrations`).
 set -euo pipefail
 
 NS=data

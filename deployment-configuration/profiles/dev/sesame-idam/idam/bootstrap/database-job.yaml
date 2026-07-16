@@ -12,7 +12,9 @@ spec:
   template:
     metadata:
       annotations:
-        deployment.sesame-idam.io/bootstrap-revision: "1"
+        # Increment only when a failed/completed immutable Job must be replaced
+        # after bootstrap logic or platform prerequisites change.
+        deployment.sesame-idam.io/bootstrap-revision: "2"
       labels:
         app.kubernetes.io/name: sesame-idam-db-init
         app.kubernetes.io/part-of: sesame-idam

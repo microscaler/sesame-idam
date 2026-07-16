@@ -5,9 +5,11 @@
 # Full stack: `just dev-up` / `just dev-down` (same port).
 #
 # GitOps cutover (rerp pattern): Flux owns deployment-configuration profiles +
-# HelmReleases. Set FLUX_OWNS_DEPLOY=1 so Tilt skips helm()/k8s_yaml applies
-# and only builds + publishes registry images (dev-<nanoseconds>).
-# Default remains Tilt-owned Helm apply until the first Flux reconcile succeeds.
+# HelmReleases + role/DB bootstrap Jobs. Set FLUX_OWNS_DEPLOY=1 so Tilt skips
+# helm()/k8s_yaml applies and only builds + publishes registry images
+# (dev-<nanoseconds>). Application migrations stay Tilt-owned
+# (`sesame-idam-apply-migrations`). Default remains Tilt-owned Helm apply until
+# the first Flux reconcile succeeds.
 
 # ====================
 # Configuration
@@ -485,32 +487,51 @@ if not FLUX_OWNS_DEPLOY:
 # ====================
 
 # ====================
-# Database Init & Migration
+# Database Init & Migration (rerp split)
 # ====================
-# Sesame-IDAM DB + migrations: kubectl exec into deployment/postgres-primary (in-cluster :5432, not host :5432).
-# setup-db.sh waits for rollout + pod Ready and uses -c postgres. Optional: SESAME_IDAM_DB_INIT_TIMEOUT (default 600s).
-_db_init_deps = ['postgres'] if bundled_data_stack else []
-
-# Sesame-IDAM apply-migrations deps: wait for postgres when bundled_data_stack is enabled.
+# Flux owns role/database/schema bootstrap via Job image sesame-idam-db-init
+# (scripts/db-init-job.sh). Tilt publishes that image and applies migrations only.
+# Never put Lifeguard SQL / seeds into the Flux Job.
 _apply_migrations_deps = ['postgres'] if bundled_data_stack else []
 
-# Local resource to bootstrap the Sesame-IDAM database role, schema, apply
-# Lifeguard migration SQL files, and seed data.
-# Usage: `tilt trigger sesame-idam-db-init` (manual trigger — runs once on a
-# fresh cluster or after `sesame-idam-migrate` regenerates migration SQL).
+# Role/database bootstrap image. Flux runs this as a gated Job before reconciling
+# service HelmReleases. Tilt only publishes the content-addressed bootstrap image.
+DB_INIT_IMAGE = 'sesame-idam-db-init'
+DB_INIT_DOCKERFILE = 'docker/jobs/Dockerfile'
+DB_INIT_REF = '%s/%s' % (_SHARED_K8S_REGISTRY, DB_INIT_IMAGE)
+DB_INIT_BUILD = '''set -eu
+docker build -f %s -t %s:tilt .
+DEV_REF="%s:dev-$(date +%%s%%N)"
+docker tag %s:tilt "$DEV_REF"
+docker push "$DEV_REF"
+echo "Published $DEV_REF for Flux image discovery"
+''' % (DB_INIT_DOCKERFILE, DB_INIT_IMAGE, DB_INIT_REF, DB_INIT_IMAGE)
 local_resource(
-    'sesame-idam-db-init',
-    'chmod +x ./scripts/setup-db.sh && ./scripts/setup-db.sh',
-    deps=['./scripts/setup-db.sh'],
-    resource_deps=_db_init_deps,
-    labels=['data'],
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    auto_init=True,
+    'image-%s' % DB_INIT_IMAGE,
+    DB_INIT_BUILD,
+    deps=[
+        DB_INIT_DOCKERFILE,
+        'scripts/db-init-job.sh',
+    ],
+    labels=['database', 'images'],
+    allow_parallel=True,
 )
+
+# Break-glass / non-Flux Kind: full role+DB+migrations via kubectl exec.
+# Prefer Flux Job + sesame-idam-apply-migrations when FLUX_OWNS_DEPLOY=1.
+if not FLUX_OWNS_DEPLOY:
+    local_resource(
+        'sesame-idam-db-init',
+        'chmod +x ./scripts/setup-db.sh && ./scripts/setup-db.sh',
+        deps=['./scripts/setup-db.sh'],
+        resource_deps=['postgres'] if bundled_data_stack else [],
+        labels=['database'],
+        trigger_mode=TRIGGER_MODE_MANUAL,
+        auto_init=True,
+    )
 
 # Ad-hoc: regenerate SQL under migrations/ + apply_order.txt from Lifeguard
 # entity registries. Does NOT connect to PostgreSQL — only writes files.
-# Requires Rust toolchain.
 local_resource(
     'sesame-idam-migrate',
     'cd microservices && cargo run -p sesame_idam_migrator',
@@ -525,19 +546,15 @@ local_resource(
         './microservices/Cargo.toml',
     ],
     ignore=['./microservices/target'],
-    labels=['data'],
+    labels=['database', 'migrations'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
     allow_parallel=True,
 )
 
-# Apply ./migrations/*.sql in apply_order.txt order via kubectl exec to
-# deployment/postgres-primary (database sesame_idam).
-# Command: SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 ./scripts/setup-db.sh
-# Use after sesame-idam-migrate changes SQL, or when you added hand-written migrations
-# (e.g. migrations/rls/*.sql). Skips role/DB bootstrap; run sesame-idam-db-init first on a
-# new cluster. Same GRANT step as full setup-db.sh.
-# Usage: `tilt trigger sesame-idam-apply-migrations`
+# Rapid-development application migration cycle. Trigger after Flux
+# sesame-idam-idam foundation is Ready (role/DB/schema exist). Applies only
+# migrations/RLS/seeds/grants — role/database/schema stay Flux-owned.
 local_resource(
     'sesame-idam-apply-migrations',
     'chmod +x ./scripts/setup-db.sh && SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1 ./scripts/setup-db.sh',
@@ -552,10 +569,10 @@ local_resource(
         './microservices/idam/org-mgmt/impl/seeds',
     ],
     resource_deps=_apply_migrations_deps,
-    labels=['data'],
+    labels=['database', 'migrations'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
-    allow_parallel=True,
+    allow_parallel=False,
 )
 
 # ====================
