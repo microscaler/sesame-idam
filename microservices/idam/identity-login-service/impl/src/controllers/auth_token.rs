@@ -586,11 +586,21 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
     use std::time::{SystemTime, UNIX_EPOCH};
     
 
-    // Story 5.1: Initialize VersionStore for Redis-backed version tracking
-    let store = VersionStore::from_url("redis://127.0.0.1:6379").unwrap_or_else(|e| {
+    // Story 5.1: Initialize VersionStore for Redis-backed version tracking.
+    // URL from env (REDIS_URL) with a dev-only localhost fallback; init
+    // failure is a server_error response, never a panic (PRD-OPENGROUPWARE
+    // F5: panics forbidden on request paths).
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let store = VersionStore::from_url(&redis_url).map_err(|e| {
         tracing::error!(error = %e, "Failed to create VersionStore");
-        panic!("VersionStore initialization failed in production");
-    });
+        ErrorResponse {
+            error: "server_error".to_string(),
+            error_description: "token version store unavailable".to_string(),
+            retry_after: Some(5),
+            hint: None,
+        }
+    })?;
     // 1. Subject token is required
     let subject_token = req.subject_token.as_ref().ok_or(ErrorResponse {
         error: "invalid_request".to_string(),
@@ -706,8 +716,12 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
         &jti,
         now,
         token_ttl,
-        store.increment_subject(&subject_claims.sub).await.unwrap_or(1), // Story 5.1: version from VersionStore
+        // Story 5.1: version from VersionStore. increment_subject is sync
+        // (may-based Redis client) — the previous `.await` here was a
+        // compile error inside this sync fn.
+        store.increment_subject(&subject_claims.sub).unwrap_or(1),
         &jti, // Story 5.1: session ID (uses jti as identifier)
+        None, // dpop_jkt: DPoP not requested via token-exchange path (RFC 9449)
     );
     let new_refresh_token = build_refresh_token(&subject_claims, &jti, now);
     
@@ -783,7 +797,12 @@ fn build_access_token(
     }
     
     payload.insert("sx".into(), serde_json::json!(sx));
-    
+
+    // RFC 9449 (DPoP): bind token to the client's proof key when present.
+    if let Some(jkt) = dpop_jkt {
+        payload.insert("cnf".into(), serde_json::json!({ "jkt": jkt }));
+    }
+
     // Act claim for impersonation/delegation
     if actor.portal == SUPPORT_PORTAL || (!actor.sub.is_empty() && !actor.tenant.is_empty()) {
         let mut act_obj = serde_json::Map::new();
