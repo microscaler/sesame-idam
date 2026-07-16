@@ -42,35 +42,10 @@ sops --encrypt --in-place --input-type dotenv --output-type dotenv \
 
 ### JWT signing key (`sesame-idam-jwt-signing`)
 
-Login and session **must** share one Ed25519 key. Without it, login signs with
-`kid=dev-ephemeral` while session JWKS publishes a different `key-*` kid — Hauliage
-BFF (and any JWKS consumer) returns `401 invalid_token` even when `iss`/`aud` match.
-
-Generate and encrypt (ms02):
-
-```bash
-cd microservices/idam/common && cargo run --example print_jwt_signing_env \
-  > ../../../../deployment-configuration/profiles/dev/sesame-idam/idam/runtime/jwt-signing.secrets.env
-export SOPS_AGE_KEY_FILE=~/.config/sops/age/flux-shared-gitops
-sops --encrypt --in-place --input-type dotenv --output-type dotenv \
-  deployment-configuration/profiles/dev/sesame-idam/idam/runtime/jwt-signing.secrets.env
-```
-
-After Flux reconciles `sesame-idam-idam`, restart login + session:
-
-```bash
-kubectl -n sesame-idam rollout restart deploy/identity-login-service deploy/identity-session-service
-```
-
-Re-login and confirm token header `kid` matches `kubectl … jwks.json | jq '.keys[].kid'`.
-
-### JWT signing key (`sesame-idam-jwt-signing`)
-
-`identity-login-service` and `identity-session-service` must share one Ed25519 key
-(`SESAME_JWT_SIGNING_KEY_PKCS8_B64` + `SESAME_JWT_SIGNING_KID`). Without it, login
-signs with `kid: dev-ephemeral` while JWKS publishes a different ephemeral key —
-Hauliage BFF (and any JWKS consumer) returns `401 invalid_token` even when `iss`
-and `aud` match.
+Login and session **must** share one Ed25519 key (`SESAME_JWT_SIGNING_KEY_PKCS8_B64` +
+`SESAME_JWT_SIGNING_KID`). Without it, login signs with `kid=dev-ephemeral` while session
+JWKS publishes a different `key-*` kid — Hauliage BFF (and any JWKS consumer) returns
+`401 invalid_token` even when `iss`/`aud` match.
 
 Generate and encrypt (ms02, repo root):
 
@@ -81,5 +56,5 @@ sops --encrypt --in-place --input-type dotenv --output-type dotenv \
   deployment-configuration/profiles/dev/sesame-idam/idam/runtime/jwt-signing.secrets.env
 ```
 
-Commit the encrypted file, let Flux reconcile `sesame-idam-idam`, then restart
-login + session pods. Re-login; JWT header `kid` must match a key in JWKS.
+Commit the encrypted file, let Flux reconcile `sesame-idam-idam`, then restart login +
+session pods. Re-login; JWT header `kid` must match a key in JWKS.

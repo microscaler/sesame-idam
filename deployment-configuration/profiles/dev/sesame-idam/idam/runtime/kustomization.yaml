@@ -18,10 +18,6 @@ secretGenerator:
   - name: sesame-idam-jwt-signing
     envs:
       - jwt-signing.secrets.env
-  # Shared Ed25519 signing key: identity-login signs, identity-session publishes JWKS.
-  - name: sesame-idam-jwt-signing
-    envs:
-      - jwt-signing.secrets.env
 
 generatorOptions:
   disableNameSuffixHash: true
