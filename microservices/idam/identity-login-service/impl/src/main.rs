@@ -126,6 +126,14 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "auth_token" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::auth_token::AuthTokenController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "auth_logout" => {
                     let tx = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
                         controllers::auth_logout::handle_http,

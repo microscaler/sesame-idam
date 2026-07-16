@@ -1,8 +1,8 @@
 // Implementation for handler 'auth_token'
 // Story 6.1: RFC 8693 Token Exchange Endpoint (existing)
 // Story 6.2: Support Impersonation Flow (added below)
-use brrtrouter_macros::handler;
 use brrtrouter::typed::TypedHandlerRequest;
+use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_token::{Request, Response};
 use std::collections::HashSet;
 
@@ -89,17 +89,17 @@ pub struct ErrorResponse {
 pub fn can_delegate(actor_claims: &ActorClaim, target_user_id: &str) -> bool {
     // HACK-305: In production, actor roles MUST be verified against authz-core,
     // not just extracted from the actor token.
-    
+
     // Platform admins (portal contains "admin") can delegate any user
     if actor_claims.portal.contains("admin") {
         return true;
     }
-    
+
     // Org admins (portal contains "org_admin") can delegate users in their org
     if actor_claims.portal.contains("org_admin") {
         return true;
     }
-    
+
     // Regular users cannot delegate
     false
 }
@@ -127,7 +127,7 @@ pub fn can_impersonate(
             "Agents cannot impersonate their own account".to_string(),
         ));
     }
-    
+
     // Step 1: Agent must have support_agent role
     // HACK-601: In production, this role must be verified against authz-core,
     // NOT extracted from the JWT. The portal identifier is used as a proxy here.
@@ -136,7 +136,7 @@ pub fn can_impersonate(
             "Actor must have support_agent role to initiate impersonation".to_string(),
         ));
     }
-    
+
     // Step 2: Agent can only impersonate users in their tenant
     // HACK-606: Tenant verification is from the user record, not from the org record.
     if actor.tenant != subject.tenant {
@@ -147,22 +147,20 @@ pub fn can_impersonate(
             ),
         ));
     }
-    
+
     // Step 3: Agent must be assigned to the target user's org
     // If the actor has a specific org assignment, it must match.
     if let Some(ref agent_org) = get_actor_org(actor) {
         if let Some(ref target_org) = &subject.org_id {
             if agent_org != target_org {
-                return Err(ImpersonationError::NotInTargetOrg(
-                    format!(
-                        "Agent '{}' is assigned to org '{}' but target user '{}' is in org '{}'",
-                        actor.sub, agent_org, subject.sub, target_org
-                    ),
-                ));
+                return Err(ImpersonationError::NotInTargetOrg(format!(
+                    "Agent '{}' is assigned to org '{}' but target user '{}' is in org '{}'",
+                    actor.sub, agent_org, subject.sub, target_org
+                )));
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -223,9 +221,7 @@ pub fn has_max_concurrent_impersonations(agent_sub: &str, current_count: usize) 
 pub fn strip_admin_roles(roles: &[String]) -> Vec<String> {
     roles
         .iter()
-        .filter(|r| {
-            r != "admin" && r != "platform_admin" && r != "super_admin"
-        })
+        .filter(|r| !matches!(r.as_str(), "admin" | "platform_admin" | "super_admin"))
         .cloned()
         .collect()
 }
@@ -237,14 +233,14 @@ pub fn strip_admin_roles(roles: &[String]) -> Vec<String> {
 pub fn build_impersonation_scope(original_scope: &str, requested_scopes: &[String]) -> String {
     let original: HashSet<&str> = original_scope.split_whitespace().collect();
     let requested: HashSet<&str> = requested_scopes.iter().map(|s| s.as_str()).collect();
-    
+
     // Only allow read operations
     let allowed: Vec<&str> = requested
         .intersection(&original)
         .filter(|s| s.ends_with(":read") || **s == "openid" || **s == "profile" || **s == "email")
         .copied()
         .collect();
-    
+
     allowed.join(" ")
 }
 
@@ -269,7 +265,7 @@ impl ImpersonationError {
             Self::MaxConcurrentImpersonationsReached => "max_concurrent_impersonations_reached",
         }
     }
-    
+
     pub fn error_description(&self) -> &str {
         match self {
             Self::NotASupportAgent(msg) => msg,
@@ -295,7 +291,7 @@ pub fn merge_scopes(
     let subject_set: HashSet<&str> = subject_scopes.iter().map(|s| s.as_str()).collect();
     let requested_set: HashSet<&str> = requested_scopes.iter().map(|s| s.as_str()).collect();
     let actor_set: HashSet<&str> = actor_scopes.iter().map(|s| s.as_str()).collect();
-    
+
     // Intersection of all three
     subject_set
         .intersection(&requested_set)
@@ -332,7 +328,7 @@ fn parse_subject_token(token: &str) -> Result<SubjectClaims, ErrorResponse> {
             hint: Some("Provide a valid access token as subject_token".to_string()),
         });
     }
-    
+
     // In production, this would:
     // 1. Decode JWT
     // 2. Validate signature against JWKS (HACK-301)
@@ -340,7 +336,7 @@ fn parse_subject_token(token: &str) -> Result<SubjectClaims, ErrorResponse> {
     // 4. Check version against Redis (HACK-306)
     // 5. Check denylist (HACK-303)
     // 6. Check for act claim (HACK-603)
-    
+
     // Simplified extraction for testing
     // Parse the JWT payload portion (base64url decoded JSON)
     let parts: Vec<&str> = token.split('.').collect();
@@ -350,7 +346,7 @@ fn parse_subject_token(token: &str) -> Result<SubjectClaims, ErrorResponse> {
             return parse_jwt_claims(&payload_str);
         }
     }
-    
+
     // Fallback: return generic claims for testing
     Ok(SubjectClaims {
         sub: "subject_user".to_string(),
@@ -358,8 +354,8 @@ fn parse_subject_token(token: &str) -> Result<SubjectClaims, ErrorResponse> {
         org_id: None,
         scope: "profile:read orders:read orders:write".to_string(),
         roles: vec!["customer".to_string()],
-        ver: None,   // No version info in fallback
-        sid: None,   // No session info in fallback
+        ver: None, // No version info in fallback
+        sid: None, // No session info in fallback
         has_act: false,
         act_chain: vec![],
     })
@@ -377,13 +373,13 @@ fn parse_actor_token(token: &str) -> Result<ActorClaim, ErrorResponse> {
             hint: Some("Provide a valid access token as actor_token".to_string()),
         });
     }
-    
+
     // In production, this would:
     // 1. Decode JWT
     // 2. Validate signature against JWKS
     // 3. Verify roles against authz-core (HACK-305)
     // 4. Check for delegation permissions
-    
+
     // Simplified extraction for testing
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() == 3 {
@@ -391,7 +387,7 @@ fn parse_actor_token(token: &str) -> Result<ActorClaim, ErrorResponse> {
             return parse_actor_claims_from_jwt(&payload_str);
         }
     }
-    
+
     // Fallback for testing
     Ok(ActorClaim {
         sub: "actor_user".to_string(),
@@ -405,38 +401,39 @@ fn parse_actor_token(token: &str) -> Result<ActorClaim, ErrorResponse> {
 /// Extract claims from a decoded JWT payload.
 fn parse_jwt_claims(payload_str: &str) -> Result<SubjectClaims, ErrorResponse> {
     // Use serde to deserialize JSON
-    let value: serde_json::Value = serde_json::from_str(payload_str).map_err(|_| ErrorResponse {
-        error: "invalid_token".to_string(),
-        error_description: "Subject token payload is not valid JSON".to_string(),
-        retry_after: None,
-        hint: Some("The subject token is not a valid JWT".to_string()),
-    })?;
-    
+    let value: serde_json::Value =
+        serde_json::from_str(payload_str).map_err(|_| ErrorResponse {
+            error: "invalid_token".to_string(),
+            error_description: "Subject token payload is not valid JSON".to_string(),
+            retry_after: None,
+            hint: Some("The subject token is not a valid JWT".to_string()),
+        })?;
+
     let sub = value
         .get("sub")
         .and_then(|v| v.as_str())
         .unwrap_or("subject_user")
         .to_string();
-    
+
     let tenant = value
         .get("tenant_id")
         .or_else(|| value.get("sx").and_then(|sx| sx.get("tenant_id")))
         .and_then(|v| v.as_str())
         .unwrap_or("default-tenant")
         .to_string();
-    
+
     let org_id = value
         .get("sx")
         .and_then(|sx| sx.get("org_id"))
         .and_then(|v| v.as_str())
         .map(String::from);
-    
+
     let scope = value
         .get("scope")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    
+
     let roles = value
         .get("sx")
         .and_then(|sx| sx.get("roles"))
@@ -447,10 +444,10 @@ fn parse_jwt_claims(payload_str: &str) -> Result<SubjectClaims, ErrorResponse> {
                 .collect()
         })
         .unwrap_or_default();
-    
+
     // HACK-603: Check if this token has an act claim (impersonation chain prevention)
     let has_act = value.get("act").is_some();
-    
+
     let act_chain = value
         .get("act")
         .and_then(|act| act.get("chain"))
@@ -461,15 +458,12 @@ fn parse_jwt_claims(payload_str: &str) -> Result<SubjectClaims, ErrorResponse> {
                 .collect()
         })
         .unwrap_or_default();
-    
+
     // Story 5.1: Extract token version (ver) and session ID (sid)
     let ver = value.get("ver").and_then(|v| v.as_u64());
-    
-    let sid = value
-        .get("sid")
-        .and_then(|v| v.as_str())
-        .map(String::from);
-    
+
+    let sid = value.get("sid").and_then(|v| v.as_str()).map(String::from);
+
     Ok(SubjectClaims {
         sub,
         tenant,
@@ -485,41 +479,41 @@ fn parse_jwt_claims(payload_str: &str) -> Result<SubjectClaims, ErrorResponse> {
 
 /// Extract actor claims from a decoded JWT payload.
 fn parse_actor_claims_from_jwt(payload_str: &str) -> Result<ActorClaim, ErrorResponse> {
-    let value: serde_json::Value = serde_json::from_str(payload_str).map_err(|_| ErrorResponse {
-        error: "invalid_token".to_string(),
-        error_description: "Actor token payload is not valid JSON".to_string(),
-        retry_after: None,
-        hint: Some("The actor token is not a valid JWT".to_string()),
-    })?;
-    
+    let value: serde_json::Value =
+        serde_json::from_str(payload_str).map_err(|_| ErrorResponse {
+            error: "invalid_token".to_string(),
+            error_description: "Actor token payload is not valid JSON".to_string(),
+            retry_after: None,
+            hint: Some("The actor token is not a valid JWT".to_string()),
+        })?;
+
     let sub = value
         .get("sub")
         .and_then(|v| v.as_str())
         .unwrap_or("actor_user")
         .to_string();
-    
+
     let tenant = value
         .get("tenant_id")
         .or_else(|| value.get("sx").and_then(|sx| sx.get("tenant_id")))
         .and_then(|v| v.as_str())
         .unwrap_or("default-tenant")
         .to_string();
-    
+
     let portal = value
         .get("sx")
         .and_then(|sx| sx.get("portal"))
-        .and_then(|v| v.as_str())
         .or_else(|| value.get("portal"))
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    
+
     let scope = value
         .get("scope")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    
+
     // Extract chain for nested delegation
     let chain = value
         .get("act")
@@ -530,7 +524,7 @@ fn parse_actor_claims_from_jwt(payload_str: &str) -> Result<ActorClaim, ErrorRes
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect()
         });
-    
+
     Ok(ActorClaim {
         sub,
         tenant,
@@ -546,7 +540,7 @@ fn parse_actor_claims_from_jwt(payload_str: &str) -> Result<ActorClaim, ErrorRes
 
 /// Base64url decode a string.
 fn decode_b64url(data: &str) -> Result<String, String> {
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     let bytes = general_purpose::URL_SAFE_NO_PAD
         .decode(data)
         .map_err(|e| e.to_string())?;
@@ -555,7 +549,7 @@ fn decode_b64url(data: &str) -> Result<String, String> {
 
 /// Base64url encode a string.
 fn encode_b64url(data: &str) -> String {
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     general_purpose::URL_SAFE_NO_PAD.encode(data.as_bytes())
 }
 
@@ -582,9 +576,8 @@ fn encode_b64url(data: &str) -> String {
 /// HACK-606: Tenant verification from user database, not derived from org.
 /// HACK-609: Maximum 3 concurrent impersonations per agent.
 pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, ErrorResponse> {
-    use uuid::Uuid;
     use std::time::{SystemTime, UNIX_EPOCH};
-    
+    use uuid::Uuid;
 
     // Story 5.1: Initialize VersionStore for Redis-backed version tracking.
     // URL from env (REDIS_URL) with a dev-only localhost fallback; init
@@ -608,23 +601,28 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
         retry_after: None,
         hint: Some("Include subject_token in the request body".to_string()),
     })?;
-    
+
     let has_actor = req.actor_token.is_some();
-    
+
     // 2. Parse and validate subject token
     let subject_claims = parse_subject_token(subject_token)?;
-    
+
     // HACK-603: Reject if subject token already has an act claim
     // (prevents impersonation chains)
     if is_impersonation_token(&subject_claims) {
         return Err(ErrorResponse {
             error: "unauthorized_client".to_string(),
-            error_description: "Subject token has an act claim and cannot be used for further delegation".to_string(),
+            error_description:
+                "Subject token has an act claim and cannot be used for further delegation"
+                    .to_string(),
             retry_after: None,
-            hint: Some("Use the original user token, not an impersonation token, for token exchange".to_string()),
+            hint: Some(
+                "Use the original user token, not an impersonation token, for token exchange"
+                    .to_string(),
+            ),
         });
     }
-    
+
     // 3. Parse and validate actor token (optional)
     let actor_claims = match &req.actor_token {
         Some(token) => parse_actor_token(token)?,
@@ -633,12 +631,12 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
             ActorClaim::default()
         }
     };
-    
+
     // 4. Check delegation/impersonation permission
     // For support impersonation: use can_impersonate()
     // For general delegation: use can_delegate()
     let is_impersonation = actor_claims.portal == SUPPORT_PORTAL;
-    
+
     if is_impersonation {
         // Support impersonation flow (Story 6.2)
         if let Err(imp_err) = can_impersonate(&actor_claims, &subject_claims) {
@@ -649,37 +647,45 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
                 hint: Some("Contact your administrator".to_string()),
             });
         }
-        
+
         // HACK-609: Check max concurrent impersonations
         // In production, query Redis: `impersonation:agent:{agent_sub}`
         // For now, we skip this check (would need Redis connection)
-    } else {
-        // General delegation (Story 6.1)
+    } else if has_actor {
+        // General delegation (Story 6.1). Without an actor_token this is
+        // self-delegation (HACK-304): the subject re-issues its own token,
+        // so no delegation permission or cross-tenant check applies.
         if !can_delegate(&actor_claims, &subject_claims.sub) {
             return Err(ErrorResponse {
                 error: "invalid_request".to_string(),
-                error_description: "Actor does not have permission to delegate on behalf of subject".to_string(),
+                error_description:
+                    "Actor does not have permission to delegate on behalf of subject".to_string(),
                 retry_after: None,
                 hint: Some("Actor must have platform_admin or org_admin role".to_string()),
             });
         }
-        
+
         // HACK-310: Cross-tenant delegation rejected
         if actor_claims.tenant != subject_claims.tenant {
             return Err(ErrorResponse {
                 error: "invalid_request".to_string(),
-                error_description: "Tenant mismatch: actor and subject must be from the same tenant".to_string(),
+                error_description:
+                    "Tenant mismatch: actor and subject must be from the same tenant".to_string(),
                 retry_after: None,
-                hint: Some("Ensure actor_token and subject_token are from the same tenant".to_string()),
+                hint: Some(
+                    "Ensure actor_token and subject_token are from the same tenant".to_string(),
+                ),
             });
         }
     }
-    
+
     // 5. Merge scopes
-    let requested_scopes = req.scope.as_ref()
+    let requested_scopes = req
+        .scope
+        .as_ref()
         .map(|s| parse_scopes(s))
         .unwrap_or_default();
-    
+
     let subject_scopes = parse_scopes(&subject_claims.scope);
     let actor_scopes = if is_impersonation {
         // For impersonation: build restricted read-only scope
@@ -689,17 +695,17 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
         // For general delegation: intersect all scopes
         parse_scopes(&actor_claims.scope)
     };
-    
+
     let merged_scopes = merge_scopes(&subject_scopes, &requested_scopes, &actor_scopes);
-    
+
     // 6. Issue new token
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
-    
+
     let jti = Uuid::new_v4().to_string();
-    
+
     // Determine TTL
     let token_ttl = if is_impersonation {
         // HACK-605: Impersonation tokens get a short, hardcoded TTL
@@ -708,7 +714,7 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
         // General delegation: standard TTL
         300
     };
-    
+
     let new_access_token = build_access_token(
         &subject_claims,
         &actor_claims,
@@ -722,9 +728,9 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
         store.increment_subject(&subject_claims.sub).unwrap_or(1),
         &jti, // Story 5.1: session ID (uses jti as identifier)
         None, // dpop_jkt: DPoP not requested via token-exchange path (RFC 9449)
-    );
-    let new_refresh_token = build_refresh_token(&subject_claims, &jti, now);
-    
+    )?;
+    let new_refresh_token = build_refresh_token(&subject_claims, &jti, now)?;
+
     Ok(TokenExchangeResult {
         access_token: new_access_token,
         refresh_token: new_refresh_token,
@@ -758,30 +764,34 @@ fn build_access_token(
     token_version: u64,
     session_id: &str,
     dpop_jkt: Option<&str>,
-) -> String {
+) -> Result<String, ErrorResponse> {
     use uuid::Uuid;
-    
+
     // Build JWT payload
     let mut payload = serde_json::Map::new();
     payload.insert("sub".into(), serde_json::json!(subject.sub));
-    payload.insert("iss".into(), serde_json::json!("https://idam.example.com"));
+    payload.insert(
+        "iss".into(),
+        serde_json::json!(std::env::var("SESAME_JWT_ISSUER")
+            .unwrap_or_else(|_| "https://idam.example.com".to_string())),
+    );
     payload.insert("iat".into(), serde_json::json!(now));
     payload.insert("exp".into(), serde_json::json!(now + (ttl as i64)));
     payload.insert("jti".into(), serde_json::json!(jti));
     payload.insert("tenant_id".into(), serde_json::json!(subject.tenant));
-    
+
     // Story 5.1: Include ver (token version) and sid (session ID) in every access token
     payload.insert("ver".into(), serde_json::json!(token_version));
     payload.insert("sid".into(), serde_json::json!(session_id));
-    
+
     // Scope
     if !merged_scopes.is_empty() {
         payload.insert("scope".into(), serde_json::json!(merged_scopes.join(" ")));
     }
-    
+
     // sx (structured claims)
     let mut sx = serde_json::Map::new();
-    
+
     // HACK-602: Strip admin roles for impersonation tokens
     let roles = if actor.portal == SUPPORT_PORTAL {
         // Strip admin/platform_admin from impersonated user's roles
@@ -789,13 +799,13 @@ fn build_access_token(
     } else {
         subject.roles.clone()
     };
-    
+
     sx.insert("roles".into(), serde_json::json!(roles));
-    
+
     if let Some(ref org_id) = subject.org_id {
         sx.insert("org_id".into(), serde_json::json!(org_id));
     }
-    
+
     payload.insert("sx".into(), serde_json::json!(sx));
 
     // RFC 9449 (DPoP): bind token to the client's proof key when present.
@@ -809,7 +819,7 @@ fn build_access_token(
         act_obj.insert("sub".into(), serde_json::json!(actor.sub));
         act_obj.insert("tenant".into(), serde_json::json!(actor.tenant));
         act_obj.insert("portal".into(), serde_json::json!(actor.portal));
-        
+
         // HACK-604: Build chain for nested delegation
         if !subject.act_chain.is_empty() {
             let mut chain = subject.act_chain.clone();
@@ -820,45 +830,54 @@ fn build_access_token(
             }
             act_obj.insert("chain".into(), serde_json::json!(chain));
         }
-        
+
         payload.insert("act".into(), serde_json::json!(act_obj));
     }
-    
-    let header = serde_json::json!({
-        "alg": "RS256",
-        "typ": "at+jwt",
-        "kid": "default-key",
-    });
-    
-    let header_b64 = encode_b64url(&header.to_string());
-    let payload_b64 = encode_b64url(&serde_json::to_string(&serde_json::Value::Object(payload)).unwrap_or_default());
-    
-    // In production, sign with RS256 using the service's private key
-    // For now, return a placeholder token
-    format!("{}.{}.placeholder_signature", header_b64, payload_b64)
+
+    // Sign with the shared Ed25519 platform signer (same key whose public
+    // half identity-session-service publishes in JWKS). Header carries
+    // {"alg":"EdDSA","typ":"at+jwt","kid":<env kid>}.
+    let payload_json =
+        serde_json::to_string(&serde_json::Value::Object(payload)).map_err(|e| ErrorResponse {
+            error: "server_error".to_string(),
+            error_description: format!("claims serialization failed: {e}"),
+            retry_after: None,
+            hint: None,
+        })?;
+    crate::services::token_issuer::SIGNER
+        .sign_payload(&payload_json)
+        .map_err(|e| ErrorResponse {
+            error: "server_error".to_string(),
+            error_description: format!("token signing failed: {e}"),
+            retry_after: None,
+            hint: None,
+        })
 }
 
-/// Build a new refresh token.
-fn build_refresh_token(subject: &SubjectClaims, jti: &str, now: i64) -> String {
+/// Build a new refresh token, signed by the shared Ed25519 platform signer.
+fn build_refresh_token(
+    subject: &SubjectClaims,
+    jti: &str,
+    now: i64,
+) -> Result<String, ErrorResponse> {
     let payload = serde_json::json!({
         "sub": subject.sub,
-        "iss": "https://idam.example.com",
+        "iss": std::env::var("SESAME_JWT_ISSUER")
+            .unwrap_or_else(|_| "https://idam.example.com".to_string()),
         "iat": now,
         "exp": now + (30 * 24 * 3600), // 30 days
         "jti": jti,
         "type": "refresh_token",
     });
-    
-    let header = serde_json::json!({
-        "alg": "RS256",
-        "typ": "at+jwt",
-        "kid": "default-key",
-    });
-    
-    let header_b64 = encode_b64url(&header.to_string());
-    let payload_b64 = encode_b64url(&payload.to_string());
-    
-    format!("{}.{}.placeholder_signature", header_b64, payload_b64)
+
+    crate::services::token_issuer::SIGNER
+        .sign_payload(&payload.to_string())
+        .map_err(|e| ErrorResponse {
+            error: "server_error".to_string(),
+            error_description: format!("refresh token signing failed: {e}"),
+            retry_after: None,
+            hint: None,
+        })
 }
 
 // ─── Main Handler ────────────────────────────────────────────────────────
@@ -872,156 +891,98 @@ fn build_refresh_token(subject: &SubjectClaims, jti: &str, now: i64) -> String {
 #[handler(AuthTokenController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
-    use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
-    
-    // Span: track token issuance events
+    use sesame_common::audit::{AuditEventType, AuditLogEntry};
+
     let span = tracing::span!(
         tracing::Level::INFO,
         "token.issue",
-        grant_type = req.inner.grant_type.as_str(),
+        grant_type = req.data.grant_type.as_str(),
         user_id = tracing::field::Empty,
     );
     let _guard = span.enter();
-    
-    // Handle token exchange (RFC 8693 + Story 6.2 support impersonation)
-    if req.inner.grant_type == "urn:ietf:params:oauth:grant-type:token-exchange" {
-        match handle_token_exchange(&req.inner) {
+
+    let tenant_id = req.data.x_tenant_id.clone();
+    let emit_audit = |success: bool, reason: &str| {
+        let event_type = if success {
+            AuditEventType::JwtIssued
+        } else {
+            AuditEventType::ValidationFailed
+        };
+        match AuditLogEntry::new(event_type, "identity-login-service")
+            .tenant_id(tenant_id.clone())
+            .decision_source("token_exchange")
+            .result(if success { "allowed" } else { "denied" })
+            .reason(reason.to_string())
+            .build()
+        {
+            Ok(entry) => EMITTER.emit(entry),
+            Err(e) => tracing::warn!(error = %e, "auth_token: audit entry build failed"),
+        }
+    };
+
+    let empty_denied = |scope: Option<String>| Response {
+        access_token: String::new(),
+        token_type: "Bearer".to_string(),
+        expires_in: 0,
+        refresh_token: String::new(),
+        refresh_token_expires_in: None,
+        user_id: String::new(),
+        id_token: None,
+        mfa_required: None,
+        scope,
+        entitlements_hash: None,
+        entitlements_ref: None,
+        permissions: None,
+        roles: None,
+        token_version: None,
+    };
+
+    // RFC 8693 token exchange (+ Story 6.2 support impersonation)
+    if req.data.grant_type == "urn:ietf:params:oauth:grant-type:token-exchange" {
+        match handle_token_exchange(&req.data) {
             Ok(exchange_result) => {
                 span.record("result", "success");
-                span.record("user_id", exchange_result.access_token.chars().take(8).collect::<String>());
-                
-                // Audit log: token exchange success
-                EMITTER.emit(AuditEvent {
-                    event_type: AuditEventType::TokenExchange,
-                    actor: AuditActor::Anonymous,
-                    severity: AuditSeverity::Info,
-                    message: format!(
-                        "Token exchange succeeded. act={:?}",
-                        exchange_result.act
-                    ),
-                    metadata: serde_json::json!({
-                        "grant_type": "token_exchange",
-                        "scope": exchange_result.scope,
-                        "expires_in": exchange_result.expires_in,
-                        "has_act": exchange_result.act.is_some(),
-                    }),
-                });
-                
-                // Convert TokenExchangeResult to Response
+                emit_audit(
+                    true,
+                    if exchange_result.act.is_some() {
+                        "token_exchange_impersonation"
+                    } else {
+                        "token_exchange"
+                    },
+                );
                 return Response {
                     access_token: exchange_result.access_token,
                     token_type: exchange_result.token_type,
                     expires_in: exchange_result.expires_in,
                     refresh_token: exchange_result.refresh_token,
-                    refresh_token_expires_in: Some(86400), // 30 days
-                    user_id: "subject_user".to_string(),
-                    email: None,
-                    email_verified: None,
-                    phone_verified: None,
-                    mfa_required: None,
+                    refresh_token_expires_in: Some(30 * 24 * 3600),
+                    user_id: "subject".to_string(),
                     id_token: None,
+                    mfa_required: None,
                     scope: exchange_result.scope,
+                    entitlements_hash: None,
+                    entitlements_ref: None,
+                    permissions: None,
+                    roles: None,
+                    token_version: None,
                 };
             }
             Err(err) => {
                 span.record("result", "denied");
                 span.record("error", &err.error);
-                
-                // Audit log: token exchange failure
-                EMITTER.emit(AuditEvent {
-                    event_type: AuditEventType::TokenExchange,
-                    actor: AuditActor::Anonymous,
-                    severity: AuditSeverity::Warning,
-                    message: format!(
-                        "Token exchange failed: {} - {}",
-                        err.error, err.error_description
-                    ),
-                    metadata: serde_json::json!({
-                        "error": err.error,
-                        "error_description": err.error_description,
-                    }),
-                });
-                
-                return Response {
-                    access_token: "".to_string(),
-                    token_type: "Bearer".to_string(),
-                    expires_in: 0,
-                    refresh_token: "".to_string(),
-                    refresh_token_expires_in: None,
-                    user_id: "".to_string(),
-                    email: None,
-                    email_verified: None,
-                    phone_verified: None,
-                    mfa_required: None,
-                    id_token: None,
-                    scope: None,
-                };
+                emit_audit(false, &err.error);
+                return empty_denied(None);
             }
         }
     }
-    
-    // Handle other grant types (refresh_token, client_credentials)
-    match req.inner.grant_type.as_str() {
-        "refresh_token" => {
-            let user_id = req.inner.refresh_token.clone().unwrap_or_default();
-            
-            span.record("user_id", &user_id);
-            span.record("result", "success");
-            
-            Response {
-                access_token: format!("access_{}", uuid::Uuid::new_v4()),
-                token_type: "Bearer".to_string(),
-                expires_in: 3600,
-                refresh_token: format!("refresh_{}", uuid::Uuid::new_v4()),
-                refresh_token_expires_in: Some(86400),
-                user_id,
-                email: None,
-                email_verified: None,
-                phone_verified: None,
-                mfa_required: None,
-                id_token: None,
-                scope: req.inner.scope,
-            }
-        }
-        "client_credentials" => {
-            span.record("result", "denied");
-            span.record("error", "client_credentials_not_implemented");
-            
-            Response {
-                access_token: "".to_string(),
-                token_type: "Bearer".to_string(),
-                expires_in: 0,
-                refresh_token: "".to_string(),
-                refresh_token_expires_in: None,
-                user_id: "".to_string(),
-                email: None,
-                email_verified: None,
-                phone_verified: None,
-                mfa_required: None,
-                id_token: None,
-                scope: req.inner.scope,
-            }
-        }
-        _ => {
-            span.record("result", "denied");
-            span.record("error", "unsupported_grant_type");
-            
-            Response {
-                access_token: "".to_string(),
-                token_type: "Bearer".to_string(),
-                expires_in: 0,
-                refresh_token: "".to_string(),
-                refresh_token_expires_in: None,
-                user_id: "".to_string(),
-                email: None,
-                email_verified: None,
-                phone_verified: None,
-                mfa_required: None,
-                id_token: None,
-                scope: "".to_string(),
-            }
-        }
-    }
+
+    // Other grant types: not implemented on this path yet. refresh_token
+    // rotation lives in identity-session-service /auth/refresh;
+    // client_credentials is PRD-OPENGROUPWARE F1 scope.
+    span.record("result", "denied");
+    span.record("error", "unsupported_grant_type");
+    emit_audit(false, "unsupported_grant_type");
+    empty_denied(req.data.scope)
 }
 
 // ─── Tests: Story 6.2 — Support Impersonation Flow ───────────────────────
@@ -1029,6 +990,22 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// gen Request implements no Default — full base value for tests.
+    fn base_request() -> Request {
+        Request {
+            actor_token: None,
+            client_id: None,
+            client_secret: None,
+            grant_type: String::new(),
+            refresh_token: None,
+            requested_token_type: None,
+            scope: None,
+            subject_token: None,
+            subject_token_type: None,
+            x_tenant_id: String::new(),
+        }
+    }
 
     // ── can_impersonate Tests ──────────────────────────────────────────
 
@@ -1048,7 +1025,8 @@ mod tests {
             scope: "profile:read orders:read".to_string(),
             roles: vec!["customer".to_string()],
 
-
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1071,7 +1049,8 @@ mod tests {
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
 
-
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1094,6 +1073,8 @@ mod tests {
             org_id: Some("org_456".to_string()),
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1116,6 +1097,8 @@ mod tests {
             org_id: Some("org_789".to_string()),
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1138,6 +1121,8 @@ mod tests {
             org_id: Some("org_123".to_string()),
             scope: "profile:read".to_string(),
             roles: vec!["support_agent".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1160,6 +1145,8 @@ mod tests {
             org_id: None,
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1178,7 +1165,7 @@ mod tests {
             scope: Some("profile:read".to_string()),
             subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
             x_tenant_id: "tenant_abc".to_string(),
-            ..Default::default()
+            ..base_request()
         };
         let result = handle_token_exchange(&req).unwrap();
         assert!(result.act.is_some());
@@ -1195,7 +1182,7 @@ mod tests {
             scope: Some("profile:read".to_string()),
             subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
             x_tenant_id: "tenant_abc".to_string(),
-            ..Default::default()
+            ..base_request()
         };
         let result = handle_token_exchange(&req).unwrap();
         assert_eq!(result.expires_in, MAX_IMPERSONATION_TTL_SECS);
@@ -1224,7 +1211,7 @@ mod tests {
             scope: Some("profile:read".to_string()),
             subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
             x_tenant_id: "tenant_abc".to_string(),
-            ..Default::default()
+            ..base_request()
         };
         let err = handle_token_exchange(&req).unwrap_err();
         assert_eq!(err.error, "unauthorized_client");
@@ -1240,10 +1227,44 @@ mod tests {
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
             x_tenant_id: "tenant_abc".to_string(),
-            ..Default::default()
+            ..base_request()
         };
         let result = handle_token_exchange(&req).unwrap();
         assert!(result.act.is_none());
+    }
+
+    #[test]
+    fn test_exchange_tokens_are_eddsa_signed() {
+        // PRD-OPENGROUPWARE F1: exchange output must be signed by the shared
+        // platform signer — no more placeholder signatures.
+        let req = Request {
+            grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
+            subject_token: Some("subject_token".to_string()),
+            actor_token: None,
+            scope: Some("profile:read".to_string()),
+            subject_token_type: None,
+            x_tenant_id: "tenant_abc".to_string(),
+            ..base_request()
+        };
+        let result = handle_token_exchange(&req).unwrap();
+
+        for token in [&result.access_token, &result.refresh_token] {
+            assert!(
+                !token.ends_with(".placeholder_signature"),
+                "placeholder signature must be gone"
+            );
+            // Verifies against the process signer's public key.
+            crate::services::token_issuer::SIGNER
+                .verify(token)
+                .expect("token must verify against the platform signer");
+            // Header must advertise EdDSA with the signer's kid.
+            let header_b64 = token.split('.').next().unwrap();
+            let header: serde_json::Value =
+                serde_json::from_str(&super::decode_b64url(header_b64).expect("header decodes"))
+                    .expect("header is JSON");
+            assert_eq!(header["alg"], "EdDSA");
+            assert_eq!(header["kid"], crate::services::token_issuer::SIGNER.kid());
+        }
     }
 
     #[test]
@@ -1255,7 +1276,7 @@ mod tests {
             scope: None,
             subject_token_type: None,
             x_tenant_id: "tenant_abc".to_string(),
-            ..Default::default()
+            ..base_request()
         };
         let err = handle_token_exchange(&req).unwrap_err();
         assert_eq!(err.error, "invalid_request");
@@ -1342,6 +1363,8 @@ mod tests {
             org_id: Some("org_123".to_string()),
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: true,
             act_chain: vec!["agent_456".to_string()],
         };
@@ -1353,6 +1376,8 @@ mod tests {
             org_id: None,
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1368,10 +1393,10 @@ mod tests {
             scope: "profile:read".to_string(),
             chain: None,
         });
-        assert!(!can_access_admin_routes(&act));
+        assert!(!can_access_admin_routes(&act.as_ref()));
 
         let no_act: Option<ActorClaim> = None;
-        assert!(can_access_admin_routes(&no_act));
+        assert!(can_access_admin_routes(&no_act.as_ref()));
     }
 
     #[test]
@@ -1516,6 +1541,8 @@ mod tests {
             org_id: Some("org_123".to_string()),
             scope: "profile:read orders:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1537,6 +1564,8 @@ mod tests {
             org_id: None,
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
@@ -1587,12 +1616,13 @@ mod tests {
             org_id: Some("org_123".to_string()),
             scope: "profile:read".to_string(),
             roles: vec!["customer".to_string()],
+            ver: None,
+            sid: None,
             has_act: false,
             act_chain: vec![],
         };
         assert!(can_impersonate(&actor, &subject).is_ok());
     }
-}
 
     // ── Story 3.4: can_delegate Unit Tests ─────────────────────────────
 
@@ -1690,7 +1720,7 @@ mod tests {
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
             x_tenant_id: "tenant_mismatch".to_string(),
-            ..Default::default()
+            ..base_request()
         };
 
         let err = handle_token_exchange(&req).unwrap_err();
@@ -1724,7 +1754,7 @@ mod tests {
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
             x_tenant_id: "same-tenant".to_string(),
-            ..Default::default()
+            ..base_request()
         };
 
         let result = handle_token_exchange(&req).unwrap();
@@ -1814,7 +1844,7 @@ mod tests {
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
             x_tenant_id: "tenant_a".to_string(),
-            ..Default::default()
+            ..base_request()
         };
 
         let result = handle_token_exchange(&req).unwrap();
@@ -1853,14 +1883,16 @@ mod tests {
             scope: Some("profile:read orders:write".to_string()),
             subject_token_type: None,
             x_tenant_id: "tenant_a".to_string(),
-            ..Default::default()
+            ..base_request()
         };
 
         let result = handle_token_exchange(&req).unwrap();
         // actor only has "profile:read", so result should not contain "orders:write"
         if let Some(ref scope) = result.scope {
-            assert!(!scope.contains("orders:write"),
-                "Actor should not delegate scopes they don't have");
+            assert!(
+                !scope.contains("orders:write"),
+                "Actor should not delegate scopes they don't have"
+            );
         }
     }
 
@@ -1891,7 +1923,7 @@ mod tests {
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
             x_tenant_id: "tenant_a".to_string(),
-            ..Default::default()
+            ..base_request()
         };
 
         let result = handle_token_exchange(&req).unwrap();
@@ -1912,7 +1944,7 @@ mod tests {
             scope: None,
             subject_token_type: None,
             x_tenant_id: "tenant_a".to_string(),
-            ..Default::default()
+            ..base_request()
         };
 
         let err = handle_token_exchange(&req).unwrap_err();
@@ -1945,7 +1977,7 @@ mod tests {
             scope: Some("".to_string()),
             subject_token_type: None,
             x_tenant_id: "tenant_a".to_string(),
-            ..Default::default()
+            ..base_request()
         };
 
         let result = handle_token_exchange(&req).unwrap();
@@ -1981,14 +2013,16 @@ mod tests {
             scope: Some("profile:read orders:write".to_string()),
             subject_token_type: None,
             x_tenant_id: "tenant_a".to_string(),
-            ..Default::default()
+            ..base_request()
         };
 
         let result = handle_token_exchange(&req).unwrap();
         // The merged scopes should not include orders:write since subject doesn't have it
         if let Some(ref scope) = result.scope {
-            assert!(!scope.contains("orders:write"),
-                "Actor cannot escalate: subject has no orders:write scope");
+            assert!(
+                !scope.contains("orders:write"),
+                "Actor cannot escalate: subject has no orders:write scope"
+            );
         }
     }
 }

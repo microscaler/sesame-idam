@@ -1,11 +1,12 @@
 // User-owned controller for handler 'search_audit_events'.
 
 use crate::handlers::search_audit_events::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(SearchAuditEventsController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "events": [
@@ -51,12 +52,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "total": 142
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {}
+    HttpJson::ok(Response {})
 }

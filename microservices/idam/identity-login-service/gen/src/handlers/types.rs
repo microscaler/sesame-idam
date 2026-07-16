@@ -11,20 +11,23 @@ pub struct AuthForgotPasswordRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthForgotPasswordResponse {
-    pub expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_in: Option<i32>,
 
     pub message: String,
 
     pub success: bool,
 
-    pub token_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_type: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthLoginRequest {
     pub email: String,
 
-    pub organization_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization_id: Option<String>,
 
     pub password: String,
 }
@@ -33,91 +36,117 @@ pub struct AuthLoginRequest {
 pub struct AuthLoginResponse {
     pub access_token: String,
 
-    pub entitlements_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
 
-    pub entitlements_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
 
-    pub mfa_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
 
-    pub permissions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     pub refresh_token: String,
 
-    pub refresh_token_expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
 
-    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 
-    pub token_version: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
 
     pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthLogoutRequest {
-    pub refresh_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthLogoutResponse {
     pub error: String,
 
-    pub error_description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
 
-    pub hint: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
 
-    pub retry_after: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthRegisterRequest {
     pub email: String,
 
-    pub first_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_name: Option<String>,
 
-    pub last_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_name: Option<String>,
 
     pub password: String,
 
-    pub phone: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
 
-    pub username: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthRegisterResponse {
     pub access_token: String,
 
-    pub entitlements_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
 
-    pub entitlements_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
 
-    pub mfa_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
 
-    pub permissions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     pub refresh_token: String,
 
-    pub refresh_token_expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
 
-    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 
-    pub token_version: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
 
     pub user_id: String,
 }
@@ -131,68 +160,89 @@ pub struct AuthResetPasswordRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthResetPasswordResponse {
-    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
-    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub success: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthTokenRequest {
-    pub actor_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_token: Option<String>,
 
-    pub client_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
 
-    pub client_secret: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_secret: Option<String>,
 
     pub grant_type: String,
 
-    pub refresh_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
 
-    pub requested_token_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_token_type: Option<String>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
-    pub subject_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_token: Option<String>,
 
-    pub subject_token_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_token_type: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthTokenResponse {
     pub access_token: String,
 
-    pub entitlements_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
 
-    pub entitlements_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
 
-    pub mfa_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
 
-    pub permissions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     pub refresh_token: String,
 
-    pub refresh_token_expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
 
-    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 
-    pub token_version: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
 
     pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct DualOTPCompleteResponse {
-    pub newly_verified_email: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub newly_verified_email: Option<bool>,
 
-    pub newly_verified_phone: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub newly_verified_phone: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -201,7 +251,8 @@ pub struct DualOTPPartialResponse {
 
     pub email_verified: bool,
 
-    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     pub phone_verified: bool,
 
@@ -214,22 +265,27 @@ pub struct DualOTPRequest {
 
     pub phone: String,
 
-    pub send_welcome_email: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub send_welcome_email: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct DualOTPResponse {
-    pub both_verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub both_verified: Option<bool>,
 
     pub email_sent: bool,
 
-    pub email_verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_verified: Option<bool>,
 
-    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     pub phone_sent: bool,
 
-    pub phone_verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_verified: Option<bool>,
 
     pub success: bool,
 }
@@ -238,13 +294,16 @@ pub struct DualOTPResponse {
 pub struct DualOTPVerifyRequest {
     pub email: String,
 
-    pub email_code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_code: Option<String>,
 
     pub phone: String,
 
-    pub phone_code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_code: Option<String>,
 
-    pub session_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -261,7 +320,8 @@ pub struct EmailOTPVerifyRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct EntitlementsSnapshot {
-    pub hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hash: Option<String>,
 
     pub permissions: Vec<String>,
 
@@ -276,11 +336,14 @@ pub struct EntitlementsSnapshot {
 pub struct ErrorResponse {
     pub error: String,
 
-    pub error_description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
 
-    pub hint: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
 
-    pub retry_after: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -294,17 +357,23 @@ pub struct GetUserProfileResponse {
 
     pub email_verified: bool,
 
-    pub first_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_name: Option<String>,
 
-    pub last_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_name: Option<String>,
 
-    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 
-    pub phone_number: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_number: Option<String>,
 
-    pub phone_verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_verified: Option<bool>,
 
-    pub preferred_username: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preferred_username: Option<String>,
 
     pub user_id: String,
 }
@@ -315,22 +384,27 @@ pub struct LoginDualOtpRequest {
 
     pub phone: String,
 
-    pub send_welcome_email: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub send_welcome_email: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LoginDualOtpResponse {
-    pub both_verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub both_verified: Option<bool>,
 
     pub email_sent: bool,
 
-    pub email_verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_verified: Option<bool>,
 
-    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     pub phone_sent: bool,
 
-    pub phone_verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_verified: Option<bool>,
 
     pub success: bool,
 }
@@ -342,9 +416,11 @@ pub struct LoginEmailOtpRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LoginEmailOtpResponse {
-    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
-    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub success: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -354,23 +430,27 @@ pub struct LoginPhoneOtpRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LoginPhoneOtpResponse {
-    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
-    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub success: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LoginRequest {
     pub email: String,
 
-    pub organization_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization_id: Option<String>,
 
     pub password: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LogoutRequest {
-    pub refresh_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -380,7 +460,8 @@ pub struct MagicLinkRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MagicLinkResponse {
-    pub expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_in: Option<i32>,
 
     pub magic_link_sent: bool,
 }
@@ -392,7 +473,8 @@ pub struct MagicLinkSendRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MagicLinkSendResponse {
-    pub expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_in: Option<i32>,
 
     pub magic_link_sent: bool,
 }
@@ -406,29 +488,38 @@ pub struct MagicLinkVerifyRequest {
 pub struct MagicLinkVerifyResponse {
     pub access_token: String,
 
-    pub entitlements_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
 
-    pub entitlements_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
 
-    pub mfa_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
 
-    pub permissions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     pub refresh_token: String,
 
-    pub refresh_token_expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
 
-    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 
-    pub token_version: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
 
     pub user_id: String,
 }
@@ -437,11 +528,13 @@ pub struct MagicLinkVerifyResponse {
 pub struct MfaRequiredResponse {
     pub challenge_type: String,
 
-    pub expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_in: Option<i32>,
 
     pub mfa_required: bool,
 
-    pub session_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -458,11 +551,14 @@ pub struct OAuthRotateResponse {
 pub struct OauthAuthorizeResponse {
     pub error: String,
 
-    pub error_description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
 
-    pub hint: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
 
-    pub retry_after: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -471,7 +567,8 @@ pub struct PendingEmailVerificationResponse {
 
     pub email_verified: bool,
 
-    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     pub user_id: String,
 }
@@ -507,11 +604,13 @@ pub struct PlatformTenant {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PlatformTenantCreateRequest {
-    pub activate: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub activate: Option<bool>,
 
     pub display_name: String,
 
-    pub provisioning_mode: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provisioning_mode: Option<String>,
 
     pub slug: String,
 }
@@ -547,9 +646,11 @@ pub struct PlatformTenantOauthRotateResponse {
 pub struct PlatformTenantOauthUpsertRequest {
     pub client_id: String,
 
-    pub client_id_env_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id_env_key: Option<String>,
 
-    pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
 
     pub redirect_uris: Vec<String>,
 
@@ -560,15 +661,18 @@ pub struct PlatformTenantOauthUpsertRequest {
 pub struct PlatformTenantOauthUpsertResponse {
     pub client_id: String,
 
-    pub client_id_env_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id_env_key: Option<String>,
 
     pub config_version: i32,
 
     pub enabled: bool,
 
-    pub last_rotated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_rotated_at: Option<String>,
 
-    pub last_rotated_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_rotated_by: Option<String>,
 
     pub provider: String,
 
@@ -608,15 +712,19 @@ pub struct PlatformTenantStatusPatchResponse {
 pub struct RegisterRequest {
     pub email: String,
 
-    pub first_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_name: Option<String>,
 
-    pub last_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_name: Option<String>,
 
     pub password: String,
 
-    pub phone: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
 
-    pub username: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -635,29 +743,38 @@ pub struct SetActiveOrganizationRequest {
 pub struct SetActiveOrganizationResponse {
     pub access_token: String,
 
-    pub entitlements_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
 
-    pub entitlements_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
 
-    pub mfa_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
 
-    pub permissions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     pub refresh_token: String,
 
-    pub refresh_token_expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
 
-    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 
-    pub token_version: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
 
     pub user_id: String,
 }
@@ -666,25 +783,31 @@ pub struct SetActiveOrganizationResponse {
 pub struct SignupValidateResponse {
     pub allowed: bool,
 
-    pub reasons: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasons: Option<Vec<String>>,
 
-    pub requires_mfa: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_mfa: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SignupValidationRequest {
-    pub email: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
 
-    pub phone: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SignupValidationResponse {
     pub allowed: bool,
 
-    pub reasons: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasons: Option<Vec<String>>,
 
-    pub requires_mfa: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_mfa: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -694,7 +817,8 @@ pub struct SmsMagicLinkRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SmsMagicLinkResponse {
-    pub expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_in: Option<i32>,
 
     pub magic_link_sent: bool,
 }
@@ -706,7 +830,8 @@ pub struct SmsMagicLinkSendRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SmsMagicLinkSendResponse {
-    pub expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_in: Option<i32>,
 
     pub magic_link_sent: bool,
 }
@@ -722,29 +847,38 @@ pub struct SmsMagicLinkVerifyRequest {
 pub struct SmsMagicLinkVerifyResponse {
     pub access_token: String,
 
-    pub entitlements_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
 
-    pub entitlements_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
 
-    pub mfa_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
 
-    pub permissions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     pub refresh_token: String,
 
-    pub refresh_token_expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
 
-    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 
-    pub token_version: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
 
     pub user_id: String,
 }
@@ -753,7 +887,8 @@ pub struct SmsMagicLinkVerifyResponse {
 pub struct SocialCallbackRequest {
     pub code: String,
 
-    pub redirect_uri: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_uri: Option<String>,
 
     pub state: String,
 }
@@ -768,7 +903,8 @@ pub struct SocialCallbackResponse {
 
     pub social_provider: String,
 
-    pub social_provider_user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub social_provider_user_id: Option<String>,
 
     pub token_type: String,
 
@@ -785,7 +921,8 @@ pub struct SocialLoginResponse {
 
     pub social_provider: String,
 
-    pub social_provider_user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub social_provider_user_id: Option<String>,
 
     pub token_type: String,
 
@@ -796,9 +933,11 @@ pub struct SocialLoginResponse {
 pub struct TenantOAuthConfigRequest {
     pub client_id: String,
 
-    pub client_id_env_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id_env_key: Option<String>,
 
-    pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
 
     pub redirect_uris: Vec<String>,
 
@@ -809,15 +948,18 @@ pub struct TenantOAuthConfigRequest {
 pub struct TenantOAuthConfigResponse {
     pub client_id: String,
 
-    pub client_id_env_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id_env_key: Option<String>,
 
     pub config_version: i32,
 
     pub enabled: bool,
 
-    pub last_rotated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_rotated_at: Option<String>,
 
-    pub last_rotated_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_rotated_by: Option<String>,
 
     pub provider: String,
 
@@ -830,71 +972,93 @@ pub struct TenantOAuthConfigResponse {
 pub struct TokenExchangeResponse {
     pub access_token: String,
 
-    pub aud: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aud: Option<Vec<String>>,
 
     pub expires_in: i32,
 
-    pub iat: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iat: Option<i32>,
 
-    pub iss: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iss: Option<String>,
 
     pub issued_token_type: String,
 
-    pub refresh_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct TokenRequest {
-    pub actor_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_token: Option<String>,
 
-    pub client_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
 
-    pub client_secret: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_secret: Option<String>,
 
     pub grant_type: String,
 
-    pub refresh_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
 
-    pub requested_token_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_token_type: Option<String>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
-    pub subject_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_token: Option<String>,
 
-    pub subject_token_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_token_type: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct TokenResponse {
     pub access_token: String,
 
-    pub entitlements_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
 
-    pub entitlements_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
 
-    pub mfa_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
 
-    pub permissions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     pub refresh_token: String,
 
-    pub refresh_token_expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
 
-    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 
-    pub token_version: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
 
     pub user_id: String,
 }
@@ -905,17 +1069,23 @@ pub struct UserProfileResponse {
 
     pub email_verified: bool,
 
-    pub first_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_name: Option<String>,
 
-    pub last_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_name: Option<String>,
 
-    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 
-    pub phone_number: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_number: Option<String>,
 
-    pub phone_verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_verified: Option<bool>,
 
-    pub preferred_username: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preferred_username: Option<String>,
 
     pub user_id: String,
 }
@@ -924,20 +1094,25 @@ pub struct UserProfileResponse {
 pub struct VerifyDualOtpRequest {
     pub email: String,
 
-    pub email_code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_code: Option<String>,
 
     pub phone: String,
 
-    pub phone_code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone_code: Option<String>,
 
-    pub session_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct VerifyDualOtpResponse {
-    pub newly_verified_email: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub newly_verified_email: Option<bool>,
 
-    pub newly_verified_phone: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub newly_verified_phone: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -951,29 +1126,38 @@ pub struct VerifyEmailOtpRequest {
 pub struct VerifyEmailOtpResponse {
     pub access_token: String,
 
-    pub entitlements_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
 
-    pub entitlements_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
 
-    pub mfa_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
 
-    pub permissions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     pub refresh_token: String,
 
-    pub refresh_token_expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
 
-    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 
-    pub token_version: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
 
     pub user_id: String,
 }
@@ -989,29 +1173,38 @@ pub struct VerifyPhoneOtpRequest {
 pub struct VerifyPhoneOtpResponse {
     pub access_token: String,
 
-    pub entitlements_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
 
-    pub entitlements_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
 
     pub expires_in: i32,
 
-    pub id_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
 
-    pub mfa_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
 
-    pub permissions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     pub refresh_token: String,
 
-    pub refresh_token_expires_in: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
 
-    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
 
-    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 
     pub token_type: String,
 
-    pub token_version: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
 
     pub user_id: String,
 }

@@ -4,12 +4,11 @@
 #   tilt up --port 10351 --host 0.0.0.0
 # Full stack: `just dev-up` / `just dev-down` (same port).
 #
-# GitOps cutover (rerp pattern): Flux owns deployment-configuration profiles +
-# HelmReleases + role/DB bootstrap Jobs. Set FLUX_OWNS_DEPLOY=1 so Tilt skips
-# helm()/k8s_yaml applies and only builds + publishes registry images
-# (dev-<nanoseconds>). Application migrations stay Tilt-owned
-# (`sesame-idam-apply-migrations`). Default remains Tilt-owned Helm apply until
-# the first Flux reconcile succeeds.
+# GitOps (rerp pattern): on shared-k8s, Flux owns HelmReleases + runtime
+# ConfigMaps/Secrets + DB bootstrap Jobs. Tilt builds and publishes
+# registry images (dev-<nanoseconds>) only — never helm()/k8s_yaml for
+# microservices. Kind/local still applies Helm when FLUX_OWNS_DEPLOY=0.
+# Application migrations stay Tilt-owned (`sesame-idam-apply-migrations`).
 
 # ====================
 # Configuration
@@ -33,7 +32,14 @@ else:
     allow_k8s_contexts(['kind-kind'])
 
 # When true: Flux product-components owns Helm/Secrets; Tilt publishes images only.
-FLUX_OWNS_DEPLOY = os.environ.get('FLUX_OWNS_DEPLOY', '0').strip() in ('1', 'true', 'TRUE', 'yes')
+# Default ON for shared-k8s (matches rerp); Kind defaults OFF unless overridden.
+_flux_owns_default = '1' if _use_shared_k8s else '0'
+FLUX_OWNS_DEPLOY = os.environ.get('FLUX_OWNS_DEPLOY', _flux_owns_default).strip() in (
+    '1', 'true', 'TRUE', 'yes',
+)
+print('Sesame-IDAM Tilt: FLUX_OWNS_DEPLOY=%s (shared-k8s=%s)' % (
+    FLUX_OWNS_DEPLOY, _use_shared_k8s,
+))
 
 update_settings(k8s_upsert_timeout_secs=60)
 
@@ -110,6 +116,8 @@ TOOLING_IGNORE = [
     '**/.DS_Store',
 ]
 
+# Tilt UI labels — strict one label per resource (never multi-label).
+#   tooling | docker | data | database | migrations | testing | dev-tools | <service>
 local_resource(
     'build-tooling',
     '''set -e
@@ -321,31 +329,24 @@ def create_microservice_build(name):
     )
 
 def create_microservice_deployment(name, port):
-    """Create Docker image and k8s deployment for a service.
+    """Build images for a service; deploy via Flux (shared-k8s) or Tilt Helm (Kind).
 
-    Matches hauliage pattern exactly:
-    1. copy-binary: binary -> build_artifacts/<arch>/<name> + SHA256
-    2. build-image-simple: render Dockerfile.template, build image
-    3. custom_build: Tilt live_update with sync + kill -HUP reload
-    4. k8s_yaml(helm): Helm deployment
-    5. k8s_resource: port forward + labels + deps
+    Shared-k8s / FLUX_OWNS_DEPLOY (rerp pattern):
+      copy → docker → image-* push (dev-<ns>). Flux HelmRelease owns Deployment + ConfigMap.
+
+    Kind / FLUX_OWNS_DEPLOY=0:
+      copy → docker → custom_build (live_update) → helm() + k8s_resource (includes *-config CM).
     """
-    # Package name — used to find the Cargo-built binary and matches what
-    # render_dockerfile_template() resolves via get_binary_names() (which is
-    # monkey-patched by sesame_idam_tooling to read [[bin]] from Cargo.toml).
     package_name = PACKAGE_NAMES.get(name, 'sesame_idam_' + name.replace('-', '_'))
-    binary_name = name.replace('-', '_')
 
-    # Paths — both target (Cargo output) and artifacts (copy-binary output +
-    # Dockerfile COPY) must use package_name since that's what the template
-    # resolves via the monkey-patched get_binary_names().
     target_path = 'microservices/target/%s/debug/%s' % (TARGET_RUST_TRIPLE, package_name)
     artifact_path = 'build_artifacts/%s/%s' % (TARGET_ARCH_NAME, package_name)
     hash_path = 'build_artifacts/%s/%s.sha256' % (TARGET_ARCH_NAME, package_name)
     dockerfile_template = 'docker/microservices/Dockerfile.template'
-    image_name = 'localhost:5001/sesame-idam-%s' % name
+    # Flux ImageRepository expects sesame-idam-<svc> (no localhost_5001_ rewrite).
+    image_repo = 'sesame-idam-%s' % name
+    image_name = image_repo if FLUX_OWNS_DEPLOY else 'localhost:5001/%s' % image_repo
 
-    # 1. Copy binary from workspace build to artifacts and create SHA256 hash
     local_resource(
         'copy-%s' % name,
         '%s docker copy-binary %s %s %s' % (
@@ -357,63 +358,76 @@ def create_microservice_deployment(name, port):
         allow_parallel=True,
     )
 
-    # 2. Build and push Docker image (template rendered on the fly with --service)
-    # CLI signature: build-image-simple <image> <dockerfile_template> <hash_path> <artifact_path> --service <name>
-    local_resource(
-        'docker-%s' % name,
-        '%s docker build-image-simple %s %s %s %s --service %s' % (
-            sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
-        ),
-        deps=[dockerfile_template, 'tooling/pyproject.toml'],
-        resource_deps=['build-base-image', 'copy-%s' % name],
-        labels=[name],
-        allow_parallel=False,
-    )
-
-    # 3. Custom build for Tilt live updates
-    # Ensures image exists (build if custom_build runs before docker-%s),
-    # then push to localhost:5001 or kind load.
-    # Note: custom_build doesn't support resource_deps, so we rely on
-    # the deps list above to track the code changes that trigger rebuilds.
-    custom_build(
-        image_name,
-        ('%s docker build-image-simple %s %s %s %s --service %s' % (
-            sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
-        ) + ' && (docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (image_name, image_name)),
-    deps=[dockerfile_template,
-          'build_artifacts',
-          'microservices/idam/%s/impl/config' % name,
-          'microservices/idam/%s/gen/doc' % name,
-          'microservices/idam/%s/gen/static_site' % name,
-          'microservices/idam/%s/impl/src' % name,
-          'microservices/idam/%s/gen/src' % name],
-        tag='tilt',
-        live_update=[
-            sync(artifact_path, '/app/%s' % package_name),
-            sync('microservices/idam/%s/impl/config/' % name, '/app/config/'),
-            sync('microservices/idam/%s/gen/doc/' % name, '/app/doc/'),
-            sync('microservices/idam/%s/gen/static_site/' % name, '/app/static_site/'),
-            run('kill -HUP 1', trigger=[artifact_path]),
-        ],
-    )
-
     if FLUX_OWNS_DEPLOY:
-        # Flux HelmRelease consumes pushed tags; publish monotonic dev-N refs.
-        registry_image = '%s/sesame-idam-%s' % (_SHARED_K8S_REGISTRY, name)
+        # local_resource (not custom_build): Tilt drops custom_build targets that are
+        # not referenced by a Kubernetes manifest. Flux consumes the pushed tags.
+        registry_image = '%s/%s' % (_SHARED_K8S_REGISTRY, image_repo)
         local_resource(
-            'image-sesame-idam-%s' % name,
+            'image-%s' % image_repo,
             '''set -eu
+%s docker build-image-simple %s %s %s %s --service %s
 DEV_REF="%s:dev-$(date +%%s%%N)"
-docker tag localhost:5001/sesame-idam-%s:tilt "$DEV_REF" 2>/dev/null || docker tag sesame-idam-%s:tilt "$DEV_REF"
+docker tag %s:tilt "$DEV_REF"
 docker push "$DEV_REF"
 echo "Published $DEV_REF for Flux image discovery"
-''' % (registry_image, name, name),
-            resource_deps=['docker-%s' % name],
-            labels=[name, 'images'],
+''' % (
+                sesame_idam_bin,
+                image_name,
+                dockerfile_template,
+                hash_path,
+                artifact_path,
+                name,
+                registry_image,
+                image_name,
+            ),
+            deps=[
+                artifact_path,
+                hash_path,
+                dockerfile_template,
+                'microservices/idam/%s/impl/config' % name,
+                'microservices/idam/%s/gen/doc' % name,
+                'microservices/idam/%s/gen/static_site' % name,
+                'tooling/pyproject.toml',
+            ],
+            resource_deps=['build-base-image', 'copy-%s' % name],
+            labels=[name],
             allow_parallel=True,
         )
     else:
-        # 4. Deploy using Helm (8080 ClusterIP + shared DB merge files).
+        local_resource(
+            'docker-%s' % name,
+            '%s docker build-image-simple %s %s %s %s --service %s' % (
+                sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
+            ),
+            deps=[dockerfile_template, 'tooling/pyproject.toml'],
+            resource_deps=['build-base-image', 'copy-%s' % name],
+            labels=[name],
+            allow_parallel=False,
+        )
+        custom_build(
+            image_name,
+            ('%s docker build-image-simple %s %s %s %s --service %s' % (
+                sesame_idam_bin, image_name, dockerfile_template, hash_path, artifact_path, name
+            ) + ' && (docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (image_name, image_name)),
+            deps=[
+                dockerfile_template,
+                'build_artifacts',
+                'microservices/idam/%s/impl/config' % name,
+                'microservices/idam/%s/gen/doc' % name,
+                'microservices/idam/%s/gen/static_site' % name,
+                'microservices/idam/%s/impl/src' % name,
+                'microservices/idam/%s/gen/src' % name,
+            ],
+            tag='tilt',
+            live_update=[
+                sync(artifact_path, '/app/%s' % package_name),
+                sync('microservices/idam/%s/impl/config/' % name, '/app/config/'),
+                sync('microservices/idam/%s/gen/doc/' % name, '/app/doc/'),
+                sync('microservices/idam/%s/gen/static_site/' % name, '/app/static_site/'),
+                run('kill -HUP 1', trigger=[artifact_path]),
+            ],
+        )
+
         helm_values = [
             'helm/sesame-idam-microservice/values/%s.yaml' % name,
             'helm/sesame-idam-microservice/values/_http-kubernetes.yaml',
@@ -423,11 +437,12 @@ echo "Published $DEV_REF for Flux image discovery"
             helm('helm/sesame-idam-microservice', name=name, namespace=namespace, values=helm_values),
         )
 
-        # 5. Kubernetes resource — optional PF for login/session only (8101/8105 → pod :8080)
+        # Keep Helm ConfigMap with the Deployment (missing CM → MountVolume fail).
         _port_forwards = [HOST_PORT_FORWARDS[name]] if name in HOST_PORT_FORWARDS else []
         k8s_resource(
             name,
             port_forwards=_port_forwards,
+            objects=['%s-config:configmap:%s' % (name, namespace)],
             resource_deps=['sesame-idam-database-env', 'docker-%s' % name],
             labels=[name],
             auto_init=True,
@@ -453,7 +468,7 @@ cargo nextest run -p %s --test main_bdd --test-threads 1 --fail-fast
 ''' % (name, TEST_ENV_SHELL, package),
         deps=_COMMON_TEST_DEPS + _bdd_impl_deps(name),
         ignore=['./microservices/target'],
-        labels=['testing', name],
+        labels=['testing'],
         trigger_mode=TRIGGER_MODE_MANUAL,
         auto_init=False,
         allow_parallel=False,
@@ -513,7 +528,7 @@ local_resource(
         DB_INIT_DOCKERFILE,
         'scripts/db-init-job.sh',
     ],
-    labels=['database', 'images'],
+    labels=['database'],
     allow_parallel=True,
 )
 
@@ -546,7 +561,7 @@ local_resource(
         './microservices/Cargo.toml',
     ],
     ignore=['./microservices/target'],
-    labels=['database', 'migrations'],
+    labels=['migrations'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
     allow_parallel=True,
@@ -569,7 +584,7 @@ local_resource(
         './microservices/idam/org-mgmt/impl/seeds',
     ],
     resource_deps=_apply_migrations_deps,
-    labels=['database', 'migrations'],
+    labels=['migrations'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
     allow_parallel=False,
@@ -744,7 +759,7 @@ for _test_svc in DISCOVERED_SERVICES:
 # Override from host:
 #   SESAME_BROKER_PORT              — host broker listen port (default 9190)
 #   SESAME_BROKER_BASE_URL          — URLs returned to identity-login-service
-#   SESAME_BROKER_APP_REDIRECT_URL  — post-SAML app callback (Hauliage)
+#   SESAME_BROKER_APP_REDIRECT_URL  — post-SAML app callback (Loadlinker)
 _PACT_MOCK_DIR = './microservices/pact-mock-server'
 _PACT_MOCK_DEPS = [
     _PACT_MOCK_DIR + '/src',
@@ -817,7 +832,7 @@ _sesame_broker_host_port = os.environ.get('SESAME_BROKER_HOST_PORT', '9191')
 _sesame_broker_base = os.environ.get('SESAME_BROKER_BASE_URL', 'http://127.0.0.1:%s' % _sesame_broker_host_port)
 _sesame_broker_redirect = os.environ.get(
     'SESAME_BROKER_APP_REDIRECT_URL',
-    'http://hauliage.dev.microscaler.local/saml/callback',
+    'http://loadlinker.dev.microscaler.local/saml/callback',
 )
 
 local_resource(

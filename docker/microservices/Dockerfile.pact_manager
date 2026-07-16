@@ -1,0 +1,22 @@
+FROM rust:1-bookworm AS builder
+
+WORKDIR /usr/src/app
+COPY ./microservices/pact-mock-server ./microservices/pact-mock-server
+
+WORKDIR /usr/src/app/microservices/pact-mock-server
+RUN cargo build --release --bin manager
+
+FROM ruby:3.3-slim-bookworm
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && gem install pact_broker-client -N --no-document \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/src/app/microservices/pact-mock-server/target/release/manager /usr/local/bin/manager
+ENV HEALTH_PORT=1238
+ENV CONFIGMAP_PATH=/pacts-configmap
+ENV NAMESPACE=sesame-idam
+ENV CONFIGMAP_NAME=sesame-pact-contracts
+ENV BROKER_URL=http://pact-broker.data.svc.cluster.local:9292
+ENV BROKER_HEALTH_PATH=/diagnostic/status/heartbeat
+EXPOSE 1238
+CMD ["manager"]

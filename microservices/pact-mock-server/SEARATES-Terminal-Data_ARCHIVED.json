@@ -1,0 +1,208 @@
+{
+  "consumer": {
+    "name": "hauliage-terminal-service"
+  },
+  "provider": {
+    "name": "Searates-Terminal-Data"
+  },
+  "interactions": [
+    {
+      "description": "Get terminal tracking data for a container",
+      "request": {
+        "method": "GET",
+        "path": "/terminal/getTerminalData.json",
+        "query": "container=MSDU7320402&vessel=MSC GÜLSÜN&voyage=2408E&portCode=CNSHA",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-223456",
+          "X-Rate-Limit-Remaining": "47"
+        },
+        "jsonBody": {
+          "status": "ok",
+          "container": {
+            "number": "MSDU7320402",
+            "type": "40HC",
+            "vessel": "MSC GÜLSÜN",
+            "voyage": "2408E"
+          },
+          "port": {
+            "code": "CNSHA",
+            "name": "Shanghai",
+            "country": "CN",
+            "countryName": "China"
+          },
+          "events": [
+            {
+              "eventType": "GATE_IN",
+              "eventDate": "2026-04-20T08:30:00+08:00",
+              "location": "Yangshan Terminal",
+              "status": "completed"
+            },
+            {
+              "eventType": "LOADED",
+              "eventDate": "2026-04-22T18:00:00+08:00",
+              "location": "Berth 401, Yangshan Phase IV",
+              "status": "completed"
+            },
+            {
+              "eventType": "DEPARTED",
+              "eventDate": "2026-04-23T02:15:00+08:00",
+              "location": "Shanghai",
+              "status": "completed"
+            },
+            {
+              "eventType": "ESTIMATED_ARRIVAL",
+              "eventDate": "2026-04-28T06:00:00-07:00",
+              "location": "Long Beach",
+              "status": "pending"
+            }
+          ],
+          "totalEvents": 4,
+          "lastUpdate": "2026-04-23T02:20:00+08:00"
+        }
+      }
+    },
+    {
+      "description": "Get terminal tracking data for a voyage with multiple stops",
+      "request": {
+        "method": "GET",
+        "path": "/terminal/getTerminalData.json",
+        "query": "vessel=EVER GIVEN&voyage=011E&portCode=CNSHA",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-223457",
+          "X-Rate-Limit-Remaining": "46"
+        },
+        "jsonBody": {
+          "status": "ok",
+          "vessel": {
+            "name": "EVER GIVEN",
+            "imo": "9811000",
+            "voyage": "011E"
+          },
+          "route": [
+            {
+              "portCode": "CNSHA",
+              "portName": "Shanghai",
+              "country": "CN",
+              "eta": "2026-04-18T06:00:00+08:00",
+              "atd": "2026-04-19T14:30:00+08:00",
+              "status": "departed"
+            },
+            {
+              "portCode": "CNNGB",
+              "portName": "Ningbo",
+              "country": "CN",
+              "eta": "2026-04-20T04:00:00+08:00",
+              "atd": "2026-04-20T18:00:00+08:00",
+              "status": "departed"
+            },
+            {
+              "portCode": "VNSGN",
+              "portName": "Ho Chi Minh City",
+              "country": "VN",
+              "eta": "2026-04-24T08:00:00+07:00",
+              "atd": null,
+              "status": "expected"
+            },
+            {
+              "portCode": "SGSIN",
+              "portName": "Singapore",
+              "country": "SG",
+              "eta": "2026-04-27T10:00:00+08:00",
+              "atd": null,
+              "status": "expected"
+            },
+            {
+              "portCode": "AEMEL",
+              "portName": "Melbourne",
+              "country": "AU",
+              "eta": "2026-05-03T06:00:00+11:00",
+              "atd": null,
+              "status": "expected"
+            }
+          ],
+          "currentPort": {
+            "code": "SGSIN",
+            "name": "Singapore",
+            "eta": "2026-04-27T10:00:00+08:00"
+          },
+          "totalPorts": 5,
+          "lastUpdate": "2026-04-22T12:00:00+08:00"
+        }
+      }
+    },
+    {
+      "description": "Return error for invalid container number",
+      "request": {
+        "method": "GET",
+        "path": "/terminal/getTerminalData.json",
+        "query": "container=INVALID&vessel=TEST&voyage=001&portCode=CNSHA",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-223458"
+        },
+        "jsonBody": {
+          "status": "error",
+          "errorCode": "INVALID_CONTAINER",
+          "message": "Container number 'INVALID' is not valid",
+          "requestId": "req-223458"
+        }
+      }
+    },
+    {
+      "description": "Return not found when no tracking data available",
+      "request": {
+        "method": "GET",
+        "path": "/terminal/getTerminalData.json",
+        "query": "container=MSDU0000000&vessel=NONEXIST&voyage=9999&portCode=FAKE",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-223459"
+        },
+        "jsonBody": {
+          "status": "error",
+          "errorCode": "NO_TRACKING_DATA",
+          "message": "No tracking data found for the specified query",
+          "requestId": "req-223459"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "4.0"
+    },
+    "pact-jvm": {
+      "version": "4.5.0"
+    }
+  }
+}

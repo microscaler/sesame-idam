@@ -1,11 +1,12 @@
 // User-owned controller for handler 'validate_api_key'.
 
 use crate::handlers::validate_api_key::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(ValidateApiKeyController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "expires_at": 1736934600,
@@ -33,14 +34,14 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "valid": true
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         api_key_id: Some(Default::default()),
         expires_at: Some(1736934600),
         is_expired: Some(true),
@@ -53,5 +54,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         scope_type: Some(Default::default()),
         user_id: Some(Default::default()),
         valid: true,
-    }
+    })
 }

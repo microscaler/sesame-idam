@@ -1,11 +1,12 @@
 // User-owned controller for handler 'fetch_user_oauth_tokens'.
 
 use crate::handlers::fetch_user_oauth_tokens::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(FetchUserOauthTokensController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "oauth_tokens": [
@@ -49,12 +50,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   ]
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {}
+    HttpJson::ok(Response {})
 }

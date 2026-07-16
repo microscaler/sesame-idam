@@ -1,11 +1,12 @@
 // User-owned controller for handler 'fetch_user_by_username'.
 
 use crate::handlers::fetch_user_by_username::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(FetchUserByUsernameController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "avatar_url": "https://example.com/avatars/alice.png",
@@ -39,14 +40,14 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "username": "alice"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         email: "alice@example.com".to_string(),
         email_confirmed: Some(true),
         enabled: true,
@@ -58,5 +59,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         properties: Some(Default::default()),
         user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d".to_string(),
         username: "alice".to_string(),
-    }
+    })
 }

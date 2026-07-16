@@ -1,11 +1,12 @@
 // User-owned controller for handler 'fetch_active_api_keys'.
 
 use crate::handlers::fetch_active_api_keys::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(FetchActiveApiKeysController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "api_keys": [
@@ -71,12 +72,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "total": 2
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {}
+    HttpJson::ok(Response {})
 }

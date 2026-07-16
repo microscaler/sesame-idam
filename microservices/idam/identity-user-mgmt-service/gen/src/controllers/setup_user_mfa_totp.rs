@@ -1,11 +1,12 @@
 // User-owned controller for handler 'setup_user_mfa_totp'.
 
 use crate::handlers::setup_user_mfa_totp::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(SetupUserMfaTotpController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "backup_codes": [
@@ -33,16 +34,16 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "secret": "JBSWY3DPEHPK3PXP"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         provisioning_uri: "example".to_string(),
         secret: "JBSWY3DPEHPK3PXP".to_string(),
         user_id: "example".to_string(),
-    }
+    })
 }

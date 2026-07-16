@@ -16,6 +16,19 @@ service:
 
 app:
   config:
+    # Rendered by helm templates/configmap.yaml as /app/config/config.yaml
+    # (same toYaml pattern as rerp-microservice).
+    security:
+      api_keys:
+        ApiKeyHeader:
+          key: ""
+      jwks:
+        bearerAuth:
+          jwks_url: http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json
+          iss: https://idam.example.com
+          aud: sesame-idam
+          leeway_secs: 30
+          cache_ttl_secs: 300
     http:
       keep_alive: true
       timeout_secs: 5
@@ -25,14 +38,14 @@ app:
       port: 5432
       name: sesame_idam
       user: sesame_idam
-      # Password comes from Secret sesame-idam-db-credentials (DB_PASS).
+      # Password comes from Secret sesame-idam-db-credentials (DB_PASS env).
       password: ""
-      max_connections: 10
+      max_connections: 5
     redis:
       host: redis.data.svc.cluster.local
       port: 6379
       db: 0
-      max_connections: 10
+      max_connections: 5
 
 env:
   RUST_LOG: debug

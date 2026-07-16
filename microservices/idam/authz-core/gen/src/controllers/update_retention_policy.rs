@@ -1,12 +1,13 @@
 // User-owned controller for handler 'update_retention_policy'.
 
 use crate::handlers::update_retention_policy::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(UpdateRetentionPolicyController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
-    Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
+    HttpJson::ok(Response {
         archive_after_days: Some(42),
         created_at: Some("example".to_string()),
         delete_after_days: Some(42),
@@ -14,5 +15,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         id: Some("example".to_string()),
         retention_days: 42,
         tenant_id: "example".to_string(),
-    }
+    })
 }

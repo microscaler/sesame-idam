@@ -75,10 +75,7 @@ mod tests {
     #[test]
     fn rejects_missing_key_when_configured() {
         std::env::set_var(PLATFORM_ADMIN_KEY_ENV, "secret-key");
-        assert_eq!(
-            validate_platform_key(None),
-            Err(PlatformAuthError::Missing)
-        );
+        assert_eq!(validate_platform_key(None), Err(PlatformAuthError::Missing));
         std::env::remove_var(PLATFORM_ADMIN_KEY_ENV);
     }
 

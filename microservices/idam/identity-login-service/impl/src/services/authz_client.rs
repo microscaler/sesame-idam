@@ -120,10 +120,7 @@ fn parse_roles(body: &[u8]) -> Result<Vec<String>, String> {
 
 fn parse_roles_from_value(value: &serde_json::Value) -> Result<Vec<String>, String> {
     let Some(roles) = value.get("roles").and_then(|r| r.as_array()) else {
-        return Err(format!(
-            "EffectiveResponse missing roles array: {}",
-            value
-        ));
+        return Err(format!("EffectiveResponse missing roles array: {}", value));
     };
 
     Ok(roles

@@ -9,6 +9,7 @@ use rand::RngCore;
 use sesame_idam_identity_login_service_gen::handlers::social_callback::{Request, Response};
 
 use crate::audit::EMITTER;
+use crate::models::user::UserModel;
 use crate::services::oauth::{consume_oauth_state, exchange_code, SupportedProvider};
 use crate::services::password;
 use crate::services::social_credential_service::SocialCredentialService;
@@ -17,7 +18,6 @@ use crate::services::tenant_oauth_service::TenantOAuthService;
 use crate::services::tenant_service::TenantService;
 use crate::services::token_issuer;
 use crate::services::user_service::{UserService, STATUS_ACTIVE};
-use crate::models::user::UserModel;
 use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
 const DEFAULT_PORTAL: &str = "frontend";
@@ -218,20 +218,21 @@ fn resolve_oauth_user<E: lifeguard::LifeExecutor>(
     let mut random_secret = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut random_secret);
     let secret = base64::engine::general_purpose::STANDARD.encode(random_secret);
-    let placeholder_password = password::hash_password(&secret)
-        .map_err(|e| lifeguard::LifeError::Other(e))?;
+    let placeholder_password =
+        password::hash_password(&secret).map_err(|e| lifeguard::LifeError::Other(e))?;
 
-    let user_id = match UserService::create_oauth_user(tenant_id, profile_email, &placeholder_password, exec)
-    {
-        Ok(id) => id,
-        Err(e) => {
-            let msg = e.to_string();
-            if msg.contains("unique") || msg.contains("duplicate") {
-                return Ok(Err("account_exists_link_required"));
+    let user_id =
+        match UserService::create_oauth_user(tenant_id, profile_email, &placeholder_password, exec)
+        {
+            Ok(id) => id,
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("unique") || msg.contains("duplicate") {
+                    return Ok(Err("account_exists_link_required"));
+                }
+                return Err(e);
             }
-            return Err(e);
-        }
-    };
+        };
 
     SocialCredentialService::link_provider(user_id, provider, provider_user_id, exec)?;
 

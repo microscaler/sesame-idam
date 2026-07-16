@@ -18,10 +18,10 @@ use std::sync::Arc;
 use std::sync::Once;
 use std::time::Duration;
 
-use brrtrouter::security::JwtTokenStatusChecker;
 use brrtrouter::dispatcher::{HandlerRequest, HeaderVec};
 use brrtrouter::ids::RequestId;
 use brrtrouter::router::ParamVec;
+use brrtrouter::security::JwtTokenStatusChecker;
 use brrtrouter::typed::{TypedHandlerFor, TypedHandlerRequest};
 use http::Method;
 use sesame_common::jwt::{Ed25519Signer, SIGNING_KEY_ENV, SIGNING_KID_ENV};
@@ -329,7 +329,10 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
 
     // ── Logout (revoke family in Redis) ──
     let access_payload = decode_jwt_payload(login.body["access_token"].as_str().unwrap());
-    let access_jti = access_payload["jti"].as_str().expect("access jti").to_string();
+    let access_jti = access_payload["jti"]
+        .as_str()
+        .expect("access jti")
+        .to_string();
     let access_exp = access_payload["exp"].as_u64().expect("access exp");
 
     let mut logout_req = logout_request(&rotated_refresh);

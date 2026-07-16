@@ -1,0 +1,15 @@
+# Dev credentials for sesame-pact-manager → shared pact-broker (namespace data).
+# Must match shared-k8s-cluster infra-secrets keys PACT_BROKER_BASIC_AUTH_*.
+# LAN fallback: http://10.177.76.232:9292 (MetalLB LoadBalancer).
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sesame-pact-broker-credentials
+  namespace: sesame-idam
+  labels:
+    app: sesame-pact-manager
+type: Opaque
+stringData:
+  username: pact
+  password: pact

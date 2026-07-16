@@ -1,5 +1,56 @@
 # LLM Wiki — Session Log
 
+## [2026-07-16] fix | Flux-owned deploys + Helm ConfigMaps (rerp pattern)
+
+- Root cause of `identity-user-mgmt-service-config` missing: Tilt applied
+  Deployments while Flux HelmRelease install/uninstall raced; ConfigMaps from
+  the chart were deleted on failed remediation.
+- **Tilt:** default `FLUX_OWNS_DEPLOY=1` on shared-k8s; image publish only
+  (no `custom_build`/helm apply). Kind still applies Helm with
+  `objects=["<svc>-config:configmap:sesame-idam"]`.
+- **Helm:** `templates/configmap.yaml` uses rerp `toYaml .Values.app.config`.
+- **Ops:** publish `sesame-idam-*` images to registry; restart pgpool; clear
+  stuck ns finalizers; helm-controller was saturated by hauliage HRs
+  (temporarily suspended). Manual helm install created all `*-config` CMs;
+  login/session/user-mgmt Running.
+
+## [2026-07-16] chore | Strict one Tilt/Helm label per resource
+
+- Tiltfile: removed multi-label assignments (`database`+`migrations`,
+  `testing`+service, `name`+`images`, `database`+`images`).
+- Convention: tooling | docker | data | database | migrations | testing |
+  dev-tools | `<service>` — exactly one label per resource.
+- Helm `deployment.yaml`: dropped unused `version` label (was namespace name);
+  keep single `app` label.
+
+## [2026-07-16] fix | setup-db.sh → Bitnami PostgreSQL HA (rerp pattern)
+
+- Replaced legacy `deployment/postgres-primary` wait/exec with StatefulSet
+  `postgres-ha-postgresql`, elected-primary discovery, and
+  `POSTGRES_PASSWORD_FILE` exec (mirror rerp `accounting/scripts/setup-db.sh`).
+- Loads password from `sesame-idam/sesame-idam-db-credentials`; validates Pgpool
+  custom user `sesame_idam` in `data/postgres-credentials`.
+- Pgpool login verify falls back to primary when no Ready pgpool pod (current
+  CrashLoop is `too many clients already` on HA — separate capacity issue).
+- `k8s/data/README.md` updated for HA DNS.
+
+## [2026-07-16] fix | Restore pact broker stack (Tilt load failure)
+
+- **Symptom:** `tilt-sesame-idam` failed at Tiltfile load:
+  `open k8s/microservices/sesame-idam-broker.yaml: no such file or directory`.
+  On disk only AppleDouble stubs (`._*.yaml`) remained; real broker/pact sources
+  were never committed and had been wiped from NFS.
+- **Restore:** recovered manifests/Dockerfiles/broker sources from prior agent
+  transcript; rebased `pact-mock-server` on Hauliage crate + Sesame overlays;
+  added workspace member `pact-mock-server`.
+- **Loadlinker rename:** `SESAME_BROKER_APP_REDIRECT_URL` + OAuth pact bodies now
+  use `loadlinker.dev.microscaler.local` (was `hauliage.dev…`).
+- **systemd:** `ExecStartPre` for `tilt-preflight.sh` now runs via `/bin/bash`
+  (NFS `ETXTBSY` on direct exec).
+- **`.dockerignore`:** `**/target` so broker image build does not ship 1.3G host
+  `pact-mock-server/target`.
+- **Commit owed:** broker/pact files still untracked — commit so this cannot recur.
+
 ## [2026-07-14] feat | Team & Permissions — BFF→Sesame invite + list wiring
 
 - **BFF orchestration (Hauliage):** `invite_team_member` + `list_organization_team` impl overrides

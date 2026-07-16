@@ -150,7 +150,11 @@ fn oauth_rotate_request(slug: &str) -> TypedHandlerRequest<RotateRequest> {
     }
 }
 
-fn register_request(tenant: &str, email: &str, password: &str) -> TypedHandlerRequest<RegisterRequest> {
+fn register_request(
+    tenant: &str,
+    email: &str,
+    password: &str,
+) -> TypedHandlerRequest<RegisterRequest> {
     TypedHandlerRequest {
         method: Method::POST,
         path: "/auth/register".to_string(),
@@ -273,7 +277,9 @@ fn oauth_rotate_bumps_config_version() {
 
     let get = platform_tenant_get::handle(get_request(&slug));
     assert_eq!(get.status, 200);
-    let providers = get.body["oauth_providers"].as_array().expect("oauth_providers");
+    let providers = get.body["oauth_providers"]
+        .as_array()
+        .expect("oauth_providers");
     let google = providers
         .iter()
         .find(|p| p["provider"] == "google")

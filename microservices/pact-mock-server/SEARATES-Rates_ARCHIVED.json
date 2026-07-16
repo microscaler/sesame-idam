@@ -1,0 +1,293 @@
+{
+  "consumer": {
+    "name": "hauliage-logistics-service"
+  },
+  "provider": {
+    "name": "Searates-Rates"
+  },
+  "interactions": [
+    {
+      "description": "Get shipping rates from Shanghai to Los Angeles",
+      "request": {
+        "method": "GET",
+        "path": "/logistics/getRates.json",
+        "query": "originPortCode=CNSHA&destinationPortCode=USLAX&commodityType=GENERAL&containerSize=40HC&weight=20000",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-323456",
+          "X-Rate-Limit-Remaining": "152"
+        },
+        "jsonBody": {
+          "status": "ok",
+          "origin": {
+            "portCode": "CNSHA",
+            "portName": "Shanghai",
+            "country": "CN",
+            "countryName": "China"
+          },
+          "destination": {
+            "portCode": "USLAX",
+            "portName": "Los Angeles / Long Beach",
+            "country": "US",
+            "countryName": "United States"
+          },
+          "commodityType": "GENERAL",
+          "containerSize": "40HC",
+          "weight": 20000,
+          "weightUnit": "kg",
+          "rates": [
+            {
+              "carrier": "MSC",
+              "carrierName": "Mediterranean Shipping Company",
+              "vessel": "MSC GÜLSÜN",
+              "transitTime": 14,
+              "transitTimeUnit": "days",
+              "origin": {
+                "etd": "2026-04-25T00:00:00+08:00",
+                "eta": "2026-05-09T00:00:00-07:00"
+              },
+              "destination": {
+                "portCode": "USLAX",
+                "eta": "2026-05-09T00:00:00-07:00"
+              },
+              "freight": {
+                "amount": 3850.00,
+                "currency": "USD"
+              },
+              "fuelSurcharge": {
+                "amount": 520.00,
+                "currency": "USD"
+              },
+              "totalAmount": 4370.00,
+              "totalCurrency": "USD",
+              "validityDays": 7,
+              "minVolume": "50 TEU"
+            },
+            {
+              "carrier": "MAERSK",
+              "carrierName": "Maersk Line",
+              "vessel": "MAERSK LOS ANGELES",
+              "transitTime": 16,
+              "transitTimeUnit": "days",
+              "origin": {
+                "etd": "2026-04-26T00:00:00+08:00",
+                "eta": "2026-05-12T00:00:00-07:00"
+              },
+              "destination": {
+                "portCode": "USLAX",
+                "eta": "2026-05-12T00:00:00-07:00"
+              },
+              "freight": {
+                "amount": 3620.00,
+                "currency": "USD"
+              },
+              "fuelSurcharge": {
+                "amount": 495.00,
+                "currency": "USD"
+              },
+              "totalAmount": 4115.00,
+              "totalCurrency": "USD",
+              "validityDays": 14,
+              "minVolume": "30 TEU"
+            },
+            {
+              "carrier": "HAPAG",
+              "carrierName": "Hapag-Lloyd",
+              "vessel": "HAPAG EXPRESS",
+              "transitTime": 15,
+              "transitTimeUnit": "days",
+              "origin": {
+                "etd": "2026-04-27T00:00:00+08:00",
+                "eta": "2026-05-12T00:00:00-07:00"
+              },
+              "destination": {
+                "portCode": "USLAX",
+                "eta": "2026-05-12T00:00:00-07:00"
+              },
+              "freight": {
+                "amount": 4100.00,
+                "currency": "USD"
+              },
+              "fuelSurcharge": {
+                "amount": 560.00,
+                "currency": "USD"
+              },
+              "totalAmount": 4660.00,
+              "totalCurrency": "USD",
+              "validityDays": 10,
+              "minVolume": "40 TEU"
+            }
+          ],
+          "totalRates": 3,
+          "currency": "USD",
+          "lastUpdate": "2026-04-23T12:00:00+08:00"
+        }
+      }
+    },
+    {
+      "description": "Get shipping rates for Less-than-Container-Load (LCL) shipment",
+      "request": {
+        "method": "GET",
+        "path": "/logistics/getRates.json",
+        "query": "originPortCode=DEHAM&destinationPortCode=JPTYO&commodityType=GENERAL&shipmentType=LCL&volume=5&weight=2000",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-323457",
+          "X-Rate-Limit-Remaining": "151"
+        },
+        "jsonBody": {
+          "status": "ok",
+          "origin": {
+            "portCode": "DEHAM",
+            "portName": "Hamburg",
+            "country": "DE",
+            "countryName": "Germany"
+          },
+          "destination": {
+            "portCode": "JPTYO",
+            "portName": "Tokyo",
+            "country": "JP",
+            "countryName": "Japan"
+          },
+          "commodityType": "GENERAL",
+          "shipmentType": "LCL",
+          "volume": 5,
+          "weight": 2000,
+          "weightUnit": "kg",
+          "volumeUnit": "CBM",
+          "rates": [
+            {
+              "carrier": "CMA CGM",
+              "carrierName": "CMA CGM Group",
+              "transitTime": 28,
+              "transitTimeUnit": "days",
+              "origin": {
+                "etd": "2026-05-01T00:00:00+02:00"
+              },
+              "destination": {
+                "portCode": "JPTYO",
+                "eta": "2026-05-29T00:00:00+09:00"
+              },
+              "freight": {
+                "amount": 450.00,
+                "currency": "USD",
+                "perUnit": "CBM"
+              },
+              "fuelSurcharge": {
+                "amount": 65.00,
+                "currency": "USD",
+                "perUnit": "CBM"
+              },
+              "totalAmount": 515.00,
+              "totalCurrency": "USD",
+              "validityDays": 7,
+              "minVolume": "1 CBM"
+            },
+            {
+              "carrier": "ONE",
+              "carrierName": "Ocean Network Express",
+              "transitTime": 30,
+              "transitTimeUnit": "days",
+              "origin": {
+                "etd": "2026-05-03T00:00:00+02:00"
+              },
+              "destination": {
+                "portCode": "JPTYO",
+                "eta": "2026-05-31T00:00:00+09:00"
+              },
+              "freight": {
+                "amount": 420.00,
+                "currency": "USD",
+                "perUnit": "CBM"
+              },
+              "fuelSurcharge": {
+                "amount": 60.00,
+                "currency": "USD",
+                "perUnit": "CBM"
+              },
+              "totalAmount": 480.00,
+              "totalCurrency": "USD",
+              "validityDays": 10,
+              "minVolume": "1 CBM"
+            }
+          ],
+          "totalRates": 2,
+          "currency": "USD",
+          "lastUpdate": "2026-04-23T14:00:00+02:00"
+        }
+      }
+    },
+    {
+      "description": "Return error for invalid origin port",
+      "request": {
+        "method": "GET",
+        "path": "/logistics/getRates.json",
+        "query": "originPortCode=FAKE&destinationPortCode=USLAX&commodityType=GENERAL&containerSize=40HC",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-323458"
+        },
+        "jsonBody": {
+          "status": "error",
+          "errorCode": "INVALID_PORT_CODE",
+          "message": "Port code 'FAKE' is not valid",
+          "requestId": "req-323458"
+        }
+      }
+    },
+    {
+      "description": "Return no rates when no carriers serve the route",
+      "request": {
+        "method": "GET",
+        "path": "/logistics/getRates.json",
+        "query": "originPortCode=USLAX&destinationPortCode=ANTARCTICA&commodityType=GENERAL&containerSize=40HC",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-323459"
+        },
+        "jsonBody": {
+          "status": "error",
+          "errorCode": "NO_RATES_FOUND",
+          "message": "No shipping rates available for the specified route",
+          "requestId": "req-323459"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "4.0"
+    },
+    "pact-jvm": {
+      "version": "4.5.0"
+    }
+  }
+}

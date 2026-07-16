@@ -1,11 +1,12 @@
 // User-owned controller for handler 'export_user_audit_events'.
 
 use crate::handlers::export_user_audit_events::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(ExportUserAuditEventsController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "download_url": null,
@@ -21,17 +22,17 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "status": "pending"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         download_url: Some("example".to_string()),
         estimated_completion: Some("2026-05-11T14:35:00Z".to_string()),
         export_id: Some("6ba7b810-9dad-11d1-80b4-00c04fd430cb".to_string()),
         status: Some("pending".to_string()),
-    }
+    })
 }

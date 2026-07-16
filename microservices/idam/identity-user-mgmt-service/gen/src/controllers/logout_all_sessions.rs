@@ -1,11 +1,12 @@
 // User-owned controller for handler 'logout_all_sessions'.
 
 use crate::handlers::logout_all_sessions::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(LogoutAllSessionsController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "error": "validation_error",
@@ -17,17 +18,17 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "message": "Request validation failed"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         error: "validation_error".to_string(),
         error_description: Some("example".to_string()),
         hint: Some("example".to_string()),
         retry_after: Some(42),
-    }
+    })
 }

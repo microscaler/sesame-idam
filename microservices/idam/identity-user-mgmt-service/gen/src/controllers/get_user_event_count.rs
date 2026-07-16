@@ -1,11 +1,12 @@
 // User-owned controller for handler 'get_user_event_count'.
 
 use crate::handlers::get_user_event_count::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(GetUserEventCountController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "by_type": {
@@ -35,14 +36,14 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c9"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         by_type: Some(
             serde_json::json!({"authentication":85,"session_management":22,"user_management":20}),
         ),
@@ -51,5 +52,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         ),
         total_count: Some(127),
         user_id: Some("6ba7b810-9dad-11d1-80b4-00c04fd430c9".to_string()),
-    }
+    })
 }

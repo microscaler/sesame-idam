@@ -35,7 +35,7 @@ ssh ms02 'cd ~/Workspace/microscaler/<repo> && <command>'
 **Always** `source ~/.cargo/env` before `cargo` / `just` Rust builds on ms02:
 
 ```bash
-ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/seasame-idam/microservices && cargo nextest run'
+ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/sesame-idam/microservices && cargo nextest run'
 ```
 
 Examples:
@@ -48,7 +48,7 @@ ssh ms02 'cd ~/Workspace/microscaler/hauliage/frontend && yarn test'
 ssh ms02 'cd ~/Workspace/microscaler/hauliage/microservices && cargo test -p hauliage_bidding notification_pipeline'
 
 # Sesame-IDAM nextest
-ssh ms02 'cd ~/Workspace/microscaler/seasame-idam/microservices && cargo nextest run'
+ssh ms02 'cd ~/Workspace/microscaler/sesame-idam/microservices && cargo nextest run'
 
 # kubectl (shared Kind)
 ssh ms02 'KUBECONFIG=~/Workspace/microscaler/shared-k8s-cluster/kubeconfig/shared-k8s.yaml kubectl get pods -n hauliage'

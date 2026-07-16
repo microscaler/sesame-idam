@@ -1,0 +1,127 @@
+# Publishes Sesame pact JSON contracts to the shared platform pact-broker (namespace data).
+# Health: :1238/ready (requires broker healthy + contracts published).
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sesame-pact-manager
+  namespace: sesame-idam
+  labels:
+    app: sesame-pact-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sesame-pact-manager
+  namespace: sesame-idam
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sesame-pact-manager
+  namespace: sesame-idam
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sesame-pact-manager
+subjects:
+- kind: ServiceAccount
+  name: sesame-pact-manager
+  namespace: sesame-idam
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sesame-pact-manager
+  namespace: sesame-idam
+  labels:
+    app: sesame-pact-manager
+spec:
+  type: ClusterIP
+  selector:
+    app: sesame-pact-manager
+  ports:
+  - name: health
+    port: 1238
+    targetPort: health
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sesame-pact-manager
+  namespace: sesame-idam
+  labels:
+    app: sesame-pact-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sesame-pact-manager
+  template:
+    metadata:
+      labels:
+        app: sesame-pact-manager
+    spec:
+      serviceAccountName: sesame-pact-manager
+      containers:
+      - name: manager
+        image: localhost:5001/sesame-pact-manager:tilt
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: health
+          containerPort: 1238
+        env:
+        - name: NAMESPACE
+          value: sesame-idam
+        - name: CONFIGMAP_NAME
+          value: sesame-pact-contracts
+        - name: CONFIGMAP_PATH
+          value: /pacts-configmap
+        - name: BROKER_URL
+          value: http://pact-broker.data.svc.cluster.local:9292
+        - name: BROKER_HEALTH_PATH
+          value: /diagnostic/status/heartbeat
+        - name: BROKER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: sesame-pact-broker-credentials
+              key: username
+        - name: BROKER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sesame-pact-broker-credentials
+              key: password
+        - name: GIT_BRANCH
+          value: dev
+        - name: GIT_COMMIT
+          value: local
+        - name: HEALTH_PORT
+          value: "1238"
+        - name: RUST_LOG
+          value: info
+        volumeMounts:
+        - name: pact-contracts
+          mountPath: /pacts-configmap
+          readOnly: true
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: health
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+      volumes:
+      - name: pact-contracts
+        configMap:
+          name: sesame-pact-contracts

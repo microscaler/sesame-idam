@@ -6,6 +6,8 @@ members = [
     "idam/common",
     # Migration tooling
     "migrator",
+    # Local SAML/OAuth pact broker + contract publisher (Tilt dev-tools)
+    "pact-mock-server",
     # IDAM microservices — gen crates (generated types + handlers)
     "idam/identity-login-service/gen",
     "idam/identity-login-service/impl",

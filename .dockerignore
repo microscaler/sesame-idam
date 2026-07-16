@@ -1,1 +1,7 @@
+# Ignore all Cargo target dirs (root pattern alone does not cover nested crates).
 target
+**/target
+**/._*
+**/.DS_Store
+.git
+**/*.rs.bk

@@ -1,11 +1,12 @@
 // User-owned controller for handler 'get_audit_event'.
 
 use crate::handlers::get_audit_event::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(GetAuditEventController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "actor": "user",
@@ -39,14 +40,14 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c9"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         actor: "user".to_string(),
         event_action: "login_success".to_string(),
         event_type: "authentication".to_string(),
@@ -63,5 +64,5 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         timestamp: "2026-05-11T14:30:00Z".to_string(),
         user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)".to_string()),
         user_id: Some("6ba7b810-9dad-11d1-80b4-00c04fd430c9".to_string()),
-    }
+    })
 }

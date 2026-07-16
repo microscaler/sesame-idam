@@ -5,7 +5,6 @@ metadata:
   namespace: {{ .Values.deployment.namespace }}
   labels:
     app: {{ .Values.service.name }}
-    version: {{ .Values.deployment.namespace | default "dev" }}
 spec:
   replicas: {{ .Values.deployment.replicas }}
   selector:
@@ -15,7 +14,6 @@ spec:
     metadata:
       labels:
         app: {{ .Values.service.name }}
-        version: {{ .Values.deployment.namespace | default "dev" }}
       annotations:
         checksum/config: "{{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum | trunc 8 }}"
     spec:

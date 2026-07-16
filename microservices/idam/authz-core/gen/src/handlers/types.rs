@@ -8,9 +8,11 @@ use serde::{Deserialize, Serialize};
 pub struct AssignPrincipalRoleRequest {
     pub app_id: String,
 
-    pub expires_at: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<serde_json::Value>,
 
-    pub org_id: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<serde_json::Value>,
 
     pub role: String,
 
@@ -23,7 +25,27 @@ pub struct AssignPrincipalRoleRequest {
 pub struct AssignPrincipalRoleResponse {
     pub error: String,
 
-    pub error_description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum AuditActor {
+    #[default]
+    #[serde(rename = "user")]
+    User,
+
+    #[serde(rename = "system")]
+    System,
+
+    #[serde(rename = "admin")]
+    Admin,
+
+    #[serde(rename = "service_account")]
+    ServiceAccount,
+
+    #[serde(rename = "api_key")]
+    ApiKey,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -34,49 +56,62 @@ pub struct AuditEvent {
 
     pub event_type: String,
 
-    pub hmac_signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hmac_signature: Option<String>,
 
     pub id: String,
 
     pub ip_address: String,
 
-    pub metadata: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
 
-    pub org_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
 
-    pub session_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 
-    pub severity: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub severity: Option<String>,
 
-    pub target_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_id: Option<String>,
 
-    pub target_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_type: Option<String>,
 
     pub tenant_id: String,
 
     pub timestamp: String,
 
-    pub user_agent: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_agent: Option<String>,
 
-    pub user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuditEventExportRequest {
-    pub filters: AuditEventFilter,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<AuditEventFilter>,
 
     pub format: String,
 
-    pub include_metadata: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_metadata: Option<bool>,
 
     pub tenant_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuditEventExportResponse {
-    pub download_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub download_url: Option<String>,
 
-    pub estimated_completion: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimated_completion: Option<String>,
 
     pub export_id: String,
 
@@ -85,68 +120,132 @@ pub struct AuditEventExportResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuditEventFilter {
-    pub actor: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor: Option<String>,
 
-    pub end_time: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<String>,
 
-    pub event_action: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_action: Option<String>,
 
-    pub event_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_type: Option<String>,
 
-    pub limit: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i32>,
 
-    pub offset: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i32>,
 
-    pub org_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
 
-    pub severity: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub severity: Option<String>,
 
-    pub start_time: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<String>,
 
-    pub tenant_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
 
-    pub user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuditEventSearchRequest {
-    pub filters: AuditEventFilter,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<AuditEventFilter>,
 
-    pub sort_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_by: Option<String>,
 
-    pub sort_order: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
 
     pub tenant_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuditEventStats {
-    pub by_actor: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub by_actor: Option<serde_json::Value>,
 
     pub by_severity: serde_json::Value,
 
     pub by_type: serde_json::Value,
 
-    pub time_range: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_range: Option<serde_json::Value>,
 
     pub total: i32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum AuditEventType {
+    #[default]
+    #[serde(rename = "authentication")]
+    Authentication,
+
+    #[serde(rename = "authorization")]
+    Authorization,
+
+    #[serde(rename = "user_management")]
+    UserManagement,
+
+    #[serde(rename = "session_management")]
+    SessionManagement,
+
+    #[serde(rename = "organization")]
+    Organization,
+
+    #[serde(rename = "api_key")]
+    ApiKey,
+
+    #[serde(rename = "system")]
+    System,
+
+    #[serde(rename = "compliance")]
+    Compliance,
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuditRetentionPolicy {
-    pub archive_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archive_after_days: Option<i32>,
 
-    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
 
-    pub delete_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete_after_days: Option<i32>,
 
     pub event_type: String,
 
-    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
 
     pub retention_days: i32,
 
     pub tenant_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum AuditSeverity {
+    #[default]
+    #[serde(rename = "info")]
+    Info,
+
+    #[serde(rename = "warning")]
+    Warning,
+
+    #[serde(rename = "error")]
+    Error,
+
+    #[serde(rename = "critical")]
+    Critical,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -155,24 +254,30 @@ pub struct AuthError {
 
     pub message: String,
 
-    pub reason: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 
-    pub retry_after: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthorizeRequest {
     pub action: String,
 
-    pub app_id: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_id: Option<serde_json::Value>,
 
-    pub context: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<serde_json::Value>,
 
-    pub org_id: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<serde_json::Value>,
 
     pub resource: String,
 
-    pub tenant_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
 
     pub user_id: String,
 }
@@ -181,18 +286,23 @@ pub struct AuthorizeRequest {
 pub struct AuthorizeResponse {
     pub allowed: bool,
 
-    pub permissions_used: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions_used: Option<serde_json::Value>,
 
-    pub reason: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 
-    pub roles_matched: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles_matched: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CheckExportStatusResponse {
-    pub download_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub download_url: Option<String>,
 
-    pub estimated_completion: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimated_completion: Option<String>,
 
     pub export_id: String,
 
@@ -201,9 +311,11 @@ pub struct CheckExportStatusResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CreateRetentionPolicyRequest {
-    pub archive_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archive_after_days: Option<i32>,
 
-    pub delete_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete_after_days: Option<i32>,
 
     pub event_type: String,
 
@@ -212,15 +324,19 @@ pub struct CreateRetentionPolicyRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CreateRetentionPolicyResponse {
-    pub archive_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archive_after_days: Option<i32>,
 
-    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
 
-    pub delete_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete_after_days: Option<i32>,
 
     pub event_type: String,
 
-    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
 
     pub retention_days: i32,
 
@@ -231,16 +347,19 @@ pub struct CreateRetentionPolicyResponse {
 pub struct DeleteRetentionPolicyResponse {
     pub error: String,
 
-    pub error_description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct EffectiveRequest {
     pub app_id: String,
 
-    pub include_inherited: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_inherited: Option<bool>,
 
-    pub org_id: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<serde_json::Value>,
 
     pub tenant_id: String,
 
@@ -249,7 +368,8 @@ pub struct EffectiveRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct EffectiveResponse {
-    pub attributes: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attributes: Option<serde_json::Value>,
 
     pub permissions: Vec<String>,
 
@@ -262,25 +382,30 @@ pub struct EffectiveResponse {
 pub struct ErrorResponse {
     pub error: String,
 
-    pub error_description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ExportAuditEventsRequest {
-    pub filters: AuditEventFilter,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<AuditEventFilter>,
 
     pub format: String,
 
-    pub include_metadata: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_metadata: Option<bool>,
 
     pub tenant_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ExportAuditEventsResponse {
-    pub download_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub download_url: Option<String>,
 
-    pub estimated_completion: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimated_completion: Option<String>,
 
     pub export_id: String,
 
@@ -295,53 +420,67 @@ pub struct GetAuditEventResponse {
 
     pub event_type: String,
 
-    pub hmac_signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hmac_signature: Option<String>,
 
     pub id: String,
 
     pub ip_address: String,
 
-    pub metadata: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
 
-    pub org_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
 
-    pub session_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 
-    pub severity: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub severity: Option<String>,
 
-    pub target_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_id: Option<String>,
 
-    pub target_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_type: Option<String>,
 
     pub tenant_id: String,
 
     pub timestamp: String,
 
-    pub user_agent: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_agent: Option<String>,
 
-    pub user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct GetAuditStatsRequest {
-    pub filters: AuditEventFilter,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<AuditEventFilter>,
 
-    pub sort_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_by: Option<String>,
 
-    pub sort_order: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
 
     pub tenant_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct GetAuditStatsResponse {
-    pub by_actor: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub by_actor: Option<serde_json::Value>,
 
     pub by_severity: serde_json::Value,
 
     pub by_type: serde_json::Value,
 
-    pub time_range: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_range: Option<serde_json::Value>,
 
     pub total: i32,
 }
@@ -353,26 +492,34 @@ pub struct ListRetentionPoliciesResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PaginatedResponse {
-    pub filters: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<Vec<String>>,
 
-    pub limit: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i32>,
 
-    pub offset: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i32>,
 
-    pub sort_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_by: Option<String>,
 
-    pub sort_order: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
 
-    pub total: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PrincipalEffectiveRequest {
     pub app_id: String,
 
-    pub include_inherited: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_inherited: Option<bool>,
 
-    pub org_id: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<serde_json::Value>,
 
     pub tenant_id: String,
 
@@ -381,7 +528,8 @@ pub struct PrincipalEffectiveRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PrincipalEffectiveResponse {
-    pub attributes: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attributes: Option<serde_json::Value>,
 
     pub permissions: Vec<String>,
 
@@ -403,16 +551,20 @@ pub struct RevokePrincipalRoleRequest {
 pub struct RevokePrincipalRoleResponse {
     pub error: String,
 
-    pub error_description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SearchAuditEventsRequest {
-    pub filters: AuditEventFilter,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<AuditEventFilter>,
 
-    pub sort_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_by: Option<String>,
 
-    pub sort_order: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
 
     pub tenant_id: String,
 }
@@ -421,7 +573,8 @@ pub struct SearchAuditEventsRequest {
 pub struct SetPrincipalAttributeRequest {
     pub key: String,
 
-    pub org_id: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<serde_json::Value>,
 
     pub tenant_id: String,
 
@@ -434,29 +587,37 @@ pub struct SetPrincipalAttributeRequest {
 pub struct SetPrincipalAttributeResponse {
     pub error: String,
 
-    pub error_description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateRetentionPolicyRequest {
-    pub archive_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archive_after_days: Option<i32>,
 
-    pub delete_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete_after_days: Option<i32>,
 
-    pub retention_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retention_days: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateRetentionPolicyResponse {
-    pub archive_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archive_after_days: Option<i32>,
 
-    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
 
-    pub delete_after_days: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete_after_days: Option<i32>,
 
     pub event_type: String,
 
-    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
 
     pub retention_days: i32,
 

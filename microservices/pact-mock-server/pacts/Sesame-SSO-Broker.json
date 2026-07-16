@@ -1,0 +1,88 @@
+{
+  "consumer": {
+    "name": "sesame-identity-login-service"
+  },
+  "provider": {
+    "name": "Sesame-SSO-Broker"
+  },
+  "interactions": [
+    {
+      "description": "initiate SAML login redirect for an organization",
+      "request": {
+        "method": "POST",
+        "path": "/v1/saml/redirect",
+        "headers": {
+          "Authorization": "Bearer ssoready_sk_test",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "organizationExternalId": "a1000001-0001-4000-8000-000000000001"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "redirectUrl": "http://127.0.0.1:9190/idp/login?session=test-session"
+        }
+      }
+    },
+    {
+      "description": "redeem SAML access code after IdP login",
+      "request": {
+        "method": "POST",
+        "path": "/v1/saml/redeem",
+        "headers": {
+          "Authorization": "Bearer ssoready_sk_test",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "samlAccessCode": "saml_access_code_test"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "email": "buyer@testshipper.local",
+          "organizationId": "org_test_001",
+          "organizationExternalId": "a1000001-0001-4000-8000-000000000001"
+        }
+      }
+    },
+    {
+      "description": "programmatic IdP simulate for CI without browser",
+      "request": {
+        "method": "POST",
+        "path": "/idp/simulate",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "organizationExternalId": "a1000001-0001-4000-8000-000000000001",
+          "email": "buyer@testshipper.local"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "samlAccessCode": "saml_access_code_test",
+          "organizationExternalId": "a1000001-0001-4000-8000-000000000001",
+          "email": "buyer@testshipper.local"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  }
+}

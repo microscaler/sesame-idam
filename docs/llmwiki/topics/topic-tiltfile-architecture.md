@@ -11,6 +11,23 @@ sources: [PRD-SEASAME-AUDIT-REMEDIATION.md, hauliage Tiltfile, Tiltfile, actual 
 
 The Tiltfile has been rewritten (~320 lines) following hauliage patterns, adapted for sesame-idam's nested `idam/` layout. The critical `build-image-simple` CLI args have been corrected.
 
+### Tilt UI labels (strict one per resource)
+
+Never assign `labels=['a', 'b']`. Each resource has exactly one label:
+
+| Label | Resources |
+|-------|-----------|
+| `tooling` | `build-tooling` |
+| `docker` | `build-base-image` |
+| `data` | namespace / database ConfigMap+Secret |
+| `database` | db-init image + break-glass `sesame-idam-db-init` |
+| `migrations` | `sesame-idam-migrate`, `sesame-idam-apply-migrations` |
+| `testing` | suite + per-service BDD / nextest hooks |
+| `dev-tools` | pact broker + pact-manager stack |
+| `<service>` | lint → gen → build → copy → docker → deploy/image for that service |
+
+Helm chart objects use a single Kubernetes label: `app: <service.name>` (no `version`).
+
 ### Key Design Decisions
 
 | Decision | Rationale |

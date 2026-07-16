@@ -1,0 +1,58 @@
+{
+  "consumer": {
+    "name": "sesame-identity-login-service"
+  },
+  "provider": {
+    "name": "Microsoft-OAuth-Mock"
+  },
+  "interactions": [
+    {
+      "description": "exchange Microsoft authorization code for tokens",
+      "request": {
+        "method": "POST",
+        "path": "/mock/microsoft/token",
+        "headers": {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        "body": "grant_type=authorization_code&code=microsoft_test_code&client_id=test-microsoft-client&client_secret=test-microsoft-secret&redirect_uri=http%3A%2F%2Floadlinker.dev.microscaler.local%2Foauth%2Fcallback"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "access_token": "microsoft_mock_access_token",
+          "token_type": "Bearer",
+          "expires_in": 3600
+        }
+      }
+    },
+    {
+      "description": "fetch Microsoft Graph /me profile",
+      "request": {
+        "method": "GET",
+        "path": "/mock/microsoft/me",
+        "headers": {
+          "Authorization": "Bearer microsoft_mock_access_token"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "id": "microsoft-sub-001",
+          "mail": "bob@outlook.com",
+          "userPrincipalName": "bob@outlook.com"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  }
+}

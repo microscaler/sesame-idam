@@ -1,0 +1,81 @@
+[package]
+name = "pact-mock-server"
+version = "0.2.0"
+edition = "2021"
+description = "Pact mock servers and local SAML/OAuth test brokers for Sesame-IDAM"
+license = "BSL-1.1"
+keywords = ["kubernetes", "pact", "testing", "mock-server", "saml", "oauth"]
+categories = ["development-tools", "testing"]
+
+[lib]
+name = "pact_mock_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sesame-idam-broker"
+path = "src/bin/sesame-idam-broker.rs"
+
+[[bin]]
+name = "chatroom"
+path = "src/bin/chatroom.rs"
+
+[[bin]]
+name = "webhook"
+path = "src/bin/webhook.rs"
+
+[[bin]]
+name = "searates-graphql"
+path = "src/bin/searates-graphql.rs"
+
+[[bin]]
+name = "manager"
+path = "src/bin/manager.rs"
+
+[[bin]]
+name = "searates-terminal"
+path = "src/bin/searates-terminal.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws", "macros", "http2"] }
+tower = "0.5"
+tower-http = { version = "0.6.6", features = ["trace", "cors"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.10", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls", "rustls-tls-webpki-roots"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Kubernetes client for manager sidecar
+kube = { version = "2.0.0", features = ["runtime", "derive", "client", "rustls-tls"], default-features = false }
+kube-runtime = "2.0"
+k8s-openapi = { version = "0.26", default-features = false, features = ["v1_30"] }
+anyhow = "1.0"
+futures = "0.3"
+which = "6.0"
+urlencoding = "2.1"
+serde_urlencoded = "0.7"
+rustls = { version = "0.23", features = ["ring"], default-features = false }
+
+[dev-dependencies]
+axum-test = "18.0"
+
+[lints.rust]
+ambiguous_negative_literals = "warn"
+missing_debug_implementations = "warn"
+redundant_imports = "warn"
+redundant_lifetimes = "warn"
+trivial_numeric_casts = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unused_lifetimes = "warn"
+
+[lints.clippy]
+cargo = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+correctness = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+

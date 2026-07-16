@@ -1,0 +1,58 @@
+{
+  "consumer": {
+    "name": "sesame-identity-login-service"
+  },
+  "provider": {
+    "name": "Google-OAuth-Mock"
+  },
+  "interactions": [
+    {
+      "description": "exchange Google authorization code for tokens",
+      "request": {
+        "method": "POST",
+        "path": "/mock/google/token",
+        "headers": {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        "body": "grant_type=authorization_code&code=google_test_code&client_id=test-google-client&client_secret=test-google-secret&redirect_uri=http%3A%2F%2Floadlinker.dev.microscaler.local%2Foauth%2Fcallback"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "access_token": "google_mock_access_token",
+          "token_type": "Bearer",
+          "expires_in": 3600
+        }
+      }
+    },
+    {
+      "description": "fetch Google OpenID userinfo",
+      "request": {
+        "method": "GET",
+        "path": "/mock/google/userinfo",
+        "headers": {
+          "Authorization": "Bearer google_mock_access_token"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "sub": "google-sub-001",
+          "email": "alice@gmail.com",
+          "email_verified": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  }
+}

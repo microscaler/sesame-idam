@@ -69,13 +69,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         );
     }
 
-    match TenantService::create(
-        &slug,
-        display_name,
-        PROVISIONING_PLATFORM,
-        status,
-        exec,
-    ) {
+    match TenantService::create(&slug, display_name, PROVISIONING_PLATFORM, status, exec) {
         Ok(id) => match TenantService::find_by_slug(&slug, exec) {
             Ok(Some(tenant)) => HttpJson::new(201, TenantService::to_json(&tenant)),
             Ok(None) => internal_error(),

@@ -1,0 +1,143 @@
+{
+  "consumer": {
+    "name": "hauliage-terminal-service"
+  },
+  "provider": {
+    "name": "Searates-Supported-Terminals"
+  },
+  "interactions": [
+    {
+      "description": "Get list of supported terminals for a given country and port",
+      "request": {
+        "method": "GET",
+        "path": "/terminal/getList.json",
+        "query": "country=US&port=NEW",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-123456",
+          "X-Rate-Limit-Remaining": "99"
+        },
+        "jsonBody": {
+          "status": "ok",
+          "terminals": [
+            {
+              "code": "USNYC",
+              "name": "New York / Brooklyn",
+              "countryCode": "US",
+              "countryName": "United States",
+              "port": "NEW",
+              "portName": "New York",
+              "region": "East Coast",
+              "timeZone": "America/New_York",
+              "isActive": true
+            },
+            {
+              "code": "USLAX",
+              "name": "Los Angeles",
+              "countryCode": "US",
+              "countryName": "United States",
+              "port": "LAX",
+              "portName": "Los Angeles / Long Beach",
+              "region": "West Coast",
+              "timeZone": "America/Los_Angeles",
+              "isActive": true
+            }
+          ],
+          "totalCount": 2,
+          "currentPage": 1,
+          "totalPages": 1
+        }
+      }
+    },
+    {
+      "description": "Get list of supported terminals with pagination",
+      "request": {
+        "method": "GET",
+        "path": "/terminal/getList.json",
+        "query": "country=CN&page=1&pageSize=50",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-123457",
+          "X-Rate-Limit-Remaining": "98"
+        },
+        "jsonBody": {
+          "status": "ok",
+          "terminals": [
+            {
+              "code": "CNSHA",
+              "name": "Shanghai",
+              "countryCode": "CN",
+              "countryName": "China",
+              "port": "SHA",
+              "portName": "Shanghai",
+              "region": "East China",
+              "timeZone": "Asia/Shanghai",
+              "isActive": true
+            },
+            {
+              "code": "CNNGB",
+              "name": "Ningbo",
+              "countryCode": "CN",
+              "countryName": "China",
+              "port": "NGB",
+              "portName": "Ningbo / Zhoushan",
+              "region": "East China",
+              "timeZone": "Asia/Shanghai",
+              "isActive": true
+            }
+          ],
+          "totalCount": 142,
+          "currentPage": 1,
+          "totalPages": 3
+        }
+      }
+    },
+    {
+      "description": "Return empty list for unsupported country",
+      "request": {
+        "method": "GET",
+        "path": "/terminal/getList.json",
+        "query": "country=XX",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Request-Id": "req-123458"
+        },
+        "jsonBody": {
+          "status": "error",
+          "errorCode": "TERMINAL_NOT_FOUND",
+          "message": "No terminals found for country code 'XX'",
+          "requestId": "req-123458"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "4.0"
+    },
+    "pact-jvm": {
+      "version": "4.5.0"
+    }
+  }
+}

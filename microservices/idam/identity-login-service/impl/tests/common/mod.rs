@@ -1,8 +1,6 @@
 // Test helpers for identity-login-service BDD tests.
 
-use sesame_idam_identity_login_service::services::tenant_service::{
-    TenantService, STATUS_ACTIVE,
-};
+use sesame_idam_identity_login_service::services::tenant_service::{TenantService, STATUS_ACTIVE};
 
 /// Ensure a tenant slug exists in the platform registry before auth operations.
 ///

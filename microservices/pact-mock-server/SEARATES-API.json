@@ -1,0 +1,8 @@
+{
+  "consumer": { "name": "hauliage" },
+  "provider": { "name": "Searates-API" },
+  "interactions": [],
+  "metadata": {
+    "pactSpecification": { "version": "2.0.0" }
+  }
+}

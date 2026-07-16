@@ -7,23 +7,4 @@ metadata:
     app: {{ .Values.service.name }}
 data:
   config.yaml: |
-    # Sesame-IDAM {{ .Values.service.name }} configuration (Kubernetes) — same shape as RERP
-    port: {{ .Values.service.containerPort }}
-    security:
-{{ toYaml .Values.app.config.security | nindent 6 }}
-    http:
-      keep_alive: {{ .Values.app.config.http.keep_alive }}
-      timeout_secs: {{ .Values.app.config.http.timeout_secs }}
-      max_requests: {{ .Values.app.config.http.max_requests }}
-    database:
-      host: {{ .Values.app.config.database.host | quote }}
-      port: {{ .Values.app.config.database.port }}
-      name: {{ .Values.app.config.database.name | quote }}
-      user: {{ .Values.app.config.database.user | quote }}
-      password: {{ .Values.app.config.database.password | quote }}
-      max_connections: {{ .Values.app.config.database.max_connections }}
-    redis:
-      host: {{ .Values.app.config.redis.host | quote }}
-      port: {{ .Values.app.config.redis.port }}
-      db: {{ .Values.app.config.redis.db }}
-      max_connections: {{ .Values.app.config.redis.max_connections }}
+{{- toYaml .Values.app.config | nindent 4 }}

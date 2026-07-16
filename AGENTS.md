@@ -170,7 +170,7 @@ just tilt-log        # Tail Tilt logs
 
 ### Build and deploy on ms02 — remote Tilt from Mac
 
-**Rule**: On desktop dev (Mac + ms02 NFS), **run `cargo check` / `cargo test` on ms02** via `ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/seasame-idam/microservices && …'`. Mac-local `cargo` is unreliable (toolchain / `ring` / NFS latency).
+**Rule**: On desktop dev (Mac + ms02 NFS), **run `cargo check` / `cargo test` on ms02** via `ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/sesame-idam/microservices && …'`. Mac-local `cargo` is unreliable (toolchain / `ring` / NFS latency).
 
 Tilt for this repo: **systemd `tilt-sesame-idam.service`**, port **10351**, host `0.0.0.0`.
 

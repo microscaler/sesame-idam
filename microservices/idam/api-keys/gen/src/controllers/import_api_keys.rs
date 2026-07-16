@@ -1,11 +1,12 @@
 // User-owned controller for handler 'import_api_keys'.
 
 use crate::handlers::import_api_keys::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(ImportApiKeysController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "failed": 0,
@@ -31,16 +32,16 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   ]
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         errors: vec![],
         failed_count: 42,
         imported_count: 42,
-    }
+    })
 }

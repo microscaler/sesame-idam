@@ -1,0 +1,17 @@
+FROM rust:1-bookworm AS builder
+
+WORKDIR /usr/src/app
+COPY ./microservices/pact-mock-server ./microservices/pact-mock-server
+
+WORKDIR /usr/src/app/microservices/pact-mock-server
+RUN cargo build --release --bin sesame-idam-broker
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/src/app/microservices/pact-mock-server/target/release/sesame-idam-broker /usr/local/bin/sesame-idam-broker
+ENV SESAME_BROKER_PORT=9190
+ENV SESAME_BROKER_BASE_URL=http://sesame-idam-broker.sesame-idam.svc.cluster.local:9190
+ENV SESAME_BROKER_APP_REDIRECT_URL=http://loadlinker.dev.microscaler.local/saml/callback
+ENV RUST_LOG=info
+EXPOSE 9190
+CMD ["sesame-idam-broker"]

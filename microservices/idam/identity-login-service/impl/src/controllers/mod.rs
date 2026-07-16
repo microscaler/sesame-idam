@@ -15,6 +15,7 @@
 pub mod auth_login;
 pub mod auth_logout;
 pub mod auth_register;
+pub mod auth_token;
 pub mod platform_tenant_create;
 pub mod platform_tenant_get;
 pub mod platform_tenant_oauth_rotate;

@@ -1,11 +1,12 @@
 // User-owned controller for handler 'set_principal_attribute'.
 
 use crate::handlers::set_principal_attribute::{Request, Response};
+use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(SetPrincipalAttributeController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
     //   "error": "invalid_request",
@@ -17,15 +18,15 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
   "error_description": "Bad request (validation error)"
 }"###,
     ) {
-        Ok(parsed) => return parsed,
+        Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    Response {
+    HttpJson::ok(Response {
         error: "invalid_request".to_string(),
         error_description: Some("Bad request (validation error)".to_string()),
-    }
+    })
 }
