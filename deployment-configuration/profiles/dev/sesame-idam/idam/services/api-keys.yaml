@@ -32,7 +32,7 @@ spec:
       name: api-keys
     image:
       name: sesame-idam-api-keys
-      tag: dev-0 # {"$imagepolicy": "flux-system:sesame-idam-api-keys:tag"}
+      tag: dev-1784219901954962349 # {"$imagepolicy": "flux-system:sesame-idam-api-keys:tag"}
     app:
       binaryName: api-keys
       serviceName: api-keys
