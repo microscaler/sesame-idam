@@ -32,9 +32,6 @@ arc-swap = { workspace = true }
 
 # Database layer
 sesame_idam_database = { path = "../../../database" }
-# client_credentials grant validates M2M clients against the api-keys
-# service's table via its model/service layer (PRD-OPENGROUPWARE F1).
-sesame_idam_api_keys = { path = "../../api-keys/impl" }
 
 sesame_idam_identity_login_service_gen = { path = "../gen" }
 

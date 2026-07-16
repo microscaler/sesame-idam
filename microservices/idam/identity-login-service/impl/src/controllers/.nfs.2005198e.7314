@@ -976,157 +976,13 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         }
     }
 
-    // RFC 6749 §4.4 client_credentials (PRD-OPENGROUPWARE F1): M2M tokens
-    // for first-party services (e.g. opengroupware admin-api), authenticated
-    // against the api-keys table.
-    if req.data.grant_type == "client_credentials" {
-        match handle_client_credentials(&req.data) {
-            Ok(resp) => {
-                span.record("result", "success");
-                emit_audit(true, "client_credentials");
-                return resp;
-            }
-            Err(err) => {
-                span.record("result", "denied");
-                span.record("error", &err.error);
-                emit_audit(false, &err.error);
-                return empty_denied(None);
-            }
-        }
-    }
-
-    // Other grant types: refresh_token rotation lives in
-    // identity-session-service /auth/refresh.
+    // Other grant types: not implemented on this path yet. refresh_token
+    // rotation lives in identity-session-service /auth/refresh;
+    // client_credentials is PRD-OPENGROUPWARE F1 scope.
     span.record("result", "denied");
     span.record("error", "unsupported_grant_type");
     emit_audit(false, "unsupported_grant_type");
     empty_denied(req.data.scope)
-}
-
-// ─── client_credentials grant (RFC 6749 §4.4) ────────────────────────────
-
-/// Scope actually granted: the intersection of the requested scope with the
-/// client's registered permissions; the full permission set when no scope
-/// was requested.
-fn granted_scope(requested: Option<&str>, permissions: &[String]) -> Vec<String> {
-    match requested {
-        None | Some("") => permissions.to_vec(),
-        Some(req) => {
-            let allowed: HashSet<&str> = permissions.iter().map(String::as_str).collect();
-            req.split_whitespace()
-                .filter(|s| allowed.contains(s))
-                .map(str::to_string)
-                .collect()
-        }
-    }
-}
-
-/// Access-token TTL for M2M clients (seconds).
-const CLIENT_CREDENTIALS_TTL_SECS: i64 = 900;
-
-fn invalid_client(description: &str) -> ErrorResponse {
-    ErrorResponse {
-        error: "invalid_client".to_string(),
-        error_description: description.to_string(),
-        retry_after: None,
-        hint: Some("Check client_id/client_secret and the X-Tenant-ID header".to_string()),
-    }
-}
-
-/// Validate an M2M client against the api-keys table and issue an
-/// EdDSA-signed access token. Per RFC 6749 §4.4.3 no refresh token is
-/// issued (the gen Response requires the field, so it is empty).
-fn handle_client_credentials(req: &Request) -> Result<Response, ErrorResponse> {
-    use sesame_idam_api_keys::services::api_key_service::{
-        decode_permissions, ApiKeyService, ValidationOutcome,
-    };
-
-    let client_id = req
-        .client_id
-        .as_deref()
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| invalid_client("client_id is required"))?;
-    let client_secret = req
-        .client_secret
-        .as_deref()
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| invalid_client("client_secret is required"))?;
-    let tenant_id = req.x_tenant_id.trim();
-    if tenant_id.is_empty() {
-        return Err(invalid_client("X-Tenant-ID header is required"));
-    }
-
-    let exec = sesame_idam_database::db();
-    let key = match ApiKeyService::validate(tenant_id, client_secret, "any", exec) {
-        Ok(ValidationOutcome::Valid(key)) => key,
-        Ok(ValidationOutcome::Expired(_)) => {
-            return Err(invalid_client("client credentials expired"));
-        }
-        Ok(_) => return Err(invalid_client("invalid client credentials")),
-        Err(e) => {
-            tracing::error!(error = %e, "client_credentials: api key lookup failed");
-            return Err(ErrorResponse {
-                error: "server_error".to_string(),
-                error_description: "credential store unavailable".to_string(),
-                retry_after: Some(5),
-                hint: None,
-            });
-        }
-    };
-
-    // client_id must match the registered key name (defence in depth — the
-    // secret alone already identifies the key, but a mismatched pair is a
-    // misconfigured caller and must not silently succeed).
-    if key.name != client_id {
-        return Err(invalid_client("client_id does not match credential"));
-    }
-
-    let permissions = decode_permissions(&key);
-    let scope = granted_scope(req.scope.as_deref(), &permissions);
-
-    let now = chrono::Utc::now().timestamp();
-    let jti = uuid::Uuid::new_v4().to_string();
-    let payload = serde_json::json!({
-        "iss": std::env::var("SESAME_JWT_ISSUER")
-            .unwrap_or_else(|_| "https://idam.example.com".to_string()),
-        "sub": format!("client:{}", key.id),
-        "client_id": key.name,
-        "tenant_id": key.tenant_id,
-        "iat": now,
-        "nbf": now,
-        "exp": now + CLIENT_CREDENTIALS_TTL_SECS,
-        "jti": jti,
-        "ver": 1,
-        "sid": jti,
-        "scope": scope.join(" "),
-        "sx": { "roles": [], "permissions": permissions },
-    });
-
-    let access_token = crate::services::token_issuer::SIGNER
-        .sign_payload(&payload.to_string())
-        .map_err(|e| ErrorResponse {
-            error: "server_error".to_string(),
-            error_description: format!("token signing failed: {e}"),
-            retry_after: None,
-            hint: None,
-        })?;
-
-    Ok(Response {
-        access_token,
-        token_type: "Bearer".to_string(),
-        expires_in: i32::try_from(CLIENT_CREDENTIALS_TTL_SECS).unwrap_or(900),
-        refresh_token: String::new(),
-        refresh_token_expires_in: None,
-        user_id: format!("client:{}", key.id),
-        id_token: None,
-        mfa_required: None,
-        scope: Some(scope.join(" ")),
-        entitlements_hash: None,
-        entitlements_ref: None,
-        permissions: Some(scope),
-        roles: None,
-        token_version: Some(1),
-    })
 }
 
 // ─── Tests: Story 6.2 — Support Impersonation Flow ───────────────────────
@@ -1134,43 +990,6 @@ fn handle_client_credentials(req: &Request) -> Result<Response, ErrorResponse> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_granted_scope_intersection() {
-        let perms = vec!["tenants:write".to_string(), "accounts:write".to_string()];
-        // No scope requested → full permission set.
-        assert_eq!(granted_scope(None, &perms), perms);
-        assert_eq!(granted_scope(Some(""), &perms), perms);
-        // Requested ∩ permitted.
-        assert_eq!(
-            granted_scope(Some("accounts:write admin:god"), &perms),
-            vec!["accounts:write".to_string()]
-        );
-        // Nothing permitted survives.
-        assert!(granted_scope(Some("admin:god"), &perms).is_empty());
-    }
-
-    #[test]
-    fn test_client_credentials_requires_client_id_and_secret() {
-        let req = Request {
-            grant_type: "client_credentials".to_string(),
-            x_tenant_id: "tenant_abc".to_string(),
-            ..base_request()
-        };
-        let err = handle_client_credentials(&req).unwrap_err();
-        assert_eq!(err.error, "invalid_client");
-        assert!(err.error_description.contains("client_id"));
-
-        let req = Request {
-            grant_type: "client_credentials".to_string(),
-            client_id: Some("opengroupware-admin-api".to_string()),
-            x_tenant_id: "tenant_abc".to_string(),
-            ..base_request()
-        };
-        let err = handle_client_credentials(&req).unwrap_err();
-        assert_eq!(err.error, "invalid_client");
-        assert!(err.error_description.contains("client_secret"));
-    }
 
     /// gen Request implements no Default — full base value for tests.
     fn base_request() -> Request {

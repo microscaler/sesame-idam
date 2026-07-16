@@ -5524,6 +5524,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sesame-common",
+ "sesame_idam_api_keys",
  "sesame_idam_database",
  "sesame_idam_identity_login_service_gen",
  "sesame_idam_identity_session_service",

@@ -72,16 +72,8 @@ pub fn platform_auth_http_error(err: &PlatformAuthError) -> HttpJson<serde_json:
 mod tests {
     use super::*;
 
-    /// Process env is shared across the parallel test runner — these tests
-    /// mutate the same variable and must serialize (was a scheduling-
-    /// dependent flake).
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
     #[test]
     fn rejects_missing_key_when_configured() {
-        let _guard = ENV_LOCK
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
         std::env::set_var(PLATFORM_ADMIN_KEY_ENV, "secret-key");
         assert_eq!(validate_platform_key(None), Err(PlatformAuthError::Missing));
         std::env::remove_var(PLATFORM_ADMIN_KEY_ENV);
@@ -89,9 +81,6 @@ mod tests {
 
     #[test]
     fn accepts_matching_key() {
-        let _guard = ENV_LOCK
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
         std::env::set_var(PLATFORM_ADMIN_KEY_ENV, "secret-key");
         assert!(validate_platform_key(Some("secret-key")).is_ok());
         std::env::remove_var(PLATFORM_ADMIN_KEY_ENV);
