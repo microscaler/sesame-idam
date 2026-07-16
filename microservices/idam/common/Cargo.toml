@@ -66,6 +66,10 @@ default = []
 full = ["metrics"]
 metrics = []
 
+[[example]]
+name = "print_jwt_signing_env"
+path = "examples/print_jwt_signing_env.rs"
+
 [dev-dependencies]
 may = "0.3"
 chrono = { version = "0.4", features = ["serde"] }

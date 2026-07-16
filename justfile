@@ -784,6 +784,14 @@ sync-specs-from-brrtrouter:
   echo "   7. Run: just lint-openapi"
 
 # =============================================================================
+# Deployment secrets (Flux / SOPS on ms02)
+# =============================================================================
+
+# Print dotenv for sesame-idam-jwt-signing (redirect to jwt-signing.secrets.env, then sops --encrypt).
+jwt-signing-material:
+  cd microservices/idam/common && cargo run --example print_jwt_signing_env
+
+# =============================================================================
 # Systemd Service Management (tilt-sesame-idam)
 # =============================================================================
 # The Tilt service is managed via systemd user units:

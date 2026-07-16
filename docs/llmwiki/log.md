@@ -1,5 +1,20 @@
 # LLM Wiki — Session Log
 
+## [2026-07-17] fix | Shared JWT signing secret for login ↔ session JWKS
+
+- **Symptom:** Hauliage sign-in: Sesame login OK, BFF `GET /organizations/me` →
+  `401 invalid_token`. Token header `kid: dev-ephemeral`; session JWKS
+  `kid: key-2026-08-11-21`. `iss`/`aud` in token match BFF config (`https://idam.example.com`,
+  `sesame-idam`) — signature/key mismatch only.
+- **Cause:** `sesame-idam-jwt-signing` Secret not in GitOps; login
+  `Ed25519Signer::from_env_or_generate()` and session `KeyManager::new()` each
+  bootstrap independent ephemeral keys.
+- **Fix:** `deployment-configuration/.../runtime/kustomization.yaml` adds
+  `secretGenerator` → `sesame-idam-jwt-signing` from SOPS `jwt-signing.secrets.env`
+  (`kid`, `pkcs8_b64`). Helm already mounts `SESAME_JWT_SIGNING_*` on login + session.
+- **Tooling:** `cargo run -p sesame-common --example print_jwt_signing_env`;
+  `just jwt-signing-material` on ms02.
+
 ## [2026-07-16] fix | Flux-owned deploys + Helm ConfigMaps (rerp pattern)
 
 - Root cause of `identity-user-mgmt-service-config` missing: Tilt applied

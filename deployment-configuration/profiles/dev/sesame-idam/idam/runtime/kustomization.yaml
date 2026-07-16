@@ -12,6 +12,16 @@ secretGenerator:
   - name: sesame-idam-db-credentials
     envs:
       - application.secrets.env
+  # Shared Ed25519 signing key: identity-login-service signs; identity-session-service
+  # publishes the public half in JWKS. Without this, login uses kid=dev-ephemeral and
+  # session generates a fresh key-* kid on each restart — BFF JWKS validation fails.
+  - name: sesame-idam-jwt-signing
+    envs:
+      - jwt-signing.secrets.env
+  # Shared Ed25519 signing key: identity-login signs, identity-session publishes JWKS.
+  - name: sesame-idam-jwt-signing
+    envs:
+      - jwt-signing.secrets.env
 
 generatorOptions:
   disableNameSuffixHash: true
