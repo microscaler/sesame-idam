@@ -1,7 +1,6 @@
 # Auto-generated FK-safe seed order. Regenerate with: cargo run -p <your-migrator>
-# Platform tenant registry must exist before login (tenant gate); users/orgs follow.
-identity-login-service/impl/seeds/20260714000000_platform_tenants.sql
 identity-user-mgmt-service/impl/seeds/20260706000000_hauliage_demo_users.sql
 org-mgmt/impl/seeds/20260706000002_hauliage_demo_orgs.sql
 authz-core/impl/seeds/20260706000001_hauliage_demo_roles.sql
+identity-login-service/impl/seeds/20260714000000_platform_tenants.sql
 authz-core/impl/seeds/20260715000000_hauliage_app_role_permissions.sql
