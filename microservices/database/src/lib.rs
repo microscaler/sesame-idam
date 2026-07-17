@@ -3,7 +3,7 @@
 //! Kubernetes: inject `DB_*` / `DB_PASS` via `ConfigMap` `sesame-idam-database-config` and Secret
 //! `sesame-idam-db-credentials` (see k8s/microservices/). Local: set env or rely on defaults below.
 //! `DB_HOST`, `DB_PORT`, `DB_USER` (default `sesame_idam`), `DB_PASS` or `SESAME_IDAM_DB_PASSWORD`, `DB_NAME`,
-//! optional `DB_POOL_MAX` (default `10`).
+//! optional `DB_POOL_MAX` (default `2`).
 
 use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
@@ -65,7 +65,7 @@ fn load_pool_config() -> (DatabaseConfig, DbSplashMeta) {
             .ok()
             .and_then(|s| s.parse().ok())
             .filter(|&n| n >= 1)
-            .unwrap_or(10),
+            .unwrap_or(2),
         ..Default::default()
     };
     (cfg, splash)

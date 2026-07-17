@@ -40,7 +40,7 @@ app:
       user: sesame_idam
       # Password comes from Secret sesame-idam-db-credentials (DB_PASS env).
       password: ""
-      max_connections: 5
+      max_connections: 2
     redis:
       host: redis.data.svc.cluster.local
       port: 6379

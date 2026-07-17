@@ -45,6 +45,8 @@ spec:
               value: {{ .Values.app.config.database.name | quote }}
             - name: DB_USER
               value: {{ .Values.app.config.database.user | quote }}
+            - name: DB_POOL_MAX
+              value: {{ .Values.app.config.database.max_connections | quote }}
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:

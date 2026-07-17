@@ -36,13 +36,13 @@ app:
       name: "sesame_idam"
       user: "sesame_idam"
       password: "dev_password_change_in_prod"
-      max_connections: 10
+      max_connections: 2
     redis:
       # Shared platform Redis (namespace data, shared-k8s-cluster)
       host: "redis.data.svc.cluster.local"
       port: 6379
       db: 0
-      max_connections: 10
+      max_connections: 4
 
 resources:
   requests:
