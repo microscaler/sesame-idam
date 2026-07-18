@@ -32,7 +32,7 @@ spec:
       name: authz-core
     image:
       name: sesame-idam-authz-core
-      tag: dev-1784400474636039211 # {"$imagepolicy": "flux-system:sesame-idam-authz-core:tag"}
+      tag: dev-1784400546996026109 # {"$imagepolicy": "flux-system:sesame-idam-authz-core:tag"}
     app:
       binaryName: authz-core
       serviceName: authz-core
