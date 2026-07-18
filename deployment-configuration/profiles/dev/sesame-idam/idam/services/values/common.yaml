@@ -23,16 +23,9 @@ app:
         ApiKeyHeader:
           key: ""
       jwks:
-        # OpenAPI security scheme is `BearerAuth` (PascalCase). BRRTRouter matches
-        # config keys to that name; `bearerAuth` alone leaves JWT auth unregistered
-        # and org-mgmt returns 401 for create-organization (onboarding).
+        # Must match OpenAPI components.securitySchemes name exactly (BearerAuth).
+        # BRRTRouter registers JWKS providers by that key; camelCase twins hide drift.
         BearerAuth:
-          jwks_url: http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json
-          iss: https://idam.example.com
-          aud: sesame-idam
-          leeway_secs: 30
-          cache_ttl_secs: 300
-        bearerAuth:
           jwks_url: http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json
           iss: https://idam.example.com
           aud: sesame-idam
