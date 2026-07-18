@@ -23,6 +23,15 @@ app:
         ApiKeyHeader:
           key: ""
       jwks:
+        # OpenAPI security scheme is `BearerAuth` (PascalCase). BRRTRouter matches
+        # config keys to that name; `bearerAuth` alone leaves JWT auth unregistered
+        # and org-mgmt returns 401 for create-organization (onboarding).
+        BearerAuth:
+          jwks_url: http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json
+          iss: https://idam.example.com
+          aud: sesame-idam
+          leeway_secs: 30
+          cache_ttl_secs: 300
         bearerAuth:
           jwks_url: http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json
           iss: https://idam.example.com
@@ -40,6 +49,10 @@ app:
       user: sesame_idam
       # Password comes from Secret sesame-idam-db-credentials (DB_PASS env).
       password: ""
+      # Keep at 2 cluster-wide. Bumping every Sesame service to 8 exhausted
+      # pgpool front-end slots (num_init_children) with "too many clients".
+      # Prefer raising postgres-ha pgpool children (shared-gitops) over app pools.
+      # Login exclusive-txn wedges: restart the pod; do not raise this default.
       max_connections: 2
     redis:
       host: redis.data.svc.cluster.local
