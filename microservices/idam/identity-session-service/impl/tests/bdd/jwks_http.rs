@@ -269,18 +269,18 @@ fn test_jwks_keys_use_ed25519() {
     let req = make_request("/.well-known/jwks.json", Method::GET, vec![]);
     let hr = invoke_jwks_request(req);
 
-    // Then: all keys use Ed25519 (OKP curve, EdDSA algorithm)
+    // Then: all keys use Ed25519 with RFC 8037 casing (kty="OKP", crv="Ed25519").
     let keys = hr.body["keys"].as_array().expect("keys must be array");
     for key in keys {
         assert_eq!(
             key["kty"].as_str(),
-            Some("okp"),
-            "Key must be OKP (Octet Pair) for Ed25519"
+            Some("OKP"),
+            "RFC 8037: kty MUST be exactly \"OKP\""
         );
         assert_eq!(
             key["crv"].as_str(),
-            Some("ED25519"),
-            "Key must use Ed25519 curve"
+            Some("Ed25519"),
+            "RFC 8037: crv MUST be exactly \"Ed25519\""
         );
         // Ed25519 public key 'x' value is 43 characters (32 bytes base64url + padding)
         let x = key["x"].as_str().expect("'x' must be string");

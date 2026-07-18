@@ -130,9 +130,16 @@ const DEFAULT_GRACE_PERIOD_SECS: u64 = 60 * 60;
 // ─── JWK types ───────────────────────────────────────────────────────────────
 
 /// JWK key type (OKP for Ed25519).
+// RFC 8037 §2: the JWK "kty" for Edwards keys MUST be exactly "OKP" and the
+// "crv" exactly "Ed25519" (case-sensitive). The previous rename_all
+// attributes serialized these as "okp" / "ED25519", which standards-
+// compliant verifiers (RFC 8037 JOSE libraries, opengroupware og-auth,
+// BRRTRouter's JWKS provider) reject as an unknown key type/curve — so every
+// signature failed to verify across ALL consumers. The Display impls were
+// correct but serde never used them. Serialize the RFC-mandated casing.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
 pub enum JwkKeyType {
+    #[serde(rename = "OKP")]
     Okp,
 }
 
@@ -144,9 +151,8 @@ impl fmt::Display for JwkKeyType {
     }
 }
 
-/// JWK curve (only Ed25519).
+/// JWK curve (only Ed25519). Serialized as RFC 8037 "Ed25519".
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum JwkCurve {
     Ed25519,
 }
