@@ -1,0 +1,5 @@
+# Merged when deploying to shared-k8s (observability namespace is cluster-scoped).
+app:
+  config:
+    observability:
+      otlp_endpoint: "http://otel-collector.observability.svc.cluster.local:4317"

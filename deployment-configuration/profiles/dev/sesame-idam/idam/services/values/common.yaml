@@ -46,6 +46,8 @@ app:
       port: 6379
       db: 0
       max_connections: 5
+    observability:
+      otlp_endpoint: "http://otel-collector.observability.svc.cluster.local:4317"
 
 env:
   RUST_LOG: debug

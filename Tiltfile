@@ -432,6 +432,7 @@ echo "Published $DEV_REF for Flux image discovery"
             'helm/sesame-idam-microservice/values/%s.yaml' % name,
             'helm/sesame-idam-microservice/values/_http-kubernetes.yaml',
             'helm/sesame-idam-microservice/values/_database-kubernetes.yaml',
+            'helm/sesame-idam-microservice/values/_observability-shared-k8s.yaml',
         ]
         k8s_yaml(
             helm('helm/sesame-idam-microservice', name=name, namespace=namespace, values=helm_values),

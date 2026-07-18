@@ -43,6 +43,8 @@ app:
       port: 6379
       db: 0
       max_connections: 4
+    observability:
+      otlp_endpoint: ""
 
 resources:
   requests:

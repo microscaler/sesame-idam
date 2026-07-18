@@ -79,6 +79,12 @@ spec:
                   name: sesame-idam-jwt-signing
                   key: kid
                   optional: true
+            {{- if .Values.app.config.observability.otlp_endpoint }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.app.config.observability.otlp_endpoint | quote }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.app.serviceName | quote }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health
