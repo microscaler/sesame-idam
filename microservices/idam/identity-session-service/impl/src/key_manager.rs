@@ -996,6 +996,34 @@ pub static KEY_MANAGER: std::sync::LazyLock<std::sync::RwLock<KeyManager>> =
 mod tests {
     use super::*;
 
+    /// Regression guard for the RFC-8037 casing incident: the SERIALIZED
+    /// JWK must carry exactly "OKP"/"Ed25519" (case-sensitive). A stray
+    /// `#[serde(rename_all = ...)]` on JwkKeyType/JwkCurve would silently
+    /// re-break every downstream verifier — this test fails immediately if
+    /// the wire casing regresses. (The Display impls are NOT what serde uses,
+    /// which is exactly how the original bug hid.)
+    #[test]
+    fn jwk_serializes_with_rfc8037_casing() {
+        let jwk = JwkOnly {
+            kid: "k".to_string(),
+            kty: JwkKeyType::Okp,
+            use_claim: JwkUse::Sig,
+            crv: JwkCurve::Ed25519,
+            x: "AAAA".to_string(),
+            alg: "EdDSA".to_string(),
+        };
+        let v = serde_json::to_value(&jwk).unwrap();
+        assert_eq!(
+            v["kty"], "OKP",
+            "RFC 8037: kty MUST serialize as exactly \"OKP\""
+        );
+        assert_eq!(
+            v["crv"], "Ed25519",
+            "RFC 8037: crv MUST serialize as exactly \"Ed25519\""
+        );
+        assert_eq!(v["alg"], "EdDSA");
+    }
+
     #[test]
     fn test_key_generation() {
         let key = JwtSigningKey::generate(None).unwrap();
