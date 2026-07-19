@@ -22,7 +22,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: db-init
-          image: 10.177.76.220:5000/sesame-idam-db-init:dev-1784455990435108845 # {"$imagepolicy": "flux-system:sesame-idam-db-init"}
+          image: 10.177.76.220:5000/sesame-idam-db-init:dev-1784457403922907132 # {"$imagepolicy": "flux-system:sesame-idam-db-init"}
           imagePullPolicy: IfNotPresent
           env:
             - name: PGHOST
