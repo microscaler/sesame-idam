@@ -20,7 +20,7 @@ brrtrouter_dir := "../BRRTRouter"
 # Override with: SUPABASE_DIR=/path/to/microscaler-supabase just supabase-apply
 supabase_dir := "../microscaler-supabase"
 
-shared_k8s_root := "../shared-k8s-cluster"
+shared_k8s_root := "../shared-gitops-k8s-cluster"
 shared_k8s_kubeconfig := shared_k8s_root + "/kubeconfig/shared-k8s.yaml"
 
 # OpenAPI spec paths (6 services split by access pattern)
@@ -331,9 +331,9 @@ lint-unused-imports:
 jwt-signing-secret:
   cd microservices && cargo run -q -p sesame-common --bin sesame_keygen | kubectl apply -f -
 
-# Start development environment (shared-k8s cluster; owned by shared-k8s-cluster).
+# Start development environment (shared-k8s cluster; owned by shared-gitops-k8s-cluster).
 # Platform infra (postgres, postgres-meta, parquet-lake) lives in namespace data
-# from shared-k8s-cluster. Sesame-IDAM adds Redis in namespace sesame-idam.
+# from shared-gitops-k8s-cluster. Sesame-IDAM adds Redis in namespace sesame-idam.
 dev-up:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -398,14 +398,14 @@ dev-up:
   echo "WARNING: Tilt did not become ready within 2 minutes"
   exit 1
 
-# Stop Sesame-IDAM Tilt only (cluster owned by shared-k8s-cluster; registry left running)
+# Stop Sesame-IDAM Tilt only (cluster owned by shared-gitops-k8s-cluster; registry left running)
 dev-down:
   #!/usr/bin/env bash
   set -euo pipefail
   echo "🛑 Stopping Sesame-IDAM development environment..."
   systemctl --user stop tilt-sesame-idam.service || true
   echo "✅ Development environment stopped"
-  echo "   (shared-k8s cluster unchanged — owned by shared-k8s-cluster.)"
+  echo "   (shared-k8s cluster unchanged — owned by shared-gitops-k8s-cluster.)"
 
 # Stop development environment and remove the local registry
 dev-down-full: dev-down

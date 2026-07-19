@@ -51,7 +51,7 @@ ssh ms02 'cd ~/Workspace/microscaler/hauliage/microservices && cargo test -p hau
 ssh ms02 'cd ~/Workspace/microscaler/sesame-idam/microservices && cargo nextest run'
 
 # kubectl (shared Kind)
-ssh ms02 'KUBECONFIG=~/Workspace/microscaler/shared-k8s-cluster/kubeconfig/shared-k8s.yaml kubectl get pods -n hauliage'
+ssh ms02 'KUBECONFIG=~/Workspace/microscaler/shared-gitops-k8s-cluster/kubeconfig/shared-k8s.yaml kubectl get pods -n hauliage'
 ```
 
 ## What the Mac is for

@@ -177,14 +177,14 @@ Tilt for this repo: **systemd `tilt-sesame-idam.service`**, port **10351**, host
 | Action | Command |
 |--------|---------|
 | Trigger rebuild | `tilt trigger identity-session-service --host 192.168.1.189 --port 10351` |
-| Trigger + wait | `cd ../shared-k8s-cluster && just tilt-remote-cycle sesame identity-session-service` |
+| Trigger + wait | `cd ../shared-gitops-k8s-cluster && just tilt-remote-cycle sesame identity-session-service` |
 | Tail build logs | `just tilt-remote-logs sesame identity-session-service` |
 | Tilt UI | `http://tilt-sesame.dev.microscaler.local/` |
 | BDD (token lifecycle, etc.) | On ms02 with `TEST_DB_HOST=192.168.1.189 TEST_DB_PORT=5433 REDIS_URL=redis://192.168.1.189:6390` |
 
 Do **not** run `tilt up` on Mac. Use systemd on ms02 or the remote trigger recipes above.
 
-Authority: [`../shared-k8s-cluster/docs/remote-tilt-workflow.md`](../shared-k8s-cluster/docs/remote-tilt-workflow.md).
+Authority: [`../shared-gitops-k8s-cluster/docs/remote-tilt-workflow.md`](../shared-gitops-k8s-cluster/docs/remote-tilt-workflow.md).
 
 ---
 

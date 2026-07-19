@@ -14,7 +14,7 @@
 # Configuration
 # ====================
 
-_SHARED_K8S_KCFG = os.path.abspath('../shared-k8s-cluster/kubeconfig/shared-k8s.yaml')
+_SHARED_K8S_KCFG = os.path.abspath('../shared-gitops-k8s-cluster/kubeconfig/shared-k8s.yaml')
 _SHARED_K8S_REGISTRY = '10.177.76.220:5000'
 _k8s_mode = os.environ.get('TILT_K8S_CLUSTER', '').strip().lower()
 if _k8s_mode in ('kind', 'kind-kind'):
@@ -70,7 +70,7 @@ sesame_idam_bin = '%s/bin/sesame-idam' % brrtrouter_venv
 # Namespace
 namespace = 'sesame-idam'
 
-# Data stack: postgres/redis managed by shared-k8s-cluster tilt, not this stack
+# Data stack: postgres/redis managed by shared-gitops-k8s-cluster tilt, not this stack
 bundled_data_stack = False
 
 # ====================
@@ -479,7 +479,7 @@ cargo nextest run -p %s --test main_bdd --test-threads 1 --fail-fast
 # Data Infrastructure
 # ====================
 # Create the namespace so Helm manifests have a target.
-# Redis and PostgreSQL are managed by shared-k8s-cluster's Tilt.
+# Redis and PostgreSQL are managed by shared-gitops-k8s-cluster's Tilt.
 # Do NOT stand up data infrastructure here — let the shared cluster own it.
 # When FLUX_OWNS_DEPLOY=1, runtime ConfigMap/Secret come from product profiles.
 if not FLUX_OWNS_DEPLOY:
@@ -495,7 +495,7 @@ if not FLUX_OWNS_DEPLOY:
     )
 
 # Redis: shared platform instance in namespace `data`
-# (redis.data.svc.cluster.local:6379, managed by shared-k8s-cluster).
+# (redis.data.svc.cluster.local:6379, managed by shared-gitops-k8s-cluster).
 # No app-local Redis — do not duplicate the data stack here.
 
 # ====================
@@ -752,7 +752,7 @@ for _test_svc in DISCOVERED_SERVICES:
 # ====================
 # Pact broker dev tooling (SAML/OAuth mocks + contract publish)
 # ====================
-# Shared platform pact-broker lives in namespace `data` (shared-k8s-cluster Tilt).
+# Shared platform pact-broker lives in namespace `data` (shared-gitops-k8s-cluster Tilt).
 # Sesame adds:
 #   - sesame-idam-broker: SSOReady-compatible SAML + Google/Microsoft OAuth mocks (:9190)
 #   - sesame-pact-manager: publishes pacts/*.json to pact-broker.data.svc.cluster.local:9292

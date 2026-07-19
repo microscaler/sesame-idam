@@ -5,9 +5,9 @@
 #   - Flux Job `scripts/db-init-job.sh` — role, database, schema, privileges, Pgpool contract.
 #   - This script's migration-only mode — application migrations, seeds, post-migration grants.
 #
-# The shared dev cluster runs Bitnami PostgreSQL HA. This script discovers the
-# elected primary and connects directly to it for privileged bootstrap work;
-# application traffic continues to use Pgpool through the `postgres` Service.
+# The shared dev cluster runs Lifeguard `postgres-primary` (direct Service
+# `postgres.data.svc.cluster.local`). Privileged bootstrap execs into the
+# primary pod; apps use the same Service (Pgpool retired with postgres-ha).
 #
 # Layout:
 #   - Database `sesame_idam` — app data only.
@@ -17,7 +17,7 @@
 #
 # Credentials:
 #   - sesame-idam/sesame-idam-db-credentials (SESAME_IDAM_DB_PASSWORD or DB_PASS).
-#   - data/postgres-credentials Pgpool custom-user list must include sesame_idam.
+#   - data/postgres-credentials custom-user list must include sesame_idam.
 #   - SESAME_IDAM_DB_PASSWORD is a break-glass override only.
 #
 # Optional:
@@ -32,12 +32,11 @@ cd "${REPO_ROOT}"
 
 DATA_NAMESPACE="${SESAME_IDAM_DB_DATA_NAMESPACE:-data}"
 APP_NAMESPACE="${SESAME_IDAM_DB_APP_NAMESPACE:-sesame-idam}"
-POSTGRES_STATEFULSET="${SESAME_IDAM_POSTGRES_STATEFULSET:-postgres-ha-postgresql}"
-POSTGRES_LABEL="${SESAME_IDAM_POSTGRES_LABEL:-app.kubernetes.io/instance=postgres-ha,app.kubernetes.io/component=postgresql}"
-POSTGRES_CONTAINER="${SESAME_IDAM_POSTGRES_CONTAINER:-postgresql}"
+POSTGRES_DEPLOY="${SESAME_IDAM_POSTGRES_DEPLOY:-postgres-primary}"
+POSTGRES_LABEL="${SESAME_IDAM_POSTGRES_LABEL:-app=postgres-primary}"
+POSTGRES_CONTAINER="${SESAME_IDAM_POSTGRES_CONTAINER:-postgres}"
 PGPOOL_SECRET="${SESAME_IDAM_PGPOOL_SECRET:-postgres-credentials}"
-PGPOOL_LABEL="${SESAME_IDAM_PGPOOL_LABEL:-app.kubernetes.io/instance=postgres-ha,app.kubernetes.io/component=pgpool}"
-PGPOOL_SERVICE="${SESAME_IDAM_PGPOOL_SERVICE:-postgres.data.svc.cluster.local}"
+POSTGRES_SERVICE="${SESAME_IDAM_POSTGRES_SERVICE:-postgres.data.svc.cluster.local}"
 APP_DB_SECRET="${SESAME_IDAM_DB_SECRET:-sesame-idam-db-credentials}"
 WAIT_TIMEOUT="${SESAME_IDAM_DB_INIT_TIMEOUT:-600s}"
 POSTGRES_POD=""
@@ -77,7 +76,7 @@ validate_pgpool_credentials() {
   local index
 
   if ! kubectl get secret "${PGPOOL_SECRET}" -n "${DATA_NAMESPACE}" >/dev/null 2>&1; then
-    echo "❌ Missing ${DATA_NAMESPACE}/${PGPOOL_SECRET}; PostgreSQL HA is not ready." >&2
+    echo "❌ Missing ${DATA_NAMESPACE}/${PGPOOL_SECRET}; Postgres is not ready." >&2
     return 1
   fi
 
@@ -89,52 +88,52 @@ validate_pgpool_credentials() {
   for index in "${!username_list[@]}"; do
     if [ "${username_list[$index]}" = "sesame_idam" ]; then
       if [ "${password_list[$index]:-}" != "${SESAME_IDAM_DB_PASSWORD}" ]; then
-        echo "❌ Pgpool's sesame_idam credential does not match ${APP_NAMESPACE}/${APP_DB_SECRET}." >&2
-        echo "   Reconcile the postgres-ha and sesame-idam SOPS profiles together." >&2
+        echo "❌ Platform sesame_idam credential does not match ${APP_NAMESPACE}/${APP_DB_SECRET}." >&2
+        echo "   Reconcile the postgres and sesame-idam SOPS profiles together." >&2
         return 1
       fi
       return 0
     fi
   done
 
-  echo "❌ Pgpool does not contain the sesame_idam custom user." >&2
-  echo "   Reconcile the postgres-ha SOPS profile and HelmRelease before database initialization." >&2
+  echo "❌ ${DATA_NAMESPACE}/${PGPOOL_SECRET} usernames does not contain sesame_idam." >&2
+  echo "   Reconcile the postgres credentials Secret before database initialization." >&2
   return 1
 }
 
 postgres_psql() {
   local database="$1"
+  # Lifeguard Bitnami image: POSTGRESQL_PASSWORD. Legacy HA: POSTGRES_PASSWORD_FILE.
   kubectl exec -i -n "${DATA_NAMESPACE}" "pod/${POSTGRES_POD}" -c "${POSTGRES_CONTAINER}" -- \
-    sh -c 'PGPASSWORD="$(cat "$POSTGRES_PASSWORD_FILE")" exec psql -h 127.0.0.1 -p 5432 -U "${POSTGRES_USER:-postgres}" -d "$1" -v ON_ERROR_STOP=1' sh "${database}"
+    sh -c '
+      if [ -n "${POSTGRES_PASSWORD_FILE:-}" ] && [ -r "${POSTGRES_PASSWORD_FILE}" ]; then
+        PGPASSWORD="$(cat "${POSTGRES_PASSWORD_FILE}")"
+      else
+        PGPASSWORD="${POSTGRESQL_PASSWORD:-${POSTGRES_PASSWORD:-}}"
+      fi
+      export PGPASSWORD
+      exec psql -h 127.0.0.1 -p 5432 \
+        -U "${POSTGRES_USER:-${POSTGRESQL_USERNAME:-postgres}}" \
+        -d "$1" -v ON_ERROR_STOP=1
+    ' sh "${database}"
 }
 
 wait_for_postgres() {
-  local pod
-  local is_primary
+  echo "⏳ Waiting for deploy/${POSTGRES_DEPLOY} rollout (${WAIT_TIMEOUT})..."
+  kubectl rollout status "deploy/${POSTGRES_DEPLOY}" -n "${DATA_NAMESPACE}" --timeout="${WAIT_TIMEOUT}"
 
-  echo "⏳ Waiting for statefulset/${POSTGRES_STATEFULSET} rollout (${WAIT_TIMEOUT})..."
-  kubectl rollout status "statefulset/${POSTGRES_STATEFULSET}" -n "${DATA_NAMESPACE}" --timeout="${WAIT_TIMEOUT}"
-
-  echo "⏳ Waiting for PostgreSQL HA pods Ready (${WAIT_TIMEOUT})..."
+  echo "⏳ Waiting for PostgreSQL primary Ready (${WAIT_TIMEOUT})..."
   kubectl wait --for=condition=ready pod -l "${POSTGRES_LABEL}" -n "${DATA_NAMESPACE}" --timeout="${WAIT_TIMEOUT}" >/dev/null
 
-  echo "🔎 Discovering the elected PostgreSQL primary..."
-  while IFS= read -r pod; do
-    [ -z "${pod}" ] && continue
-    is_primary="$(
-      kubectl exec -n "${DATA_NAMESPACE}" "pod/${pod}" -c "${POSTGRES_CONTAINER}" -- \
-        sh -c 'PGPASSWORD="$(cat "$POSTGRES_PASSWORD_FILE")" psql -h 127.0.0.1 -U "${POSTGRES_USER:-postgres}" -d postgres -Atqc "SELECT NOT pg_is_in_recovery()"' \
-        2>/dev/null || true
-    )"
-    if [ "${is_primary}" = "t" ]; then
-      POSTGRES_POD="${pod}"
-      echo "✅ PostgreSQL primary: ${POSTGRES_POD}"
-      return 0
-    fi
-  done < <(kubectl get pods -n "${DATA_NAMESPACE}" -l "${POSTGRES_LABEL}" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
-
-  echo "❌ No elected PostgreSQL primary was discoverable." >&2
-  return 1
+  POSTGRES_POD="$(
+    kubectl get pods -n "${DATA_NAMESPACE}" -l "${POSTGRES_LABEL}" \
+      -o jsonpath='{.items[0].metadata.name}'
+  )"
+  if [ -z "${POSTGRES_POD}" ]; then
+    echo "❌ No postgres-primary pod found (label ${POSTGRES_LABEL})." >&2
+    return 1
+  fi
+  echo "✅ PostgreSQL primary: ${POSTGRES_POD} (service ${POSTGRES_SERVICE})"
 }
 
 bootstrap_sesame_idam_role_and_db() {
@@ -254,7 +253,7 @@ EOF
 
 verify_app_login_on_primary() {
   local result
-  echo "🔐 Verifying the Sesame-IDAM login on the elected primary..."
+  echo "🔐 Verifying the Sesame-IDAM login on the primary..."
   if ! result="$(
     printf '%s\n' "${SESAME_IDAM_DB_PASSWORD}" | \
       kubectl exec -i -n "${DATA_NAMESPACE}" "pod/${POSTGRES_POD}" -c "${POSTGRES_CONTAINER}" -- \
@@ -267,49 +266,12 @@ verify_app_login_on_primary() {
     echo "❌ Primary verification returned an unexpected result." >&2
     return 1
   fi
-  echo "✅ Sesame-IDAM login verified on the primary."
+  echo "✅ Sesame-IDAM login verified on the primary (${POSTGRES_SERVICE})."
 }
 
 verify_pgpool_connection() {
-  local pgpool_pod
-  local result
-
-  # Prefer a Ready Pgpool pod (CrashLoop/Running-but-not-Ready cannot exec).
-  # Avoid `... | head` under pipefail — SIGPIPE from head exits the script.
-  pgpool_pod=""
-  while IFS= read -r pod; do
-    [ -z "${pod}" ] && continue
-    if kubectl get pod -n "${DATA_NAMESPACE}" "${pod}" \
-      -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null | grep -qx True; then
-      pgpool_pod="${pod}"
-      break
-    fi
-  done < <(kubectl get pods -n "${DATA_NAMESPACE}" -l "${PGPOOL_LABEL}" \
-    -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
-
-  if [ -z "${pgpool_pod}" ]; then
-    echo "⚠️  No Ready Pgpool pod — skipping Pgpool path verify (apps use ${PGPOOL_SERVICE})." >&2
-    echo "    Often caused by PostgreSQL max_connections exhaustion; check postgres-ha-pgpool pods." >&2
-    verify_app_login_on_primary
-    return $?
-  fi
-
-  echo "🔐 Verifying the Sesame-IDAM login through Pgpool (${pgpool_pod})..."
-  if ! result="$(
-    printf '%s\n' "${SESAME_IDAM_DB_PASSWORD}" | \
-      kubectl exec -i -n "${DATA_NAMESPACE}" "pod/${pgpool_pod}" -c pgpool -- \
-        sh -c 'IFS= read -r PGPASSWORD; export PGPASSWORD; psql -h "$1" -p 5432 -U sesame_idam -d sesame_idam -Atqc "SELECT 1"' sh "${PGPOOL_SERVICE}"
-  )"; then
-    echo "⚠️  Pgpool login failed; falling back to primary verification." >&2
-    verify_app_login_on_primary
-    return $?
-  fi
-  if [ "${result}" != "1" ]; then
-    echo "⚠️  Pgpool verification returned an unexpected result; falling back to primary." >&2
-    verify_app_login_on_primary
-    return $?
-  fi
-  echo "✅ Sesame-IDAM login verified through Pgpool."
+  # Name kept for call-site compatibility; Pgpool is retired — verify on primary.
+  verify_app_login_on_primary
 }
 
 load_sesame_password

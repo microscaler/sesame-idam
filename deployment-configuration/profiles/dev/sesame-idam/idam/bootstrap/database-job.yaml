@@ -14,7 +14,7 @@ spec:
       annotations:
         # Increment only when a failed/completed immutable Job must be replaced
         # after bootstrap logic or platform prerequisites change.
-        deployment.sesame-idam.io/bootstrap-revision: "2"
+        deployment.sesame-idam.io/bootstrap-revision: "3"
       labels:
         app.kubernetes.io/name: sesame-idam-db-init
         app.kubernetes.io/part-of: sesame-idam
@@ -26,7 +26,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: PGHOST
-              value: postgres-ha-pgpool.data.svc.cluster.local
+              value: postgres.data.svc.cluster.local
             - name: POSTGRES_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:

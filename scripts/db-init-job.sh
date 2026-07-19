@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Flux database bootstrap entrypoint. This owns only the cluster-level database
-# contract: Pgpool credentials, role, database, schema, privileges, and login
-# verification. Application migrations and seeds remain a Tilt development
-# concern and must never be added to this Job.
+# contract: platform app-user credentials, role, database, schema, privileges,
+# and login verification. Application migrations and seeds remain a Tilt
+# development concern and must never be added to this Job.
 set -euo pipefail
 
-PGHOST="${PGHOST:-postgres-ha-pgpool.data.svc.cluster.local}"
+PGHOST="${PGHOST:-postgres.data.svc.cluster.local}"
 PGPORT="${PGPORT:-5432}"
 PGUSER="${PGUSER:-postgres}"
 PGDATABASE="${PGDATABASE:-postgres}"
@@ -49,7 +49,7 @@ admin_psql() {
 
 wait_for_postgres() {
   local elapsed=0
-  echo "Waiting for PostgreSQL HA through Pgpool..."
+  echo "Waiting for PostgreSQL at ${PGHOST}:${PGPORT}..."
   until PGPASSWORD="${POSTGRES_ADMIN_PASSWORD}" pg_isready \
     -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d postgres >/dev/null 2>&1; do
     if [ "${elapsed}" -ge "${WAIT_SECONDS}" ]; then
