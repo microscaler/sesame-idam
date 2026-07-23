@@ -32,7 +32,7 @@ spec:
       name: identity-session-service
     image:
       name: sesame-idam-identity-session-service
-      tag: dev-1784740485645080586 # {"$imagepolicy": "flux-system:sesame-idam-identity-session-service:tag"}
+      tag: dev-1784219876666994821 # {"$imagepolicy": "flux-system:sesame-idam-identity-session-service:tag"}
     app:
       binaryName: identity-session-service
       serviceName: identity-session-service
