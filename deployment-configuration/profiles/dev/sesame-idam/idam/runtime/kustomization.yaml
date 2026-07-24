@@ -3,6 +3,17 @@ kind: Kustomization
 
 namespace: sesame-idam
 
+resources:
+  # ADR-006 step 1: shared Ed25519 signing KEYSET (sesame-idam-signing-keyset).
+  # SOPS-encrypted Secret manifest (only stringData is encrypted per
+  # .sops.yaml's *.secret.yaml rule); Flux kustomize-controller decrypts on
+  # reconcile. All identity-session replicas + identity-login load this same
+  # keyset (helm signingKeyset.enabled) — deterministic RFC 7638 kids,
+  # rotation by editing the keyset (just keyset-secret N <this path>).
+  # Supersedes the env-pair Secret below for images carrying the keyset code;
+  # the env pair stays as the fallback for older images.
+  - signing-keyset.secret.yaml
+
 configMapGenerator:
   - name: sesame-idam-database-config
     envs:

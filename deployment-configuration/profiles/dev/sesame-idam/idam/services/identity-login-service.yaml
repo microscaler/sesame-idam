@@ -33,6 +33,10 @@ spec:
     image:
       name: sesame-idam-identity-login-service
       tag: dev-1784888629434119081 # {"$imagepolicy": "flux-system:sesame-idam-identity-login-service:tag"}
+    # ADR-006 step 1: same shared signing keyset as identity-session-service
+    # (login signs, session publishes JWKS — both must pick the same key).
+    signingKeyset:
+      enabled: true
     app:
       binaryName: identity-login-service
       serviceName: identity-login-service
@@ -43,4 +47,5 @@ spec:
             BearerAuth:
               jwks_url: "http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json"
               iss: "https://idam.example.com"
-              aud: "sesame-idam"
+              # Gate A6: service-specific audience
+              aud: "identity-login"
