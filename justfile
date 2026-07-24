@@ -832,6 +832,18 @@ tilt-reload:
   @echo "Done — Tilt unit reloaded"
 
 # =============================================================================
+# Signing keys (ADR-006)
+# =============================================================================
+
+# Emit an ADR-006 shared signing KEYSET Secret (n keys; extras backdated as
+# grace keys) — pipe into sops for deployment-configuration, mount via helm
+# signingKeyset.enabled=true on identity-login + identity-session.
+#   just keyset-secret        # 1 key
+#   just keyset-secret 2      # + grace key
+keyset-secret n="1":
+  cd microservices && cargo run -q -p sesame-common --bin sesame_keygen keyset {{n}}
+
+# =============================================================================
 # Database reseed (Gate B5 — disposable identities, known clean state)
 # =============================================================================
 
