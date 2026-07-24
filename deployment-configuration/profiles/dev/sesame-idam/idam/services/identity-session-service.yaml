@@ -32,7 +32,7 @@ spec:
       name: identity-session-service
     image:
       name: sesame-idam-identity-session-service
-      tag: dev-1784921175565611980 # {"$imagepolicy": "flux-system:sesame-idam-identity-session-service:tag"}
+      tag: dev-1784924046342113411 # {"$imagepolicy": "flux-system:sesame-idam-identity-session-service:tag"}
     # ADR-006 step 1: shared signing keyset from the runtime profile's
     # sesame-idam-signing-keyset Secret (KEY_SOURCE=file). New images prefer
     # the keyset; older images fall back to the env-pair Secret harmlessly.
