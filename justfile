@@ -836,12 +836,20 @@ tilt-reload:
 # =============================================================================
 
 # Emit an ADR-006 shared signing KEYSET Secret (n keys; extras backdated as
-# grace keys) — pipe into sops for deployment-configuration, mount via helm
-# signingKeyset.enabled=true on identity-login + identity-session.
-#   just keyset-secret        # 1 key
-#   just keyset-secret 2      # + grace key
-keyset-secret n="1":
-  cd microservices && cargo run -q -p sesame-common --bin sesame_keygen keyset {{n}}
+# grace keys). With a path, writes + sops-encrypts IN PLACE at that path (must
+# match the .sops.yaml *.secret.yaml rule) — no plaintext survives; without a
+# path, prints to stdout for inspection.
+#   just keyset-secret                                            # stdout
+#   just keyset-secret 2 deployment-configuration/profiles/dev/sesame-idam/idam/runtime/signing-keyset.secret.yaml
+keyset-secret n="1" out="":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd microservices
+  if [ -n "{{out}}" ]; then
+    cargo run -q -p sesame-common --bin sesame_keygen keyset {{n}} --out "../{{out}}" --sops
+  else
+    cargo run -q -p sesame-common --bin sesame_keygen keyset {{n}}
+  fi
 
 # =============================================================================
 # Database reseed (Gate B5 — disposable identities, known clean state)
