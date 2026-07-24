@@ -14,12 +14,32 @@ looking where it lives.
 
 1. `$SOPS_AGE_KEY` (the key material itself, inline)
 2. `$SOPS_AGE_KEY_FILE` (path to a key file)
-3. `~/.config/sops/age/keys.txt`  ← the default, and **only** this filename
+3. The **platform-specific** user config dir + `/sops/age/keys.txt`:
 
-A key sitting at `~/.config/sops/age/flux-shared-gitops` is invisible to SOPS
-unless you point `SOPS_AGE_KEY_FILE` at it or concatenate it into `keys.txt`.
-(That was the 2026-07-25 incident: the right key was on the box the whole
-time under the wrong filename.)
+| OS | Default path |
+|---|---|
+| Linux (ms02) | `~/.config/sops/age/keys.txt` |
+| **macOS** | **`~/Library/Application Support/sops/age/keys.txt`** |
+
+> **The macOS trap.** SOPS uses Go's `os.UserConfigDir()`, which on macOS is
+> `~/Library/Application Support` — *not* `~/.config`. A key at
+> `~/.config/sops/age/keys.txt` on a Mac is invisible: encryption still works
+> (public recipient), decryption fails with *"no master key was able to
+> decrypt the file"*. Put the key in the Library path, or export
+> `SOPS_AGE_KEY_FILE`. Both were hit on 2026-07-25.
+
+Likewise, the filename matters: a key at
+`~/.config/sops/age/flux-shared-gitops` is invisible unless you point
+`SOPS_AGE_KEY_FILE` at it or concatenate it into `keys.txt`.
+
+### Quick diagnosis
+
+```bash
+# Works with an explicit path but not without it?  → it's discovery.
+SOPS_AGE_KEY_FILE=$HOME/.config/sops/age/keys.txt sops -d file.secrets.env
+```
+
+If that succeeds, move/copy the key to your platform's default path above.
 
 ## Our two recipients
 
@@ -34,15 +54,27 @@ cluster's.
 
 ## Setup on a machine
 
+**Linux (e.g. ms02)** — concatenate every identity you hold into the one file
+SOPS reads:
+
 ```bash
 mkdir -p ~/.config/sops/age
-# Concatenate every identity you hold into the file SOPS actually reads:
 cat flux-shared-gitops sesame-admin.agekey > ~/.config/sops/age/keys.txt
 chmod 600 ~/.config/sops/age/keys.txt
 ```
 
-On a laptop you typically want **only** `sesame-admin.agekey` — there is no
-reason for a workstation to hold the cluster's identity.
+**macOS workstation** — admin identity only, in the Library path:
+
+```bash
+mkdir -p "$HOME/Library/Application Support/sops/age"
+scp ms02:~/.config/sops/age/sesame-admin.agekey \
+    "$HOME/Library/Application Support/sops/age/keys.txt"
+chmod 600 "$HOME/Library/Application Support/sops/age/keys.txt"
+```
+
+A laptop should hold **only** `sesame-admin.agekey`. There is no reason for a
+workstation to carry the cluster's own identity — that's the separation the
+two-recipient setup buys.
 
 ## Everyday commands
 
