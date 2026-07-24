@@ -55,11 +55,33 @@ export function App() {
       <p class="mb-6 text-theme-sm text-gray-500">Your identity partition at a glance.</p>
 
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card title="Sign-in" subtitle="Hosted surface">
-          <div class="flex items-center justify-between">
-            <span class="text-theme-sm text-gray-500">password · email OTP · magic link</span>
-            <StatusPill status="ready" />
-          </div>
+        <Card title="Sign-in methods" subtitle="Hosted surface">
+          <ul class="space-y-2 text-theme-sm">
+            <li class="flex items-center justify-between">
+              <span class="text-gray-600 dark:text-gray-300">Password</span>
+              <StatusPill status="ready" label="live" />
+            </li>
+            <li class="flex items-center justify-between">
+              <span class="text-gray-600 dark:text-gray-300">Email OTP</span>
+              <StatusPill status="ready" label="live" />
+            </li>
+            <li class="flex items-center justify-between">
+              <span class="text-gray-600 dark:text-gray-300">Magic link</span>
+              <StatusPill status="ready" label="live" />
+            </li>
+            <li class="flex items-center justify-between">
+              <span class="text-gray-600 dark:text-gray-300">Password reset</span>
+              <StatusPill status="ready" label="live" />
+            </li>
+            <li class="flex items-center justify-between">
+              <span class="text-gray-600 dark:text-gray-300">SMS OTP</span>
+              <StatusPill status="suspended" label="cost-gated" />
+            </li>
+            <li class="flex items-center justify-between">
+              <span class="text-gray-600 dark:text-gray-300">Passkeys</span>
+              <StatusPill status="pending" label="ADR-008" />
+            </li>
+          </ul>
         </Card>
         <Card title="Users" subtitle="Active">
           <div class="flex items-center justify-between">

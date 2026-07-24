@@ -73,6 +73,24 @@ export function App() {
             <StatusPill status="unknown" label="not wired" />
           </div>
         </Card>
+        <Card title="Auth surface" subtitle="sesame-auth · own origin">
+          <div class="flex items-center justify-between">
+            <span class="text-theme-sm text-gray-500">sign-in · OTP · magic link · reset</span>
+            <StatusPill status="ready" />
+          </div>
+        </Card>
+        <Card title="Signing keyset" subtitle="ADR-006 step 1">
+          <div class="flex items-center justify-between">
+            <span class="text-theme-sm text-gray-500">SOPS-delivered · 2 keys</span>
+            <StatusPill status="ready" />
+          </div>
+        </Card>
+        <Card title="SMS custody" subtitle="ADR-009">
+          <div class="flex items-center justify-between">
+            <span class="text-theme-sm text-gray-500">Connect (ext) · envelope (dogfood)</span>
+            <StatusPill status="pending" label="design" />
+          </div>
+        </Card>
       </div>
     </ConsoleShell>
   );
