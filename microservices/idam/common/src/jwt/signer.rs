@@ -101,6 +101,37 @@ impl Ed25519Signer {
         Self::generate("dev-ephemeral")
     }
 
+    /// Build a signer from the full key-source configuration (ADR-006):
+    ///
+    /// 1. `KEY_SOURCE=file` + `SESAME_SIGNING_KEYSET_FILE` → the newest
+    ///    currently-valid key from the shared keyset, with its deterministic
+    ///    RFC 7638 kid — every replica of every issuing service picks the
+    ///    same key and the same kid.
+    /// 2. Env pair (`SESAME_JWT_SIGNING_KEY_PKCS8_B64` + kid) — the legacy
+    ///    single shared key.
+    /// 3. Ephemeral generated key (single-process dev).
+    ///
+    /// The signer is intentionally STATIC per process: after a keyset
+    /// rotation the old key keeps verifying through the overlap window, so
+    /// adopting the new signing key on pod restart is correct and simple.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SignerError::InvalidKey`] for malformed key material or
+    /// [`SignerError::GenerationFailed`] if RNG fails.
+    pub fn from_configured() -> Result<Self, SignerError> {
+        if let Some(path) = super::keyset::configured_keyset_file() {
+            let keys = super::keyset::load_keyset_file(&path)
+                .map_err(|e| SignerError::InvalidKey(format!("keyset {path}: {e}")))?;
+            let key = super::keyset::signing_key(&keys)
+                .ok_or_else(|| SignerError::InvalidKey(format!("keyset {path}: no key valid now")))?;
+            let signer = Self::from_pkcs8(key.kid.clone(), &key.pkcs8)?;
+            tracing::info!(kid = %signer.kid, keyset = %path, "JWT signer loaded from shared keyset");
+            return Ok(signer);
+        }
+        Self::from_env_or_generate()
+    }
+
     /// Generate a fresh Ed25519 key pair (dev/test only).
     ///
     /// # Errors

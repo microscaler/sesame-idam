@@ -6,11 +6,12 @@ metadata:
   labels:
     app: {{ .Values.service.name }}
 spec:
-  {{- /* Gate B1 / ADR-006: the IdP keeps its Ed25519 signing keys in
-       process memory — multiple replicas would serve disagreeing keysets.
-       Scaling is blocked until ADR-006 (shared signing keys) lands. */}}
-  {{- if and (eq .Values.service.name "identity-session-service") (gt (int .Values.deployment.replicas) 1) }}
-  {{- fail "identity-session-service must run replicas: 1 (ADR-006: in-memory signing keys; multi-replica serves disagreeing JWKS). Scaling unblocks when shared signing keys land." }}
+  {{- /* Gate B1 / ADR-006: with in-memory (ephemeral) signing keys, multiple
+       replicas would serve disagreeing keysets. Scaling is allowed ONLY when
+       the shared signing keyset is mounted (signingKeyset.enabled — ADR-006
+       step 1): every replica then loads the same keys with the same kids. */}}
+  {{- if and (eq .Values.service.name "identity-session-service") (gt (int .Values.deployment.replicas) 1) (not (and .Values.signingKeyset .Values.signingKeyset.enabled)) }}
+  {{- fail "identity-session-service with replicas > 1 requires signingKeyset.enabled=true (ADR-006 shared keyset). With in-memory keys, multi-replica serves disagreeing JWKS." }}
   {{- end }}
   replicas: {{ .Values.deployment.replicas }}
   selector:
@@ -85,6 +86,16 @@ spec:
                   name: sesame-idam-jwt-signing
                   key: kid
                   optional: true
+            {{- if and .Values.signingKeyset .Values.signingKeyset.enabled }}
+            # ── ADR-006 step 1: shared signing KEYSET (SOPS-delivered Secret).
+            #    All replicas load the same keys with deterministic RFC 7638
+            #    kids; rotation = edit the keyset; session-service reloads the
+            #    mount live. Takes precedence over the env key pair above.
+            - name: KEY_SOURCE
+              value: "file"
+            - name: SESAME_SIGNING_KEYSET_FILE
+              value: "/etc/sesame/keys/signing-keyset.json"
+            {{- end }}
             {{- if .Values.app.config.observability.otlp_endpoint }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ .Values.app.config.observability.otlp_endpoint | quote }}
@@ -118,6 +129,11 @@ spec:
             - name: config
               mountPath: /app/config
               readOnly: true
+            {{- if and .Values.signingKeyset .Values.signingKeyset.enabled }}
+            - name: signing-keyset
+              mountPath: /etc/sesame/keys
+              readOnly: true
+            {{- end }}
             - name: logs
               mountPath: /app/logs
             - name: data
@@ -128,6 +144,11 @@ spec:
         - name: config
           configMap:
             name: {{ .Values.service.name }}-config
+        {{- if and .Values.signingKeyset .Values.signingKeyset.enabled }}
+        - name: signing-keyset
+          secret:
+            secretName: {{ (default "sesame-idam-signing-keyset" .Values.signingKeyset.secretName) }}
+        {{- end }}
         - name: logs
           emptyDir: {}
         - name: data

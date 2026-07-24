@@ -12,6 +12,12 @@ image:
 
 deployment:
   replicas: 1
+
+# ADR-006 step 1: mount the same shared signing keyset as
+# identity-session-service — login signs, session publishes JWKS; both must
+# pick the same newest key. Enable together with the session service.
+signingKeyset:
+  enabled: false
   namespace: sesame-idam
 
 app:

@@ -11,10 +11,19 @@ image:
   pullPolicy: IfNotPresent
 
 deployment:
-  # Gate B1 / ADR-006: MUST stay 1 — signing keys are in-process; the chart
-  # hard-fails on >1 until shared signing keys (ADR-006) land.
+  # Gate B1 / ADR-006: 1 with in-memory keys (the chart hard-fails on >1
+  # unless signingKeyset.enabled=true). With the shared keyset mounted
+  # (ADR-006 step 1), scale freely — all replicas serve identical JWKS.
   replicas: 1
   namespace: sesame-idam
+
+# ADR-006 step 1: shared Ed25519 signing keyset from a SOPS-delivered Secret
+# (sesame-idam-signing-keyset / signing-keyset.json). Generate with:
+#   cargo run -q -p sesame-common --bin sesame_keygen keyset
+# Enable here AND on identity-login-service (both sign tokens). Step 2 moves
+# key generation/custody into the secret backend (OpenBao / GCP SM).
+signingKeyset:
+  enabled: false
 
 app:
   binaryName: identity-session-service

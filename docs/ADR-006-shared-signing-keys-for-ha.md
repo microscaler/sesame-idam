@@ -1,6 +1,17 @@
 # ADR-006: Shared Ed25519 signing keys for identity-session-service HA
 
-Status: PROPOSED (2026-07-22)
+Status: ACCEPTED — STEP 1 IMPLEMENTED (2026-07-24), two-step delivery agreed:
+step 1 delivers the keyset via a SOPS-encrypted Secret in
+deployment-configuration (deliberate interim deviation from §1 "born in the
+backend" — acknowledged trade-off to unblock multi-replica now); step 2 moves
+generation/custody into the secret backend (OpenBao / GCP SM, cloud hardware
+encryption) WITHOUT changing the keyset format, KeyManager, or signer code.
+Step 1 surface: `sesame_common::jwt::keyset` (PKCS#8 keyset JSON, RFC 7638
+kids, newest-valid signing selection), `Ed25519Signer::from_configured`,
+`KeyManager::from_keyset_file` + live reload loop, helm `signingKeyset.enabled`
+(mount + env; replicas>1 guard lifted only in this mode), keygen:
+`sesame_keygen keyset [n]`. Tests: `keyset_file_mode.rs` (replica JWKS
+agreement, signer/JWKS coherence, rotation overlap, bad-reload safety).
 Context links: `docs/POSTMORTEM-2026-07-22-jwks-casing-login-outage.md`,
 `microservices/idam/identity-session-service/impl/src/key_manager.rs`
 

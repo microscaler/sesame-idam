@@ -19,6 +19,7 @@
 
 pub mod builders;
 pub mod helpers;
+pub mod keyset;
 pub mod signer;
 pub mod types;
 
@@ -35,6 +36,10 @@ pub use helpers::{
     truncate_authz_claims_permissions, truncate_permissions, validate_entitlements_ref,
     verify_entitlements_hash, ALLOWED_ISSUERS, EXPECTED_AUDIENCE, MAX_ENTITLEMENTS_REF_LENGTH,
     MAX_PERMISSIONS_PER_ROLE, MAX_TOKEN_SIZE_BYTES, TOKEN_SIZE_WARNING_BYTES,
+};
+pub use keyset::{
+    configured_keyset_file, load_keyset_file, parse_keyset, rfc7638_okp_thumbprint, signing_key,
+    KeysetError, LoadedKey, SigningKeyset, KEYSET_FILE_ENV, KEY_SOURCE_ENV,
 };
 pub use signer::{Ed25519Signer, SignerError, SIGNING_KEY_ENV, SIGNING_KID_ENV};
 pub use types::{

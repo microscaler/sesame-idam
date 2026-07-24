@@ -462,6 +462,11 @@ pub struct KeyManager {
     last_rotation: Option<SystemTime>,
     /// Monotonic counter for guaranteed-unique kid generation.
     kid_counter: u64,
+    /// ADR-006 file mode: path of the mounted shared keyset (None = ephemeral).
+    keyset_path: Option<String>,
+    /// Fingerprint (SHA-256) of the last loaded keyset file, for cheap
+    /// change detection by the reload loop.
+    keyset_fingerprint: Option<String>,
 }
 
 impl KeyManager {
@@ -478,6 +483,11 @@ impl KeyManager {
     /// Returns [`KeyError::GenerationFailed`] if RNG fails or
     /// [`KeyError::InvalidKey`] if the env-provided key is malformed.
     pub fn new() -> Result<Self, KeyError> {
+        // ADR-006 file mode: KEY_SOURCE=file + mounted keyset wins — every
+        // replica loads the same keys with the same deterministic kids.
+        if let Some(path) = sesame_common::jwt::configured_keyset_file() {
+            return Self::from_keyset_file(&path);
+        }
         let current_key = match Self::key_from_env()? {
             Some(key) => {
                 tracing::info!(kid = %key.kid, "KeyManager bootstrapped from shared signing key env");
@@ -494,7 +504,136 @@ impl KeyManager {
             rotation_interval_secs: DEFAULT_ROTATION_INTERVAL_SECS,
             last_rotation: None,
             kid_counter: 0,
+            keyset_path: None,
+            keyset_fingerprint: None,
         })
+    }
+
+    // ── ADR-006: shared keyset file mode ─────────────────────────────────
+
+    /// Bootstrap from a mounted shared keyset file (ADR-006 step 1).
+    ///
+    /// Slot mapping preserves the rotation-overlap semantics across N
+    /// replicas AND restarts:
+    /// - `current_key`  = newest entry whose `valid_from` has passed
+    /// - `next_key`     = the oldest FUTURE entry (pre-published for overlap)
+    /// - `previous_key` = the entry preceding current (grace verification)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::InvalidKey`] on unreadable/malformed keysets or
+    /// when no entry is valid yet.
+    pub fn from_keyset_file(path: &str) -> Result<Self, KeyError> {
+        let json = std::fs::read_to_string(path)
+            .map_err(|e| KeyError::InvalidKey(format!("keyset {path}: {e}")))?;
+        let mut km = Self {
+            current_key: None,
+            next_key: None,
+            previous_key: None,
+            revoked_keys: Vec::new(),
+            grace_period_secs: DEFAULT_GRACE_PERIOD_SECS,
+            rotation_interval_secs: DEFAULT_ROTATION_INTERVAL_SECS,
+            last_rotation: None,
+            kid_counter: 0,
+            keyset_path: Some(path.to_string()),
+            keyset_fingerprint: None,
+        };
+        km.install_keyset(&json, path)?;
+        tracing::info!(
+            keyset = %path,
+            current = km.current_key.as_ref().map(|k| k.kid.as_str()).unwrap_or("-"),
+            next = km.next_key.as_ref().map(|k| k.kid.as_str()).unwrap_or("-"),
+            previous = km.previous_key.as_ref().map(|k| k.kid.as_str()).unwrap_or("-"),
+            "KeyManager bootstrapped from shared keyset (ADR-006 file mode)"
+        );
+        Ok(km)
+    }
+
+    /// Parse keyset JSON and install keys into the current/next/previous
+    /// slots. Revoked kids are honoured (never re-installed).
+    fn install_keyset(&mut self, json: &str, path: &str) -> Result<(), KeyError> {
+        let loaded = sesame_common::jwt::parse_keyset(json)
+            .map_err(|e| KeyError::InvalidKey(format!("keyset {path}: {e}")))?;
+        let now = SystemTime::now();
+
+        let mut current: Option<JwtSigningKey> = None;
+        let mut next: Option<JwtSigningKey> = None;
+        let mut previous: Option<JwtSigningKey> = None;
+
+        // parse_keyset returns newest-first.
+        for lk in &loaded {
+            if self.revoked_keys.contains(&lk.kid) {
+                tracing::warn!(kid = %lk.kid, "keyset contains a revoked kid — skipping");
+                continue;
+            }
+            let mut key = JwtSigningKey::from_pkcs8(lk.kid.clone(), &lk.pkcs8)?;
+            key.valid_from = lk.valid_from;
+            if lk.valid_from > now {
+                // Future key: pre-publish; the OLDEST future entry activates
+                // first, so later entries in newest-first order overwrite.
+                key.state = KeyState::Active;
+                next = Some(key);
+            } else if current.is_none() {
+                key.state = KeyState::Active;
+                current = Some(key);
+            } else if previous.is_none() {
+                key.state = KeyState::Grace;
+                previous = Some(key);
+            }
+            // Older entries beyond previous are outside the grace window.
+        }
+
+        let Some(current) = current else {
+            return Err(KeyError::InvalidKey(format!(
+                "keyset {path}: no key with a past valid_from"
+            )));
+        };
+        self.current_key = Some(current);
+        self.next_key = next;
+        self.previous_key = previous;
+        let digest = ring::digest::digest(&ring::digest::SHA256, json.as_bytes());
+        self.keyset_fingerprint = Some(URL_SAFE_NO_PAD.encode(digest.as_ref()));
+        Ok(())
+    }
+
+    /// Re-read the keyset file and swap keys when its content changed
+    /// (external-secrets/kubelet refresh the mount; the reload loop calls
+    /// this periodically). Returns `true` when a new keyset was installed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KeyError::InvalidKey`] on unreadable/malformed keysets —
+    /// the previously loaded keyset stays active in that case.
+    pub fn reload_from_keyset_if_changed(&mut self) -> Result<bool, KeyError> {
+        let Some(path) = self.keyset_path.clone() else {
+            return Ok(false);
+        };
+        let json = std::fs::read_to_string(&path)
+            .map_err(|e| KeyError::InvalidKey(format!("keyset {path}: {e}")))?;
+        let digest = ring::digest::digest(&ring::digest::SHA256, json.as_bytes());
+        let fingerprint = URL_SAFE_NO_PAD.encode(digest.as_ref());
+        if self.keyset_fingerprint.as_deref() == Some(fingerprint.as_str()) {
+            return Ok(false);
+        }
+        let old_current = self.current_key.as_ref().map(|k| k.kid.clone());
+        self.install_keyset(&json, &path)?;
+        let new_current = self.current_key.as_ref().map(|k| k.kid.clone());
+        if old_current != new_current {
+            audit_events::key_rotated(
+                old_current.as_deref().unwrap_or("-"),
+                new_current.as_deref().unwrap_or("-"),
+            );
+        }
+        tracing::info!(keyset = %path, current = new_current.as_deref().unwrap_or("-"), "shared keyset reloaded");
+        Ok(true)
+    }
+
+    /// Whether this manager sources keys from a shared keyset file
+    /// (self-rotation is disabled in that mode — rotation happens by
+    /// editing the keyset).
+    #[must_use]
+    pub fn is_file_mode(&self) -> bool {
+        self.keyset_path.is_some()
     }
 
     /// Load the shared signing key from environment, if configured.
@@ -757,8 +896,15 @@ impl KeyManager {
     }
 
     /// Check if rotation is due (based on time since current key generation).
+    ///
+    /// Always `false` in ADR-006 file mode: rotation happens by editing the
+    /// shared keyset (append new / drop oldest), never by self-generation —
+    /// a self-rotated key would exist in ONE replica only.
     #[must_use]
     pub fn is_rotation_due(&self) -> bool {
+        if self.is_file_mode() {
+            return false;
+        }
         if let Some(ref key) = self.current_key {
             let elapsed = SystemTime::now()
                 .duration_since(key.valid_from)

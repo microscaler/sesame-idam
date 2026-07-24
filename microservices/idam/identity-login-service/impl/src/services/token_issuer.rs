@@ -18,7 +18,7 @@ use crate::models::refresh_token::{RefreshToken, REFRESH_TOKEN_TTL};
 /// Process-wide signer. Loads the shared key from env; falls back to an
 /// ephemeral dev key (with a warning) when unconfigured.
 pub static SIGNER: LazyLock<Ed25519Signer> = LazyLock::new(|| {
-    Ed25519Signer::from_env_or_generate()
+    Ed25519Signer::from_configured()
         .expect("Failed to initialize JWT signer — invalid signing key material")
 });
 

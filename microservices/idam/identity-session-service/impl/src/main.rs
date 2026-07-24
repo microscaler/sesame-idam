@@ -72,6 +72,31 @@ fn main() -> io::Result<()> {
     may::config().set_stack_size(config.stack_size);
     may::config().set_workers(config.may_workers);
 
+    // ADR-006 file mode: keep the shared keyset fresh. kubelet refreshes the
+    // mounted Secret (~1 min); this loop swaps keys in without a restart —
+    // safe because the overlap window keeps the old key verifying while the
+    // new one phases in. Ephemeral mode: no-op, loop not spawned.
+    if sesame_common::jwt::configured_keyset_file().is_some() {
+        may::go!(|| {
+            loop {
+                may::coroutine::sleep(std::time::Duration::from_secs(30));
+                let mut km = match sesame_idam_identity_session_service::key_manager::KEY_MANAGER
+                    .write()
+                {
+                    Ok(km) => km,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                match km.reload_from_keyset_if_changed() {
+                    Ok(true) => tracing::info!("shared signing keyset reloaded"),
+                    Ok(false) => {}
+                    Err(e) => {
+                        tracing::error!(error = %e, "shared keyset reload failed — keeping loaded keys");
+                    }
+                }
+            }
+        });
+    }
+
     // Load OpenAPI spec
     let spec_path = if args.spec.is_relative() {
         let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

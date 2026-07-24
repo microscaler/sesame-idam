@@ -15,9 +15,10 @@ use crate::models::refresh_token::{RefreshToken, REFRESH_TOKEN_TTL};
 /// Default access-token TTL (seconds) when env/config is unavailable.
 const DEFAULT_ACCESS_TTL_SECS: i64 = 300;
 
-/// Process-wide signer — same env vars as login-service.
+/// Process-wide signer — same key-source configuration as login-service
+/// (shared keyset file when `KEY_SOURCE=file`, else env pair, else dev key).
 pub static SIGNER: LazyLock<Ed25519Signer> = LazyLock::new(|| {
-    Ed25519Signer::from_env_or_generate()
+    Ed25519Signer::from_configured()
         .expect("Failed to initialize JWT signer — invalid signing key material")
 });
 
