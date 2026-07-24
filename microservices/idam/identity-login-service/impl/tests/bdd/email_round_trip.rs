@@ -9,11 +9,13 @@
 //! NO new Mailpit message — the meter is verified at the delivery boundary,
 //! not just at the guard's return value.
 //!
-//! Needs Postgres, Redis, and Mailpit (SMTP + API). Endpoints via env,
-//! defaulting to the in-cluster service DNS with localhost fallbacks:
-//! - `TEST_SMTP_HOST`/`TEST_SMTP_PORT`   (default 127.0.0.1:1025)
-//! - `TEST_MAILPIT_API`                  (default http://127.0.0.1:8025)
-//! Skips gracefully when any dependency is unreachable.
+//! Needs Postgres, Redis, and Mailpit (SMTP + API). Mailpit is addressed BY
+//! SERVICE NAME only (no IPs):
+//! - `TEST_SMTP_HOST`/`TEST_SMTP_PORT` (default mailpit.data.svc.cluster.local:1025)
+//! - `TEST_MAILPIT_API`   (default http://mailpit.data.svc.cluster.local:8025)
+//! In-cluster that resolves natively; dev/build hosts resolve the
+//! `svc.cluster.local` zone via their resolver (or override the env for a
+//! local Mailpit). Skips gracefully when any dependency is unreachable.
 
 use std::net::TcpStream;
 use std::sync::Once;
@@ -72,11 +74,13 @@ fn db_available() -> bool {
 }
 
 fn tcp_up(host: &str, port: &str) -> bool {
-    format!("{host}:{port}")
-        .parse()
-        .ok()
-        .and_then(|sa| TcpStream::connect_timeout(&sa, Duration::from_millis(500)).ok())
-        .is_some()
+    // Resolve (works for service DNS names and /etc/hosts entries, not just
+    // raw IPs — SocketAddr::parse would reject hostnames).
+    use std::net::ToSocketAddrs;
+    let Ok(mut addrs) = format!("{host}:{port}").to_socket_addrs() else {
+        return false;
+    };
+    addrs.any(|sa| TcpStream::connect_timeout(&sa, Duration::from_millis(1500)).is_ok())
 }
 
 fn redis_available() -> bool {
@@ -88,8 +92,14 @@ fn redis_available() -> bool {
 
 /// Point the service's SMTP client at the test Mailpit and return the API
 /// base, or None (skip) when unreachable.
+///
+/// Defaults target the cluster service BY NAME (no IPs anywhere): resolvable
+/// in-cluster natively, and from dev/build hosts via a resolver or hosts
+/// entry for the `svc.cluster.local` zone. Override with TEST_SMTP_HOST /
+/// TEST_SMTP_PORT / TEST_MAILPIT_API (e.g. a local Mailpit container).
 fn mailpit_available() -> Option<String> {
-    let smtp_host = std::env::var("TEST_SMTP_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let smtp_host = std::env::var("TEST_SMTP_HOST")
+        .unwrap_or_else(|_| "mailpit.data.svc.cluster.local".to_string());
     let smtp_port = std::env::var("TEST_SMTP_PORT").unwrap_or_else(|_| "1025".to_string());
     if !tcp_up(&smtp_host, &smtp_port) {
         return None;
@@ -101,7 +111,8 @@ fn mailpit_available() -> Option<String> {
     if std::env::var("SMTP_TIMEOUT_MS").is_err() {
         std::env::set_var("SMTP_TIMEOUT_MS", "15000");
     }
-    let api = std::env::var("TEST_MAILPIT_API").unwrap_or_else(|_| "http://127.0.0.1:8025".to_string());
+    let api = std::env::var("TEST_MAILPIT_API")
+        .unwrap_or_else(|_| "http://mailpit.data.svc.cluster.local:8025".to_string());
     match sesame_common::fetch_get(&format!("{api}/api/v1/info"), &fetch_options(1500)) {
         Ok((200, _)) => Some(api),
         _ => None,
