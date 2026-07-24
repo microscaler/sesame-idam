@@ -37,6 +37,8 @@ spec:
     # (login signs, session publishes JWKS — both must pick the same key).
     signingKeyset:
       enabled: true
+    deployment:
+      replicas: 2
     app:
       binaryName: identity-login-service
       serviceName: identity-login-service

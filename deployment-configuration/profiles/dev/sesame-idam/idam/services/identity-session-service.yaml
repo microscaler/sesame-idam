@@ -36,11 +36,11 @@ spec:
     # ADR-006 step 1: shared signing keyset from the runtime profile's
     # sesame-idam-signing-keyset Secret (KEY_SOURCE=file). New images prefer
     # the keyset; older images fall back to the env-pair Secret harmlessly.
-    # NOTE: bump deployment.replicas to 2 only AFTER the rolled image carries
-    # the keyset code (post-2026-07-24 build) — the chart guard permits it
-    # once signingKeyset.enabled is true.
+    # replicas 2 requires an image carrying the keyset code (post-2026-07-24).
     signingKeyset:
       enabled: true
+    deployment:
+      replicas: 2
     app:
       binaryName: identity-session-service
       serviceName: identity-session-service
