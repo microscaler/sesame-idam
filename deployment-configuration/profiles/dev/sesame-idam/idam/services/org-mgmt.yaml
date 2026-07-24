@@ -32,7 +32,7 @@ spec:
       name: org-mgmt
     image:
       name: sesame-idam-org-mgmt
-      tag: dev-1784888652044793495 # {"$imagepolicy": "flux-system:sesame-idam-org-mgmt:tag"}
+      tag: dev-1784247406258805838 # {"$imagepolicy": "flux-system:sesame-idam-org-mgmt:tag"}
     app:
       binaryName: org-mgmt
       serviceName: org-mgmt
