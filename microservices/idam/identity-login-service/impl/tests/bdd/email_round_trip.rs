@@ -96,6 +96,11 @@ fn mailpit_available() -> Option<String> {
     }
     std::env::set_var("SMTP_HOST", &smtp_host);
     std::env::set_var("SMTP_PORT", &smtp_port);
+    // Cluster LB paths (MetalLB) can delay the SMTP banner past the 5s
+    // default; allow overriding and default the tests to a patient client.
+    if std::env::var("SMTP_TIMEOUT_MS").is_err() {
+        std::env::set_var("SMTP_TIMEOUT_MS", "15000");
+    }
     let api = std::env::var("TEST_MAILPIT_API").unwrap_or_else(|_| "http://127.0.0.1:8025".to_string());
     match sesame_common::fetch_get(&format!("{api}/api/v1/info"), &fetch_options(1500)) {
         Ok((200, _)) => Some(api),
@@ -214,10 +219,10 @@ fn message_count(api: &str, recipient: &str) -> u64 {
 }
 
 /// Poll Mailpit for the newest message to `recipient`; return its full text
-/// body. Mail delivery is asynchronous only in transit — a short poll is
-/// plenty.
+/// body. Generous window: through the cluster LB (MetalLB) the SMTP banner
+/// alone has been observed to take >5s, so in-cluster delivery needs slack.
 fn wait_for_message_text(api: &str, recipient: &str) -> Option<String> {
-    for _ in 0..20 {
+    for _ in 0..60 {
         if let Some(list) = mailpit_get(api, &format!("/api/v1/search?query=to:{recipient}")) {
             if let Some(id) = list["messages"][0]["ID"].as_str() {
                 if let Some(msg) = mailpit_get(api, &format!("/api/v1/message/{id}")) {
