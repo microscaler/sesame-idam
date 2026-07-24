@@ -170,11 +170,17 @@ EOF
 
 apply_migrations_from_disk() {
   if [ -d ./migrations ]; then
-    echo "📥 Applying Lifeguard migration SQL (search_path=sesame_idam from ALTER DATABASE)..."
+    echo "📥 Applying Lifeguard migration SQL (session search_path=sesame_idam)..."
     apply_one() {
       local migration_file="$1"
       echo "  -> Applying ${migration_file}..."
-      postgres_psql sesame_idam < "${migration_file}"
+      # Session-level search_path: a few generated migrations reference tables
+      # unqualified, and the database-level ALTER only runs in full-bootstrap
+      # mode (skipped under SESAME_IDAM_APPLY_MIGRATIONS_ONLY=1). Prefixing
+      # every file makes the apply step self-sufficient. Durable fix tracked:
+      # lifeguard-migrate emitting fully-qualified names.
+      { printf 'SET search_path TO sesame_idam, public;\n'; cat "${migration_file}"; } \
+        | postgres_psql sesame_idam
     }
     if [ -f ./migrations/apply_order.txt ]; then
       # Written by `cargo run -p sesame_idam_migrator` — FK-safe order across services.
@@ -212,7 +218,9 @@ apply_seeds_from_disk() {
   apply_one_seed() {
     local seed_file="$1"
     echo "  -> Applying ${seed_file}..."
-    postgres_psql sesame_idam < "${seed_file}"
+    # Same session search_path guarantee as apply_one (see above).
+    { printf 'SET search_path TO sesame_idam, public;\n'; cat "${seed_file}"; } \
+      | postgres_psql sesame_idam
   }
   if [ -f ./microservices/idam/seed_order.txt ]; then
     echo "📥 Applying per-microservice seed SQL (microservices/idam/seed_order.txt, FK-ordered)..."
