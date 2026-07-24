@@ -19,5 +19,6 @@ pub mod bdd {
     pub mod session_handoff;
     pub mod signup_validate;
     pub mod smoke;
+    pub mod tenant_sms_custody;
     pub mod token_lifecycle;
 }

@@ -106,10 +106,13 @@ fn mailpit_available() -> Option<String> {
     }
     std::env::set_var("SMTP_HOST", &smtp_host);
     std::env::set_var("SMTP_PORT", &smtp_port);
-    // Cluster LB paths (MetalLB) can delay the SMTP banner past the 5s
-    // default; allow overriding and default the tests to a patient client.
+    // Cluster LB paths (MetalLB) delay the SMTP banner: measured at ~10s
+    // from the build host against mailpit.data (TCP connects instantly, the
+    // greeting is what is slow). 15s left no headroom for the rest of the
+    // handshake, so the whole email suite failed as a block; 30s is patient
+    // enough to be a real signal rather than a coin toss.
     if std::env::var("SMTP_TIMEOUT_MS").is_err() {
-        std::env::set_var("SMTP_TIMEOUT_MS", "15000");
+        std::env::set_var("SMTP_TIMEOUT_MS", "30000");
     }
     let api = std::env::var("TEST_MAILPIT_API")
         .unwrap_or_else(|_| "http://mailpit.data.svc.cluster.local:8025".to_string());

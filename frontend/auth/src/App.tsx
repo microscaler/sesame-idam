@@ -12,10 +12,6 @@ import type { TokenResponse } from './lib/api';
  *   /authorize?tenant=&redirect_uri=&state=&method=   → sign-in
  *   /verify-magic?tenant=&token=&state=               → magic-link "click"
  *
- * On success the surface returns the caller to `redirect_uri` with a
- * one-time `code` + the original `state`, which @sesame/idam-client exchanges
- * for a session. Tokens are never handed to the tenant app via the URL.
- *
  * On success the surface mints a ONE-TIME CODE (POST /auth/session/code) and
  * returns the caller to `redirect_uri` with that code plus the original
  * `state`. @sesame/idam-client redeems it at /auth/token

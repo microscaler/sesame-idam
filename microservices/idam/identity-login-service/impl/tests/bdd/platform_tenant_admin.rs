@@ -23,7 +23,7 @@ use sesame_idam_identity_login_service_gen::handlers::platform_tenant_status_pat
 
 static INIT: Once = Once::new();
 
-fn db_available() -> bool {
+pub fn db_available() -> bool {
     let host = std::env::var("TEST_DB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = std::env::var("TEST_DB_PORT").unwrap_or_else(|_| "5432".to_string());
     let addr = format!("{host}:{port}");

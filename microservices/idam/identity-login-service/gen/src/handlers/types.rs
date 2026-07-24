@@ -707,6 +707,137 @@ pub struct PlatformTenantOauthUpsertResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantSmsGetResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_sid: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub campaign_ref: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_account_sid: Option<String>,
+
+    pub credential_configured: bool,
+
+    pub custody_mode: String,
+
+    pub daily_spend_ceiling_cents: i32,
+
+    pub environment: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_number: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_validated_at: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub messaging_service_sid: Option<String>,
+
+    pub provider: String,
+
+    pub status: String,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantSmsRevokeResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_sid: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub campaign_ref: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_account_sid: Option<String>,
+
+    pub credential_configured: bool,
+
+    pub custody_mode: String,
+
+    pub daily_spend_ceiling_cents: i32,
+
+    pub environment: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_number: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_validated_at: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub messaging_service_sid: Option<String>,
+
+    pub provider: String,
+
+    pub status: String,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantSmsUpsertRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_sid: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub campaign_ref: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_account_sid: Option<String>,
+
+    pub custody_mode: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub daily_spend_ceiling_cents: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_number: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub messaging_service_sid: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantSmsUpsertResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_sid: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub campaign_ref: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_account_sid: Option<String>,
+
+    pub credential_configured: bool,
+
+    pub custody_mode: String,
+
+    pub daily_spend_ceiling_cents: i32,
+
+    pub environment: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_number: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_validated_at: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub messaging_service_sid: Option<String>,
+
+    pub provider: String,
+
+    pub status: String,
+
+    pub tenant_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PlatformTenantStatusPatch {
     pub status: String,
 }
@@ -991,6 +1122,67 @@ pub struct TenantOAuthConfigResponse {
     pub redirect_uris: Vec<String>,
 
     pub secret_env_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantSmsConfigRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_sid: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub campaign_ref: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_account_sid: Option<String>,
+
+    pub custody_mode: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub daily_spend_ceiling_cents: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_number: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub messaging_service_sid: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantSmsConfigResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_sid: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub campaign_ref: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_account_sid: Option<String>,
+
+    pub credential_configured: bool,
+
+    pub custody_mode: String,
+
+    pub daily_spend_ceiling_cents: i32,
+
+    pub environment: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_number: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_validated_at: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub messaging_service_sid: Option<String>,
+
+    pub provider: String,
+
+    pub status: String,
+
+    pub tenant_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

@@ -85,7 +85,7 @@ fn mailpit_available() -> Option<String> {
     std::env::set_var("SMTP_HOST", &smtp_host);
     std::env::set_var("SMTP_PORT", &smtp_port);
     if std::env::var("SMTP_TIMEOUT_MS").is_err() {
-        std::env::set_var("SMTP_TIMEOUT_MS", "15000");
+        std::env::set_var("SMTP_TIMEOUT_MS", "30000");
     }
     let api = std::env::var("TEST_MAILPIT_API")
         .unwrap_or_else(|_| "http://mailpit.data.svc.cluster.local:8025".to_string());

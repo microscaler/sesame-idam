@@ -43,3 +43,4 @@ rls/20260714180002_pre_auth_tenant_and_grants.sql
 authz-core/20260715000000_app_role_permissions.sql
 identity-user-mgmt-service/20260716200000_app_passwords.sql
 rls/20260716200001_rp_directory.sql
+identity-login-service/20260724223319_tenant_sms_config.sql

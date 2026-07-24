@@ -28,9 +28,11 @@
 //! - Tenant, PREFERRED: Twilio Connect — Twilio bills the tenant directly and
 //!   Sesame holds only a revocable connected AccountSid.
 //! - Tenant, FALLBACK (dogfood only): envelope-encrypted credentials in the
-//!   DB. Both tenant tiers arrive in Phase 2; until then a tenant-billed
-//!   purpose resolves to `Fallback` and the caller uses email or refuses —
-//!   NEVER the platform credential (ADR-009 §2.5, no silent subsidy).
+//!   DB (`tenant_sms_config`), unsealed in-process at send time.
+//!
+//! Only an ACTIVE tenant config resolves. Missing, `pending_validation` or
+//! `revoked` all yield `NoTenantSender`, and the caller then uses email or
+//! refuses — NEVER the platform credential (ADR-009 §2.5, no silent subsidy).
 
 use crate::services::sms::SmsPurpose;
 
@@ -132,21 +134,90 @@ pub fn resolve_sms_sender(
             // Platform budget is global, not per tenant.
             spend_scope: "platform".to_string(),
         }),
-        OwnerKind::Tenant => {
-            // Phase 2 wires Connect / envelope custody from
-            // `tenant_sms_config`. Until then: no tenant sender exists, so we
-            // refuse rather than silently charging the platform.
-            let _ = environment;
-            Err(Unresolved::NoTenantSender {
-                tenant: tenant.to_string(),
-            })
-        }
+        OwnerKind::Tenant => resolve_tenant_sender(tenant, environment),
     }
+}
+
+/// Look up the tenant's own sender (ADR-009 Phase 2).
+///
+/// Only an `active` config resolves: `pending_validation` (credentials not
+/// yet proven) and `revoked` both fall through to `NoTenantSender`, so the
+/// caller uses email or refuses — never the platform's account.
+fn resolve_tenant_sender(tenant: &str, environment: &str) -> Result<SmsSender, Unresolved> {
+    use crate::models::tenant_sms_config::{CUSTODY_CONNECT, CUSTODY_ENVELOPE, STATUS_ACTIVE};
+    use crate::services::tenant_sms_service::TenantSmsService;
+
+    let none = || Unresolved::NoTenantSender {
+        tenant: tenant.to_string(),
+    };
+
+    let exec = sesame_idam_database::db();
+    let config = TenantSmsService::find(tenant, environment, exec)
+        .map_err(|e| {
+            tracing::warn!(error = %e, tenant, environment, "tenant sms config lookup failed");
+            none()
+        })?
+        .ok_or_else(none)?;
+
+    if config.status != STATUS_ACTIVE {
+        tracing::info!(
+            tenant, environment, status = %config.status,
+            "tenant sms config is not active — falling back"
+        );
+        return Err(none());
+    }
+
+    let credential = match config.custody_mode.as_str() {
+        CUSTODY_CONNECT => Credential::TenantConnect {
+            connected_account_sid: config.connected_account_sid.clone().ok_or_else(none)?,
+        },
+        CUSTODY_ENVELOPE => Credential::TenantEnvelope {
+            account_sid: config.account_sid.clone().ok_or_else(none)?,
+            // Unsealed only here, only for an active config.
+            auth_token: TenantSmsService::resolve_credential(&config).ok_or_else(none)?,
+        },
+        other => {
+            tracing::warn!(tenant, custody = other, "unknown custody mode");
+            return Err(none());
+        }
+    };
+
+    Ok(SmsSender {
+        owner: BillingOwner::Tenant(tenant.to_string()),
+        credential,
+        daily_ceiling_cents: u64::try_from(config.daily_spend_ceiling_cents).unwrap_or(0),
+        // Per-tenant scope: this tenant's spend can never touch another's or
+        // the platform's budget.
+        spend_scope: format!("tenant:{tenant}"),
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `SMS_ALLOWED_PURPOSES` is process-global; the parallel runner would
+    /// otherwise let one test's policy leak into another's assertion.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    struct PolicyGuard(Option<String>);
+
+    impl PolicyGuard {
+        fn set(value: &str) -> Self {
+            let prior = std::env::var("SMS_ALLOWED_PURPOSES").ok();
+            std::env::set_var("SMS_ALLOWED_PURPOSES", value);
+            Self(prior)
+        }
+    }
+
+    impl Drop for PolicyGuard {
+        fn drop(&mut self) {
+            match self.0.take() {
+                Some(v) => std::env::set_var("SMS_ALLOWED_PURPOSES", v),
+                None => std::env::remove_var("SMS_ALLOWED_PURPOSES"),
+            }
+        }
+    }
 
     /// The invariant that matters: end-user purposes NEVER resolve to the
     /// platform's credential.
@@ -179,29 +250,60 @@ mod tests {
         }
     }
 
-    /// A tenant-billed purpose with no tenant sender must NOT fall back to the
-    /// platform credential (ADR-009 §2.5).
+    /// The two owner sets are disjoint and exhaustive — a purpose added later
+    /// cannot quietly land in neither (the match is non-exhaustive-proof) nor
+    /// in both.
     #[test]
-    fn missing_tenant_sender_refuses_rather_than_subsidising() {
-        std::env::set_var("SMS_ALLOWED_PURPOSES", "registration,password_reset");
-        let err = resolve_sms_sender("hauliage", "dev", SmsPurpose::Registration)
-            .expect_err("must not resolve without a tenant sender");
-        assert!(matches!(err, Unresolved::NoTenantSender { .. }));
+    fn no_purpose_is_both_platform_and_tenant() {
+        let platform = [
+            SmsPurpose::TenantRegistration,
+            SmsPurpose::EnvironmentRegistration,
+            SmsPurpose::TenantOwnerRecovery,
+            SmsPurpose::PlatformOperator,
+        ];
+        for p in platform {
+            assert_ne!(billing_owner_for(p), OwnerKind::Tenant);
+        }
+    }
+
+    /// A tenant-billed purpose must resolve against the TENANT, never the
+    /// platform credential (ADR-009 §2.5). The DB-backed half of
+    /// `resolve_tenant_sender` is covered by the BDD suite.
+    #[test]
+    fn tenant_purposes_resolve_to_tenant_kind() {
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _policy = PolicyGuard::set("registration,password_reset");
+        assert_eq!(
+            billing_owner_for(SmsPurpose::Registration),
+            OwnerKind::Tenant,
+            "registration must never resolve to the platform credential"
+        );
     }
 
     #[test]
     fn platform_sender_has_its_own_spend_scope() {
-        std::env::set_var("SMS_ALLOWED_PURPOSES", "tenant_registration");
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _policy = PolicyGuard::set("tenant_registration");
         let sender = resolve_sms_sender("any", "dev", SmsPurpose::TenantRegistration)
             .expect("platform purposes resolve");
         assert_eq!(sender.owner, BillingOwner::Platform);
         assert_eq!(sender.credential, Credential::PlatformEnv);
-        assert_eq!(sender.spend_scope, "platform");
+        assert_eq!(
+            sender.spend_scope, "platform",
+            "platform spend must not be attributed to a tenant budget"
+        );
     }
 
     #[test]
     fn disallowed_purpose_is_refused() {
-        std::env::set_var("SMS_ALLOWED_PURPOSES", "registration");
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _policy = PolicyGuard::set("registration");
         assert_eq!(
             resolve_sms_sender("t", "dev", SmsPurpose::Login).unwrap_err(),
             Unresolved::PurposeNotAllowed

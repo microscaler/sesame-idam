@@ -1,6 +1,7 @@
 import { createSignal, onMount, Show } from 'solid-js';
 import { Button, Card, ConsoleShell, StatusPill, bootstrapSession, createConsoleClient } from '@sesame/shared';
 import type { Session } from '@sesame/idam-client';
+import { SmsSettings } from './SmsSettings';
 
 /**
  * Sesame TENANT console (ADR-010) — a tenant admin's view of their own
@@ -15,20 +16,29 @@ import type { Session } from '@sesame/idam-client';
  * @sesame/idam-client.
  */
 export function App() {
-  const nav = [
-    { label: 'Overview', href: '#', current: true },
-    { label: 'Users', href: '#users' },
-    { label: 'Organisations', href: '#orgs' },
-    { label: 'Applications', href: '#apps' },
-    { label: 'Branding', href: '#branding' },
-    { label: 'Domains', href: '#domains' },
-    { label: 'SMS & spend', href: '#sms' },
-  ];
+  // Hash routing keeps the console a single static bundle — no server-side
+  // route config to keep in step with the nav.
+  const [route, setRoute] = createSignal(window.location.hash.replace('#', ''));
+  window.addEventListener('hashchange', () => setRoute(window.location.hash.replace('#', '')));
+
+  const nav = () =>
+    [
+      { label: 'Overview', href: '#' },
+      { label: 'Users', href: '#users' },
+      { label: 'Organisations', href: '#orgs' },
+      { label: 'Applications', href: '#apps' },
+      { label: 'Branding', href: '#branding' },
+      { label: 'Domains', href: '#domains' },
+      { label: 'SMS & spend', href: '#sms' },
+    ].map((item) => ({ ...item, current: item.href.replace('#', '') === route() }));
+
+  const tenantId = import.meta.env.VITE_TENANT_ID ?? 'hauliage';
+  const environment = import.meta.env.VITE_ENVIRONMENT ?? 'dev';
 
   // Dogfood: same hosted surface + same SDK a tenant's own app would use.
   const client = createConsoleClient({
     authBaseUrl: import.meta.env.VITE_AUTH_BASE_URL ?? 'https://sesame-auth.dev.microscaler.local',
-    tenantId: import.meta.env.VITE_TENANT_ID ?? 'hauliage',
+    tenantId,
   });
   const [session, setSession] = createSignal<Session | null>(null);
   onMount(async () => setSession(await bootstrapSession(client)));
@@ -50,7 +60,16 @@ export function App() {
   );
 
   return (
-    <ConsoleShell product="Sesame Tenant" nav={nav} actions={actions}>
+    <ConsoleShell product="Sesame Tenant" nav={nav()} actions={actions}>
+      <Show when={route() === 'sms'}>
+        <h1 class="mb-1 text-title-sm font-semibold text-gray-900 dark:text-white">SMS &amp; spend</h1>
+        <p class="mb-6 text-theme-sm text-gray-500">
+          Who sends your SMS, and what it is allowed to cost.
+        </p>
+        <SmsSettings tenant={tenantId} environment={environment} />
+      </Show>
+
+      <Show when={route() !== 'sms'}>
       <h1 class="mb-1 text-title-sm font-semibold text-gray-900 dark:text-white">Overview</h1>
       <p class="mb-6 text-theme-sm text-gray-500">Your identity partition at a glance.</p>
 
@@ -96,6 +115,7 @@ export function App() {
           </div>
         </Card>
       </div>
+      </Show>
     </ConsoleShell>
   );
 }

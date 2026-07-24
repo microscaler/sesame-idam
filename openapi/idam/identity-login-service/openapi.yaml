@@ -1720,6 +1720,162 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
+  /platform/tenants/{slug}/sms/{environment}:
+    get:
+      tags:
+      - PlatformAdmin
+      summary: Read a tenant's SMS sender configuration (never the credential)
+      description: |
+        Returns the non-secret view only. The auth token is write-only: it is
+        never echoed back after storage, so a compromised console session
+        cannot exfiltrate it (ADR-009 §7).
+      operationId: platform_tenant_sms_get
+      security:
+      - PlatformServiceAuth: []
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,63}$'
+      - name: environment
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{1,31}$'
+      responses:
+        '200':
+          description: SMS configuration (secret-free)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantSmsConfigResponse'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant or SMS configuration not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+    put:
+      tags:
+      - PlatformAdmin
+      summary: Upsert a tenant's SMS sender configuration
+      description: |
+        Two custody modes. `connect` stores only a revocable connected
+        AccountSid and is REQUIRED for external tenants — Twilio bills them
+        directly and Sesame holds no secret. `envelope` accepts the tenant's
+        own auth token, seals it with a per-credential data key, and is
+        restricted to dogfood tenants.
+
+        Either way the config lands as `pending_validation` and does not send
+        until a live check promotes it, so a typo'd credential fails closed to
+        email rather than burning sends.
+      operationId: platform_tenant_sms_upsert
+      security:
+      - PlatformServiceAuth: []
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,63}$'
+      - name: environment
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{1,31}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantSmsConfigRequest'
+      responses:
+        '200':
+          description: Configuration stored (secret-free view returned)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantSmsConfigResponse'
+        '400':
+          description: Invalid custody mode or missing fields for that mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Envelope custody not permitted for this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+    delete:
+      tags:
+      - PlatformAdmin
+      summary: Revoke a tenant's SMS sender configuration
+      description: |
+        Sending stops immediately and callers fall back to email. The row is
+        kept (status `revoked`) so the revocation is auditable.
+      operationId: platform_tenant_sms_revoke
+      security:
+      - PlatformServiceAuth: []
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,63}$'
+      - name: environment
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{1,31}$'
+      responses:
+        '200':
+          description: Configuration revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantSmsConfigResponse'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant or SMS configuration not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
   /auth/users/me:
     get:
       tags:
@@ -2639,6 +2795,98 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/TenantOAuthConfigResponse'
+    TenantSmsConfigRequest:
+      type: object
+      required:
+      - custody_mode
+      properties:
+        custody_mode:
+          type: string
+          enum:
+          - connect
+          - envelope
+          description: |
+            `connect` (preferred): Twilio bills the tenant; Sesame stores no
+            secret. `envelope`: tenant credentials sealed at rest — dogfood
+            tenants only.
+        connected_account_sid:
+          type: string
+          nullable: true
+          description: Required for `connect`. Not a secret; revocable by the tenant.
+        account_sid:
+          type: string
+          nullable: true
+          description: Required for `envelope`. Not a secret.
+        auth_token:
+          type: string
+          nullable: true
+          format: password
+          writeOnly: true
+          description: |
+            Required for `envelope`. WRITE-ONLY — sealed on receipt and never
+            returned by any endpoint. Omit to keep the stored value.
+        messaging_service_sid:
+          type: string
+          nullable: true
+        from_number:
+          type: string
+          nullable: true
+        campaign_ref:
+          type: string
+          nullable: true
+          description: A2P/10DLC campaign registration reference.
+        daily_spend_ceiling_cents:
+          type: integer
+          format: int32
+          nullable: true
+          description: Per-day spend cap for this tenant. Omit to keep current.
+    TenantSmsConfigResponse:
+      type: object
+      required:
+      - tenant_id
+      - environment
+      - provider
+      - custody_mode
+      - status
+      - credential_configured
+      - daily_spend_ceiling_cents
+      properties:
+        tenant_id:
+          type: string
+        environment:
+          type: string
+        provider:
+          type: string
+        custody_mode:
+          type: string
+        status:
+          type: string
+          description: '`pending_validation` | `active` | `revoked`'
+        credential_configured:
+          type: boolean
+          description: Whether a credential is stored — never the credential itself.
+        account_sid:
+          type: string
+          nullable: true
+        connected_account_sid:
+          type: string
+          nullable: true
+        messaging_service_sid:
+          type: string
+          nullable: true
+        from_number:
+          type: string
+          nullable: true
+        campaign_ref:
+          type: string
+          nullable: true
+        daily_spend_ceiling_cents:
+          type: integer
+          format: int32
+        last_validated_at:
+          type: string
+          format: date-time
+          nullable: true
     TenantOAuthConfigRequest:
       type: object
       required:

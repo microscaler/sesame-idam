@@ -57,6 +57,12 @@ pub mod platform_tenant_oauth_upsert;
 
 pub mod platform_tenant_oauth_rotate;
 
+pub mod platform_tenant_sms_get;
+
+pub mod platform_tenant_sms_upsert;
+
+pub mod platform_tenant_sms_revoke;
+
 pub mod platform_tenant_status_patch;
 
 pub mod set_active_organization;

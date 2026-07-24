@@ -51,6 +51,11 @@ app:
       provider: "mock"
       allowedPurposes: "registration,password_reset,tenant_registration,environment_registration,tenant_owner_recovery,platform_operator"
       platformDailyCeilingCents: 1000
+      # Comma-separated tenant slugs allowed to store credentials with Sesame
+      # instead of authorising via Twilio Connect (ADR-009 §2.3). Deliberately
+      # empty by default: every external tenant should use Connect, where
+      # Twilio bills them directly and we hold nothing worth stealing.
+      envelopeCustodyTenants: ""
 
 resources:
   requests:

@@ -1,6 +1,6 @@
 # ADR-009: Multi-tenant SMS sender identity & credential custody
 
-> **Status:** PROPOSED (2026-07-24)
+> **Status:** ACCEPTED (2026-07-24) — Phase 1 + Phase 2 implemented
 > **Deciders:** Platform (Sesame-IDAM), Microscaler product teams
 > **Related:** [ADR-004](./ADR-004-platform-tenant-provisioning.md) (platform
 > tenancy), [ADR-006](./ADR-006-shared-signing-keys-for-ha.md) (secret custody
@@ -152,13 +152,73 @@ the primary toll-fraud signal.
 > ceremony. This keeps Sesame out of external-tenant token custody entirely
 > while unblocking dogfood.
 
-> **Open:** Per-environment senders — one tenant SMS config with an
-> environment dimension, or a config row per (tenant, environment)? Design doc
-> proposes the latter for isolation.
+> **DECIDED (2026-07-24):** A config row **per `(tenant, environment)`**, as
+> the design doc proposed. Staging and prod are genuinely different senders
+> with different numbers and separate A2P/10DLC registration; a single row
+> would have coupled their ceilings and their revocation.
 
 > **Open:** Non-Twilio providers (regional carriers, WhatsApp Business) —
 > the `SmsProvider` trait already allows it; sender resolution must stay
 > provider-agnostic. Out of scope for the first slice.
+
+---
+
+## 5. Implementation status
+
+### Phase 1 — sender resolution & platform custody (done)
+
+- `services/sms_sender.rs`: `billing_owner_for(purpose)` is a `const fn` over
+  the `SmsPurpose` enum — the confused-deputy guard. It cannot consult request
+  input because it takes none.
+- Platform credentials from the secret backend (SOPS → Secret → env), with a
+  `platform` spend scope distinct from every tenant scope.
+- `abuse_guard::charge_sms_spend` enforces per-owner ceilings and fails
+  **closed** on Redis errors.
+
+### Phase 2 — tenant custody (done)
+
+| Piece | Where |
+| --- | --- |
+| `(tenant, environment)` config | `models/tenant_sms_config.rs` (composite-unique) |
+| Envelope encryption | `services/envelope.rs` — per-credential AES-256-GCM DEK, wrapped by `SMS_CREDENTIAL_KEK` |
+| Store / rotate / revoke | `services/tenant_sms_service.rs` |
+| Tenant-aware resolution | `resolve_tenant_sender` in `services/sms_sender.rs` |
+| Admin API | `GET`/`PUT`/`DELETE /platform/tenants/{slug}/sms/{environment}` |
+| Console | `frontend/tenant/src/SmsSettings.tsx` |
+
+Invariants the BDD suite pins (`tests/bdd/tenant_sms_custody.rs`):
+
+1. **Write-only credential.** No response type has a field able to carry the
+   token; the tests assert on the serialised body, so adding one would fail.
+2. **Envelope custody is deny-by-default.** `SMS_ENVELOPE_CUSTODY_TENANTS` is
+   empty unless a dogfood tenant is named, and a refused upsert persists
+   nothing.
+3. **Trust is earned.** A rotated credential lands `pending_validation`, and
+   only `active` resolves — a typo fails closed to email rather than burning
+   sends.
+4. **No silent subsidy.** A tenant-billed purpose with no usable sender
+   returns `NoTenantSender`; it never falls through to the platform account.
+5. **Revocation destroys material**, and switching to Connect leaves no sealed
+   secret behind.
+
+### Bug found while implementing (5)
+
+Lifeguard's generated `set_<field>(None)` marks a field *unset*, and `update()`
+only emits SET clauses for set fields — so passing `None` **leaves the old
+value in the column**. Clearing a secret that way reports success while the
+ciphertext stays in the row. `tenant_sms_service.rs` therefore uses the
+`set_<field>_expr` escape hatch with an explicit SQL `NULL` (and only on
+UPDATE — the expression setters are rejected by `insert()`, where an unset
+column is already NULL). Worth fixing upstream in Lifeguard.
+
+### Deferred
+
+- Validate-on-store against live Twilio (needs a provisioned number).
+- The Twilio Connect authorisation ceremony (`connect` custody is storable and
+  resolvable today; the OAuth-style onboarding flow is not built).
+- Metering/chargeback pipeline.
+- KEK rotation runbook (the envelope shape already supports re-wrapping DEKs
+  without re-encrypting credentials).
 
 ---
 

@@ -131,6 +131,22 @@ spec:
                   name: sesame-idam-twilio
                   key: TWILIO_FROM_NUMBER
                   optional: true
+            # ── TENANT credential custody (ADR-009 Tier 2) ──
+            # Wraps the per-credential data keys that protect tenant Twilio
+            # tokens at rest. Absent → envelope custody is unavailable and
+            # tenants must use Twilio Connect, which is the preferred path
+            # anyway; nothing silently falls back to the platform account.
+            - name: SMS_CREDENTIAL_KEK
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: SMS_CREDENTIAL_KEK
+                  optional: true
+            # Tenants permitted to hand Sesame a raw credential rather than
+            # authorising via Connect. Empty (the default) means nobody —
+            # this is a dogfood escape hatch, not a product feature.
+            - name: SMS_ENVELOPE_CUSTODY_TENANTS
+              value: {{ .Values.app.config.sms.envelopeCustodyTenants | default "" | quote }}
             {{- if .Values.app.config.observability.otlp_endpoint }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ .Values.app.config.observability.otlp_endpoint | quote }}
