@@ -177,6 +177,23 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                // Email-factor VERIFY paths (token issuance on success).
+                "verify_email_otp" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::verify_email_otp::VerifyEmailOtpController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "magic_link_verify" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::magic_link_verify::MagicLinkVerifyController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "set_active_organization" => {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::set_active_organization::SetActiveOrganizationController,

@@ -53,10 +53,15 @@ this (stateless, no identity view).
 > newly wired controllers: login_email_otp, login_phone_otp, magic_link_send,
 > sms_magic_link_send (email OTP + magic link share one channel budget; both
 > SMS endpoints share the meter). Responses stay generic on suppression —
-> denials go to the audit log. BDD: `tests/bdd/otp_caps.rs`. NOTE: actual OTP
-> generation + email/SMS providers are still unbuilt (sends are no-ops); the
-> controls precede the capability, so provider wiring lands behind
-> `decision.should_send()` with fraud caps already in force.
+> denials go to the audit log. BDD: `tests/bdd/otp_caps.rs`.
+> UPDATE 2026-07-24: the EMAIL side is now REAL — SMTP provider
+> (`services/email.rs`, default target the Mailpit test endpoint in the
+> `data` namespace), email OTP send/verify + magic link send/verify
+> (hashed-in-Redis, TTL'd, attempt-capped, single-use), and the caps are
+> proven at the delivery boundary by `tests/bdd/email_round_trip.rs`
+> (capped sends never reach the mailbox; unknown accounts get identical
+> responses and zero mail). SMS provider remains unbuilt — SMS caps still
+> precede the capability.
 Per-recipient send caps and provider cost ceilings for email/SMS OTP and
 magic links.
 - Max sends per recipient per window; global daily SMS spend ceiling; dedupe
