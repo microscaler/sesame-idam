@@ -11,6 +11,8 @@ image:
   pullPolicy: IfNotPresent
 
 deployment:
+  # Gate B1 / ADR-006: MUST stay 1 — signing keys are in-process; the chart
+  # hard-fails on >1 until shared signing keys (ADR-006) land.
   replicas: 1
   namespace: sesame-idam
 
@@ -23,7 +25,9 @@ app:
         BearerAuth:
           jwks_url: "http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json"
           iss: "https://idam.example.com"
-          aud: "sesame-idam"
+          # Gate A6: the session service consumes JWTs on its ADMIN routes
+          # (jwks revoke) — its own audience, minted into issued tokens.
+          aud: "identity-session"
       api_keys:
         ApiKeyHeader:
           key: "test123"

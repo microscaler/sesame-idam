@@ -114,7 +114,11 @@ service-specific audience, neither left default/empty.
 
 ## GATE B — Blast-radius containment (makes "assume breach" safe)
 
-### B1 [ ] Single-replica identity-session-service — INFRA (MUST)
+### B1 [x] Single-replica identity-session-service — INFRA (MUST)
+> DONE 2026-07-24: values already 1; now ENFORCED — the chart hard-fails
+> (`fail` in templates/deployment.yaml) when identity-session-service sets
+> replicas > 1, citing ADR-006. Verified: replicas=2 aborts rendering with
+> the constraint message; other services scale freely.
 Helm `replicas: 1` for the IdP (ADR-006 in-memory-key constraint). Document
 that scaling is blocked until ADR-006 lands.
 - Acceptance: exactly one IdP pod; JWKS served consistently.
@@ -137,7 +141,13 @@ providers (OTP email/SMS) only.
 - Acceptance: a compromised app pod cannot reach the DB of an unrelated
   service or arbitrary internet egress.
 
-### B5 [ ] Disposable identities + reseedable store — APP/INFRA (MUST)
+### B5 [x] Disposable identities + reseedable store — APP/INFRA (MUST)
+> DONE 2026-07-24: `just reseed` (cluster) / `just reseed-e2e` (standalone
+> container) → `scripts/reseed-db.sh`: DROP SCHEMA sesame_idam CASCADE →
+> re-apply migrations (apply_order.txt) → re-apply synthetic demo seeds
+> (seed_order.txt) → re-grant DML. RESEED_CONFIRM=yes required (destructive).
+> Acceptance proven on the e2e store: after wipe+reseed the full test board
+> is 732/732 green (5 demo users, 2 demo orgs, 37 tables baseline).
 Only synthetic sample users; no real PII; one command to wipe + reseed the
 user store.
 - Acceptance: `just reseed` (or equiv) returns to a known clean state.

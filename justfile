@@ -831,6 +831,21 @@ tilt-reload:
   @systemctl --user daemon-reload
   @echo "Done — Tilt unit reloaded"
 
+# =============================================================================
+# Database reseed (Gate B5 — disposable identities, known clean state)
+# =============================================================================
+
+# Wipe + reseed the CLUSTER store (data/postgres-primary, database sesame_idam):
+# drop schema, re-apply migrations (apply_order.txt) + demo seeds
+# (seed_order.txt), re-grant DML. Destructive by design — sample users only.
+reseed:
+  RESEED_CONFIRM=yes RESEED_TARGET=kubectl ./scripts/reseed-db.sh
+
+# Same, against a standalone container (default e2e-sesame-pg / root / sesame),
+# e.g. the build host's e2e Postgres. See docs/e2e-database.md.
+reseed-e2e:
+  RESEED_CONFIRM=yes RESEED_TARGET=docker ./scripts/reseed-db.sh
+
 # Trigger a Tilt manual resource (migrations, db-init, service rebuild, BDD, etc.).
 # Examples:
 #   just tilt-trigger sesame-idam-apply-migrations

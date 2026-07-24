@@ -6,6 +6,12 @@ metadata:
   labels:
     app: {{ .Values.service.name }}
 spec:
+  {{- /* Gate B1 / ADR-006: the IdP keeps its Ed25519 signing keys in
+       process memory — multiple replicas would serve disagreeing keysets.
+       Scaling is blocked until ADR-006 (shared signing keys) lands. */}}
+  {{- if and (eq .Values.service.name "identity-session-service") (gt (int .Values.deployment.replicas) 1) }}
+  {{- fail "identity-session-service must run replicas: 1 (ADR-006: in-memory signing keys; multi-replica serves disagreeing JWKS). Scaling unblocks when shared signing keys land." }}
+  {{- end }}
   replicas: {{ .Values.deployment.replicas }}
   selector:
     matchLabels:

@@ -185,6 +185,7 @@ pub const EXPECTED_AUDIENCE: &[&str] = &[
     "frontend",
     "mobile",
     "identity-login",
+    "identity-session",
     "authz-core",
     "org-mgmt",
     "identity-user-mgmt",

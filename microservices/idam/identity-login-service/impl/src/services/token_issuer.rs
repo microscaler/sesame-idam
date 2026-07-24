@@ -44,6 +44,7 @@ fn issue_audiences() -> Vec<String> {
         _ => vec![
             "sesame-idam".to_string(),
             "identity-login".to_string(),
+            "identity-session".to_string(),
             "authz-core".to_string(),
             "org-mgmt".to_string(),
             "identity-user-mgmt".to_string(),

@@ -23,7 +23,8 @@ app:
         BearerAuth:
           jwks_url: "http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json"
           iss: "https://idam.example.com"
-          aud: "sesame-idam"
+          # Gate A6: service-specific audience (issuer mints via JWT_ISSUE_AUDIENCES)
+          aud: "authz-core"
           leeway_secs: 60
           cache_ttl_secs: 300
       api_keys:
