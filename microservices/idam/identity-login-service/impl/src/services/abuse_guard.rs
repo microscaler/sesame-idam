@@ -296,15 +296,19 @@ pub fn gate_otp_send(tenant: &str, channel: Channel, recipient: &str) -> SendDec
         _ => {}
     }
 
-    // Global daily SMS spend ceiling (toll fraud backstop).
+    // Daily SMS spend ceiling (toll-fraud backstop), keyed on the resolved
+    // BILLING OWNER (ADR-009 §2.4): platform and each tenant hold independent
+    // budgets, so one tenant's abuse can never exhaust another's or the
+    // platform's. Callers that have resolved a sender pass its scope+ceiling
+    // via `charge_sms_spend`; this in-line check is the default path for
+    // sends that have not been through sender resolution yet.
     if channel == Channel::Sms {
         let ceiling = env_u64("SMS_DAILY_SPEND_CEILING_CENTS", 1000);
         let cost = env_u64("SMS_COST_CENTS", 5);
         let day = chrono::Utc::now().format("%Y%m%d");
-        // SMS_SPEND_SCOPE namespaces the (otherwise global) budget key —
-        // "global" in production; tests set a unique scope for isolation.
-        let scope =
-            std::env::var("SMS_SPEND_SCOPE").unwrap_or_else(|_| "global".to_string());
+        // Default scope is the TENANT — never a shared global bucket.
+        let scope = std::env::var("SMS_SPEND_SCOPE")
+            .unwrap_or_else(|_| format!("tenant:{tenant}"));
         let sk = format!("smsspend:{scope}:{day}");
         match conn.incr::<_, _, u64>(&sk, cost) {
             Ok(spent) => {
@@ -322,6 +326,38 @@ pub fn gate_otp_send(tenant: &str, channel: Channel, recipient: &str) -> SendDec
     }
 
     SendDecision::Allow
+}
+
+/// Charge a send against a specific billing owner's daily budget
+/// (ADR-009 §2.4). `scope` comes from the resolved `SmsSender` — e.g.
+/// `"platform"` or `"tenant:hauliage"` — so budgets are isolated per payer.
+///
+/// Returns `true` when the charge fits under `ceiling_cents`. Fails CLOSED
+/// (returns `false`) when Redis is unavailable: an unmetered SMS path is
+/// exactly the toll-fraud scenario.
+#[must_use]
+pub fn charge_sms_spend(scope: &str, ceiling_cents: u64) -> bool {
+    let Ok(mut conn) = connection() else {
+        tracing::warn!("abuse_guard: redis unavailable — refusing SMS spend (fail closed)");
+        return false;
+    };
+    let cost = env_u64("SMS_COST_CENTS", 5);
+    let day = chrono::Utc::now().format("%Y%m%d");
+    let key = format!("smsspend:{scope}:{day}");
+    match conn.incr::<_, _, u64>(&key, cost) {
+        Ok(spent) => {
+            let _: Result<(), _> = conn.expire(&key, 172_800);
+            if spent > ceiling_cents {
+                emit_guard_audit(scope, "sms_spend_guard", "daily_budget_exhausted");
+                return false;
+            }
+            true
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "abuse_guard: spend accounting failed — refusing send");
+            false
+        }
+    }
 }
 
 /// INCR with expiry (set on first increment). Returns the new count, or

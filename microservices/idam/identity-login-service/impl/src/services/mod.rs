@@ -10,6 +10,7 @@ pub mod oauth;
 pub mod org_context;
 pub mod otp;
 pub mod sms;
+pub mod sms_sender;
 pub mod password;
 pub mod platform_auth;
 pub mod social_credential_service;

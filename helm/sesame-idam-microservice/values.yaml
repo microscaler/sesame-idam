@@ -45,6 +45,12 @@ app:
       max_connections: 4
     observability:
       otlp_endpoint: ""
+    # SMS (ADR-009). `mock` records to a Redis outbox — nothing is spent.
+    # Set provider=twilio once the platform credentials Secret is populated.
+    sms:
+      provider: "mock"
+      allowedPurposes: "registration,password_reset,tenant_registration,environment_registration,tenant_owner_recovery,platform_operator"
+      platformDailyCeilingCents: 1000
 
 resources:
   requests:

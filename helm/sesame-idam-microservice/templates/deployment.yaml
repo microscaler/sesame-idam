@@ -96,6 +96,41 @@ spec:
             - name: SESAME_SIGNING_KEYSET_FILE
               value: "/etc/sesame/keys/signing-keyset.json"
             {{- end }}
+            # ── PLATFORM Twilio (ADR-009 Tier 0) ──
+            # Platform-billed purposes ONLY (tenant onboarding, environment
+            # registration, tenant-owner recovery, operator MFA). Tenant
+            # end-user SMS resolves to the tenant's own account — never these.
+            # Optional: absent → SMS_PROVIDER stays mock and nothing is spent.
+            - name: SMS_PROVIDER
+              value: {{ .Values.app.config.sms.provider | default "mock" | quote }}
+            - name: SMS_ALLOWED_PURPOSES
+              value: {{ .Values.app.config.sms.allowedPurposes | default "registration,password_reset,tenant_registration,environment_registration,tenant_owner_recovery,platform_operator" | quote }}
+            - name: SMS_PLATFORM_DAILY_CEILING_CENTS
+              value: {{ .Values.app.config.sms.platformDailyCeilingCents | default 1000 | quote }}
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: TWILIO_ACCOUNT_SID
+                  optional: true
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: TWILIO_AUTH_TOKEN
+                  optional: true
+            - name: TWILIO_MESSAGING_SERVICE_SID
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: TWILIO_MESSAGING_SERVICE_SID
+                  optional: true
+            - name: TWILIO_FROM_NUMBER
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: TWILIO_FROM_NUMBER
+                  optional: true
             {{- if .Values.app.config.observability.otlp_endpoint }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ .Values.app.config.observability.otlp_endpoint | quote }}

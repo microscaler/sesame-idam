@@ -41,35 +41,62 @@ use sha2::{Digest, Sha256};
 
 use sesame_common::{fetch_post, HttpFetchOptions};
 
-/// Why an SMS is being sent — the unit of the cost allow-list.
+/// Why an SMS is being sent — the unit of BOTH the cost allow-list and the
+/// billing-owner map (ADR-009 §2.1, see `sms_sender::billing_owner_for`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SmsPurpose {
-    /// Verifying a phone number at account creation.
+    // ── tenant-billed: the tenant's own end-users ──
+    /// Verifying an end-user's phone at account creation.
     Registration,
-    /// Delivering a password-reset code/link.
+    /// Delivering a password-reset code/link to an end-user.
     PasswordReset,
+    /// End-user changing or re-verifying their phone number.
+    PhoneReverification,
     /// Per-login second factor. OFF by default (use email OTP instead).
     Login,
+    /// End-user account recovery.
+    AccountRecovery,
+
+    // ── platform-billed: Sesame's own relationship ──
+    /// Onboarding a TENANT to the platform (owner phone verification).
+    TenantRegistration,
+    /// Registering a new environment for a tenant.
+    EnvironmentRegistration,
+    /// Tenant OWNER recovering access to the Sesame console — platform-billed
+    /// because it restores access to the tenant *on the platform*.
+    TenantOwnerRecovery,
+    /// Platform operator MFA / break-glass.
+    PlatformOperator,
 }
 
 impl SmsPurpose {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             SmsPurpose::Registration => "registration",
             SmsPurpose::PasswordReset => "password_reset",
+            SmsPurpose::PhoneReverification => "phone_reverification",
             SmsPurpose::Login => "login",
+            SmsPurpose::AccountRecovery => "account_recovery",
+            SmsPurpose::TenantRegistration => "tenant_registration",
+            SmsPurpose::EnvironmentRegistration => "environment_registration",
+            SmsPurpose::TenantOwnerRecovery => "tenant_owner_recovery",
+            SmsPurpose::PlatformOperator => "platform_operator",
         }
     }
 }
 
 /// Whether SMS is permitted for `purpose` under the current policy.
 ///
-/// `SMS_ALLOWED_PURPOSES` (comma-separated) overrides the default of
-/// `registration,password_reset`. Login is deliberately excluded by default.
+/// `SMS_ALLOWED_PURPOSES` (comma-separated) overrides the default. Defaults
+/// cover the high-value purposes only: end-user registration + password
+/// reset, and the platform's own onboarding/recovery paths. Per-login SMS is
+/// deliberately excluded (email OTP covers routine 2FA at ~1/100th the cost).
 #[must_use]
 pub fn purpose_allowed(purpose: SmsPurpose) -> bool {
-    let allowed = std::env::var("SMS_ALLOWED_PURPOSES")
-        .unwrap_or_else(|_| "registration,password_reset".to_string());
+    let allowed = std::env::var("SMS_ALLOWED_PURPOSES").unwrap_or_else(|_| {
+        "registration,password_reset,tenant_registration,environment_registration,tenant_owner_recovery,platform_operator"
+            .to_string()
+    });
     allowed
         .split(',')
         .map(str::trim)

@@ -23,6 +23,13 @@ secretGenerator:
   - name: sesame-idam-db-credentials
     envs:
       - application.secrets.env
+  # PLATFORM Twilio credentials (ADR-009 Tier 0). Platform-billed purposes
+  # only — tenant end-user SMS uses the tenant's own account (Connect, or
+  # envelope-encrypted config entered in the tenant console). Create from
+  # twilio.secrets.env.EXAMPLE and sops-encrypt before committing.
+  - name: sesame-idam-twilio
+    envs:
+      - twilio.secrets.env
   # Shared Ed25519 signing key: identity-login-service signs; identity-session-service
   # publishes the public half in JWKS. Without this, login uses kid=dev-ephemeral and
   # session generates a fresh key-* kid on each restart — BFF JWKS validation fails.
