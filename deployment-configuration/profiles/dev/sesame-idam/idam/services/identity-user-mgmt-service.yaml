@@ -32,7 +32,7 @@ spec:
       name: identity-user-mgmt-service
     image:
       name: sesame-idam-identity-user-mgmt-service
-      tag: dev-1784921188706750054 # {"$imagepolicy": "flux-system:sesame-idam-identity-user-mgmt-service:tag"}
+      tag: dev-1784924032005291044 # {"$imagepolicy": "flux-system:sesame-idam-identity-user-mgmt-service:tag"}
     app:
       binaryName: identity-user-mgmt-service
       serviceName: identity-user-mgmt-service
