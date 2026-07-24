@@ -1,0 +1,31 @@
+# Defaults for a Sesame frontend app. Per-app overrides live in values/<app>.yaml.
+service:
+  name: ""          # e.g. sesame-portal
+  port: 8080
+  containerPort: 8080
+
+image:
+  repository: localhost:5001
+  name: ""          # e.g. sesame-idam-frontend-platform
+  tag: tilt
+  pullPolicy: IfNotPresent
+
+deployment:
+  replicas: 1
+  namespace: sesame-idam
+
+# Gateway API exposure (the cluster's shared edge Gateway).
+route:
+  enabled: true
+  hostnames: []     # e.g. [sesame-portal.dev.microscaler.local]
+  gateway:
+    name: microscaler-dev
+    namespace: envoy-gateway-system
+
+resources:
+  requests:
+    memory: 32Mi
+    cpu: 10m
+  limits:
+    memory: 128Mi
+    cpu: 200m

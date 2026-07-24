@@ -1,0 +1,12 @@
+# Sesame PLATFORM console (operator view).
+service:
+  name: sesame-portal
+image:
+  name: sesame-idam-frontend-platform
+deployment:
+  replicas: 1
+  namespace: sesame-idam
+route:
+  enabled: true
+  hostnames:
+    - sesame-portal.dev.microscaler.local

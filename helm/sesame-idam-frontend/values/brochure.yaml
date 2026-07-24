@@ -1,0 +1,12 @@
+# Public brochure site.
+service:
+  name: sesame-brochure
+image:
+  name: sesame-idam-frontend-brochure
+deployment:
+  replicas: 1
+  namespace: sesame-idam
+route:
+  enabled: true
+  hostnames:
+    - sesame-brochure.dev.microscaler.local

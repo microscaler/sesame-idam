@@ -1,4 +1,6 @@
-import { ConsoleShell, StatusPill, Card } from '@sesame/shared';
+import { createSignal, onMount, Show } from 'solid-js';
+import { Button, Card, ConsoleShell, StatusPill, bootstrapSession, createConsoleClient } from '@sesame/shared';
+import type { Session } from '@sesame/idam-client';
 
 /**
  * Sesame PLATFORM console (ADR-010) — the operator's view.
@@ -22,8 +24,33 @@ export function App() {
     { label: 'Audit', href: '#audit' },
   ];
 
+  // Dogfood: this console signs in through the hosted auth surface with the
+  // very SDK external tenants use.
+  const client = createConsoleClient({
+    authBaseUrl: import.meta.env.VITE_AUTH_BASE_URL ?? 'https://sesame-auth.dev.microscaler.local',
+    tenantId: import.meta.env.VITE_TENANT_ID ?? 'platform',
+  });
+  const [session, setSession] = createSignal<Session | null>(null);
+  onMount(async () => setSession(await bootstrapSession(client)));
+
+  const actions = (
+    <Show
+      when={session()}
+      fallback={
+        <Button onClick={() => client.login()} variant="primary">
+          Sign in
+        </Button>
+      }
+    >
+      <span class="text-theme-sm text-gray-500">{session()?.userId}</span>
+      <Button variant="ghost" onClick={() => client.logout()}>
+        Sign out
+      </Button>
+    </Show>
+  );
+
   return (
-    <ConsoleShell product="Sesame Platform" nav={nav}>
+    <ConsoleShell product="Sesame Platform" nav={nav} actions={actions}>
       <h1 class="mb-1 text-title-sm font-semibold text-gray-900 dark:text-white">Overview</h1>
       <p class="mb-6 text-theme-sm text-gray-500">Platform health at a glance.</p>
 

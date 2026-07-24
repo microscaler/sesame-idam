@@ -15,3 +15,5 @@ export { ConsoleShell } from './components/ConsoleShell';
 export type { NavItem } from './components/ConsoleShell';
 export { applyTenantTheme } from './theme';
 export type { TenantTheme } from './theme';
+export { createConsoleClient, bootstrapSession } from './session';
+export type { ConsoleAuthConfig } from './session';

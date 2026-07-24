@@ -10,6 +10,11 @@ resources:
   - authz-core.yaml
   - api-keys.yaml
   - org-mgmt.yaml
+  # Frontends (ADR-010)
+  - frontend-platform.yaml
+  - frontend-tenant.yaml
+  - frontend-brochure.yaml
+  - frontend-auth.yaml
 
 configMapGenerator:
   - name: sesame-idam-idam-common-helm-values

@@ -1,0 +1,12 @@
+# Sesame TENANT admin console.
+service:
+  name: sesame-tenant
+image:
+  name: sesame-idam-frontend-tenant
+deployment:
+  replicas: 1
+  namespace: sesame-idam
+route:
+  enabled: true
+  hostnames:
+    - sesame-tenant.dev.microscaler.local

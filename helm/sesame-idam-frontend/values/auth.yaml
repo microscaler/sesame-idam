@@ -1,0 +1,18 @@
+# Hosted AUTH surface (ADR-010 §2.2) — its OWN origin, deliberately.
+#
+# The credential ceremony (password, OTP, magic link, and later passkeys) must
+# live on ONE trusted origin: WebAuthn is origin-bound, so serving these pages
+# from a console host would break the ADR-008 phishing-resistance story. In
+# production this host is replaced per tenant by their ADR-007 verified domain
+# (e.g. login.tenant.com) serving this same bundle, themed at runtime.
+service:
+  name: sesame-auth
+image:
+  name: sesame-idam-frontend-auth
+deployment:
+  replicas: 1
+  namespace: sesame-idam
+route:
+  enabled: true
+  hostnames:
+    - sesame-auth.dev.microscaler.local

@@ -1,0 +1,42 @@
+# Sesame HOSTED AUTH SURFACE: sesame-auth → https://sesame-auth.dev.microscaler.local
+#
+# Deliberately its OWN origin (ADR-010 §2.2): WebAuthn is origin-bound, so the
+# credential ceremony must not share a host with the consoles. In production a
+# tenant's ADR-007 verified domain (login.tenant.com) serves this same bundle,
+# themed at runtime.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sesame-auth
+spec:
+  interval: 5m
+  timeout: 5m
+  releaseName: sesame-auth
+  targetNamespace: sesame-idam
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./helm/sesame-idam-frontend
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: product-sesame-idam
+        namespace: flux-system
+      interval: 1m
+  values:
+    service:
+      name: sesame-auth
+    image:
+      name: sesame-idam-frontend-auth
+      tag: tilt # {"$imagepolicy": "flux-system:sesame-idam-frontend-auth:tag"}
+    route:
+      enabled: true
+      hostnames:
+        - sesame-auth.dev.microscaler.local
+

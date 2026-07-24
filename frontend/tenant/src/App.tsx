@@ -1,4 +1,6 @@
-import { ConsoleShell, StatusPill, Card } from '@sesame/shared';
+import { createSignal, onMount, Show } from 'solid-js';
+import { Button, Card, ConsoleShell, StatusPill, bootstrapSession, createConsoleClient } from '@sesame/shared';
+import type { Session } from '@sesame/idam-client';
 
 /**
  * Sesame TENANT console (ADR-010) — a tenant admin's view of their own
@@ -23,8 +25,32 @@ export function App() {
     { label: 'SMS & spend', href: '#sms' },
   ];
 
+  // Dogfood: same hosted surface + same SDK a tenant's own app would use.
+  const client = createConsoleClient({
+    authBaseUrl: import.meta.env.VITE_AUTH_BASE_URL ?? 'https://sesame-auth.dev.microscaler.local',
+    tenantId: import.meta.env.VITE_TENANT_ID ?? 'hauliage',
+  });
+  const [session, setSession] = createSignal<Session | null>(null);
+  onMount(async () => setSession(await bootstrapSession(client)));
+
+  const actions = (
+    <Show
+      when={session()}
+      fallback={
+        <Button onClick={() => client.login()} variant="primary">
+          Sign in
+        </Button>
+      }
+    >
+      <span class="text-theme-sm text-gray-500">{session()?.userId}</span>
+      <Button variant="ghost" onClick={() => client.logout()}>
+        Sign out
+      </Button>
+    </Show>
+  );
+
   return (
-    <ConsoleShell product="Sesame Tenant" nav={nav}>
+    <ConsoleShell product="Sesame Tenant" nav={nav} actions={actions}>
       <h1 class="mb-1 text-title-sm font-semibold text-gray-900 dark:text-white">Overview</h1>
       <p class="mb-6 text-theme-sm text-gray-500">Your identity partition at a glance.</p>
 

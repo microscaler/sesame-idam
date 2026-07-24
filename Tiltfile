@@ -879,3 +879,53 @@ for name in DISCOVERED_SERVICES:
     create_microservice_gen(name, spec_path)
     create_microservice_build(name)
     create_microservice_deployment(name, port)
+
+# ====================
+# Frontend apps (ADR-010)
+# ====================
+# Static SPAs (SolidJS+Vite) served by nginx, exposed on the shared edge
+# Gateway. One Dockerfile parameterised by APP; build context is the repo root
+# because the pnpm workspace links shared/ + client-sdk/.
+#
+#   sesame-portal.dev.microscaler.local    platform console
+#   sesame-tenant.dev.microscaler.local    tenant console
+#   sesame-brochure.dev.microscaler.local  brochure
+#   sesame-auth.dev.microscaler.local      hosted auth surface (own origin — ADR-008)
+FRONTEND_APPS = {
+    'platform': 'sesame-portal',
+    'tenant': 'sesame-tenant',
+    'brochure': 'sesame-brochure',
+    'auth': 'sesame-auth',
+}
+
+for _app, _svc in FRONTEND_APPS.items():
+    _image = '%s/sesame-idam-frontend-%s' % (_SHARED_K8S_REGISTRY, _app)
+    custom_build(
+        _image,
+        'docker build -f docker/frontend/Dockerfile --build-arg APP=%s -t $EXPECTED_REF . && docker push $EXPECTED_REF' % _app,
+        deps=[
+            'frontend/%s' % _app,
+            'frontend/shared',
+            'frontend/client-sdk',
+            'frontend/package.json',
+            'frontend/pnpm-workspace.yaml',
+            'docker/frontend',
+        ],
+        ignore=['**/node_modules', '**/dist'],
+        skips_local_docker=False,
+        labels=['frontend'],
+    )
+
+    if not FLUX_OWNS_DEPLOY:
+        k8s_yaml(helm(
+            'helm/sesame-idam-frontend',
+            name=_svc,
+            namespace='sesame-idam',
+            values=['helm/sesame-idam-frontend/values/%s.yaml' % _app],
+        ))
+        k8s_resource(
+            _svc,
+            labels=['frontend'],
+            objects=['%s:httproute:sesame-idam' % _svc],
+            auto_init=True,
+        )

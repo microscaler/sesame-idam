@@ -1,0 +1,39 @@
+{{- if and .Values.route.enabled .Values.route.hostnames }}
+# Shared edge Gateway (Envoy Gateway). haproxy owns *.dev.microscaler.local on
+# the LAN and forwards to this Gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+    app: {{ .Values.service.name }}
+    app.kubernetes.io/part-of: sesame-idam
+  annotations:
+    gitops.microscaler.io/gateway: {{ .Values.route.gateway.name }}
+    gitops.microscaler.io/hostname: {{ index .Values.route.hostnames 0 | quote }}
+spec:
+  hostnames:
+{{ toYaml .Values.route.hostnames | indent 4 }}
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.route.gateway.name }}
+      namespace: {{ .Values.route.gateway.namespace }}
+      sectionName: https
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.route.gateway.name }}
+      namespace: {{ .Values.route.gateway.namespace }}
+      sectionName: http
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ .Values.service.name }}
+          port: {{ .Values.service.port }}
+{{- end }}
