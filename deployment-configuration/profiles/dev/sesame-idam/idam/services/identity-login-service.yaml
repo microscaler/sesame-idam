@@ -32,7 +32,7 @@ spec:
       name: identity-login-service
     image:
       name: sesame-idam-identity-login-service
-      tag: dev-1784914046472518483 # {"$imagepolicy": "flux-system:sesame-idam-identity-login-service:tag"}
+      tag: dev-1784914547530883203 # {"$imagepolicy": "flux-system:sesame-idam-identity-login-service:tag"}
     # ADR-006 step 1: same shared signing keyset as identity-session-service
     # (login signs, session publishes JWKS — both must pick the same key).
     signingKeyset:
