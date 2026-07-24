@@ -143,6 +143,40 @@ fn main() -> io::Result<()> {
                     .unwrap_or_else(|error| panic!("failed to spawn auth_logout handler: {error}"));
                     dispatcher.add_route(route.clone(), tx);
                 }
+                // OTP / magic-link SEND paths: abuse-guarded (Gate A3) with
+                // generic responses; provider dispatch lands behind them.
+                "login_email_otp" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::login_email_otp::LoginEmailOtpController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "login_phone_otp" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::login_phone_otp::LoginPhoneOtpController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "magic_link_send" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::magic_link_send::MagicLinkSendController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "sms_magic_link_send" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::sms_magic_link_send::SmsMagicLinkSendController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "set_active_organization" => {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::set_active_organization::SetActiveOrganizationController,

@@ -41,6 +41,7 @@ sesame_idam_identity_login_service_gen = { path = "../gen" }
 brrtrouter = { workspace = true }
 brrtrouter_macros = { workspace = true }
 serde = { workspace = true }
+sha2 = { workspace = true }
 serde_json = { workspace = true }
 tikv-jemallocator = { workspace = true, optional = true }
 clap = { workspace = true }

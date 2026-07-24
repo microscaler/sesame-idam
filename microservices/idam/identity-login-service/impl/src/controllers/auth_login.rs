@@ -13,6 +13,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_login::{Request, Response};
 
 use crate::audit::EMITTER;
+use crate::services::abuse_guard;
 use crate::services::password;
 use crate::services::tenant_gate::tenant_http_error;
 use crate::services::tenant_service::TenantService;
@@ -34,6 +35,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return tenant_http_error(&e);
     }
 
+    // Gate A2: locked identities get the SAME generic 401 as wrong
+    // credentials — no oracle for lock state or account existence. The
+    // check keys on (tenant, identifier) regardless of whether the account
+    // exists, so unknown identifiers lock out identically to real ones.
+    if abuse_guard::login_locked(&tenant_id, &email).is_some() {
+        emit_login_audit(&tenant_id, None, false, "account_locked");
+        return invalid_credentials();
+    }
+
     let user = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
         UserService::find_by_tenant_and_email(&tenant_id, &email, exec)
     }) {
@@ -47,20 +57,26 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     // Unknown user, wrong password, and disabled account all produce the
     // same 401 to prevent user enumeration.
     let Some(user) = user else {
+        // Count failures for unknown identifiers too: lockout behaviour must
+        // not differ between real and nonexistent accounts (enumeration).
+        abuse_guard::record_login_failure(&tenant_id, &email);
         emit_login_audit(&tenant_id, None, false, "user_not_found");
         return invalid_credentials();
     };
 
     if user.status != STATUS_ACTIVE {
+        abuse_guard::record_login_failure(&tenant_id, &email);
         emit_login_audit(&tenant_id, Some(user.id), false, "account_not_active");
         return invalid_credentials();
     }
 
     if !password::verify_password(&req.data.password, &user.password_hash) {
+        abuse_guard::record_login_failure(&tenant_id, &email);
         emit_login_audit(&tenant_id, Some(user.id), false, "wrong_password");
         return invalid_credentials();
     }
 
+    abuse_guard::record_login_success(&tenant_id, &email);
     let user_id = user.id.to_string();
 
     // JWT enrichment: fetch effective roles from authz-core (the single

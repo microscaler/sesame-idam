@@ -26,7 +26,15 @@ externally-reachable auth paths.
   never trips.
 - Note: this is VOLUMETRIC only. Per-identity lockout is A2 (stateful, not GW).
 
-### A2 [ ] Account lockout / progressive backoff — APP + shared store (MUST)
+### A2 [x] Account lockout / progressive backoff — APP + shared store (MUST)
+> DONE 2026-07-24: `services/abuse_guard.rs` (Redis; SHA-256-hashed identity
+> keys, sliding decay, base×2^n backoff capped at LOCKOUT_MAX_SECS, audit on
+> lock). Wired into `auth_login` for ALL failure paths including unknown
+> identifiers (no enumeration via lockout behaviour); locked response is
+> byte-identical to wrong-password. BDD: `tests/bdd/account_lockout.rs`
+> (9/9 green incl. decay + no-oracle). OTP-verify wiring joins when the OTP
+> verify flows are implemented (they are gen stubs today) — the guard API
+> (`record_login_failure`) is shared and ready.
 Per-identity failed-attempt tracking (login + OTP verify). Gateway cannot do
 this (stateless, no identity view).
 - Counter keyed on (tenant, username/identifier) in Redis (or DB); progressive
@@ -37,7 +45,18 @@ this (stateless, no identity view).
   lock still denied; lock decays; no timing/message oracle for account
   existence.
 
-### A3 [ ] OTP abuse & toll-fraud controls — APP (MUST)
+### A3 [x] OTP abuse & toll-fraud controls — APP (MUST)
+> DONE 2026-07-24 (guard layer): `abuse_guard::gate_otp_send` — per-recipient
+> window + daily caps, rapid-resend dedupe, tenant SMS opt-in (ADR-008
+> interim: `SMS_OPTED_IN_TENANTS` env until a tenants column lands), global
+> daily SMS spend ceiling (fail-CLOSED for SMS on Redis outage). Enforced in
+> newly wired controllers: login_email_otp, login_phone_otp, magic_link_send,
+> sms_magic_link_send (email OTP + magic link share one channel budget; both
+> SMS endpoints share the meter). Responses stay generic on suppression —
+> denials go to the audit log. BDD: `tests/bdd/otp_caps.rs`. NOTE: actual OTP
+> generation + email/SMS providers are still unbuilt (sends are no-ops); the
+> controls precede the capability, so provider wiring lands behind
+> `decision.should_send()` with fraud caps already in force.
 Per-recipient send caps and provider cost ceilings for email/SMS OTP and
 magic links.
 - Max sends per recipient per window; global daily SMS spend ceiling; dedupe

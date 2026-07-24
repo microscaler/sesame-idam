@@ -1,33 +1,44 @@
+// BRRTRouter: user-owned
+
+//! `POST /auth/magic-link/sms` — request an SMS magic link.
+//!
+//! Gate A3 wiring: SMS channel — tenant opt-in (ADR-008 interim) + global
+//! daily spend ceiling + per-recipient caps, shared with phone OTP so the two
+//! endpoints cannot be combined to defeat the meter. Generic success
+//! response regardless of suppression.
+
+use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
-use sesame_idam_identity_login_service_gen::handlers::sms_magic_link_send::{Request, Response};
-use brrtrouter::typed::TypedHandlerRequest;
+use sesame_idam_identity_login_service_gen::handlers::sms_magic_link_send::Request;
 
-/// Handler for Sms Magic Link Send.
+use crate::services::abuse_guard::{self, Channel};
+use crate::services::tenant_gate::tenant_http_error;
+use crate::services::tenant_service::TenantService;
+
 #[handler(SmsMagicLinkSendController)]
-pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
-    use crate::audit::EMITTER;
-    use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
-    use uuid::Uuid;
+pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
+    let tenant_id = req.data.x_tenant_id.clone();
+    let phone = req.data.phone.clone();
 
-    // TODO: Look up user by phone
-    // TODO: Generate signed token (JWT with exp, phone, tenant_id)
-    // TODO: Store in Redis with 10min TTL
-    // TODO: Send SMS via Twilio with verification code
-    // TODO: Rate limit: 1 SMS per phone per 1 minute
-
-    let mut event = AuditEvent::new(
-        AuditEventType::Authentication,
-        "sms_magic_link_sent",
-        req.inner.tenant_id.parse::<Uuid>().unwrap_or_default(),
-        AuditActor::User,
-        req.inner.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string()),
-    );
-    event.metadata = serde_json::json!({ "phone": req.inner.phone }).into();
-    event.severity = Some(AuditSeverity::Info);
-    EMITTER.emit(&mut event);
-
-    Response {
-        magic_link_sent: true,
-        expires_in: 10, // minutes
+    let exec = sesame_idam_database::db();
+    if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
+        return tenant_http_error(&e);
     }
+
+    let decision = abuse_guard::gate_otp_send(&tenant_id, Channel::Sms, &phone);
+    if decision.should_send() {
+        // TODO(magic-link flow): mint single-use token + SMS provider.
+        tracing::info!(tenant = %tenant_id, "sms magic link send allowed (provider not yet wired)");
+    } else {
+        tracing::info!(tenant = %tenant_id, ?decision, "sms magic link send suppressed by abuse guard");
+    }
+
+    generic_success()
+}
+
+fn generic_success() -> HttpJson<serde_json::Value> {
+    HttpJson::ok(serde_json::json!({
+        "success": true,
+        "message": "If the account exists, a link has been sent"
+    }))
 }
