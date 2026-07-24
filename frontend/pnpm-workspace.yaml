@@ -1,0 +1,10 @@
+# ADR-010 frontend workspace. `shared` and `client-sdk` are consumed by the
+# apps via workspace links; `client-sdk` stays VENDORED (private, unpublished)
+# until GA.
+packages:
+  - 'shared'
+  - 'client-sdk'
+  - 'auth'
+  - 'platform'
+  - 'tenant'
+  - 'brochure'

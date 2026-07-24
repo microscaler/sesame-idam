@@ -1,0 +1,24 @@
+{
+  "name": "@sesame/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sesame design system: Tailwind preset, tokens, shared Solid components (ADR-010).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tailwind.preset.js": "./tailwind.preset.js",
+    "./styles/theme.css": "./src/styles/theme.css"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "solid-js": "^1.9.0",
+    "typescript": "^5.6.0"
+  }
+}

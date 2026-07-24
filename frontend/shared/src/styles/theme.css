@@ -1,0 +1,31 @@
+/**
+ * Sesame theme layer (ADR-010).
+ *
+ * Per-tenant branding is applied at RUNTIME by setting these CSS variables on
+ * :root from the tenant's config (ADR-009 config surface, served to the hosted
+ * auth surface per ADR-007 verified domain). No per-tenant rebuild, no
+ * per-tenant bundle — one hosted surface, many brands.
+ */
+
+:root {
+  --sesame-brand-primary: #465fff;
+  --sesame-brand-on-primary: #ffffff;
+  --sesame-radius: 0.5rem;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-200 dark:border-gray-700;
+  }
+  body {
+    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+    font-family: 'Outfit', sans-serif;
+  }
+  #root {
+    @apply min-h-full w-full;
+  }
+}

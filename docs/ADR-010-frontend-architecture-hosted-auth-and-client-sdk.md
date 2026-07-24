@@ -135,8 +135,11 @@ tenants use.
 > or keep independent Vite apps sharing `shared/` by path? Leaning pnpm
 > workspaces for `shared/` + `client-sdk/` reuse.
 
-> **Open:** Is `client-sdk` published (npm) for external tenants, or vendored
-> until GA? Dogfood-vendored first, publish at launch.
+> **DECIDED (2026-07-24):** `client-sdk` is **vendored** — a private
+> workspace package (`"private": true`, no npm publish) consumed by the
+> consoles and dogfood tenants via the workspace. Publishing to npm happens
+> at GA, when the public API surface is stable enough to carry semver
+> commitments.
 
 > **Open:** Does the tenant console need its own hosted-surface theme preview,
 > or is theming edited in config and previewed live on the auth app?
