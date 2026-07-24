@@ -168,6 +168,25 @@ pub struct AuthResetPasswordResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuthSessionCodeRequest {
+    pub access_token: String,
+
+    pub redirect_uri: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuthSessionCodeResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_in: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthTokenRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub actor_token: Option<String>,
@@ -178,7 +197,13 @@ pub struct AuthTokenRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_secret: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+
     pub grant_type: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_uri: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refresh_token: Option<String>,
@@ -1005,7 +1030,13 @@ pub struct TokenRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_secret: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+
     pub grant_type: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_uri: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refresh_token: Option<String>,

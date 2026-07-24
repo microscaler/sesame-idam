@@ -2,7 +2,7 @@ import { createSignal, onMount, Show } from 'solid-js';
 import { applyTenantTheme } from '@sesame/shared';
 import { SignIn } from './pages/SignIn';
 import { ResetPassword } from './pages/ResetPassword';
-import { verifyMagicLink } from './lib/api';
+import { mintSessionCode, verifyMagicLink } from './lib/api';
 import type { TokenResponse } from './lib/api';
 
 /**
@@ -16,9 +16,10 @@ import type { TokenResponse } from './lib/api';
  * one-time `code` + the original `state`, which @sesame/idam-client exchanges
  * for a session. Tokens are never handed to the tenant app via the URL.
  *
- * NOTE (scaffold): the code-exchange endpoint (/session/exchange) is the
- * remaining backend piece — until it exists, DEV mode round-trips the tokens
- * through sessionStorage so the flow is exercisable end to end.
+ * On success the surface mints a ONE-TIME CODE (POST /auth/session/code) and
+ * returns the caller to `redirect_uri` with that code plus the original
+ * `state`. @sesame/idam-client redeems it at /auth/token
+ * (grant_type=authorization_code). Tokens are never placed in a URL.
  */
 export function App() {
   const params = new URLSearchParams(window.location.search);
@@ -41,7 +42,7 @@ export function App() {
     if (status() === 'verifying' && magicToken) {
       try {
         const tokens = await verifyMagicLink(tenantId, magicToken);
-        complete(tokens);
+        void complete(tokens);
       } catch {
         setError('This sign-in link is invalid, expired, or already used.');
         setStatus('error');
@@ -49,19 +50,28 @@ export function App() {
     }
   });
 
-  const complete = (tokens: TokenResponse) => {
+  const complete = async (tokens: TokenResponse) => {
     if (!redirectUri) {
       // No caller (direct visit) — nothing to redirect to.
       setError('Signed in, but no return destination was supplied.');
       setStatus('error');
       return;
     }
-    // DEV round-trip until /session/exchange lands (see module note).
-    sessionStorage.setItem('sesame.dev.tokens', JSON.stringify(tokens));
-    const url = new URL(redirectUri);
-    url.searchParams.set('code', 'dev-' + tokens.user_id);
-    if (state) url.searchParams.set('state', state);
-    window.location.assign(url.toString());
+    try {
+      const { code } = await mintSessionCode(
+        tenantId,
+        tokens.access_token,
+        tokens.refresh_token,
+        redirectUri,
+      );
+      const url = new URL(redirectUri);
+      url.searchParams.set('code', code);
+      if (state) url.searchParams.set('state', state);
+      window.location.assign(url.toString());
+    } catch {
+      setError('Signed in, but the handoff to the application failed.');
+      setStatus('error');
+    }
   };
 
   return (
@@ -70,7 +80,7 @@ export function App() {
         <ResetPassword tenantId={tenantId} token={path.includes('reset-password') ? (magicToken ?? undefined) : undefined} />
       </Show>
       <Show when={status() === 'ready' && !isReset}>
-        <SignIn tenantId={tenantId} tenantName={tenantId} onAuthenticated={complete} />
+        <SignIn tenantId={tenantId} tenantName={tenantId} onAuthenticated={(t) => void complete(t)} />
       </Show>
       <Show when={status() === 'verifying'}>
         <p class="text-theme-sm text-gray-600 dark:text-gray-300">Signing you in…</p>

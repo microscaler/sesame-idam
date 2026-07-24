@@ -976,6 +976,52 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         }
     }
 
+    // RFC 6749 §4.1.3 authorization_code — the cross-origin session handoff
+    // (ADR-010). The hosted auth surface minted a one-time code via
+    // POST /auth/session/code; the tenant app (via @sesame/idam-client)
+    // redeems it here. The code is single-use and bound to its redirect_uri,
+    // so a leaked code is worthless twice and worthless elsewhere.
+    if req.data.grant_type == "authorization_code" {
+        let (Some(code), Some(redirect_uri)) =
+            (req.data.code.as_ref(), req.data.redirect_uri.as_ref())
+        else {
+            span.record("result", "denied");
+            emit_audit(false, "authorization_code_missing_params");
+            return empty_denied(None);
+        };
+
+        match crate::services::auth_code::redeem(code, redirect_uri, &tenant_id) {
+            Some(payload) => {
+                span.record("result", "success");
+                emit_audit(true, "authorization_code");
+                let user_id = user_id_from_token(&payload.access_token);
+                return Response {
+                    access_token: payload.access_token,
+                    token_type: "Bearer".to_string(),
+                    expires_in: 300,
+                    refresh_token: payload.refresh_token.unwrap_or_default(),
+                    refresh_token_expires_in: Some(30 * 24 * 3600),
+                    user_id,
+                    id_token: None,
+                    mfa_required: Some(false),
+                    scope: None,
+                    entitlements_hash: None,
+                    entitlements_ref: None,
+                    permissions: None,
+                    roles: None,
+                    token_version: None,
+                };
+            }
+            None => {
+                // Unknown, expired, already-used, or wrong redirect_uri/tenant
+                // — all indistinguishable to the caller.
+                span.record("result", "denied");
+                emit_audit(false, "authorization_code_invalid");
+                return empty_denied(None);
+            }
+        }
+    }
+
     // RFC 6749 §4.4 client_credentials (PRD-OPENGROUPWARE F1): M2M tokens
     // for first-party services (e.g. opengroupware admin-api), authenticated
     // against the api-keys table.
@@ -1178,7 +1224,9 @@ mod tests {
             actor_token: None,
             client_id: None,
             client_secret: None,
+            code: None,
             grant_type: String::new(),
+            redirect_uri: None,
             refresh_token: None,
             requested_token_type: None,
             scope: None,
@@ -2206,4 +2254,25 @@ mod tests {
             );
         }
     }
+}
+
+/// Extract `sub` (falling back to `user_id`) from a compact JWT payload —
+/// used to populate the authorization_code response without re-minting.
+fn user_id_from_token(token: &str) -> String {
+    use base64::Engine;
+    let Some(payload) = token.split('.').nth(1) else {
+        return String::new();
+    };
+    let Ok(bytes) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(payload) else {
+        return String::new();
+    };
+    let Ok(claims) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+        return String::new();
+    };
+    claims
+        .get("sub")
+        .or_else(|| claims.get("user_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string()
 }

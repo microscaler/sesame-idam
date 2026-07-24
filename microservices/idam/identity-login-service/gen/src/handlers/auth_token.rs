@@ -22,8 +22,16 @@ pub struct Request {
     #[serde(rename = "client_secret")]
     pub client_secret: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "code")]
+    pub code: Option<String>,
+
     #[serde(rename = "grant_type")]
     pub grant_type: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "redirect_uri")]
+    pub redirect_uri: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "refresh_token")]

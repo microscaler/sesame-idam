@@ -3,6 +3,7 @@
 //! from `sesame_idam_database::db()` at the controller edge.
 
 pub mod abuse_guard;
+pub mod auth_code;
 pub mod authz_client;
 pub mod email;
 pub mod login_success;

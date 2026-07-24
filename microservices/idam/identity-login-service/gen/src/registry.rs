@@ -90,6 +90,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "auth_session_code",
+        crate::controllers::auth_session_code::AuthSessionCodeController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "signup_validate",
         crate::controllers::signup_validate::SignupValidateController,
         20480,
@@ -285,6 +291,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "auth_register" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_register::AuthRegisterController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "auth_session_code" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::auth_session_code::AuthSessionCodeController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

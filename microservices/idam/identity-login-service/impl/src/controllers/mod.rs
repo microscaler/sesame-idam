@@ -15,6 +15,7 @@
 pub mod auth_forgot_password;
 pub mod auth_login;
 pub mod auth_reset_password;
+pub mod auth_session_code;
 pub mod auth_logout;
 pub mod auth_register;
 pub mod auth_token;

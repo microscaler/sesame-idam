@@ -177,6 +177,17 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                // Cross-origin session handoff (ADR-010): the hosted auth
+                // surface mints a one-time code here; the tenant app redeems
+                // it at /auth/token with grant_type=authorization_code.
+                "auth_session_code" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::auth_session_code::AuthSessionCodeController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 // Password reset: request a link, then consume it.
                 "auth_forgot_password" => {
                     let tx = spawn_typed_with_stack_size_and_name(

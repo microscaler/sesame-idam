@@ -80,3 +80,20 @@ export const resetPassword = (tenantId: string, token: string, newPassword: stri
     token,
     new_password: newPassword,
   });
+
+/**
+ * Mint a one-time code so the session can cross to the tenant app's origin
+ * (ADR-010). Tokens never travel in the URL — only this single-use,
+ * redirect_uri-bound code does.
+ */
+export const mintSessionCode = (
+  tenantId: string,
+  accessToken: string,
+  refreshToken: string | undefined,
+  redirectUri: string,
+) =>
+  post<{ code: string; expires_in: number }>('/auth/session/code', tenantId, {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    redirect_uri: redirectUri,
+  });

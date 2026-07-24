@@ -109,15 +109,27 @@ export class SesameClient {
       throw new Error('sesame: state mismatch — possible CSRF, authentication rejected');
     }
 
-    const res = await fetch(new URL('/session/exchange', this.opts.authBaseUrl).toString(), {
+    // OAuth2 authorization_code redemption. The code is single-use and bound
+    // to this exact redirect_uri, so it is safe to have travelled in the URL.
+    const res = await fetch(new URL('/idam/v1/auth/token', this.opts.authBaseUrl).toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': this.opts.tenantId },
-      body: JSON.stringify({ code, redirect_uri: this.opts.redirectUri }),
+      body: JSON.stringify({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: this.opts.redirectUri,
+      }),
       credentials: 'include',
     });
     if (!res.ok) throw new Error(`sesame: session exchange failed (${res.status})`);
 
     const session = normalizeSession(await res.json(), this.opts.tenantId);
+    // The token endpoint answers 200 with an EMPTY access_token when a code is
+    // unknown, expired, replayed, or bound elsewhere — all indistinguishable
+    // by design. Treat that as a failed handoff.
+    if (!session.accessToken) {
+      throw new Error('sesame: authorization code was rejected');
+    }
     this.persist(session);
     return session;
   }
@@ -140,10 +152,10 @@ export class SesameClient {
   /** Exchange the refresh token for a new access token. */
   async refresh(session: Session): Promise<Session | null> {
     if (!session.refreshToken) return null;
-    const res = await fetch(new URL('/session/refresh', this.opts.authBaseUrl).toString(), {
+    const res = await fetch(new URL('/idam/v1/auth/token', this.opts.authBaseUrl).toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': this.opts.tenantId },
-      body: JSON.stringify({ refresh_token: session.refreshToken }),
+      body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: session.refreshToken }),
       credentials: 'include',
     });
     if (!res.ok) {

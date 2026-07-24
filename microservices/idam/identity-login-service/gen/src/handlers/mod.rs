@@ -29,6 +29,8 @@ pub mod auth_reset_password;
 
 pub mod auth_register;
 
+pub mod auth_session_code;
+
 pub mod signup_validate;
 
 pub mod social_callback;

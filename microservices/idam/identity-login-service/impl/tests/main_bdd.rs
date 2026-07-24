@@ -16,6 +16,7 @@ pub mod bdd {
     pub mod phone_otp;
     pub mod pii_entitlements;
     pub mod platform_tenant_admin;
+    pub mod session_handoff;
     pub mod signup_validate;
     pub mod smoke;
     pub mod token_lifecycle;

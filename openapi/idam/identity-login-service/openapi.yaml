@@ -1105,6 +1105,87 @@ paths:
       x-consumer: frontend
       x-consumer-note: Direct browser call to refresh token or exchange OAuth code
       x-brrtrouter-impl: true
+  /auth/session/code:
+    post:
+      tags:
+      - Sessions
+      summary: Mint a one-time authorization code for cross-origin handoff
+      description: |
+        Called by the HOSTED AUTH SURFACE once a user has authenticated, to
+        hand the resulting session to a tenant application that lives on a
+        DIFFERENT origin.
+
+        Browser storage is origin-scoped, so the tenant app cannot read the
+        auth origin's tokens. This endpoint stores them server-side against a
+        single-use, short-TTL code bound to (tenant, redirect_uri); the code
+        travels in the redirect URL and is redeemed via
+        `POST /auth/token` with `grant_type=authorization_code`.
+
+        Tokens themselves are NEVER placed in a URL — that is the entire
+        point (URLs leak via history, referrers and logs).
+      operationId: auth_session_code
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - access_token
+              - redirect_uri
+              properties:
+                access_token:
+                  type: string
+                  description: Access token just issued to the authenticated user.
+                refresh_token:
+                  type: string
+                  description: Refresh token, if one was issued.
+                redirect_uri:
+                  type: string
+                  description: Where the code will be delivered; binds the code.
+            examples:
+              default: &id_sc_req
+                summary: Example for auth_session_code
+                value:
+                  access_token: eyJhbGciOiJFZERTQSJ9.payload.sig
+                  refresh_token: eyJhbGciOiJFZERTQSJ9.refresh.sig
+                  redirect_uri: https://app.tenant.com/callback
+            example: *id_sc_req
+      responses:
+        '200':
+          description: Code minted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  expires_in:
+                    type: integer
+                    format: int32
+              examples:
+                default: &id_sc_res
+                  summary: Example for auth_session_code 200
+                  value:
+                    code: 7Yk2t0Yr8Qn1pW5xQ3vB6mZ9aL4cS8dE
+                    expires_in: 60
+              example: *id_sc_res
+        '400':
+          description: Invalid token or redirect_uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content: *id006
+      parameters:
+      - *id007
+      x-consumer: frontend
+      x-consumer-note: Hosted auth surface only; converts a session into a one-time code
+      x-brrtrouter-impl: true
   /auth/verify/dual-otp:
     post:
       tags:
@@ -2125,8 +2206,21 @@ components:
           enum:
           - refresh_token
           - client_credentials
+          - authorization_code
           - urn:ietf:params:oauth:grant-type:token-exchange
           description: OAuth2 grant type
+        code:
+          type: string
+          description: |
+            One-time authorization code from the hosted auth surface
+            (required for authorization_code grant). Single-use, short TTL,
+            bound to the tenant and redirect_uri it was minted for.
+        redirect_uri:
+          type: string
+          description: |
+            Redirect URI the code was minted for (authorization_code grant).
+            Must match exactly — this binding is what stops a stolen code
+            being redeemed by a different app.
         refresh_token:
           type: string
           description: Refresh token (required for refresh_token grant)
