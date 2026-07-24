@@ -31,3 +31,4 @@ pub mod sms_magic_link_send;
 pub mod social_callback;
 pub mod social_login;
 pub mod verify_email_otp;
+pub mod verify_phone_otp;

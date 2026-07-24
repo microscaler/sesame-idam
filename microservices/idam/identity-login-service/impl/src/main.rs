@@ -194,6 +194,14 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "verify_phone_otp" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::verify_phone_otp::VerifyPhoneOtpController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "set_active_organization" => {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::set_active_organization::SetActiveOrganizationController,

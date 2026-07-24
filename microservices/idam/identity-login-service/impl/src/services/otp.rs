@@ -56,59 +56,89 @@ fn digests_match(a: &str, b: &str) -> bool {
 
 // ── email OTP ───────────────────────────────────────────────────────────────
 
-fn otp_key(tenant: &str, email: &str) -> String {
-    format!("otp:email:{tenant}:{}", ident_hash(email))
+fn otp_key(channel: &str, tenant: &str, recipient: &str) -> String {
+    format!("otp:{channel}:{tenant}:{}", ident_hash(recipient))
 }
 
-fn otp_attempts_key(tenant: &str, email: &str) -> String {
-    format!("otp:attempts:{tenant}:{}", ident_hash(email))
+fn otp_attempts_key(channel: &str, tenant: &str, recipient: &str) -> String {
+    format!("otp:attempts:{channel}:{tenant}:{}", ident_hash(recipient))
 }
 
-/// Generate + store a 6-digit email OTP for a KNOWN user. Returns the code
-/// for delivery. Re-issuing overwrites any previous code (last-code-wins)
-/// and resets the attempt budget.
+/// Generate + store a 6-digit OTP for a KNOWN user on a given channel
+/// (`email` | `sms`). Returns the code for delivery. Re-issuing overwrites
+/// any previous code (last-code-wins) and resets the attempt budget.
 ///
 /// # Errors
 ///
 /// Returns an error when Redis is unavailable — the caller keeps the HTTP
 /// response generic and skips the send.
-pub fn create_email_otp(tenant: &str, email: &str, user_id: &str) -> Result<String> {
+pub fn create_otp(channel: &str, tenant: &str, recipient: &str, user_id: &str) -> Result<String> {
     let code = format!("{:06}", rand::thread_rng().gen_range(0..1_000_000));
     let mut conn = connection().context("otp: redis")?;
     let ttl = env_u64("OTP_TTL_SECS", 300);
     let value = format!("{}:{user_id}", sha256_hex(&code));
-    conn.set_ex::<_, _, ()>(otp_key(tenant, email), value, ttl)
+    conn.set_ex::<_, _, ()>(otp_key(channel, tenant, recipient), value, ttl)
         .context("otp: store")?;
-    let _: Result<(), _> = conn.del(otp_attempts_key(tenant, email));
+    let _: Result<(), _> = conn.del(otp_attempts_key(channel, tenant, recipient));
     Ok(code)
 }
 
-/// Verify an email OTP. Single-use; attempt-capped. Returns the `user_id`
-/// bound at issuance on success, `None` on any failure (missing, expired,
-/// wrong code, attempts exhausted, Redis down) — callers must map every
-/// `None` to the same generic error.
+/// Verify an OTP on a given channel. Single-use; attempt-capped. Returns the
+/// `user_id` bound at issuance on success, `None` on any failure (missing,
+/// expired, wrong code, attempts exhausted, Redis down) — callers must map
+/// every `None` to the same generic error.
 #[must_use]
-pub fn verify_email_otp(tenant: &str, email: &str, code: &str) -> Option<String> {
+pub fn verify_otp(channel: &str, tenant: &str, recipient: &str, code: &str) -> Option<String> {
     let mut conn = connection().ok()?;
 
     // Attempt budget first: exhausting it burns the stored code.
-    let ak = otp_attempts_key(tenant, email);
+    let ak = otp_attempts_key(channel, tenant, recipient);
     let attempts: u64 = conn.incr(&ak, 1u64).ok()?;
     let _: Result<(), _> = conn.expire(&ak, i64::try_from(env_u64("OTP_TTL_SECS", 300)).unwrap_or(300));
     if attempts > env_u64("OTP_MAX_ATTEMPTS", 5) {
-        let _: Result<(), _> = conn.del(otp_key(tenant, email));
+        let _: Result<(), _> = conn.del(otp_key(channel, tenant, recipient));
         return None;
     }
 
-    let stored: String = conn.get(otp_key(tenant, email)).ok()?;
+    let stored: String = conn.get(otp_key(channel, tenant, recipient)).ok()?;
     let (stored_hash, user_id) = stored.split_once(':')?;
     if !digests_match(stored_hash, &sha256_hex(code)) {
         return None;
     }
     // Single use.
-    let _: Result<(), _> = conn.del(otp_key(tenant, email));
+    let _: Result<(), _> = conn.del(otp_key(channel, tenant, recipient));
     let _: Result<(), _> = conn.del(&ak);
     Some(user_id.to_string())
+}
+
+/// Email-channel OTP issuance (thin wrapper over [`create_otp`]).
+///
+/// # Errors
+///
+/// Returns an error when Redis is unavailable.
+pub fn create_email_otp(tenant: &str, email: &str, user_id: &str) -> Result<String> {
+    create_otp("email", tenant, email, user_id)
+}
+
+/// Email-channel OTP verification (thin wrapper over [`verify_otp`]).
+#[must_use]
+pub fn verify_email_otp(tenant: &str, email: &str, code: &str) -> Option<String> {
+    verify_otp("email", tenant, email, code)
+}
+
+/// SMS-channel OTP issuance (thin wrapper over [`create_otp`]).
+///
+/// # Errors
+///
+/// Returns an error when Redis is unavailable.
+pub fn create_phone_otp(tenant: &str, phone: &str, user_id: &str) -> Result<String> {
+    create_otp("sms", tenant, phone, user_id)
+}
+
+/// SMS-channel OTP verification (thin wrapper over [`verify_otp`]).
+#[must_use]
+pub fn verify_phone_otp(tenant: &str, phone: &str, code: &str) -> Option<String> {
+    verify_otp("sms", tenant, phone, code)
 }
 
 // ── magic link ──────────────────────────────────────────────────────────────

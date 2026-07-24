@@ -34,6 +34,22 @@ impl UserService {
             .find_one(exec)
     }
 
+    /// Find a user by tenant + phone (the tenant-scoped SMS-login identity).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LifeError`] on query failure.
+    pub fn find_by_tenant_and_phone<E: LifeExecutor>(
+        tenant_id: &str,
+        phone: &str,
+        exec: &E,
+    ) -> Result<Option<UserModel>, LifeError> {
+        Entity::find()
+            .filter(Column::TenantId.eq(tenant_id.to_string()))
+            .filter(Column::Phone.eq(phone.to_string()))
+            .find_one(exec)
+    }
+
     /// Create a new user with an already-hashed password.
     ///
     /// Returns the created user's id. The caller is responsible for checking

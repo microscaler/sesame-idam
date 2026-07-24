@@ -12,6 +12,7 @@ pub mod bdd {
     pub mod jwt_validation;
     pub mod logout_revocation;
     pub mod otp_caps;
+    pub mod phone_otp;
     pub mod pii_entitlements;
     pub mod platform_tenant_admin;
     pub mod signup_validate;
