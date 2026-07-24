@@ -6,7 +6,10 @@
 [test-groups.mailpit-e2e]
 max-threads = 1
 
+# Every suite that sends real mail belongs here — not just the first one.
+# (2026-07-25: password_reset was added and immediately flaked in parallel
+# for exactly the banner-latency reason this group exists.)
 [[profile.default.overrides]]
-filter = "test(email_round_trip)"
+filter = "test(email_round_trip) or test(password_reset)"
 test-group = "mailpit-e2e"
 slow-timeout = { period = "60s" }

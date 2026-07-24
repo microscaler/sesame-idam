@@ -126,6 +126,9 @@ export function SignIn(props: SignInProps) {
         <Button variant="ghost" full class="mt-2" onClick={() => setStep('identify')}>
           Use another method
         </Button>
+        <a href={`/forgot-password?tenant=${props.tenantId}`} class="mt-3 block text-center text-theme-sm text-gray-500 underline hover:text-gray-700">
+          Forgot your password?
+        </a>
       </Show>
 
       <Show when={step() === 'otp-sent'}>

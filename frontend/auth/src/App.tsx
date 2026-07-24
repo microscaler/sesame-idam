@@ -1,6 +1,7 @@
 import { createSignal, onMount, Show } from 'solid-js';
 import { applyTenantTheme } from '@sesame/shared';
 import { SignIn } from './pages/SignIn';
+import { ResetPassword } from './pages/ResetPassword';
 import { verifyMagicLink } from './lib/api';
 import type { TokenResponse } from './lib/api';
 
@@ -25,9 +26,11 @@ export function App() {
   const redirectUri = params.get('redirect_uri') ?? '';
   const state = params.get('state') ?? '';
   const magicToken = params.get('token');
+  const path = window.location.pathname;
+  const isReset = path.includes('reset-password') || path.includes('forgot-password');
 
   const [status, setStatus] = createSignal<'ready' | 'verifying' | 'error'>(
-    window.location.pathname.includes('verify-magic') && magicToken ? 'verifying' : 'ready',
+    path.includes('verify-magic') && magicToken ? 'verifying' : 'ready',
   );
   const [error, setError] = createSignal('');
 
@@ -63,7 +66,10 @@ export function App() {
 
   return (
     <main class="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-gray-950">
-      <Show when={status() === 'ready'}>
+      <Show when={status() === 'ready' && isReset}>
+        <ResetPassword tenantId={tenantId} token={path.includes('reset-password') ? (magicToken ?? undefined) : undefined} />
+      </Show>
+      <Show when={status() === 'ready' && !isReset}>
         <SignIn tenantId={tenantId} tenantName={tenantId} onAuthenticated={complete} />
       </Show>
       <Show when={status() === 'verifying'}>

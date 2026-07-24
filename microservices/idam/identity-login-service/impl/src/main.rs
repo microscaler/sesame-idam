@@ -177,6 +177,23 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                // Password reset: request a link, then consume it.
+                "auth_forgot_password" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::auth_forgot_password::AuthForgotPasswordController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "auth_reset_password" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::auth_reset_password::AuthResetPasswordController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 // Email-factor VERIFY paths (token issuance on success).
                 "verify_email_otp" => {
                     let tx = spawn_typed_with_stack_size_and_name(

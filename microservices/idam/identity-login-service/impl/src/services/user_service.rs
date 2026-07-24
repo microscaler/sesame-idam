@@ -113,4 +113,42 @@ impl UserService {
 
         Ok(id)
     }
+
+    /// Replace a user's password hash (password reset).
+    ///
+    /// Callers must have already proven control of the account (a consumed
+    /// single-use reset token) and validated password strength.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LifeError`] when the user is missing or the update fails.
+    pub fn update_password_hash<E: LifeExecutor>(
+        user_id: Uuid,
+        password_hash: &str,
+        exec: &E,
+    ) -> Result<(), LifeError> {
+        let user = Entity::find()
+            .filter(Column::Id.eq(user_id))
+            .find_one(exec)?
+            .ok_or_else(|| LifeError::Other(format!("user {user_id} not found")))?;
+
+        // Full-record rebuild (same pattern as TenantService::transition_status):
+        // Lifeguard records are built explicitly, not converted from models.
+        let mut record = UserRecord::new();
+        record
+            .set_id(user.id)
+            .set_email(user.email.clone())
+            .set_password_hash(password_hash.to_string())
+            .set_tenant_id(user.tenant_id.clone())
+            .set_status(user.status.clone())
+            .set_email_verified(user.email_verified)
+            .set_phone(user.phone.clone())
+            .set_phone_verified(user.phone_verified)
+            .set_created_at(user.created_at)
+            .set_updated_at(Utc::now());
+        record
+            .update(exec)
+            .map_err(|e| LifeError::Other(e.to_string()))?;
+        Ok(())
+    }
 }

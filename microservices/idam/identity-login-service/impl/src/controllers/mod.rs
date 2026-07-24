@@ -12,7 +12,9 @@
 //! gen types — they are re-enabled here one at a time as they are implemented
 //! against the real persistence layer.
 
+pub mod auth_forgot_password;
 pub mod auth_login;
+pub mod auth_reset_password;
 pub mod auth_logout;
 pub mod auth_register;
 pub mod auth_token;

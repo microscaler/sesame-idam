@@ -168,6 +168,53 @@ pub fn create_magic_link(tenant: &str, user_id: &str) -> Result<String> {
     Ok(format!("{base}?tenant={tenant}&token={token}"))
 }
 
+// ── password reset ──────────────────────────────────────────────────────────
+
+fn reset_key(tenant: &str, token_hash: &str) -> String {
+    format!("pwreset:{tenant}:{token_hash}")
+}
+
+/// Mint + store a single-use password-reset token for a KNOWN user.
+///
+/// Same shape as a magic link (256-bit, only the hash stored, TTL'd,
+/// consumed atomically) but a SEPARATE keyspace: a reset token must never be
+/// usable as a login link, and vice versa.
+///
+/// # Errors
+///
+/// Returns an error when Redis is unavailable.
+pub fn create_password_reset(tenant: &str, user_id: &str) -> Result<String> {
+    let mut raw = [0u8; 32];
+    rand::thread_rng().fill(&mut raw);
+    let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
+
+    let mut conn = connection().context("pwreset: redis")?;
+    let ttl = env_u64("PASSWORD_RESET_TTL_SECS", 900);
+    conn.set_ex::<_, _, ()>(reset_key(tenant, &sha256_hex(&token)), user_id, ttl)
+        .context("pwreset: store")?;
+    Ok(token)
+}
+
+/// Build the clickable reset URL delivered to the user.
+#[must_use]
+pub fn password_reset_url(tenant: &str, token: &str) -> String {
+    let base = std::env::var("PASSWORD_RESET_BASE_URL")
+        .unwrap_or_else(|_| "http://localhost:8080/reset-password".to_string());
+    format!("{base}?tenant={tenant}&token={token}")
+}
+
+/// Consume a password-reset token (single use). Returns the bound `user_id`,
+/// or `None` for unknown/expired/reused tokens.
+#[must_use]
+pub fn consume_password_reset(tenant: &str, token: &str) -> Option<String> {
+    let mut conn = connection().ok()?;
+    let user_id: Option<String> = redis::cmd("GETDEL")
+        .arg(reset_key(tenant, &sha256_hex(token)))
+        .query(&mut conn)
+        .ok()?;
+    user_id
+}
+
 /// Consume a magic-link token (single use). Returns the bound `user_id`, or
 /// `None` for unknown/expired/reused tokens.
 #[must_use]

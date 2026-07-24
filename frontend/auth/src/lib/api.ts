@@ -69,3 +69,14 @@ export const sendMagicLink = (tenantId: string, email: string) =>
 /** Consume a magic-link token (the "click") → tokens. */
 export const verifyMagicLink = (tenantId: string, token: string) =>
   post<TokenResponse>('/auth/verify-magic', tenantId, { token });
+
+/** Request a password-reset link. Always "succeeds" — advance the UI regardless. */
+export const forgotPassword = (tenantId: string, email: string) =>
+  post<{ success: boolean; message: string }>('/auth/password/forgot', tenantId, { email });
+
+/** Consume a reset token and set a new password. Does NOT sign the user in. */
+export const resetPassword = (tenantId: string, token: string, newPassword: string) =>
+  post<{ success: boolean; message: string }>('/auth/password/reset', tenantId, {
+    token,
+    new_password: newPassword,
+  });
