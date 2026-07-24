@@ -165,12 +165,54 @@ pub fn verify_entitlements_hash(
 }
 
 // ===========================================================================
-// Constants
+// Issuer / audience expectations (Gate A6: config, not code)
 // ===========================================================================
 
+/// Compiled-in DEFAULT issuer allow-list. Overridden per environment via
+/// `JWT_ALLOWED_ISSUERS` (comma-separated) — see [`allowed_issuers`].
 pub const ALLOWED_ISSUERS: &[&str] = &[
     "https://sesame-idam.example.com",
     "https://idam.example.com",
 ];
 
-pub const EXPECTED_AUDIENCE: &[&str] = &["sesame-idam", "api", "frontend", "mobile"];
+/// Compiled-in DEFAULT audience allow-list: the platform audiences plus the
+/// per-service audiences each consumer's `security.jwks.*.aud` declares.
+/// Overridden per environment via `JWT_EXPECTED_AUDIENCES` (comma-separated)
+/// — see [`expected_audiences`].
+pub const EXPECTED_AUDIENCE: &[&str] = &[
+    "sesame-idam",
+    "api",
+    "frontend",
+    "mobile",
+    "identity-login",
+    "authz-core",
+    "org-mgmt",
+    "identity-user-mgmt",
+    "api-keys",
+];
+
+fn env_list(name: &str, defaults: &[&str]) -> Vec<String> {
+    match std::env::var(name) {
+        Ok(v) if !v.trim().is_empty() => v
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
+        _ => defaults.iter().map(|s| (*s).to_string()).collect(),
+    }
+}
+
+/// Effective issuer allow-list: `JWT_ALLOWED_ISSUERS` env (comma-separated)
+/// when set, else [`ALLOWED_ISSUERS`]. Read once per process.
+pub fn allowed_issuers() -> &'static [String] {
+    static ISSUERS: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+    ISSUERS.get_or_init(|| env_list("JWT_ALLOWED_ISSUERS", ALLOWED_ISSUERS))
+}
+
+/// Effective audience allow-list: `JWT_EXPECTED_AUDIENCES` env
+/// (comma-separated) when set, else [`EXPECTED_AUDIENCE`]. Read once per
+/// process.
+pub fn expected_audiences() -> &'static [String] {
+    static AUDIENCES: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+    AUDIENCES.get_or_init(|| env_list("JWT_EXPECTED_AUDIENCES", EXPECTED_AUDIENCE))
+}

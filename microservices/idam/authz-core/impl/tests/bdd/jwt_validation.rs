@@ -113,7 +113,7 @@ fn create_valid_jwt() -> (String, String) {
     let payload = serde_json::json!({
         "sub": "test-user",
         "iss": "https://idam.example.com",
-        "aud": "authz-core.myapp.com",
+        "aud": "authz-core",
         "exp": now + 3600,
         "iat": now,
         "nbf": now,

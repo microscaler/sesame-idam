@@ -271,6 +271,21 @@ fn main() -> io::Result<()> {
         }
     }
 
+    // Load application config before the dispatcher freezes — CORS
+    // middleware must be added pre-wrap.
+    let app_config = load_config(&args.config).map_err(|e| {
+        eprintln!("[config][error] {e}");
+        io::Error::other(e)
+    })?;
+
+    // Gate A5: CORS enforcement from config (cors.origins) with the
+    // per-environment CORS_ALLOWED_ORIGINS override. The impl binaries
+    // previously installed NO CORS middleware at all.
+    if let Some(cors) = sesame_common::cors::build_cors_middleware(&app_config, &routes, &metrics)
+    {
+        dispatcher.add_middleware(cors);
+    }
+
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
     let mut service = AppService::new(
         router_arc,
@@ -282,12 +297,6 @@ fn main() -> io::Result<()> {
     );
     service.set_metrics_middleware(metrics);
     service.set_memory_middleware(memory);
-
-    // Load application config for security initialization
-    let app_config = load_config(&args.config).map_err(|e| {
-        eprintln!("[config][error] {e}");
-        io::Error::other(e)
-    })?;
 
     // Initialize security providers from config
     if let Err(e) = init_security(&mut service, &app_config) {

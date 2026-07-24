@@ -22,10 +22,34 @@ pub static SIGNER: LazyLock<Ed25519Signer> = LazyLock::new(|| {
         .expect("Failed to initialize JWT signer — invalid signing key material")
 });
 
-/// Issuer URL placed in the `iss` claim. Must be in
-/// `sesame_common::jwt::ALLOWED_ISSUERS` for consumers to accept the token.
+/// Issuer URL placed in the `iss` claim. Must be in the consumers'
+/// allowed-issuer list (`JWT_ALLOWED_ISSUERS` / defaults) or tokens are
+/// rejected everywhere.
 fn issuer() -> String {
     std::env::var("SESAME_JWT_ISSUER").unwrap_or_else(|_| "https://idam.example.com".to_string())
+}
+
+/// Audiences minted into issued tokens (Gate A6). `JWT_ISSUE_AUDIENCES`
+/// (comma-separated) per environment; the default enumerates the platform
+/// audience plus every consumer service, so a browser-login token is valid
+/// at each service's own `aud` check while narrower tokens (e.g. a future
+/// M2M grant setting a single service audience) are rejected elsewhere.
+fn issue_audiences() -> Vec<String> {
+    match std::env::var("JWT_ISSUE_AUDIENCES") {
+        Ok(v) if !v.trim().is_empty() => v
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
+        _ => vec![
+            "sesame-idam".to_string(),
+            "identity-login".to_string(),
+            "authz-core".to_string(),
+            "org-mgmt".to_string(),
+            "identity-user-mgmt".to_string(),
+            "api-keys".to_string(),
+        ],
+    }
 }
 
 /// Tokens issued for a successful login/register.
@@ -109,7 +133,7 @@ pub fn issue_tokens(
     let claims = AccessClaimsBuilder::new()
         .iss(issuer())
         .sub(user_id)
-        .aud(vec!["sesame-idam".to_string()])
+        .aud(issue_audiences())
         .client_id(portal)
         .scope(scope.clone())
         .exp(now + access_ttl)

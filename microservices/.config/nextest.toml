@@ -1,0 +1,12 @@
+# Nextest configuration for the sesame workspace.
+
+# The Mailpit email round-trip tests talk to a real SMTP endpoint whose
+# LB path can delay the banner by 5-20s; run them serially so parallel
+# full-suite runs don't starve their connection/poll budgets.
+[test-groups.mailpit-e2e]
+max-threads = 1
+
+[[profile.default.overrides]]
+filter = "test(email_round_trip)"
+test-group = "mailpit-e2e"
+slow-timeout = { period = "60s" }

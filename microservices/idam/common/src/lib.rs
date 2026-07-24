@@ -18,6 +18,7 @@
 
 // Existing modules
 pub mod config;
+pub mod cors;
 pub mod dpop;
 pub mod fallback_cache;
 pub mod http;

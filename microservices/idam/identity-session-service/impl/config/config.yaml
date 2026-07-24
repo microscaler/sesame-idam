@@ -1,6 +1,10 @@
 # BRRTRouter application configuration (YAML)
 # Adjust values per environment and reload/restart the app.
 
+# Gate A6 note: identity-session-service is the ISSUER / JWKS provider — it
+# serves /.well-known/jwks.json and does not validate inbound Bearer JWTs, so
+# it deliberately has no security.jwks (iss/aud) section. Every consumer
+# service sets its own service-specific aud.
 security:
   api_keys:
     ApiKeyHeader:
@@ -27,12 +31,14 @@ http:
   timeout_secs: 5
   max_requests: 5000
 
-# Browser / Swagger "Try it out": without a cors section, BRRTRouter still installs CORS
-# middleware with an empty origin list and returns 403 for cross-origin Origin headers.
-# Wildcard is dev-only (insecure for production); replace with explicit origins before prod.
+# Gate A5: explicit origins only (no wildcard); staging/prod override via
+# CORS_ALLOWED_ORIGINS (comma-separated).
 cors:
   origins:
-    - "*"
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+    - "http://127.0.0.1:3000"
+    - "http://127.0.0.1:5173"
   allowed_headers:
     - "Content-Type"
     - "Authorization"

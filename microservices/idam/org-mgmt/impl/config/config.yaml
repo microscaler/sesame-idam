@@ -5,8 +5,10 @@ security:
   jwks:
     BearerAuth:
       jwks_url: "http://identity-session-service:8080/idam/v1/.well-known/jwks.json"
+      # Gate A6: aud is THIS service's audience; tokens not minted for it
+      # (JWT_ISSUE_AUDIENCES at the issuer) are rejected with aud mismatch.
       iss: "https://idam.example.com"
-      aud: "sesame-idam"
+      aud: "org-mgmt"
       leeway_secs: 60
       cache_ttl_secs: 300
   api_keys:
@@ -17,12 +19,14 @@ http:
   timeout_secs: 5
   max_requests: 5000
 
-# Browser / Swagger "Try it out": without a cors section, BRRTRouter still installs CORS
-# middleware with an empty origin list and returns 403 for cross-origin Origin headers.
-# Wildcard is dev-only (insecure for production); replace with explicit origins before prod.
+# Gate A5: explicit origins only (no wildcard); staging/prod override via
+# CORS_ALLOWED_ORIGINS (comma-separated).
 cors:
   origins:
-    - "*"
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+    - "http://127.0.0.1:3000"
+    - "http://127.0.0.1:5173"
   allowed_headers:
     - "Content-Type"
     - "Authorization"

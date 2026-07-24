@@ -78,13 +78,33 @@ magic links.
 - Acceptance: SSL Labs-style scan clean; `curl http://` to any auth path
   refuses/redirects.
 
-### A5 [ ] CORS locked to staging origin only — APP config (MUST)
+### A5 [x] CORS locked to staging origin only — APP config (MUST)
+> DONE 2026-07-24: found the deployed impl binaries installed NO CORS
+> middleware at all (only the unused gen mains carried the wiring). Shared
+> installer added (`sesame_common::cors::build_cors_middleware`), wired into
+> all 6 impl mains. Origin policy is pure config: `cors.origins` per service
+> (dev defaults = explicit localhost origins, wildcard REMOVED) with the
+> per-environment `CORS_ALLOWED_ORIGINS` env override (comma-separated exact
+> origins) for staging/prod. Wildcard+credentials still panics at startup.
 BRRTRouter CORS is built; just configure. Allow-list the exact staging
 frontend origin(s); no wildcard; credentials mode correct.
 - Acceptance: cross-origin request from a non-allowed origin is rejected;
   the staging SPA works.
 
-### A6 [ ] `iss` + `aud` set on every consumer — APP config (MUST)
+### A6 [x] `iss` + `aud` set on every consumer — APP config (MUST)
+> DONE 2026-07-24: expectations are now CONFIG, not code — the hard-coded
+> `ALLOWED_ISSUERS`/`EXPECTED_AUDIENCE` constants in sesame_common became
+> env-overridable (`JWT_ALLOWED_ISSUERS` / `JWT_EXPECTED_AUDIENCES`, defaults
+> preserved + service audiences added); both validation paths (BRRTRouter
+> JWKS provider AND the common-path validator) honour them. Every consumer's
+> config.yaml sets its OWN service-specific aud (identity-login, authz-core,
+> org-mgmt, identity-user-mgmt, api-keys); identity-session-service is the
+> issuer/JWKS provider and deliberately has none (documented in its config).
+> Issued tokens enumerate their consumers via `JWT_ISSUE_AUDIENCES`
+> (env-tunable; issuer via `SESAME_JWT_ISSUER`). Acceptance proven in
+> `common/tests/a6_env_expectations.rs`: token minted for service X rejected
+> by service Y (aud mismatch); wrong-iss rejected everywhere, including the
+> compiled-in default once the environment pins its own list.
 Audit all 6 services' `config.yaml`: `iss` matches the issuer, `aud` is the
 service-specific audience, neither left default/empty.
 - Acceptance: a token minted for service X is rejected by service Y (aud

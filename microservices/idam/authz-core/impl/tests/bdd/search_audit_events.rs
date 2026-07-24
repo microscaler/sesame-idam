@@ -106,17 +106,8 @@ fn response_has_offset_integer() {
 #[test]
 fn search_with_event_type_filter() {
     let filter = sesame_idam_authz_core_gen::handlers::types::AuditEventFilter {
-        event_type: "authentication".to_string(),
-        actor: String::default(),
-        event_action: String::default(),
-        tenant_id: String::default(),
-        user_id: String::default(),
-        org_id: String::default(),
-        severity: String::default(),
-        start_time: String::default(),
-        end_time: String::default(),
-        limit: 0,
-        offset: 0,
+        event_type: Some("authentication".to_string()),
+        ..Default::default()
     };
     let typed_req = make_request(Some(filter), None, None);
 
@@ -134,17 +125,8 @@ fn search_with_event_type_filter() {
 #[test]
 fn search_with_actor_filter() {
     let filter = sesame_idam_authz_core_gen::handlers::types::AuditEventFilter {
-        actor: "admin".to_string(),
-        event_type: String::default(),
-        event_action: String::default(),
-        tenant_id: String::default(),
-        user_id: String::default(),
-        org_id: String::default(),
-        severity: String::default(),
-        start_time: String::default(),
-        end_time: String::default(),
-        limit: 0,
-        offset: 0,
+        actor: Some("admin".to_string()),
+        ..Default::default()
     };
     let typed_req = make_request(Some(filter), None, None);
 
@@ -162,17 +144,13 @@ fn search_with_actor_filter() {
 #[test]
 fn search_with_combined_filters() {
     let filter = sesame_idam_authz_core_gen::handlers::types::AuditEventFilter {
-        event_type: "authentication".to_string(),
-        actor: "admin".to_string(),
-        event_action: "login".to_string(),
-        severity: "error".to_string(),
-        limit: 10,
-        offset: 0,
-        tenant_id: String::default(),
-        user_id: String::default(),
-        org_id: String::default(),
-        start_time: String::default(),
-        end_time: String::default(),
+        event_type: Some("authentication".to_string()),
+        actor: Some("admin".to_string()),
+        event_action: Some("login".to_string()),
+        severity: Some("error".to_string()),
+        limit: Some(10),
+        offset: Some(0),
+        ..Default::default()
     };
     let typed_req = make_request(Some(filter), None, None);
 

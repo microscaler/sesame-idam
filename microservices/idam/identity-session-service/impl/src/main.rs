@@ -184,6 +184,17 @@ fn main() -> io::Result<()> {
         }
     }
 
+    // Load config before the dispatcher freezes — CORS middleware (Gate A5)
+    // must be added pre-wrap. cors.origins + CORS_ALLOWED_ORIGINS override.
+    let loaded_config = load_config(&args.config);
+    if let Ok(ref app_config) = loaded_config {
+        if let Some(cors) =
+            sesame_common::cors::build_cors_middleware(app_config, &routes, &metrics)
+        {
+            dispatcher.add_middleware(cors);
+        }
+    }
+
     let dispatcher = std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(dispatcher));
     let mut service = AppService::new(
         router_arc,
@@ -196,11 +207,11 @@ fn main() -> io::Result<()> {
     service.set_metrics_middleware(metrics);
     service.set_memory_middleware(memory);
 
-    // Load application config and initialize security providers.
+    // Initialize security providers.
     // identity-session-service is the JWKS issuer — it doesn't consume JWTs from
     // itself, so security init is optional. Other consumer services use the
     // same init_security() to validate JWTs against this service's JWKS.
-    match load_config(&args.config) {
+    match loaded_config {
         Ok(app_config) => {
             if app_config.security.is_some() {
                 if let Err(e) = security::init_security(&app_config, &mut service) {

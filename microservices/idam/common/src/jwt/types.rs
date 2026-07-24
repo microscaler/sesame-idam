@@ -215,13 +215,18 @@ impl std::fmt::Display for JwtError {
 impl AccessClaims {
     /// Validate standard JWT claims (issuer, audience, version, tenant, risk).
     pub fn validate(&self) -> Result<(), JwtValidationError> {
-        if !super::helpers::ALLOWED_ISSUERS.contains(&self.iss.as_str()) {
+        // Gate A6: expectations are environment config (JWT_ALLOWED_ISSUERS /
+        // JWT_EXPECTED_AUDIENCES), not compile-time constants.
+        if !super::helpers::allowed_issuers()
+            .iter()
+            .any(|i| i == &self.iss)
+        {
             return Err(JwtValidationError::InvalidIssuer);
         }
         if !self.aud.iter().any(|a| {
-            super::helpers::EXPECTED_AUDIENCE
+            super::helpers::expected_audiences()
                 .iter()
-                .any(|e| e == &a.as_str())
+                .any(|e| e == a)
         }) {
             return Err(JwtValidationError::InvalidAudience);
         }

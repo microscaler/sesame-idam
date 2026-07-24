@@ -32,7 +32,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use brrtrouter::dispatcher::HandlerRequest;
 
 use super::auth_decision::AuthError;
-use crate::{AccessClaims, ALLOWED_ISSUERS, EXPECTED_AUDIENCE};
+use crate::AccessClaims;
 
 /// Extract the Bearer token from the Authorization header.
 ///
@@ -175,22 +175,21 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
         AuthError::JwtInvalid("JWT payload is not valid JSON or missing required fields".into())
     })?;
 
-    // Validate issuer
-    if !ALLOWED_ISSUERS.contains(&claims.iss.as_str()) {
+    // Validate issuer (Gate A6: env-config expectations, not constants)
+    let issuers = crate::jwt::helpers::allowed_issuers();
+    if !issuers.iter().any(|i| i == &claims.iss) {
         return Err(AuthError::JwtIssuerMismatch {
-            expected: ALLOWED_ISSUERS[0].to_string(),
+            expected: issuers.first().cloned().unwrap_or_default(),
             actual: claims.iss,
         });
     }
 
-    // Validate audience
-    let has_aud = claims
-        .aud
-        .iter()
-        .any(|a| EXPECTED_AUDIENCE.contains(&a.as_str()));
+    // Validate audience (empty aud is a hard reject, never a skip)
+    let audiences = crate::jwt::helpers::expected_audiences();
+    let has_aud = claims.aud.iter().any(|a| audiences.iter().any(|e| e == a));
     if claims.aud.is_empty() || !has_aud {
         return Err(AuthError::JwtAudienceMismatch {
-            expected: EXPECTED_AUDIENCE[0].to_string(),
+            expected: audiences.first().cloned().unwrap_or_default(),
             actual: claims.aud.join(","),
         });
     }
