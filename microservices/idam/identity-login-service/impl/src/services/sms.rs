@@ -1,5 +1,14 @@
 //! SMS delivery for transactional auth messages (phone OTP).
 //!
+//! NOTE (ADR-009): this module currently reads ONE process-wide credential
+//! from env. The multi-tenant sender-identity + credential-custody model
+//! (which Twilio account pays/sends per purpose, per-owner spend ceilings,
+//! Connect vs envelope custody) is specified in
+//! `docs/ADR-009-multi-tenant-sms-sender-identity-and-credential-custody.md`
+//! and `docs/DESIGN-multi-tenant-sms-sender-identity.md`. `send_sms` will take
+//! a resolved `SmsSender` from `resolve_sms_sender(tenant, environment,
+//! purpose)` rather than env credentials once that lands.
+//!
 //! Provider selection via `SMS_PROVIDER` (default `mock`):
 //! - `twilio` — Twilio Messages API (real, globally available). Env:
 //!   `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and a sender —

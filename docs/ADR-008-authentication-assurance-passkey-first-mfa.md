@@ -2,6 +2,8 @@
 
 Status: PROPOSED (2026-07-22)
 Related: ADR-004 (platform tenancy), ADR-006 (shared signing keys),
+ADR-009 (multi-tenant SMS sender identity & credential custody — who pays for
+and sends each SMS, per-owner spend ceilings),
 ADR-007 (tenant domain verification), BRRTRouter
 `docs/DESIGN-route-auth-assurance.md` (resource-side counterpart).
 
