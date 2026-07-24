@@ -145,9 +145,12 @@ the primary toll-fraud signal.
 
 ## 4. Open questions
 
-> **Open:** Do we require Connect for tenant SMS (no raw-credential custody at
-> all), or support both from launch? Leaning Connect-required for external
-> tenants, envelope-encryption allowed for dogfood tenants only.
+> **DECIDED (2026-07-24, lean dogfood):** Twilio Connect is **required for
+> external tenants** (no raw-credential custody). Envelope-encrypted raw
+> credentials (Tier 2) are permitted for **dogfood tenants only** (hauliage,
+> PriceWhisperer) so internal onboarding isn't blocked on the Connect
+> ceremony. This keeps Sesame out of external-tenant token custody entirely
+> while unblocking dogfood.
 
 > **Open:** Per-environment senders — one tenant SMS config with an
 > environment dimension, or a config row per (tenant, environment)? Design doc
