@@ -1,12 +1,30 @@
-# Sesame-IDAM product deployment profiles. Dev recipient is the shared-k8s Flux
-# age identity; private key material remains on ms02 and in flux-system.
+# Sesame-IDAM product deployment profiles.
+#
+# TWO recipients, deliberately (2026-07-25):
+#   1. shared-k8s Flux identity  age1lh3s2uy… — lets the CLUSTER decrypt
+#      (kustomize-controller); private key lives in flux-system/sops-age and
+#      on ms02 at ~/.config/sops/age/flux-shared-gitops.
+#   2. sesame admin identity     age1rggv7pv… — lets HUMANS decrypt/edit;
+#      private key at ~/.config/sops/age/sesame-admin.agekey (ms02) and on
+#      admin workstations. Never in git, never in the cluster.
+#
+# Encrypting needs only these public keys, so it works anywhere. DECRYPTING
+# needs a private identity — SOPS looks in $SOPS_AGE_KEY_FILE, then
+# ~/.config/sops/age/keys.txt. If decryption fails with the key "missing",
+# it is almost always discovery, not the key: point SOPS_AGE_KEY_FILE at the
+# right file (see docs/sops-age-keys.md).
+#
+# After changing recipients, re-wrap existing files:
+#   sops updatekeys <file>
 creation_rules:
   - path_regex: deployment-configuration/profiles/.*/.*\.secrets\.env$
     key_groups:
       - age:
           - age1lh3s2uyxrqu0u7hqgulnd43q3v0xvktukq3fcxuu6gw97uye59rqgjsd07
+          - age1rggv7pvzmhz2us64p4kmdxdwe49vru6ecnkgv6cx640jj87jev0s2uvuc9
   - path_regex: deployment-configuration/profiles/.*/.*\.secret\.yaml$
     encrypted_regex: ^(data|stringData)$
     key_groups:
       - age:
           - age1lh3s2uyxrqu0u7hqgulnd43q3v0xvktukq3fcxuu6gw97uye59rqgjsd07
+          - age1rggv7pvzmhz2us64p4kmdxdwe49vru6ecnkgv6cx640jj87jev0s2uvuc9
