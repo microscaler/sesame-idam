@@ -306,6 +306,48 @@ port to self-hosted, where there is no cloud IAM to federate with. Same input
 because a self-hosted deployment must not lose service identity just because
 it has no cloud provider.
 
+### What BRRTRouter already has, and which half it is
+
+BRRTRouter carries roughly 1,500 lines of SPIFFE support
+(`src/security/spiffe/`): trust-domain and SPIFFE ID validation, a JWKS cache
+with TTL and refresh, `kid` lookup, signature verification, revocation. That is
+real work and it is in the right vocabulary.
+
+It is **JWT-SVID** — the module contains no `x509`, `mtls` or `client_cert`.
+That matters, because the two SVID forms answer different questions:
+
+| | JWT-SVID | X.509-SVID + mTLS |
+| --- | --- | --- |
+| What it is | a signed bearer token carrying a SPIFFE ID | a certificate whose private key never leaves the workload |
+| Proves | this token was issued to that identity | *this connection* is that identity |
+| If copied | replayable by whoever holds it | useless without the key |
+
+So the existing work is the **identity and authorization half**: parse a SPIFFE
+ID, verify it was issued by a trusted domain, decide whether that identity may
+call this route. What it does not do — and arguably should not — is prove who
+is on the other end of the socket. A stolen JWT-SVID replays exactly like the
+user token described in §2a.
+
+This is a sensible division rather than a shortfall. Proof of possession
+belongs in the transport, which in Kubernetes means the mesh or a sidecar, not
+the application. The two compose:
+
+- **Channel:** mesh mTLS with X.509-SVIDs proves the peer.
+- **Assertion:** JWT-SVID (or the mesh's verified peer identity) tells the
+  application *which* identity, so it can apply per-route policy.
+
+With a mesh in place the peer identity usually arrives as a sidecar-set header
+(Envoy's `x-forwarded-client-cert`). Trusting that header is legitimate **only**
+because the sidecar is unavoidably in-path — the same topology assumption as
+the `X-Forwarded-For` trust in the Gateway's `ClientTrafficPolicy`, and it
+fails the same way if a pod is reachable around the proxy.
+
+Without a mesh, JWT-SVID alone is still an improvement on a shared API key —
+short-lived, per-workload, audience-scoped — provided the audience binds the
+token to the **callee**, so a token captured by one service cannot be replayed
+against another. That binding is what limits the blast radius of the bearer
+weakness, and it should be treated as mandatory rather than optional.
+
 ### What a proof-of-concept should actually demonstrate
 
 1. Two services in k3s with distinct ServiceAccounts get distinct SVIDs.
@@ -382,6 +424,13 @@ found the others: *who concretely does this?*
 
 > **Open:** Mesh or cert-manager. Depends on appetite for operational surface;
 > Linkerd is the lightest path to mTLS-by-default with rotation handled.
+> Note this is now a question about the *channel* only — BRRTRouter already
+> covers SPIFFE ID validation, so the application half is not starting from
+> zero.
+
+> **Open:** Does BRRTRouter's JWT-SVID validation bind the audience to the
+> callee? If not, a token captured from one service replays against any other,
+> which removes most of the benefit over a shared key.
 
 > **Open:** Whether provisioning workers keep a shared key once operators have
 > individual identities, or become workload identities under the same mTLS
