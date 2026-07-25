@@ -190,6 +190,141 @@ Envoy Gateway is deployed at the edge; there is no mesh.
 
 ---
 
+## 3a. Every inter-service call asks three questions, not one
+
+RERP is the clarifying example: an accounting **invoice** module calls a
+**document generation** module to render a PDF. "Is that a valid call?" turns
+out to be three separate questions, and mTLS answers only the first.
+
+| # | Question | Answered by | If missing |
+| --- | --- | --- | --- |
+| 1 | Is the caller really the invoice service? | mTLS / workload identity | anything on the network can render documents |
+| 2 | On whose behalf, and for which tenant? | delegated user token (`act` claim) | a valid caller renders any tenant's invoice |
+| 3 | May *that* subject touch *this* invoice? | authorization + RLS on the object | a valid caller and a valid user still reach another customer's data |
+
+Getting 1 without 2 and 3 is the dangerous state, because it *feels* secure:
+every call is mutually authenticated, the dashboards are green, and the
+document service will still happily render invoice `12345` for whoever asks.
+Caller identity is not authority over data.
+
+Question 3 is the one that bites hardest in a product like RERP, where the
+interesting objects belong to tenants. `doc-gen` must not render an invoice
+because *the invoice service asked*; it must render it because the subject in
+the delegated token is entitled to that invoice — which is an authorization
+decision over an object, and in this stack that means the ADR-005 RLS contract
+carrying the tenant through to the query, not a check the caller performs on
+its own say-so.
+
+Two corollaries worth stating, because they are easy to get backwards:
+
+- **A service is not a principal for data access.** `invoice-service` has no
+  tenant. It acts for subjects who do. Any design where a backend module holds
+  standing access to all tenants' data and is trusted to filter correctly has
+  moved the entire tenancy boundary into that module's correctness.
+- **Per-caller policy is about routes, not rows.** "invoice-service may call
+  `POST /documents/render`" is question 1's companion and belongs in mesh
+  policy. It says nothing about *which* document, which is question 3.
+
+---
+
+## 3b. Does k3s with ServiceAccounts prove it out for GCP/AWS/Azure/self-hosted?
+
+**Yes for the mechanism, with two caveats that are worth knowing before it is
+called proven.**
+
+### Why it ports
+
+The portable substrate is the **projected ServiceAccount token**: audience-
+scoped, pod-bound, short-lived, auto-rotated, and signed by the cluster. That
+primitive is identical on k3s, GKE, EKS, AKS and a self-hosted cluster —
+it is Kubernetes, not a cloud feature.
+
+SPIFFE builds workload identity on exactly that, which is what makes it the
+right target for a system that intends to run anywhere. A SPIFFE ID is
+
+```
+spiffe://<trust-domain>/ns/<namespace>/sa/<serviceaccount>
+```
+
+with no cloud in it. The policy "`ns/rerp/sa/invoice` may call
+`ns/rerp/sa/docgen`" is written once and means the same thing on a laptop k3s
+and in a customer's own data centre. That is the property you are asking
+about, and it is real.
+
+### Caveat 1 — a ServiceAccount token is not proof of possession
+
+This is the distinction that decides whether the exercise is meaningful. A
+projected SA token is still a **bearer** credential: copy it out of a pod and
+it works from anywhere until it expires. Using SA tokens directly as the
+service-to-service credential rebuilds the problem this document exists to
+solve, with better rotation.
+
+The SA token's job is **attestation** — evidence used *once* to obtain an
+identity — not authentication on every call. What proves possession per
+connection is the X.509 SVID and its private key, which never leaves the
+workload. So:
+
+> ServiceAccount answers *who deserves an identity*.
+> mTLS answers *who is on the other end of this connection*.
+
+A proof-of-concept that stops at "we pass the SA token" has not proved the
+thing that matters.
+
+### Caveat 2 — node attestation is the part that changes per platform
+
+Workload attestation (which pod, which ServiceAccount) is the same everywhere.
+**Node** attestation is not:
+
+| Platform | Typical node attestor |
+| --- | --- |
+| k3s / self-hosted | `k8s_psat` (projected SA token) |
+| GCP | `gcp_iit` (instance identity token) |
+| AWS | `aws_iid` (instance identity document) |
+| Azure | `azure_msi` (managed identity) |
+
+So the SPIFFE IDs, the policies and the application code port unchanged; the
+attestor configuration is per-platform. That is a deployment concern, not a
+redesign — but it means "it works on k3s" proves the model, not the whole
+production posture.
+
+A third thing k3s will not exercise: **trust-domain federation**. One cluster
+means one trust domain. Multi-cluster or multi-cloud requires federating
+trust domains, which has its own failure modes and should not be assumed
+proven by a single-cluster demo.
+
+### Don't confuse this with cloud "Workload Identity"
+
+GKE Workload Identity, EKS IRSA and AKS Workload Identity federate a k8s
+ServiceAccount to a **cloud IAM** identity. That is for reaching *cloud
+resources* — a bucket, a KMS key, Secret Manager — and it is genuinely useful
+(it is how `SMS_CREDENTIAL_KEK` should eventually live in a cloud KMS rather
+than a SOPS file).
+
+It is **not** service-to-service identity inside the cluster, and it does not
+port to self-hosted, where there is no cloud IAM to federate with. Same input
+(the ServiceAccount), different problem. Keeping them separate matters,
+because a self-hosted deployment must not lose service identity just because
+it has no cloud provider.
+
+### What a proof-of-concept should actually demonstrate
+
+1. Two services in k3s with distinct ServiceAccounts get distinct SVIDs.
+2. Calls between them are mTLS, with certificates rotated automatically and no
+   secret in any manifest, env var or SOPS file.
+3. A **policy denial**: a third workload with a valid identity is refused on a
+   route it is not permitted to call. Proving allow without proving deny
+   demonstrates nothing.
+4. A **forged-caller attempt**: standing up a pod that tries to present
+   another service's identity fails, and fails visibly.
+5. The subject half end to end: a delegated token carried through, and a
+   request for another tenant's object refused at the data layer even though
+   caller and user are both entirely valid.
+
+Items 3 to 5 are where the design is actually tested. 1 and 2 are the parts
+that demo well.
+
+---
+
 ## 4. The finding: the platform admin key has no attribution (#2)
 
 `X-Platform-Admin-Key` is a single static shared secret. Every operator and
