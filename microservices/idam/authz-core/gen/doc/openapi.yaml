@@ -94,7 +94,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
       parameters:
       - &id001
         name: X-Tenant-ID
@@ -188,7 +192,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
   /authz/audit/events/stats:
     post:
       tags:
@@ -253,7 +261,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
       parameters:
       - *id001
   /authz/audit/events/{id}:
@@ -319,7 +331,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
   /authz/audit/export:
     post:
       tags:
@@ -374,7 +390,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
       parameters:
       - *id001
   /authz/audit/export/{export_id}:
@@ -431,7 +451,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
   /authz/audit/retention:
     get:
       tags:
@@ -476,7 +500,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
       parameters:
       - *id001
     post:
@@ -553,7 +581,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
       parameters:
       - *id001
   /authz/audit/retention/{id}:
@@ -621,7 +653,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
     delete:
       tags:
       - Audit
@@ -660,7 +696,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Operator surface. BearerAuth because it is the only scheme this service
+      # actually registers (verified at startup); declaring an unconfigured
+      # scheme would fall back to a static key and look fixed without being.
+      security:
+      - BearerAuth: []
   /authz/authorize:
     post:
       tags:
@@ -799,6 +839,17 @@ paths:
       operationId: principal_effective
       x-consumer-note: 'Backend-only: called by identity-login-service for JWT
         enrichment at token issuance (no user token exists yet) — S2S, not exposed via BFF'
+      # DELIBERATELY PUBLIC — and this is a known gap, not a design.
+      #
+      # Called by identity-login-service during login to enrich claims, at a
+      # point where the user is authenticated but no token has been minted
+      # yet — so there is no bearer to present. It needs workload identity
+      # (ADR-012 §2.1 Q1), which does not exist yet.
+      #
+      # Compensating control: NetworkPolicy authz-core-ingress restricts
+      # callers to identity-login-service. That is topology, not identity.
+      # Fix: task 39 (delegated token) or task 40 (workload identity).
+      x-public-reason: "no user token exists at login-enrichment time; see task 39/40"
       security: []
       requestBody:
         required: true
