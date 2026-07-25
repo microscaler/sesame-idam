@@ -1,6 +1,10 @@
 {{- if and .Values.route.enabled .Values.route.hostnames }}
 # Shared edge Gateway (Envoy Gateway). haproxy owns *.dev.microscaler.local on
 # the LAN and forwards to this Gateway.
+#
+# Rule order matters: for matches of equal specificity Gateway API takes the
+# first, so the plaintext redirect has to precede the catch-all that serves
+# the app — otherwise everything is served and nothing ever redirects.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -27,10 +31,12 @@ spec:
       namespace: {{ .Values.route.gateway.namespace }}
       sectionName: http
   rules:
+{{- include "sesame.httpsRedirectRule" (dict "ctx" . "paths" (list "/")) | nindent 4 }}
     - matches:
         - path:
             type: PathPrefix
             value: /
+{{- include "sesame.hstsFilter" . | nindent 6 }}
       backendRefs:
         - group: ""
           kind: Service

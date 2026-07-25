@@ -22,6 +22,49 @@ route:
     name: microscaler-dev
     namespace: envoy-gateway-system
 
+  # Gate A4 — no plaintext auth path.
+  #
+  # haproxy terminates TLS and forwards to Envoy on :80, so the listener a
+  # request arrived on says nothing about whether the user spoke TLS.
+  # Redirecting on the listener would bounce EVERY LAN request into a loop.
+  # The only truthful signal is the proxy's X-Forwarded-Proto header, so the
+  # redirect matches on that instead.
+  tls:
+    redirectToHttps: true
+    # HSTS is sticky: a browser that sees it refuses plaintext for this host
+    # until max-age expires, and there is no way to reach in and undo that.
+    # Dev therefore gets minutes, so a mistake ages out over coffee rather
+    # than bricking a laptop. Staging/prod override to 31536000 (a year).
+    hstsMaxAgeSeconds: 300
+    hstsIncludeSubdomains: false
+
+# Gate A1 — volumetric rate limiting at the edge.
+#
+# VOLUMETRIC ONLY: this is about floods, not credentials. Per-identity lockout
+# is A2 (`services/abuse_guard.rs`), which is stateful and lives in the app —
+# the two are complementary and neither substitutes for the other.
+#
+# Limits are LOCAL (per Envoy pod). With a single data-plane replica that is
+# exact; scale the proxy and the effective limit multiplies by replica count.
+# Global (Redis-backed) limiting is the fix when that day comes — the policy
+# shape below is unchanged, only `type` differs.
+#
+# Budgets are per client IP per minute, sized so a human never notices:
+# a real sign-in is 1-2 requests, and a person mistyping a password five
+# times in a minute is still well inside `login`.
+rateLimit:
+  enabled: true
+  # Sends cost money (SMS) or land in someone's inbox — the tightest bucket.
+  otpSendPerMinute: 5
+  # Verifies are cheap but guessable; the app caps attempts per identity too.
+  otpVerifyPerMinute: 20
+  loginPerMinute: 30
+  registerPerMinute: 10
+  tokenPerMinute: 60
+  oauthPerMinute: 30
+  # Reads: generous, but a scraper should not get an unbounded firehose.
+  jwksPerMinute: 120
+
 resources:
   requests:
     memory: 32Mi

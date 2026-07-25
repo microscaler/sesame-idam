@@ -1,0 +1,120 @@
+{{- if and .Values.route.enabled .Values.route.hostnames .Values.rateLimit.enabled }}
+{{- $top := . -}}
+{{- /*
+Gate A1 — volumetric rate limiting at the edge.
+
+Envoy Gateway attaches a BackendTrafficPolicy to a whole HTTPRoute, not to an
+individual rule, so "a different budget per path" means "a route per path".
+Each group below is therefore its own HTTPRoute carrying its own policy. They
+are more specific than the catch-all `/` in httproute.yaml, and Gateway API
+prefers the longest matching path, so they win for their own traffic and
+nothing else changes.
+
+Browser traffic reaches the identity service through the frontend's
+same-origin `/idam/` proxy (docker/frontend/nginx.conf), and the service
+serves its routes under the `/idam/v1` base path — so the externally visible
+path is `/idam/v1/auth/login`, and that is what these match. Limits have to
+sit where traffic actually enters, spelled exactly as the edge sees it.
+
+Keyed on client IP, which only means anything because the Gateway trusts the
+LAN proxy's X-Forwarded-For (ClientTrafficPolicy `trust-lan-proxy-xff` in
+shared-gitops). Without that every visitor shares haproxy's address and the
+first flood would lock out everyone.
+
+`type: Local` is per Envoy pod. One data-plane replica today, so the numbers
+are exact; scaling the proxy multiplies them and the answer then is a global
+(Redis-backed) limit, which changes `type` and nothing else here.
+*/ -}}
+{{- $groups := list
+  (dict "name" "otp-send"    "limit" $top.Values.rateLimit.otpSendPerMinute
+        "note" "sends cost money or land in an inbox — the tightest bucket"
+        "paths" (list "/idam/v1/auth/login/email-otp" "/idam/v1/auth/login/phone-otp" "/idam/v1/auth/login/magic-link" "/idam/v1/auth/login/phone-magic-link" "/idam/v1/auth/password/forgot" "/idam/v1/auth/login/dual-otp"))
+  (dict "name" "otp-verify"  "limit" $top.Values.rateLimit.otpVerifyPerMinute
+        "note" "cheap but guessable; the app also caps attempts per identity (A3)"
+        "paths" (list "/idam/v1/auth/verify/email-otp" "/idam/v1/auth/verify/phone-otp" "/idam/v1/auth/verify/dual-otp" "/idam/v1/auth/login/magic-link/verify" "/idam/v1/auth/login/phone-magic-link/verify" "/idam/v1/auth/password/reset"))
+  (dict "name" "login"       "limit" $top.Values.rateLimit.loginPerMinute
+        "note" "a human mistyping a password stays well inside this"
+        "paths" (list "/idam/v1/auth/login"))
+  (dict "name" "register"    "limit" $top.Values.rateLimit.registerPerMinute
+        "note" "account creation is not a thing anyone does in bulk by hand"
+        "paths" (list "/idam/v1/auth/register" "/idam/v1/auth/signup/validate"))
+  (dict "name" "token"       "limit" $top.Values.rateLimit.tokenPerMinute
+        "note" "refresh is legitimately frequent — generous, still bounded"
+        "paths" (list "/idam/v1/auth/token" "/idam/v1/auth/session/code"))
+  (dict "name" "oauth"       "limit" $top.Values.rateLimit.oauthPerMinute
+        "note" "redirect-driven, so bursts are small and human-paced"
+        "paths" (list "/idam/v1/oauth/" "/idam/v1/auth/social/"))
+  (dict "name" "jwks"        "limit" $top.Values.rateLimit.jwksPerMinute
+        "note" "a read, but a scraper should not get an unbounded firehose"
+        "paths" (list "/idam/v1/.well-known/jwks.json"))
+-}}
+{{- range $g := $groups }}
+---
+# {{ $g.name }}: {{ $g.note }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $top.Values.service.name }}-rl-{{ $g.name }}
+  namespace: {{ $top.Values.deployment.namespace }}
+  labels:
+    app: {{ $top.Values.service.name }}
+    app.kubernetes.io/part-of: sesame-idam
+    sesame.microscaler.io/gate: "A1"
+spec:
+  hostnames:
+{{ toYaml $top.Values.route.hostnames | indent 4 }}
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $top.Values.route.gateway.name }}
+      namespace: {{ $top.Values.route.gateway.namespace }}
+      sectionName: https
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $top.Values.route.gateway.name }}
+      namespace: {{ $top.Values.route.gateway.namespace }}
+      sectionName: http
+  rules:
+{{- include "sesame.httpsRedirectRule" (dict "ctx" $top "paths" $g.paths) | nindent 4 }}
+    - matches:
+{{- range $p := $g.paths }}
+        - path:
+            type: PathPrefix
+            value: {{ $p | quote }}
+{{- end }}
+{{- include "sesame.hstsFilter" $top | nindent 6 }}
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ $top.Values.service.name }}
+          port: {{ $top.Values.service.port }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: {{ $top.Values.service.name }}-rl-{{ $g.name }}
+  namespace: {{ $top.Values.deployment.namespace }}
+  labels:
+    app: {{ $top.Values.service.name }}
+    app.kubernetes.io/part-of: sesame-idam
+    sesame.microscaler.io/gate: "A1"
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ $top.Values.service.name }}-rl-{{ $g.name }}
+  rateLimit:
+    type: Local
+    local:
+      rules:
+        - clientSelectors:
+            - sourceCIDR:
+                # Every client, counted individually — the selector exists to
+                # make the bucket per-IP, not to pick out a subnet.
+                value: 0.0.0.0/0
+                type: Distinct
+          limit:
+            requests: {{ $g.limit }}
+            unit: Minute
+{{- end }}
+{{- end }}

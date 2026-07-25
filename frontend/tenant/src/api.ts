@@ -7,7 +7,11 @@
  * rather than by our remembering to filter it.
  */
 
-const API_BASE = import.meta.env.VITE_IDAM_BASE_URL ?? 'https://sesame-idam.dev.microscaler.local';
+// Same-origin by default: the frontend's nginx proxies /idam/ to the identity
+// service, which serves its routes under the `/idam/v1` base path. Keeping the
+// browser on one origin is what keeps the Gate A5 CORS allow-list small and
+// makes the ADR-008 passkey story (WebAuthn is origin-bound) hold at the edge.
+const API_BASE = import.meta.env.VITE_IDAM_BASE_URL ?? '/idam/v1';
 
 /** The secret-free view of a tenant's SMS sender. */
 export interface SmsConfig {

@@ -15,7 +15,37 @@ Layers: **GW** = Envoy / Gateway API (HTTPRoute) · **APP** = service code ·
 
 ## GATE A — Perimeter controls (exposure blockers; nothing goes public until all MUST are done)
 
-### A1 [ ] Volumetric rate limiting — GW (MUST)
+### A1 [x] Volumetric rate limiting — GW (MUST)
+> DONE 2026-07-25: Envoy Gateway `BackendTrafficPolicy` (type `Local`) per path
+> group, in `helm/sesame-idam-frontend/templates/ratelimit.yaml`. Budgets per
+> client IP per minute: otp-send 5, otp-verify 20, login 30, register 10,
+> token 60, oauth 30, jwks 120. A policy attaches to a whole HTTPRoute, so
+> "a budget per path" means "a route per path" — hence one route per group.
+>
+> Two things this depends on, both non-obvious:
+> - **Client IP.** haproxy terminates TLS and forwards to Envoy, so without
+>   `ClientTrafficPolicy trust-lan-proxy-xff` (shared-gitops, applied) every
+>   visitor shares haproxy's address and the first flood locks out everyone.
+>   A limit that turns a nuisance into an outage is worse than no limit.
+> - **Where traffic enters.** Browsers reach the identity service through the
+>   frontend's same-origin `/idam/` proxy, and the service serves under base
+>   path `/idam/v1`, so the externally visible path is `/idam/v1/auth/login`.
+>   Limits match that, not the service-internal path.
+>
+> Applied to ALL FOUR frontend hosts including the brochure: every host runs
+> the same nginx image and therefore proxies `/idam/`, so an unthrottled host
+> would be a way around the limits.
+>
+> Measured: otp-send 5×400 then 7×429; register 10×400 then 4×429; login 30
+> then 429; a spaced single-user sign-in never trips.
+>
+> LOCAL = per Envoy pod. One data-plane replica today, so the numbers are
+> exact; scaling the proxy multiplies them, and the answer then is a global
+> (Redis-backed) limit — same policy shape, different `type`.
+>
+> NOT yet exercised: the JWKS budget. JWKS is served by
+> identity-session-service, which no frontend proxies, so it is not externally
+> reachable today and the policy is pre-positioned rather than proven.
 Envoy / Gateway API `HTTPRoute` + rate-limit policy (or Cloud Armor) on all
 externally-reachable auth paths.
 - Per-route limits: `/auth/login`, `/auth/*otp*` (send AND verify separately),
@@ -69,7 +99,28 @@ magic links.
 - Acceptance: repeated OTP-send to one number/email caps out; SMS spend cannot
   exceed configured ceiling; email flood to one mailbox is bounded.
 
-### A4 [ ] TLS everywhere + HSTS, no plaintext auth path externally — GW/INFRA (MUST)
+### A4 [x] TLS everywhere + HSTS, no plaintext auth path externally — GW/INFRA (MUST)
+> DONE 2026-07-25: TLS already terminated at the edge; added the redirect and
+> HSTS. Both are per-route values on the frontend chart
+> (`route.tls.redirectToHttps`, `route.tls.hstsMaxAgeSeconds`).
+>
+> The redirect matches on **X-Forwarded-Proto**, not on the listener. haproxy
+> terminates TLS and forwards everything to Envoy on :80, so the listener
+> reports "http" even for a browser that spoke HTTPS — redirecting on it would
+> bounce every LAN request into a loop.
+>
+> Gateway API picks the most specific match and only then counts headers, so a
+> redirect rule on `/` LOSES to a serve rule on `/idam/v1/auth/login` and never
+> fires. The redirect therefore matches the same paths as the rule it pre-empts
+> and wins the tie on the header match. It also has to be repeated on every
+> route that can match, since precedence is decided per route.
+>
+> HSTS max-age is 300s in dev on purpose: HSTS is sticky and cannot be undone
+> remotely, so a mistake should age out over coffee rather than brick a
+> laptop. Staging/prod override to 31536000 (+ includeSubDomains).
+>
+> Measured: `http POST /idam/v1/auth/login` → 301 to the https URL; app root →
+> 301; https responses carry `Strict-Transport-Security: max-age=300`.
 - TLS terminate at ingress; HSTS with sane max-age; redirect 80→443; verify no
   auth endpoint is reachable over plaintext from outside.
 - In-cluster JWKS fetch remains a known plaintext hop (BR-1c) — acceptable
