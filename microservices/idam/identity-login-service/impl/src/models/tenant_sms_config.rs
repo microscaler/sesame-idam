@@ -36,7 +36,12 @@ pub struct TenantSmsConfig {
     #[column_type = "VARCHAR(32)"]
     pub environment: String,
 
-    /// `twilio` today; the provider trait allows others later.
+    /// `twilio`, and only `twilio` (ADR-009, decided 2026-07-25).
+    ///
+    /// The column exists because the value belongs in the row, not because a
+    /// second provider is queued. Supporting one would mean routinely holding
+    /// other companies' API keys — no other major provider has a Connect
+    /// equivalent — which is a different product, not a feature.
     #[column_type = "VARCHAR(32)"]
     pub provider: String,
 

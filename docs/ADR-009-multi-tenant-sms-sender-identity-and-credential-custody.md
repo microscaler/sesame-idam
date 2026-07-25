@@ -157,100 +157,45 @@ the primary toll-fraud signal.
 > with different numbers and separate A2P/10DLC registration; a single row
 > would have coupled their ceilings and their revocation.
 
-> **RAISED (2026-07-25): non-Twilio providers change this ADR's central
-> safety argument, not just its schema.**
+> **DECIDED (2026-07-25): Twilio Connect only. Single provider, deliberately.**
 >
-> A tenant may already have a relationship with Brevo, Vonage, MessageBird or
-> a regional carrier, so tenant SMS has to support several providers.
+> The question was whether to support tenants who already use Brevo, Vonage,
+> MessageBird or a regional carrier. Investigating it surfaced something that
+> changes this ADR's central argument rather than just its schema.
 >
-> The consequence runs deeper than adding a `provider` discriminator. §2.3
-> argues that Sesame should hold no tenant credentials because **Twilio
+> §2.3 argues Sesame should hold no tenant credentials, because **Twilio
 > Connect** lets a tenant delegate access while Twilio bills them directly.
-> No other major provider offers an equivalent: with Brevo or Vonage a tenant
-> must hand over an API key. So for every non-Twilio tenant, **envelope
-> custody stops being the dogfood-only fallback and becomes the normal path**.
+> No other major provider offers an equivalent. With Brevo or Vonage a tenant
+> must hand over an API key — so supporting them would make **envelope custody
+> the normal path rather than the dogfood-only fallback**, promoting the KEK
+> and its rotation runbook from contingency to load-bearing, and turning
+> "prefer Connect" from a principle into a footnote about one vendor.
 >
-> That makes the KEK, its rotation runbook and the per-credential DEK design
-> load-bearing rather than a contingency, and it means "prefer Connect" cannot
-> be stated as a general principle — only as a Twilio-specific one.
+> Adding a second provider would therefore not be a feature; it would be a
+> decision to start holding other companies' secrets as routine business.
+> That is a materially different product, and not one worth becoming by
+> accident while chasing a checkbox.
 >
-> Two things to settle before a second provider lands, while there is only one
-> implementation to change:
+> **So: Twilio Connect is the only tenant-billed path.** The custody model in
+> §2.3 stands as written, envelope custody remains the dogfood exception it
+> was designed to be, and Sesame holds no external tenant's credentials.
 >
-> - **Schema vocabulary.** `account_sid`, `connected_account_sid` and
->   `messaging_service_sid` are Twilio nouns in a table that is about to be
->   shared. Provider-neutral sealed credential material (a sealed blob plus a
->   provider discriminator) avoids a column per provider per concept.
-> - **A real provider trait.** There is currently no `SmsProvider` trait —
->   `services/sms.rs` has `send_twilio` and `send_mock` functions. Sender
->   resolution (`sms_sender.rs`) is already provider-agnostic in shape, so the
->   trait is the missing piece rather than a rewrite.
-
----
-
-## 5. Implementation status
-
-### Phase 1 — sender resolution & platform custody (done)
-
-- `services/sms_sender.rs`: `billing_owner_for(purpose)` is a `const fn` over
-  the `SmsPurpose` enum — the confused-deputy guard. It cannot consult request
-  input because it takes none.
-- Platform credentials from the secret backend (SOPS → Secret → env), with a
-  `platform` spend scope distinct from every tenant scope.
-- `abuse_guard::charge_sms_spend` enforces per-owner ceilings and fails
-  **closed** on Redis errors.
-
-### Phase 2 — tenant custody (done)
-
-| Piece | Where |
-| --- | --- |
-| `(tenant, environment)` config | `models/tenant_sms_config.rs` (composite-unique) |
-| Envelope encryption | `services/envelope.rs` — per-credential AES-256-GCM DEK, wrapped by `SMS_CREDENTIAL_KEK` |
-| Store / rotate / revoke | `services/tenant_sms_service.rs` |
-| Tenant-aware resolution | `resolve_tenant_sender` in `services/sms_sender.rs` |
-| Admin API | `GET`/`PUT`/`DELETE /platform/tenants/{slug}/sms/{environment}` |
-| Console | `frontend/tenant/src/SmsSettings.tsx` |
-
-Invariants the BDD suite pins (`tests/bdd/tenant_sms_custody.rs`):
-
-1. **Write-only credential.** No response type has a field able to carry the
-   token; the tests assert on the serialised body, so adding one would fail.
-2. **Envelope custody is deny-by-default.** `SMS_ENVELOPE_CUSTODY_TENANTS` is
-   empty unless a dogfood tenant is named, and a refused upsert persists
-   nothing.
-3. **Trust is earned.** A rotated credential lands `pending_validation`, and
-   only `active` resolves — a typo fails closed to email rather than burning
-   sends.
-4. **No silent subsidy.** A tenant-billed purpose with no usable sender
-   returns `NoTenantSender`; it never falls through to the platform account.
-5. **Revocation destroys material**, and switching to Connect leaves no sealed
-   secret behind.
-
-### Bug found while implementing (5) — fixed upstream
-
-Lifeguard's generated `set_<field>(None)` marked a field *unset*, and
-`update()` only emits SET clauses for set fields — so passing `None` **left
-the old value in the column**. Clearing a secret that way reported success
-while the ciphertext stayed in the row.
-
-Fixed in Lifeguard (`fix(derive): write staged SQL NULLs instead of silently
-dropping them`): records now track explicitly staged NULLs and emit a
-correctly typed null per column. `set_<field>(None)` writes NULL, and every
-nullable column gains `set_<field>_null()` — which is what
-`tenant_sms_service.rs` uses, because destroying a secret deserves to be
-unmissable at the call site.
-
-The same latent bug existed in a hauliage flow clearing an expiry after
-verification; it is fixed by the same change.
-
-### Deferred
-
-- Validate-on-store against live Twilio (needs a provisioned number).
-- The Twilio Connect authorisation ceremony (`connect` custody is storable and
-  resolvable today; the OAuth-style onboarding flow is not built).
-- Metering/chargeback pipeline.
-- KEK rotation runbook (the envelope shape already supports re-wrapping DEKs
-  without re-encrypting credentials).
+> **The commercial edge this creates**, which sales will meet before
+> engineering does: a prospect already standardised on another SMS provider
+> must open a Twilio account to use tenant-billed SMS, or fall back to
+> platform-billed sends and email OTP. That is a real objection and it should
+> be answered honestly rather than discovered mid-deal.
+>
+> **Revisit when** a prospect worth the change refuses Twilio. At that point
+> the work is: a provider-neutral credential shape (the schema currently
+> speaks Twilio — `account_sid`, `connected_account_sid`,
+> `messaging_service_sid`), an actual `SmsProvider` trait (there is none today,
+> just `send_twilio` and `send_mock` in `services/sms.rs`), and — the part
+> that matters — a conscious decision to accept custody of tenant credentials
+> as a standing liability, with the KEK rotation story finished first.
+>
+> Sender resolution (`sms_sender.rs`) is already provider-agnostic in shape,
+> so none of that is a rewrite. It is a decision, not a refactor.
 
 ---
 
