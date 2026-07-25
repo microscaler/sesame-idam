@@ -36,5 +36,8 @@ pub mod signup_validate;
 pub mod sms_magic_link_send;
 pub mod social_callback;
 pub mod social_login;
+pub mod tenant_sms_get;
+pub mod tenant_sms_revoke;
+pub mod tenant_sms_upsert;
 pub mod verify_email_otp;
 pub mod verify_phone_otp;

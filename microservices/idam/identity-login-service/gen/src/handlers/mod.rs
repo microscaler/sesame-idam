@@ -66,3 +66,9 @@ pub mod platform_tenant_sms_revoke;
 pub mod platform_tenant_status_patch;
 
 pub mod set_active_organization;
+
+pub mod tenant_sms_get;
+
+pub mod tenant_sms_upsert;
+
+pub mod tenant_sms_revoke;

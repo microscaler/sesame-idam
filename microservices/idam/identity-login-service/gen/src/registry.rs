@@ -202,6 +202,24 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
         crate::controllers::set_active_organization::SetActiveOrganizationController,
         20480,
     );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_sms_get",
+        crate::controllers::tenant_sms_get::TenantSmsGetController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_sms_upsert",
+        crate::controllers::tenant_sms_upsert::TenantSmsUpsertController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_sms_revoke",
+        crate::controllers::tenant_sms_revoke::TenantSmsRevokeController,
+        20480,
+    );
 }
 
 /// Register gen mock/proxy controllers for routes from the OpenAPI spec (ADR 0001 Layer 1).
@@ -461,6 +479,30 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "set_active_organization" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::set_active_organization::SetActiveOrganizationController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_sms_get" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_sms_get::TenantSmsGetController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_sms_upsert" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_sms_upsert::TenantSmsUpsertController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_sms_revoke" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_sms_revoke::TenantSmsRevokeController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

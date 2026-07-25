@@ -28,13 +28,112 @@ use crate::services::tenant_sms_service::{SmsConfigInput, SmsConfigView, TenantS
 
 /// Tenants permitted to hand Sesame a raw credential. Empty (the default)
 /// means nobody — external tenants must use Twilio Connect.
-fn envelope_custody_allowed(tenant: &str) -> bool {
+pub(crate) fn envelope_custody_allowed(tenant: &str) -> bool {
     std::env::var("SMS_ENVELOPE_CUSTODY_TENANTS")
         .unwrap_or_default()
         .split(',')
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .any(|allowed| allowed == tenant)
+}
+
+/// Fields a caller may supply, independent of which authority surface they
+/// arrived through.
+pub(crate) struct SmsUpsertInput<'a> {
+    pub custody_mode: &'a str,
+    pub connected_account_sid: Option<&'a str>,
+    pub account_sid: Option<&'a str>,
+    pub auth_token: Option<&'a str>,
+    pub messaging_service_sid: Option<&'a str>,
+    pub from_number: Option<&'a str>,
+    pub campaign_ref: Option<&'a str>,
+    pub daily_spend_ceiling_cents: Option<i32>,
+}
+
+pub(crate) fn forbidden_envelope_custody() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        403,
+        serde_json::json!({
+            "error": "envelope_custody_forbidden",
+            "error_description":
+                "This tenant must use Twilio Connect; Sesame will not store its credentials."
+        }),
+    )
+}
+
+/// Store a configuration. Shared by the tenant self-service and platform
+/// operator surfaces (ADR-011 §2.4): both must behave identically, so the
+/// behaviour is defined once and each surface only decides *who may call it*.
+pub(crate) fn apply_sms_config<E: lifeguard::LifeExecutor>(
+    tenant: &str,
+    environment: &str,
+    input: &SmsUpsertInput<'_>,
+    exec: &E,
+) -> Result<(), HttpJson<serde_json::Value>> {
+    let opts = SmsConfigInput {
+        messaging_service_sid: non_empty(input.messaging_service_sid),
+        from_number: non_empty(input.from_number),
+        campaign_ref: non_empty(input.campaign_ref),
+        daily_spend_ceiling_cents: input.daily_spend_ceiling_cents,
+    };
+
+    let stored = match input.custody_mode {
+        CUSTODY_CONNECT => {
+            let Some(sid) = non_empty(input.connected_account_sid) else {
+                return Err(bad_request(
+                    "connected_account_sid is required for connect custody",
+                ));
+            };
+            TenantSmsService::upsert_connect(tenant, environment, &sid, &opts, exec)
+        }
+        CUSTODY_ENVELOPE => {
+            let Some(account_sid) = non_empty(input.account_sid) else {
+                return Err(bad_request("account_sid is required for envelope custody"));
+            };
+            TenantSmsService::upsert_envelope(
+                tenant,
+                environment,
+                &account_sid,
+                non_empty(input.auth_token).as_deref(),
+                &opts,
+                exec,
+            )
+        }
+        other => {
+            return Err(bad_request(&format!(
+                "unsupported custody_mode '{other}' (expected 'connect' or 'envelope')"
+            )));
+        }
+    };
+
+    if let Err(e) = stored {
+        // The message may describe the credential's shape but never its value.
+        tracing::error!(error = %e, tenant, environment, "sms config write failed");
+        let msg = e.to_string();
+        if msg.contains("auth_token is required") {
+            return Err(bad_request(
+                "auth_token is required when no credential is stored",
+            ));
+        }
+        return Err(internal_error());
+    }
+    Ok(())
+}
+
+/// Re-read and return the secret-free view after a write.
+pub(crate) fn read_back<E: lifeguard::LifeExecutor>(
+    tenant: &str,
+    environment: &str,
+    exec: &E,
+) -> HttpJson<serde_json::Value> {
+    match TenantSmsService::find(tenant, environment, exec) {
+        Ok(Some(config)) => view_json(&config),
+        Ok(None) => internal_error(),
+        Err(e) => {
+            tracing::error!(error = %e, "sms config read-back failed");
+            internal_error()
+        }
+    }
 }
 
 #[handler(PlatformTenantSmsUpsertController)]
@@ -53,75 +152,32 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         }
     }
 
-    let opts = SmsConfigInput {
-        messaging_service_sid: non_empty(req.data.messaging_service_sid.as_deref()),
-        from_number: non_empty(req.data.from_number.as_deref()),
-        campaign_ref: non_empty(req.data.campaign_ref.as_deref()),
+    if custody == CUSTODY_ENVELOPE && !envelope_custody_allowed(slug) {
+        tracing::warn!(
+            tenant = slug,
+            "refused envelope custody — tenant not on the dogfood allow-list"
+        );
+        return forbidden_envelope_custody();
+    }
+
+    let input = SmsUpsertInput {
+        custody_mode: custody,
+        connected_account_sid: req.data.connected_account_sid.as_deref(),
+        account_sid: req.data.account_sid.as_deref(),
+        auth_token: req.data.auth_token.as_deref(),
+        messaging_service_sid: req.data.messaging_service_sid.as_deref(),
+        from_number: req.data.from_number.as_deref(),
+        campaign_ref: req.data.campaign_ref.as_deref(),
         daily_spend_ceiling_cents: req.data.daily_spend_ceiling_cents,
     };
 
-    let stored = match custody {
-        CUSTODY_CONNECT => {
-            let Some(sid) = non_empty(req.data.connected_account_sid.as_deref()) else {
-                return bad_request("connected_account_sid is required for connect custody");
-            };
-            TenantSmsService::upsert_connect(slug, environment, &sid, &opts, exec)
-        }
-        CUSTODY_ENVELOPE => {
-            if !envelope_custody_allowed(slug) {
-                tracing::warn!(
-                    tenant = slug,
-                    "refused envelope custody — tenant not on the dogfood allow-list"
-                );
-                return HttpJson::new(
-                    403,
-                    serde_json::json!({
-                        "error": "envelope_custody_forbidden",
-                        "error_description":
-                            "This tenant must use Twilio Connect; Sesame will not store its credentials."
-                    }),
-                );
-            }
-            let Some(account_sid) = non_empty(req.data.account_sid.as_deref()) else {
-                return bad_request("account_sid is required for envelope custody");
-            };
-            TenantSmsService::upsert_envelope(
-                slug,
-                environment,
-                &account_sid,
-                non_empty(req.data.auth_token.as_deref()).as_deref(),
-                &opts,
-                exec,
-            )
-        }
-        other => {
-            return bad_request(&format!(
-                "unsupported custody_mode '{other}' (expected 'connect' or 'envelope')"
-            ));
-        }
-    };
-
-    if let Err(e) = stored {
-        // The message may mention the credential's shape but never its value.
-        tracing::error!(error = %e, tenant = slug, environment, "sms config write failed");
-        let msg = e.to_string();
-        if msg.contains("auth_token is required") {
-            return bad_request("auth_token is required when no credential is stored");
-        }
-        return internal_error();
-    }
-
-    match TenantSmsService::find(slug, environment, exec) {
-        Ok(Some(config)) => view_json(&config),
-        Ok(None) => internal_error(),
-        Err(e) => {
-            tracing::error!(error = %e, "sms config read-back failed");
-            internal_error()
-        }
+    match apply_sms_config(slug, environment, &input, exec) {
+        Ok(()) => read_back(slug, environment, exec),
+        Err(resp) => resp,
     }
 }
 
-fn non_empty(value: Option<&str>) -> Option<String> {
+pub(crate) fn non_empty(value: Option<&str>) -> Option<String> {
     value
         .map(str::trim)
         .filter(|v| !v.is_empty())
@@ -151,7 +207,7 @@ pub(crate) fn not_found() -> HttpJson<serde_json::Value> {
     )
 }
 
-fn bad_request(description: &str) -> HttpJson<serde_json::Value> {
+pub(crate) fn bad_request(description: &str) -> HttpJson<serde_json::Value> {
     HttpJson::new(
         400,
         serde_json::json!({

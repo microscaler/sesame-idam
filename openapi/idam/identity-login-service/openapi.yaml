@@ -1876,6 +1876,154 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
+  /tenant/sms/{environment}:
+    get:
+      tags:
+      - TenantAdmin
+      summary: Read this tenant's SMS sender configuration
+      description: |
+        Tenant self-service (ADR-011). The tenant is taken from the bearer
+        token — there is NO tenant parameter, so a caller cannot address
+        another tenant's configuration.
+
+        Never returns the credential: the auth token is write-only, so a
+        compromised console session cannot read it back out.
+      operationId: tenant_sms_get
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: environment
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{1,31}$'
+      responses:
+        '200':
+          description: SMS configuration (secret-free)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantSmsConfigResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No SMS configuration for this environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+    put:
+      tags:
+      - TenantAdmin
+      summary: Configure this tenant's SMS sender
+      description: |
+        Tenant self-service (ADR-011); the tenant comes from the token.
+
+        Prefer `connect` custody: Twilio bills the tenant directly and Sesame
+        holds no credential. `envelope` custody stores the tenant's auth token
+        encrypted and is restricted to approved tenants.
+
+        The configuration lands as `pending_validation` and does not send until
+        a live check promotes it, so a typo fails closed to email rather than
+        burning sends.
+      operationId: tenant_sms_upsert
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: environment
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{1,31}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantSmsConfigRequest'
+      responses:
+        '200':
+          description: Configuration stored (secret-free view returned)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantSmsConfigResponse'
+        '400':
+          description: Invalid custody mode or missing fields for that mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required, or envelope custody not permitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+    delete:
+      tags:
+      - TenantAdmin
+      summary: Revoke this tenant's SMS sender
+      description: |
+        Sending stops immediately and flows fall back to email. The sealed
+        credential material is destroyed; the row is kept so the revocation is
+        auditable.
+      operationId: tenant_sms_revoke
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: environment
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{1,31}$'
+      responses:
+        '200':
+          description: Configuration revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantSmsConfigResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No SMS configuration for this environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
   /auth/users/me:
     get:
       tags:
