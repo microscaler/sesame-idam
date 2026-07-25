@@ -896,10 +896,18 @@ for name in DISCOVERED_SERVICES:
 #   app.sesameidentity.dev.local       tenant console
 #   sesameidentity.dev.local           brochure (the apex)
 #   auth.sesameidentity.dev.local      hosted auth surface (own origin — ADR-008)
+#   api.sesameidentity.dev.local       API front door  (task 50)
+#   id.sesameidentity.dev.local        OIDC issuer: discovery + JWKS (ADR-013)
 #
-# `api.` (task 50) and `id.` (task 54) have no backend yet, so nothing serves
-# them. The old sesame-*.dev.microscaler.local hosts are still served in
-# parallel while bookmarks and dev configs move over.
+# The last two serve no frontend app: they route straight to the backend
+# Services via helm/sesame-idam-api-edge, reconciled by Flux from
+# deployment-configuration/.../idam/services/api-edge.yaml. That chart is
+# routes-only, so there is nothing for Tilt to build or live-update and no
+# FLUX_OWNS_DEPLOY=0 branch for it here — bring it up with Flux, or apply the
+# chart by hand.
+#
+# The old sesame-*.dev.microscaler.local hosts are still served in parallel
+# while bookmarks and dev configs move over.
 FRONTEND_APPS = {
     'platform': 'sesame-portal',
     'tenant': 'sesame-tenant',

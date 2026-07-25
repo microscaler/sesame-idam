@@ -1,0 +1,152 @@
+# The sesame API front door (task 50) and the issuer host (ADR-013).
+#
+# ROUTES ONLY. This chart deploys no Pod and no Service: the backends already
+# exist as ClusterIP Services deployed by ./helm/sesame-idam-microservice. What
+# has never existed is a way in from outside the cluster — DESIGN-north-south-
+# saas-surface.md §3.1: "The only HTTPRoute in the repo serves `/` to
+# sesame-idam-frontend. There is no API route."
+#
+# Two hostnames, deliberately separate (ADR-013):
+#
+#   api.<zone>   the API edge — relying parties, SDKs, and (task 55) hauliage
+#   id.<zone>    the ISSUER — OIDC discovery and JWKS, and nothing else
+#
+# `id.` is split from `api.` because `iss` is the one string that is effectively
+# permanent: it sits in every relying party's config, so the endpoints listed
+# *inside* the discovery document must be free to move without it moving too.
+
+# Namespace the routes and policies are created in. Must be the namespace the
+# backend Services live in — an HTTPRoute may only name a backendRef in another
+# namespace with a ReferenceGrant, and there is deliberately no such grant.
+namespace: sesame-idam
+
+route:
+  enabled: true
+
+  gateway:
+    name: microscaler-dev
+    namespace: envoy-gateway-system
+
+    # Which listeners on that Gateway to attach to.
+    #
+    # A listener carries exactly ONE hostname, and a route whose hostnames do
+    # not intersect the named listener's attaches to nothing while looking
+    # perfectly well-formed (Accepted=False, no traffic, no error anywhere a
+    # person looks). `api.` and `id.` are both single labels under
+    # sesameidentity.dev.local, so the wildcard pair covers both — no apex
+    # listener is involved here, unlike the brochure.
+    #
+    # Either may be a LIST, which is how a host moves zones without a gap.
+    sectionNameHttp: sesameidentity-http
+    sectionNameHttps: sesameidentity-https
+
+  # Gate A4 — no plaintext path to the API either.
+  #
+  # haproxy terminates TLS and forwards to Envoy on :80, so the listener a
+  # request arrived on says nothing about whether the caller spoke TLS. The
+  # only truthful signal is the proxy's X-Forwarded-Proto, so that is what the
+  # redirect matches on — see templates/_helpers.tpl for why matching on the
+  # listener instead produces an infinite redirect loop.
+  tls:
+    redirectToHttps: true
+    # HSTS is sticky and cannot be un-set remotely, so dev gets minutes and
+    # staging/prod override to 31536000 — same posture as the frontends.
+    hstsMaxAgeSeconds: 300
+    hstsIncludeSubdomains: false
+
+# Task 57 — what the edge refuses to carry inwards.
+#
+# The API authenticates SOLELY from `Authorization`. Everything below removes a
+# way for a request to arrive carrying authority it did not prove, and each is
+# strictly stronger than the alternative of "scope it correctly and remember
+# the rule", because it also holds for non-browser callers — which is most of
+# this API's traffic — and because it is testable rather than argued.
+edge:
+  # Strip `Cookie` on the way in. ADR-013 "What was given up": the two-domain
+  # proposal's real argument was that a browser CANNOT attach a console session
+  # cookie to an API request. Doing it at the edge delivers that unconditionally
+  # instead of depending on browser cookie scoping, `__Host-` prefixes, or a
+  # `Domain=` attribute nobody sets by accident.
+  stripCookie: true
+
+  # Strip `Set-Cookie` on the way out. See templates/_helpers.tpl for the full
+  # reasoning; in short, no routed endpoint sets one today (grepped: no
+  # `Set-Cookie` anywhere in microservices/idam), so this costs nothing now and
+  # makes it impossible for a later framework default or session middleware to
+  # quietly mint ambient authority on the API origin.
+  stripSetCookie: true
+
+  # Strip `X-Tenant-ID` on the way in.
+  #
+  # FINDING-2026-07-25-org-mgmt-tenant-header-override.md: org-mgmt prefers this
+  # header over the verified `tenant_id` claim, so a caller holding a valid
+  # token for tenant A can act on tenant B by setting it. Removing the header at
+  # the edge forces `tenant_from_request`'s `or_else` branch — the signed claim —
+  # which is the behaviour task 48 will make the only behaviour.
+  #
+  # This is the same move as the cookie strip: forgeable ambient authority does
+  # not cross the boundary. It is a MITIGATION, not the fix; task 48 is the fix,
+  # because east–west callers still bypass this edge entirely.
+  stripTenantHeader: true
+
+# The hostnames. Empty by default so that nothing is served until an
+# environment names its own — the templates are guarded on this.
+api:
+  enabled: true
+  hostnames: []     # e.g. [api.sesameidentity.dev.local]
+
+issuer:
+  enabled: true
+  hostnames: []     # e.g. [id.sesameidentity.dev.local]
+
+  # Also serve discovery at the ROOT `/.well-known/...`, rewritten onto the
+  # service's `/idam/v1` base path.
+  #
+  # Required for spec conformance, not convenience: with `iss =
+  # https://id.<zone>`, RFC 8414 §3 and OIDC Discovery §4 say a relying party
+  # locates the document by appending `/.well-known/openid-configuration` to the
+  # issuer. BRRTRouter registers routes as `base_path + path` (spec/build.rs),
+  # and the spec's first server is `.../idam/v1`, so the service answers only at
+  # `/idam/v1/.well-known/...`. Without the rewrite, every conforming OIDC
+  # client 404s on bootstrap.
+  serveRootWellKnown: true
+
+# Gate A1 — volumetric rate limiting at the edge.
+#
+# The budgets below are the frontend chart's, deliberately: the same paths get
+# the same allowance whether a browser reaches them through the console origin
+# or an SDK reaches them through `api.`. They are NOT shared with the frontend's
+# BackendTrafficPolicies — HTTPRoute matching is hostname-scoped, so a route
+# bound to `auth.<zone>` contributes nothing to traffic arriving on `api.<zone>`
+# and the copies here are the minimum, not duplication for its own sake.
+#
+# NOTE (task 52): none of these numbers has ever seen production traffic. Every
+# control built so far sits on the north–south path and the only consumer sits
+# on the east–west one (DESIGN-north-south-saas-surface.md §5), so these are
+# untested policy, sized by argument. They are also PER CLIENT IP, which is the
+# same thing as per-tenant only while there is one tenant — task 52 is where
+# that stops being true.
+rateLimit:
+  enabled: true
+
+  # --- identical to helm/sesame-idam-frontend/values.yaml ---
+  # Sends cost money (SMS) or land in someone's inbox — the tightest bucket.
+  otpSendPerMinute: 5
+  # Verifies are cheap but guessable; the app caps attempts per identity too (A3).
+  otpVerifyPerMinute: 20
+  loginPerMinute: 30
+  registerPerMinute: 10
+  tokenPerMinute: 60
+  oauthPerMinute: 30
+  # Reads: generous, but a scraper should not get an unbounded firehose.
+  jwksPerMinute: 120
+
+  # --- api.-only buckets, for path families the console never reached ---
+  # Everything else under /idam/v1/auth/ that is not named above.
+  authOtherPerMinute: 60
+  # Session read/refresh: legitimately chatty from an SDK.
+  sessionsPerMinute: 120
+  # Org and invitation management: administrative, human-paced.
+  organizationsPerMinute: 60
+  # Profile/identity reads: chatty, cheap.
+  identityPerMinute: 120

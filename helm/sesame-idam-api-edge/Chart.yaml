@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sesame-idam-api-edge
+description: North–south front door for the sesame backend services (task 50) and the OIDC issuer host (ADR-013) — Gateway API routes only, no workload.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

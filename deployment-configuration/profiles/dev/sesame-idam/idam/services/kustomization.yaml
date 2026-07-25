@@ -15,6 +15,9 @@ resources:
   - frontend-tenant.yaml
   - frontend-brochure.yaml
   - frontend-auth.yaml
+  # North–south front door for the backends above: api. and id. (task 50,
+  # ADR-013). Routes only — it deploys no workload, it exposes the ones here.
+  - api-edge.yaml
 
 configMapGenerator:
   - name: sesame-idam-idam-common-helm-values

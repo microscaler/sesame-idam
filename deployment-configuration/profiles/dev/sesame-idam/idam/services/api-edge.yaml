@@ -1,0 +1,71 @@
+# Sesame API FRONT DOOR: https://api.sesameidentity.dev.local  (task 50)
+# Sesame ISSUER:         https://id.sesameidentity.dev.local   (ADR-013)
+#
+# Routes only — no workload. The backends are the ClusterIP Services already
+# deployed by the HelmReleases alongside this file; what has never existed is a
+# way in from outside the cluster. Until now hauliage reached them over cluster
+# DNS (east–west), which is the deployment accident of the first tenant and not
+# a thing any external relying party can do
+# (DESIGN-north-south-saas-surface.md §1). Task 55 moves hauliage onto this path.
+#
+# WHY HERE and not in ./runtime or ./k8s:
+#   - ./k8s is reconciled by NOTHING. A manifest placed there is applied by
+#     nobody and pruned by the first Flux sweep that owns the namespace. That
+#     mistake has already been made once in this repo.
+#   - ./runtime is the foundation Kustomization (secrets, the authz-core
+#     NetworkPolicy) — things that should exist whether or not a workload does.
+#     These routes name backend Services by reference, so they belong with the
+#     workloads.
+#   - ./services is the Flux Kustomization `sesame-idam-idam-services`
+#     (shared-gitops-k8s-cluster/gitops/inventory/product-components.yaml:61),
+#     which depends on `sesame-idam-idam` and reconciles the HelmReleases. Adding
+#     the release here and to ./services/kustomization.yaml is what makes Flux
+#     actually pick it up.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sesame-api-edge
+spec:
+  interval: 5m
+  timeout: 5m
+  releaseName: sesame-api-edge
+  targetNamespace: sesame-idam
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./helm/sesame-idam-api-edge
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: product-sesame-idam
+        namespace: flux-system
+      interval: 1m
+  values:
+    namespace: sesame-idam
+    route:
+      enabled: true
+      gateway:
+        # `api.` and `id.` are single labels under sesameidentity.dev.local, so
+        # the wildcard listener pair covers both. No `-apex-` listener here —
+        # that pair exists for the brochure, which owns the bare apex.
+        #
+        # Single names rather than lists, unlike the frontends: these hosts are
+        # NEW. There is no old `*.dev.microscaler.local` name to keep serving in
+        # parallel, because nothing has ever served the API from outside.
+        sectionNameHttp: sesameidentity-http
+        sectionNameHttps: sesameidentity-https
+    api:
+      enabled: true
+      hostnames:
+        - api.sesameidentity.dev.local
+    issuer:
+      enabled: true
+      hostnames:
+        - id.sesameidentity.dev.local
+      serveRootWellKnown: true

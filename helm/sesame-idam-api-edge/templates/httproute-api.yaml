@@ -1,0 +1,129 @@
+{{- if and .Values.route.enabled .Values.api.enabled .Values.api.hostnames }}
+{{- $top := . -}}
+{{- /*
+Task 50 — the API front door, on `api.<zone>`.
+
+Until now the sesame backends were ClusterIP-only with no HTTPRoute: the only
+way in from a browser was through the console's nginx `/idam/` proxy
+(docker/frontend/nginx.conf), i.e. a static-asset server doubling as the API
+gateway. This is the split DESIGN-north-south-saas-surface.md §3.1 asks for, so
+that a UI deploy cannot change API availability and an API burst cannot starve
+the console.
+
+WHAT IS DELIBERATELY NOT HERE
+-----------------------------
+Two backend Services are routed nowhere on this host, and that is the point of
+having a front door rather than a wildcard:
+
+  authz-core                  — FINDING-2026-07-25-authz-core-unauthenticated.md.
+                                All 11 operations declared `security: []`; the
+                                tenant comes from the request body. Publishing it
+                                would put "read or delete any tenant's audit
+                                trail, unauthenticated" on the internet. Task 43's
+                                NetworkPolicy already narrows who may reach it
+                                east–west; nothing narrows the internet.
+  identity-user-mgmt-service  — FINDING-2026-07-25-user-mgmt-dsar-export.md. The
+                                admin/audit surface, including an unauthenticated
+                                GDPR DSAR export keyed on a path parameter.
+
+Also absent, on the same principle — these are subpaths of services that ARE
+routed, so their absence is a consequence of matching path prefixes rather than
+service names:
+
+  /idam/v1/platform/*   operator authority (identity-login-service) — ADR-011 §1
+                        says a tenant can never act as an operator; the platform
+                        surface belongs behind the platform console, not here.
+  /idam/v1/tenant/*     tenant-admin self-service; belongs to the tenant console.
+  /idam/v1/oauth/*      task 33: tenant-scoped OAuth/SSO endpoints are a live
+                        ADR-011 violation. Not routed until that is closed.
+  /idam/v1/admin/*      identity-session-service admin surface.
+  /idam/v1/.well-known/* NOT on `api.` — it is on `id.` only, so that no relying
+                        party's config can end up pointing `jwks_uri` at a host
+                        we want to be free to re-platform (ADR-013).
+
+ROUTE-PER-BUDGET
+----------------
+Envoy Gateway attaches a BackendTrafficPolicy to a whole HTTPRoute, so each
+budget below is its own route. The narrow ones are longer path prefixes than the
+`/idam/v1/auth/` catch-all, and Gateway API prefers the longest matching prefix
+ACROSS routes, so they win for their own traffic and nothing else changes.
+Path-element matching also means `/idam/v1/auth/login` does not capture
+`/idam/v1/auth/logout`.
+*/ -}}
+{{- $rl := $top.Values.rateLimit -}}
+{{- $groups := list
+  (dict "name" "otp-send"    "backend" "identity-login-service" "limit" $rl.otpSendPerMinute
+        "note" "sends cost money or land in an inbox — the tightest bucket"
+        "paths" (list "/idam/v1/auth/login/email-otp" "/idam/v1/auth/login/phone-otp" "/idam/v1/auth/login/magic-link" "/idam/v1/auth/login/phone-magic-link" "/idam/v1/auth/password/forgot" "/idam/v1/auth/login/dual-otp"))
+  (dict "name" "otp-verify"  "backend" "identity-login-service" "limit" $rl.otpVerifyPerMinute
+        "note" "cheap but guessable; the app also caps attempts per identity (A3)"
+        "paths" (list "/idam/v1/auth/verify/email-otp" "/idam/v1/auth/verify/phone-otp" "/idam/v1/auth/verify/dual-otp" "/idam/v1/auth/login/magic-link/verify" "/idam/v1/auth/login/phone-magic-link/verify" "/idam/v1/auth/password/reset"))
+  (dict "name" "login"       "backend" "identity-login-service" "limit" $rl.loginPerMinute
+        "note" "a human mistyping a password stays well inside this"
+        "paths" (list "/idam/v1/auth/login"))
+  (dict "name" "register"    "backend" "identity-login-service" "limit" $rl.registerPerMinute
+        "note" "account creation is not a thing anyone does in bulk by hand"
+        "paths" (list "/idam/v1/auth/register" "/idam/v1/auth/signup/validate"))
+  (dict "name" "token"       "backend" "identity-login-service" "limit" $rl.tokenPerMinute
+        "note" "refresh is legitimately frequent — generous, still bounded"
+        "paths" (list "/idam/v1/auth/token" "/idam/v1/auth/session/code"))
+  (dict "name" "social"      "backend" "identity-login-service" "limit" $rl.oauthPerMinute
+        "note" "redirect-driven, so bursts are small and human-paced"
+        "paths" (list "/idam/v1/auth/social/"))
+  (dict "name" "auth"        "backend" "identity-login-service" "limit" $rl.authOtherPerMinute
+        "note" "the rest of /auth (logout, me, status, authorize, callback, rotate) — a catch-all so a new auth endpoint is bounded on the day it ships rather than the day it is noticed"
+        "paths" (list "/idam/v1/auth/"))
+  (dict "name" "sessions"    "backend" "identity-login-service" "limit" $rl.sessionsPerMinute
+        "note" "session lifecycle; an SDK polls this legitimately"
+        "paths" (list "/idam/v1/sessions/"))
+  (dict "name" "org"         "backend" "org-mgmt" "limit" $rl.organizationsPerMinute
+        "note" "org and invitation management — administrative, human-paced"
+        "paths" (list "/idam/v1/organizations/" "/idam/v1/invitations/"))
+  (dict "name" "identity"    "backend" "identity-session-service" "limit" $rl.identityPerMinute
+        "note" "profile/identity reads — chatty and cheap"
+        "paths" (list "/idam/v1/identity/"))
+-}}
+{{- range $g := $groups }}
+{{- $name := printf "sesame-api-%s" $g.name }}
+---
+# {{ $g.name }} → {{ $g.backend }}: {{ $g.note }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $name }}
+  namespace: {{ $top.Values.namespace }}
+  labels:
+    app: sesame-api-edge
+    app.kubernetes.io/part-of: sesame-idam
+    sesame.microscaler.io/gate: "A1"
+  annotations:
+    gitops.microscaler.io/gateway: {{ $top.Values.route.gateway.name }}
+    gitops.microscaler.io/hostname: {{ index $top.Values.api.hostnames 0 | quote }}
+spec:
+  hostnames:
+{{ toYaml $top.Values.api.hostnames | indent 4 }}
+  parentRefs:
+{{- include "sesame.edge.parentRefs" $top | nindent 4 }}
+  rules:
+{{- include "sesame.edge.httpsRedirectRule" (dict "ctx" $top "paths" $g.paths) | nindent 4 }}
+    - matches:
+{{- range $p := $g.paths }}
+        - path:
+            type: PathPrefix
+            value: {{ $p | quote }}
+{{- end }}
+      # Task 57. Nothing that arrives here carries authority unless it is in
+      # `Authorization` — see templates/_helpers.tpl for the full argument.
+      filters:
+{{- include "sesame.edge.filterList" $top | nindent 8 }}
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ $g.backend }}
+          port: 8080
+{{- if and $top.Values.rateLimit.enabled $g.limit }}
+---
+{{ include "sesame.edge.rateLimitPolicy" (dict "ctx" $top "name" $name "limit" $g.limit) }}
+{{- end }}
+{{- end }}
+{{- end }}

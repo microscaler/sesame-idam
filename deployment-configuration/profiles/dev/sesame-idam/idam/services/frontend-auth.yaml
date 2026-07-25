@@ -6,8 +6,9 @@
 # themed at runtime.
 #
 # `auth.` is not `id.` (ADR-013): this host sets the IdP session cookie, while
-# the issuer host serving OIDC discovery and JWKS must stay cookie-free. Nothing
-# serves `id.` yet — that lands with task 54, as `api.` does with task 50.
+# the issuer host serving OIDC discovery and JWKS must stay cookie-free. `id.`
+# and `api.` are served by ./api-edge.yaml (tasks 50 + 57), which strips Cookie
+# inbound and Set-Cookie outbound on both; this host deliberately does neither.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:

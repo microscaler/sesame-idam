@@ -1,0 +1,118 @@
+{{- if and .Values.route.enabled .Values.issuer.enabled .Values.issuer.hostnames }}
+{{- $top := . -}}
+{{- $paths := list "/idam/v1/.well-known" -}}
+{{- if $top.Values.issuer.serveRootWellKnown }}{{- $paths = append $paths "/.well-known" }}{{- end }}
+{{- /*
+ADR-013 — the ISSUER host, `id.<zone>`. OIDC discovery and JWKS, and nothing else.
+
+ONE route, ONE backend, TWO paths. That is the entire surface, permanently, and
+the narrowness is the feature rather than an unfinished state:
+
+  - `iss` is the one string that is effectively permanent. It sits in every
+    relying party's configuration, and changing it is THEIR migration, on THEIR
+    schedule. So the host it names must have as little on it as possible.
+  - Keeping it off the apex means a CMS route change cannot take out every
+    customer's login. Keeping it off `api.` means the endpoints listed INSIDE the
+    discovery document can move — `api.` can be re-platformed, split or renamed —
+    without a single customer touching their config.
+
+There is no rate-limited split by path family here as there is on `api.`: both
+paths are the same read, so one budget (jwks) covers the route.
+
+COOKIE-FREE, FOREVER
+--------------------
+ADR-013's table says this host carries "none, ever". The filters strip `Cookie`
+inbound and `Set-Cookie` outbound — see templates/_helpers.tpl. For `api.` that
+is defence in depth; here it is a correctness property. These two documents are
+fetched by every relying party forever and must be cacheable by anything in the
+path, and a response that sets a cookie is not safely shared-cacheable. A
+credential must never be a precondition for, or a consequence of, discovering how
+to verify a token.
+
+THE ROOT REWRITE
+----------------
+BRRTRouter registers routes as `base_path + path` (BRRTRouter spec/build.rs), and
+identity-session-service's first OpenAPI server is `.../idam/v1`, so the service
+answers ONLY at `/idam/v1/.well-known/...`. But with `iss = https://id.<zone>`,
+RFC 8414 §3 and OIDC Discovery §4 say a relying party finds the document by
+appending `/.well-known/openid-configuration` to the issuer — at the ROOT. Every
+conforming client would 404 on bootstrap.
+
+Rewriting at the edge rather than changing the service's base path is deliberate:
+the base path is baked into the generated router, the east–west JWKS URLs in
+every HelmRelease, and the Gate A1 path matching. The edge is where the public
+shape belongs, and it is the cheap place to change it.
+
+Both paths are served, not one redirected to the other, so nothing that already
+fetches `/idam/v1/.well-known/jwks.json` breaks.
+
+KNOWN GAP (not fixed here)
+--------------------------
+identity-session-service builds the discovery document's own URLs from
+SESAME_IDAM_PUBLIC_URL / SESAME_JWT_ISSUER, which are unset in dev and fall back
+to `https://identity.seasame-idam.microscaler.local`. So this host will SERVE a
+document whose `issuer` and `jwks_uri` name a different host. Routing it is still
+correct; making the document self-consistent means changing `iss`, which
+invalidates every `iss:` validator configured in the HelmReleases at once. That
+belongs with task 54, not with a routing change.
+*/ -}}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: sesame-id-wellknown
+  namespace: {{ $top.Values.namespace }}
+  labels:
+    app: sesame-api-edge
+    app.kubernetes.io/part-of: sesame-idam
+    sesame.microscaler.io/gate: "A1"
+  annotations:
+    gitops.microscaler.io/gateway: {{ $top.Values.route.gateway.name }}
+    gitops.microscaler.io/hostname: {{ index $top.Values.issuer.hostnames 0 | quote }}
+spec:
+  hostnames:
+{{ toYaml $top.Values.issuer.hostnames | indent 4 }}
+  parentRefs:
+{{- include "sesame.edge.parentRefs" $top | nindent 4 }}
+  rules:
+{{- include "sesame.edge.httpsRedirectRule" (dict "ctx" $top "paths" $paths) | nindent 4 }}
+    # The service's own path — unchanged, so existing fetchers keep working.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /idam/v1/.well-known
+      filters:
+{{- include "sesame.edge.filterList" $top | nindent 8 }}
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: identity-session-service
+          port: 8080
+{{- if $top.Values.issuer.serveRootWellKnown }}
+    # The RFC 8414 / OIDC Discovery path, rewritten onto the service's base path.
+    # URLRewrite composes with the header filters; only RequestRedirect would not.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /.well-known
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /idam/v1/.well-known
+{{- include "sesame.edge.filterList" $top | nindent 8 }}
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: identity-session-service
+          port: 8080
+{{- end }}
+{{- if and $top.Values.rateLimit.enabled $top.Values.rateLimit.jwksPerMinute }}
+---
+# jwks: a read, but a scraper should not get an unbounded firehose. Same budget
+# as the frontend chart's `jwks` group — and, like every number in this chart,
+# never yet tested against real traffic (task 52).
+{{ include "sesame.edge.rateLimitPolicy" (dict "ctx" $top "name" "sesame-id-wellknown" "limit" $top.Values.rateLimit.jwksPerMinute) }}
+{{- end }}
+{{- end }}

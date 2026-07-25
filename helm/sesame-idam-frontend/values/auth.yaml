@@ -16,8 +16,9 @@ route:
   enabled: true
   # `auth.` is the login surface and holds the IdP session cookie. It is NOT
   # `id.`: the issuer host (OIDC discovery + JWKS) must stay cookie-free so it
-  # carries no ambient authority and can be cached anywhere — ADR-013. Nothing
-  # serves `id.` yet; that arrives with task 54 (and `api.` with task 50).
+  # carries no ambient authority and can be cached anywhere — ADR-013. `id.` and
+  # `api.` are now served by helm/sesame-idam-api-edge (tasks 50 + 57), which
+  # strips Cookie and Set-Cookie on both; this host deliberately does neither.
   #
   # New host first (it becomes the ownership annotation); old host retained
   # for the transition — see values/platform.yaml.
