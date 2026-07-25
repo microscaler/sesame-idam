@@ -46,6 +46,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_login
+      x-public-reason: "pre-authentication: this is how a token is obtained"
       security: []
       requestBody:
         required: true
@@ -144,6 +145,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: login_dual_otp
+      x-public-reason: "pre-authentication: initiates a login"
       security: []
       requestBody:
         required: true
@@ -211,6 +213,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: login_email_otp
+      x-public-reason: "pre-authentication: initiates a login"
       security: []
       requestBody:
         required: true
@@ -266,6 +269,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: magic_link_send
+      x-public-reason: "pre-authentication: initiates a login"
       security: []
       requestBody:
         required: true
@@ -321,6 +325,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: magic_link_verify
+      x-public-reason: "the emailed link token in the request IS the credential"
       security: []
       requestBody:
         required: true
@@ -382,6 +387,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: sms_magic_link_send
+      x-public-reason: "pre-authentication: initiates a login"
       security: []
       requestBody:
         required: true
@@ -437,6 +443,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: sms_magic_link_verify
+      x-public-reason: "the SMS link token in the request IS the credential"
       security: []
       requestBody:
         required: true
@@ -501,6 +508,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: login_phone_otp
+      x-public-reason: "pre-authentication: initiates a login"
       security: []
       requestBody:
         required: true
@@ -606,6 +614,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_forgot_password
+      x-public-reason: "pre-authentication: the user cannot sign in, that is the point"
       security: []
       requestBody:
         content:
@@ -674,6 +683,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_reset_password
+      x-public-reason: "the emailed reset token in the request IS the credential"
       security: []
       requestBody:
         content:
@@ -733,6 +743,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_register
+      x-public-reason: "pre-authentication: creates the account a token would belong to"
       security: []
       requestBody:
         required: true
@@ -836,6 +847,7 @@ paths:
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: signup_validate
       x-brrtrouter-impl: true
+      x-public-reason: "pre-authentication UX pre-check; creates no state"
       security: []
       parameters:
       - *id007
@@ -1037,6 +1049,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: auth_token
+      x-public-reason: "RFC 6749 token endpoint; the grant in the body IS the credential"
       security: []
       requestBody:
         required: true
@@ -1124,6 +1137,7 @@ paths:
         Tokens themselves are NEVER placed in a URL — that is the entire
         point (URLs leak via history, referrers and logs).
       operationId: auth_session_code
+      x-public-reason: "the access token is a request parameter, verified in-controller before minting (see controllers/auth_session_code.rs) - BearerAuth cannot express a token carried as a parameter"
       security: []
       requestBody:
         required: true
@@ -1199,6 +1213,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_dual_otp
+      x-public-reason: "the OTP in the request IS the credential"
       security: []
       requestBody:
         required: true
@@ -1280,6 +1295,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_email_otp
+      x-public-reason: "the OTP in the request IS the credential"
       security: []
       requestBody:
         required: true
@@ -1347,6 +1363,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_phone_otp
+      x-public-reason: "the OTP in the request IS the credential"
       security: []
       requestBody:
         required: true
@@ -1414,6 +1431,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: oauth_authorize
+      x-public-reason: "pre-authentication: start of the redirect flow"
       security: []
       parameters:
       - *id007

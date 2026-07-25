@@ -873,3 +873,16 @@ reseed-e2e:
 # Requires tilt-sesame-idam.service running (just tilt-up). Set KUBECONFIG for shared-k8s.
 tilt-trigger resource:
   @tilt trigger {{resource}} --port 10351
+
+# Fail on an endpoint declaring `security: []` without an x-public-reason.
+#
+# `security: []` is not "inherit the default" — it is explicit NO
+# AUTHENTICATION, and it silently overrides the document-level block. All 11
+# authz-core operations carried it unnoticed until an unrelated audit
+# (docs/FINDING-2026-07-25-authz-core-unauthenticated.md), by which point the
+# GDPR DSAR export in user-mgmt was reachable by anyone too.
+#
+# Public is sometimes correct. The failure was that "correct" and "forgotten"
+# looked identical in the file. This makes them different.
+lint-public-endpoints:
+    @python3 scripts/lint-public-endpoints.py

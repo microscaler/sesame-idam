@@ -42,6 +42,7 @@ paths:
       - Discovery
       summary: JWKS for JWT verification
       operationId: jwks
+      x-public-reason: "RFC 7517 key set must be fetchable by any verifier, by design"
       security: []
       responses:
         '400':
@@ -96,6 +97,7 @@ paths:
       - Discovery
       summary: OIDC discovery
       operationId: openid_configuration
+      x-public-reason: "RFC 8414 discovery must be fetchable without credentials, by design"
       security: []
       responses:
         '400':
@@ -823,6 +825,7 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: mcp_token
+      x-public-reason: "token issuance; the grant in the body IS the credential"
       security: []
       requestBody:
         required: true
@@ -918,6 +921,7 @@ paths:
       - Sessions
       summary: Refresh access token
       operationId: auth_refresh
+      x-public-reason: "the refresh token in the request IS the credential"
       security: []
       requestBody:
         required: true

@@ -39,6 +39,7 @@ paths:
       tags: [Account]
       operationId: register_user
       summary: Create user account (no organization)
+      x-public-reason: "public signup: reachable before an account exists"
       security: []
       parameters:
         - $ref: '#/components/parameters/XTenantId'
@@ -149,6 +150,7 @@ paths:
       tags: [Invitations]
       operationId: preview_invitation
       summary: Preview invite (org name) from token — optional UX before login
+      x-public-reason: "the invitation token in the request IS the credential"
       security: []
       parameters:
         - $ref: '#/components/parameters/XTenantId'

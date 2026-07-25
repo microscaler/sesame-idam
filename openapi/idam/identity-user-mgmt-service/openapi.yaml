@@ -177,7 +177,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Admin audit surface — was unauthenticated, which allowed anyone
+      # reaching the service to export a named user's full audit history.
+      # That is the data a GDPR DSAR is designed to release ONLY to its
+      # subject. BearerAuth because it is the only provider this service
+      # registers; an unconfigured scheme would fall back to a static key.
+      security:
+      - BearerAuth: []
       parameters:
       - &id001
         name: X-Tenant-ID
@@ -252,7 +258,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Admin audit surface — was unauthenticated, which allowed anyone
+      # reaching the service to export a named user's full audit history.
+      # That is the data a GDPR DSAR is designed to release ONLY to its
+      # subject. BearerAuth because it is the only provider this service
+      # registers; an unconfigured scheme would fall back to a static key.
+      security:
+      - BearerAuth: []
   /admin/audit/users/{user_id}/events/count:
     get:
       tags:
@@ -343,7 +355,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
-      security: []
+      # Admin audit surface — was unauthenticated, which allowed anyone
+      # reaching the service to export a named user's full audit history.
+      # That is the data a GDPR DSAR is designed to release ONLY to its
+      # subject. BearerAuth because it is the only provider this service
+      # registers; an unconfigured scheme would fall back to a static key.
+      security:
+      - BearerAuth: []
   /admin/users:
     post:
       tags:
