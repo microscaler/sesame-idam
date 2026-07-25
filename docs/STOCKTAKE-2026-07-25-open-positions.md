@@ -151,6 +151,80 @@ dependency that several other things now rest on.
 
 ---
 
+## 10. Implementation order
+
+Every task now has a governing document. Ordered so that the cheap findings
+that could invalidate later work come first.
+
+### Wave 0 — reads, not builds (do these first)
+
+Both are single-file investigations whose answers change what the rest costs.
+Neither should be deferred for being small.
+
+| Task | Question | Governing doc |
+| --- | --- | --- |
+| 38 | Does `authz-core` check its caller before honouring `x-tenant-id`? | ADR-012 §2.3, §4 |
+| 42 | Does BRRTRouter's JWT-SVID bind audience to the callee? | ADR-012 §2.5 |
+
+If 38 says no, it is today's problem rather than next quarter's. If 42 says no,
+JWT-SVID is a shared key with better ergonomics and the mTLS trigger has
+already fired.
+
+### Wave 1 — close the known authority gaps
+
+The ADR-011 boundary is half-applied; finishing it is cheap and one item is a
+live design flaw.
+
+| Task | Work | Governing doc |
+| --- | --- | --- |
+| 33 | `/tenant/oauth/{provider}` — last instance of the platform-key flaw | ADR-011 §2 |
+| 30 | Boundary BDD, all four obligations from both sides | ADR-011 §4 |
+| 35 | Remove `ApiKeyHeader` from document-level security in six specs | DESIGN-security-scheme-fail-closed §4 |
+| 36 | Decide whether JWKS is externally exposed, then prove or drop its limit | §5 above |
+
+### Wave 2 — subject before transport
+
+ADR-012 §2.4: a caller-asserted subject is escalation regardless of transport
+quality, and it is the cheaper fix.
+
+| Task | Work | Governing doc |
+| --- | --- | --- |
+| 39 | Delegated user token on BFF→backend (RFC 8693 `act`) | ADR-012 §2.1 Q2, §2.2 |
+| 41 | Per-operator identity replacing the shared admin key | ADR-012 §2.1, ADR-011 §2.4 |
+| 34 | BRRTRouter security schemes fail closed | DESIGN-security-scheme-fail-closed |
+
+### Wave 3 — the tenant journey
+
+Builds on the boundary being finished and tested. This is where latent design
+issues surface, so it is investigation as much as delivery.
+
+| Task | Work | Governing doc |
+| --- | --- | --- |
+| 37 | ADR-007 domain verification — the free assurance rung | ADR-007 + DESIGN-tenant-domain-verification |
+| 32 | Self-service registration journey | DESIGN-tenant-registration-journey |
+| 31 | Tenant console: SMS + SSO screens | ADR-010, ADR-011 |
+
+### Wave 4 — transport, when triggered
+
+| Task | Work | Governing doc |
+| --- | --- | --- |
+| 40 | Workload identity / mTLS | ADR-012 §2.5 (triggers), §2.6 (mesh choice deferred) |
+
+Not scheduled by date. ADR-012 §2.5 names the conditions that promote it:
+an unoperated workload in the cluster, reportable data on an internal hop,
+production outside one trusted cluster, or trust-domain federation.
+
+### Dependencies worth respecting
+
+- **37 before 32** — registration completes at `email_verified`, and the
+  journey is only meaningful once the next rung exists.
+- **30 before 33** — write the boundary tests first, then make the new
+  endpoints pass them. The tests are the specification.
+- **38 and 42 before 39 and 40** — both can invalidate the plan.
+- **35 independent** — spec hygiene, no dependencies, do it any time.
+
+---
+
 ## Standing lesson
 
 Every item above shares one shape: **something silently did nothing, or
