@@ -166,9 +166,23 @@ Neither should be deferred for being small.
 | 38 | Does `authz-core` check its caller before honouring `x-tenant-id`? | ADR-012 §2.3, §4 |
 | 42 | Does BRRTRouter's JWT-SVID bind audience to the callee? | ADR-012 §2.5 |
 
-If 38 says no, it is today's problem rather than next quarter's. If 42 says no,
-JWT-SVID is a shared key with better ergonomics and the mTLS trigger has
-already fired.
+**38 is DONE, and the answer was no — worse than assumed.** All 11 authz-core
+operations declare `security: []`, the explicit OpenAPI spelling of *no
+authentication*. Proved live: a pod in an unrelated namespace got 400 (payload)
+rather than 401 (auth). The set includes bulk audit export and
+retention-policy deletion, so an unauthenticated caller can arrange for the
+evidence of everything else to be discarded.
+
+Not externally routable, but reachable from any pod in a cluster that hosts
+other products, and the four existing NetworkPolicies cover only redis and
+flux-system.
+
+See [FINDING-2026-07-25-authz-core-unauthenticated.md](./FINDING-2026-07-25-authz-core-unauthenticated.md).
+Remediation is **task 43** (NetworkPolicy, hours) and **task 44** (remove
+`security: []`, then audit the other 27 across five specs).
+
+This is why Wave 0 was two reads: the plan assumed the transport half was the
+expensive risk, and the actual live exposure was one grep away.
 
 ### Wave 1 — close the known authority gaps
 
