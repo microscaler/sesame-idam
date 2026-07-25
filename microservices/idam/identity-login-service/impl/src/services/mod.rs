@@ -17,6 +17,7 @@ pub mod password;
 pub mod platform_auth;
 pub mod social_credential_service;
 pub mod tenant_admin;
+pub mod tenant_assurance;
 pub mod tenant_gate;
 pub mod tenant_oauth_service;
 pub mod tenant_service;

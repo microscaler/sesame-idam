@@ -157,9 +157,34 @@ the primary toll-fraud signal.
 > with different numbers and separate A2P/10DLC registration; a single row
 > would have coupled their ceilings and their revocation.
 
-> **Open:** Non-Twilio providers (regional carriers, WhatsApp Business) —
-> the `SmsProvider` trait already allows it; sender resolution must stay
-> provider-agnostic. Out of scope for the first slice.
+> **RAISED (2026-07-25): non-Twilio providers change this ADR's central
+> safety argument, not just its schema.**
+>
+> A tenant may already have a relationship with Brevo, Vonage, MessageBird or
+> a regional carrier, so tenant SMS has to support several providers.
+>
+> The consequence runs deeper than adding a `provider` discriminator. §2.3
+> argues that Sesame should hold no tenant credentials because **Twilio
+> Connect** lets a tenant delegate access while Twilio bills them directly.
+> No other major provider offers an equivalent: with Brevo or Vonage a tenant
+> must hand over an API key. So for every non-Twilio tenant, **envelope
+> custody stops being the dogfood-only fallback and becomes the normal path**.
+>
+> That makes the KEK, its rotation runbook and the per-credential DEK design
+> load-bearing rather than a contingency, and it means "prefer Connect" cannot
+> be stated as a general principle — only as a Twilio-specific one.
+>
+> Two things to settle before a second provider lands, while there is only one
+> implementation to change:
+>
+> - **Schema vocabulary.** `account_sid`, `connected_account_sid` and
+>   `messaging_service_sid` are Twilio nouns in a table that is about to be
+>   shared. Provider-neutral sealed credential material (a sealed blob plus a
+>   provider discriminator) avoids a column per provider per concept.
+> - **A real provider trait.** There is currently no `SmsProvider` trait —
+>   `services/sms.rs` has `send_twilio` and `send_mock` functions. Sender
+>   resolution (`sms_sender.rs`) is already provider-agnostic in shape, so the
+>   trait is the missing piece rather than a rewrite.
 
 ---
 

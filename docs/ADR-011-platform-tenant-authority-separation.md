@@ -150,12 +150,50 @@ if someone "helpfully" made one credential accept the other.
 
 ---
 
-## 5. Open questions
+## 5. Assurance, and why KYB is built but switched off
 
-> **Open:** How the first `tenant_admin` is granted for a self-service signup,
-> as opposed to platform-provisioned tenants. Likely the signup's first user,
-> but that interacts with ADR-007 domain verification — an unverified domain
-> should probably not confer administration of a tenant.
+Tenant registration needs to answer "is this a real company, and is this
+person allowed to act for it". The answers have very different costs, so
+assurance is a **ladder** and each risky capability names the rung it needs
+(`services/tenant_assurance.rs`):
+
+| Level | Proven by | Marginal cost |
+| --- | --- | --- |
+| `email_verified` | possession of an inbox | zero |
+| `domain_verified` | DNS TXT in the company's zone (ADR-007) | zero |
+| `business_verified` | a KYB vendor checking registration documents | per-check + subscription |
+
+**Twilio does not sell KYB** — they use Persona for their own. What Twilio
+offers is A2P 10DLC brand registration (messaging compliance, and per ADR-009
+it follows whoever owns the sending account) and Verify (phone possession,
+which our own OTP already does). So there is nothing to leverage there, and
+the vendors that do this are Persona, Stripe Identity and Sumsub.
+
+At roughly USD 250/month, that is not a pre-revenue expense. **`KycProvider`
+defaults to `Disabled`**, and the ladder tops out at `domain_verified`.
+
+The seam is built anyway, for two reasons. Retrofitting an assurance concept
+into authorisation checks that never had one produces two competing notions of
+"verified"; deciding the shape while there are three call sites is cheap.
+And every capability the product needs is reachable at `domain_verified` — a
+test asserts this — so a disabled provider is not an outage. Enabling a
+provider later *adds* a gate on the top rung; it does not revoke a grant that
+existing tenants already earned.
+
+For B2B SaaS, domain verification carries most of the weight anyway:
+controlling `acme.com`'s DNS is a strong claim to acting for Acme, and it also
+answers §5's question about granting the first `tenant_admin`.
+
+---
+
+## 6. Open questions
+
+> **PARTLY ANSWERED (2026-07-25):** the assurance ladder in §5 is the
+> mechanism. The signup's first user becomes `tenant_admin` at
+> `email_verified`, which is enough to use the console and nothing else;
+> capabilities that matter wait for `domain_verified`. Still open: whether a
+> free-mail signup (gmail.com) should be able to reach `domain_verified` on a
+> company domain it later claims.
 
 > **Open:** Whether operator override on tenant configuration should require a
 > reason string recorded in the audit trail. Leaning yes; deferred until Gate C
