@@ -14,6 +14,18 @@ resources:
   # the env pair stays as the fallback for older images.
   - signing-keyset.secret.yaml
 
+  # Task 43 / Gate B4: restrict who may reach authz-core.
+  #
+  # Foundation rather than workload, deliberately — the restriction should
+  # exist independently of whether the workload has been deployed yet, and
+  # should not disappear if a HelmRelease is removed.
+  #
+  # This compensates for authz-core declaring `security: []` on all 11
+  # operations (FINDING-2026-07-25-authz-core-unauthenticated.md). It is
+  # topology, not identity: it removes "any pod in a shared cluster" from the
+  # caller set. Task 44 is the real fix and this does not replace it.
+  - authz-core-ingress.networkpolicy.yaml
+
 configMapGenerator:
   - name: sesame-idam-database-config
     envs:

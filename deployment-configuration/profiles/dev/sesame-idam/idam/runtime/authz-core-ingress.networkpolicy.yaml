@@ -1,0 +1,71 @@
+# Restrict who may reach authz-core (task 43, Gate B4 scoped to one service).
+#
+# WHY THIS EXISTS
+#
+# All 11 authz-core operations declare `security: []` — explicitly no
+# authentication (FINDING-2026-07-25-authz-core-unauthenticated.md). Until that
+# is fixed in the spec (task 44), anything that can open a socket to this pod
+# can read any tenant's effective permissions, export any tenant's audit trail,
+# and delete audit retention policies.
+#
+# Proven, not assumed: a pod in the unrelated `loadlinker` namespace reached
+# this service and received 400 (bad payload), never 401.
+#
+# WHAT THIS IS AND IS NOT
+#
+# This is topology, not identity (ADR-012 §2.1). It does not authenticate
+# anyone; it removes "any pod in a shared cluster" from the set of callers, so
+# an attacker must first land somewhere allowed. That is a large reduction in
+# blast radius and NOT a substitute for task 44 — a compromised
+# identity-login-service still has full unauthenticated access to everything
+# above.
+#
+# It is deliberately the first fix because it takes effect in minutes and
+# touches no application code.
+#
+# DEFAULT-DENY SEMANTICS
+#
+# A NetworkPolicy selecting a pod switches that pod to default-deny for the
+# listed directions. This one covers Ingress only, so authz-core's own outbound
+# traffic (Postgres, Redis) is untouched — deliberately, to keep the change
+# small enough to reason about while the window is open.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authz-core-ingress
+  namespace: sesame-idam
+  labels:
+    app: authz-core
+    app.kubernetes.io/part-of: sesame-idam
+    sesame.microscaler.io/gate: "B4"
+  annotations:
+    sesame.microscaler.io/finding: FINDING-2026-07-25-authz-core-unauthenticated
+    sesame.microscaler.io/task: "43"
+spec:
+  podSelector:
+    matchLabels:
+      app: authz-core
+  policyTypes:
+    - Ingress
+  ingress:
+    # The only runtime caller. `services/authz_client.rs` fetches effective
+    # roles and permissions during login; if this rule is wrong, logins that
+    # need authz enrichment degrade (the client already tolerates authz-core
+    # being unreachable — see `login_degrades_gracefully_without_authz_core`).
+    - from:
+        - podSelector:
+            matchLabels:
+              app: identity-login-service
+      ports:
+        - protocol: TCP
+          port: 8080
+
+    # Prometheus-style scraping and any in-namespace probing. Kept narrow: the
+    # observability namespace only, not "anything with a label".
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - protocol: TCP
+          port: 8080
