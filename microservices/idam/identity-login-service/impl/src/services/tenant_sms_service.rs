@@ -54,29 +54,15 @@ impl SmsConfigInput {
     }
 }
 
-/// An explicit SQL `NULL` for a text column.
-///
-/// # Why this is needed
-///
-/// Lifeguard's generated `set_<field>(None)` marks the field as *unset*, and
-/// `update()` only emits SET clauses for fields that are set — so passing
-/// `None` leaves the existing column value in place. That is the right
-/// default for partial updates, and exactly the wrong behaviour when the
-/// point of the write is to destroy a secret: we would report the credential
-/// as cleared while the ciphertext was still sitting in the row. The
-/// `set_<field>_expr` escape hatch emits a real `= NULL`.
-fn sql_null() -> sea_query::SimpleExpr {
-    sea_query::Expr::val(sea_query::Value::String(None))
-}
-
 /// Clear every column that carries sealed credential material.
 ///
-/// Only meaningful on UPDATE — the expression setters are rejected by
-/// `insert()`, and on INSERT an unset column is already NULL.
+/// `set_*_null()` stages a real `SET col = NULL`. Passing `None` to the plain
+/// setter does the same thing; the explicit spelling is used here because
+/// destroying a secret deserves to be unmissable at the call site.
 fn clear_sealed(record: &mut TenantSmsConfigRecord) {
-    record.set_auth_token_ciphertext_expr(sql_null());
-    record.set_auth_token_nonce_expr(sql_null());
-    record.set_dek_wrapped_expr(sql_null());
+    record.set_auth_token_ciphertext_null();
+    record.set_auth_token_nonce_null();
+    record.set_dek_wrapped_null();
 }
 
 pub struct TenantSmsService;
@@ -230,11 +216,8 @@ impl TenantSmsService {
             })
             .set_created_at(existing.as_ref().map_or(now, |c| c.created_at))
             .set_updated_at(now);
-        // Envelope custody supersedes any Connect authorisation. Only on
-        // UPDATE: an unset column already inserts as NULL.
-        if existing.is_some() {
-            record.set_connected_account_sid_expr(sql_null());
-        }
+        // Envelope custody supersedes any Connect authorisation.
+        record.set_connected_account_sid_null();
 
         Self::write(record, existing.is_some(), exec)
     }
@@ -280,10 +263,8 @@ impl TenantSmsService {
             .set_updated_at(now);
         // Connect supersedes any previously stored envelope material —
         // switching custody must not leave a sealed secret behind.
-        if existing.is_some() {
-            record.set_account_sid_expr(sql_null());
-            clear_sealed(&mut record);
-        }
+        record.set_account_sid_null();
+        clear_sealed(&mut record);
 
         Self::write(record, existing.is_some(), exec)
     }
@@ -368,7 +349,7 @@ impl TenantSmsService {
             .set_updated_at(now);
         if clear_credential {
             clear_sealed(&mut record);
-            record.set_connected_account_sid_expr(sql_null());
+            record.set_connected_account_sid_null();
         }
         record
             .update(exec)

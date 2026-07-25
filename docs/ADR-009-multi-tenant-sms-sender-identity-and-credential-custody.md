@@ -201,15 +201,22 @@ Invariants the BDD suite pins (`tests/bdd/tenant_sms_custody.rs`):
 5. **Revocation destroys material**, and switching to Connect leaves no sealed
    secret behind.
 
-### Bug found while implementing (5)
+### Bug found while implementing (5) — fixed upstream
 
-Lifeguard's generated `set_<field>(None)` marks a field *unset*, and `update()`
-only emits SET clauses for set fields — so passing `None` **leaves the old
-value in the column**. Clearing a secret that way reports success while the
-ciphertext stays in the row. `tenant_sms_service.rs` therefore uses the
-`set_<field>_expr` escape hatch with an explicit SQL `NULL` (and only on
-UPDATE — the expression setters are rejected by `insert()`, where an unset
-column is already NULL). Worth fixing upstream in Lifeguard.
+Lifeguard's generated `set_<field>(None)` marked a field *unset*, and
+`update()` only emits SET clauses for set fields — so passing `None` **left
+the old value in the column**. Clearing a secret that way reported success
+while the ciphertext stayed in the row.
+
+Fixed in Lifeguard (`fix(derive): write staged SQL NULLs instead of silently
+dropping them`): records now track explicitly staged NULLs and emit a
+correctly typed null per column. `set_<field>(None)` writes NULL, and every
+nullable column gains `set_<field>_null()` — which is what
+`tenant_sms_service.rs` uses, because destroying a secret deserves to be
+unmissable at the call site.
+
+The same latent bug existed in a hauliage flow clearing an expiry after
+verification; it is fixed by the same change.
 
 ### Deferred
 
