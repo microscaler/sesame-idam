@@ -1,4 +1,9 @@
 # Sesame TENANT admin console.
+#
+# `app.` is the TENANT console (ADR-013 amendment, 2026-07-25). The platform
+# console lives on `platform.`, deliberately a different origin: a tenant
+# admin's cookie is then not merely un-sent to the platform console, it cannot
+# be sent there at all.
 service:
   name: sesame-tenant
 image:
@@ -8,5 +13,15 @@ deployment:
   namespace: sesame-idam
 route:
   enabled: true
+  # New host first (it becomes the ownership annotation); old host retained
+  # for the transition — see values/platform.yaml.
   hostnames:
+    - app.sesameidentity.dev.local
     - sesame-tenant.dev.microscaler.local
+  gateway:
+    sectionNameHttp:
+      - sesameidentity-http
+      - http
+    sectionNameHttps:
+      - sesameidentity-https
+      - https

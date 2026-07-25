@@ -8,5 +8,19 @@ deployment:
   namespace: sesame-idam
 route:
   enabled: true
+  # The brochure is the APEX (ADR-013) — hence the `-apex-` listeners: a
+  # `*.sesameidentity.dev.local` wildcard listener does not match its own
+  # apex, so the wildcard pair would never serve this host.
+  #
+  # New host first (it becomes the ownership annotation); old host retained
+  # for the transition — see values/platform.yaml.
   hostnames:
+    - sesameidentity.dev.local
     - sesame-brochure.dev.microscaler.local
+  gateway:
+    sectionNameHttp:
+      - sesameidentity-apex-http
+      - http
+    sectionNameHttps:
+      - sesameidentity-apex-https
+      - https

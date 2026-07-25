@@ -887,10 +887,19 @@ for name in DISCOVERED_SERVICES:
 # Gateway. One Dockerfile parameterised by APP; build context is the repo root
 # because the pnpm workspace links shared/ + client-sdk/.
 #
-#   sesame-portal.dev.microscaler.local    platform console
-#   sesame-tenant.dev.microscaler.local    tenant console
-#   sesame-brochure.dev.microscaler.local  brochure
-#   sesame-auth.dev.microscaler.local      hosted auth surface (own origin — ADR-008)
+#
+# Hosts per ADR-013 (dev mirror of the public domain). The two consoles are
+# deliberately NOT on one host: separate origins make the browser keep operator
+# and tenant sessions apart (ADR-011 §1).
+#
+#   platform.sesameidentity.dev.local  platform console
+#   app.sesameidentity.dev.local       tenant console
+#   sesameidentity.dev.local           brochure (the apex)
+#   auth.sesameidentity.dev.local      hosted auth surface (own origin — ADR-008)
+#
+# `api.` (task 50) and `id.` (task 54) have no backend yet, so nothing serves
+# them. The old sesame-*.dev.microscaler.local hosts are still served in
+# parallel while bookmarks and dev configs move over.
 FRONTEND_APPS = {
     'platform': 'sesame-portal',
     'tenant': 'sesame-tenant',

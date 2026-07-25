@@ -12,14 +12,44 @@
 Everything public is served from **`sesameidentity.com`**. `.io` is abandoned
 rather than renewed.
 
-| Host | Serves |
-| --- | --- |
-| `sesameidentity.com`, `www.` | brochure |
-| `app.sesameidentity.com` | platform console + tenant console (via the sesame BFF, task 54) |
-| `api.sesameidentity.com` | the API edge (task 50) — relying parties, SDKs, hauliage |
-| `id.sesameidentity.com` | **issuer**: OIDC discovery and JWKS, nothing else |
+| Host | Serves | Cookies |
+| --- | --- | --- |
+| `sesameidentity.com`, `www.` | brochure | none |
+| `platform.sesameidentity.com` | **platform console** — operator authority | operator session |
+| `app.sesameidentity.com` | **tenant console** — tenant authority | tenant session |
+| `auth.sesameidentity.com` | hosted auth surface (login, OTP, consent) | IdP session |
+| `api.sesameidentity.com` | the API edge (task 50) — relying parties, SDKs, hauliage | **stripped at ingress** |
+| `id.sesameidentity.com` | **issuer**: OIDC discovery and JWKS, nothing else | **none, ever** |
 
 `iss = https://id.sesameidentity.com`.
+
+### Amendment (2026-07-25): the two consoles do not share a host
+
+The first draft of this ADR put the platform console and the tenant console
+both on `app.`. That was wrong, and wrong in the way this project keeps finding.
+
+ADR-011 §1 exists to say that platform authority and tenant authority are
+disjoint — that a tenant is commercially and operationally airgapped from the
+platform, holds no platform credential, and can never act as an operator. **Two
+consoles on one host share an origin, so they share cookie scope, `localStorage`
+and any `postMessage` listener.** The separation the entire product sells would
+then be enforced by application code remembering which session it is holding.
+
+Separate hosts make the browser enforce it. A tenant admin's session cookie is
+not merely *not sent* to the platform console — it *cannot* be. That is the
+same move as `ActiveValue<T>` and the server-derived slug: the boundary becomes
+unrepresentable rather than defended.
+
+The cost is one extra hostname and, probably, two BFFs rather than one — which
+was already the open question at the end of
+DESIGN-sesame-bff-and-consumer-migration.md §5. This closes it: **two.** A
+single BFF holding both sessions is precisely the component that can confuse
+them.
+
+`auth.` is likewise separate from `id.`: the login surface sets the IdP session
+cookie, and the issuer host must stay cookie-free so that discovery and JWKS —
+fetched by every relying party, forever — carry no ambient authority and can be
+cached anywhere.
 
 ---
 

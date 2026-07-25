@@ -44,6 +44,41 @@ Usage: {{- include "sesame.httpsRedirectRule" (dict "ctx" $ "paths" (list "/")) 
 {{- end -}}
 
 {{/*
+The Gateway parentRefs block, defined once (httproute.yaml + ratelimit.yaml).
+
+A listener is pinned by `sectionName`, and a listener carries exactly ONE
+hostname — so which listener a route attaches to is not cosmetic: a route whose
+`hostnames` are not covered by the named listener's hostname attaches to
+nothing and reports Accepted=False. The section names therefore have to travel
+with the hostnames, which is why they are values rather than the literals they
+used to be. Adding a second DNS zone to the shared Gateway (ADR-013) is what
+forced this.
+
+Each of `route.gateway.sectionNameHttp` / `sectionNameHttps` may be a single
+name or a LIST of names. A list is the safe way to move zones: point at the old
+and the new listener at once, cut the hostname over, then drop the old name —
+at no point is the route detached.
+
+Usage: {{- include "sesame.gatewayParentRefs" $ | nindent 4 }}
+*/}}
+{{- define "sesame.gatewayParentRefs" -}}
+{{- $gw := .Values.route.gateway -}}
+{{- $sections := list -}}
+{{- range $v := (list $gw.sectionNameHttps $gw.sectionNameHttp) }}
+{{- if kindIs "slice" $v }}{{- $sections = concat $sections $v }}
+{{- else if $v }}{{- $sections = append $sections $v }}
+{{- end }}
+{{- end }}
+{{- range $s := $sections }}
+- group: gateway.networking.k8s.io
+  kind: Gateway
+  name: {{ $gw.name }}
+  namespace: {{ $gw.namespace }}
+  sectionName: {{ $s | quote }}
+{{- end }}
+{{- end -}}
+
+{{/*
 Gate A4 — the HSTS response header, defined once.
 
 Emitted as a `filters:` block, so it is only valid on a rule that has no other

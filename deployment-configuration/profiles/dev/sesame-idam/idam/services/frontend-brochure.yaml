@@ -1,4 +1,8 @@
-# Sesame frontend: sesame-brochure → https://sesame-brochure.dev.microscaler.local  (ADR-010)
+# Sesame frontend: sesame-brochure → https://sesameidentity.dev.local  (ADR-010, ADR-013)
+#
+# The brochure owns the APEX. Note the `-apex-` listeners below: a
+# `*.sesameidentity.dev.local` wildcard listener does not match its own apex, so
+# the wildcard pair would leave this host unserved.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -32,6 +36,16 @@ spec:
       tag: tilt # {"$imagepolicy": "flux-system:sesame-idam-frontend-brochure:tag"}
     route:
       enabled: true
+      # New host first (it becomes the ownership annotation); old host kept for
+      # the transition — see frontend-platform.yaml.
       hostnames:
+        - sesameidentity.dev.local
         - sesame-brochure.dev.microscaler.local
+      gateway:
+        sectionNameHttp:
+          - sesameidentity-apex-http
+          - http
+        sectionNameHttps:
+          - sesameidentity-apex-https
+          - https
 

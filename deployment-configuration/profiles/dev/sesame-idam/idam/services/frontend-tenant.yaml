@@ -1,4 +1,8 @@
-# Sesame frontend: sesame-tenant → https://sesame-tenant.dev.microscaler.local  (ADR-010)
+# Sesame frontend: sesame-tenant → https://app.sesameidentity.dev.local  (ADR-010, ADR-013)
+#
+# `app.` is the TENANT console. The platform console is a separate origin on
+# `platform.` (ADR-013 amendment, 2026-07-25) so that a tenant admin's session
+# cookie cannot reach it — enforced by the browser, not by our code.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -32,6 +36,16 @@ spec:
       tag: tilt # {"$imagepolicy": "flux-system:sesame-idam-frontend-tenant:tag"}
     route:
       enabled: true
+      # New host first (it becomes the ownership annotation); old host kept for
+      # the transition — see frontend-platform.yaml.
       hostnames:
+        - app.sesameidentity.dev.local
         - sesame-tenant.dev.microscaler.local
+      gateway:
+        sectionNameHttp:
+          - sesameidentity-http
+          - http
+        sectionNameHttps:
+          - sesameidentity-https
+          - https
 

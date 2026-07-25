@@ -64,16 +64,7 @@ spec:
   hostnames:
 {{ toYaml $top.Values.route.hostnames | indent 4 }}
   parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: {{ $top.Values.route.gateway.name }}
-      namespace: {{ $top.Values.route.gateway.namespace }}
-      sectionName: https
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: {{ $top.Values.route.gateway.name }}
-      namespace: {{ $top.Values.route.gateway.namespace }}
-      sectionName: http
+{{- include "sesame.gatewayParentRefs" $top | nindent 4 }}
   rules:
 {{- include "sesame.httpsRedirectRule" (dict "ctx" $top "paths" $g.paths) | nindent 4 }}
     - matches:

@@ -17,10 +17,27 @@ deployment:
 # Gateway API exposure (the cluster's shared edge Gateway).
 route:
   enabled: true
-  hostnames: []     # e.g. [sesame-portal.dev.microscaler.local]
+  hostnames: []     # e.g. [platform.sesameidentity.dev.local]
   gateway:
     name: microscaler-dev
     namespace: envoy-gateway-system
+
+    # Which listeners on that Gateway to attach to.
+    #
+    # These MUST agree with `hostnames` above. A listener carries exactly one
+    # hostname, and a route whose hostnames do not intersect the listener's
+    # attaches to nothing while looking perfectly well-formed. The shared
+    # Gateway now fronts two DNS zones (ADR-013), so the pairing is:
+    #
+    #   *.dev.microscaler.local      → http / https                 (default)
+    #   *.sesameidentity.dev.local   → sesameidentity-http / -https
+    #   sesameidentity.dev.local     → sesameidentity-apex-http / -https
+    #
+    # Defaults are the original zone so existing releases are untouched.
+    # Either may be a LIST, which is how a host moves zones without a gap:
+    # attach to old and new listeners at once, cut the hostname, drop the old.
+    sectionNameHttp: http
+    sectionNameHttps: https
 
   # Gate A4 — no plaintext auth path.
   #

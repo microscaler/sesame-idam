@@ -1,4 +1,8 @@
-# Sesame frontend: sesame-portal → https://sesame-portal.dev.microscaler.local  (ADR-010)
+# Sesame frontend: sesame-portal → https://platform.sesameidentity.dev.local  (ADR-010, ADR-013)
+#
+# `platform.` and NOT `app.`: the 2026-07-25 amendment to ADR-013 splits the two
+# consoles across origins so the browser — not application code — keeps operator
+# and tenant sessions apart (ADR-011 §1). `app.` is the tenant console.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -32,6 +36,19 @@ spec:
       tag: tilt # {"$imagepolicy": "flux-system:sesame-idam-frontend-platform:tag"}
     route:
       enabled: true
+      # Canonical host first — the chart publishes hostnames[0] as the
+      # `gitops.microscaler.io/hostname` ownership annotation. The old host is
+      # kept until bookmarks and dev configs have moved; both are served, so
+      # the cut is reversible.
       hostnames:
+        - platform.sesameidentity.dev.local
         - sesame-portal.dev.microscaler.local
+      gateway:
+        # One listener per zone, or the second hostname attaches to nothing.
+        sectionNameHttp:
+          - sesameidentity-http
+          - http
+        sectionNameHttps:
+          - sesameidentity-https
+          - https
 

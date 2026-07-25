@@ -14,5 +14,20 @@ deployment:
   namespace: sesame-idam
 route:
   enabled: true
+  # `auth.` is the login surface and holds the IdP session cookie. It is NOT
+  # `id.`: the issuer host (OIDC discovery + JWKS) must stay cookie-free so it
+  # carries no ambient authority and can be cached anywhere — ADR-013. Nothing
+  # serves `id.` yet; that arrives with task 54 (and `api.` with task 50).
+  #
+  # New host first (it becomes the ownership annotation); old host retained
+  # for the transition — see values/platform.yaml.
   hostnames:
+    - auth.sesameidentity.dev.local
     - sesame-auth.dev.microscaler.local
+  gateway:
+    sectionNameHttp:
+      - sesameidentity-http
+      - http
+    sectionNameHttps:
+      - sesameidentity-https
+      - https

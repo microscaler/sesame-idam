@@ -1,9 +1,13 @@
-# Sesame HOSTED AUTH SURFACE: sesame-auth → https://sesame-auth.dev.microscaler.local
+# Sesame HOSTED AUTH SURFACE: sesame-auth → https://auth.sesameidentity.dev.local
 #
 # Deliberately its OWN origin (ADR-010 §2.2): WebAuthn is origin-bound, so the
 # credential ceremony must not share a host with the consoles. In production a
 # tenant's ADR-007 verified domain (login.tenant.com) serves this same bundle,
 # themed at runtime.
+#
+# `auth.` is not `id.` (ADR-013): this host sets the IdP session cookie, while
+# the issuer host serving OIDC discovery and JWKS must stay cookie-free. Nothing
+# serves `id.` yet — that lands with task 54, as `api.` does with task 50.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -37,6 +41,16 @@ spec:
       tag: tilt # {"$imagepolicy": "flux-system:sesame-idam-frontend-auth:tag"}
     route:
       enabled: true
+      # New host first (it becomes the ownership annotation); old host kept for
+      # the transition — see frontend-platform.yaml.
       hostnames:
+        - auth.sesameidentity.dev.local
         - sesame-auth.dev.microscaler.local
+      gateway:
+        sectionNameHttp:
+          - sesameidentity-http
+          - http
+        sectionNameHttps:
+          - sesameidentity-https
+          - https
 

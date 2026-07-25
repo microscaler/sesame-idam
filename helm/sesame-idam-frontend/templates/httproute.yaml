@@ -1,6 +1,8 @@
 {{- if and .Values.route.enabled .Values.route.hostnames }}
-# Shared edge Gateway (Envoy Gateway). haproxy owns *.dev.microscaler.local on
-# the LAN and forwards to this Gateway.
+# Shared edge Gateway (Envoy Gateway). haproxy owns *.dev.microscaler.local and
+# sesameidentity.dev.local on the LAN and forwards to this Gateway. Which of the
+# Gateway's listeners this route binds to comes from `route.gateway.sectionName*`
+# — it has to match the zone the hostnames are in, see values.yaml.
 #
 # Rule order matters: for matches of equal specificity Gateway API takes the
 # first, so the plaintext redirect has to precede the catch-all that serves
@@ -20,16 +22,7 @@ spec:
   hostnames:
 {{ toYaml .Values.route.hostnames | indent 4 }}
   parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: {{ .Values.route.gateway.name }}
-      namespace: {{ .Values.route.gateway.namespace }}
-      sectionName: https
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: {{ .Values.route.gateway.name }}
-      namespace: {{ .Values.route.gateway.namespace }}
-      sectionName: http
+{{- include "sesame.gatewayParentRefs" . | nindent 4 }}
   rules:
 {{- include "sesame.httpsRedirectRule" (dict "ctx" . "paths" (list "/")) | nindent 4 }}
     - matches:
