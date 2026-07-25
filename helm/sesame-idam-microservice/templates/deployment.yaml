@@ -1,0 +1,210 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+    app: {{ .Values.service.name }}
+spec:
+  {{- /* Gate B1 / ADR-006: with in-memory (ephemeral) signing keys, multiple
+       replicas would serve disagreeing keysets. Scaling is allowed ONLY when
+       the shared signing keyset is mounted (signingKeyset.enabled — ADR-006
+       step 1): every replica then loads the same keys with the same kids. */}}
+  {{- if and (eq .Values.service.name "identity-session-service") (gt (int .Values.deployment.replicas) 1) (not (and .Values.signingKeyset .Values.signingKeyset.enabled)) }}
+  {{- fail "identity-session-service with replicas > 1 requires signingKeyset.enabled=true (ADR-006 shared keyset). With in-memory keys, multi-replica serves disagreeing JWKS." }}
+  {{- end }}
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.service.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.service.name }}
+      annotations:
+        checksum/config: "{{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum | trunc 8 }}"
+    spec:
+      containers:
+        - name: {{ .Values.service.name }}
+          image: "{{ .Values.image.repository }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.containerPort }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ .Values.service.containerPort | quote }}
+            - name: RUST_LOG
+              value: {{ .Values.env.RUST_LOG | quote }}
+            - name: RUST_BACKTRACE
+              value: {{ .Values.env.RUST_BACKTRACE | quote }}
+            - name: BRRTR_LOG_FORMAT
+              value: {{ .Values.env.BRRTR_LOG_FORMAT | quote }}
+            - name: BRRTR_STACK_SIZE
+              value: {{ .Values.env.BRRTR_STACK_SIZE | quote }}
+            # ── Lifeguard database pool (sesame_idam_database reads DB_*) ──
+            - name: DB_HOST
+              value: {{ .Values.app.config.database.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.app.config.database.port | quote }}
+            - name: DB_NAME
+              value: {{ .Values.app.config.database.name | quote }}
+            - name: DB_USER
+              value: {{ .Values.app.config.database.user | quote }}
+            - name: DB_POOL_MAX
+              value: {{ .Values.app.config.database.max_connections | quote }}
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-db-credentials
+                  key: password
+                  optional: true
+            # Dev fallback when the Secret is absent (local Kind only).
+            - name: SESAME_IDAM_DB_PASSWORD
+              value: {{ .Values.app.config.database.password | quote }}
+            # ── Redis (refresh tokens, denylist, version store) ──
+            - name: REDIS_URL
+              value: "redis://{{ .Values.app.config.redis.host }}:{{ .Values.app.config.redis.port }}"
+            {{- if .Values.app.config.authzCoreUrl }}
+            # ── authz-core enrichment (identity-login-service) ──
+            - name: AUTHZ_CORE_URL
+              value: {{ .Values.app.config.authzCoreUrl | quote }}
+            {{- end }}
+            # ── Shared JWT signing key (K8s Secret; login signs, session
+            #    publishes the public half in JWKS). Optional: without it,
+            #    each service falls back to an ephemeral dev key.
+            - name: SESAME_JWT_SIGNING_KEY_PKCS8_B64
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-jwt-signing
+                  key: pkcs8_b64
+                  optional: true
+            - name: SESAME_JWT_SIGNING_KID
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-jwt-signing
+                  key: kid
+                  optional: true
+            {{- if and .Values.signingKeyset .Values.signingKeyset.enabled }}
+            # ── ADR-006 step 1: shared signing KEYSET (SOPS-delivered Secret).
+            #    All replicas load the same keys with deterministic RFC 7638
+            #    kids; rotation = edit the keyset; session-service reloads the
+            #    mount live. Takes precedence over the env key pair above.
+            - name: KEY_SOURCE
+              value: "file"
+            - name: SESAME_SIGNING_KEYSET_FILE
+              value: "/etc/sesame/keys/signing-keyset.json"
+            {{- end }}
+            # ── PLATFORM Twilio (ADR-009 Tier 0) ──
+            # Platform-billed purposes ONLY (tenant onboarding, environment
+            # registration, tenant-owner recovery, operator MFA). Tenant
+            # end-user SMS resolves to the tenant's own account — never these.
+            # Optional: absent → SMS_PROVIDER stays mock and nothing is spent.
+            - name: SMS_PROVIDER
+              value: {{ .Values.app.config.sms.provider | default "mock" | quote }}
+            - name: SMS_ALLOWED_PURPOSES
+              value: {{ .Values.app.config.sms.allowedPurposes | default "registration,password_reset,tenant_registration,environment_registration,tenant_owner_recovery,platform_operator" | quote }}
+            - name: SMS_PLATFORM_DAILY_CEILING_CENTS
+              value: {{ .Values.app.config.sms.platformDailyCeilingCents | default 1000 | quote }}
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: TWILIO_ACCOUNT_SID
+                  optional: true
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: TWILIO_AUTH_TOKEN
+                  optional: true
+            - name: TWILIO_MESSAGING_SERVICE_SID
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: TWILIO_MESSAGING_SERVICE_SID
+                  optional: true
+            - name: TWILIO_FROM_NUMBER
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: TWILIO_FROM_NUMBER
+                  optional: true
+            # ── TENANT credential custody (ADR-009 Tier 2) ──
+            # Wraps the per-credential data keys that protect tenant Twilio
+            # tokens at rest. Absent → envelope custody is unavailable and
+            # tenants must use Twilio Connect, which is the preferred path
+            # anyway; nothing silently falls back to the platform account.
+            - name: SMS_CREDENTIAL_KEK
+              valueFrom:
+                secretKeyRef:
+                  name: sesame-idam-twilio
+                  key: SMS_CREDENTIAL_KEK
+                  optional: true
+            # Tenants permitted to hand Sesame a raw credential rather than
+            # authorising via Connect. Empty (the default) means nobody —
+            # this is a dogfood escape hatch, not a product feature.
+            - name: SMS_ENVELOPE_CUSTODY_TENANTS
+              value: {{ .Values.app.config.sms.envelopeCustodyTenants | default "" | quote }}
+            {{- if .Values.app.config.observability.otlp_endpoint }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.app.config.observability.otlp_endpoint | quote }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.app.serviceName | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.readiness.failureThreshold }}
+          resources:
+            requests:
+              memory: {{ .Values.resources.requests.memory }}
+              cpu: {{ .Values.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.resources.limits.memory }}
+              cpu: {{ .Values.resources.limits.cpu }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            {{- if and .Values.signingKeyset .Values.signingKeyset.enabled }}
+            - name: signing-keyset
+              mountPath: /etc/sesame/keys
+              readOnly: true
+            {{- end }}
+            - name: logs
+              mountPath: /app/logs
+            - name: data
+              mountPath: /app/data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Values.service.name }}-config
+        {{- if and .Values.signingKeyset .Values.signingKeyset.enabled }}
+        - name: signing-keyset
+          secret:
+            secretName: {{ (default "sesame-idam-signing-keyset" .Values.signingKeyset.secretName) }}
+        {{- end }}
+        - name: logs
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
