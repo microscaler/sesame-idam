@@ -1,38 +1,36 @@
-# OIDC / pre-OIDC resume — 2026-08-03
+# OIDC resume — 2026-08-03
 
-## Pushed
-- `5305e39` feat(oidc): interactive PKCE path, Epic 14 runner, and pre-OIDC live gates
+## Done
+### Pushed
+- `5305e39` interactive PKCE + Epic 14 runner + pre-OIDC gates
+- `ed7f4ff` BearerAuth `iss` aligned with `SESAME_JWT_ISSUER` (+ helm
+  ConfigMap force + `jwks_issuer_alignment` drift test)
 
-## In progress (uncommitted): JWT iss drift fix
-Root cause of live `authorize/complete` `invalid_token`: minted tokens use
-`SESAME_JWT_ISSUER=https://id.sesameidentity.dev.local` but ConfigMap
-`security.jwks.BearerAuth.iss` was still `https://idam.example.com`.
+### Live verified (ms02 / shared-k8s)
+Full interactive PKCE green:
+`authorize → login → authorize/complete → token → userinfo`
 
-Pending git changes (NO secrets — public issuer URLs only):
-- helm values `*.yaml` BearerAuth.iss → id.sesameidentity.dev.local
-- Flux `common.yaml` + login/session HelmRelease iss
-- configmap template forces iss from `env.SESAME_JWT_ISSUER`
-- `common/tests/jwks_issuer_alignment.rs` drift guard
+- JWT trust: ConfigMap `iss=https://id.sesameidentity.dev.local`
+- Login image includes authorize `tenant`/`client_id` query + UserInfo RLS
+- Hosted auth SPA rebuilt with `completeOidcAuthorize` (`index-CecitWoN.js`)
+- `oidc_` BDD: **24/24 passed** including `live_interactive_pkce_round_trip`
 
-Live hot-patched ConfigMaps + restarted services for verification.
-Complete JWT path unblocked; userinfo/authorize follow-ups still open.
+### Secrets (hauliage-aligned)
+Passwords/keys only via SOPS `*.secrets.env` / `*.secret.yaml` + kustomize
+`secretGenerator`. Never put plaintext credentials in helm values.
 
-## Secrets policy (hauliage-aligned)
-Sesame already matches hauliage SOPS layout — do **not** put plaintext
-passwords/keys in helm values or git:
+## Pending / follow-ups
+1. Commit remaining: remove live soft-skip; pin `frontend-auth` image tag +
+   registry repository in Flux HelmRelease (no ImageRepository for frontends yet)
+2. Add Flux ImageRepository/ImagePolicy for `sesame-idam-frontend-*` (or keep
+   manual dig tags)
+3. Epic 14.6–14.7 external conformance / framework matrix
+4. Dual OTP / SMS verify still unwired stubs
 
-| Pattern | Path |
-|---------|------|
-| `.sops.yaml` | repo root — `*.secrets.env` + `*.secret.yaml` age rules |
-| DB bootstrap | `…/bootstrap/application.secrets.env` → secretGenerator `sesame-idam-bootstrap-db` |
-| DB runtime | `…/runtime/application.secrets.env` → `sesame-idam-db-credentials` |
-| JWT signing | `…/runtime/jwt-signing.secrets.env` + `signing-keyset.secret.yaml` |
-| Twilio | `…/runtime/twilio.secrets.env` |
-
-Helm `app.config.database.password: ""` — real password via Secret/`DB_PASS` envFrom.
-Decrypt: `SOPS_AGE_KEY_FILE=~/.config/sops/age/…` (see docs/sops-age-keys.md).
-
-## Next
-1. Commit/push iss alignment (public URLs only)
-2. Finish live interactive (userinfo aud if still 401)
-3. Redeploy auth frontend for SPA OIDC path
+## Ops notes
+- Sesame Tilt UI: `http://ms02:10351`
+- Force login binary publish: tilt trigger
+  `build-` → `copy-` → `image-sesame-idam-identity-login-service`, then
+  `flux reconcile image repository/update` + HR
+- Auth frontend: `docker build -f docker/frontend/Dockerfile --build-arg APP=auth`
+  push `dev-<ns>`; HR currently pins registry + dig tag

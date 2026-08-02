@@ -382,15 +382,6 @@ fn live_interactive_pkce_round_trip() {
         .json(&serde_json::json!({ "request_id": request_id }))
         .send()
         .expect("complete");
-    if complete.status() == 401 {
-        // Edge/BRRTRouter JWT validation currently rejects login-issued access
-        // tokens on authorize/complete (`invalid_token`). The in-process
-        // interactive suite covers the handler chain; fix JWT trust next.
-        eprintln!(
-            "SKIP live_interactive_pkce: authorize/complete JWT validation rejected login access token"
-        );
-        return;
-    }
     assert_eq!(
         complete.status(),
         302,

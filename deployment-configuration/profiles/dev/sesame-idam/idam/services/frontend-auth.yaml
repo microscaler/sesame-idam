@@ -38,8 +38,9 @@ spec:
     service:
       name: sesame-auth
     image:
+      repository: 10.177.76.220:5000
       name: sesame-idam-frontend-auth
-      tag: tilt # {"$imagepolicy": "flux-system:sesame-idam-frontend-auth:tag"}
+      tag: dev-1785714937467542579 # {"$imagepolicy": "flux-system:sesame-idam-frontend-auth:tag"}
     route:
       enabled: true
       # New host first (it becomes the ownership annotation); old host kept for
