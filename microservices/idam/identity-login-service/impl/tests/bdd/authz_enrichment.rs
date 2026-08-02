@@ -105,10 +105,11 @@ fn login_request(email: &str) -> TypedHandlerRequest<LoginRequest> {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: LoginRequest {
+            client_id: "hauliage-web".to_string(),
             email: email.to_string(),
             organization_id: None,
             password: "SecureP@ss123!".to_string(),
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     }

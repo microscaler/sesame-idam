@@ -106,10 +106,11 @@ fn login_request(email: &str, password: &str) -> TypedHandlerRequest<LoginReques
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: LoginRequest {
+            client_id: "hauliage-web".to_string(),
             email: email.to_string(),
             organization_id: None,
             password: password.to_string(),
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     }
@@ -149,7 +150,10 @@ fn lockout_after_repeated_failures_then_decays() {
     // 6th attempt with the CORRECT password: still denied, and the body is
     // byte-identical to a wrong-password 401 — no lock-state oracle.
     let resp = auth_login::handle(login_request(&email, PASSWORD));
-    assert_eq!(resp.status, 401, "correct password during lock must be denied");
+    assert_eq!(
+        resp.status, 401,
+        "correct password during lock must be denied"
+    );
     assert_eq!(
         resp.body, wrong_password_body,
         "locked response must be indistinguishable from wrong-password"

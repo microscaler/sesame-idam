@@ -1,0 +1,35 @@
+{
+  "fixture_version": "1.0.0",
+  "provider_profile": "1.0.0",
+  "algorithm": "EdDSA",
+  "cases": [
+    { "id": "metadata-valid", "family": "metadata", "accept": true },
+    { "id": "metadata-issuer-mismatch", "family": "metadata", "accept": false },
+    { "id": "jwks-unknown-kid", "family": "jwks", "accept": false },
+    { "id": "jwks-wrong-kty", "family": "jwks", "accept": false },
+    { "id": "access-valid-no-org", "family": "access_token", "accept": true },
+    { "id": "access-wrong-issuer", "family": "access_token", "accept": false },
+    { "id": "access-wrong-audience", "family": "access_token", "accept": false },
+    { "id": "access-alg-none", "family": "access_token", "accept": false },
+    { "id": "access-expired", "family": "access_token", "accept": false },
+    { "id": "access-tenant-mismatch", "family": "access_token", "accept": false },
+    { "id": "authorization-valid-public-pkce", "family": "authorization", "accept": true },
+    { "id": "authorization-redirect-prefix", "family": "authorization", "accept": false },
+    { "id": "authorization-pkce-plain", "family": "authorization", "accept": false },
+    { "id": "code-replay", "family": "token", "accept": false },
+    { "id": "code-cross-client", "family": "token", "accept": false },
+    { "id": "refresh-rotation", "family": "refresh", "accept": true },
+    { "id": "refresh-replay", "family": "refresh", "accept": false },
+    { "id": "refresh-cross-client", "family": "refresh", "accept": false },
+    { "id": "userinfo-valid", "family": "userinfo", "accept": true },
+    { "id": "userinfo-substitution", "family": "userinfo", "accept": false }
+  ],
+  "redacted_fields": [
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "code",
+    "code_verifier",
+    "client_secret"
+  ]
+}

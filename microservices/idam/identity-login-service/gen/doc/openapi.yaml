@@ -1432,20 +1432,17 @@ paths:
       tags:
       - Sessions
       summary: OAuth2 authorization endpoint
-      description: 'Redirects user to the Sesame login page. Compatible with `code` response type.
+      description: 'Validates a registered client and redirects the browser to the hosted Sesame authorization surface.
 
         After successful login, redirects to `redirect_uri` with `code` parameter.
 
         Supports PKCE for public clients.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant and application context are derived from `client_id`; this endpoint
+        does not trust a tenant-selection header.'
       operationId: oauth_authorize
       x-public-reason: "pre-authentication: start of the redirect flow"
       security: []
       parameters:
-      - *id007
       - name: client_id
         in: query
         required: true
@@ -1475,22 +1472,34 @@ paths:
         description: CSRF protection state parameter
       - name: scope
         in: query
+        required: true
         schema:
           type: string
         description: Requested scopes (openid, email, profile, etc.)
-      - name: code_challenge
+      - name: nonce
         in: query
+        required: true
         schema:
           type: string
+          minLength: 16
+          maxLength: 512
+        description: OIDC nonce bound into the ID token
+      - name: code_challenge
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 43
+          maxLength: 128
         description: PKCE code challenge (S256)
       - name: code_challenge_method
         in: query
+        required: true
         schema:
           type: string
           enum:
           - S256
-          - plain
-        description: PKCE method
+        description: PKCE method; only S256 is supported
       responses:
         '400':
           description: "Bad request \u2014 validation error"
@@ -1511,6 +1520,111 @@ paths:
           content: *id006
       x-consumer: frontend
       x-consumer-note: OAuth authorization endpoint called by frontend browser
+      x-brrtrouter-impl: true
+  /oauth/authorize/complete:
+    post:
+      tags:
+      - Sessions
+      summary: Complete a hosted authorization session after user authentication
+      operationId: oauth_authorize_complete
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcAuthorizationCompleteRequest'
+      responses:
+        '302':
+          description: Redirect to the validated client URI with code and state
+        '400':
+          description: Invalid, expired, replayed, or tenant-mismatched authorization session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid authenticated user session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /oauth/token:
+    post:
+      tags:
+      - Sessions
+      summary: Standards-compatible OAuth 2.0 token endpoint
+      operationId: oauth_token
+      security: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Optional HTTP Basic client authentication
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OidcTokenRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcTokenRequest'
+      responses:
+        '200':
+          description: Access, ID, and optional rotating refresh tokens
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              description: Always `no-store`
+            Pragma:
+              schema:
+                type: string
+              description: Always `no-cache`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcTokenResponse'
+        '400':
+          description: Invalid request or grant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid confidential client authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /oauth/userinfo:
+    get:
+      tags:
+      - Sessions
+      summary: OpenID Connect UserInfo endpoint
+      operationId: oauth_userinfo
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Claims for the access-token subject and granted scopes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcUserInfoResponse'
+        '401':
+          description: Missing, invalid, or unsuitable access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
   /platform/tenants:
     post:
       tags:
@@ -2048,6 +2162,288 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No SMS configuration for this environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /tenant/oidc/clients:
+    get:
+      tags:
+      - TenantAdmin
+      summary: List this tenant's OIDC relying-party clients
+      operationId: tenant_oidc_client_list
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Registered clients, with all credentials redacted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcClientListResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+    post:
+      tags:
+      - TenantAdmin
+      summary: Register a tenant-owned OIDC relying-party client
+      operationId: tenant_oidc_client_create
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcClientCreateRequest'
+      responses:
+        '201':
+          description: Client registered; a confidential secret is returned once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcClientCreateResponse'
+        '400':
+          description: Invalid client policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /tenant/oidc/clients/{client_id}:
+    parameters:
+    - name: client_id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    get:
+      tags:
+      - TenantAdmin
+      summary: Inspect a tenant-owned OIDC client
+      operationId: tenant_oidc_client_get
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Registered client, with all credentials redacted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcClientResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Client not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+    patch:
+      tags:
+      - TenantAdmin
+      summary: Update policy or lifecycle state for a tenant-owned OIDC client
+      description: Client type and authority class are immutable.
+      operationId: tenant_oidc_client_update
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcClientUpdateRequest'
+      responses:
+        '200':
+          description: Updated client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcClientResponse'
+        '400':
+          description: Invalid client policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Client not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+    delete:
+      tags:
+      - TenantAdmin
+      summary: Permanently disable a tenant-owned OIDC client
+      operationId: tenant_oidc_client_delete
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: Client disabled and marked deleted
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Client not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /tenant/oidc/clients/{client_id}/secrets:
+    post:
+      tags:
+      - TenantAdmin
+      summary: Rotate a confidential OIDC client secret
+      operationId: tenant_oidc_client_secret_rotate
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: client_id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcClientSecretRotateRequest'
+      responses:
+        '201':
+          description: New secret, shown once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcClientSecretResponse'
+        '400':
+          description: Public client or invalid overlap
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Client not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+  /tenant/oidc/clients/{client_id}/secrets/{secret_id}:
+    delete:
+      tags:
+      - TenantAdmin
+      summary: Immediately revoke one confidential OIDC client secret
+      operationId: tenant_oidc_client_secret_revoke
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: client_id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      - name: secret_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Secret revoked immediately
+        '401':
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Client or secret not found in this tenant
           content:
             application/json:
               schema:
@@ -3070,6 +3466,365 @@ components:
           type: string
           format: date-time
           nullable: true
+    OidcAuthorizationCompleteRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      properties:
+        request_id:
+          type: string
+          minLength: 43
+          maxLength: 128
+    OidcTokenRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - grant_type
+      properties:
+        grant_type:
+          type: string
+          enum:
+          - authorization_code
+          - refresh_token
+        client_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        client_secret:
+          type: string
+        code:
+          type: string
+        redirect_uri:
+          type: string
+          format: uri
+        code_verifier:
+          type: string
+          minLength: 43
+          maxLength: 128
+        refresh_token:
+          type: string
+        scope:
+          type: string
+    OidcTokenResponse:
+      type: object
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      - scope
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum:
+          - Bearer
+        expires_in:
+          type: integer
+          format: int64
+        id_token:
+          type: string
+        refresh_token:
+          type: string
+        refresh_token_expires_in:
+          type: integer
+          format: int64
+        scope:
+          type: string
+    OidcUserInfoResponse:
+      type: object
+      required:
+      - sub
+      properties:
+        sub:
+          type: string
+        name:
+          type:
+          - string
+          - 'null'
+        given_name:
+          type:
+          - string
+          - 'null'
+        family_name:
+          type:
+          - string
+          - 'null'
+        preferred_username:
+          type:
+          - string
+          - 'null'
+        email:
+          type:
+          - string
+          - 'null'
+        email_verified:
+          type:
+          - boolean
+          - 'null'
+    OidcClientCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - application_id
+      - client_type
+      - redirect_uris
+      - grants
+      - response_types
+      - scopes
+      - audiences
+      properties:
+        application_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        client_type:
+          type: string
+          enum:
+          - public
+          - confidential
+        token_endpoint_auth_method:
+          type: string
+          enum:
+          - none
+          - client_secret_basic
+          - client_secret_post
+        redirect_uris:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            format: uri
+        post_logout_redirect_uris:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            format: uri
+        grants:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - authorization_code
+            - refresh_token
+        response_types:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - code
+        scopes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[A-Za-z0-9_.:-]{1,128}$'
+        audiences:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 255
+    OidcClientUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+        redirect_uris:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            format: uri
+        post_logout_redirect_uris:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            format: uri
+        grants:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - authorization_code
+            - refresh_token
+        response_types:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - code
+        scopes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[A-Za-z0-9_.:-]{1,128}$'
+        audiences:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 255
+    OidcClientResponse:
+      type: object
+      required:
+      - client_id
+      - tenant_id
+      - application_id
+      - client_type
+      - token_endpoint_auth_method
+      - pkce_s256_required
+      - status
+      - redirect_uris
+      - post_logout_redirect_uris
+      - grants
+      - response_types
+      - scopes
+      - audiences
+      - created_at
+      - updated_at
+      properties:
+        client_id:
+          type: string
+        tenant_id:
+          type: string
+        application_id:
+          type: string
+        client_type:
+          type: string
+          enum:
+          - public
+          - confidential
+        token_endpoint_auth_method:
+          type: string
+          enum:
+          - none
+          - client_secret_basic
+          - client_secret_post
+        pkce_s256_required:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+          - deleted
+        redirect_uris:
+          type: array
+          items:
+            type: string
+        post_logout_redirect_uris:
+          type: array
+          items:
+            type: string
+        grants:
+          type: array
+          items:
+            type: string
+        response_types:
+          type: array
+          items:
+            type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        audiences:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    OidcClientListResponse:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OidcClientResponse'
+    OidcClientCreateResponse:
+      type: object
+      required:
+      - client
+      - client_secret
+      - secret_id
+      properties:
+        client:
+          $ref: '#/components/schemas/OidcClientResponse'
+        client_secret:
+          type:
+          - string
+          - 'null'
+          description: Confidential client secret shown exactly once; null for public clients.
+        secret_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+    OidcClientSecretRotateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        overlap_seconds:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 86400
+          default: 300
+    OidcClientSecretResponse:
+      type: object
+      required:
+      - client_id
+      - secret_id
+      - client_secret
+      - created_at
+      properties:
+        client_id:
+          type: string
+        secret_id:
+          type: string
+          format: uuid
+        client_secret:
+          type: string
+          description: New secret shown exactly once and never available again.
+        created_at:
+          type: string
+          format: date-time
+        previous_secrets_valid_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
     TenantOAuthConfigRequest:
       type: object
       required:

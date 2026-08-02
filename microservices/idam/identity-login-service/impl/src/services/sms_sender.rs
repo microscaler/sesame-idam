@@ -65,7 +65,10 @@ pub enum Credential {
     /// Twilio Connect: act on the tenant's connected account (Phase 2).
     TenantConnect { connected_account_sid: String },
     /// Envelope-decrypted tenant credentials (Phase 2, dogfood only).
-    TenantEnvelope { account_sid: String, auth_token: String },
+    TenantEnvelope {
+        account_sid: String,
+        auth_token: String,
+    },
 }
 
 /// Why a send could not be attributed to a payer.

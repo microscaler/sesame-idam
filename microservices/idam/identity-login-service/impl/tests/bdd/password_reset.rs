@@ -50,7 +50,8 @@ fn db_available() -> bool {
         );
         std::env::set_var(
             "DB_PASS",
-            std::env::var("TEST_DB_PASS").unwrap_or_else(|_| "dev_password_change_in_prod".to_string()),
+            std::env::var("TEST_DB_PASS")
+                .unwrap_or_else(|_| "dev_password_change_in_prod".to_string()),
         );
         std::env::set_var(
             "DB_NAME",
@@ -76,8 +77,8 @@ fn redis_available() -> bool {
 }
 
 fn mailpit_available() -> Option<String> {
-    let smtp_host =
-        std::env::var("TEST_SMTP_HOST").unwrap_or_else(|_| "mailpit.data.svc.cluster.local".to_string());
+    let smtp_host = std::env::var("TEST_SMTP_HOST")
+        .unwrap_or_else(|_| "mailpit.data.svc.cluster.local".to_string());
     let smtp_port = std::env::var("TEST_SMTP_PORT").unwrap_or_else(|_| "1025".to_string());
     if !tcp_up(&smtp_host, &smtp_port) {
         return None;
@@ -138,11 +139,17 @@ fn extract_reset_token(body: &str) -> Option<String> {
     let url = body
         .split_whitespace()
         .find(|w| w.starts_with("http") && w.contains("token="))?;
-    url.split("token=").nth(1).map(|t| t.split('&').next().unwrap_or(t).trim().to_string())
+    url.split("token=")
+        .nth(1)
+        .map(|t| t.split('&').next().unwrap_or(t).trim().to_string())
 }
 
 fn unique_email(prefix: &str) -> String {
-    format!("pwreset_{}_{}@example.com", prefix, uuid::Uuid::new_v4().simple())
+    format!(
+        "pwreset_{}_{}@example.com",
+        prefix,
+        uuid::Uuid::new_v4().simple()
+    )
 }
 
 fn register(email: &str) {
@@ -173,7 +180,10 @@ fn forgot(email: &str) -> brrtrouter::typed::HttpJson<serde_json::Value> {
         handler_name: "auth_forgot_password".to_string(),
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
-        data: ForgotReq { email: email.to_string(), x_tenant_id: TENANT.to_string() },
+        data: ForgotReq {
+            email: email.to_string(),
+            x_tenant_id: TENANT.to_string(),
+        },
         jwt_claims: None,
     })
 }
@@ -202,10 +212,11 @@ fn login(email: &str, password: &str) -> brrtrouter::typed::HttpJson<serde_json:
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: LoginReq {
+            client_id: "hauliage-web".to_string(),
             email: email.to_string(),
             organization_id: None,
             password: password.to_string(),
-            x_tenant_id: TENANT.to_string(),
+            x_tenant_id: Some(TENANT.to_string()),
         },
         jwt_claims: None,
     })
@@ -303,11 +314,21 @@ fn unknown_account_indistinguishable_and_no_mail() {
     let known_resp = forgot(&known);
     let ghost_resp = forgot(&ghost);
     assert_eq!(known_resp.status, ghost_resp.status);
-    assert_eq!(known_resp.body, ghost_resp.body, "responses must be identical");
+    assert_eq!(
+        known_resp.body, ghost_resp.body,
+        "responses must be identical"
+    );
 
-    assert!(wait_for_message_text(&api, &known).is_some(), "known account gets mail");
+    assert!(
+        wait_for_message_text(&api, &known).is_some(),
+        "known account gets mail"
+    );
     std::thread::sleep(Duration::from_secs(1));
-    assert_eq!(message_count(&api, &ghost), 0, "unknown account gets no mail");
+    assert_eq!(
+        message_count(&api, &ghost),
+        0,
+        "unknown account gets no mail"
+    );
 }
 
 /// Scenario: a garbage token is rejected the same way an expired one is.

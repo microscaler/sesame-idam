@@ -45,3 +45,8 @@ identity-user-mgmt-service/20260716200000_app_passwords.sql
 rls/20260716200001_rp_directory.sql
 identity-login-service/20260724223319_tenant_sms_config.sql
 identity-login-service/20260802031355_relying_party_clients.sql
+identity-login-service/20260802060224_relying_party_client_capabilities.sql
+identity-login-service/20260802060224_relying_party_client_redirect_uris.sql
+identity-login-service/20260802060224_relying_party_client_secrets.sql
+identity-login-service/20260802060224_relying_party_clients.sql
+identity-login-service/20260802090000_oidc_client_registry_policy.sql

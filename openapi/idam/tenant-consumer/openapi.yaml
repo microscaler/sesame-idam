@@ -1,14 +1,14 @@
 openapi: 3.1.0
 info:
   title: Sesame IDAM — Tenant Consumer API
-  version: 0.1.0
+  version: 1.0.0
   description: |
     **Product-facing IDAM API** for SaaS tenants (Hauliage, PriceWhisperer, …).
 
     Called from product BFFs and (via BFF) end-user clients. Cross-cloud safe:
     no shared database with product services.
 
-    - Tenant isolation: `X-Tenant-ID` header (e.g. `hauliage`, `pricewhisperer`).
+    - Tenant isolation is derived from a registered client or validated bearer token.
     - Sesame owns users, orgs, memberships, invites, and **invite email delivery**.
     - Product databases store domain profiles keyed by `org_id` from JWT.
 
@@ -17,8 +17,8 @@ info:
     name: Platform / Security
 
 servers:
-  - url: /idam/v1
-    description: IDAM API v1
+  - url: https://api.sesameidentity.dev.local/idam/v1
+    description: Public tenant API v1 (override the host per environment)
 
 tags:
   - name: Account
@@ -41,8 +41,6 @@ paths:
       summary: Create user account (no organization)
       x-public-reason: "public signup: reachable before an account exists"
       security: []
-      parameters:
-        - $ref: '#/components/parameters/XTenantId'
       requestBody:
         required: true
         content:
@@ -62,8 +60,6 @@ paths:
       tags: [Me]
       operationId: list_my_memberships
       summary: List organizations the current user belongs to (or pending invites)
-      parameters:
-        - $ref: '#/components/parameters/XTenantId'
       responses:
         '200':
           description: Membership list
@@ -83,8 +79,6 @@ paths:
         Creates org scoped to tenant. Caller must not already have an active org
         if product policy is single-org-per-user (enforce in impl or document per-tenant).
         Product-specific attributes (e.g. Hauliage SHIPPER vs HAULIER) go in `metadata`.
-      parameters:
-        - $ref: '#/components/parameters/XTenantId'
       requestBody:
         required: true
         content:
@@ -107,7 +101,6 @@ paths:
       operationId: invite_user_to_organization
       summary: Invite user by email — Sesame sends the magic-link email
       parameters:
-        - $ref: '#/components/parameters/XTenantId'
         - name: org_id
           in: path
           required: true
@@ -129,8 +122,6 @@ paths:
       tags: [Invitations]
       operationId: accept_invitation
       summary: Accept invite token (authenticated user; email must match invite)
-      parameters:
-        - $ref: '#/components/parameters/XTenantId'
       requestBody:
         required: true
         content:
@@ -153,7 +144,6 @@ paths:
       x-public-reason: "the invitation token in the request IS the credential"
       security: []
       parameters:
-        - $ref: '#/components/parameters/XTenantId'
         - name: token
           in: query
           required: true
@@ -173,8 +163,6 @@ paths:
       tags: [Me]
       operationId: set_active_organization
       summary: Set active org and return tokens including org_id claim
-      parameters:
-        - $ref: '#/components/parameters/XTenantId'
       requestBody:
         required: true
         content:
@@ -201,20 +189,14 @@ components:
       scheme: bearer
       bearerFormat: JWT
 
-  parameters:
-    XTenantId:
-      name: X-Tenant-ID
-      in: header
-      required: true
-      schema:
-        type: string
-      description: SaaS product tenant slug (`hauliage`, `pricewhisperer`, …)
-
   schemas:
     RegisterRequest:
       type: object
-      required: [email, password, first_name, last_name]
+      required: [client_id, email, password, first_name, last_name]
       properties:
+        client_id:
+          type: string
+          description: Registered public client; determines tenant and application.
         email:
           type: string
           format: email

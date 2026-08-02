@@ -122,7 +122,7 @@ fn set_active_org_request(
         query_params: std::collections::HashMap::new(),
         data: SetActiveOrgRequest {
             organization_id: org_id.to_string(),
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: Some(claims_from_access_token(access_token)),
     }

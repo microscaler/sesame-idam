@@ -16,8 +16,8 @@
 //! than silently burning sends.
 
 use chrono::Utc;
-use lifeguard::{ColumnTrait, LifeError, LifeExecutor, LifeModelTrait};
 use lifeguard::active_model::ActiveModelTrait;
+use lifeguard::{ColumnTrait, LifeError, LifeExecutor, LifeModelTrait};
 use uuid::Uuid;
 
 use crate::models::tenant_sms_config::{
@@ -176,7 +176,9 @@ impl TenantSmsService {
             .set_account_sid(Some(account_sid.to_string()))
             .set_auth_token_ciphertext(match &sealed {
                 Some(s) => Some(s.ciphertext.clone()),
-                None => existing.as_ref().and_then(|c| c.auth_token_ciphertext.clone()),
+                None => existing
+                    .as_ref()
+                    .and_then(|c| c.auth_token_ciphertext.clone()),
             })
             .set_auth_token_nonce(match &sealed {
                 Some(s) => Some(s.nonce.clone()),
@@ -186,10 +188,14 @@ impl TenantSmsService {
                 Some(s) => Some(s.dek_wrapped.clone()),
                 None => existing.as_ref().and_then(|c| c.dek_wrapped.clone()),
             })
-            .set_messaging_service_sid(opts.or_existing(
-                opts.messaging_service_sid.clone(),
-                existing.as_ref().and_then(|c| c.messaging_service_sid.clone()),
-            ))
+            .set_messaging_service_sid(
+                opts.or_existing(
+                    opts.messaging_service_sid.clone(),
+                    existing
+                        .as_ref()
+                        .and_then(|c| c.messaging_service_sid.clone()),
+                ),
+            )
             .set_from_number(opts.or_existing(
                 opts.from_number.clone(),
                 existing.as_ref().and_then(|c| c.from_number.clone()),
@@ -244,10 +250,14 @@ impl TenantSmsService {
             .set_provider("twilio".to_string())
             .set_custody_mode(CUSTODY_CONNECT.to_string())
             .set_connected_account_sid(Some(connected_account_sid.to_string()))
-            .set_messaging_service_sid(opts.or_existing(
-                opts.messaging_service_sid.clone(),
-                existing.as_ref().and_then(|c| c.messaging_service_sid.clone()),
-            ))
+            .set_messaging_service_sid(
+                opts.or_existing(
+                    opts.messaging_service_sid.clone(),
+                    existing
+                        .as_ref()
+                        .and_then(|c| c.messaging_service_sid.clone()),
+                ),
+            )
             .set_from_number(opts.or_existing(
                 opts.from_number.clone(),
                 existing.as_ref().and_then(|c| c.from_number.clone()),
@@ -324,8 +334,9 @@ impl TenantSmsService {
         clear_credential: bool,
         exec: &E,
     ) -> Result<(), LifeError> {
-        let existing = Self::find(tenant_id, environment, exec)?
-            .ok_or_else(|| LifeError::Other(format!("no sms config for {tenant_id}/{environment}")))?;
+        let existing = Self::find(tenant_id, environment, exec)?.ok_or_else(|| {
+            LifeError::Other(format!("no sms config for {tenant_id}/{environment}"))
+        })?;
         let now = Utc::now();
         let mut record = TenantSmsConfigRecord::new();
         record
@@ -344,7 +355,11 @@ impl TenantSmsService {
             .set_campaign_ref(existing.campaign_ref.clone())
             .set_daily_spend_ceiling_cents(existing.daily_spend_ceiling_cents)
             .set_status(status.to_string())
-            .set_last_validated_at(if stamp_validated { Some(now) } else { existing.last_validated_at })
+            .set_last_validated_at(if stamp_validated {
+                Some(now)
+            } else {
+                existing.last_validated_at
+            })
             .set_created_at(existing.created_at)
             .set_updated_at(now);
         if clear_credential {

@@ -98,10 +98,36 @@ pub fn issue_tokens(
     role_for_ttl: &str,
     org_id: Option<&str>,
 ) -> Result<IssuedTokens, IssueError> {
+    issue_tokens_for_client(
+        user_id,
+        tenant_id,
+        portal,
+        portal,
+        roles,
+        permissions,
+        role_for_ttl,
+        org_id,
+        "openid profile email",
+    )
+}
+
+/// Issue an access and refresh pair bound to a registered OIDC client.
+#[allow(clippy::too_many_arguments)]
+pub fn issue_tokens_for_client(
+    user_id: &str,
+    tenant_id: &str,
+    portal: &str,
+    client_id: &str,
+    roles: Vec<String>,
+    permissions: Vec<String>,
+    role_for_ttl: &str,
+    org_id: Option<&str>,
+    granted_scope: &str,
+) -> Result<IssuedTokens, IssueError> {
     let ttl_config = TtlConfig::from_env();
     let now = chrono::Utc::now().timestamp();
     let access_ttl = i64::try_from(ttl_config.ttl_for_role(role_for_ttl).as_secs()).unwrap_or(300);
-    let scope = "openid profile email".to_string();
+    let scope = granted_scope.to_string();
 
     let session_id = Uuid::new_v4().to_string();
     let access_jti = Uuid::new_v4().to_string();
@@ -135,7 +161,7 @@ pub fn issue_tokens(
         .iss(issuer())
         .sub(user_id)
         .aud(issue_audiences())
-        .client_id(portal)
+        .client_id(client_id)
         .scope(scope.clone())
         .exp(now + access_ttl)
         .nbf(now)
@@ -181,7 +207,8 @@ pub fn issue_tokens(
         family_id,
         iat: now,
         exp: refresh_exp,
-        client_id: portal.to_string(),
+        client_id: client_id.to_string(),
+        tenant_id: tenant_id.to_string(),
         scopes: scope.clone(),
     };
     if let Err(e) = crate::redis::store_refresh_token(&metadata) {
@@ -200,4 +227,28 @@ pub fn issue_tokens(
         token_version,
         scope,
     })
+}
+
+/// Issue an OpenID Connect ID token for an authorization-code login.
+pub fn issue_id_token(
+    user_id: &str,
+    client_id: &str,
+    nonce: &str,
+    auth_time: i64,
+) -> Result<String, IssueError> {
+    let now = chrono::Utc::now().timestamp();
+    let ttl = i64::try_from(TtlConfig::from_env().normal_secs).unwrap_or(300);
+    let payload = serde_json::json!({
+        "iss": issuer(),
+        "sub": user_id,
+        "aud": client_id,
+        "azp": client_id,
+        "exp": now + ttl,
+        "iat": now,
+        "auth_time": auth_time,
+        "nonce": nonce,
+    });
+    SIGNER
+        .sign_payload(&payload.to_string())
+        .map_err(|error| IssueError::Signing(error.to_string()))
 }

@@ -134,6 +134,38 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "oauth_authorize" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::oauth_authorize::OauthAuthorizeController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "oauth_authorize_complete" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::oauth_authorize_complete::OauthAuthorizeCompleteController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "oauth_token" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::oauth_token::OauthTokenController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "oauth_userinfo" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::oauth_userinfo::OauthUserinfoController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "auth_logout" => {
                     let tx = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
                         controllers::auth_logout::handle_http,
@@ -326,6 +358,62 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "tenant_oidc_client_list" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_oidc_client_list::TenantOidcClientListController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "tenant_oidc_client_create" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_oidc_client_create::TenantOidcClientCreateController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "tenant_oidc_client_get" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_oidc_client_get::TenantOidcClientGetController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "tenant_oidc_client_update" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_oidc_client_update::TenantOidcClientUpdateController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "tenant_oidc_client_delete" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_oidc_client_delete::TenantOidcClientDeleteController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "tenant_oidc_client_secret_rotate" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_oidc_client_secret_rotate::TenantOidcClientSecretRotateController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "tenant_oidc_client_secret_revoke" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_oidc_client_secret_revoke::TenantOidcClientSecretRevokeController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 _ => {} // gen stubs serve everything else for now
             }
         }
@@ -341,8 +429,7 @@ fn main() -> io::Result<()> {
     // Gate A5: CORS enforcement from config (cors.origins) with the
     // per-environment CORS_ALLOWED_ORIGINS override. The impl binaries
     // previously installed NO CORS middleware at all.
-    if let Some(cors) = sesame_common::cors::build_cors_middleware(&app_config, &routes, &metrics)
-    {
+    if let Some(cors) = sesame_common::cors::build_cors_middleware(&app_config, &routes, &metrics) {
         dispatcher.add_middleware(cors);
     }
 

@@ -71,7 +71,10 @@ fn forbidden(message: &str) -> HttpJson<Value> {
 /// downgrade an admin to a nobody — or, worse, be mistaken for a role grant.
 fn roles_of(claims: &Value) -> Vec<String> {
     let mut out = Vec::new();
-    for source in [claims.get("sx").and_then(|sx| sx.get("roles")), claims.get("roles")] {
+    for source in [
+        claims.get("sx").and_then(|sx| sx.get("roles")),
+        claims.get("roles"),
+    ] {
         if let Some(list) = source.and_then(Value::as_array) {
             out.extend(
                 list.iter()
@@ -169,8 +172,8 @@ mod tests {
 
     #[test]
     fn admin_role_resolves_to_the_token_tenant() {
-        let admin = tenant_admin_principal(&claims("hauliage", &["tenant_admin"]))
-            .expect("tenant admin");
+        let admin =
+            tenant_admin_principal(&claims("hauliage", &["tenant_admin"])).expect("tenant admin");
         assert_eq!(admin.tenant, "hauliage");
     }
 
@@ -188,8 +191,8 @@ mod tests {
 
     #[test]
     fn ordinary_tenant_user_is_forbidden_not_unauthorized() {
-        let err = tenant_admin_principal(&claims("hauliage", &["member"]))
-            .expect_err("no admin role");
+        let err =
+            tenant_admin_principal(&claims("hauliage", &["member"])).expect_err("no admin role");
         assert_eq!(err.status, 403, "known identity, not their resource");
     }
 

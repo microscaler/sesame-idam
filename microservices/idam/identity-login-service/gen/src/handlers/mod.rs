@@ -49,6 +49,12 @@ pub mod verify_phone_otp;
 
 pub mod oauth_authorize;
 
+pub mod oauth_authorize_complete;
+
+pub mod oauth_token;
+
+pub mod oauth_userinfo;
+
 pub mod platform_tenant_create;
 
 pub mod platform_tenant_get;
@@ -66,6 +72,20 @@ pub mod platform_tenant_sms_revoke;
 pub mod platform_tenant_status_patch;
 
 pub mod set_active_organization;
+
+pub mod tenant_oidc_client_list;
+
+pub mod tenant_oidc_client_create;
+
+pub mod tenant_oidc_client_get;
+
+pub mod tenant_oidc_client_delete;
+
+pub mod tenant_oidc_client_update;
+
+pub mod tenant_oidc_client_secret_rotate;
+
+pub mod tenant_oidc_client_secret_revoke;
 
 pub mod tenant_sms_get;
 

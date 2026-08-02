@@ -1,0 +1,53 @@
+{
+  "authorization": {
+    "valid": {
+      "client_id": "fixture-public-client",
+      "response_type": "code",
+      "redirect_uri": "https://client.example/callback",
+      "scope": "openid profile email",
+      "state": "state-0123456789abcdef",
+      "nonce": "nonce-0123456789abcdef",
+      "code_challenge": "qjrzSW9gMiUgpUvqgEPE4_-8swvyCtfOVvg55o5S_es",
+      "code_challenge_method": "S256"
+    },
+    "invalid_redirect_prefix": {
+      "mutate": { "redirect_uri": "https://client.example/callback/attacker" },
+      "expected_error": "invalid_request"
+    },
+    "invalid_plain_pkce": {
+      "mutate": { "code_challenge_method": "plain" },
+      "expected_error": "invalid_request"
+    }
+  },
+  "token": {
+    "valid_code": {
+      "grant_type": "authorization_code",
+      "client_id": "fixture-public-client",
+      "redirect_uri": "https://client.example/callback",
+      "code_verifier": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
+    },
+    "cross_client": {
+      "mutate": { "client_id": "fixture-other-client" },
+      "expected_error": "invalid_grant"
+    },
+    "replay": {
+      "repeat_previous_request": true,
+      "expected_error": "invalid_grant"
+    }
+  },
+  "refresh": {
+    "rotation": {
+      "grant_type": "refresh_token",
+      "client_id": "fixture-public-client",
+      "expect_new_refresh_token": true
+    },
+    "cross_client": {
+      "mutate": { "client_id": "fixture-other-client" },
+      "expected_error": "invalid_grant"
+    },
+    "replay": {
+      "reuse_rotated_token": true,
+      "expected_error": "invalid_grant"
+    }
+  }
+}

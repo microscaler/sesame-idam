@@ -33,14 +33,20 @@ ON CONFLICT (slug) DO UPDATE SET
 -- First-party relying parties. client_id is public and globally unique; it
 -- selects tenant/application context but grants no authority by itself.
 INSERT INTO sesame_idam.relying_party_clients
-    (id, client_id, tenant_slug, portal, client_type, status, created_at, updated_at)
+    (id, client_id, tenant_slug, portal, application_id, client_type,
+     token_endpoint_auth_method, pkce_s256_required, authority_class,
+     status, created_at, updated_at)
 VALUES
     (
         'a1500001-0001-4000-8000-000000000001',
         'hauliage-web',
         'hauliage',
         'frontend',
+        'frontend',
         'confidential',
+        'client_secret_basic',
+        FALSE,
+        'tenant',
         'active',
         NOW(),
         NOW()
@@ -48,8 +54,43 @@ VALUES
 ON CONFLICT (client_id) DO UPDATE SET
     tenant_slug = EXCLUDED.tenant_slug,
     portal = EXCLUDED.portal,
+    application_id = EXCLUDED.application_id,
     status = EXCLUDED.status,
     updated_at = NOW();
+
+INSERT INTO sesame_idam.relying_party_client_redirect_uris
+    (id, relying_party_client_id, kind, uri, created_at)
+VALUES
+    (
+        'a1500001-0002-4000-8000-000000000001',
+        'a1500001-0001-4000-8000-000000000001',
+        'login',
+        'https://loadlinker.dev.microscaler.local/auth/callback',
+        NOW()
+    ),
+    (
+        'a1500001-0002-4000-8000-000000000002',
+        'a1500001-0001-4000-8000-000000000001',
+        'post_logout',
+        'https://loadlinker.dev.microscaler.local/',
+        NOW()
+    )
+ON CONFLICT (relying_party_client_id, kind, uri) DO NOTHING;
+
+INSERT INTO sesame_idam.relying_party_client_capabilities
+    (id, relying_party_client_id, kind, value, created_at)
+SELECT gen_random_uuid(), 'a1500001-0001-4000-8000-000000000001', kind, value, NOW()
+FROM (
+    VALUES
+        ('grant', 'authorization_code'),
+        ('grant', 'refresh_token'),
+        ('response_type', 'code'),
+        ('scope', 'openid'),
+        ('scope', 'profile'),
+        ('scope', 'email'),
+        ('audience', 'sesame-idam')
+) AS capability(kind, value)
+ON CONFLICT (relying_party_client_id, kind, value) DO NOTHING;
 
 -- Google OAuth metadata (secrets via env keys — K8s secrets in dev/prod).
 INSERT INTO sesame_idam.tenant_oauth_providers

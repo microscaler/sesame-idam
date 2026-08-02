@@ -54,7 +54,8 @@ fn db_available() -> bool {
         );
         std::env::set_var(
             "DB_PASS",
-            std::env::var("TEST_DB_PASS").unwrap_or_else(|_| "dev_password_change_in_prod".to_string()),
+            std::env::var("TEST_DB_PASS")
+                .unwrap_or_else(|_| "dev_password_change_in_prod".to_string()),
         );
         std::env::set_var(
             "DB_NAME",
@@ -107,10 +108,11 @@ fn authenticate() -> (String, Option<String>) {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: LoginReq {
+            client_id: "hauliage-web".to_string(),
             email,
             organization_id: None,
             password: PASSWORD.to_string(),
-            x_tenant_id: TENANT.to_string(),
+            x_tenant_id: Some(TENANT.to_string()),
         },
         jwt_claims: None,
     });
@@ -121,7 +123,11 @@ fn authenticate() -> (String, Option<String>) {
     )
 }
 
-fn mint(access_token: &str, refresh_token: Option<String>, redirect_uri: &str) -> brrtrouter::typed::HttpJson<serde_json::Value> {
+fn mint(
+    access_token: &str,
+    refresh_token: Option<String>,
+    redirect_uri: &str,
+) -> brrtrouter::typed::HttpJson<serde_json::Value> {
     auth_session_code::handle(TypedHandlerRequest {
         method: Method::POST,
         path: "/auth/session/code".to_string(),
@@ -138,7 +144,11 @@ fn mint(access_token: &str, refresh_token: Option<String>, redirect_uri: &str) -
     })
 }
 
-fn redeem(code: &str, redirect_uri: &str, tenant: &str) -> sesame_idam_identity_login_service_gen::handlers::auth_token::Response {
+fn redeem(
+    code: &str,
+    redirect_uri: &str,
+    tenant: &str,
+) -> sesame_idam_identity_login_service_gen::handlers::auth_token::Response {
     auth_token::handle(TypedHandlerRequest {
         method: Method::POST,
         path: "/auth/token".to_string(),
@@ -177,11 +187,20 @@ fn code_round_trip_delivers_the_session() {
     let minted = mint(&access, refresh, APP_URI);
     assert_eq!(minted.status, 200, "mint: {:?}", minted.body);
     let code = minted.body["code"].as_str().expect("code").to_string();
-    assert!(minted.body["expires_in"].as_i64().unwrap() <= 300, "code TTL must be short");
+    assert!(
+        minted.body["expires_in"].as_i64().unwrap() <= 300,
+        "code TTL must be short"
+    );
 
     let redeemed = redeem(&code, APP_URI, TENANT);
-    assert_eq!(redeemed.access_token, access, "app must receive the same session");
-    assert!(!redeemed.user_id.is_empty(), "user_id resolved from the token");
+    assert_eq!(
+        redeemed.access_token, access,
+        "app must receive the same session"
+    );
+    assert!(
+        !redeemed.user_id.is_empty(),
+        "user_id resolved from the token"
+    );
 }
 
 /// Scenario: replay. A code works once.
@@ -194,7 +213,10 @@ fn code_is_single_use() {
     ensure_active_tenant(TENANT);
 
     let (access, refresh) = authenticate();
-    let code = mint(&access, refresh, APP_URI).body["code"].as_str().unwrap().to_string();
+    let code = mint(&access, refresh, APP_URI).body["code"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     assert!(!redeem(&code, APP_URI, TENANT).access_token.is_empty());
     assert!(
@@ -214,7 +236,10 @@ fn code_is_bound_to_redirect_uri() {
     ensure_active_tenant(TENANT);
 
     let (access, refresh) = authenticate();
-    let code = mint(&access, refresh, APP_URI).body["code"].as_str().unwrap().to_string();
+    let code = mint(&access, refresh, APP_URI).body["code"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     assert!(
         redeem(&code, EVIL_URI, TENANT).access_token.is_empty(),
@@ -237,10 +262,15 @@ fn code_is_bound_to_tenant() {
     ensure_active_tenant("handoff-other-tenant");
 
     let (access, refresh) = authenticate();
-    let code = mint(&access, refresh, APP_URI).body["code"].as_str().unwrap().to_string();
+    let code = mint(&access, refresh, APP_URI).body["code"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     assert!(
-        redeem(&code, APP_URI, "handoff-other-tenant").access_token.is_empty(),
+        redeem(&code, APP_URI, "handoff-other-tenant")
+            .access_token
+            .is_empty(),
         "cross-tenant redemption must be refused"
     );
 }
@@ -273,5 +303,7 @@ fn unknown_code_refused() {
         return;
     }
     ensure_active_tenant(TENANT);
-    assert!(redeem("no-such-code", APP_URI, TENANT).access_token.is_empty());
+    assert!(redeem("no-such-code", APP_URI, TENANT)
+        .access_token
+        .is_empty());
 }

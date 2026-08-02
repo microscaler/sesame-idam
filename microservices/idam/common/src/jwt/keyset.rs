@@ -131,8 +131,8 @@ pub fn parse_keyset(json: &str) -> Result<Vec<LoadedKey>, KeysetError> {
 /// Returns [`KeysetError::Io`] when the file cannot be read, else as
 /// [`parse_keyset`].
 pub fn load_keyset_file(path: &str) -> Result<Vec<LoadedKey>, KeysetError> {
-    let json = std::fs::read_to_string(path)
-        .map_err(|e| KeysetError::Io(format!("{path}: {e}")))?;
+    let json =
+        std::fs::read_to_string(path).map_err(|e| KeysetError::Io(format!("{path}: {e}")))?;
     parse_keyset(&json)
 }
 
@@ -168,9 +168,7 @@ mod tests {
     fn keyset_json(entries: &[(String, &str)]) -> String {
         let keys: Vec<serde_json::Value> = entries
             .iter()
-            .map(|(pkcs8, from)| {
-                serde_json::json!({ "pkcs8_b64": pkcs8, "valid_from": from })
-            })
+            .map(|(pkcs8, from)| serde_json::json!({ "pkcs8_b64": pkcs8, "valid_from": from }))
             .collect();
         serde_json::json!({ "keys": keys }).to_string()
     }
@@ -187,12 +185,12 @@ mod tests {
         let json = keyset_json(&[(pkcs8, "2026-01-01T00:00:00Z")]);
         let a = parse_keyset(&json).unwrap();
         let b = parse_keyset(&json).unwrap();
-        assert_eq!(a[0].kid, b[0].kid, "same key must yield same kid everywhere");
-        // Thumbprint of a known x is stable.
         assert_eq!(
-            rfc7638_okp_thumbprint(&a[0].public_x),
-            a[0].kid
+            a[0].kid, b[0].kid,
+            "same key must yield same kid everywhere"
         );
+        // Thumbprint of a known x is stable.
+        assert_eq!(rfc7638_okp_thumbprint(&a[0].public_x), a[0].kid);
     }
 
     #[test]

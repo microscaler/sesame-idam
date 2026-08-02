@@ -36,6 +36,9 @@ pub struct RefreshToken {
     pub exp: i64,
     /// Client application identifier.
     pub client_id: String,
+    /// Tenant derived from the registered client at original authorization.
+    #[serde(default)]
+    pub tenant_id: String,
     /// Space-delimited scopes.
     pub scopes: String,
 }

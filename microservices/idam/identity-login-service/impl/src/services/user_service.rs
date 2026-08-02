@@ -18,6 +18,18 @@ pub const STATUS_ACTIVE: &str = "active";
 pub struct UserService;
 
 impl UserService {
+    /// Find a user by the tenant-bound OIDC subject.
+    pub fn find_by_tenant_and_id<E: LifeExecutor>(
+        tenant_id: &str,
+        user_id: Uuid,
+        exec: &E,
+    ) -> Result<Option<UserModel>, LifeError> {
+        Entity::find()
+            .filter(Column::TenantId.eq(tenant_id.to_string()))
+            .filter(Column::Id.eq(user_id))
+            .find_one(exec)
+    }
+
     /// Find a user by tenant + email (the tenant-scoped login identity).
     ///
     /// # Errors

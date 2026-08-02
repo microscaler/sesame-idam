@@ -48,7 +48,9 @@ fn kek() -> Result<[u8; 32]> {
         .ok()
         .filter(|v| !v.trim().is_empty())
         .context("SMS_CREDENTIAL_KEK not set — tenant credential custody is unavailable")?;
-    let bytes = B64.decode(raw.trim()).context("SMS_CREDENTIAL_KEK is not base64url")?;
+    let bytes = B64
+        .decode(raw.trim())
+        .context("SMS_CREDENTIAL_KEK is not base64url")?;
     if bytes.len() != 32 {
         bail!("SMS_CREDENTIAL_KEK must be 32 bytes (got {})", bytes.len());
     }
@@ -57,23 +59,39 @@ fn kek() -> Result<[u8; 32]> {
     Ok(key)
 }
 
-fn seal_with(key_bytes: &[u8; 32], plaintext: &[u8], nonce_bytes: [u8; NONCE_LEN]) -> Result<Vec<u8>> {
+fn seal_with(
+    key_bytes: &[u8; 32],
+    plaintext: &[u8],
+    nonce_bytes: [u8; NONCE_LEN],
+) -> Result<Vec<u8>> {
     let unbound = UnboundKey::new(&AES_256_GCM, key_bytes)
         .map_err(|_| anyhow::anyhow!("envelope: invalid key"))?;
     let key = LessSafeKey::new(unbound);
     let mut buf = plaintext.to_vec();
-    key.seal_in_place_append_tag(Nonce::assume_unique_for_key(nonce_bytes), Aad::empty(), &mut buf)
-        .map_err(|_| anyhow::anyhow!("envelope: seal failed"))?;
+    key.seal_in_place_append_tag(
+        Nonce::assume_unique_for_key(nonce_bytes),
+        Aad::empty(),
+        &mut buf,
+    )
+    .map_err(|_| anyhow::anyhow!("envelope: seal failed"))?;
     Ok(buf)
 }
 
-fn open_with(key_bytes: &[u8; 32], ciphertext: &[u8], nonce_bytes: [u8; NONCE_LEN]) -> Result<Vec<u8>> {
+fn open_with(
+    key_bytes: &[u8; 32],
+    ciphertext: &[u8],
+    nonce_bytes: [u8; NONCE_LEN],
+) -> Result<Vec<u8>> {
     let unbound = UnboundKey::new(&AES_256_GCM, key_bytes)
         .map_err(|_| anyhow::anyhow!("envelope: invalid key"))?;
     let key = LessSafeKey::new(unbound);
     let mut buf = ciphertext.to_vec();
     let plain = key
-        .open_in_place(Nonce::assume_unique_for_key(nonce_bytes), Aad::empty(), &mut buf)
+        .open_in_place(
+            Nonce::assume_unique_for_key(nonce_bytes),
+            Aad::empty(),
+            &mut buf,
+        )
         .map_err(|_| anyhow::anyhow!("envelope: decryption failed (wrong key or tampered data)"))?;
     Ok(plain.to_vec())
 }
@@ -139,7 +157,9 @@ pub fn decrypt(sealed: &Sealed) -> Result<String> {
 ///
 /// Returns an error when the material is malformed or authentication fails.
 pub fn decrypt_with(kek: &[u8; 32], sealed: &Sealed) -> Result<String> {
-    let dek_blob = B64.decode(&sealed.dek_wrapped).context("envelope: dek_wrapped base64")?;
+    let dek_blob = B64
+        .decode(&sealed.dek_wrapped)
+        .context("envelope: dek_wrapped base64")?;
     if dek_blob.len() <= NONCE_LEN {
         bail!("envelope: dek_wrapped too short");
     }
@@ -153,14 +173,18 @@ pub fn decrypt_with(kek: &[u8; 32], sealed: &Sealed) -> Result<String> {
     let mut dek = [0u8; 32];
     dek.copy_from_slice(&dek_vec);
 
-    let nonce_bytes = B64.decode(&sealed.nonce).context("envelope: nonce base64")?;
+    let nonce_bytes = B64
+        .decode(&sealed.nonce)
+        .context("envelope: nonce base64")?;
     if nonce_bytes.len() != NONCE_LEN {
         bail!("envelope: nonce has wrong length");
     }
     let mut data_nonce = [0u8; NONCE_LEN];
     data_nonce.copy_from_slice(&nonce_bytes);
 
-    let ciphertext = B64.decode(&sealed.ciphertext).context("envelope: ciphertext base64")?;
+    let ciphertext = B64
+        .decode(&sealed.ciphertext)
+        .context("envelope: ciphertext base64")?;
     let plain = open_with(&dek, &ciphertext, data_nonce)?;
     String::from_utf8(plain).context("envelope: plaintext is not UTF-8")
 }
@@ -194,7 +218,10 @@ mod tests {
     fn round_trips() {
         let kek = kek_bytes();
         let sealed = encrypt_with(&kek, "super-secret-auth-token").unwrap();
-        assert_eq!(decrypt_with(&kek, &sealed).unwrap(), "super-secret-auth-token");
+        assert_eq!(
+            decrypt_with(&kek, &sealed).unwrap(),
+            "super-secret-auth-token"
+        );
     }
 
     /// Each sealing uses a fresh DEK and nonce, so identical plaintexts do
@@ -206,7 +233,10 @@ mod tests {
         let b = encrypt_with(&kek, "same").unwrap();
         assert_ne!(a.ciphertext, b.ciphertext);
         assert_ne!(a.dek_wrapped, b.dek_wrapped);
-        assert_eq!(decrypt_with(&kek, &a).unwrap(), decrypt_with(&kek, &b).unwrap());
+        assert_eq!(
+            decrypt_with(&kek, &a).unwrap(),
+            decrypt_with(&kek, &b).unwrap()
+        );
     }
 
     /// The database alone is useless: a different KEK cannot open the row.

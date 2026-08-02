@@ -307,8 +307,7 @@ pub fn gate_otp_send(tenant: &str, channel: Channel, recipient: &str) -> SendDec
         let cost = env_u64("SMS_COST_CENTS", 5);
         let day = chrono::Utc::now().format("%Y%m%d");
         // Default scope is the TENANT — never a shared global bucket.
-        let scope = std::env::var("SMS_SPEND_SCOPE")
-            .unwrap_or_else(|_| format!("tenant:{tenant}"));
+        let scope = std::env::var("SMS_SPEND_SCOPE").unwrap_or_else(|_| format!("tenant:{tenant}"));
         let sk = format!("smsspend:{scope}:{day}");
         match conn.incr::<_, _, u64>(&sk, cost) {
             Ok(spent) => {

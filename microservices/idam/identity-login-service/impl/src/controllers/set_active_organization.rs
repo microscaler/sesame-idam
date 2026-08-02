@@ -16,9 +16,9 @@ const DEFAULT_PORTAL: &str = "frontend";
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
     let (user_id, tenant_id) =
         match authenticated_principal(&req.jwt_claims, req.data.x_tenant_id.as_deref()) {
-        Ok(pair) => pair,
-        Err(resp) => return resp,
-    };
+            Ok(pair) => pair,
+            Err(resp) => return resp,
+        };
 
     let org_id = req.data.organization_id.trim();
     if org_id.is_empty() {

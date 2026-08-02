@@ -123,8 +123,9 @@ impl Ed25519Signer {
         if let Some(path) = super::keyset::configured_keyset_file() {
             let keys = super::keyset::load_keyset_file(&path)
                 .map_err(|e| SignerError::InvalidKey(format!("keyset {path}: {e}")))?;
-            let key = super::keyset::signing_key(&keys)
-                .ok_or_else(|| SignerError::InvalidKey(format!("keyset {path}: no key valid now")))?;
+            let key = super::keyset::signing_key(&keys).ok_or_else(|| {
+                SignerError::InvalidKey(format!("keyset {path}: no key valid now"))
+            })?;
             let signer = Self::from_pkcs8(key.kid.clone(), &key.pkcs8)?;
             tracing::info!(kid = %signer.kid, keyset = %path, "JWT signer loaded from shared keyset");
             return Ok(signer);

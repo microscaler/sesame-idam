@@ -82,6 +82,9 @@ env:
   RUST_BACKTRACE: "1"
   BRRTR_LOG_FORMAT: "json"
   BRRTR_STACK_SIZE: "0x8000"
+  SESAME_JWT_ISSUER: "https://id.sesameidentity.dev.local"
+  SESAME_AUTH_PUBLIC_URL: "https://auth.sesameidentity.dev.local"
+  SESAME_API_PUBLIC_URL: "https://api.sesameidentity.dev.local"
 
 serviceType: ClusterIP
 

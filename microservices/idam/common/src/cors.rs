@@ -15,8 +15,7 @@
 use std::sync::Arc;
 
 use brrtrouter::middleware::{
-    build_route_cors_map, CorsMiddleware, CorsMiddlewareBuilder, MetricsMiddleware,
-    RouteCorsPolicy,
+    build_route_cors_map, CorsMiddleware, CorsMiddlewareBuilder, MetricsMiddleware, RouteCorsPolicy,
 };
 use brrtrouter::spec::RouteMeta;
 use http::Method;

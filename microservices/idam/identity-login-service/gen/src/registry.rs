@@ -150,6 +150,24 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "oauth_authorize_complete",
+        crate::controllers::oauth_authorize_complete::OauthAuthorizeCompleteController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "oauth_token",
+        crate::controllers::oauth_token::OauthTokenController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "oauth_userinfo",
+        crate::controllers::oauth_userinfo::OauthUserinfoController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "platform_tenant_create",
         crate::controllers::platform_tenant_create::PlatformTenantCreateController,
         16384,
@@ -200,6 +218,48 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "set_active_organization",
         crate::controllers::set_active_organization::SetActiveOrganizationController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_oidc_client_list",
+        crate::controllers::tenant_oidc_client_list::TenantOidcClientListController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_oidc_client_create",
+        crate::controllers::tenant_oidc_client_create::TenantOidcClientCreateController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_oidc_client_get",
+        crate::controllers::tenant_oidc_client_get::TenantOidcClientGetController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_oidc_client_delete",
+        crate::controllers::tenant_oidc_client_delete::TenantOidcClientDeleteController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_oidc_client_update",
+        crate::controllers::tenant_oidc_client_update::TenantOidcClientUpdateController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_oidc_client_secret_rotate",
+        crate::controllers::tenant_oidc_client_secret_rotate::TenantOidcClientSecretRotateController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "tenant_oidc_client_secret_revoke",
+        crate::controllers::tenant_oidc_client_secret_revoke::TenantOidcClientSecretRevokeController,
         20480,
     );
 
@@ -412,6 +472,30 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "oauth_authorize_complete" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::oauth_authorize_complete::OauthAuthorizeCompleteController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "oauth_token" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::oauth_token::OauthTokenController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "oauth_userinfo" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::oauth_userinfo::OauthUserinfoController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "platform_tenant_create" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::platform_tenant_create::PlatformTenantCreateController,
@@ -479,6 +563,62 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "set_active_organization" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::set_active_organization::SetActiveOrganizationController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_oidc_client_list" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_oidc_client_list::TenantOidcClientListController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_oidc_client_create" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_oidc_client_create::TenantOidcClientCreateController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_oidc_client_get" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_oidc_client_get::TenantOidcClientGetController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_oidc_client_delete" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_oidc_client_delete::TenantOidcClientDeleteController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_oidc_client_update" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_oidc_client_update::TenantOidcClientUpdateController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_oidc_client_secret_rotate" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_oidc_client_secret_rotate::TenantOidcClientSecretRotateController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "tenant_oidc_client_secret_revoke" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::tenant_oidc_client_secret_revoke::TenantOidcClientSecretRevokeController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

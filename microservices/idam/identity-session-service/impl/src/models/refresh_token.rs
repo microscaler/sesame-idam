@@ -56,6 +56,9 @@ pub struct RefreshToken {
     pub exp: i64,
     /// Client application identifier
     pub client_id: String,
+    /// Tenant derived from the registered client at original authorization.
+    #[serde(default)]
+    pub tenant_id: String,
     /// Space-delimited scopes
     pub scopes: String,
 }
@@ -72,6 +75,32 @@ impl RefreshToken {
         client_id: String,
         scopes: String,
     ) -> Self {
+        Self::new_with_tenant(
+            jti,
+            sub,
+            sid,
+            family_id,
+            iat,
+            exp,
+            client_id,
+            String::new(),
+            scopes,
+        )
+    }
+
+    /// Create refresh metadata carrying credential-derived tenant context.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_tenant(
+        jti: String,
+        sub: String,
+        sid: String,
+        family_id: String,
+        iat: i64,
+        exp: i64,
+        client_id: String,
+        tenant_id: String,
+        scopes: String,
+    ) -> Self {
         Self {
             jti,
             sub,
@@ -80,6 +109,7 @@ impl RefreshToken {
             iat,
             exp,
             client_id,
+            tenant_id,
             scopes,
         }
     }

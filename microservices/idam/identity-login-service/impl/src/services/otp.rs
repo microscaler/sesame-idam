@@ -51,7 +51,10 @@ fn digests_match(a: &str, b: &str) -> bool {
     if a.len() != b.len() {
         return false;
     }
-    a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+    a.bytes()
+        .zip(b.bytes())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
 }
 
 // ── email OTP ───────────────────────────────────────────────────────────────
@@ -94,7 +97,10 @@ pub fn verify_otp(channel: &str, tenant: &str, recipient: &str, code: &str) -> O
     // Attempt budget first: exhausting it burns the stored code.
     let ak = otp_attempts_key(channel, tenant, recipient);
     let attempts: u64 = conn.incr(&ak, 1u64).ok()?;
-    let _: Result<(), _> = conn.expire(&ak, i64::try_from(env_u64("OTP_TTL_SECS", 300)).unwrap_or(300));
+    let _: Result<(), _> = conn.expire(
+        &ak,
+        i64::try_from(env_u64("OTP_TTL_SECS", 300)).unwrap_or(300),
+    );
     if attempts > env_u64("OTP_MAX_ATTEMPTS", 5) {
         let _: Result<(), _> = conn.del(otp_key(channel, tenant, recipient));
         return None;

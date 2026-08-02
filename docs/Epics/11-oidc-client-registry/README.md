@@ -1,6 +1,6 @@
 # Epic 11: OIDC Relying-Party Registry and Tenant Binding
 
-> **Status:** Proposed  
+> **Status:** Implemented  
 > **Program:** Standards-first OIDC provider  
 > **Audit source:** [Non-BRRTRouter framework readiness audit](../../audit/non-brrtrouter-framework-readiness-2026-07-25.md)  
 > **Dependencies:** Epic 10 tenant registry; ADR-011 authority separation; ADR-013 public issuer
@@ -100,16 +100,34 @@ be representable as tenant-owned clients with elevated flags.
 
 ## Acceptance gate
 
-- [ ] A valid `client_id` resolves one active tenant and application.
-- [ ] Unknown, disabled, or cross-tenant clients fail before user authentication.
-- [ ] Redirect and post-logout URI matching is exact.
-- [ ] Public clients cannot authenticate with or retrieve a secret.
-- [ ] Public clients are marked PKCE-S256-required.
-- [ ] Confidential secrets are hashed, rotatable, revocable, and redacted.
-- [ ] Tenant admins cannot inspect or mutate another tenant's clients.
-- [ ] Platform authority and tenant authority use separate credentials and routes.
-- [ ] All client lifecycle operations emit security audit events.
-- [ ] Existing application records have an explicit migration disposition.
+- [x] A valid `client_id` resolves one active tenant and application.
+- [x] Unknown, disabled, or cross-tenant clients fail before user authentication.
+- [x] Redirect and post-logout URI matching is exact.
+- [x] Public clients cannot authenticate with or retrieve a secret.
+- [x] Public clients are marked PKCE-S256-required.
+- [x] Confidential secrets are hashed, rotatable, revocable, and redacted.
+- [x] Tenant admins cannot inspect or mutate another tenant's clients.
+- [x] Platform authority and tenant authority use separate credentials and routes.
+- [x] All client lifecycle operations emit security audit events.
+- [x] Existing application records have an explicit migration disposition.
+
+## Implementation evidence
+
+- `sesame_common::oidc_client` is the shared redirect, client-policy, and
+  credential primitive used by the registry and future protocol handlers.
+- `relying_party_clients` now has immutable tenant, application, client-type,
+  and authority bindings. Normalized redirect, capability, and hashed-secret
+  tables carry protocol policy.
+- `ClientRegistry::resolve_active` returns the complete policy decision used by
+  authorization, token, refresh, and logout operations.
+- `/tenant/oidc/clients*` provides bearer-authenticated tenant lifecycle
+  operations. Tenant is derived only from validated claims; platform clients
+  cannot be represented through these routes.
+- Secret rotation uses bounded overlap, immediate revocation, one current
+  secret, Argon2id verifiers, one-time plaintext responses, and redacted audit
+  metadata.
+- The migration records every legacy `applications` row as `manual_review`
+  instead of assigning unsafe OAuth defaults.
 
 ## Test evidence
 

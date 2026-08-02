@@ -5331,6 +5331,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "arc-swap",
+ "argon2",
  "async-trait",
  "base64 0.22.1",
  "blake3",
@@ -5368,6 +5369,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+ "url",
  "uuid",
  "wiremock",
 ]
@@ -5517,6 +5519,7 @@ dependencies = [
  "chrono",
  "clap",
  "config",
+ "hex",
  "http 1.4.2",
  "jsonwebtoken 9.3.1",
  "lifeguard",
@@ -5546,6 +5549,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tikv-jemallocator",
  "tracing",
+ "url",
  "uuid",
 ]
 

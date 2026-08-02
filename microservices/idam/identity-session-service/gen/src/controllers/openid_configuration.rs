@@ -9,6 +9,7 @@ use brrtrouter_macros::handler;
 pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     HttpJson::ok(Response {
         authorization_endpoint: Some("example".to_string()),
+        claims_supported: Some(vec![]),
         code_challenge_methods_supported: Some(vec![]),
         grant_types_supported: Some(vec![]),
         id_token_signing_alg_values_supported: Some(vec![]),
@@ -20,6 +21,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
         scopes_supported: Some(vec![]),
         subject_types_supported: Some(vec![]),
         token_endpoint: Some("example".to_string()),
+        token_endpoint_auth_methods_supported: Some(vec![]),
         userinfo_encryption_alg_values_supported: Some(vec![]),
         userinfo_encryption_enc_values_supported: Some(vec![]),
         userinfo_endpoint: Some("example".to_string()),

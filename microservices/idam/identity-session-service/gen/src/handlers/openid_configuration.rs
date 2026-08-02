@@ -19,6 +19,10 @@ pub struct Response {
     pub authorization_endpoint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "claims_supported")]
+    pub claims_supported: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "code_challenge_methods_supported")]
     pub code_challenge_methods_supported: Option<Vec<String>>,
 
@@ -61,6 +65,10 @@ pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "token_endpoint")]
     pub token_endpoint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "token_endpoint_auth_methods_supported")]
+    pub token_endpoint_auth_methods_supported: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "userinfo_encryption_alg_values_supported")]

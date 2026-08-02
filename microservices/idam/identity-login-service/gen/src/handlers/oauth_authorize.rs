@@ -10,9 +10,6 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    #[serde(rename = "X-Tenant-ID")]
-    pub x_tenant_id: String,
-
     #[serde(rename = "client_id")]
     pub client_id: String,
 
@@ -25,17 +22,17 @@ pub struct Request {
     #[serde(rename = "state")]
     pub state: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "scope")]
-    pub scope: Option<String>,
+    pub scope: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "nonce")]
+    pub nonce: String,
+
     #[serde(rename = "code_challenge")]
-    pub code_challenge: Option<String>,
+    pub code_challenge: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "code_challenge_method")]
-    pub code_challenge_method: Option<String>,
+    pub code_challenge_method: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -64,20 +61,6 @@ impl TryFrom<HandlerRequest> for Request {
         use serde_json::{Map, Value};
 
         let mut data_map = Map::new();
-
-        if let Some(v) = req.get_header("x-tenant-id") {
-            data_map.insert(
-                "X-Tenant-ID".to_string(),
-                brrtrouter::server::request::decode_param_value(
-                    v,
-                    Some(&serde_json::json!({"type":"string"})),
-                    None,
-                    None,
-                ),
-            );
-        } else {
-            return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
-        }
 
         if let Some(v) = req.get_query_param("client_id") {
             data_map.insert(
@@ -148,8 +131,21 @@ impl TryFrom<HandlerRequest> for Request {
                 ),
             );
         } else {
+            return Err(anyhow::anyhow!("Missing required parameter 'scope'"));
+        }
 
-            // optional parameter
+        if let Some(v) = req.get_query_param("nonce") {
+            data_map.insert(
+                "nonce".to_string(),
+                brrtrouter::server::request::decode_param_value(
+                    v,
+                    Some(&serde_json::json!({"maxLength":512,"minLength":16,"type":"string"})),
+                    None,
+                    None,
+                ),
+            );
+        } else {
+            return Err(anyhow::anyhow!("Missing required parameter 'nonce'"));
         }
 
         if let Some(v) = req.get_query_param("code_challenge") {
@@ -157,14 +153,15 @@ impl TryFrom<HandlerRequest> for Request {
                 "code_challenge".to_string(),
                 brrtrouter::server::request::decode_param_value(
                     v,
-                    Some(&serde_json::json!({"type":"string"})),
+                    Some(&serde_json::json!({"maxLength":128,"minLength":43,"type":"string"})),
                     None,
                     None,
                 ),
             );
         } else {
-
-            // optional parameter
+            return Err(anyhow::anyhow!(
+                "Missing required parameter 'code_challenge'"
+            ));
         }
 
         if let Some(v) = req.get_query_param("code_challenge_method") {
@@ -172,14 +169,15 @@ impl TryFrom<HandlerRequest> for Request {
                 "code_challenge_method".to_string(),
                 brrtrouter::server::request::decode_param_value(
                     v,
-                    Some(&serde_json::json!({"enum":["S256","plain"],"type":"string"})),
+                    Some(&serde_json::json!({"enum":["S256"],"type":"string"})),
                     None,
                     None,
                 ),
             );
         } else {
-
-            // optional parameter
+            return Err(anyhow::anyhow!(
+                "Missing required parameter 'code_challenge_method'"
+            ));
         }
 
         if let Some(body) = req.body {

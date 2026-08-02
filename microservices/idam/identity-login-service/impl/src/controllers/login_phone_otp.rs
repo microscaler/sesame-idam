@@ -65,7 +65,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         Some(user) if user.status == STATUS_ACTIVE => {
             match otp::create_phone_otp(&tenant_id, &phone, &user.id.to_string()) {
                 Ok(code) => {
-                    let body = format!("Your Sesame verification code is {code}. It expires in 5 minutes.");
+                    let body = format!(
+                        "Your Sesame verification code is {code}. It expires in 5 minutes."
+                    );
                     if let Err(e) = sms::send_sms(&phone, &body, SmsPurpose::Login) {
                         tracing::error!(error = %e, tenant = %tenant_id, "phone OTP delivery failed");
                     }
@@ -73,7 +75,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
                 Err(e) => tracing::error!(error = %e, tenant = %tenant_id, "phone OTP mint failed"),
             }
         }
-        _ => tracing::info!(tenant = %tenant_id, "phone OTP requested for unknown/inactive account — no send"),
+        _ => {
+            tracing::info!(tenant = %tenant_id, "phone OTP requested for unknown/inactive account — no send")
+        }
     }
 
     generic_success()

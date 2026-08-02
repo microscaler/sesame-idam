@@ -24,9 +24,25 @@ pub struct RelyingPartyClient {
     #[column_type = "VARCHAR(64)"]
     pub portal: String,
 
+    /// Stable application identifier used by protocol and authorization policy.
+    #[column_type = "VARCHAR(64)"]
+    pub application_id: String,
+
     /// `public` or `confidential`; immutable after registration.
     #[column_type = "VARCHAR(32)"]
     pub client_type: String,
+
+    /// `none`, `client_secret_basic`, or `client_secret_post`.
+    #[column_type = "VARCHAR(32)"]
+    pub token_endpoint_auth_method: String,
+
+    /// Public clients must require the S256 PKCE method.
+    #[column_type = "BOOLEAN"]
+    pub pkce_s256_required: bool,
+
+    /// `tenant` or `platform`; tenant routes can never create platform clients.
+    #[column_type = "VARCHAR(32)"]
+    pub authority_class: String,
 
     /// `active`, `disabled`, or `deleted`.
     #[column_type = "VARCHAR(32)"]

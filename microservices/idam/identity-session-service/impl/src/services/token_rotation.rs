@@ -101,6 +101,33 @@ impl From<anyhow::Error> for RotationError {
 /// Validates the old token, checks for reuse, and issues new access + refresh
 /// tokens signed with the shared Ed25519 key.
 pub fn rotate_refresh_token(refresh_token_value: &str, tenant_id: &str) -> RotationOutcome {
+    rotate_refresh_token_bound(refresh_token_value, Some(tenant_id), None)
+}
+
+/// Rotate a standards-endpoint refresh token, deriving tenant from the
+/// server-side token metadata and enforcing the registered client binding.
+pub fn rotate_refresh_token_for_client(
+    refresh_token_value: &str,
+    client_id: &str,
+) -> RotationOutcome {
+    rotate_refresh_token_bound(refresh_token_value, None, Some(client_id))
+}
+
+fn rotate_refresh_token_bound(
+    refresh_token_value: &str,
+    expected_tenant_id: Option<&str>,
+    expected_client_id: Option<&str>,
+) -> RotationOutcome {
+    if super::token_issuer::SIGNER
+        .verify(refresh_token_value)
+        .is_err()
+    {
+        TOKEN_REFRESH_TOTAL
+            .with_label_values(&["failure", "invalid_signature"])
+            .inc();
+        REFRESH_ROTATION_FAILURES_TOTAL.inc();
+        return RotationOutcome::InvalidToken;
+    }
     let parts: Vec<&str> = refresh_token_value.split('.').collect();
     if parts.len() != 3 {
         TOKEN_REFRESH_TOTAL
@@ -136,6 +163,15 @@ pub fn rotate_refresh_token(refresh_token_value: &str, tenant_id: &str) -> Rotat
             REFRESH_ROTATION_FAILURES_TOTAL.inc();
             return RotationOutcome::RedisUnavailable;
         }
+    };
+    if expected_client_id.is_some_and(|expected| expected != token.client_id) {
+        return RotationOutcome::InvalidToken;
+    }
+    let tenant_id = match expected_tenant_id {
+        Some(expected) if token.tenant_id.is_empty() || token.tenant_id == expected => expected,
+        Some(_) => return RotationOutcome::InvalidToken,
+        None if !token.tenant_id.is_empty() => token.tenant_id.as_str(),
+        None => return RotationOutcome::InvalidToken,
     };
 
     // Prefer the family recorded on the stored token (set at login time).
@@ -181,7 +217,7 @@ pub fn rotate_refresh_token(refresh_token_value: &str, tenant_id: &str) -> Rotat
     let now = chrono::Utc::now().timestamp();
     let new_exp = now + i64::from(crate::models::refresh_token::REFRESH_TOKEN_TTL);
 
-    let new_token = RefreshToken::new(
+    let new_token = RefreshToken::new_with_tenant(
         new_jti.clone(),
         token.sub.clone(),
         token.sid.clone(),
@@ -189,6 +225,7 @@ pub fn rotate_refresh_token(refresh_token_value: &str, tenant_id: &str) -> Rotat
         now,
         new_exp,
         token.client_id.clone(),
+        token.tenant_id.clone(),
         token.scopes.clone(),
     );
 
@@ -281,7 +318,6 @@ fn base64_decode_url(input: &str) -> Option<String> {
     let bytes = engine.decode(input).ok()?;
     String::from_utf8(bytes).ok()
 }
-
 
 /// Check if a token has been reused (for reuse detection).
 ///

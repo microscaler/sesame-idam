@@ -223,11 +223,11 @@ impl AccessClaims {
         {
             return Err(JwtValidationError::InvalidIssuer);
         }
-        if !self.aud.iter().any(|a| {
-            super::helpers::expected_audiences()
-                .iter()
-                .any(|e| e == a)
-        }) {
+        if !self
+            .aud
+            .iter()
+            .any(|a| super::helpers::expected_audiences().iter().any(|e| e == a))
+        {
             return Err(JwtValidationError::InvalidAudience);
         }
         if self.ver == 0 {

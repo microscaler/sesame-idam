@@ -97,7 +97,8 @@ pub fn send_email(to: &str, subject: &str, body: &str) -> Result<()> {
             .with_context(|| format!("SMTP: resolving {addr}"))?
             .next()
             .with_context(|| format!("SMTP: no address for {addr}"))?;
-        TcpStream::connect_timeout(&sock, timeout()).with_context(|| format!("SMTP: connect {addr}"))?
+        TcpStream::connect_timeout(&sock, timeout())
+            .with_context(|| format!("SMTP: connect {addr}"))?
     };
     stream.set_read_timeout(Some(timeout()))?;
     stream.set_write_timeout(Some(timeout()))?;

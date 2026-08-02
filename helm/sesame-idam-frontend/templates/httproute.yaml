@@ -25,6 +25,32 @@ spec:
 {{- include "sesame.gatewayParentRefs" . | nindent 4 }}
   rules:
 {{- include "sesame.httpsRedirectRule" (dict "ctx" . "paths" (list "/")) | nindent 4 }}
+{{- if eq .Values.service.name "sesame-auth" }}
+    # Hosted OIDC authorization stays on the cookie-bearing auth origin while
+    # the generated service retains its internal /idam/v1 base path.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth/authorize
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /idam/v1/oauth/authorize
+{{- if .Values.route.tls.hstsMaxAgeSeconds }}
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            set:
+              - name: Strict-Transport-Security
+                value: "max-age={{ .Values.route.tls.hstsMaxAgeSeconds }}{{ if .Values.route.tls.hstsIncludeSubdomains }}; includeSubDomains{{ end }}"
+{{- end }}
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: identity-login-service
+          port: 8080
+{{- end }}
     - matches:
         - path:
             type: PathPrefix

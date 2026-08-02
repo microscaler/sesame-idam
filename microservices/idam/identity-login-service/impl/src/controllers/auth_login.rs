@@ -29,6 +29,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         Err(ClientRegistryError::Unknown | ClientRegistryError::NotActive) => {
             return invalid_client();
         }
+        Err(ClientRegistryError::InvalidPolicy(error)) => {
+            tracing::error!(%error, client_id = %req.data.client_id, "auth_login: invalid registered client policy");
+            return internal_error();
+        }
         Err(ClientRegistryError::Db(error)) => {
             tracing::error!(%error, "auth_login: client registry lookup failed");
             return internal_error();

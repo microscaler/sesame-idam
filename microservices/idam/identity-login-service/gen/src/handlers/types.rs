@@ -577,6 +577,25 @@ pub struct OAuthRotateResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OauthAuthorizeCompleteRequest {
+    pub request_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OauthAuthorizeCompleteResponse {
+    pub error: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OauthAuthorizeResponse {
     pub error: String,
 
@@ -588,6 +607,263 @@ pub struct OauthAuthorizeResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OauthTokenRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_secret: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code_verifier: Option<String>,
+
+    pub grant_type: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_uri: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OauthTokenResponse {
+    pub access_token: String,
+
+    pub expires_in: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
+
+    pub scope: String,
+
+    pub token_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OauthUserinfoResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_verified: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub family_name: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub given_name: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preferred_username: Option<serde_json::Value>,
+
+    pub sub: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcAuthorizationCompleteRequest {
+    pub request_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcClientCreateRequest {
+    pub application_id: String,
+
+    pub audiences: Vec<String>,
+
+    pub client_type: String,
+
+    pub grants: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_logout_redirect_uris: Option<Vec<String>>,
+
+    pub redirect_uris: Vec<String>,
+
+    pub response_types: Vec<String>,
+
+    pub scopes: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_endpoint_auth_method: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcClientCreateResponse {
+    pub client: OidcClientResponse,
+
+    pub client_secret: serde_json::Value,
+
+    pub secret_id: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcClientListResponse {
+    pub items: Vec<OidcClientResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcClientResponse {
+    pub application_id: String,
+
+    pub audiences: Vec<String>,
+
+    pub client_id: String,
+
+    pub client_type: String,
+
+    pub created_at: String,
+
+    pub grants: Vec<String>,
+
+    pub pkce_s256_required: bool,
+
+    pub post_logout_redirect_uris: Vec<String>,
+
+    pub redirect_uris: Vec<String>,
+
+    pub response_types: Vec<String>,
+
+    pub scopes: Vec<String>,
+
+    pub status: String,
+
+    pub tenant_id: String,
+
+    pub token_endpoint_auth_method: String,
+
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcClientSecretResponse {
+    pub client_id: String,
+
+    pub client_secret: String,
+
+    pub created_at: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_secrets_valid_until: Option<serde_json::Value>,
+
+    pub secret_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcClientSecretRotateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overlap_seconds: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcClientUpdateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audiences: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grants: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_logout_redirect_uris: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_uris: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_types: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scopes: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcTokenRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_secret: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code_verifier: Option<String>,
+
+    pub grant_type: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_uri: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcTokenResponse {
+    pub access_token: String,
+
+    pub expires_in: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
+
+    pub scope: String,
+
+    pub token_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcUserInfoResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_verified: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub family_name: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub given_name: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<serde_json::Value>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preferred_username: Option<serde_json::Value>,
+
+    pub sub: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1126,6 +1402,181 @@ pub struct TenantOAuthConfigResponse {
     pub redirect_uris: Vec<String>,
 
     pub secret_env_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientCreateRequest {
+    pub application_id: String,
+
+    pub audiences: Vec<String>,
+
+    pub client_type: String,
+
+    pub grants: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_logout_redirect_uris: Option<Vec<String>>,
+
+    pub redirect_uris: Vec<String>,
+
+    pub response_types: Vec<String>,
+
+    pub scopes: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_endpoint_auth_method: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientCreateResponse {
+    pub client: OidcClientResponse,
+
+    pub client_secret: serde_json::Value,
+
+    pub secret_id: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientDeleteResponse {
+    pub error: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientGetResponse {
+    pub application_id: String,
+
+    pub audiences: Vec<String>,
+
+    pub client_id: String,
+
+    pub client_type: String,
+
+    pub created_at: String,
+
+    pub grants: Vec<String>,
+
+    pub pkce_s256_required: bool,
+
+    pub post_logout_redirect_uris: Vec<String>,
+
+    pub redirect_uris: Vec<String>,
+
+    pub response_types: Vec<String>,
+
+    pub scopes: Vec<String>,
+
+    pub status: String,
+
+    pub tenant_id: String,
+
+    pub token_endpoint_auth_method: String,
+
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientListResponse {
+    pub items: Vec<OidcClientResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientSecretRevokeResponse {
+    pub error: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientSecretRotateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overlap_seconds: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientSecretRotateResponse {
+    pub client_id: String,
+
+    pub client_secret: String,
+
+    pub created_at: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_secrets_valid_until: Option<serde_json::Value>,
+
+    pub secret_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientUpdateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audiences: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grants: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_logout_redirect_uris: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_uris: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_types: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scopes: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TenantOidcClientUpdateResponse {
+    pub application_id: String,
+
+    pub audiences: Vec<String>,
+
+    pub client_id: String,
+
+    pub client_type: String,
+
+    pub created_at: String,
+
+    pub grants: Vec<String>,
+
+    pub pkce_s256_required: bool,
+
+    pub post_logout_redirect_uris: Vec<String>,
+
+    pub redirect_uris: Vec<String>,
+
+    pub response_types: Vec<String>,
+
+    pub scopes: Vec<String>,
+
+    pub status: String,
+
+    pub tenant_id: String,
+
+    pub token_endpoint_auth_method: String,
+
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

@@ -329,36 +329,16 @@ fn parse_subject_token(token: &str) -> Result<SubjectClaims, ErrorResponse> {
         });
     }
 
-    // In production, this would:
-    // 1. Decode JWT
-    // 2. Validate signature against JWKS (HACK-301)
-    // 3. Check iss, aud, exp, typ claims
-    // 4. Check version against Redis (HACK-306)
-    // 5. Check denylist (HACK-303)
-    // 6. Check for act claim (HACK-603)
-
-    // Simplified extraction for testing
-    // Parse the JWT payload portion (base64url decoded JSON)
+    crate::services::token_issuer::SIGNER
+        .verify(token)
+        .map_err(|_| invalid_credential_token("Subject token signature validation failed"))?;
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() == 3 {
-        // Try to decode JWT payload
         if let Ok(payload_str) = decode_b64url(parts[1]) {
             return parse_jwt_claims(&payload_str);
         }
     }
-
-    // Fallback: return generic claims for testing
-    Ok(SubjectClaims {
-        sub: "subject_user".to_string(),
-        tenant: "default-tenant".to_string(),
-        org_id: None,
-        scope: "profile:read orders:read orders:write".to_string(),
-        roles: vec!["customer".to_string()],
-        ver: None, // No version info in fallback
-        sid: None, // No session info in fallback
-        has_act: false,
-        act_chain: vec![],
-    })
+    Err(invalid_credential_token("Subject token is malformed"))
 }
 
 /// Parse actor token and extract claims.
@@ -374,13 +354,9 @@ fn parse_actor_token(token: &str) -> Result<ActorClaim, ErrorResponse> {
         });
     }
 
-    // In production, this would:
-    // 1. Decode JWT
-    // 2. Validate signature against JWKS
-    // 3. Verify roles against authz-core (HACK-305)
-    // 4. Check for delegation permissions
-
-    // Simplified extraction for testing
+    crate::services::token_issuer::SIGNER
+        .verify(token)
+        .map_err(|_| invalid_credential_token("Actor token signature validation failed"))?;
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() == 3 {
         if let Ok(payload_str) = decode_b64url(parts[1]) {
@@ -388,14 +364,16 @@ fn parse_actor_token(token: &str) -> Result<ActorClaim, ErrorResponse> {
         }
     }
 
-    // Fallback for testing
-    Ok(ActorClaim {
-        sub: "actor_user".to_string(),
-        tenant: "default-tenant".to_string(),
-        portal: SUPPORT_PORTAL.to_string(),
-        scope: "profile:read support_agent".to_string(),
-        chain: None,
-    })
+    Err(invalid_credential_token("Actor token is malformed"))
+}
+
+fn invalid_credential_token(description: &str) -> ErrorResponse {
+    ErrorResponse {
+        error: "invalid_token".to_string(),
+        error_description: description.to_string(),
+        retry_after: None,
+        hint: None,
+    }
 }
 
 /// Extract claims from a decoded JWT payload.
@@ -1236,6 +1214,30 @@ mod tests {
         }
     }
 
+    fn signed_test_token(payload: serde_json::Value) -> String {
+        crate::services::token_issuer::SIGNER
+            .sign_payload(&payload.to_string())
+            .expect("test token signs")
+    }
+
+    fn default_subject_token() -> String {
+        signed_test_token(serde_json::json!({
+            "sub": "subject_user",
+            "tenant_id": "tenant_abc",
+            "scope": "profile:read orders:read orders:write",
+            "sx": { "roles": ["customer"] }
+        }))
+    }
+
+    fn default_actor_token() -> String {
+        signed_test_token(serde_json::json!({
+            "sub": "actor_user",
+            "tenant_id": "tenant_abc",
+            "scope": "profile:read support_agent",
+            "sx": { "portal": SUPPORT_PORTAL }
+        }))
+    }
+
     // ── can_impersonate Tests ──────────────────────────────────────────
 
     #[test]
@@ -1389,8 +1391,8 @@ mod tests {
     fn test_impersonation_token_includes_act_claim() {
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
-            subject_token: Some("test_token".to_string()),
-            actor_token: Some("actor_token".to_string()),
+            subject_token: Some(default_subject_token()),
+            actor_token: Some(default_actor_token()),
             scope: Some("profile:read".to_string()),
             subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
             x_tenant_id: "tenant_abc".to_string(),
@@ -1406,8 +1408,8 @@ mod tests {
     fn test_impersonation_token_ttl_is_300_seconds() {
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
-            subject_token: Some("test_token".to_string()),
-            actor_token: Some("actor_token".to_string()),
+            subject_token: Some(default_subject_token()),
+            actor_token: Some(default_actor_token()),
             scope: Some("profile:read".to_string()),
             subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
             x_tenant_id: "tenant_abc".to_string(),
@@ -1430,13 +1432,12 @@ mod tests {
                 "chain": []
             }
         });
-        let payload_b64 = encode_b64url(&payload.to_string());
-        let fake_jwt = format!("{}.{}.sig", "header_b64", payload_b64);
+        let fake_jwt = signed_test_token(payload);
 
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
             subject_token: Some(fake_jwt),
-            actor_token: Some("actor_token".to_string()),
+            actor_token: Some(default_actor_token()),
             scope: Some("profile:read".to_string()),
             subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
             x_tenant_id: "tenant_abc".to_string(),
@@ -1451,7 +1452,7 @@ mod tests {
     fn test_exchange_without_actor_no_act_claim() {
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
-            subject_token: Some("subject_token".to_string()),
+            subject_token: Some(default_subject_token()),
             actor_token: None,
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
@@ -1468,7 +1469,7 @@ mod tests {
         // platform signer — no more placeholder signatures.
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
-            subject_token: Some("subject_token".to_string()),
+            subject_token: Some(default_subject_token()),
             actor_token: None,
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
@@ -1931,16 +1932,14 @@ mod tests {
             "tenant_id": "hauliage",
             "sx": { "portal": "admin-portal" }
         });
-        let actor_b64 = encode_b64url(&actor_payload.to_string());
-        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+        let actor_jwt = signed_test_token(actor_payload);
 
         let subject_payload = serde_json::json!({
             "sub": "user_rerp",
             "tenant_id": "rerp",
             "scope": "profile:read"
         });
-        let subject_b64 = encode_b64url(&subject_payload.to_string());
-        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+        let subject_jwt = signed_test_token(subject_payload);
 
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
@@ -1965,16 +1964,14 @@ mod tests {
             "tenant_id": "same-tenant",
             "sx": { "portal": "admin-portal" }
         });
-        let actor_b64 = encode_b64url(&actor_payload.to_string());
-        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+        let actor_jwt = signed_test_token(actor_payload);
 
         let subject_payload = serde_json::json!({
             "sub": "user_same_tenant",
             "tenant_id": "same-tenant",
             "scope": "profile:read"
         });
-        let subject_b64 = encode_b64url(&subject_payload.to_string());
-        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+        let subject_jwt = signed_test_token(subject_payload);
 
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
@@ -2055,16 +2052,14 @@ mod tests {
                 "chain": ["support_tool"]
             }
         });
-        let actor_b64 = encode_b64url(&actor_payload.to_string());
-        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+        let actor_jwt = signed_test_token(actor_payload);
 
         let subject_payload = serde_json::json!({
             "sub": "target_user",
             "tenant_id": "tenant_a",
             "scope": "profile:read"
         });
-        let subject_b64 = encode_b64url(&subject_payload.to_string());
-        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+        let subject_jwt = signed_test_token(subject_payload);
 
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
@@ -2094,16 +2089,14 @@ mod tests {
             "sx": { "portal": "admin-portal" },
             "scope": "profile:read"
         });
-        let actor_b64 = encode_b64url(&actor_payload.to_string());
-        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+        let actor_jwt = signed_test_token(actor_payload);
 
         let subject_payload = serde_json::json!({
             "sub": "full_subject",
             "tenant_id": "tenant_a",
             "scope": "profile:read orders:write admin:read"
         });
-        let subject_b64 = encode_b64url(&subject_payload.to_string());
-        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+        let subject_jwt = signed_test_token(subject_payload);
 
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
@@ -2134,16 +2127,14 @@ mod tests {
             "tenant_id": "tenant_a",
             "sx": { "portal": "admin-portal" }
         });
-        let actor_b64 = encode_b64url(&actor_payload.to_string());
-        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+        let actor_jwt = signed_test_token(actor_payload);
 
         let subject_payload = serde_json::json!({
             "sub": "subject_user",
             "tenant_id": "tenant_a",
             "scope": "profile:read"
         });
-        let subject_b64 = encode_b64url(&subject_payload.to_string());
-        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+        let subject_jwt = signed_test_token(subject_payload);
 
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
@@ -2188,16 +2179,14 @@ mod tests {
             "tenant_id": "tenant_a",
             "sx": { "portal": "admin-portal" }
         });
-        let actor_b64 = encode_b64url(&actor_payload.to_string());
-        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+        let actor_jwt = signed_test_token(actor_payload);
 
         let subject_payload = serde_json::json!({
             "sub": "subject_1",
             "tenant_id": "tenant_a",
             "scope": "profile:read"
         });
-        let subject_b64 = encode_b64url(&subject_payload.to_string());
-        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+        let subject_jwt = signed_test_token(subject_payload);
 
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
@@ -2223,8 +2212,7 @@ mod tests {
             "sx": { "portal": "admin-portal" },
             "scope": "admin:read profile:read orders:read orders:write"
         });
-        let actor_b64 = encode_b64url(&actor_payload.to_string());
-        let actor_jwt = format!("{}.{}.sig", "header_b64", actor_b64);
+        let actor_jwt = signed_test_token(actor_payload);
 
         // Subject only has profile:read
         let subject_payload = serde_json::json!({
@@ -2232,8 +2220,7 @@ mod tests {
             "tenant_id": "tenant_a",
             "scope": "profile:read"
         });
-        let subject_b64 = encode_b64url(&subject_payload.to_string());
-        let subject_jwt = format!("{}.{}.sig", "header_b64", subject_b64);
+        let subject_jwt = signed_test_token(subject_payload);
 
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),

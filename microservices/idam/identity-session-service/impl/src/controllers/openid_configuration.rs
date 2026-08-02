@@ -26,6 +26,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
 
     Response {
         authorization_endpoint: Some(doc.authorization_endpoint),
+        claims_supported: Some(doc.claims_supported),
         code_challenge_methods_supported: Some(doc.code_challenge_methods_supported),
         grant_types_supported: Some(doc.grant_types_supported),
         id_token_signing_alg_values_supported: Some(doc.id_token_signing_alg_values_supported),
@@ -37,8 +38,13 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
         scopes_supported: Some(doc.scopes_supported),
         subject_types_supported: Some(doc.subject_types_supported),
         token_endpoint: Some(doc.token_endpoint),
-        userinfo_encryption_alg_values_supported: Some(doc.userinfo_encryption_alg_values_supported),
-        userinfo_encryption_enc_values_supported: Some(doc.userinfo_encryption_enc_values_supported),
+        token_endpoint_auth_methods_supported: Some(doc.token_endpoint_auth_methods_supported),
+        userinfo_encryption_alg_values_supported: Some(
+            doc.userinfo_encryption_alg_values_supported,
+        ),
+        userinfo_encryption_enc_values_supported: Some(
+            doc.userinfo_encryption_enc_values_supported,
+        ),
         userinfo_endpoint: Some(doc.userinfo_endpoint),
         userinfo_signing_alg_values_supported: Some(doc.userinfo_signing_alg_values_supported),
     }

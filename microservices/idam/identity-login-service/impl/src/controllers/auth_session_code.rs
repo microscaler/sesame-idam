@@ -69,6 +69,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
 /// minted for THIS tenant, so a code cannot be conjured from nothing.
 fn token_is_ours(token: &str, tenant_id: &str) -> bool {
     use base64::Engine;
+    if crate::services::token_issuer::SIGNER.verify(token).is_err() {
+        return false;
+    }
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() != 3 {
         return false;

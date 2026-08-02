@@ -25,6 +25,7 @@ pub mod http;
 pub mod jwks_cache;
 pub mod jwt;
 pub mod middleware;
+pub mod oidc_client;
 
 // Consolidated sibling crate modules
 pub mod audit;

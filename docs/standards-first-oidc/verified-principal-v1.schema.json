@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sesameidentity.com/contracts/verified-principal-v1.schema.json",
+  "title": "Sesame Verified Principal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_version",
+    "tenant_id",
+    "subject",
+    "client_id",
+    "application_id",
+    "session_id",
+    "token_version",
+    "user_type",
+    "roles",
+    "permissions"
+  ],
+  "properties": {
+    "profile_version": { "const": "1.0.0" },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "subject": { "type": "string", "minLength": 1 },
+    "client_id": { "type": "string", "minLength": 1 },
+    "application_id": { "type": "string", "minLength": 1 },
+    "portal": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "token_version": { "type": "integer", "minimum": 1 },
+    "organization_id": { "type": ["string", "null"] },
+    "user_type": { "type": "string", "minLength": 1 },
+    "roles": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "permissions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "entitlements_ref": { "type": ["string", "null"] },
+    "entitlements_hash": { "type": ["string", "null"] },
+    "actor": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    }
+  }
+}

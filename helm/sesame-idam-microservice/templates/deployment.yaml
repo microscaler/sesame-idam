@@ -43,6 +43,12 @@ spec:
               value: {{ .Values.env.BRRTR_LOG_FORMAT | quote }}
             - name: BRRTR_STACK_SIZE
               value: {{ .Values.env.BRRTR_STACK_SIZE | quote }}
+            - name: SESAME_JWT_ISSUER
+              value: {{ .Values.env.SESAME_JWT_ISSUER | quote }}
+            - name: SESAME_AUTH_PUBLIC_URL
+              value: {{ .Values.env.SESAME_AUTH_PUBLIC_URL | quote }}
+            - name: SESAME_API_PUBLIC_URL
+              value: {{ .Values.env.SESAME_API_PUBLIC_URL | quote }}
             # ── Lifeguard database pool (sesame_idam_database reads DB_*) ──
             - name: DB_HOST
               value: {{ .Values.app.config.database.host | quote }}

@@ -277,7 +277,10 @@ mod tests {
             KycProvider::Disabled,
         )
         .expect_err("email is not enough to send SMS");
-        assert_eq!(shortfall.capability_requires, AssuranceLevel::DomainVerified);
+        assert_eq!(
+            shortfall.capability_requires,
+            AssuranceLevel::DomainVerified
+        );
         assert!(
             !shortfall.unreachable,
             "domain verification is self-service, so this is on the tenant to fix"
@@ -317,7 +320,10 @@ mod tests {
             KycProvider::Disabled,
         )
         .expect_err("below requirement");
-        assert!(!shortfall.unreachable, "DomainVerified is within the ceiling");
+        assert!(
+            !shortfall.unreachable,
+            "DomainVerified is within the ceiling"
+        );
 
         assert!(
             AssuranceLevel::BusinessVerified > KycProvider::Disabled.ceiling(),

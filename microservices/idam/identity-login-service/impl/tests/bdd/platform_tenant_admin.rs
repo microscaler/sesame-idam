@@ -182,10 +182,11 @@ fn login_request(tenant: &str, email: &str, password: &str) -> TypedHandlerReque
         path_params: HashMap::new(),
         query_params: HashMap::new(),
         data: LoginRequest {
+            client_id: "hauliage-web".to_string(),
             email: email.to_string(),
             organization_id: None,
             password: password.to_string(),
-            x_tenant_id: tenant.to_string(),
+            x_tenant_id: Some(tenant.to_string()),
         },
         jwt_claims: None,
     }

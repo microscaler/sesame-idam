@@ -164,15 +164,18 @@ fn send_twilio(to: &str, body: &str) -> Result<()> {
         form.push(("From".to_string(), from));
     }
 
-    let base = std::env::var("TWILIO_API_BASE")
-        .unwrap_or_else(|_| "https://api.twilio.com".to_string());
+    let base =
+        std::env::var("TWILIO_API_BASE").unwrap_or_else(|_| "https://api.twilio.com".to_string());
     let url = format!("{base}/2010-04-01/Accounts/{sid}/Messages.json");
     let payload = form_urlencode(&form);
 
     let auth = base64::engine::general_purpose::STANDARD.encode(format!("{sid}:{token}"));
     let options = HttpFetchOptions {
         timeout: Duration::from_millis(
-            std::env::var("SMS_TIMEOUT_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(8000),
+            std::env::var("SMS_TIMEOUT_MS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(8000),
         ),
         max_body_bytes: 64 * 1024,
         extra_headers: vec![
@@ -189,7 +192,10 @@ fn send_twilio(to: &str, body: &str) -> Result<()> {
     // Twilio returns 201 Created on success.
     if !(200..300).contains(&status) {
         let snippet = String::from_utf8_lossy(&body_bytes);
-        bail!("twilio send failed: HTTP {status}: {}", snippet.chars().take(200).collect::<String>());
+        bail!(
+            "twilio send failed: HTTP {status}: {}",
+            snippet.chars().take(200).collect::<String>()
+        );
     }
     Ok(())
 }

@@ -60,6 +60,8 @@ smallvec = "1"
 
 # Blake3: used by fallback_cache module (always loaded)
 blake3 = { workspace = true }
+url = "2.5.8"
+argon2.workspace = true
 
 [features]
 default = []

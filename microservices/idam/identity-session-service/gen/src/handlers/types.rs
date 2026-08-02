@@ -661,6 +661,9 @@ pub struct OpenIDConfiguration {
     pub authorization_endpoint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub claims_supported: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub code_challenge_methods_supported: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -692,6 +695,9 @@ pub struct OpenIDConfiguration {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_endpoint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_endpoint_auth_methods_supported: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub userinfo_encryption_alg_values_supported: Option<Vec<String>>,
@@ -712,6 +718,9 @@ pub struct OpenidConfigurationResponse {
     pub authorization_endpoint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub claims_supported: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub code_challenge_methods_supported: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -743,6 +752,9 @@ pub struct OpenidConfigurationResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_endpoint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_endpoint_auth_methods_supported: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub userinfo_encryption_alg_values_supported: Option<Vec<String>>,
