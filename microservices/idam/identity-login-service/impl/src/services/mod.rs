@@ -5,6 +5,7 @@
 pub mod abuse_guard;
 pub mod auth_code;
 pub mod authz_client;
+pub mod client_registry;
 pub mod email;
 pub mod envelope;
 pub mod login_success;

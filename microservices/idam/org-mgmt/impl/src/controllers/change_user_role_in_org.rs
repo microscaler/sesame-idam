@@ -13,7 +13,7 @@ use sesame_idam_org_mgmt::org_auth;
 #[handler(ChangeUserRoleInOrgController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
     let (caller_id, tenant_id) =
-        match org_auth::require_caller(&req.jwt_claims, &req.data.x_tenant_id) {
+        match org_auth::require_caller(&req.jwt_claims, req.data.x_tenant_id.as_deref()) {
             Ok(principal) => principal,
             Err(response) => return response,
         };

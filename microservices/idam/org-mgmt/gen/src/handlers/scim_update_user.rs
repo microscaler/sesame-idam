@@ -34,8 +34,9 @@ pub struct Request {
     #[serde(rename = "userName")]
     pub user_name: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "X-Tenant-ID")]
-    pub x_tenant_id: String,
+    pub x_tenant_id: Option<String>,
 
     #[serde(rename = "user_id")]
     pub user_id: String,
@@ -88,7 +89,8 @@ impl TryFrom<HandlerRequest> for Request {
                 ),
             );
         } else {
-            return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
+
+            // optional parameter
         }
 
         if let Some(v) = req.get_path_param("user_id") {

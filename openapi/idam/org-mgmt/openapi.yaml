@@ -47,11 +47,11 @@ paths:
       - &id003
         name: X-Tenant-ID
         in: header
-        required: true
+        required: false
         schema:
           type: string
-        description: Tenant identifier. Routes the request to the correct tenant context
-          for user lookup and authentication.
+        description: Legacy tenant hint. Bearer-authenticated public requests derive
+          tenant context from validated token claims.
       - name: page
         in: query
         required: false

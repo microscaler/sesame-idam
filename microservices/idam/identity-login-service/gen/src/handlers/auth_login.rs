@@ -10,6 +10,9 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
+    #[serde(rename = "client_id")]
+    pub client_id: String,
+
     #[serde(rename = "email")]
     pub email: String,
 
@@ -20,8 +23,9 @@ pub struct Request {
     #[serde(rename = "password")]
     pub password: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "X-Tenant-ID")]
-    pub x_tenant_id: String,
+    pub x_tenant_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -98,7 +102,8 @@ impl TryFrom<HandlerRequest> for Request {
                 ),
             );
         } else {
-            return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
+
+            // optional parameter
         }
 
         if let Some(body) = req.body {

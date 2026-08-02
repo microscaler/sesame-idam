@@ -58,6 +58,7 @@ paths:
               default: &id001
                 summary: Example for auth_login
                 value: &id038
+                  client_id: hauliage-web
                   email: alice@example.com
                   password: SecureP@ss123!
                   organization_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
@@ -120,13 +121,12 @@ paths:
                 error: internal_error
                 error_description: An unexpected error occurred
       parameters:
-      - &id007
-        name: X-Tenant-ID
+      - name: X-Tenant-ID
         in: header
-        required: true
+        required: false
         schema:
           type: string
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: Legacy tenant hint. Public callers use client_id; when present this value must match the registered client tenant.
       x-consumer: frontend
       x-consumer-note: Direct browser call for user login
       x-brrtrouter-impl: true
@@ -196,7 +196,13 @@ paths:
           description: Internal server error
           content: *id006
       parameters:
-      - *id007
+      - &id007
+        name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to email+phone
       x-brrtrouter-impl: true
@@ -809,7 +815,12 @@ paths:
       security:
       - BearerAuth: []
       parameters:
-      - *id007
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Legacy tenant hint. The validated access-token tenant is authoritative.
       requestBody:
         required: true
         content:
@@ -2170,9 +2181,15 @@ components:
     LoginRequest:
       type: object
       required:
+      - client_id
       - email
       - password
       properties:
+        client_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Registered relying-party client used to derive tenant and application context
         email:
           type: string
           format: email

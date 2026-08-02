@@ -24,6 +24,8 @@ pub struct AuthForgotPasswordResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthLoginRequest {
+    pub client_id: String,
+
     pub email: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -464,6 +466,8 @@ pub struct LoginPhoneOtpResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LoginRequest {
+    pub client_id: String,
+
     pub email: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]

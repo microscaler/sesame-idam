@@ -922,3 +922,73 @@ Enriched [`docs/audit/epic-delivery-audit-2026-07-10.md`](../audit/epic-delivery
 - Diagnosed repeated session-service liveness kills as a May coroutine stack overflow on the
   three-middleware JWKS path. Raised only identity-session-service from 32 KiB to 64 KiB and
   verified the rendered Helm value plus a 50-request/10-concurrent JWKS burst (50 HTTP 200s).
+
+## [2026-07-25] audit | non-BRRTRouter framework readiness
+
+Added [`docs/audit/non-brrtrouter-framework-readiness-2026-07-25.md`](../audit/non-brrtrouter-framework-readiness-2026-07-25.md),
+a code-verified planning audit for making Sesame consumable through mainstream
+OIDC frameworks without BRRTRouter.
+
+- Separates the delivered Bearer-JWT/BFF path from unimplemented generic OIDC compatibility.
+- Records eight P0 security/protocol blockers, including unverified token payload use,
+  stub authorization/PKCE, discovery drift, tenant-header contradictions, public routing/CORS,
+  and interoperable logout.
+- Defines a language-neutral contract, three separate client-product boundaries,
+  shared conformance fixtures, framework priorities, dependency order, and five delivery gates.
+- Establishes an explicit definition of “usable without BRRTRouter” so roadmap items
+  require executable interoperability evidence rather than OpenAPI presence alone.
+- Decomposed the outstanding work into provider-first
+  [Epics 11–16](../Epics/INDEX.md#standards-first-oidc-provider-program):
+  registered relying parties and tenant binding; authorization server; public provider
+  surface; security/conformance; portable consumer contract; and the gated mainstream
+  client ecosystem.
+- Epic 16 explicitly defers client implementation until Epics 11–15 pass. Candidate
+  languages/frameworks are selected by demand, ecosystem fit, OIDC maturity, and
+  maintenance ownership rather than treated as automatic commitments.
+
+No runtime code changed and no build or test command was run.
+
+## [2026-08-02] implementation | gated Hauliage north-south authentication
+
+- Restored Hauliage's in-cluster Sesame endpoints first and confirmed the BFF
+  recovered to `1/1 Ready`, establishing a stable rollback baseline.
+- Added the relying-party registry and bound `hauliage-web` to the `hauliage`
+  tenant and `frontend` portal. Login now derives tenant/application context
+  from registered `client_id`; the legacy tenant header is only a consistency
+  check.
+- Made authenticated tenant context claim-authoritative in login/org paths and
+  removed the org service's unverified JWT payload fallback.
+- Added split-horizon cluster DNS for the Sesame public hosts, routing pods to
+  the Envoy Gateway ClusterIP rather than hairpinning through its LAN address.
+- Completed edge routes for `/health`, exact organization paths, and existing
+  identity/session paths.
+- Extended BRRTRouter outbound TLS trust to honor explicit and additional PEM
+  CA bundles, preserving native roots, so the BFF can verify the development
+  edge certificate.
+- Updated the Rust client and Hauliage configuration with required
+  `SESAME_CLIENT_ID`; absent optional `organization_id` is omitted rather than
+  serialized as JSON `null`.
+- Applied the generated client-registry migration/seed and deployed transient
+  validation images/routes. Public provider probing returned
+  `invalid_credentials` (not `invalid_client`), proving registry resolution.
+- The live dual-browser Hauliage login E2E passed all four tests through the
+  north-south edge, including distinct JWTs, tenant-correct organization
+  resolution, sign-out, and route guards. The broader authenticated-team E2E
+  reached Sesame successfully (HTTP 200) but failed both existing role-shape
+  assertions because returned members lacked the expected `role` field.
+- Because the complete gate is not green, Hauliage's checked-in default values
+  remain on the in-cluster recovery baseline; public-edge promotion is deferred
+  until the membership contract failure is resolved.
+- Repository changes remain uncommitted. The live Hauliage BFF HelmRelease is
+  temporarily suspended to prevent the old Git revision from reverting the
+  validated image/configuration before the coordinated repository changes are
+  committed and reconciled.
+- A subsequent user-visible `client_id is a required property` response occurred
+  during the BFF rollout window. After the rollout converged, the only serving
+  BFF pod uses the client-aware image and config (`clientId: hauliage-web`);
+  repeated HTTP/HTTPS probes return `invalid_credentials`, and the current-pod
+  real-login suite passes 4/4. The error is no longer reproducible on either
+  LoadLinker route.
+- Corrected the CoreDNS override to the platform-owned, static Envoy Gateway
+  MetalLB VIP `10.177.76.234` rather than its dynamically allocated Service
+  ClusterIP. Pod DNS now resolves the Sesame public hosts to that canonical VIP.

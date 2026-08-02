@@ -3,11 +3,7 @@
 use brrtrouter::dispatcher::HandlerRequest;
 
 pub fn claims_from_request(req: &HandlerRequest) -> Option<serde_json::Value> {
-    if let Some(claims) = req.jwt_claims.as_ref() {
-        return Some(claims.clone());
-    }
-    let token = bearer_token(req)?;
-    decode_jwt_payload_unverified(token)
+    req.jwt_claims.clone()
 }
 
 pub fn user_id_from_request(req: &HandlerRequest) -> Option<String> {
@@ -20,38 +16,33 @@ pub fn user_id_from_request(req: &HandlerRequest) -> Option<String> {
 }
 
 pub fn tenant_from_request(req: &HandlerRequest) -> Option<String> {
-    req.headers
-        .iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case("x-tenant-id"))
-        .map(|(_, v)| v.clone())
-        .or_else(|| {
-            claims_from_request(req)?
-                .get("tenant_id")
-                .and_then(|v| v.as_str())
-                .map(str::to_string)
-        })
+    tenant_from_validated_claims(&req.jwt_claims)
 }
 
-fn bearer_token(req: &HandlerRequest) -> Option<&str> {
-    req.headers
-        .iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case("authorization"))
-        .and_then(|(_, v)| {
-            v.strip_prefix("Bearer ")
-                .or_else(|| v.strip_prefix("bearer "))
-        })
+fn tenant_from_validated_claims(claims: &Option<serde_json::Value>) -> Option<String> {
+    claims
+        .as_ref()?
+        .get("tenant_id")
+        .and_then(|value| value.as_str())
+        .filter(|tenant| !tenant.trim().is_empty())
+        .map(str::to_string)
 }
 
-fn decode_jwt_payload_unverified(token: &str) -> Option<serde_json::Value> {
-    use base64::Engine;
-    let payload_b64 = token.split('.').nth(1)?;
-    let mut padded = payload_b64.to_string();
-    let rem = padded.len() % 4;
-    if rem != 0 {
-        padded.extend(std::iter::repeat_n('=', 4 - rem));
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tenant_comes_only_from_validated_claims() {
+        let claims = Some(serde_json::json!({"tenant_id": "hauliage"}));
+        assert_eq!(
+            tenant_from_validated_claims(&claims),
+            Some("hauliage".to_string())
+        );
     }
-    let bytes = base64::engine::general_purpose::URL_SAFE
-        .decode(padded.as_bytes())
-        .ok()?;
-    serde_json::from_slice(&bytes).ok()
+
+    #[test]
+    fn missing_validated_claims_have_no_tenant_context() {
+        assert_eq!(tenant_from_validated_claims(&None), None);
+    }
 }

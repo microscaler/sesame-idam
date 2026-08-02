@@ -930,7 +930,6 @@ for _app, _svc in FRONTEND_APPS.items():
         ],
         ignore=['**/node_modules', '**/dist'],
         skips_local_docker=False,
-        labels=['frontend'],
     )
 
     if not FLUX_OWNS_DEPLOY:

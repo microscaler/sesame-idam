@@ -26,6 +26,39 @@ This is **not** about migrating a production system. It is about defining the ar
 | 8 | Security Hardening | Algorithm allow-list, DPoP token binding (RFC 9449), typ enforcement (RFC 9068) | Epic 1 | Design |
 | 9 | Observability & Monitoring | JWT validation metrics, shadow decisions, structured logging, alerting | Parallel (all epics) | Design |
 
+## Standards-First OIDC Provider Program
+
+The original Epics 1–9 define the JWT and authorization foundations. Epic 10
+adds the SaaS tenant registry. The following provider-first program makes those
+capabilities consumable by mainstream OIDC framework libraries and deliberately
+defers language/framework packages until the public provider contract is stable.
+
+| # | Epic | Focus | Dependencies | Status |
+|---|---|---|---|---|
+| [10](./10-platform-tenancy/README.md) | Platform Tenancy | SaaS tenant registry and tenant lifecycle | Existing platform foundation | P1 complete; P2 backlog |
+| [11](./11-oidc-client-registry/README.md) | OIDC Relying-Party Registry and Tenant Binding | Public/confidential clients, redirect policy, secrets, client-derived tenant/application | Epic 10, ADR-011, ADR-013 | Proposed |
+| [12](./12-oidc-authorization-server/README.md) | Standards-Compliant OIDC Authorization Server | Authorization Code + PKCE, ID token, standard token/refresh, UserInfo | Epics 1, 3, 5, 11 | Proposed |
+| [13](./13-oidc-public-provider-surface/README.md) | Public OIDC Provider Surface | Stable issuer plus coherent `id.`, `auth.`, and `api.` routes, discovery, CORS, logout | Epics 11–12, ADR-013 | Proposed |
+| [14](./14-oidc-security-conformance/README.md) | OIDC Security Profile and Conformance | Shared validator, adversarial fixtures, independent conformance, framework matrix | Epics 1, 5, 8, 11–13 | Proposed |
+| [15](./15-portable-consumer-contract/README.md) | Language-Neutral Sesame Consumer Contract | Provider profile, verified principal, public OpenAPI, errors, fixtures, versioning | Epics 11–14 | Proposed |
+| [16](./16-mainstream-client-ecosystem/README.md) | Mainstream Framework Client Ecosystem | Selected framework presets, resource-server adapters, API clients, compatibility CI | Epics 11–15 complete | Future / blocked |
+
+### Program order
+
+1. **Epic 11** makes client and tenant policy structural.
+2. **Epic 12** delivers the standards-compliant protocol core.
+3. **Epic 13** makes that protocol coherent and reachable on public hosts.
+4. **Epic 14** proves security and interoperability independently.
+5. **Epic 15** freezes the portable contract used by every language.
+6. **Epic 16** selects and implements client libraries or reference integrations.
+
+Epic 16 must not compensate for an incomplete provider. If a framework requires
+a proprietary protocol workaround, the default disposition is to fix Epics
+11–15 and keep the client thin.
+
+Source audit:
+[Non-BRRTRouter Framework Readiness — 2026-07-25](../audit/non-brrtrouter-framework-readiness-2026-07-25.md).
+
 ## Execution Order
 
 Recommended sequence (parallel where possible):

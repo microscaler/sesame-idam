@@ -14,26 +14,35 @@ use sesame_idam_identity_login_service_gen::handlers::auth_login::{Request, Resp
 
 use crate::audit::EMITTER;
 use crate::services::abuse_guard;
+use crate::services::client_registry::{ClientRegistry, ClientRegistryError};
 use crate::services::password;
-use crate::services::tenant_gate::tenant_http_error;
-use crate::services::tenant_service::TenantService;
 use crate::services::token_issuer;
 use crate::services::user_service::{UserService, STATUS_ACTIVE};
 use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
-/// Default portal/client for direct browser logins.
-const DEFAULT_PORTAL: &str = "frontend";
-
 #[handler(AuthLoginController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let tenant_id = req.data.x_tenant_id.clone();
     let email = req.data.email.clone();
-
     let exec = sesame_idam_database::db();
-
-    if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
-        return tenant_http_error(&e);
+    let binding = match ClientRegistry::resolve_active(&req.data.client_id, exec) {
+        Ok(binding) => binding,
+        Err(ClientRegistryError::Unknown | ClientRegistryError::NotActive) => {
+            return invalid_client();
+        }
+        Err(ClientRegistryError::Db(error)) => {
+            tracing::error!(%error, "auth_login: client registry lookup failed");
+            return internal_error();
+        }
+    };
+    if req
+        .data
+        .x_tenant_id
+        .as_deref()
+        .is_some_and(|tenant| tenant.trim() != binding.tenant_id)
+    {
+        return invalid_client();
     }
+    let tenant_id = binding.tenant_id;
 
     // Gate A2: locked identities get the SAME generic 401 as wrong
     // credentials — no oracle for lock state or account existence. The
@@ -85,7 +94,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let authz = crate::services::authz_client::fetch_effective_authz(
         &user_id,
         &tenant_id,
-        DEFAULT_PORTAL,
+        &binding.portal,
     )
     .unwrap_or_else(|e| {
         tracing::warn!(error = %e, "auth_login: authz-core enrichment failed — issuing token without roles");
@@ -108,7 +117,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let tokens = match token_issuer::issue_tokens(
         &user_id,
         &tenant_id,
-        DEFAULT_PORTAL,
+        &binding.portal,
         authz.roles.clone(),
         authz.permissions,
         "customer",
@@ -157,6 +166,16 @@ fn invalid_credentials() -> HttpJson<serde_json::Value> {
         serde_json::json!({
             "error": "invalid_credentials",
             "error_description": "Invalid email or password"
+        }),
+    )
+}
+
+fn invalid_client() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        401,
+        serde_json::json!({
+            "error": "invalid_client",
+            "error_description": "Unknown or inactive client"
         }),
     )
 }

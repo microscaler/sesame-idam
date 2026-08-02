@@ -52,6 +52,9 @@ Path-element matching also means `/idam/v1/auth/login` does not capture
 */ -}}
 {{- $rl := $top.Values.rateLimit -}}
 {{- $groups := list
+  (dict "name" "health"      "backend" "identity-login-service" "limit" $rl.authOtherPerMinute
+        "note" "provider reachability for relying-party readiness probes"
+        "paths" (list "/health"))
   (dict "name" "otp-send"    "backend" "identity-login-service" "limit" $rl.otpSendPerMinute
         "note" "sends cost money or land in an inbox — the tightest bucket"
         "paths" (list "/idam/v1/auth/login/email-otp" "/idam/v1/auth/login/phone-otp" "/idam/v1/auth/login/magic-link" "/idam/v1/auth/login/phone-magic-link" "/idam/v1/auth/password/forgot" "/idam/v1/auth/login/dual-otp"))
@@ -78,7 +81,7 @@ Path-element matching also means `/idam/v1/auth/login` does not capture
         "paths" (list "/idam/v1/sessions/"))
   (dict "name" "org"         "backend" "org-mgmt" "limit" $rl.organizationsPerMinute
         "note" "org and invitation management — administrative, human-paced"
-        "paths" (list "/idam/v1/organizations/" "/idam/v1/invitations/"))
+        "paths" (list "/idam/v1/organizations" "/idam/v1/invitations"))
   (dict "name" "identity"    "backend" "identity-session-service" "limit" $rl.identityPerMinute
         "note" "profile/identity reads — chatty and cheap"
         "paths" (list "/idam/v1/identity/"))

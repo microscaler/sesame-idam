@@ -30,6 +30,27 @@ ON CONFLICT (slug) DO UPDATE SET
     provisioning_mode = EXCLUDED.provisioning_mode,
     updated_at = NOW();
 
+-- First-party relying parties. client_id is public and globally unique; it
+-- selects tenant/application context but grants no authority by itself.
+INSERT INTO sesame_idam.relying_party_clients
+    (id, client_id, tenant_slug, portal, client_type, status, created_at, updated_at)
+VALUES
+    (
+        'a1500001-0001-4000-8000-000000000001',
+        'hauliage-web',
+        'hauliage',
+        'frontend',
+        'confidential',
+        'active',
+        NOW(),
+        NOW()
+    )
+ON CONFLICT (client_id) DO UPDATE SET
+    tenant_slug = EXCLUDED.tenant_slug,
+    portal = EXCLUDED.portal,
+    status = EXCLUDED.status,
+    updated_at = NOW();
+
 -- Google OAuth metadata (secrets via env keys — K8s secrets in dev/prod).
 INSERT INTO sesame_idam.tenant_oauth_providers
     (id, tenant_slug, provider, client_id, redirect_uris, secret_env_key,
