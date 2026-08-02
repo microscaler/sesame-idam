@@ -23,7 +23,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "email")]
-    pub email: Option<String>,
+    pub email: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "email_verified")]
@@ -31,11 +31,11 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "first_name")]
-    pub first_name: Option<String>,
+    pub first_name: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "last_name")]
-    pub last_name: Option<String>,
+    pub last_name: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "name")]
@@ -71,11 +71,11 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "updated_at")]
-    pub updated_at: Option<String>,
+    pub updated_at: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_id")]
-    pub user_id: Option<String>,
+    pub user_id: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_permissions")]
@@ -87,7 +87,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "username")]
-    pub username: Option<String>,
+    pub username: Option<serde_json::Value>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

@@ -2641,9 +2641,10 @@ components:
           format: uuid
           description: "Subject \u2014 the user's opaque identifier (not PII)"
         email:
-          type: string
+          type:
+          - string
+          - 'null'
           format: email
-          nullable: true
           description: Primary email address
         email_verified:
           type: boolean
@@ -2659,23 +2660,27 @@ components:
           - 'null'
           description: Human-identifiable username (alias for username)
         user_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
-          nullable: true
           description: Opaque user identifier (alias for sub)
         first_name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           maxLength: 100
           description: User's first name
         last_name:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           maxLength: 100
           description: User's last name
         username:
-          type: string
-          nullable: true
+          type:
+          - string
+          - 'null'
           description: Alias for preferred_username
         avatar_url:
           type:
@@ -2723,9 +2728,10 @@ components:
 
             '
         updated_at:
-          type: string
+          type:
+          - string
+          - 'null'
           format: date-time
-          nullable: true
           description: Last profile update timestamp
       example: *id017
     UserQueryItem:

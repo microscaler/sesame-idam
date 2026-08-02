@@ -992,3 +992,18 @@ No runtime code changed and no build or test command was run.
 - Corrected the CoreDNS override to the platform-owned, static Envoy Gateway
   MetalLB VIP `10.177.76.234` rather than its dynamically allocated Service
   ClusterIP. Pod DNS now resolves the Sesame public hosts to that canonical VIP.
+
+## [2026-08-02] fix | nullable current-user profile response
+
+- Reproduced Hauliage `GET /api/v1/identity/users/me` failing with HTTP 502
+  because identity-session-service returned HTTP 500 response-validation errors
+  when seeded users had `null` optional profile names.
+- Corrected the OpenAPI 3.1 `UserProfile` schema to express nullable strings with
+  JSON Schema unions (`type: [string, "null"]`) instead of the ignored OpenAPI
+  3.0 `nullable: true` keyword, then regenerated the session-service contract.
+- Built and promoted identity-session-service image
+  `dev-1785647370253537285` through Flux. The Sesame profile response now passes
+  runtime validation with absent optional profile data.
+- The downstream Hauliage BFF schema required the same correction before the
+  complete request returned HTTP 200; both authenticated profile and
+  organization calls now pass in the live login flow.
