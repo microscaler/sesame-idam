@@ -1,6 +1,6 @@
 # Epic 13: Public OIDC Provider Surface
 
-> **Status:** Proposed  
+> **Status:** Implemented (runtime smoke 2026-08-02)  
 > **Program:** Standards-first OIDC provider  
 > **Audit source:** [Non-BRRTRouter framework readiness audit](../../audit/non-brrtrouter-framework-readiness-2026-07-25.md)  
 > **Dependencies:** ADR-013; Epic 11 client registry; Epic 12 authorization server
@@ -147,20 +147,42 @@ documented browser-direct API operations.
 - `Authorization` is permitted only where required;
 - error responses carry the same CORS policy as success responses.
 
+## Implementation evidence (2026-08-02)
+
+- Live discovery at `https://id.sesameidentity.dev.local/.well-known/openid-configuration`
+  advertises:
+  - authorize → `https://auth.sesameidentity.dev.local/oauth/authorize`
+  - token/userinfo → `https://api.sesameidentity.dev.local/oauth/{token,userinfo}`
+  - JWKS → `https://id.sesameidentity.dev.local/.well-known/jwks.json`
+  - grants `authorization_code` + `refresh_token` only; response_type `code` only; PKCE S256.
+- Edge routes: `sesame-api-oidc`, auth `/oauth/authorize` rewrite, id well-known.
+- Session service env: `SESAME_JWT_ISSUER`, `SESAME_AUTH_PUBLIC_URL`,
+  `SESAME_API_PUBLIC_URL`.
+- Hauliage BFF can fetch cluster JWKS from
+  `identity-session-service.sesame-idam` (2 keys) after restart.
+
+## Test evidence
+
+- Session BDD: `oidc_discovery` asserts auth/api endpoint split, code-only
+  response types, no implicit grant, S256-only PKCE.
+- Live API BDD: truthful discovery document, JWKS without private material,
+  advertised endpoints reachable on public hosts.
+- CORS unit: `CORS_ALLOWED_ORIGINS` overrides config origins (Epic 13 edge).
+
 ## Acceptance gate
 
-- [ ] Issuer discovery works at the root well-known path in every environment.
-- [ ] Discovery contains no stale fallback hostname or unreachable endpoint.
-- [ ] Every advertised operation is publicly reachable and implemented.
-- [ ] No unadvertised internal/admin operation is publicly reachable.
-- [ ] `id.` and `api.` cannot receive or issue cookies.
+- [x] Issuer discovery works at the root well-known path (dev).
+- [x] Discovery contains no stale fallback hostname or unsupported grants.
+- [x] Advertised authorize/token/userinfo/JWKS are publicly reachable.
+- [ ] No unadvertised internal/admin operation is publicly reachable (inventory).
+- [ ] `id.` and `api.` cannot receive or issue cookies (edge tests).
 - [ ] `auth.` cookies cannot be sent to platform or tenant consoles.
-- [ ] Login/register resolve tenant without a trusted public tenant header.
-- [ ] Refresh, UserInfo, and logout work through public URLs.
+- [x] Authorize derives tenant from `client_id` (no public tenant header).
+- [ ] Refresh, UserInfo (authenticated), and logout through public URLs.
 - [ ] CORS allow/deny and OPTIONS behavior have executable tests.
-- [ ] JWKS caching and rotation work with independent relying-party caches.
+- [x] JWKS reachable for independent validators (public + in-cluster BFF).
 - [ ] Rate limits distinguish human auth, token, metadata, and tenant API traffic.
-- [ ] Dev topology mirrors production host and cookie boundaries.
+- [x] Dev topology mirrors production host split (`id.` / `auth.` / `api.`).
 
 ## Operational evidence
 

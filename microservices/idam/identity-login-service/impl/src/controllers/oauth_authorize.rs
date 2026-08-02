@@ -72,7 +72,12 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> OauthAuthorizeOutcome {
                 .unwrap_or_else(|_| "https://auth.sesameidentity.dev.local/authorize".to_string());
             match url::Url::parse(&hosted_auth) {
                 Ok(mut url) => {
-                    url.query_pairs_mut().append_pair("request_id", &request_id);
+                    // Hosted auth needs tenant + client_id to call /auth/login, then
+                    // completes the OIDC request via /oauth/authorize/complete.
+                    url.query_pairs_mut()
+                        .append_pair("request_id", &request_id)
+                        .append_pair("tenant", &binding.tenant_id)
+                        .append_pair("client_id", &binding.client_id);
                     OauthAuthorizeOutcome::Redirect(HttpRedirect::found(url.to_string()))
                 }
                 Err(error) => {

@@ -347,4 +347,95 @@ mod tests {
             &challenge(verifier)
         ));
     }
+
+    #[test]
+    fn rejects_short_state_nonce_and_unsupported_response_type() {
+        let verifier = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~";
+        let ch = challenge(verifier);
+        assert!(matches!(
+            validate_authorization_request(
+                &binding(),
+                "token",
+                "https://client.example/callback",
+                "state-0123456789abcdef",
+                "nonce-0123456789abcdef",
+                "openid",
+                &ch,
+                "S256",
+            ),
+            Err(AuthorizationError::UnsupportedResponseType)
+        ));
+        assert!(matches!(
+            validate_authorization_request(
+                &binding(),
+                "code",
+                "https://client.example/callback",
+                "short",
+                "nonce-0123456789abcdef",
+                "openid",
+                &ch,
+                "S256",
+            ),
+            Err(AuthorizationError::InvalidRequest(_))
+        ));
+        assert!(matches!(
+            validate_authorization_request(
+                &binding(),
+                "code",
+                "https://client.example/callback",
+                "state-0123456789abcdef",
+                "short",
+                "openid",
+                &ch,
+                "S256",
+            ),
+            Err(AuthorizationError::InvalidRequest(_))
+        ));
+    }
+
+    #[test]
+    fn oauth_error_codes_are_standards_compatible() {
+        assert_eq!(
+            AuthorizationError::InvalidClient.oauth_code(),
+            "invalid_client"
+        );
+        assert_eq!(
+            AuthorizationError::InvalidRedirectUri.oauth_code(),
+            "invalid_request"
+        );
+        assert_eq!(
+            AuthorizationError::UnsupportedResponseType.oauth_code(),
+            "unsupported_response_type"
+        );
+        assert_eq!(
+            AuthorizationError::InvalidScope.oauth_code(),
+            "invalid_scope"
+        );
+        assert_eq!(
+            AuthorizationError::ServerUnavailable.oauth_code(),
+            "temporarily_unavailable"
+        );
+        assert_eq!(
+            AuthorizationError::InvalidRequest("x").oauth_code(),
+            "invalid_request"
+        );
+    }
+
+    #[test]
+    fn rejects_missing_openid_scope() {
+        let verifier = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~";
+        assert_eq!(
+            validate_authorization_request(
+                &binding(),
+                "code",
+                "https://client.example/callback",
+                "state-0123456789abcdef",
+                "nonce-0123456789abcdef",
+                "profile email",
+                &challenge(verifier),
+                "S256",
+            ),
+            Err(AuthorizationError::InvalidScope)
+        );
+    }
 }

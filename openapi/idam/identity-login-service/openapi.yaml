@@ -2549,6 +2549,14 @@ components:
           type: string
           enum:
           - invalid_request
+          - invalid_client
+          - unauthorized_client
+          - unsupported_grant_type
+          - unsupported_response_type
+          - invalid_scope
+          - access_denied
+          - temporarily_unavailable
+          - server_error
           - invalid_credentials
           - invalid_grant
           - invalid_code
@@ -2561,6 +2569,11 @@ components:
           - rate_limited
           - invalid_token
           - not_found
+          - unsupported_provider
+          - invalid_client_metadata
+          - validation_error
+          - internal_error
+          - unauthorized
           description: Machine-readable error code
         error_description:
           type: string

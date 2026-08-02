@@ -21,14 +21,23 @@ fn openid_configuration_returns_populated_document() {
 
     assert!(resp.issuer.as_ref().is_some_and(|s| !s.is_empty()));
     assert!(resp.jwks_uri.as_ref().is_some_and(|s| s.contains("jwks")));
+    assert!(resp.authorization_endpoint.as_ref().is_some_and(|s| {
+        s == "https://auth.sesameidentity.dev.local/oauth/authorize"
+    }));
     assert!(resp
         .token_endpoint
         .as_ref()
         .is_some_and(|s| s == "https://api.sesameidentity.dev.local/oauth/token"));
-    assert!(resp
-        .userinfo_endpoint
-        .as_ref()
-        .is_some_and(|s| s.contains("userinfo")));
+    assert!(resp.userinfo_endpoint.as_ref().is_some_and(|s| {
+        s == "https://api.sesameidentity.dev.local/oauth/userinfo"
+    }));
+    assert!(
+        !resp
+            .grant_types_supported
+            .as_ref()
+            .is_some_and(|g| g.iter().any(|v| v == "implicit")),
+        "implicit must not be advertised"
+    );
     assert!(resp
         .scopes_supported
         .as_ref()

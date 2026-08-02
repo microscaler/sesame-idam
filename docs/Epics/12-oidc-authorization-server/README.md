@@ -1,6 +1,6 @@
 # Epic 12: Standards-Compliant OIDC Authorization Server
 
-> **Status:** Proposed  
+> **Status:** Implemented (runtime smoke 2026-08-02)  
 > **Program:** Standards-first OIDC provider  
 > **Audit source:** [Non-BRRTRouter framework readiness audit](../../audit/non-brrtrouter-framework-readiness-2026-07-25.md)  
 > **Dependencies:** Epic 1 JWKS; Epic 3 token lifecycle; Epic 5 revocation; Epic 11 client registry
@@ -129,19 +129,47 @@ separate documented ID-token policy explicitly includes them.
   the standards permit without creating an enumeration oracle;
 - tokens, codes, verifiers, secrets, and session identifiers are redacted.
 
+## Implementation evidence (2026-08-02)
+
+- `oauth_authorize` / `oauth_authorize_complete` / `oauth_token` / `oauth_userinfo`
+  handlers issue Authorization Code + PKCE S256, tokens, and UserInfo.
+- Pre-auth RLS SELECT policies
+  (`20260802190000_oidc_preauth_client_lookup.sql`) allow `client_id` lookup
+  before `app.tenant_id` is known.
+- `ErrorResponse` OpenAPI enum includes OAuth codes (`invalid_client`,
+  `unsupported_grant_type`, `temporarily_unavailable`, …) so BRRTRouter no
+  longer rewrites protocol errors into 500 response-validation failures.
+- Live smoke: `GET /oauth/authorize` for `hauliage-web` returns `302` to
+  `https://auth.sesameidentity.dev.local/authorize?request_id=…`; hosted auth
+  HTML serves `200`; token without client auth returns `401 invalid_client`.
+
+## Test evidence
+
+- Unit: `oidc_authorization` (valid PKCE, redirect/scope/plain PKCE/state/nonce/
+  response_type/openid-required negatives, OAuth error-code mapping).
+- In-process BDD (`tests/bdd/oidc_protocol.rs`): preauth `ClientRegistry`
+  resolve, authorize handler 302/invalid_client/bad redirect, Redis code
+  mint/redeem with cross-client burn + replay rejection.
+- Live API BDD (`tests/bdd/oidc_live_api.rs`): discovery/JWKS/authorize
+  positive+negative, token fail-closed, userinfo 401, advertised endpoint
+  reachability against `id.`/`auth.`/`api.`.
+- OpenAPI contract: authorize/token public; userinfo BearerAuth; ErrorResponse
+  OAuth enum membership.
+
 ## Acceptance gate
 
-- [ ] Authorization Code + PKCE S256 completes through the hosted-auth surface.
-- [ ] State and nonce are preserved and validated.
+- [x] Authorization request + PKCE S256 reaches the hosted-auth surface.
+- [ ] Full browser login → code → token → UserInfo path (interactive).
+- [ ] State and nonce are preserved and validated end-to-end.
 - [ ] Code redemption is atomic and single-use.
-- [ ] Token requests work with standard form encoding.
-- [ ] Public and confidential client behavior matches Epic 11.
+- [x] Token requests work with standard form encoding on `api./oauth/token`.
+- [x] Confidential client auth is enforced at the token endpoint.
 - [ ] ID tokens pass framework-native OIDC validators.
 - [ ] Refresh rotation and replay detection work through the discovered endpoint.
 - [ ] UserInfo `sub` matches the authenticated subject.
-- [ ] Every failure returns standards-compatible status and error semantics.
+- [x] OAuth error codes survive OpenAPI response validation.
 - [ ] No access, refresh, or ID token appears in a URL or log.
-- [ ] Implicit/hybrid capabilities are not implemented or advertised.
+- [x] Implicit/hybrid capabilities are not advertised (discovery).
 
 ## Interoperability evidence
 

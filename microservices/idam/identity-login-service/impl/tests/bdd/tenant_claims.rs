@@ -575,6 +575,7 @@ fn scenario_empty_sx_tenant_rejected() {
         tenant_id: "tenant-valid".to_string(),
         user_id: "user-null".to_string(),
         user_type: "customer".to_string(),
+        org_id: None,
         sx: SesameAuthzClaims {
             tenant: "".to_string(), // Empty — corrupted data
             portal: "web".to_string(),
@@ -585,6 +586,7 @@ fn scenario_empty_sx_tenant_rejected() {
             risk: None,
         },
         act: None,
+        cnf: None,
     };
 
     // When — validate() is called

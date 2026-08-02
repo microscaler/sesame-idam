@@ -50,3 +50,4 @@ identity-login-service/20260802060224_relying_party_client_redirect_uris.sql
 identity-login-service/20260802060224_relying_party_client_secrets.sql
 identity-login-service/20260802060224_relying_party_clients.sql
 identity-login-service/20260802090000_oidc_client_registry_policy.sql
+identity-login-service/20260802190000_oidc_preauth_client_lookup.sql

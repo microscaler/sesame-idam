@@ -352,7 +352,9 @@ def create_microservice_deployment(name, port):
         '%s docker copy-binary %s %s %s' % (
             sesame_idam_bin, target_path, artifact_path, package_name
         ),
-        deps=['tooling/pyproject.toml'],
+        # Watch the built binary so Flux image publishes cannot reuse a stale
+        # build_artifacts copy after cargo finishes (OIDC discovery stale-image incident).
+        deps=[target_path, 'tooling/pyproject.toml'],
         resource_deps=['build-%s' % name],
         labels=[name],
         allow_parallel=True,
@@ -767,7 +769,10 @@ _PACT_MOCK_DEPS = [
     _PACT_MOCK_DIR + '/Cargo.toml',
     _PACT_MOCK_DIR + '/pacts',
 ]
-_dev_registry = 'localhost:5001'
+# Push straight to the shared-k8s MetalLB registry (10.177.76.220:5000) when on
+# shared-k8s; localhost:5001 only remains for legacy Kind's local registry.
+# (Same fix as hauliage: ms02 no longer has a working localhost:5001 forwarder.)
+_dev_registry = _SHARED_K8S_REGISTRY if (_use_shared_k8s and os.path.exists(_SHARED_K8S_KCFG)) else 'localhost:5001'
 
 _sesame_broker_image = '%s/sesame-idam-broker' % _dev_registry
 if _use_shared_k8s and os.path.exists(_SHARED_K8S_KCFG):

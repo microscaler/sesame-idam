@@ -1945,12 +1945,6 @@ components:
             type: string
             enum: [none, client_secret_basic, client_secret_post]
           description: Client authentication methods accepted by the token endpoint
-        token_endpoint_auth_methods_supported:
-          type: array
-          items:
-            type: string
-            enum: [none, client_secret_basic, client_secret_post]
-          description: Client authentication methods accepted by the token endpoint
         jwks_uri:
           type: string
           description: JWKS endpoint for JWT verification
@@ -2016,11 +2010,6 @@ components:
             - S256
             - plain
           description: Supported PKCE challenge methods
-        claims_supported:
-          type: array
-          items:
-            type: string
-          description: Claims emitted by Sesame OIDC tokens and UserInfo
         claims_supported:
           type: array
           items:

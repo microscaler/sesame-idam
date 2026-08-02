@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
       - name: broker
-        image: localhost:5001/sesame-idam-broker:tilt
+        image: 10.177.76.220:5000/sesame-idam-broker:tilt
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

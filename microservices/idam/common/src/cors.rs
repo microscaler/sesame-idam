@@ -14,6 +14,60 @@
 
 use std::sync::Arc;
 
+#[cfg(test)]
+mod tests {
+    use super::effective_origins;
+    use crate::config::{AppConfig, CorsConfig};
+
+    #[test]
+    fn env_origins_override_config_file() {
+        std::env::set_var(
+            "CORS_ALLOWED_ORIGINS",
+            "https://a.example, https://b.example",
+        );
+        let cfg = AppConfig {
+            cors: Some(CorsConfig {
+                origins: Some(vec!["https://config.example".into()]),
+                allowed_headers: None,
+                allowed_methods: None,
+                allow_credentials: None,
+                expose_headers: None,
+                max_age: None,
+            }),
+            ..AppConfig::default()
+        };
+        let origins = effective_origins(&cfg);
+        std::env::remove_var("CORS_ALLOWED_ORIGINS");
+        assert_eq!(
+            origins,
+            vec![
+                "https://a.example".to_string(),
+                "https://b.example".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn empty_env_falls_back_to_config_origins() {
+        std::env::remove_var("CORS_ALLOWED_ORIGINS");
+        let cfg = AppConfig {
+            cors: Some(CorsConfig {
+                origins: Some(vec!["https://config.example".into()]),
+                allowed_headers: None,
+                allowed_methods: None,
+                allow_credentials: None,
+                expose_headers: None,
+                max_age: None,
+            }),
+            ..AppConfig::default()
+        };
+        assert_eq!(
+            effective_origins(&cfg),
+            vec!["https://config.example".to_string()]
+        );
+    }
+}
+
 use brrtrouter::middleware::{
     build_route_cors_map, CorsMiddleware, CorsMiddlewareBuilder, MetricsMiddleware, RouteCorsPolicy,
 };

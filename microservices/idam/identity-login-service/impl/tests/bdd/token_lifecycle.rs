@@ -34,9 +34,9 @@ use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as 
 use sesame_idam_identity_session_service::controllers::{auth_refresh, oauth_userinfo};
 use sesame_idam_identity_session_service_gen::handlers::oauth_userinfo::Request as UserinfoRequest;
 
-use crate::common::ensure_active_tenant;
+use crate::common::{ensure_active_tenant, HAULIAGE_TENANT, HAULIAGE_WEB_CLIENT};
 
-const TEST_TENANT: &str = "bdd-lifecycle-tenant";
+const TEST_TENANT: &str = HAULIAGE_TENANT;
 const TEST_KID: &str = "bdd-lifecycle-kid";
 
 static INIT: Once = Once::new();
@@ -130,7 +130,7 @@ fn login_request(email: &str, password: &str) -> TypedHandlerRequest<LoginReques
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: LoginRequest {
-            client_id: "hauliage-web".to_string(),
+            client_id: HAULIAGE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             organization_id: None,
             password: password.to_string(),

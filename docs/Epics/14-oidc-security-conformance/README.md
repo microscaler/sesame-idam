@@ -1,6 +1,6 @@
 # Epic 14: OIDC Security Profile and Conformance
 
-> **Status:** Proposed  
+> **Status:** In progress (fixture runner + interactive PKCE evidence)  
 > **Program:** Standards-first OIDC provider  
 > **Audit source:** [Non-BRRTRouter framework readiness audit](../../audit/non-brrtrouter-framework-readiness-2026-07-25.md)  
 > **Dependencies:** Epics 1, 5, 8, 11, 12, and 13
@@ -142,17 +142,29 @@ The compatibility matrix must include at least:
 Passing one library is not sufficient evidence because parser and metadata
 tolerance differ across ecosystems.
 
+## Test evidence (2026-08-02)
+
+- Machine-readable corpus: `conformance/oidc-v1/{manifest,protocol-cases}.json`
+- BDD runner: `identity-login-service` `tests/bdd/oidc_conformance.rs`
+  (redirect-prefix, PKCE plain, valid public PKCE, code replay/cross-client)
+- Interactive PKCE: `tests/bdd/oidc_interactive.rs` + live
+  `oidc_live_api::live_interactive_pkce_round_trip`
+  (authorize → login → complete → token → userinfo) using `fixture-public-client`
+- Seed: `impl/seeds/20260802220000_oidc_fixture_public_clients.sql`
+- Hosted auth SPA completes OIDC via `/oauth/authorize/complete` when
+  `request_id` is present (`frontend/auth`)
+
 ## Acceptance gate
 
 - [ ] One validator replaces payload-only token trust in all credential-minting paths.
-- [ ] Every mandatory fixture has a stable machine-readable representation.
+- [x] Every mandatory fixture has a stable machine-readable representation.
 - [ ] Server and client projects consume the same expected outcomes.
-- [ ] All metadata claims are checked against runtime and public routing.
+- [x] All metadata claims are checked against runtime and public routing.
 - [ ] The selected external OIDC conformance profile passes.
 - [ ] Every selected framework completes positive login and rejects the negative token set.
 - [ ] JWKS rotation works without synchronized client cache flushes.
 - [ ] Logs, traces, metrics, and errors contain no token, code, verifier, or secret.
-- [ ] Protocol regression tests are release-blocking.
+- [x] Protocol regression tests are release-blocking.
 - [ ] Compatibility evidence records exact framework/library versions.
 
 ## Release evidence

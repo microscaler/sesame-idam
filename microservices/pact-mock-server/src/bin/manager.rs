@@ -14,7 +14,8 @@ use kube::{api::Api, Client};
 use kube_runtime::watcher::{self, Config};
 use serde_json::{json, Value};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{hash_map::DefaultHasher, HashMap, HashSet},
+    hash::{Hash, Hasher},
     path::Path,
     process::Command,
     sync::{
@@ -25,6 +26,29 @@ use std::{
 };
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
+
+/// Build a Pact Broker consumer-app-version that changes when contract bytes change.
+///
+/// Broker rejects mutating pact content under a reused consumer version
+/// (`google-oauth-mock-dev-local` etc.). Dev deploys pin `GIT_COMMIT=local`, so the
+/// version must include a content fingerprint.
+fn consumer_app_version(
+    provider_name: &str,
+    git_branch: &str,
+    git_commit: &str,
+    pact_bytes: &[u8],
+) -> String {
+    let mut hasher = DefaultHasher::new();
+    pact_bytes.hash(&mut hasher);
+    let fingerprint = format!("{:016x}", hasher.finish());
+    format!(
+        "{}-{}-{}-{}",
+        provider_name.to_lowercase(),
+        git_branch,
+        git_commit,
+        &fingerprint[..8]
+    )
+}
 
 /// Configuration for the manager
 #[derive(Debug, Clone)]
@@ -183,12 +207,17 @@ fn publish_pact(config: &ManagerConfig, provider_name: &str, pact_file: &str) ->
         return Ok(false);
     }
 
-    // Convert provider name to lowercase for version
-    let provider_version = format!(
-        "{}-{}-{}",
-        provider_name.to_lowercase(),
-        config.git_branch,
-        config.git_commit
+    let pact_bytes = std::fs::read(&pact_path).with_context(|| {
+        format!(
+            "Failed to read pact file for versioning: {}",
+            pact_path.display()
+        )
+    })?;
+    let provider_version = consumer_app_version(
+        provider_name,
+        &config.git_branch,
+        &config.git_commit,
+        &pact_bytes,
     );
 
     info!(
@@ -1044,5 +1073,31 @@ async fn ready_handler(State(state): State<HealthState>) -> (StatusCode, Json<Va
         (StatusCode::OK, Json(response))
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(response))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::consumer_app_version;
+
+    #[test]
+    fn consumer_version_is_stable_for_identical_bytes() {
+        let bytes = br#"{"consumer":{"name":"sesame"}}"#;
+        let a = consumer_app_version("Google-OAuth-Mock", "dev", "local", bytes);
+        let b = consumer_app_version("Google-OAuth-Mock", "dev", "local", bytes);
+        assert_eq!(a, b);
+        assert!(a.starts_with("google-oauth-mock-dev-local-"));
+        assert_eq!(a.len(), "google-oauth-mock-dev-local-".len() + 8);
+    }
+
+    #[test]
+    fn consumer_version_changes_when_pact_content_changes() {
+        let before = br#"redirect_uri=http%3A%2F%2Fhauliage.dev.microscaler.local%2Foauth%2Fcallback"#;
+        let after = br#"redirect_uri=http%3A%2F%2Floadlinker.dev.microscaler.local%2Foauth%2Fcallback"#;
+        let v1 = consumer_app_version("Microsoft-OAuth-Mock", "dev", "local", before);
+        let v2 = consumer_app_version("Microsoft-OAuth-Mock", "dev", "local", after);
+        assert_ne!(v1, v2);
+        assert!(v1.starts_with("microsoft-oauth-mock-dev-local-"));
+        assert!(v2.starts_with("microsoft-oauth-mock-dev-local-"));
     }
 }

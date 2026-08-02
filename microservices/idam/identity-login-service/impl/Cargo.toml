@@ -85,5 +85,6 @@ ring = { workspace = true }
 sha2 = { workspace = true }
 jsonwebtoken = { workspace = true }
 redis = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 sesame_idam_identity_session_service_gen = { path = "../../identity-session-service/gen" }
 

@@ -69,7 +69,7 @@ spec:
       serviceAccountName: sesame-pact-manager
       containers:
       - name: manager
-        image: localhost:5001/sesame-pact-manager:tilt
+        image: 10.177.76.220:5000/sesame-pact-manager:tilt
         imagePullPolicy: IfNotPresent
         ports:
         - name: health

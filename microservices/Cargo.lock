@@ -4603,7 +4603,9 @@ checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "futures-channel",
  "futures-core",
+ "futures-util",
  "http 1.4.2",
  "http-body 1.0.1",
  "http-body-util",
@@ -5530,6 +5532,7 @@ dependencies = [
  "may_postgres",
  "rand 0.8.6",
  "redis 0.25.5",
+ "reqwest",
  "ring",
  "rstest",
  "rstest-bdd",

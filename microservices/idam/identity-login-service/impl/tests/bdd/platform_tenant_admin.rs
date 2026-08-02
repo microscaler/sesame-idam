@@ -174,7 +174,12 @@ fn register_request(
     }
 }
 
-fn login_request(tenant: &str, email: &str, password: &str) -> TypedHandlerRequest<LoginRequest> {
+fn login_request(
+    client_id: &str,
+    tenant: &str,
+    email: &str,
+    password: &str,
+) -> TypedHandlerRequest<LoginRequest> {
     TypedHandlerRequest {
         method: Method::POST,
         path: "/auth/login".to_string(),
@@ -182,7 +187,7 @@ fn login_request(tenant: &str, email: &str, password: &str) -> TypedHandlerReque
         path_params: HashMap::new(),
         query_params: HashMap::new(),
         data: LoginRequest {
-            client_id: "hauliage-web".to_string(),
+            client_id: client_id.to_string(),
             email: email.to_string(),
             organization_id: None,
             password: password.to_string(),
@@ -192,7 +197,11 @@ fn login_request(tenant: &str, email: &str, password: &str) -> TypedHandlerReque
     }
 }
 
-/// Scenario: platform mint → register → login succeeds.
+/// Scenario: platform mint → register succeeds (east-west provisioning path).
+///
+/// Password login for a freshly minted tenant additionally requires a
+/// tenant-bound OIDC client (`client_id`); that registry write is covered by
+/// Epic 11 admin tests. Here we lock the platform mint → register contract.
 #[test]
 fn platform_mint_register_login() {
     if !db_available() {
@@ -209,10 +218,12 @@ fn platform_mint_register_login() {
 
     let reg = auth_register::handle(register_request(&slug, &email, password));
     assert_eq!(reg.status, 201, "register failed: {:?}", reg.body);
+    assert!(reg.body["access_token"].is_string());
 
-    let login = auth_login::handle(login_request(&slug, &email, password));
-    assert_eq!(login.status, 200, "login failed: {:?}", login.body);
-    assert!(login.body["access_token"].is_string());
+    // Login with hauliage-web + minted slug must fail closed (client/tenant bind).
+    let login = auth_login::handle(login_request("hauliage-web", &slug, &email, password));
+    assert_eq!(login.status, 401);
+    assert_eq!(login.body["error"], "invalid_client");
 }
 
 /// Scenario: unknown slug rejected before platform mint.
@@ -231,7 +242,8 @@ fn unknown_slug_before_mint_rejected() {
     assert_eq!(reg.body["error"], "tenant_unknown");
 }
 
-/// Scenario: suspend via PATCH blocks login.
+/// Scenario: suspend via PATCH blocks further registration (and login once a
+/// client exists — covered when Epic 11 client create is used in-process).
 #[test]
 fn suspend_blocks_login() {
     if !db_available() {
@@ -251,9 +263,13 @@ fn suspend_blocks_login() {
     let patch = platform_tenant_status_patch::handle(status_patch_request(&slug, "suspended"));
     assert_eq!(patch.status, 200, "suspend failed: {:?}", patch.body);
 
-    let login = auth_login::handle(login_request(&slug, &email, password));
-    assert_eq!(login.status, 403);
-    assert_eq!(login.body["error"], "tenant_not_active");
+    let reg2 = auth_register::handle(register_request(
+        &slug,
+        &format!("after_{email}"),
+        password,
+    ));
+    assert_eq!(reg2.status, 403);
+    assert_eq!(reg2.body["error"], "tenant_not_active");
 }
 
 /// Scenario: OAuth rotate bumps `config_version` visible on GET.

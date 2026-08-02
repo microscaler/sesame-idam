@@ -16,6 +16,8 @@ use crate::audit::EMITTER;
 use crate::services::abuse_guard;
 use crate::services::client_registry::{ClientRegistry, ClientRegistryError};
 use crate::services::password;
+use crate::services::tenant_gate::tenant_http_error;
+use crate::services::tenant_service::TenantService;
 use crate::services::token_issuer;
 use crate::services::user_service::{UserService, STATUS_ACTIVE};
 use sesame_common::audit::{AuditEventType, AuditLogEntry};
@@ -47,6 +49,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return invalid_client();
     }
     let tenant_id = binding.tenant_id;
+
+    // Platform suspend / unknown tenant must fail closed before credential checks.
+    if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
+        return tenant_http_error(&e);
+    }
 
     // Gate A2: locked identities get the SAME generic 401 as wrong
     // credentials — no oracle for lock state or account existence. The

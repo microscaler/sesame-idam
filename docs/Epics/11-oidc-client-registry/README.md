@@ -138,7 +138,9 @@ be representable as tenant-owned clients with elevated flags.
 - public/confidential policy tests;
 - tenant-console authorization BDD;
 - audit redaction tests;
-- concurrent rotation and disablement tests.
+- concurrent rotation and disablement tests;
+- preauth RLS `ClientRegistry::resolve_active` (protocol BDD, no `app.tenant_id`);
+- OpenAPI ErrorResponse OAuth error enum membership (`openapi_security`).
 
 ## Security cases
 

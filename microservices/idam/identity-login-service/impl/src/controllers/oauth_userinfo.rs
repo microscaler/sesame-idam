@@ -25,8 +25,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return bearer_error("insufficient_scope", "The openid scope is required");
     }
 
-    let exec = sesame_idam_database::db();
-    let user = match UserService::find_by_tenant_and_id(&tenant_id, user_id, exec) {
+    let user = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+        UserService::find_by_tenant_and_id(&tenant_id, user_id, exec)
+    }) {
         Ok(Some(user)) if user.status == "active" => user,
         Ok(_) => return bearer_error("invalid_token", "The token subject is unavailable"),
         Err(error) => {

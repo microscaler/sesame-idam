@@ -1,5 +1,5 @@
 /**
- * Hosted auth surface → identity-login-service API (ADR-010).
+ * Hosted auth surface → identity-login-service API (ADR-010 + OIDC complete).
  *
  * Every call carries X-Tenant-ID (ADR-004 tenant gate). Responses from the
  * OTP/magic-link SEND endpoints are deliberately generic (Gate A3: no
@@ -8,6 +8,7 @@
  */
 
 const BASE = import.meta.env.VITE_IDAM_BASE_URL ?? '/idam/v1';
+const DEFAULT_CLIENT_ID = import.meta.env.VITE_DEFAULT_CLIENT_ID ?? 'hauliage-web';
 
 export interface TokenResponse {
   access_token: string;
@@ -18,17 +19,36 @@ export interface TokenResponse {
   token_type: string;
 }
 
-async function post<T>(path: string, tenantId: string, body: unknown): Promise<T> {
+async function post<T>(
+  path: string,
+  tenantId: string,
+  body: unknown,
+  accessToken?: string,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Tenant-ID': tenantId,
+  };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId },
+    headers,
     body: JSON.stringify(body),
     credentials: 'include',
+    redirect: 'manual',
   });
+  if (res.status >= 300 && res.status < 400) {
+    const location = res.headers.get('Location') ?? '';
+    return { redirect: location } as T;
+  }
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
-    // Generic by design — surface the server's message, never invent detail.
-    throw new AuthError(String(json.error ?? 'request_failed'), String(json.error_description ?? 'Something went wrong'));
+    throw new AuthError(
+      String(json.error ?? 'request_failed'),
+      String(json.error_description ?? 'Something went wrong'),
+    );
   }
   return json as T;
 }
@@ -42,9 +62,18 @@ export class AuthError extends Error {
   }
 }
 
-/** Password login. 401 `invalid_credentials` covers wrong password, unknown user, AND lockout (A2). */
-export const login = (tenantId: string, email: string, password: string) =>
-  post<TokenResponse>('/auth/login', tenantId, { email, password });
+/** Password login. Requires client_id (OIDC client registry binds tenant). */
+export const login = (
+  tenantId: string,
+  email: string,
+  password: string,
+  clientId: string = DEFAULT_CLIENT_ID,
+) =>
+  post<TokenResponse>('/auth/login', tenantId, {
+    email,
+    password,
+    client_id: clientId,
+  });
 
 /** Request an email OTP. Always "succeeds" — advance the UI regardless. */
 export const sendEmailOtp = (tenantId: string, email: string) =>
@@ -97,3 +126,40 @@ export const mintSessionCode = (
     refresh_token: refreshToken,
     redirect_uri: redirectUri,
   });
+
+/**
+ * Complete an OIDC authorization request after the user authenticates.
+ * Returns the RP redirect Location (`redirect_uri?code=&state=`).
+ *
+ * Uses same-origin `/oauth/authorize/complete` on the auth host (edge rewrite
+ * to login-service), not the `/idam/v1` API base.
+ */
+export async function completeOidcAuthorize(
+  tenantId: string,
+  accessToken: string,
+  requestId: string,
+): Promise<{ redirect: string }> {
+  const res = await fetch('/oauth/authorize/complete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Tenant-ID': tenantId,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ request_id: requestId }),
+    credentials: 'include',
+    redirect: 'manual',
+  });
+  if (res.status >= 300 && res.status < 400) {
+    const location = res.headers.get('Location') ?? '';
+    if (!location) {
+      throw new AuthError('invalid_request', 'Authorization complete returned no redirect');
+    }
+    return { redirect: location };
+  }
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  throw new AuthError(
+    String(json.error ?? 'request_failed'),
+    String(json.error_description ?? 'Authorization complete failed'),
+  );
+}
