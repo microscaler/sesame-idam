@@ -7,4 +7,10 @@ metadata:
     app: {{ .Values.service.name }}
 data:
   config.yaml: |
-{{- toYaml .Values.app.config | nindent 4 }}
+{{- /* Force BearerAuth.iss to match SESAME_JWT_ISSUER so minted tokens validate. */ -}}
+{{- $cfg := .Values.app.config | toYaml | fromYaml -}}
+{{- $issuer := .Values.env.SESAME_JWT_ISSUER | default "" -}}
+{{- if and $issuer (hasKey $cfg "security") (hasKey $cfg.security "jwks") (hasKey $cfg.security.jwks "BearerAuth") -}}
+{{- $_ := set $cfg.security.jwks.BearerAuth "iss" $issuer -}}
+{{- end }}
+{{- toYaml $cfg | nindent 4 }}

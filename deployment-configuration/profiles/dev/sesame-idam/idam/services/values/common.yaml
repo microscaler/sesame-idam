@@ -27,7 +27,9 @@ app:
         # BRRTRouter registers JWKS providers by that key; camelCase twins hide drift.
         BearerAuth:
           jwks_url: http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json
-          iss: https://idam.example.com
+          # Must match env.SESAME_JWT_ISSUER (chart values.yaml). Helm
+          # configmap template also forces this at render time.
+          iss: https://id.sesameidentity.dev.local
           aud: sesame-idam
           leeway_secs: 30
           cache_ttl_secs: 300
