@@ -23,6 +23,15 @@ VALUES
         'platform',
         NOW(),
         NOW()
+    ),
+    (
+        'a1000003-0003-4000-8000-000000000003',
+        'hauliage',
+        'Hauliage',
+        'active',
+        'platform',
+        NOW(),
+        NOW()
     )
 ON CONFLICT (slug) DO UPDATE SET
     display_name = EXCLUDED.display_name,
@@ -41,6 +50,20 @@ VALUES
         'a1500001-0001-4000-8000-000000000001',
         'acme-web',
         'acme',
+        'frontend',
+        'frontend',
+        'confidential',
+        'client_secret_basic',
+        FALSE,
+        'tenant',
+        'active',
+        NOW(),
+        NOW()
+    ),
+    (
+        'a1500002-0002-4000-8000-000000000002',
+        'hauliage-web',
+        'hauliage',
         'frontend',
         'frontend',
         'confidential',
@@ -74,13 +97,39 @@ VALUES
         'post_logout',
         'https://app.example.com/',
         NOW()
+    ),
+    (
+        'a1500002-0002-4000-8000-000000000001',
+        'a1500002-0002-4000-8000-000000000002',
+        'login',
+        'https://hauliage.dev.microscaler.local/oauth/callback',
+        NOW()
+    ),
+    (
+        'a1500002-0002-4000-8000-000000000002',
+        'a1500002-0002-4000-8000-000000000002',
+        'login',
+        'http://localhost:7174/oauth/callback',
+        NOW()
+    ),
+    (
+        'a1500002-0002-4000-8000-000000000003',
+        'a1500002-0002-4000-8000-000000000002',
+        'post_logout',
+        'https://hauliage.dev.microscaler.local/',
+        NOW()
     )
 ON CONFLICT (relying_party_client_id, kind, uri) DO NOTHING;
 
 INSERT INTO sesame_idam.relying_party_client_capabilities
     (id, relying_party_client_id, kind, value, created_at)
-SELECT gen_random_uuid(), 'a1500001-0001-4000-8000-000000000001', kind, value, NOW()
+SELECT gen_random_uuid(), client_id, kind, value, NOW()
 FROM (
+    VALUES
+        ('a1500001-0001-4000-8000-000000000001'::uuid),
+        ('a1500002-0002-4000-8000-000000000002'::uuid)
+) AS clients(client_id)
+CROSS JOIN (
     VALUES
         ('grant', 'authorization_code'),
         ('grant', 'refresh_token'),
@@ -151,6 +200,21 @@ VALUES
         'http://globex.example.com/oauth/callback',
         'SESAME_OAUTH__GLOBEX__MICROSOFT_CLIENT_SECRET',
         'SESAME_OAUTH__GLOBEX__MICROSOFT_CLIENT_ID',
+        1,
+        NULL,
+        NULL,
+        TRUE,
+        NOW(),
+        NOW()
+    ),
+    (
+        'a2000005-0005-4000-8000-000000000005',
+        'hauliage',
+        'google',
+        'placeholder-hauliage-google-client-id',
+        'https://hauliage.dev.microscaler.local/oauth/callback,http://localhost:7174/oauth/callback,http://127.0.0.1:7174/oauth/callback',
+        'SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_SECRET',
+        'SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_ID',
         1,
         NULL,
         NULL,

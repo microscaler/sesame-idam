@@ -1,19 +1,24 @@
 # Epic 16: Mainstream Framework Client Ecosystem
 
-> **Status:** Future — blocked by standards-first provider gates  
+> **Status:** In progress  
 > **Program:** Standards-first OIDC provider  
 > **Audit source:** [Non-BRRTRouter framework readiness audit](../../audit/non-brrtrouter-framework-readiness-2026-07-25.md)  
-> **Dependencies:** Epics 11–15 complete; versioned public provider profile and conformance fixtures
+> **Dependencies:** Epics 11–15; versioned public provider profile and conformance fixtures  
+> **Selection:** [client-ecosystem-selection-v1.md](../../standards-first-oidc/client-ecosystem-selection-v1.md) — **Rust only**; BFF-mandated; other languages deferred
 
 ## Outcome
 
-Selected languages and frameworks have supported Sesame client libraries,
-presets, or reference integrations that feel native to their ecosystems while
-sharing one OIDC, token, claims, and public API contract.
+Sesame’s Supported client investment is the Rust server library
+(`sesame-idam-client`), exercised end-to-end by Hauliage as the first product
+dogfood (email/password + Google via Sesame). Frontends always authenticate
+through their own backend (BFF pattern).
 
-This epic begins only after Sesame is independently consumable through generic
-OIDC libraries. Client packages improve ergonomics; they do not compensate for
-provider non-conformance.
+Multi-language SDKs and Auth.js productization are explicitly deferred. The
+Epic 15 portable contract remains the integration surface for any future
+non-Rust BFF.
+
+Client packages improve ergonomics; they do not compensate for provider
+non-conformance.
 
 ## Guiding decision
 
@@ -74,22 +79,32 @@ This table is a candidate backlog, not a commitment to build all packages.
 
 ## Stories
 
-| Story | Title | Result |
-|---|---|---|
-| 16.1 | Ecosystem selection and support tiers | Approved targets, package type, owners, versions, and maintenance policy |
-| 16.2 | Shared SDK specification and release template | Common security, errors, telemetry, conformance, provenance, and docs requirements |
-| 16.3 | Auth.js/TypeScript integration | Named provider and framework-native samples across supported Auth.js bindings |
-| 16.4 | ASP.NET Core integration | OIDC login, JWT bearer, policy mapping, and typed public API client |
-| 16.5 | Spring/Java integration | OAuth2 login, resource server, authority mapping, and typed public API client |
-| 16.6 | Python integrations | django-allauth preset, FastAPI/Authlib helpers, and Python API client |
-| 16.7 | Laravel/PHP integration | Socialite-compatible provider and PHP API client |
-| 16.8 | Rails/Ruby integration | OmniAuth preset/strategy and Ruby API client |
-| 16.9 | Go integration | OIDC/JWT helpers, middleware recipes, and Go API client |
-| 16.10 | Non-BRRTRouter Rust integration | Async/framework-neutral Rust path without changing the may-native client |
-| 16.11 | Cross-language compatibility CI | Every supported package runs the shared provider/fixture matrix |
-| 16.12 | Hauliage external-contract dogfood | Existing product uses the same public contract and fixtures as customers |
+| Story | Title | Active? | Result |
+|---|---|---|---|
+| 16.1 | Ecosystem selection and support tiers | **Yes** | Rust Supported + BFF mandate; others deferred (selection doc) |
+| 16.2 | Shared SDK specification and release template | **Yes** (Rust-scoped) | Security, errors, conformance, provenance requirements for `sesame-idam-client` |
+| 16.3 | Auth.js/TypeScript integration | Deferred | — |
+| 16.4 | ASP.NET Core integration | Deferred | — |
+| 16.5 | Spring/Java integration | Deferred | — |
+| 16.6 | Python integrations | Deferred | — |
+| 16.7 | Laravel/PHP integration | Deferred | — |
+| 16.8 | Rails/Ruby integration | Deferred | — |
+| 16.9 | Go integration | Deferred | — |
+| 16.10 | Non-BRRTRouter Rust integration | Deferred | may client remains the Supported path |
+| 16.11 | Compatibility CI | **Yes** (Rust-scoped) | Client contract sync + fixture matrix against provider |
+| 16.12 | Hauliage external-contract dogfood | **Yes** | Hauliage BFF on public contract; password + Google via Sesame |
 
-Stories 16.3–16.10 are activated only for candidates selected by 16.1.
+Active train: **16.1 → 16.2 → 16.12 → 16.11** (client hardening as needed for dogfood).
+
+## Progress (2026-08-03)
+
+- [x] 16.1 Selection locked (Rust-only, BFF mandate)
+- [x] 16.12 Seed `hauliage` + Google OAuth metadata; Hauliage BFF public-edge config
+- [x] 16.11 Rust client contract sync + public API base helper
+- [ ] 16.12 Live Google credentials in cluster + E2E sign-in proof
+- [ ] 16.2 Formalize Rust client release/provenance template
+
+Evidence: [evidence/hauliage-google-dogfood-2026-08-03.md](./evidence/hauliage-google-dogfood-2026-08-03.md)
 
 ## Required package layers
 
@@ -137,20 +152,15 @@ wrappers where documentation and conformance-tested configuration are sufficient
 - publish supported provider/API/framework versions;
 - use semantic versioning, changelogs, provenance, and vulnerability reporting.
 
-## Auth.js first-candidate rationale
+## Rust-first rationale (selected)
 
-If product selection confirms it, Auth.js is the strongest first adapter because
-one provider definition can cover Next.js, SvelteKit, and Express while testing
-the provider against a widely used generic OIDC stack.
+Microscaler products (Hauliage first) already use a may-native Rust BFF/client
+path. Investing in additional language SDKs before that path is dogfooded on the
+public OIDC contract would split maintenance without a second customer.
 
-The first adapter must remain thin:
-
-- `type: "oidc"` with Sesame issuer;
-- standard Auth.js PKCE/state/nonce checks;
-- profile/claim mapping;
-- JWT/session callback examples for access and refresh tokens;
-- provider logout and organization-switch examples;
-- no Sesame-specific replacement for Auth.js protocol handling.
+Auth.js and other framework presets remain valid *future* candidates when a
+Node (or other) BFF product appears with a named owner. Until then they are not
+Epic 16 deliverables.
 
 ## Acceptance gate per client
 
