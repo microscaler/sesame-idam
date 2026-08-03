@@ -1,28 +1,45 @@
-# OIDC / Epic 14 — 2026-08-03
+# OIDC / Epic resume — 2026-08-03
 
-## Open-source fixture naming (product brands removed)
+## Epic 14
 
-Product-specific symbols are gone from Sesame test/seed code:
+- Landed on `main` (tip lineage includes `feat(oidc): Epic 14 conformance gate and product-neutral fixtures`).
+- Product-neutral fixtures: `acme` / `globex` (no Hauliage/PriceWhisperer in OSS contract).
 
-| Old | New |
-|-----|-----|
-| `HAULIAGE_TENANT` | `FIXTURE_TENANT` = `"acme"` |
-| `HAULIAGE_WEB_CLIENT` | `FIXTURE_WEB_CLIENT` = `"acme-web"` |
-| `owner@hauliage.dev` | `owner@acme.example` |
-| seed `*_hauliage_demo_*.sql` | `*_acme_demo_*.sql` |
-| tenant `pricewhisperer` | `globex` |
-| `SESAME_OAUTH__PRICEWHISPERER__*` | `SESAME_OAUTH__GLOBEX__*` |
+## Epic 15 — Portable Consumer Contract (COMPLETE lineup)
 
-Live/private lab overrides (keep Hauliage out of the OSS tree):
+Status: **In progress** in INDEX/README; all plan waves implemented.
+
+| Wave | Status |
+|---|---|
+| 0 rebase/push Epic 14 | Done (`origin/main` current) |
+| 1 Normative freeze | Done — provider-profile entry + claim tables + verified-principal mapping/tests |
+| 2 Public API | Done — tenant-consumer OpenAPI + transport-policy + live contract BDD |
+| 3 Boundaries/fixtures | Done — client-boundaries + VERSION/CHECKSUM + contract_sync |
+| 4 Proof | Done — quickstarts; sesame-idam-client lockstep; Authlib proof |
+| 5 Compatibility | Done — compatibility-v1.md + acceptance evidence |
+
+### Key paths
+
+- `docs/standards-first-oidc/provider-profile-v1.md`
+- `docs/standards-first-oidc/verified-principal-mapping-v1.md`
+- `docs/standards-first-oidc/transport-policy-v1.md`
+- `docs/standards-first-oidc/client-boundaries-v1.md`
+- `docs/standards-first-oidc/compatibility-v1.md`
+- `docs/standards-first-oidc/quickstarts/`
+- `openapi/idam/tenant-consumer/openapi.yaml`
+- `conformance/oidc-v1/{VERSION,CHECKSUM,README.md}`
+- `microservices/idam/common/src/jwt/verified_principal.rs`
+- `tooling/src/sesame_idam_tooling/{contract_sync,authlib_contract_proof,verified_principal}.py`
+- Sibling: `sesame-idam-client` optional `org_id` + tenant-consumer contract_sync
+
+### Verify
 
 ```bash
-export SESAME_LIVE_TEST_TENANT=hauliage          # private only
-export SESAME_LIVE_TEST_CLIENT_ID=hauliage-web
-export SESAME_LIVE_TEST_REDIRECT=https://loadlinker.dev.microscaler.local/auth/callback
-export SESAME_LIVE_TEST_EMAIL=owner@hauliage.dev
+ssh ms02 'cd ~/Workspace/microscaler/sesame-idam && PYTHONPATH=tooling/src python3 -m sesame_idam_tooling.contract_sync'
+ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/sesame-idam/microservices && cargo nextest run -p sesame-common verified_principal'
+ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/sesame-idam/microservices && cargo nextest run -p sesame_idam_identity_login_service tenant_consumer_live_contract'
 ```
 
-After seed rename, re-apply platform + demo seeds (or rely on env overrides against existing DB rows).
+### Not committed yet
 
-## Epic 14 status
-See prior notes; conformance BDD green with `acme` fixture tenant strings.
+Local working tree changes for Epic 15 (and client repo) — commit when user asks.

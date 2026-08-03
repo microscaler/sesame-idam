@@ -37,8 +37,10 @@ pub mod token_versioning;
 
 // Re-export from existing modules
 pub use jwt::{
-    verify_access_token, AccessClaims, AccessClaimsBuilder, ActorClaim, JwtError, JwtValidationError,
-    SesameAuthzClaims, SesameAuthzClaimsBuilder, ALLOWED_ISSUERS, EXPECTED_AUDIENCE,
+    map_access_claims_to_verified_principal, verify_access_token, AccessClaims,
+    AccessClaimsBuilder, ActorClaim, JwtError, JwtValidationError, SesameAuthzClaims,
+    SesameAuthzClaimsBuilder, ALLOWED_ISSUERS, EXPECTED_AUDIENCE,
+    VERIFIED_PRINCIPAL_PROFILE_VERSION,
 };
 
 // Re-export from audit module

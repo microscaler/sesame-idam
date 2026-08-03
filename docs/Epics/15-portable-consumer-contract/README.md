@@ -1,9 +1,10 @@
 # Epic 15: Language-Neutral Sesame Consumer Contract
 
-> **Status:** Proposed  
+> **Status:** In progress  
 > **Program:** Standards-first OIDC provider  
 > **Audit source:** [Non-BRRTRouter framework readiness audit](../../audit/non-brrtrouter-framework-readiness-2026-07-25.md)  
-> **Dependencies:** Epics 11–14; tenant-consumer API; ADR-005 RLS contract
+> **Dependencies:** Epics 11–14; tenant-consumer API; ADR-005 RLS contract  
+> **Canonical entry:** [provider-profile-v1.md](../../standards-first-oidc/provider-profile-v1.md)
 
 ## Outcome
 
@@ -30,7 +31,7 @@ Current integration knowledge is distributed across:
 - partially verified wiki pages;
 - BRRTRouter security configuration;
 - `sesame-idam-client`;
-- product-specific Hauliage code.
+- product-specific consumer examples outside the contract.
 
 This has produced drift in algorithm, claims, optional `org_id`, token response
 fields, endpoint URLs, refresh behavior, and the RLS integration story.
@@ -171,16 +172,32 @@ Must not implicitly elevate an end-user token into administrative authority.
 
 ## Acceptance gate
 
-- [ ] One normative provider profile replaces contradictory integration docs.
-- [ ] Access-token, ID-token, and verified-principal schemas are versioned.
-- [ ] Optional pre-organization state is representable.
-- [ ] One public tenant API OpenAPI validates against live routes.
-- [ ] Internal service hostnames are absent from consumer quickstarts.
-- [ ] Errors, pagination, retries, idempotency, and rate limits are defined.
-- [ ] Shared conformance fixtures are published as a versioned artifact.
-- [ ] Rust and at least one non-Rust proof consumer use the same contract.
-- [ ] Documentation snippets execute in CI.
-- [ ] Deprecation and compatibility policies are published.
+- [x] One normative provider profile replaces contradictory integration docs.
+- [x] Access-token, ID-token, and verified-principal schemas are versioned.
+- [x] Optional pre-organization state is representable.
+- [x] One public tenant API OpenAPI validates against live routes.
+- [x] Internal service hostnames are absent from consumer quickstarts.
+- [x] Errors, pagination, retries, idempotency, and rate limits are defined.
+- [x] Shared conformance fixtures are published as a versioned artifact.
+- [x] Rust and at least one non-Rust proof consumer use the same contract.
+- [x] Documentation snippets execute in CI.
+- [x] Deprecation and compatibility policies are published.
+
+## Evidence
+
+| Item | Location |
+|---|---|
+| Provider profile entry | `docs/standards-first-oidc/provider-profile-v1.md` |
+| Principal mapping + tests | `verified-principal-mapping-v1.md`; `sesame-common` `verified_principal`; tooling `verified_principal.py` |
+| Transport policy | `docs/standards-first-oidc/transport-policy-v1.md` |
+| Public OpenAPI | `openapi/idam/tenant-consumer/openapi.yaml` |
+| Live contract BDD | `tenant_consumer_live_contract.rs` |
+| Fixture package | `conformance/oidc-v1/{VERSION,CHECKSUM,README.md}` |
+| Contract sync | `python -m sesame_idam_tooling.contract_sync` |
+| Authlib proof | `python -m sesame_idam_tooling.authlib_contract_proof` |
+| Rust client sync | `sesame-idam-client` `tests/contract_sync.rs` |
+| Compatibility | `docs/standards-first-oidc/compatibility-v1.md` |
+| Quickstarts | `docs/standards-first-oidc/quickstarts/` |
 
 ## Versioning rules
 
@@ -197,4 +214,5 @@ Must not implicitly elevate an end-user token into administrative authority.
 
 Epic 15 is complete when a client team can implement a new language integration
 from the provider profile, public OpenAPI, and fixture bundle without reading
-Sesame Rust code, BRRTRouter code, Kubernetes configuration, or Hauliage code.
+Sesame Rust code, BRRTRouter code, Kubernetes configuration, or product-specific
+application code.

@@ -23,6 +23,7 @@ pub mod keyset;
 pub mod signer;
 pub mod types;
 pub mod verified_access;
+pub mod verified_principal;
 
 #[cfg(test)]
 mod tests;
@@ -47,3 +48,6 @@ pub use types::{
     AccessClaims, ActorClaim, EntitlementsSnapshot, JwtError, JwtValidationError, SesameAuthzClaims,
 };
 pub use verified_access::verify_access_token;
+pub use verified_principal::{
+    map_access_claims_to_verified_principal, VERIFIED_PRINCIPAL_PROFILE_VERSION,
+};

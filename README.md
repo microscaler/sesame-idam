@@ -120,8 +120,8 @@ graph TB
         App["App Server<br/>Receives request with Bearer token<br/>Validates JWT via SesameAuthMiddleware<br/>Extracts claims: user_id, org_id, user_type, perms"]
     end
 
-    subgraph "Layer 2: SesameExecutor (Lifeguard ORM)"
-        SE["SesameExecutor wraps LifeExecutor<br/>Automatically runs sesame_set_session()<br/>SET LOCAL auth.user_org_id = 'uuid'<br/>Session-scoped — cleared on transaction end"]
+    subgraph "Layer 2: Lifeguard contextual transaction (target)"
+        SE["pool.with_session_transaction(context)<br/>Transaction-local sesame_set_session()<br/>SET LOCAL auth.user_org_id = 'uuid'<br/>Cleared when the transaction ends"]
     end
 
     subgraph "Layer 3: PostgreSQL RLS"
@@ -132,7 +132,7 @@ graph TB
     App --> SE --> PG --> RLS
 ```
 
-The application validates the JWT in the application layer. SesameExecutor automatically calls `SET LOCAL` at the start of every database transaction. RLS policies reference `sesame_current_user_org_id()` to filter rows. The JWT itself **never enters the database**.
+The application validates the JWT in the application layer. Consuming Postgres apps use Lifeguard contextual transactions (ADR-005) — there is no `SesameExecutor` type. RLS policies reference `sesame_current_user_org_id()` to filter rows. The JWT itself **never enters the database**.
 
 ### SQL Helpers (Deployed Once Into Your DB)
 
@@ -163,57 +163,53 @@ Deploy this once per consuming application's database. All subsequent queries ar
 
 When a developer integrates Sesame, this is exactly what they interact with:
 
-### Frontend (User-Facing)
-```typescript
-import { useAuth } from '@sesame-idam/frontend';
+### Consumer contract (current)
 
-function App() {
-  const { user, orgs, isLoading, login, logout } = useAuth();
-  // Never write login logic — Sesame handles it
-}
-```
+Integrate from the portable contract, not from this README snippet:
 
-### Backend Admin API (Server-Facing)
-```typescript
-// Manage users, orgs, memberships, roles, permissions
-const users = await sesame.users.list({ limit: 10 });
-const org = await sesame.orgs.get('org_xyz789');
-await sesame.orgs.update('org_xyz789', {
-  name: 'Acme Corp 2.0',
-  settings: { max_users: 100, password_rotation_enabled: true }
-});
-const members = await sesame.orgs.getMembers('org_xyz789');
-await sesame.orgs.addMember('org_xyz789', { userId: 'user_abc', role: 'Admin' });
-```
+- [Provider profile v1](docs/standards-first-oidc/provider-profile-v1.md) — OIDC + claims
+- [Tenant consumer OpenAPI](openapi/idam/tenant-consumer/openapi.yaml) — public SDK API
+- [Verified principal schema](docs/standards-first-oidc/verified-principal-v1.schema.json)
+- [Quickstarts](docs/standards-first-oidc/quickstarts/)
 
-### Database (Automatic RLS)
+Framework SDK packages (Auth.js reference, etc.) are tracked in Epic 16 and are
+**not** yet a shipped npm surface.
+
+### Database (Automatic RLS) — target pattern
+
 ```typescript
-// All queries are automatically org-scoped via SesameExecutor
-// No changes needed to application code
+// Queries are org-scoped via Lifeguard contextual transactions + SQL helpers.
+// See docs/ADR-005-first-class-rls-contract.md (no SesameExecutor wrapper).
 const rows = await db.query('SELECT * FROM my_custom_table');
-// RLS policy fires automatically: USING (org_id = sesame_current_user_org_id())
 ```
 
 ---
 
 ## JWT Schema
 
-Every token issued by Sesame is an RS256-signed JWT containing everything the application needs:
+**Current truth:** access tokens are **EdDSA**-signed (`typ=at+jwt`). Roles and
+permissions live under `https://sesame-idam.dev/claims` (not flat top-level
+arrays). `org_id` is optional until the user has an active organization.
+Normative tables: [provider-profile-v1.md](docs/standards-first-oidc/provider-profile-v1.md).
 
 ```json
 {
+  "iss": "https://id.example",
   "sub": "31c41c16-...",
+  "aud": ["identity-login"],
+  "client_id": "acme-web",
   "user_id": "31c41c16-...",
   "user_type": "customer",
-  "org_id": "1189c444-...",
-  "org_name": "Acme Inc",
-  "roles": ["admin", "billing-viewer"],
-  "permissions": ["org:admin", "billing:read", "billing:write"],
-  "mfa_enabled": true,
-  "is_platform_admin": false,
-  "email_verified": true,
-  "locked": false,
-  "enabled": true
+  "tenant_id": "acme",
+  "sid": "session-...",
+  "ver": 1,
+  "org_id": null,
+  "https://sesame-idam.dev/claims": {
+    "tenant": "acme",
+    "portal": "acme-web",
+    "roles": ["owner"],
+    "permissions": ["org:admin"]
+  }
 }
 ```
 

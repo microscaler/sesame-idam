@@ -3,18 +3,23 @@ info:
   title: Sesame IDAM — Tenant Consumer API
   version: 1.0.0
   description: |
-    **Product-facing IDAM API** for SaaS tenants (platform partitions such as `acme`, `globex`, …).
+    **Sole public SDK OpenAPI** for tenant-facing Sesame IDAM operations.
 
     Called from product BFFs and (via BFF) end-user clients. Cross-cloud safe:
     no shared database with product services.
 
     - Tenant isolation is derived from a registered client or validated bearer token.
-    - Sesame owns users, orgs, memberships, invites, and **invite email delivery**.
-    - Product databases store domain profiles keyed by `org_id` from JWT.
+    - Callers must not send `X-Tenant-ID` to select or override tenancy.
+    - Sesame owns users, orgs, memberships, invites, and invite email delivery.
+    - Product databases store domain profiles keyed by `organization_id` from the
+      verified principal (JWT `org_id`, nullable before org creation).
 
-    Platform admin / SCIM / SAML remain in `org-mgmt/openapi.yaml`.
+    Transport semantics: `docs/standards-first-oidc/transport-policy-v1.md`.
+    Platform admin / SCIM / SAML remain in internal service OpenAPI and are out of scope.
   contact:
     name: Platform / Security
+  x-provider-profile: "1.0.0"
+  x-fixture-version: "1.1.0"
 
 servers:
   - url: https://api.sesameidentity.dev.local/idam/v1
@@ -22,7 +27,7 @@ servers:
 
 tags:
   - name: Account
-    description: Registration and session (delegates to identity-login-service)
+    description: Registration and session
   - name: Me
     description: Authenticated user's memberships and active org
   - name: Organizations
@@ -49,26 +54,42 @@ paths:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
         '201':
-          description: Registered; token may omit org_id
+          description: Registered; token may omit organization_id
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /users/me/memberships:
     get:
       tags: [Me]
       operationId: list_my_memberships
       summary: List organizations the current user belongs to (or pending invites)
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: Membership list
+          description: Membership page
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/MembershipSummary'
+                $ref: '#/components/schemas/MembershipPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /organizations:
     post:
@@ -76,9 +97,10 @@ paths:
       operationId: create_organization
       summary: Create a new organization; caller becomes owner
       description: |
-        Creates org scoped to tenant. Caller must not already have an active org
-        if product policy is single-org-per-user (enforce in impl or document per-tenant).
-        Product-specific attributes (e.g. Hauliage SHIPPER vs HAULIER) go in `metadata`.
+        Creates an org scoped to the bearer token's tenant. Caller must not
+        already have an active org if tenant policy is single-org-per-user.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -92,8 +114,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrganizationSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '409':
           description: User already has an organization (tenant policy)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorObject'
 
   /organizations/{org_id}/invitations:
     post:
@@ -107,6 +135,7 @@ paths:
           schema:
             type: string
             format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -116,6 +145,12 @@ paths:
       responses:
         '200':
           description: Invitation queued/sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationQueued'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /invitations/accept:
     post:
@@ -135,6 +170,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrganizationSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /invitations/preview:
     get:
@@ -157,6 +194,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InvitationPreview'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /sessions/active-organization:
     post:
@@ -181,6 +220,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
 components:
   securitySchemes:
@@ -188,6 +229,79 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+
+  headers:
+    X-RateLimit-Limit:
+      schema:
+        type: integer
+    X-RateLimit-Remaining:
+      schema:
+        type: integer
+    X-RateLimit-Reset:
+      schema:
+        type: integer
+      description: Unix seconds when the window resets
+    Retry-After:
+      schema:
+        type: integer
+      description: Seconds to wait before retrying
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorObject'
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorObject'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorObject'
+    RateLimited:
+      description: Rate limited
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/Retry-After'
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/X-RateLimit-Limit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/X-RateLimit-Remaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/X-RateLimit-Reset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorObject'
 
   schemas:
     RegisterRequest:
@@ -210,6 +324,7 @@ components:
 
     TokenResponse:
       type: object
+      required: [access_token, expires_in, token_type, user_id]
       properties:
         access_token:
           type: string
@@ -217,13 +332,28 @@ components:
           type: string
         expires_in:
           type: integer
+        token_type:
+          type: string
+          const: Bearer
         user_id:
           type: string
           format: uuid
         organization_id:
           type: string
           format: uuid
-          description: Present when user has an active org context
+          nullable: true
+          description: Present when user has an active org context; null/omitted pre-org
+
+    ErrorObject:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        error_description:
+          type: string
+        request_id:
+          type: string
 
     CreateOrganizationRequest:
       type: object
@@ -235,8 +365,7 @@ components:
         metadata:
           type: object
           additionalProperties: true
-          description: |
-            Tenant-specific conventions, e.g. Hauliage `{ "profile_type": "SHIPPER" }`
+          description: Tenant-specific conventions (product-defined keys)
 
     OrganizationSummary:
       type: object
@@ -264,6 +393,18 @@ components:
           type: string
           enum: [pending, active]
 
+    MembershipPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MembershipSummary'
+        next_cursor:
+          type: string
+          nullable: true
+
     InviteByEmailRequest:
       type: object
       required: [email, role]
@@ -273,7 +414,17 @@ components:
           format: email
         role:
           type: string
-          description: Tenant-defined role slug (e.g. DRIVER, DISPATCHER)
+          description: Tenant-defined role slug
+
+    InvitationQueued:
+      type: object
+      properties:
+        invitation_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, sent]
 
     AcceptInvitationRequest:
       type: object

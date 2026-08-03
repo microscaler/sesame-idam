@@ -29,6 +29,7 @@ pub mod bdd {
     pub mod smoke;
     pub mod social_login_flow;
     pub mod tenant_claims;
+    pub mod tenant_consumer_live_contract;
     pub mod tenant_sms_custody;
     pub mod token_lifecycle;
 }

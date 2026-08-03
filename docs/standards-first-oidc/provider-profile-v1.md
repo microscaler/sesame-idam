@@ -3,15 +3,35 @@
 Status: normative  
 Profile version: `1.0.0`
 
+This document is the **canonical consumer entrypoint** for the Sesame portable
+contract. Integration docs that disagree with this profile are stale; prefer
+this file and the linked artifacts below.
+
+## Contract map
+
+| Artifact | Role |
+|---|---|
+| [security-profile-v1.md](./security-profile-v1.md) | Security subset (threat model, redaction, negative cases) |
+| [verified-principal-v1.schema.json](./verified-principal-v1.schema.json) | Post-validation principal JSON Schema |
+| [verified-principal-mapping-v1.md](./verified-principal-mapping-v1.md) | JWT claim path → principal field |
+| [transport-policy-v1.md](./transport-policy-v1.md) | Errors, retries, pagination, rate limits |
+| [client-boundaries-v1.md](./client-boundaries-v1.md) | RP / RS / tenant-admin package boundaries |
+| [compatibility-v1.md](./compatibility-v1.md) | Versioning and deprecation rules |
+| [client-ecosystem-selection-v1.md](./client-ecosystem-selection-v1.md) | Reference SDK selection (Auth.js = Epic 16) |
+| [quickstarts/](./quickstarts/) | Browser / BFF / API / worker outlines |
+| [`openapi/idam/tenant-consumer/openapi.yaml`](../../openapi/idam/tenant-consumer/openapi.yaml) | Sole public SDK OpenAPI |
+| [`conformance/oidc-v1/`](../../conformance/oidc-v1/) | Versioned protocol fixtures + checksum |
+
 ## Public origins
 
 - Issuer and keys: `https://id.<zone>`
 - Hosted authorization: `https://auth.<zone>/oauth/authorize`
 - Token and UserInfo: `https://api.<zone>/oauth/token` and `/oauth/userinfo`
+- Tenant consumer API: `https://api.<zone>/idam/v1`
 
 The issuer is exact and immutable within an environment. Consumers discover all
-other URLs from `{issuer}/.well-known/openid-configuration`; internal service
-names and `/idam/v1` are not consumer configuration.
+other OIDC URLs from `{issuer}/.well-known/openid-configuration`; internal service
+names are not consumer configuration.
 
 ## Protocol
 
@@ -27,6 +47,54 @@ names and `/idam/v1` are not consumer configuration.
 - UserInfo is bearer protected and always returns the same `sub` as the tokens.
 - Implicit, hybrid, password, device, dynamic registration, and public token
   exchange are not part of profile v1.
+
+## Access-token claims
+
+Aligned with runtime `AccessClaims`. Authorization claims live under the
+namespace `https://sesame-idam.dev/claims` (documented as `sx.*` below).
+
+| Claim | Required | Notes |
+|---|---|---|
+| `iss` | yes | Exact environment issuer |
+| `sub` | yes | Stable subject; equals `user_id` |
+| `aud` | yes | Audience array |
+| `client_id` | yes | Registered OAuth client |
+| `scope` | yes | Space-delimited scopes |
+| `exp` / `nbf` / `iat` | yes | Unix seconds |
+| `jti` | yes | Unique token id |
+| `ver` | yes | Token version (≥ 1) |
+| `sid` | yes | Session id |
+| `tenant_id` | yes | Tenant partition |
+| `user_id` | yes | Same value as `sub` |
+| `user_type` | yes | e.g. `customer`, `platform` |
+| `org_id` | no | Active org; **omit or null** until user creates/joins an org |
+| `sx.tenant` | yes | Must equal `tenant_id` |
+| `sx.portal` | yes | Portal / application surface name |
+| `sx.roles` | yes | Array (may be empty) |
+| `sx.permissions` | yes | Coarse hints (may be empty) |
+| `sx.entitlements_ref` | no | Cache key for full ACL |
+| `sx.entitlements_hash` | no | Integrity hash for cached ACL |
+| `sx.risk` | no | Risk band when elevated |
+| `act` | no | RFC 8693 actor |
+| `cnf` | no | DPoP confirmation |
+
+Header: `alg=EdDSA`, `typ=at+jwt`, `kid` present.
+
+## ID-token claims
+
+Minted by the authorization server for the OpenID `openid` scope:
+
+| Claim | Required | Notes |
+|---|---|---|
+| `iss` | yes | Same issuer as access token |
+| `sub` | yes | Same subject as access token |
+| `aud` | yes | Client id (string) |
+| `azp` | yes | Authorized party (= client id) |
+| `exp` / `iat` | yes | Unix seconds |
+| `auth_time` | yes | Authentication time |
+| `nonce` | yes | Echo of authorize request nonce |
+
+Header: `alg=EdDSA`. ID tokens are not access tokens (`typ` is not `at+jwt`).
 
 ## Validation
 
@@ -44,16 +112,18 @@ or override tenancy. `org_id` is optional because a newly registered user may
 not yet belong to an organization.
 
 After validation, adapters normalize claims according to
-`verified-principal-v1.schema.json`. Roles and permissions come from the `sx`
-authorization namespace and are not trusted before token validation.
+`verified-principal-v1.schema.json` using
+[verified-principal-mapping-v1.md](./verified-principal-mapping-v1.md). Roles and
+permissions come from the `sx` authorization namespace and are not trusted before
+token validation.
 
 ## Errors and transport
 
-OAuth errors use the standard `error` and optional `error_description` fields.
-Token endpoint client failures use `invalid_client`; code, PKCE, and refresh
-failures use `invalid_grant`. Temporary state-store failures use
-`temporarily_unavailable`. Credentials, tokens, codes, verifiers, and secrets
-are redacted.
+See [transport-policy-v1.md](./transport-policy-v1.md). OAuth errors use the
+standard `error` and optional `error_description` fields. Token endpoint client
+failures use `invalid_client`; code, PKCE, and refresh failures use
+`invalid_grant`. Temporary state-store failures use `temporarily_unavailable`.
+Credentials, tokens, codes, verifiers, and secrets are redacted.
 
 GET discovery/JWKS responses are cookie-free and cacheable. The API origin
 strips inbound `Cookie`, outbound `Set-Cookie`, and caller-provided tenant
@@ -62,8 +132,7 @@ credentialing.
 
 ## Compatibility policy
 
-Removing or changing a required claim, endpoint, algorithm, or validation rule
-is a major profile change. Optional additive claims are minor changes and must
-be ignored by consumers that do not understand them. Public API schemas follow
-semantic versioning. Deprecations require a migration note and a published
-removal window.
+See [compatibility-v1.md](./compatibility-v1.md). Removing or changing a
+required claim, endpoint, algorithm, or validation rule is a major profile
+change. Optional additive claims are minor changes and must be ignored by
+consumers that do not understand them.

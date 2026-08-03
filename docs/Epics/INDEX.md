@@ -40,7 +40,7 @@ defers language/framework packages until the public provider contract is stable.
 | [12](./12-oidc-authorization-server/README.md) | Standards-Compliant OIDC Authorization Server | Authorization Code + PKCE, ID token, standard token/refresh, UserInfo | Epics 1, 3, 5, 11 | Proposed |
 | [13](./13-oidc-public-provider-surface/README.md) | Public OIDC Provider Surface | Stable issuer plus coherent `id.`, `auth.`, and `api.` routes, discovery, CORS, logout | Epics 11–12, ADR-013 | Proposed |
 | [14](./14-oidc-security-conformance/README.md) | OIDC Security Profile and Conformance | Shared validator, adversarial fixtures, independent conformance, framework matrix | Epics 1, 5, 8, 11–13 | In progress |
-| [15](./15-portable-consumer-contract/README.md) | Language-Neutral Sesame Consumer Contract | Provider profile, verified principal, public OpenAPI, errors, fixtures, versioning | Epics 11–14 | Proposed |
+| [15](./15-portable-consumer-contract/README.md) | Language-Neutral Sesame Consumer Contract | Provider profile, verified principal, public OpenAPI, errors, fixtures, versioning | Epics 11–14 | In progress |
 | [16](./16-mainstream-client-ecosystem/README.md) | Mainstream Framework Client Ecosystem | Selected framework presets, resource-server adapters, API clients, compatibility CI | Epics 11–15 complete | Future / blocked |
 
 ### Program order

@@ -157,9 +157,16 @@ jobs:
 
       - name: Validate OIDC fixture corpus + checksum
         run: |
-          source .venv/bin/activate
+          source tooling/.venv/bin/activate
           python -m sesame_idam_tooling.oidc_conformance
           python -m sesame_idam_tooling.oidc_framework_matrix
+          python -m sesame_idam_tooling.contract_sync
+
+      - name: Authlib contract proof
+        run: |
+          source tooling/.venv/bin/activate
+          pip install 'Authlib==1.3.2'
+          python -m sesame_idam_tooling.authlib_contract_proof
 
       - name: Install Rust toolchain (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -179,8 +186,8 @@ jobs:
       - name: Run OIDC conformance + shared validator tests
         run: |
           cd microservices
-          cargo nextest run -p sesame-common verified_access redaction
-          cargo nextest run -p sesame_idam_identity_login_service oidc_conformance
+          cargo nextest run -p sesame-common verified_access verified_principal redaction
+          cargo nextest run -p sesame_idam_identity_login_service oidc_conformance tenant_consumer_live_contract
 
   # =========================================================
   # OpenAPI spec validation
@@ -200,10 +207,16 @@ jobs:
       - name: Install npm deps (if any)
         run: npm ci || true
 
-      - name: Validate OpenAPI specs
+      - name: Lint tenant-consumer OpenAPI (release-blocking)
         run: |
-          # Validate all 6 service specs
+          npx @redocly/cli@1 lint openapi/idam/tenant-consumer/openapi.yaml
+
+      - name: Validate service OpenAPI specs (advisory)
+        run: |
           for spec in openapi/idam/*/openapi.yaml; do
+            case "$spec" in
+              */tenant-consumer/*) continue ;;
+            esac
             echo "Validating $spec..."
-            npx @redocly/openapi-cli lint "$spec" || true
+            npx @redocly/cli@1 lint "$spec" || true
           done
