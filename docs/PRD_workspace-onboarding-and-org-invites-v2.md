@@ -56,7 +56,7 @@ Older docs claimed account-first “verified” while these gaps remained. This 
 3. Invite by email → Sesame `org_invites` + outbound email + token in API response.
 4. Accept invite → membership + refreshed tokens with `org_id`.
 5. List org members with **real emails** (and names when profile exists), never synthetic `user-{uuid}` placeholders when the user row exists.
-6. Bearer APIs work through the public API edge with **no** required `X-Tenant-ID`.
+6. All consumer traffic is designed for the **public API** (north–south); pre-auth uses **`client_id`**, bearer uses JWT — **no** required `X-Tenant-ID`, no tenant hijack via headers.
 7. Demo seeds for tenant `hauliage` remain first-class fixtures for dogfood.
 
 ## 4. Non-goals
@@ -83,12 +83,41 @@ Older docs claimed account-first “verified” while these gaps remained. This 
 | **Membership** | User ↔ org + role (`owner`, `admin`, `member`, product-mapped roles). |
 | **Invite** | Pending email → org + role + opaque token + expiry. |
 
-### 5.1 Pre-auth vs bearer
+### 5.1 North–south end state (no east–west consumer traffic)
 
-| Phase | Tenant resolution |
-|-------|-------------------|
-| Login / register / OTP (no access token) | Registered client and/or optional legacy `X-Tenant-ID` hint that must match client tenant |
-| Any Bearer-authenticated route | Validated JWT `tenant_id` (and `org_id` when required). Optional `X-Tenant-ID`: if present and non-empty, **must match** claim or **401**; if absent, proceed |
+**Target:** product BFFs (Hauliage Loadlinker and future tenants) call Sesame only through the **public API origin** (`api.<zone>/idam/v1`). In-cluster east–west URLs (`http://identity-*-service…`, `http://org-mgmt…`) are a temporary dogfood/debug path and **must not** be the design centre. All OpenAPI, edge filters, and handler tenant rules are written for the public path.
+
+Implication: anything that only “works” because a ClusterIP call still forwards `X-Tenant-ID` is **not done**. Public edge strips forgeable ambient headers; handlers must still be correct without them.
+
+### 5.2 Pre-auth vs bearer (tenancy)
+
+It is **incorrect** to say “`X-Tenant-ID` is only needed on the first login.” There is no access token yet for an entire **class** of unauthenticated calls. Those calls need a **non-header-authoritative** tenant bind. After a JWT exists, the claim is the only authority.
+
+| Phase | Examples | How tenant is bound | `X-Tenant-ID` |
+|-------|----------|---------------------|---------------|
+| **Pre-auth** (no Bearer) | `POST /auth/register`, `POST /auth/login`, OTP send/verify, forgot/reset password, social/magic-link **start**, public invite preview | **Registered `client_id`** (preferred). Client registration maps RP → tenant. | **Not required.** Legacy optional hint only: if present, **must match** the client’s tenant or **reject**. Must never select a different tenant than the client. |
+| **Bearer** (access token present) | `/identity/me`, create org, invite, list members, accept invite, set active org, refresh (when bearer-bound) | Validated JWT **`tenant_id`** (and **`org_id`** when the operation needs org context). | **Never required. Never authoritative.** Public edge **strips** it. If seen east–west and non-empty: **must match** claim or **401**; never prefer header over claim. |
+| **Token-bound public** | `GET /invitations/preview?token=` | Invite token itself (scoped to org/tenant in DB). | Not used. |
+
+**Hijack rule:** a caller holding a valid token for tenant A must not act on tenant B by inserting `X-Tenant-ID: B` (or any other forgeable tenancy header). That is a hard security requirement (FINDING-2026-07-25 / task 48; Epic 15 transport policy).
+
+### 5.3 Header matrix (public API — reduce ambient authority / snooping)
+
+Consumer-facing twin: Hauliage Loadlinker PRD §5.3 (what the BFF should send).
+
+| Header / signal | Pre-auth (caller) | Bearer (caller) | Public edge (`api.`) | Notes |
+|-----------------|-------------------|-----------------|----------------------|--------|
+| `client_id` (body/query as specified) | **Required** for tenant bind where the operation is RP-scoped | Usually N/A (token already binds) | Allowed | Primary pre-auth tenancy signal |
+| `X-Tenant-ID` | Optional legacy match-to-client only; **not required** (target) | **Forbidden as selector; not required** | **Strip inbound** | Remove from OpenAPI `required: true` everywhere edge strips or bearer applies |
+| `Authorization: Bearer` | Absent | **Required** | Forward (do not strip) | Redact in access logs / OpenSearch |
+| `Cookie` | Must not be relied on for API auth | Must not be relied on | **Strip inbound** | Hosted `auth.` SPA may use cookies; `api.` must not |
+| `Set-Cookie` | Must not be emitted for API auth | Must not be emitted for API auth | **Strip outbound** on API routes | Prevent ambient session mint on API origin |
+| Product `X-User-ID` / `X-Org-ID` / similar | Reject if used to select identity | Reject if used to override JWT | Strip or reject | Same class as tenant override |
+| Internal `X-Debug-*` / PII baggage | Reject | Reject | Strip | Not from the public internet |
+| `Content-Type: application/json` | As needed | As needed | Allowed | Standard |
+| `Referer` / verbose `User-Agent` | Ignored for authz | Ignored for authz | Optional log-redact | Fingerprinting / snooping reduction |
+
+OpenAPI debt: many login-service routes still mark `X-Tenant-ID` `required: true`. Target state is **`client_id`-bound pre-auth** + **JWT-bound bearer**, with `X-Tenant-ID` absent from required parameters everywhere the public edge is the path.
 
 ---
 
@@ -169,9 +198,13 @@ Prefer **tenant-consumer** OpenAPI for product teams; org-mgmt remains the imple
 
 ### 7.1 Header policy (normative)
 
-- Bearer routes: `X-Tenant-ID` **optional**; never authoritative.
-- Public API edge **may** strip `X-Tenant-ID` and `Cookie` (current `sesame-idam-api-edge`).
-- OpenAPI must not mark `X-Tenant-ID` `required: true` on bearer routes that the edge strips.
+See §5.2–5.3. Summary:
+
+- **Pre-auth:** bind tenant via **`client_id`**; do not require `X-Tenant-ID`.
+- **Bearer:** bind tenant via JWT **`tenant_id`**; do not require `X-Tenant-ID`.
+- **Public edge:** strip inbound `Cookie` and `X-Tenant-ID`; strip outbound `Set-Cookie` (current `sesame-idam-api-edge`).
+- OpenAPI must not mark `X-Tenant-ID` `required: true` on any route that is reachable only after strip, or that is bearer-authenticated.
+- End state assumes **north–south only**; do not design “header still works east–west” escapes.
 
 ### 7.2 Error shapes
 
@@ -210,12 +243,14 @@ SMS invite is **out of scope** for v1.
 
 ## 10. Security
 
-1. Edge strip of `X-Tenant-ID` remains correct; handlers must not require the stripped header.
-2. Header/claim mismatch → reject (401).
-3. Invite accept: JWT email must match invite email (case-insensitive).
-4. Invite tokens: high entropy, single-use on accept, expire (default 7 days).
-5. Org-admin authorization on invite/remove/revoke.
-6. No cross-tenant membership or invite visibility.
+1. Public edge strip of `X-Tenant-ID` / `Cookie` remains correct; handlers must not require stripped headers.
+2. Pre-auth: `client_id` binds tenant; header hint cannot disagree with client tenant.
+3. Bearer: JWT claim binds tenant; header/claim mismatch → reject (401); header never wins.
+4. Invite accept: JWT email must match invite email (case-insensitive).
+5. Invite tokens: high entropy, single-use on accept, expire (default 7 days).
+6. Org-admin authorization on invite/remove/revoke.
+7. No cross-tenant membership or invite visibility.
+8. Redact `Authorization` (and tokens) in gateway/app logs; do not log full invite tokens at info.
 
 Related finding: [FINDING-2026-07-25-org-mgmt-tenant-header-override](./FINDING-2026-07-25-org-mgmt-tenant-header-override.md) (task 48) — claim-only / reject-on-disagree is mandatory for org-mgmt bearer routes.
 
@@ -267,6 +302,8 @@ Hauliage phases mirror these in the paired PRD.
 2. Whether pending invites appear on `GET …/users` or a dedicated pending collection (affects BFF merge).
 3. Role vocabulary: Sesame lowercase slugs vs product uppercase enums — keep mapping in BFF or normalize in Sesame.
 4. Timing for webhook-based domain provisioning (ADR-002 S3) vs sync BFF forever for Loadlinker.
+5. How quickly to drop optional legacy `X-Tenant-ID` hint on pre-auth once all BFFs send `client_id` only (breaking change for old clients).
+6. Calendar for forbidding east–west Sesame bases in consumer Helm (fail closed if `*.svc.cluster.local` configured).
 
 ---
 
