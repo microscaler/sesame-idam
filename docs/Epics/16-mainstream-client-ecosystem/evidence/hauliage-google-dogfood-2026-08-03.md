@@ -28,18 +28,17 @@ Seed file: `microservices/idam/identity-login-service/impl/seeds/20260714000000_
 
 ## Operator steps (live Google)
 
+Follow the generic runbook (publishable online docs source):
+
+**[Google social OAuth credentials](../../../runbooks/google-social-oauth-credentials.md)**
+
+Hauliage-specific values are in that runbook’s **Worked example** section
+(`SESAME_OAUTH__HAULIAGE__GOOGLE_*` + redirect allowlist). Then:
+
 1. Re-apply Sesame platform tenant seed (Tilt/migrate path used in env).
-2. Create a Google Cloud OAuth **Web** client; authorized redirect URIs must
-   exactly match the Hauliage SPA callback(s) above (Google → browser, not Sesame).
-3. Set on identity-login-service pods:
-
-   ```text
-   SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_ID=...
-   SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_SECRET=...
-   ```
-
-4. Redeploy Hauliage BFF with public-edge config + edge CA bundle.
-5. Sign in at `https://hauliage.dev.microscaler.local` → Google → BFF callback → Sesame tokens.
+2. Inject secrets into identity-login-service and roll pods.
+3. Redeploy Hauliage BFF with public-edge config + edge CA bundle.
+4. Sign in at `https://hauliage.dev.microscaler.local` → Google → BFF callback → Sesame tokens.
 
 ## Still deferred
 

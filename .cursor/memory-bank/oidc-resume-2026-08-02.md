@@ -12,12 +12,9 @@
 
 ## Operator remaining
 
-Set live Google secrets on identity-login-service:
+Runbook: `docs/runbooks/google-social-oauth-credentials.md` (generic; Hauliage example at end).
 
-- `SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_ID`
-- `SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_SECRET`
-
-Re-apply platform tenant seed; redeploy Hauliage BFF; E2E Google sign-in.
+Set live Google secrets on identity-login-service per runbook; re-apply seed; redeploy BFF; E2E Google sign-in.
 
 ## Active Epic 16
 
