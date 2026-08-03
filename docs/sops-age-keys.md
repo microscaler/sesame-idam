@@ -96,6 +96,9 @@ does **not** retro-wrap existing files. Run it for each file, then commit.
 - `deployment-configuration/profiles/**/*.secret.yaml` — only `data` /
   `stringData` (so Secret metadata stays reviewable in diffs)
 
+JWT signing / JWKS material (generate with `sesame_keygen`, then SOPS): see
+[runbooks/jwt-signing-keyset-sops.md](./runbooks/jwt-signing-keyset-sops.md).
+
 ## Hygiene
 
 - Never `cp` a `.EXAMPLE` to its real name, paste credentials, and leave it —

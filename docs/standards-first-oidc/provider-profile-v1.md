@@ -20,6 +20,7 @@ this file and the linked artifacts below.
 | [client-ecosystem-selection-v1.md](./client-ecosystem-selection-v1.md) | Reference SDK selection (Auth.js = Epic 16) |
 | [quickstarts/](./quickstarts/) | Browser / BFF / API / worker outlines |
 | [Google social credentials runbook](../runbooks/google-social-oauth-credentials.md) | Tenant Google OAuth client + env keys |
+| [JWT signing keyset + SOPS runbook](../runbooks/jwt-signing-keyset-sops.md) | Generate Ed25519 keys for JWKS / GitOps |
 | [`openapi/idam/tenant-consumer/openapi.yaml`](../../openapi/idam/tenant-consumer/openapi.yaml) | Sole public SDK OpenAPI |
 | [`conformance/oidc-v1/`](../../conformance/oidc-v1/) | Versioned protocol fixtures + checksum |
 

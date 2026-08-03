@@ -40,21 +40,24 @@ sops --encrypt --in-place --input-type dotenv --output-type dotenv \
   deployment-configuration/profiles/dev/sesame-idam/idam/runtime/application.secrets.env
 ```
 
-### JWT signing key (`sesame-idam-jwt-signing`)
+### JWT signing / JWKS material
 
-Login and session **must** share one Ed25519 key (`SESAME_JWT_SIGNING_KEY_PKCS8_B64` +
-`SESAME_JWT_SIGNING_KID`). Without it, login signs with `kid=dev-ephemeral` while session
-JWKS publishes a different `key-*` kid — Hauliage BFF (and any JWKS consumer) returns
-`401 invalid_token` even when `iss`/`aud` match.
+Login and session **must** share the same Ed25519 signing material. Prefer the
+ADR-006 **keyset** Secret; the dotenv `jwt-signing.secrets.env` path remains for
+profiles that still `secretGenerator` → `sesame-idam-jwt-signing`.
 
-Generate and encrypt (ms02, repo root):
+Full operator guide (publishable):
+[docs/runbooks/jwt-signing-keyset-sops.md](../docs/runbooks/jwt-signing-keyset-sops.md).
 
 ```bash
+# Preferred (keyset → signing-keyset.secret.yaml, SOPS in one step)
+just keyset-secret 2 \
+  deployment-configuration/profiles/dev/sesame-idam/idam/runtime/signing-keyset.secret.yaml
+
+# Legacy dotenv (then sops encrypt)
 just jwt-signing-material > deployment-configuration/profiles/dev/sesame-idam/idam/runtime/jwt-signing.secrets.env
-export SOPS_AGE_KEY_FILE=~/.config/sops/age/flux-shared-gitops
 sops --encrypt --in-place --input-type dotenv --output-type dotenv \
   deployment-configuration/profiles/dev/sesame-idam/idam/runtime/jwt-signing.secrets.env
 ```
 
-Commit the encrypted file, let Flux reconcile `sesame-idam-idam`, then restart login +
-session pods. Re-login; JWT header `kid` must match a key in JWKS.
+Commit ciphertext, reconcile, restart login + session. Token `kid` must appear in JWKS.
