@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Platform tenant registry — canonical definition for identity-login-service.
 ///
-/// A tenant is a `SaaS` product partition (`hauliage`, `pricewhisperer`, …).
+/// A tenant is a `SaaS` product partition (`acme`, `globex`, …).
 /// Slug matches `X-Tenant-ID`. Tenants must be provisioned before any auth
 /// traffic is accepted (no implicit / magic tenants).
 #[derive(Clone, Debug, Serialize, Deserialize, LifeModel, LifeRecord)]

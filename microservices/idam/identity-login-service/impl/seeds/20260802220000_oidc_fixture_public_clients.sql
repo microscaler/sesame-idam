@@ -2,7 +2,7 @@
 -- Used by conformance/oidc-v1 and live interactive BDD (not production apps).
 --
 -- Requires RLS tenant GUC when applied as sesame_idam:
---   BEGIN; SELECT set_config('app.tenant_id', 'hauliage', true); \i this_file.sql; COMMIT;
+--   BEGIN; SELECT set_config('app.tenant_id', 'acme', true); \i this_file.sql; COMMIT;
 
 INSERT INTO sesame_idam.relying_party_clients
     (id, client_id, tenant_slug, portal, application_id, client_type,
@@ -12,7 +12,7 @@ VALUES
     (
         'a1500002-0001-4000-8000-000000000001',
         'fixture-public-client',
-        'hauliage',
+        'acme',
         'frontend',
         'frontend',
         'public',
@@ -26,7 +26,7 @@ VALUES
     (
         'a1500002-0001-4000-8000-000000000002',
         'fixture-other-client',
-        'hauliage',
+        'acme',
         'frontend',
         'frontend',
         'public',

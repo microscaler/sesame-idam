@@ -293,7 +293,7 @@ fn when_tenant_wide_event_received(ctx: Arc<Mutex<PushInvalidationContext>>) {
                 .build();
             if let Ok(handle) = handle {
                 let _ = handle.block_on(p.publish_tenant(
-                    "hauliage",
+                    "acme",
                     20,
                     BumpReason::PermissionModified,
                 ));
@@ -347,7 +347,7 @@ fn given_stale_token(ctx: Arc<Mutex<PushInvalidationContext>>) {
                 .build();
             if let Ok(handle) = handle {
                 let _ = handle.block_on(p.publish_subject(
-                    "hauliage",
+                    "acme",
                     "bob",
                     11,
                     BumpReason::RoleRevoked,

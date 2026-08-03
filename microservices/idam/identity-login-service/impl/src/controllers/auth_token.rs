@@ -329,16 +329,29 @@ fn parse_subject_token(token: &str) -> Result<SubjectClaims, ErrorResponse> {
         });
     }
 
-    crate::services::token_issuer::SIGNER
-        .verify(token)
-        .map_err(|_| invalid_credential_token("Subject token signature validation failed"))?;
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() == 3 {
-        if let Ok(payload_str) = decode_b64url(parts[1]) {
-            return parse_jwt_claims(&payload_str);
-        }
-    }
-    Err(invalid_credential_token("Subject token is malformed"))
+    // Epic 14.2: shared verify path (typ/alg/signature/iss/aud/time) — no payload-only trust.
+    let claims = sesame_common::verify_access_token(
+        &crate::services::token_issuer::SIGNER,
+        token,
+        None,
+    )
+    .map_err(|_| invalid_credential_token("Subject token validation failed"))?;
+
+    Ok(SubjectClaims {
+        sub: claims.sub,
+        tenant: claims.tenant_id,
+        org_id: claims.org_id,
+        scope: claims.scope,
+        roles: claims.sx.roles,
+        ver: Some(claims.ver),
+        sid: Some(claims.sid),
+        has_act: claims.act.is_some(),
+        act_chain: claims
+            .act
+            .as_ref()
+            .map(|a| vec![a.sub.clone()])
+            .unwrap_or_default(),
+    })
 }
 
 /// Parse actor token and extract claims.
@@ -354,17 +367,21 @@ fn parse_actor_token(token: &str) -> Result<ActorClaim, ErrorResponse> {
         });
     }
 
-    crate::services::token_issuer::SIGNER
-        .verify(token)
-        .map_err(|_| invalid_credential_token("Actor token signature validation failed"))?;
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() == 3 {
-        if let Ok(payload_str) = decode_b64url(parts[1]) {
-            return parse_actor_claims_from_jwt(&payload_str);
-        }
-    }
+    // Epic 14.2: shared verify path before trusting actor portal/tenant claims.
+    let claims = sesame_common::verify_access_token(
+        &crate::services::token_issuer::SIGNER,
+        token,
+        None,
+    )
+    .map_err(|_| invalid_credential_token("Actor token validation failed"))?;
 
-    Err(invalid_credential_token("Actor token is malformed"))
+    Ok(ActorClaim {
+        sub: claims.sub,
+        tenant: claims.tenant_id,
+        portal: claims.sx.portal,
+        scope: claims.scope,
+        chain: claims.act.map(|a| vec![a.sub]),
+    })
 }
 
 fn invalid_credential_token(description: &str) -> ErrorResponse {
@@ -1293,7 +1310,7 @@ mod tests {
     fn test_cross_tenant_impersonation_blocked() {
         let actor = ActorClaim {
             sub: "agent_456".to_string(),
-            tenant: "tenant_hauliage".to_string(),
+            tenant: "tenant_acme".to_string(),
             portal: SUPPORT_PORTAL.to_string(),
             scope: "profile:read org:org_123".to_string(),
             chain: None,
@@ -1923,13 +1940,13 @@ mod tests {
 
     // ── Story 3.4: Tenant Match Check ──────────────────────────────────
 
-    /// Given an actor from tenant "hauliage" and a subject from tenant "rerp",
+    /// Given an actor from tenant "acme" and a subject from tenant "rerp",
     /// the exchange is rejected with a tenant mismatch error.
     #[test]
     fn test_tenant_mismatch_rejected_in_exchange() {
         let actor_payload = serde_json::json!({
-            "sub": "admin_hauliage",
-            "tenant_id": "hauliage",
+            "sub": "admin_acme",
+            "tenant_id": "acme",
             "sx": { "portal": "admin-portal" }
         });
         let actor_jwt = signed_test_token(actor_payload);

@@ -1,6 +1,7 @@
 {
-  "fixture_version": "1.0.0",
+  "fixture_version": "1.1.0",
   "provider_profile": "1.0.0",
+  "security_profile": "docs/standards-first-oidc/security-profile-v1.md",
   "algorithm": "EdDSA",
   "cases": [
     { "id": "metadata-valid", "family": "metadata", "accept": true },

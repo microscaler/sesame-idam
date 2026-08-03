@@ -102,7 +102,7 @@ fn create_and_fetch_org_roundtrips_metadata() {
     seed_user(&tenant, user_id);
 
     let exec = sesame_idam_database::db();
-    let meta = serde_json::json!({ "hauliage_profile_type": "SHIPPER" });
+    let meta = serde_json::json!({ "acme_profile_type": "SHIPPER" });
     let summary = org_lifecycle::create_organization(
         exec,
         &tenant,

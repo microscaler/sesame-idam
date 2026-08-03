@@ -25,7 +25,7 @@ async fn main() {
     let base_url = std::env::var("SESAME_BROKER_BASE_URL")
         .unwrap_or_else(|_| format!("http://127.0.0.1:{port}"));
     let app_redirect = std::env::var("SESAME_BROKER_APP_REDIRECT_URL").unwrap_or_else(|_| {
-        "http://hauliage.dev.microscaler.local/saml/callback".to_string()
+        "https://app.example.com/saml/callback".to_string()
     });
 
     let state = BrokerState::new(base_url, app_redirect);

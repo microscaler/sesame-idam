@@ -129,16 +129,16 @@ mod tests {
     #[test]
     fn org_scoped_assignment_carries_org_id() {
         let org = Uuid::parse_str("b2000002-0002-4000-8000-000000000002").unwrap();
-        let role = assignment_role_json("OWNER", "hauliage", Some(org));
+        let role = assignment_role_json("OWNER", "acme", Some(org));
         assert_eq!(role["role"], "OWNER");
-        assert_eq!(role["app_id"], "hauliage");
+        assert_eq!(role["app_id"], "acme");
         assert_eq!(role["org_id"], org.to_string());
         assert_eq!(role["inherited"], false);
     }
 
     #[test]
     fn tenant_scoped_assignment_omits_org_id_key() {
-        let role = assignment_role_json("ADMIN", "hauliage", None);
+        let role = assignment_role_json("ADMIN", "acme", None);
         // Schema types org_id as string — the key must be absent, not null.
         assert!(role.get("org_id").is_none());
         assert_eq!(role["role"], "ADMIN");

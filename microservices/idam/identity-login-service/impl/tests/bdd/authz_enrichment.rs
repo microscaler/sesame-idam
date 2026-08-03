@@ -18,9 +18,9 @@ use sesame_idam_identity_login_service::services::authz_client::AUTHZ_CORE_URL_E
 use sesame_idam_identity_login_service_gen::handlers::auth_login::Request as LoginRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as RegisterRequest;
 
-use crate::common::{ensure_active_tenant, HAULIAGE_TENANT, HAULIAGE_WEB_CLIENT};
+use crate::common::{ensure_active_tenant, FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
-const TEST_TENANT: &str = HAULIAGE_TENANT;
+const TEST_TENANT: &str = FIXTURE_TENANT;
 const MOCK_PORT: u16 = 18102;
 
 static INIT: Once = Once::new();
@@ -105,7 +105,7 @@ fn login_request(email: &str) -> TypedHandlerRequest<LoginRequest> {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: LoginRequest {
-            client_id: HAULIAGE_WEB_CLIENT.to_string(),
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             organization_id: None,
             password: "SecureP@ss123!".to_string(),

@@ -27,8 +27,8 @@ use sesame_idam_identity_login_service_gen::handlers::oauth_authorize::Request a
 
 static INIT: Once = Once::new();
 
-const HAULIAGE_WEB: &str = "hauliage-web";
-const HAULIAGE_REDIRECT: &str = "https://loadlinker.dev.microscaler.local/auth/callback";
+const FIXTURE_WEB: &str = "acme-web";
+const FIXTURE_REDIRECT: &str = "https://app.example.com/auth/callback";
 
 fn postgres_reachable() -> bool {
     let host = std::env::var("TEST_DB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
@@ -114,21 +114,21 @@ fn authorize_request(
 }
 
 #[test]
-fn preauth_registry_resolves_hauliage_web_without_tenant_guc() {
+fn preauth_registry_resolves_fixture_web_without_tenant_guc() {
     if !configure_db() {
         eprintln!("SKIP preauth_registry_resolves: Postgres unreachable");
         return;
     }
     let exec = sesame_idam_database::db();
-    let binding = ClientRegistry::resolve_active(HAULIAGE_WEB, exec)
-        .expect("hauliage-web must resolve under preauth RLS");
-    assert_eq!(binding.tenant_id, "hauliage");
-    assert_eq!(binding.client_id, HAULIAGE_WEB);
+    let binding = ClientRegistry::resolve_active(FIXTURE_WEB, exec)
+        .expect("acme-web must resolve under preauth RLS");
+    assert_eq!(binding.tenant_id, "acme");
+    assert_eq!(binding.client_id, FIXTURE_WEB);
     assert!(
         binding
             .redirect_uris
             .iter()
-            .any(|uri| uri == HAULIAGE_REDIRECT),
+            .any(|uri| uri == FIXTURE_REDIRECT),
         "registered login redirect missing: {:?}",
         binding.redirect_uris
     );
@@ -158,8 +158,8 @@ fn authorize_handler_redirects_valid_pkce_request() {
     }
     let (_verifier, challenge) = pkce_pair();
     let outcome = oauth_authorize::handle(authorize_request(
-        HAULIAGE_WEB,
-        HAULIAGE_REDIRECT,
+        FIXTURE_WEB,
+        FIXTURE_REDIRECT,
         &challenge,
         "S256",
     ));
@@ -197,7 +197,7 @@ fn authorize_handler_rejects_unknown_client() {
     let (_verifier, challenge) = pkce_pair();
     let outcome = oauth_authorize::handle(authorize_request(
         "missing-client",
-        HAULIAGE_REDIRECT,
+        FIXTURE_REDIRECT,
         &challenge,
         "S256",
     ));
@@ -220,7 +220,7 @@ fn authorize_handler_rejects_unregistered_redirect() {
     }
     let (_verifier, challenge) = pkce_pair();
     let outcome = oauth_authorize::handle(authorize_request(
-        HAULIAGE_WEB,
+        FIXTURE_WEB,
         "https://attacker.example/callback",
         &challenge,
         "S256",
@@ -251,7 +251,7 @@ fn authorization_code_redeem_is_single_use_and_binding_checked() {
     let (verifier, challenge) = pkce_pair();
     let code = AuthorizationCode {
         client_id: "client-a".into(),
-        tenant_id: "hauliage".into(),
+        tenant_id: "acme".into(),
         application_id: "frontend".into(),
         redirect_uri: "https://client.example/callback".into(),
         user_id: "00000000-0000-4000-8000-000000000099".into(),

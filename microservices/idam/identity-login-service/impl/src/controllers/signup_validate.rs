@@ -3,7 +3,7 @@
 //! Pre-registration eligibility check (`GET /auth/signup/validate`).
 //!
 //! Tenant-scoped, read-only: reports whether an email is available to register.
-//! Never creates state. Consumed by the Hauliage BFF before showing the signup
+//! Never creates state. Consumed by the Acme BFF before showing the signup
 //! form. `POST /auth/register` remains the authoritative gate (and the DB
 //! `UNIQUE(tenant_id, email)` constraint the failsafe); this is a UX pre-check.
 

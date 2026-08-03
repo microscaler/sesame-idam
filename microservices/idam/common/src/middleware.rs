@@ -701,7 +701,7 @@ mod tests {
     fn make_valid_claims() -> AccessClaims {
         let sx = SesameAuthzClaimsBuilder::new()
             .tenant("tenant-abc")
-            .portal("hauliage-web")
+            .portal("acme-web")
             .roles(vec!["driver".into(), "dispatcher".into()])
             .permissions(vec!["shipments:read".into(), "users:write".into()])
             .build()
@@ -711,7 +711,7 @@ mod tests {
             .iss("https://idam.example.com")
             .sub("user-123")
             .aud(vec!["identity-login-service".into()])
-            .client_id("hauliage-web")
+            .client_id("acme-web")
             .scope("profile:read")
             .exp(1779212000)
             .nbf(1779211700)
@@ -854,7 +854,7 @@ mod tests {
     fn test_jwt_only_user_type_mismatch() {
         let sx = SesameAuthzClaimsBuilder::new()
             .tenant("tenant-abc")
-            .portal("hauliage-web")
+            .portal("acme-web")
             .roles(vec![])
             .permissions(vec![])
             .build()
@@ -863,7 +863,7 @@ mod tests {
             .iss("https://idam.example.com")
             .sub("user-456")
             .aud(vec!["identity-login-service".into()])
-            .client_id("hauliage-web")
+            .client_id("acme-web")
             .scope("profile:read")
             .exp(1779212000)
             .nbf(1779211700)
@@ -880,7 +880,7 @@ mod tests {
         // Swap the sx claims since they're required
         claims.sx = SesameAuthzClaimsBuilder::new()
             .tenant("tenant-abc")
-            .portal("hauliage-web")
+            .portal("acme-web")
             .roles(vec![])
             .permissions(vec![])
             .build()
@@ -920,7 +920,7 @@ mod tests {
     fn test_jwt_only_role_check_fail() {
         let sx = SesameAuthzClaimsBuilder::new()
             .tenant("tenant-abc")
-            .portal("hauliage-web")
+            .portal("acme-web")
             .roles(vec!["driver".into()]) // No dispatcher
             .permissions(vec!["shipments:write".into()])
             .build()
@@ -929,7 +929,7 @@ mod tests {
             .iss("https://idam.example.com")
             .sub("user-789")
             .aud(vec!["identity-login-service".into()])
-            .client_id("hauliage-web")
+            .client_id("acme-web")
             .scope("profile:read")
             .exp(1779212000)
             .nbf(1779211700)
@@ -945,7 +945,7 @@ mod tests {
             .unwrap();
         claims.sx = SesameAuthzClaimsBuilder::new()
             .tenant("tenant-abc")
-            .portal("hauliage-web")
+            .portal("acme-web")
             .roles(vec!["driver".into()])
             .permissions(vec!["shipments:write".into()])
             .build()

@@ -246,10 +246,10 @@ mod tests {
     }
 
     #[test]
-    fn validate_slug_accepts_hauliage() {
+    fn validate_slug_accepts_acme() {
         assert_eq!(
-            TenantService::validate_slug("hauliage"),
-            Ok("hauliage".to_string())
+            TenantService::validate_slug("acme"),
+            Ok("acme".to_string())
         );
     }
 }

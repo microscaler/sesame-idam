@@ -30,13 +30,13 @@ use sesame_idam_identity_login_service_gen::handlers::oauth_authorize_complete::
 use sesame_idam_identity_login_service_gen::handlers::oauth_token::Request as TokenRequest;
 use sesame_idam_identity_login_service_gen::handlers::oauth_userinfo::Request as UserinfoRequest;
 
-use crate::common::{ensure_active_tenant, HAULIAGE_TENANT, HAULIAGE_WEB_CLIENT};
+use crate::common::{ensure_active_tenant, FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
 static INIT: Once = Once::new();
 
 const FIXTURE_CLIENT: &str = "fixture-public-client";
 const FIXTURE_REDIRECT: &str = "https://client.example/callback";
-const DEMO_EMAIL: &str = "owner@hauliage.dev";
+const DEMO_EMAIL: &str = "owner@acme.example";
 const DEMO_PASSWORD: &str = "SecureP@ss123!";
 
 fn infra_available() -> bool {
@@ -123,7 +123,7 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
         );
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
+    ensure_active_tenant(FIXTURE_TENANT);
 
     let (verifier, challenge) = pkce_pair();
     let state = "state-0123456789abcdef";
@@ -152,7 +152,7 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
         panic!("authorize should redirect to hosted auth");
     };
     assert!(hosted.location.contains("request_id="));
-    assert!(hosted.location.contains("tenant=hauliage"));
+    assert!(hosted.location.contains("tenant=acme"));
     assert!(hosted.location.contains(&format!("client_id={FIXTURE_CLIENT}")));
     let request_id = query_param(&hosted.location, "request_id").expect("request_id");
 
@@ -164,11 +164,11 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
         path_params: HashMap::new(),
         query_params: HashMap::new(),
         data: LoginRequest {
-            client_id: HAULIAGE_WEB_CLIENT.to_string(),
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: DEMO_EMAIL.to_string(),
             organization_id: None,
             password: DEMO_PASSWORD.to_string(),
-            x_tenant_id: Some(HAULIAGE_TENANT.to_string()),
+            x_tenant_id: Some(FIXTURE_TENANT.to_string()),
         },
         jwt_claims: None,
     });
@@ -187,7 +187,7 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
                 password: DEMO_PASSWORD.to_string(),
                 phone: None,
                 username: None,
-                x_tenant_id: HAULIAGE_TENANT.to_string(),
+                x_tenant_id: FIXTURE_TENANT.to_string(),
             },
             jwt_claims: None,
         });
@@ -199,11 +199,11 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
             path_params: HashMap::new(),
             query_params: HashMap::new(),
             data: LoginRequest {
-                client_id: HAULIAGE_WEB_CLIENT.to_string(),
+                client_id: FIXTURE_WEB_CLIENT.to_string(),
                 email,
                 organization_id: None,
                 password: DEMO_PASSWORD.to_string(),
-                x_tenant_id: Some(HAULIAGE_TENANT.to_string()),
+                x_tenant_id: Some(FIXTURE_TENANT.to_string()),
             },
             jwt_claims: None,
         });

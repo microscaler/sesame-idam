@@ -19,7 +19,7 @@ pub struct Org {
     #[column_type = "VARCHAR(32)"]
     pub status: String,
 
-    /// Opaque tenant-scoped product metadata (e.g. Hauliage `hauliage_profile_type`
+    /// Opaque tenant-scoped product metadata (e.g. Acme `acme_profile_type`
     /// SHIPPER/HAULIER per ADR-002 §3.3). Sesame stores and echoes it without
     /// interpreting persona semantics.
     #[column_type = "JSONB"]

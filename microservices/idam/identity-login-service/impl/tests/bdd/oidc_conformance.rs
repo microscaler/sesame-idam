@@ -240,7 +240,7 @@ fn conformance_code_replay_and_cross_client() {
 
     let code = AuthorizationCode {
         client_id: client_a.into(),
-        tenant_id: "hauliage".into(),
+        tenant_id: "acme".into(),
         application_id: "frontend".into(),
         redirect_uri: redirect.into(),
         user_id: "00000000-0000-4000-8000-000000000099".into(),
@@ -278,4 +278,280 @@ fn redis_available() -> bool {
         .ok()
         .and_then(|c| c.get_connection().ok())
         .is_some()
+}
+
+fn handle_token(
+    grant_type: &str,
+    client_id: &str,
+    refresh_token: Option<&str>,
+) -> brrtrouter::typed::HttpJson<serde_json::Value> {
+    use sesame_idam_identity_login_service::controllers::oauth_token;
+    use sesame_idam_identity_login_service_gen::handlers::oauth_token::Request as TokenRequest;
+
+    oauth_token::handle(TypedHandlerRequest {
+        method: Method::POST,
+        path: "/oauth/token".to_string(),
+        handler_name: "oauth_token".to_string(),
+        path_params: HashMap::new(),
+        query_params: HashMap::new(),
+        data: TokenRequest {
+            client_id: Some(client_id.into()),
+            client_secret: None,
+            code: None,
+            code_verifier: None,
+            grant_type: grant_type.into(),
+            redirect_uri: None,
+            refresh_token: refresh_token.map(str::to_string),
+            scope: None,
+            authorization: None,
+        },
+        jwt_claims: None,
+    })
+}
+
+fn sample_access_claims(
+    iss: &str,
+    aud: &str,
+    tenant: &str,
+    exp_offset: i64,
+) -> sesame_common::AccessClaims {
+    use sesame_common::{AccessClaimsBuilder, SesameAuthzClaimsBuilder};
+    let now = chrono::Utc::now().timestamp();
+    let sx = SesameAuthzClaimsBuilder::new()
+        .tenant(tenant)
+        .portal("frontend")
+        .roles(vec!["user".into()])
+        .permissions(vec![])
+        .build()
+        .expect("sx");
+    AccessClaimsBuilder::new()
+        .iss(iss)
+        .sub("00000000-0000-4000-8000-0000000000aa")
+        .aud(vec![aud.into()])
+        .client_id("fixture-public-client")
+        .scope("openid")
+        .exp(now + exp_offset)
+        .nbf(now - 10)
+        .iat(now)
+        .jti(uuid::Uuid::new_v4().to_string())
+        .ver(1)
+        .sid(uuid::Uuid::new_v4().to_string())
+        .tenant_id(tenant)
+        .user_id("00000000-0000-4000-8000-0000000000aa")
+        .user_type("customer")
+        .sx(sx)
+        .build()
+        .expect("claims")
+}
+
+#[test]
+fn conformance_access_token_forgery_set() {
+    let cases = protocol_cases();
+    let signer = sesame_common::jwt::Ed25519Signer::from_env_or_generate().expect("signer");
+    let iss = "https://idam.example.com";
+    let aud = "identity-login";
+
+    // valid_no_org
+    let valid = signer
+        .sign_access_claims(&sample_access_claims(iss, aud, "acme", 300))
+        .expect("sign valid");
+    assert!(
+        sesame_common::verify_access_token(&signer, &valid, Some("acme")).is_ok(),
+        "access-valid-no-org must accept"
+    );
+
+    // wrong_issuer
+    let wrong_iss = signer
+        .sign_access_claims(&sample_access_claims(
+            cases["access_token"]["wrong_issuer"]["mutate_claim"]["iss"]
+                .as_str()
+                .unwrap(),
+            aud,
+            "acme",
+            300,
+        ))
+        .expect("sign");
+    assert!(
+        sesame_common::verify_access_token(&signer, &wrong_iss, None).is_err(),
+        "access-wrong-issuer must reject"
+    );
+
+    // wrong_audience
+    let wrong_aud = signer
+        .sign_access_claims(&sample_access_claims(
+            iss,
+            cases["access_token"]["wrong_audience"]["mutate_claim"]["aud"][0]
+                .as_str()
+                .unwrap(),
+            "acme",
+            300,
+        ))
+        .expect("sign");
+    assert!(
+        sesame_common::verify_access_token(&signer, &wrong_aud, None).is_err(),
+        "access-wrong-audience must reject"
+    );
+
+    // alg=none
+    let parts: Vec<&str> = valid.split('.').collect();
+    let none_header = URL_SAFE_NO_PAD.encode(br#"{"alg":"none","typ":"at+jwt"}"#);
+    let forged = format!("{none_header}.{}.{}", parts[1], parts[2]);
+    assert!(
+        sesame_common::verify_access_token(&signer, &forged, None).is_err(),
+        "access-alg-none must reject"
+    );
+
+    // expired
+    let expired = signer
+        .sign_access_claims(&sample_access_claims(iss, aud, "acme", -3600))
+        .expect("sign expired");
+    assert!(
+        sesame_common::verify_access_token(&signer, &expired, None).is_err(),
+        "access-expired must reject"
+    );
+
+    // tenant mismatch
+    let tenant_tok = signer
+        .sign_access_claims(&sample_access_claims(iss, aud, "acme", 300))
+        .expect("sign");
+    assert!(
+        sesame_common::verify_access_token(&signer, &tenant_tok, Some("other-tenant")).is_err(),
+        "access-tenant-mismatch must reject"
+    );
+}
+
+#[test]
+fn conformance_refresh_rotation_replay_and_cross_client() {
+    if !redis_available() {
+        eprintln!("SKIP conformance refresh: Redis unavailable");
+        return;
+    }
+    let cases = protocol_cases();
+    if !infra_available()
+        || !fixture_ready(cases["refresh"]["rotation"]["client_id"].as_str().unwrap())
+    {
+        eprintln!("SKIP conformance refresh: Postgres/fixture client missing");
+        return;
+    }
+
+    let client_a = cases["refresh"]["rotation"]["client_id"].as_str().unwrap();
+    let client_b = cases["refresh"]["cross_client"]["mutate"]["client_id"]
+        .as_str()
+        .unwrap();
+
+    let issued = sesame_idam_identity_login_service::services::token_issuer::issue_tokens_for_client(
+        "00000000-0000-4000-8000-000000000099",
+        "acme",
+        "frontend",
+        client_a,
+        vec![],
+        vec![],
+        "user",
+        None,
+        "openid",
+    )
+    .expect("issue tokens");
+
+    let first = handle_token("refresh_token", client_a, Some(&issued.refresh_token));
+    assert_eq!(first.status, 200, "refresh-rotation must succeed: {:?}", first.body);
+    assert!(
+        first.body["refresh_token"].as_str().is_some_and(|t| !t.is_empty()),
+        "expect_new_refresh_token"
+    );
+    let new_refresh = first.body["refresh_token"].as_str().unwrap().to_string();
+    assert_ne!(new_refresh, issued.refresh_token);
+
+    let replay = handle_token("refresh_token", client_a, Some(&issued.refresh_token));
+    assert_eq!(
+        replay.body["error"],
+        cases["refresh"]["replay"]["expected_error"].as_str().unwrap(),
+        "refresh-replay must fail: {:?}",
+        replay.body
+    );
+
+    let issued2 = sesame_idam_identity_login_service::services::token_issuer::issue_tokens_for_client(
+        "00000000-0000-4000-8000-000000000099",
+        "acme",
+        "frontend",
+        client_a,
+        vec![],
+        vec![],
+        "user",
+        None,
+        "openid",
+    )
+    .expect("issue2");
+    let cross = handle_token("refresh_token", client_b, Some(&issued2.refresh_token));
+    assert_eq!(
+        cross.body["error"],
+        cases["refresh"]["cross_client"]["expected_error"]
+            .as_str()
+            .unwrap(),
+        "refresh-cross-client must fail: {:?}",
+        cross.body
+    );
+}
+
+#[test]
+fn conformance_userinfo_sub_matches_token_subject() {
+    let cases = protocol_cases();
+    assert_eq!(cases["userinfo"]["substitution"]["accept"], false);
+    assert_eq!(cases["userinfo"]["valid"]["accept"], true);
+
+    let signer = sesame_common::jwt::Ed25519Signer::from_env_or_generate().expect("signer");
+    let user_a = "00000000-0000-4000-8000-0000000000aa";
+    let user_b = "00000000-0000-4000-8000-0000000000bb";
+    let mut claims = sample_access_claims("https://idam.example.com", "identity-login", "acme", 300);
+    claims.sub = user_a.into();
+    claims.user_id = user_a.into();
+    let token = signer.sign_access_claims(&claims).expect("sign");
+    let verified = sesame_common::verify_access_token(&signer, &token, Some("acme")).expect("verify");
+    assert_eq!(verified.sub, user_a, "userinfo-valid: sub from token");
+    assert_ne!(
+        verified.sub, user_b,
+        "userinfo-substitution: token for A must not yield B"
+    );
+}
+
+#[test]
+fn conformance_metadata_fixture_contract() {
+    let cases = protocol_cases();
+    let meta = &cases["metadata"]["valid"];
+    for key in meta["required_keys"].as_array().unwrap() {
+        assert!(key.as_str().is_some());
+    }
+    assert_eq!(meta["response_types_supported"][0], "code");
+    assert_eq!(meta["code_challenge_methods_supported"][0], "S256");
+    for grant in meta["forbidden_grants"].as_array().unwrap() {
+        assert!(matches!(grant.as_str(), Some("implicit") | Some("password")));
+    }
+    assert_eq!(cases["metadata"]["issuer_mismatch"]["accept"], false);
+    assert_eq!(cases["jwks"]["unknown_kid"]["accept"], false);
+    assert_eq!(cases["jwks"]["wrong_kty"]["accept"], false);
+}
+
+#[test]
+fn conformance_redaction_gate_from_manifest() {
+    let path = repo_root().join("conformance/oidc-v1/manifest.json");
+    let manifest: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let fields = sesame_common::redacted_field_names(Some(&manifest));
+    assert!(fields.contains(&"access_token".into()));
+    assert!(fields.contains(&"code_verifier".into()));
+
+    let mut sample = serde_json::json!({
+        "event": "oauth_token",
+        "access_token": "secret-token-value",
+        "refresh_token": "secret-refresh",
+        "id_token": "secret-id",
+        "code": "secret-code",
+        "code_verifier": "secret-verifier",
+        "client_secret": "secret-client",
+        "grant_type": "authorization_code"
+    });
+    assert!(sesame_common::assert_no_redacted_fields(&sample, &fields).is_err());
+    sesame_common::redact_sensitive_object(&mut sample, &fields);
+    sesame_common::assert_no_redacted_fields(&sample, &fields)
+        .expect("after redaction, no credential fields may remain");
+    assert_eq!(sample["grant_type"], "authorization_code");
 }

@@ -1,6 +1,6 @@
 //! Principal role/attribute resolution for `/authz/principals/effective`.
 //!
-//! Stateless service (hauliage pattern): methods are generic over
+//! Stateless service (BRRTRouter pattern): methods are generic over
 //! `E: LifeExecutor`; the executor comes from `sesame_idam_database::db()`
 //! at the controller edge.
 

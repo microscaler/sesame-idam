@@ -1,6 +1,6 @@
 //! End-to-end auth flow BDD tests: register → login against the live
 //! Postgres (shared Kind cluster forwarded to 127.0.0.1:5432, same pattern
-//! as hauliage's DB-backed BDD tests).
+//! as other DB-backed BDD tests).
 //!
 //! Classic password login resolves tenant from the OIDC client registry
 //! (`client_id`); `X-Tenant-ID` must match that binding when present.
@@ -19,14 +19,14 @@ use sesame_idam_identity_login_service::controllers::{auth_login, auth_register}
 use sesame_idam_identity_login_service_gen::handlers::auth_login::Request as LoginRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as RegisterRequest;
 
-use crate::common::{ensure_active_tenant, HAULIAGE_TENANT, HAULIAGE_WEB_CLIENT};
+use crate::common::{ensure_active_tenant, FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
-/// Demo tenant/users from the hauliage dev seed
-/// (`identity-user-mgmt-service/impl/seeds/20260706000000_hauliage_demo_users.sql`).
-const HAULIAGE_DEMO_EMAIL: &str = "owner@hauliage.dev";
-const HAULIAGE_SHIPPER_EMAIL: &str = "shipper@amecorp.dev";
-const HAULIAGE_TRANSPORT_EMAIL: &str = "transport@transportservices.dev";
-const HAULIAGE_DEMO_PASSWORD: &str = "SecureP@ss123!";
+/// Demo tenant/users from the OSS seed
+/// (`identity-user-mgmt-service/impl/seeds/20260706000000_acme_demo_users.sql`).
+const FIXTURE_DEMO_EMAIL: &str = "owner@acme.example";
+const DEMO_SHIPPER_EMAIL: &str = "shipper@amecorp.dev";
+const DEMO_TRANSPORT_EMAIL: &str = "transport@transportservices.dev";
+const FIXTURE_DEMO_PASSWORD: &str = "SecureP@ss123!";
 
 static INIT: Once = Once::new();
 
@@ -138,12 +138,12 @@ fn register_then_login_round_trip() {
         println!("SKIP: Postgres not available");
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
+    ensure_active_tenant(FIXTURE_TENANT);
 
     let email = unique_email("roundtrip");
     let password = "SecureP@ss123!";
 
-    let resp = auth_register::handle(register_request(HAULIAGE_TENANT, &email, password));
+    let resp = auth_register::handle(register_request(FIXTURE_TENANT, &email, password));
     assert_eq!(
         resp.status, 201,
         "register should return 201: {:?}",
@@ -158,10 +158,10 @@ fn register_then_login_round_trip() {
 
     let payload = decode_jwt_payload(access_token);
     assert_eq!(payload["sub"], user_id);
-    assert_eq!(payload["tenant_id"], HAULIAGE_TENANT);
+    assert_eq!(payload["tenant_id"], FIXTURE_TENANT);
     assert_eq!(
         payload["https://sesame-idam.dev/claims"]["tenant"],
-        HAULIAGE_TENANT
+        FIXTURE_TENANT
     );
     assert!(payload["ver"].as_u64().unwrap() >= 1);
     let header: serde_json::Value = {
@@ -174,8 +174,8 @@ fn register_then_login_round_trip() {
     assert_eq!(header["typ"], "at+jwt");
 
     let resp = auth_login::handle(login_request(
-        HAULIAGE_WEB_CLIENT,
-        Some(HAULIAGE_TENANT),
+        FIXTURE_WEB_CLIENT,
+        Some(FIXTURE_TENANT),
         &email,
         password,
     ));
@@ -183,7 +183,7 @@ fn register_then_login_round_trip() {
     assert_eq!(resp.body["user_id"], user_id.as_str());
     let login_payload = decode_jwt_payload(resp.body["access_token"].as_str().unwrap());
     assert_eq!(login_payload["sub"], user_id);
-    assert_eq!(login_payload["tenant_id"], HAULIAGE_TENANT);
+    assert_eq!(login_payload["tenant_id"], FIXTURE_TENANT);
 }
 
 /// Scenario: Login with a wrong password is rejected with 401.
@@ -193,15 +193,15 @@ fn login_wrong_password_rejected() {
         println!("SKIP: Postgres not available");
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
+    ensure_active_tenant(FIXTURE_TENANT);
 
     let email = unique_email("wrongpw");
-    let resp = auth_register::handle(register_request(HAULIAGE_TENANT, &email, "SecureP@ss123!"));
+    let resp = auth_register::handle(register_request(FIXTURE_TENANT, &email, "SecureP@ss123!"));
     assert_eq!(resp.status, 201);
 
     let resp = auth_login::handle(login_request(
-        HAULIAGE_WEB_CLIENT,
-        Some(HAULIAGE_TENANT),
+        FIXTURE_WEB_CLIENT,
+        Some(FIXTURE_TENANT),
         &email,
         "not-the-password",
     ));
@@ -217,11 +217,11 @@ fn login_unknown_user_indistinguishable() {
         println!("SKIP: Postgres not available");
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
+    ensure_active_tenant(FIXTURE_TENANT);
 
     let resp = auth_login::handle(login_request(
-        HAULIAGE_WEB_CLIENT,
-        Some(HAULIAGE_TENANT),
+        FIXTURE_WEB_CLIENT,
+        Some(FIXTURE_TENANT),
         "does-not-exist@example.com",
         "whatever-password",
     ));
@@ -237,29 +237,29 @@ fn tenant_isolation_same_email_different_tenant() {
         println!("SKIP: Postgres not available");
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
+    ensure_active_tenant(FIXTURE_TENANT);
     let other = format!("other-{}", uuid::Uuid::new_v4().simple());
     ensure_active_tenant(&other);
 
     let email = unique_email("xtenant");
-    let hauliage_password = "SecureP@ss123!";
+    let acme_password = "SecureP@ss123!";
     let other_password = "OtherTenantP@ss456!";
 
     let resp = auth_register::handle(register_request(
-        HAULIAGE_TENANT,
+        FIXTURE_TENANT,
         &email,
-        hauliage_password,
+        acme_password,
     ));
     assert_eq!(resp.status, 201);
 
     let resp = auth_register::handle(register_request(&other, &email, other_password));
     assert_eq!(resp.status, 201);
 
-    // Other-tenant password must not authenticate against hauliage-web
-    // (client binding forces the hauliage user row).
+    // Other-tenant password must not authenticate against acme-web
+    // (client binding forces the acme user row).
     let resp = auth_login::handle(login_request(
-        HAULIAGE_WEB_CLIENT,
-        Some(HAULIAGE_TENANT),
+        FIXTURE_WEB_CLIENT,
+        Some(FIXTURE_TENANT),
         &email,
         other_password,
     ));
@@ -267,12 +267,12 @@ fn tenant_isolation_same_email_different_tenant() {
     assert_eq!(resp.body["error"], "invalid_credentials");
 
     let resp = auth_login::handle(login_request(
-        HAULIAGE_WEB_CLIENT,
-        Some(HAULIAGE_TENANT),
+        FIXTURE_WEB_CLIENT,
+        Some(FIXTURE_TENANT),
         &email,
-        hauliage_password,
+        acme_password,
     ));
-    assert_eq!(resp.status, 200, "hauliage password must still work");
+    assert_eq!(resp.status, 200, "acme password must still work");
 }
 
 /// Scenario: Duplicate registration on the same tenant returns 400.
@@ -282,13 +282,13 @@ fn duplicate_registration_rejected() {
         println!("SKIP: Postgres not available");
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
+    ensure_active_tenant(FIXTURE_TENANT);
 
     let email = unique_email("dup");
-    let resp = auth_register::handle(register_request(HAULIAGE_TENANT, &email, "SecureP@ss123!"));
+    let resp = auth_register::handle(register_request(FIXTURE_TENANT, &email, "SecureP@ss123!"));
     assert_eq!(resp.status, 201);
 
-    let resp = auth_register::handle(register_request(HAULIAGE_TENANT, &email, "SecureP@ss123!"));
+    let resp = auth_register::handle(register_request(FIXTURE_TENANT, &email, "SecureP@ss123!"));
     assert_eq!(resp.status, 400);
     assert_eq!(resp.body["error"], "email_in_use");
 }
@@ -300,10 +300,10 @@ fn weak_password_rejected() {
         println!("SKIP: Postgres not available");
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
+    ensure_active_tenant(FIXTURE_TENANT);
 
     let resp = auth_register::handle(register_request(
-        HAULIAGE_TENANT,
+        FIXTURE_TENANT,
         &unique_email("weak"),
         "short",
     ));
@@ -311,38 +311,38 @@ fn weak_password_rejected() {
     assert_eq!(resp.body["error"], "weak_password");
 }
 
-/// Scenario: The seeded hauliage demo user can log in.
+/// Scenario: The seeded acme demo user can log in.
 #[test]
-fn hauliage_demo_user_logs_in() {
+fn acme_demo_user_logs_in() {
     if !db_available() {
         println!("SKIP: Postgres not available");
         return;
     }
 
     let resp = auth_login::handle(login_request(
-        HAULIAGE_WEB_CLIENT,
-        Some(HAULIAGE_TENANT),
-        HAULIAGE_DEMO_EMAIL,
-        HAULIAGE_DEMO_PASSWORD,
+        FIXTURE_WEB_CLIENT,
+        Some(FIXTURE_TENANT),
+        FIXTURE_DEMO_EMAIL,
+        FIXTURE_DEMO_PASSWORD,
     ));
     if resp.status == 401 || resp.status == 404 {
-        println!("SKIP: hauliage demo seed not applied on this database");
+        println!("SKIP: acme demo seed not applied on this database");
         return;
     }
     assert_eq!(resp.status, 200, "demo login failed: {:?}", resp.body);
     let payload = decode_jwt_payload(resp.body["access_token"].as_str().unwrap());
-    assert_eq!(payload["tenant_id"], HAULIAGE_TENANT);
+    assert_eq!(payload["tenant_id"], FIXTURE_TENANT);
 }
 
-fn assert_hauliage_demo_login(email: &str, label: &str) {
+fn assert_demo_login(email: &str, label: &str) {
     let resp = auth_login::handle(login_request(
-        HAULIAGE_WEB_CLIENT,
-        Some(HAULIAGE_TENANT),
+        FIXTURE_WEB_CLIENT,
+        Some(FIXTURE_TENANT),
         email,
-        HAULIAGE_DEMO_PASSWORD,
+        FIXTURE_DEMO_PASSWORD,
     ));
     if resp.status == 401 || resp.status == 404 {
-        println!("SKIP: hauliage demo seed not applied on this database ({label})");
+        println!("SKIP: acme demo seed not applied on this database ({label})");
         return;
     }
     assert_eq!(
@@ -351,7 +351,7 @@ fn assert_hauliage_demo_login(email: &str, label: &str) {
         resp.body
     );
     let payload = decode_jwt_payload(resp.body["access_token"].as_str().unwrap());
-    assert_eq!(payload["tenant_id"], HAULIAGE_TENANT);
+    assert_eq!(payload["tenant_id"], FIXTURE_TENANT);
     assert!(
         payload.get("org_id").and_then(|v| v.as_str()).is_some(),
         "{label} JWT should carry org_id from demo org memberships"
@@ -359,21 +359,21 @@ fn assert_hauliage_demo_login(email: &str, label: &str) {
 }
 
 #[test]
-fn hauliage_shipper_demo_user_logs_in() {
+fn acme_shipper_demo_user_logs_in() {
     if !db_available() {
         println!("SKIP: Postgres not available");
         return;
     }
-    assert_hauliage_demo_login(HAULIAGE_SHIPPER_EMAIL, "shipper");
+    assert_demo_login(DEMO_SHIPPER_EMAIL, "shipper");
 }
 
 #[test]
-fn hauliage_transport_demo_user_logs_in() {
+fn acme_transport_demo_user_logs_in() {
     if !db_available() {
         println!("SKIP: Postgres not available");
         return;
     }
-    assert_hauliage_demo_login(HAULIAGE_TRANSPORT_EMAIL, "transport");
+    assert_demo_login(DEMO_TRANSPORT_EMAIL, "transport");
 }
 
 /// Scenario: `X-Tenant-ID` that does not match the client registry binding
@@ -386,7 +386,7 @@ fn client_tenant_header_mismatch_rejected() {
     }
 
     let resp = auth_login::handle(login_request(
-        HAULIAGE_WEB_CLIENT,
+        FIXTURE_WEB_CLIENT,
         Some("totally-unprovisioned-tenant-slug"),
         "nobody@example.com",
         "whatever",
@@ -405,7 +405,7 @@ fn unknown_client_rejected() {
 
     let resp = auth_login::handle(login_request(
         "not-a-registered-client",
-        Some(HAULIAGE_TENANT),
+        Some(FIXTURE_TENANT),
         "nobody@example.com",
         "whatever",
     ));

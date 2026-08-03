@@ -249,7 +249,7 @@ mod tests {
             .iss("https://idam.example.com")
             .sub("user-1")
             .aud(vec!["sesame-idam".into()])
-            .client_id("hauliage-web")
+            .client_id("acme-web")
             .scope("openid profile email".to_string())
             .exp(4_102_444_800) // 2100-01-01
             .nbf(0)
@@ -257,12 +257,12 @@ mod tests {
             .jti("jti-1")
             .ver(1)
             .sid("sid-1")
-            .tenant_id("hauliage")
+            .tenant_id("acme")
             .user_id("user-1")
             .user_type("customer")
             .sx(SesameAuthzClaimsBuilder::new()
-                .tenant("hauliage")
-                .portal("hauliage-web")
+                .tenant("acme")
+                .portal("acme-web")
                 .roles(vec!["OWNER".into()])
                 .build()
                 .unwrap())
@@ -306,7 +306,7 @@ mod tests {
         let decoded = URL_SAFE_NO_PAD.decode(payload).unwrap();
         let parsed: AccessClaims = serde_json::from_slice(&decoded).unwrap();
         assert_eq!(parsed.sub, "user-1");
-        assert_eq!(parsed.tenant_id, "hauliage");
+        assert_eq!(parsed.tenant_id, "acme");
         assert_eq!(parsed.sx.roles, vec!["OWNER".to_string()]);
     }
 

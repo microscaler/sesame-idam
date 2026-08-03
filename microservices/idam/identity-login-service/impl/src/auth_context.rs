@@ -59,15 +59,15 @@ mod tests {
     #[test]
     fn derives_tenant_from_validated_claims_without_public_header() {
         let (user_id, tenant_id) =
-            authenticated_principal(&claims(Some("hauliage")), None).expect("valid principal");
+            authenticated_principal(&claims(Some("acme")), None).expect("valid principal");
         assert_eq!(user_id.to_string(), USER_ID);
-        assert_eq!(tenant_id, "hauliage");
+        assert_eq!(tenant_id, "acme");
     }
 
     #[test]
     fn rejects_legacy_header_that_conflicts_with_validated_claims() {
         assert!(
-            authenticated_principal(&claims(Some("hauliage")), Some("other")).is_err(),
+            authenticated_principal(&claims(Some("acme")), Some("other")).is_err(),
             "tenant mismatch must fail"
         );
     }

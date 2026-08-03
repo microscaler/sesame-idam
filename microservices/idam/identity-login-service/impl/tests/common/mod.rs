@@ -6,10 +6,35 @@ use uuid::Uuid;
 
 use sesame_idam_identity_login_service::services::tenant_service::{TenantService, STATUS_ACTIVE};
 
-/// Seeded public SPA client used by hauliage (and most classic-login BDD).
-pub const HAULIAGE_WEB_CLIENT: &str = "hauliage-web";
-/// Tenant bound to [`HAULIAGE_WEB_CLIENT`] in the relying-party registry.
-pub const HAULIAGE_TENANT: &str = "hauliage";
+/// Default demo tenant slug used by classic-login BDD and OSS seeds.
+///
+/// Override live/private lab deployments with `SESAME_LIVE_TEST_TENANT`.
+pub const FIXTURE_TENANT: &str = "acme";
+/// Public SPA client bound to [`FIXTURE_TENANT`] in the relying-party registry.
+///
+/// Override with `SESAME_LIVE_TEST_CLIENT_ID` for private lab clients.
+pub const FIXTURE_WEB_CLIENT: &str = "acme-web";
+
+/// Tenant for live API tests (env override for private labs).
+pub fn live_test_tenant() -> String {
+    std::env::var("SESAME_LIVE_TEST_TENANT").unwrap_or_else(|_| FIXTURE_TENANT.to_string())
+}
+
+/// Client id for live API tests (env override for private labs).
+pub fn live_test_client_id() -> String {
+    std::env::var("SESAME_LIVE_TEST_CLIENT_ID").unwrap_or_else(|_| FIXTURE_WEB_CLIENT.to_string())
+}
+
+/// Redirect URI for live authorize tests (env override for private labs).
+pub fn live_test_redirect() -> String {
+    std::env::var("SESAME_LIVE_TEST_REDIRECT")
+        .unwrap_or_else(|_| "https://app.example.com/auth/callback".to_string())
+}
+
+/// Demo user email for live login tests (env override for private labs).
+pub fn live_test_email() -> String {
+    std::env::var("SESAME_LIVE_TEST_EMAIL").unwrap_or_else(|_| "owner@acme.example".to_string())
+}
 
 /// Ensure a tenant slug exists in the platform registry before auth operations.
 ///

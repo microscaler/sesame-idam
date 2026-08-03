@@ -245,18 +245,18 @@ mod tests {
     #[test]
     fn active_client_and_tenant_produce_binding() {
         let binding =
-            binding_from_statuses("hauliage-web", "hauliage", "frontend", "active", "active")
+            binding_from_statuses("acme-web", "acme", "frontend", "active", "active")
                 .expect("active binding");
 
-        assert_eq!(binding.client_id, "hauliage-web");
-        assert_eq!(binding.tenant_id, "hauliage");
+        assert_eq!(binding.client_id, "acme-web");
+        assert_eq!(binding.tenant_id, "acme");
         assert_eq!(binding.portal, "frontend");
     }
 
     #[test]
     fn disabled_client_is_rejected_without_tenant_disclosure() {
         assert_eq!(
-            binding_from_statuses("hauliage-web", "hauliage", "frontend", "disabled", "active",),
+            binding_from_statuses("acme-web", "acme", "frontend", "disabled", "active",),
             Err(ClientRegistryError::Unknown)
         );
     }
@@ -265,8 +265,8 @@ mod tests {
     fn suspended_tenant_is_rejected() {
         assert_eq!(
             binding_from_statuses(
-                "hauliage-web",
-                "hauliage",
+                "acme-web",
+                "acme",
                 "frontend",
                 "active",
                 "suspended",

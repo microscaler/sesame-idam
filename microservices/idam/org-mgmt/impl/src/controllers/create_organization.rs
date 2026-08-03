@@ -45,7 +45,7 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
         );
     }
 
-    // Opaque tenant product metadata (e.g. Hauliage `hauliage_profile_type`).
+    // Opaque tenant product metadata (e.g. Acme `acme_profile_type`).
     // Persisted verbatim; Sesame does not interpret persona semantics.
     let metadata = body.get("metadata").filter(|v| v.is_object());
 

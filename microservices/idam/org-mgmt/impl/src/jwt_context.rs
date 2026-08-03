@@ -34,10 +34,10 @@ mod tests {
 
     #[test]
     fn tenant_comes_only_from_validated_claims() {
-        let claims = Some(serde_json::json!({"tenant_id": "hauliage"}));
+        let claims = Some(serde_json::json!({"tenant_id": "acme"}));
         assert_eq!(
             tenant_from_validated_claims(&claims),
-            Some("hauliage".to_string())
+            Some("acme".to_string())
         );
     }
 

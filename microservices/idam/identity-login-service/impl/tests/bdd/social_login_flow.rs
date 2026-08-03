@@ -13,7 +13,7 @@ use http::Method;
 use sesame_idam_identity_login_service::controllers::social_login::{self, SocialLoginOutcome};
 use sesame_idam_identity_login_service_gen::handlers::social_login::Request as SocialRequest;
 
-use crate::common::{ensure_active_tenant, HAULIAGE_TENANT};
+use crate::common::{ensure_active_tenant, FIXTURE_TENANT};
 
 static INIT: Once = Once::new();
 
@@ -86,9 +86,9 @@ fn social_login_rejects_unsupported_provider() {
         println!("SKIP: Postgres not available");
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
+    ensure_active_tenant(FIXTURE_TENANT);
     let (status, body) = error_body(social_login::handle(social_request(
-        HAULIAGE_TENANT,
+        FIXTURE_TENANT,
         "not-a-provider",
         "https://app.example/callback",
     )));
@@ -102,9 +102,9 @@ fn social_login_rejects_empty_redirect() {
         println!("SKIP: Postgres not available");
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
+    ensure_active_tenant(FIXTURE_TENANT);
     let (status, body) = error_body(social_login::handle(social_request(
-        HAULIAGE_TENANT,
+        FIXTURE_TENANT,
         "google",
         "",
     )));

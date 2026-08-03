@@ -223,6 +223,12 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
                 AuthError::JwtInvalid("JWT is not yet valid".into())
             }
             crate::JwtValidationError::SignatureInvalid => AuthError::JwtSignatureInvalid,
+            crate::JwtValidationError::InvalidTyp => {
+                AuthError::JwtInvalid("JWT typ must be at+jwt".into())
+            }
+            crate::JwtValidationError::InvalidAlgorithm => {
+                AuthError::JwtInvalid("JWT alg is not allowed".into())
+            }
             crate::JwtValidationError::EntitlementsHashMismatch => {
                 AuthError::JwtInvalid("Entitlements hash mismatch".into())
             }

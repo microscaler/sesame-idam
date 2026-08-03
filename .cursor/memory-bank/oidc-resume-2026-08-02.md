@@ -1,36 +1,28 @@
-# OIDC resume — 2026-08-03
+# OIDC / Epic 14 — 2026-08-03
 
-## Done
-### Pushed
-- `5305e39` interactive PKCE + Epic 14 runner + pre-OIDC gates
-- `ed7f4ff` BearerAuth `iss` aligned with `SESAME_JWT_ISSUER` (+ helm
-  ConfigMap force + `jwks_issuer_alignment` drift test)
+## Open-source fixture naming (product brands removed)
 
-### Live verified (ms02 / shared-k8s)
-Full interactive PKCE green:
-`authorize → login → authorize/complete → token → userinfo`
+Product-specific symbols are gone from Sesame test/seed code:
 
-- JWT trust: ConfigMap `iss=https://id.sesameidentity.dev.local`
-- Login image includes authorize `tenant`/`client_id` query + UserInfo RLS
-- Hosted auth SPA rebuilt with `completeOidcAuthorize` (`index-CecitWoN.js`)
-- `oidc_` BDD: **24/24 passed** including `live_interactive_pkce_round_trip`
+| Old | New |
+|-----|-----|
+| `HAULIAGE_TENANT` | `FIXTURE_TENANT` = `"acme"` |
+| `HAULIAGE_WEB_CLIENT` | `FIXTURE_WEB_CLIENT` = `"acme-web"` |
+| `owner@hauliage.dev` | `owner@acme.example` |
+| seed `*_hauliage_demo_*.sql` | `*_acme_demo_*.sql` |
+| tenant `pricewhisperer` | `globex` |
+| `SESAME_OAUTH__PRICEWHISPERER__*` | `SESAME_OAUTH__GLOBEX__*` |
 
-### Secrets (hauliage-aligned)
-Passwords/keys only via SOPS `*.secrets.env` / `*.secret.yaml` + kustomize
-`secretGenerator`. Never put plaintext credentials in helm values.
+Live/private lab overrides (keep Hauliage out of the OSS tree):
 
-## Pending / follow-ups
-1. Commit remaining: remove live soft-skip; pin `frontend-auth` image tag +
-   registry repository in Flux HelmRelease (no ImageRepository for frontends yet)
-2. Add Flux ImageRepository/ImagePolicy for `sesame-idam-frontend-*` (or keep
-   manual dig tags)
-3. Epic 14.6–14.7 external conformance / framework matrix
-4. Dual OTP / SMS verify still unwired stubs
+```bash
+export SESAME_LIVE_TEST_TENANT=hauliage          # private only
+export SESAME_LIVE_TEST_CLIENT_ID=hauliage-web
+export SESAME_LIVE_TEST_REDIRECT=https://loadlinker.dev.microscaler.local/auth/callback
+export SESAME_LIVE_TEST_EMAIL=owner@hauliage.dev
+```
 
-## Ops notes
-- Sesame Tilt UI: `http://ms02:10351`
-- Force login binary publish: tilt trigger
-  `build-` → `copy-` → `image-sesame-idam-identity-login-service`, then
-  `flux reconcile image repository/update` + HR
-- Auth frontend: `docker build -f docker/frontend/Dockerfile --build-arg APP=auth`
-  push `dev-<ns>`; HR currently pins registry + dig tag
+After seed rename, re-apply platform + demo seeds (or rely on env overrides against existing DB rows).
+
+## Epic 14 status
+See prior notes; conformance BDD green with `acme` fixture tenant strings.

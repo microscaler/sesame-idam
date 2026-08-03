@@ -3,7 +3,7 @@ info:
   title: Sesame IDAM — Tenant Consumer API
   version: 1.0.0
   description: |
-    **Product-facing IDAM API** for SaaS tenants (Hauliage, PriceWhisperer, …).
+    **Product-facing IDAM API** for SaaS tenants (platform partitions such as `acme`, `globex`, …).
 
     Called from product BFFs and (via BFF) end-user clients. Cross-cloud safe:
     no shared database with product services.

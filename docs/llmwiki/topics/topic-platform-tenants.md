@@ -8,9 +8,9 @@
 
 ## What it is
 
-Sesame runs as **SaaS-of-SaaS**: each product (`hauliage`, `pricewhisperer`) or future buyer partition is a **platform tenant** in `sesame_idam.tenants`. The slug matches `X-Tenant-ID`. Tenants must be **provisioned** before any auth endpoint accepts traffic — no magic slugs.
+Sesame runs as **SaaS-of-SaaS**: each product (`acme`, `globex`) or future buyer partition is a **platform tenant** in `sesame_idam.tenants`. The slug matches `X-Tenant-ID`. Tenants must be **provisioned** before any auth endpoint accepts traffic — no magic slugs.
 
-**Not a tenant:** shipper vs transport org inside hauliage — those are **organizations** under tenant `hauliage`.
+**Not a tenant:** shipper vs transport org inside acme — those are **organizations** under tenant `acme`.
 
 ## Tables
 
@@ -77,7 +77,7 @@ BDD: `impl/tests/bdd/platform_tenant_admin.rs` — mint → register → login; 
 
 ## Dev seed
 
-`identity-login-service/impl/seeds/20260714000000_platform_tenants.sql` — hauliage + pricewhisperer tenants and OAuth metadata (idempotent).
+`identity-login-service/impl/seeds/20260714000000_platform_tenants.sql` — acme + globex tenants and OAuth metadata (idempotent).
 
 ## Code anchors
 

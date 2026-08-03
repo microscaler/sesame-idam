@@ -24,9 +24,9 @@ use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as 
 use sesame_idam_identity_login_service_gen::handlers::auth_session_code::Request as CodeReq;
 use sesame_idam_identity_login_service_gen::handlers::auth_token::Request as TokenReq;
 
-use crate::common::{ensure_active_tenant, HAULIAGE_TENANT, HAULIAGE_WEB_CLIENT};
+use crate::common::{ensure_active_tenant, FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
-const TENANT: &str = HAULIAGE_TENANT;
+const TENANT: &str = FIXTURE_TENANT;
 const PASSWORD: &str = "SecureP@ss123!";
 const APP_URI: &str = "https://app.tenant.example/callback";
 const EVIL_URI: &str = "https://attacker.example/callback";
@@ -108,7 +108,7 @@ fn authenticate() -> (String, Option<String>) {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: LoginReq {
-            client_id: HAULIAGE_WEB_CLIENT.to_string(),
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email,
             organization_id: None,
             password: PASSWORD.to_string(),

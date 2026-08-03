@@ -586,7 +586,7 @@ mod tests {
     #[test]
     fn test_get_key_jwks_with_tenant() {
         let mut headers = brrtrouter::dispatcher::HeaderVec::new();
-        headers.push((std::sync::Arc::from("x-tenant-id"), "hauliage".to_string()));
+        headers.push((std::sync::Arc::from("x-tenant-id"), "acme".to_string()));
         let req = HandlerRequest {
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
@@ -602,7 +602,7 @@ mod tests {
             queue_guard: None,
         };
         let key = RateLimiterState::get_key(&req, "/.well-known/jwks.json");
-        assert_eq!(key, "jwks:tenant:hauliage");
+        assert_eq!(key, "jwks:tenant:acme");
     }
 
     /// `RateLimiterState`: `get_key` returns global-scoped key for non-JWKS.

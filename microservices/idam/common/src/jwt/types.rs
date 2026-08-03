@@ -187,6 +187,10 @@ pub enum JwtValidationError {
     NotYetValid,
     SignatureInvalid,
     EntitlementsHashMismatch,
+    /// Header `typ` is missing or not RFC 9068 `at+jwt`.
+    InvalidTyp,
+    /// Header `alg` is not on the EdDSA allow-list (includes `none`).
+    InvalidAlgorithm,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -229,6 +233,13 @@ impl AccessClaims {
             .any(|a| super::helpers::expected_audiences().iter().any(|e| e == a))
         {
             return Err(JwtValidationError::InvalidAudience);
+        }
+        let now = chrono::Utc::now().timestamp();
+        if self.exp <= now {
+            return Err(JwtValidationError::Expired);
+        }
+        if self.nbf > now {
+            return Err(JwtValidationError::NotYetValid);
         }
         if self.ver == 0 {
             return Err(JwtValidationError::MissingVersion);

@@ -93,7 +93,7 @@ fn main() -> io::Result<()> {
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
-    // Register & Overwrite pattern (hauliage ADR 0001): register all gen
+    // Register & Overwrite pattern (BRRTRouter ADR 0001): register all gen
     // stubs first, then overwrite implemented routes with impl controllers.
     unsafe {
         registry::register_from_spec(&mut dispatcher, &routes);

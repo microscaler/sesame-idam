@@ -6,10 +6,10 @@
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-use crate::common::{HAULIAGE_TENANT, HAULIAGE_WEB_CLIENT};
+use crate::common::{FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
 const API_BASE: &str = "https://api.sesameidentity.dev.local/idam/v1";
-const DEMO_EMAIL: &str = "owner@hauliage.dev";
+const DEMO_EMAIL: &str = "owner@acme.example";
 const DEMO_PASSWORD: &str = "SecureP@ss123!";
 
 fn live_available() -> bool {
@@ -48,11 +48,11 @@ fn live_north_password_login_issues_tokens() {
     let resp = client
         .post(format!("{API_BASE}/auth/login"))
         .header("Content-Type", "application/json")
-        .header("X-Tenant-ID", HAULIAGE_TENANT)
+        .header("X-Tenant-ID", FIXTURE_TENANT)
         .json(&serde_json::json!({
             "email": DEMO_EMAIL,
             "password": DEMO_PASSWORD,
-            "client_id": HAULIAGE_WEB_CLIENT,
+            "client_id": FIXTURE_WEB_CLIENT,
         }))
         .send()
         .expect("login request");
@@ -74,11 +74,11 @@ fn live_north_wrong_password_is_invalid_credentials() {
     let resp = client
         .post(format!("{API_BASE}/auth/login"))
         .header("Content-Type", "application/json")
-        .header("X-Tenant-ID", HAULIAGE_TENANT)
+        .header("X-Tenant-ID", FIXTURE_TENANT)
         .json(&serde_json::json!({
             "email": DEMO_EMAIL,
             "password": "definitely-not-the-password",
-            "client_id": HAULIAGE_WEB_CLIENT,
+            "client_id": FIXTURE_WEB_CLIENT,
         }))
         .send()
         .expect("login request");
@@ -97,7 +97,7 @@ fn live_north_unknown_client_is_invalid_client() {
     let resp = client
         .post(format!("{API_BASE}/auth/login"))
         .header("Content-Type", "application/json")
-        .header("X-Tenant-ID", HAULIAGE_TENANT)
+        .header("X-Tenant-ID", FIXTURE_TENANT)
         .json(&serde_json::json!({
             "email": DEMO_EMAIL,
             "password": DEMO_PASSWORD,
@@ -138,7 +138,7 @@ fn live_north_platform_is_not_routed_on_api_edge() {
     }
     let client = http_client();
     let resp = client
-        .get(format!("{API_BASE}/platform/tenants/{HAULIAGE_TENANT}"))
+        .get(format!("{API_BASE}/platform/tenants/{FIXTURE_TENANT}"))
         .header("X-Platform-Admin-Key", "dev-platform-admin")
         .send()
         .expect("platform probe");

@@ -136,6 +136,53 @@ jobs:
         # Same guard rails as RERP: ruff (lint + format-check) + pytest.
 
   # =========================================================
+  # Epic 14 — OIDC conformance release gate (protocol-blocking)
+  # =========================================================
+  oidc-conformance-gate:
+    name: OIDC conformance gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install just + tooling
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+          just init
+
+      - name: Validate OIDC fixture corpus + checksum
+        run: |
+          source .venv/bin/activate
+          python -m sesame_idam_tooling.oidc_conformance
+          python -m sesame_idam_tooling.oidc_framework_matrix
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            microservices/target
+          key: cargo-oidc-${{ runner.os }}-${{ hashFiles('microservices/Cargo.lock') }}
+
+      - name: Install cargo-nextest
+        run: cargo install cargo-nextest --locked
+
+      - name: Run OIDC conformance + shared validator tests
+        run: |
+          cd microservices
+          cargo nextest run -p sesame-common verified_access redaction
+          cargo nextest run -p sesame_idam_identity_login_service oidc_conformance
+
+  # =========================================================
   # OpenAPI spec validation
   # =========================================================
   openapi-validate:

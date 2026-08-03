@@ -173,6 +173,7 @@ pub fn verify_entitlements_hash(
 pub const ALLOWED_ISSUERS: &[&str] = &[
     "https://sesame-idam.example.com",
     "https://idam.example.com",
+    "https://id.sesameidentity.dev.local",
 ];
 
 /// Compiled-in DEFAULT audience allow-list: the platform audiences plus the

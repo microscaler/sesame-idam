@@ -1000,7 +1000,7 @@ paths:
 
         Providers: google, github, linkedin, facebook, apple, microsoft, or custom.
 
-        For GitHub specifically: used by PriceWhisperer platform login flow.
+        For GitHub specifically: used by hosted platform login flows.
 
 
 

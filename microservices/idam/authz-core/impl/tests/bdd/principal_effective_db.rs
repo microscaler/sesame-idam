@@ -19,8 +19,8 @@ use sesame_idam_authz_core_gen::handlers::principal_effective::Request;
 
 const TEST_TENANT: &str = "bdd-authz-tenant";
 const TEST_APP: &str = "33333333-8a2d-4c41-8b4b-ae43ce79a494";
-/// Hauliage login uses portal id `frontend` for principal_effective app scope.
-const HAULIAGE_PORTAL_APP: &str = "frontend";
+/// Acme login uses portal id `frontend` for principal_effective app scope.
+const ACME_PORTAL_APP: &str = "frontend";
 
 static INIT: Once = Once::new();
 
@@ -164,9 +164,9 @@ fn role_assignments_resolved_from_database() {
     .expect("cleanup");
 }
 
-/// Scenario: OWNER role resolves seeded permissions for hauliage portal scope.
+/// Scenario: OWNER role resolves seeded permissions for acme portal scope.
 ///
-/// Given app_role_permissions rows for tenant `hauliage` and app `frontend`
+/// Given app_role_permissions rows for tenant `acme` and app `frontend`
 /// When POST /authz/principals/effective for an OWNER principal
 /// Then permissions include organization:read (JWT sx.permissions path).
 #[test]
@@ -176,14 +176,14 @@ fn owner_role_resolves_seeded_permissions() {
         return;
     }
 
-    const HAULIAGE_TENANT: &str = "hauliage";
+    const FIXTURE_TENANT: &str = "acme";
     let user_id = Uuid::parse_str("a1000001-0001-4000-8000-000000000001")
         .expect("demo owner user id");
 
     let response = handle(make_request_with_app(
         &user_id.to_string(),
-        HAULIAGE_TENANT,
-        HAULIAGE_PORTAL_APP,
+        FIXTURE_TENANT,
+        ACME_PORTAL_APP,
     ));
 
     let roles: Vec<String> = response
@@ -209,7 +209,7 @@ fn owner_role_resolves_seeded_permissions() {
     // Cross-app scope: same principal with unrelated app_id → no permissions
     let other_app = handle(make_request_with_app(
         &user_id.to_string(),
-        HAULIAGE_TENANT,
+        FIXTURE_TENANT,
         TEST_APP,
     ));
     assert!(

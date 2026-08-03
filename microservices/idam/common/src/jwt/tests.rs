@@ -15,9 +15,9 @@ fn test_pii_fields_not_in_token() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid profile".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -66,9 +66,9 @@ fn test_pii_values_absent_from_token_payload() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -198,9 +198,9 @@ fn test_large_entitlements_set_stays_under_budget() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -279,9 +279,9 @@ fn test_access_claims_act_present_absent() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -330,9 +330,9 @@ fn test_valid_claims_pass_validation() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -360,9 +360,9 @@ fn test_validation_rejects_missing_ver() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 0, // missing version
         sid: "session-1".to_string(),
@@ -385,9 +385,9 @@ fn test_validation_rejects_missing_tenant_id() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -410,9 +410,9 @@ fn test_validation_rejects_missing_sx_tenant() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -446,9 +446,9 @@ fn test_validation_rejects_invalid_issuer() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -471,9 +471,9 @@ fn test_validation_rejects_invalid_audience() {
         aud: vec!["unknown-service".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -497,9 +497,9 @@ fn test_validation_accepts_valid_risk_values() {
             aud: vec!["api".to_string()],
             client_id: "client-1".to_string(),
             scope: "openid".to_string(),
-            exp: 1700000000,
-            nbf: 1700000000 - 60,
-            iat: 1700000000,
+            exp: 2000000000,
+            nbf: 1_700_000_000,
+            iat: 1_700_000_000,
             jti: "jti-123".to_string(),
             ver: 1,
             sid: "session-1".to_string(),
@@ -534,9 +534,9 @@ fn test_validation_rejects_invalid_risk() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -567,9 +567,9 @@ fn test_builder_constructs_valid_claims() {
         .aud(vec!["api".to_string()])
         .client_id("client-1".to_string())
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(2000000000)
+        .nbf(1_700_000_000)
+        .iat(1_700_000_000)
         .jti("jti-123".to_string())
         .ver(1)
         .sid("session-1".to_string())
@@ -598,9 +598,9 @@ fn test_builder_rejects_missing_required_fields() {
         .aud(vec!["api".to_string()])
         .client_id("client-1".to_string())
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(2000000000)
+        .nbf(1_700_000_000)
+        .iat(1_700_000_000)
         .jti("jti-123".to_string())
         .ver(1)
         .build();
@@ -615,9 +615,9 @@ fn test_builder_rejects_ver_zero() {
         .aud(vec!["api".to_string()])
         .client_id("client-1".to_string())
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(2000000000)
+        .nbf(1_700_000_000)
+        .iat(1_700_000_000)
         .jti("jti-123".to_string())
         .ver(0) // explicitly zero
         .sid("session-1".to_string())
@@ -649,9 +649,9 @@ fn test_token_size_under_budget() {
         aud: vec!["api".to_string(), "frontend".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid profile email".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -795,9 +795,9 @@ fn test_truncated_authz_claims_fits_budget() {
         aud: vec!["api".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-truncated".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -876,9 +876,9 @@ fn test_build_time_token_size_within_budget() {
         aud: vec!["api".to_string(), "frontend".to_string()],
         client_id: "client-1".to_string(),
         scope: "openid".to_string(),
-        exp: 1700000000,
-        nbf: 1700000000 - 60,
-        iat: 1700000000,
+        exp: 2000000000,
+        nbf: 1_700_000_000,
+        iat: 1_700_000_000,
         jti: "jti-123".to_string(),
         ver: 1,
         sid: "session-1".to_string(),
@@ -916,9 +916,9 @@ fn test_validate_tenant_accepts_matching_tenant() {
         .aud(vec!["api".to_string()])
         .client_id("client-1")
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(2000000000)
+        .nbf(1_700_000_000)
+        .iat(1_700_000_000)
         .jti("jti-123".to_string())
         .ver(1)
         .sid("session-1".to_string())
@@ -946,9 +946,9 @@ fn test_validate_tenant_rejects_mismatched_top_level() {
         .aud(vec!["api".to_string()])
         .client_id("client-1")
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(2000000000)
+        .nbf(1_700_000_000)
+        .iat(1_700_000_000)
         .jti("jti-123".to_string())
         .ver(1)
         .sid("session-1".to_string())
@@ -984,9 +984,9 @@ fn test_validate_tenant_rejects_empty_request_tenant() {
         .aud(vec!["api".to_string()])
         .client_id("client-1")
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(2000000000)
+        .nbf(1_700_000_000)
+        .iat(1_700_000_000)
         .jti("jti-123".to_string())
         .ver(1)
         .sid("session-1".to_string())
@@ -1022,9 +1022,9 @@ fn test_validate_tenant_checks_both_top_level_and_namespaced() {
         .aud(vec!["api".to_string()])
         .client_id("client-1")
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(2000000000)
+        .nbf(1_700_000_000)
+        .iat(1_700_000_000)
         .jti("jti-123".to_string())
         .ver(1)
         .sid("session-1".to_string())
@@ -1051,9 +1051,9 @@ fn test_validate_tenant_checks_both_top_level_and_namespaced() {
         .aud(vec!["api".to_string()])
         .client_id("client-1")
         .scope("openid".to_string())
-        .exp(1700000000)
-        .nbf(1700000000 - 60)
-        .iat(1700000000)
+        .exp(2000000000)
+        .nbf(1_700_000_000)
+        .iat(1_700_000_000)
         .jti("jti-123".to_string())
         .ver(1)
         .sid("session-1".to_string())
@@ -1086,9 +1086,9 @@ fn test_validate_tenant_consistent_across_user_types() {
             .aud(vec!["api".to_string()])
             .client_id("app")
             .scope("openid".to_string())
-            .exp(1700000000)
-            .nbf(1700000000 - 60)
-            .iat(1700000000)
+            .exp(2000000000)
+            .nbf(1_700_000_000)
+            .iat(1_700_000_000)
             .jti(format!("jti-{user_type}"))
             .ver(1)
             .sid(format!("session-{user_type}"))

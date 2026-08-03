@@ -49,5 +49,78 @@
       "reuse_rotated_token": true,
       "expected_error": "invalid_grant"
     }
+  },
+  "metadata": {
+    "valid": {
+      "required_keys": [
+        "issuer",
+        "authorization_endpoint",
+        "token_endpoint",
+        "userinfo_endpoint",
+        "jwks_uri",
+        "response_types_supported",
+        "grant_types_supported",
+        "code_challenge_methods_supported",
+        "id_token_signing_alg_values_supported"
+      ],
+      "issuer": "https://id.sesameidentity.dev.local",
+      "response_types_supported": ["code"],
+      "code_challenge_methods_supported": ["S256"],
+      "forbidden_grants": ["implicit", "password"]
+    },
+    "issuer_mismatch": {
+      "description": "Consumer must reject discovery when issuer claim != configured issuer URL",
+      "accept": false
+    }
+  },
+  "jwks": {
+    "unknown_kid": {
+      "description": "Tokens signed with an unpublished kid must fail verification",
+      "accept": false
+    },
+    "wrong_kty": {
+      "description": "RSA/EC keys must not validate EdDSA Sesame access tokens",
+      "accept": false,
+      "forbidden_kty": ["RSA", "EC"]
+    }
+  },
+  "access_token": {
+    "valid_no_org": {
+      "accept": true,
+      "required_claims": ["iss", "sub", "aud", "exp", "nbf", "iat", "jti", "tenant_id", "user_id"],
+      "typ": "at+jwt",
+      "alg": "EdDSA"
+    },
+    "wrong_issuer": {
+      "accept": false,
+      "mutate_claim": { "iss": "https://attacker.example" }
+    },
+    "wrong_audience": {
+      "accept": false,
+      "mutate_claim": { "aud": ["not-a-sesame-audience"] }
+    },
+    "alg_none": {
+      "accept": false,
+      "mutate_header": { "alg": "none" }
+    },
+    "expired": {
+      "accept": false,
+      "mutate_claim": { "exp_offset_secs": -3600 }
+    },
+    "tenant_mismatch": {
+      "accept": false,
+      "mutate_claim": { "tenant_id": "other-tenant" }
+    }
+  },
+  "userinfo": {
+    "valid": {
+      "accept": true,
+      "required_scope": "openid",
+      "required_fields": ["sub"]
+    },
+    "substitution": {
+      "accept": false,
+      "description": "Access token for user A must not return user B's subject"
+    }
   }
 }

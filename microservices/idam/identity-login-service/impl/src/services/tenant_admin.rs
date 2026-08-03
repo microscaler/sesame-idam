@@ -173,26 +173,26 @@ mod tests {
     #[test]
     fn admin_role_resolves_to_the_token_tenant() {
         let admin =
-            tenant_admin_principal(&claims("hauliage", &["tenant_admin"])).expect("tenant admin");
-        assert_eq!(admin.tenant, "hauliage");
+            tenant_admin_principal(&claims("acme", &["tenant_admin"])).expect("tenant admin");
+        assert_eq!(admin.tenant, "acme");
     }
 
     #[test]
     fn owner_implies_tenant_admin() {
-        assert!(tenant_admin_principal(&claims("hauliage", &["owner"])).is_ok());
+        assert!(tenant_admin_principal(&claims("acme", &["owner"])).is_ok());
     }
 
     /// Roles are compared case-insensitively so an "Owner" from one grant path
     /// is not silently a different role from "owner" in another.
     #[test]
     fn role_match_is_case_insensitive() {
-        assert!(tenant_admin_principal(&claims("hauliage", &["Tenant_Admin"])).is_ok());
+        assert!(tenant_admin_principal(&claims("acme", &["Tenant_Admin"])).is_ok());
     }
 
     #[test]
     fn ordinary_tenant_user_is_forbidden_not_unauthorized() {
         let err =
-            tenant_admin_principal(&claims("hauliage", &["member"])).expect_err("no admin role");
+            tenant_admin_principal(&claims("acme", &["member"])).expect_err("no admin role");
         assert_eq!(err.status, 403, "known identity, not their resource");
     }
 
@@ -219,12 +219,12 @@ mod tests {
     fn agreeing_tenant_claims_are_accepted() {
         let agreeing = Some(json!({
             "sub": "11111111-1111-4111-8111-111111111111",
-            "tenant_id": "hauliage",
-            "sx": { "tenant": "hauliage", "roles": ["tenant_admin"] },
+            "tenant_id": "acme",
+            "sx": { "tenant": "acme", "roles": ["tenant_admin"] },
         }));
         assert_eq!(
             tenant_admin_principal(&agreeing).expect("ok").tenant,
-            "hauliage"
+            "acme"
         );
     }
 

@@ -12,9 +12,9 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use crate::common::{HAULIAGE_TENANT, HAULIAGE_WEB_CLIENT};
+use crate::common::{FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
-const DEMO_EMAIL: &str = "owner@hauliage.dev";
+const DEMO_EMAIL: &str = "owner@acme.example";
 const DEMO_PASSWORD: &str = "SecureP@ss123!";
 const PLATFORM_KEY: &str = "dev-platform-admin";
 
@@ -74,11 +74,11 @@ fn live_ew_password_login_issues_tokens() {
     let resp = client
         .post(format!("{}/idam/v1/auth/login", ew_base()))
         .header("Content-Type", "application/json")
-        .header("X-Tenant-ID", HAULIAGE_TENANT)
+        .header("X-Tenant-ID", FIXTURE_TENANT)
         .json(&serde_json::json!({
             "email": DEMO_EMAIL,
             "password": DEMO_PASSWORD,
-            "client_id": HAULIAGE_WEB_CLIENT,
+            "client_id": FIXTURE_WEB_CLIENT,
         }))
         .send()
         .expect("ew login");
@@ -95,7 +95,7 @@ fn live_ew_platform_get_requires_platform_key() {
         return;
     }
     let client = http_client();
-    let url = format!("{}/idam/v1/platform/tenants/{HAULIAGE_TENANT}", ew_base());
+    let url = format!("{}/idam/v1/platform/tenants/{FIXTURE_TENANT}", ew_base());
 
     let missing = client.get(&url).send().expect("platform no key");
     assert!(
@@ -139,10 +139,10 @@ fn live_ew_token_unsupported_grant_fails_closed() {
     let resp = client
         .post(format!("{}/idam/v1/auth/token", ew_base()))
         .header("Content-Type", "application/json")
-        .header("X-Tenant-ID", HAULIAGE_TENANT)
+        .header("X-Tenant-ID", FIXTURE_TENANT)
         .json(&serde_json::json!({
             "grant_type": "password",
-            "client_id": HAULIAGE_WEB_CLIENT,
+            "client_id": FIXTURE_WEB_CLIENT,
         }))
         .send()
         .expect("token request");
@@ -163,7 +163,7 @@ fn live_ew_client_credentials_without_secret_fails_closed() {
     let resp = client
         .post(format!("{}/idam/v1/auth/token", ew_base()))
         .header("Content-Type", "application/json")
-        .header("X-Tenant-ID", HAULIAGE_TENANT)
+        .header("X-Tenant-ID", FIXTURE_TENANT)
         .json(&serde_json::json!({
             "grant_type": "client_credentials",
             "client_id": "missing-m2m-client",

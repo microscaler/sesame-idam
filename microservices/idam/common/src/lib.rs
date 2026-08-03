@@ -25,6 +25,7 @@ pub mod http;
 pub mod jwks_cache;
 pub mod jwt;
 pub mod middleware;
+pub mod observability;
 pub mod oidc_client;
 
 // Consolidated sibling crate modules
@@ -36,8 +37,8 @@ pub mod token_versioning;
 
 // Re-export from existing modules
 pub use jwt::{
-    AccessClaims, AccessClaimsBuilder, ActorClaim, JwtError, JwtValidationError, SesameAuthzClaims,
-    SesameAuthzClaimsBuilder, ALLOWED_ISSUERS, EXPECTED_AUDIENCE,
+    verify_access_token, AccessClaims, AccessClaimsBuilder, ActorClaim, JwtError, JwtValidationError,
+    SesameAuthzClaims, SesameAuthzClaimsBuilder, ALLOWED_ISSUERS, EXPECTED_AUDIENCE,
 };
 
 // Re-export from audit module
@@ -71,4 +72,8 @@ pub use token_versioning::{
 // Re-export outbound HTTP (brrtrouter::http)
 pub use http::{
     fetch_get, fetch_get_text_with_retry, fetch_post, HttpFetchError, HttpFetchOptions,
+};
+
+pub use observability::{
+    assert_no_redacted_fields, redact_sensitive_object, redacted_field_names, DEFAULT_REDACTED_FIELDS,
 };

@@ -4,7 +4,7 @@
 //! Controller handlers for Authentication.
 //!
 //! Only implemented controllers are declared here and registered in main.rs
-//! via the Register & Overwrite pattern (ADR 0001 in hauliage): gen stubs are
+//! via the Register & Overwrite pattern (ADR 0001 in acme): gen stubs are
 //! registered first, then these implementations overwrite their routes.
 //!
 //! The remaining controller files in this directory (OTP, magic link, social

@@ -1,6 +1,6 @@
 //! Per-tenant OAuth provider configuration.
 //!
-//! Each tenant (hauliage, pricewhisperer, …) supplies its own Google/Microsoft app
+//! Each tenant (acme, globex, …) supplies its own Google/Microsoft app
 //! credentials. A single Sesame instance serves all tenants; lookup is keyed by
 //! `X-Tenant-ID` so one tenant's OAuth app is never used for another.
 
@@ -70,8 +70,8 @@ impl TenantOAuthConfig {
     /// - `SESAME_OAUTH__{TENANT}__MICROSOFT_CLIENT_SECRET`
     /// - `SESAME_OAUTH__{TENANT}__ALLOWED_REDIRECT_URIS` (comma-separated)
     ///
-    /// Example for hauliage:
-    /// `SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_ID=...`
+    /// Example for acme:
+    /// `SESAME_OAUTH__ACME__GOOGLE_CLIENT_ID=...`
     #[must_use]
     pub fn for_tenant(tenant_id: &str) -> Self {
         let prefix = tenant_env_prefix(tenant_id);
@@ -121,7 +121,7 @@ impl TenantOAuthConfig {
     }
 }
 
-/// Normalize tenant id for env var segment: `hauliage` → `HAULIAGE`, `price-whisperer` → `PRICE_WHISPERER`.
+/// Normalize tenant id for env var segment: `acme` → `ACME`, `price-whisperer` → `PRICE_WHISPERER`.
 fn tenant_env_prefix(tenant_id: &str) -> String {
     tenant_id
         .trim()
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn tenant_env_prefix_normalizes_slug() {
-        assert_eq!(tenant_env_prefix("hauliage"), "HAULIAGE");
+        assert_eq!(tenant_env_prefix("acme"), "ACME");
         assert_eq!(tenant_env_prefix("price-whisperer"), "PRICE_WHISPERER");
     }
 
@@ -192,7 +192,7 @@ mod tests {
     fn dev_redirect_uri_heuristic() {
         assert!(is_dev_redirect_uri("http://localhost:7174/oauth/callback"));
         assert!(is_dev_redirect_uri(
-            "http://hauliage.dev.microscaler.local/oauth/callback"
+            "https://app.example.com/oauth/callback"
         ));
         assert!(!is_dev_redirect_uri("https://evil.example/callback"));
     }
@@ -200,40 +200,40 @@ mod tests {
     #[test]
     fn tenant_configs_are_independent() {
         std::env::set_var(
-            "SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_ID",
-            "haulier-google-id",
+            "SESAME_OAUTH__ACME__GOOGLE_CLIENT_ID",
+            "acme-google-id",
         );
         std::env::set_var(
-            "SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_SECRET",
-            "haulier-google-secret",
+            "SESAME_OAUTH__ACME__GOOGLE_CLIENT_SECRET",
+            "acme-google-secret",
         );
         std::env::set_var(
-            "SESAME_OAUTH__PRICEWHISPERER__GOOGLE_CLIENT_ID",
-            "pw-google-id",
+            "SESAME_OAUTH__GLOBEX__GOOGLE_CLIENT_ID",
+            "globex-google-id",
         );
         std::env::set_var(
-            "SESAME_OAUTH__PRICEWHISPERER__GOOGLE_CLIENT_SECRET",
-            "pw-google-secret",
+            "SESAME_OAUTH__GLOBEX__GOOGLE_CLIENT_SECRET",
+            "globex-google-secret",
         );
 
-        let hauliage = TenantOAuthConfig::for_tenant("hauliage");
-        let pw = TenantOAuthConfig::for_tenant("pricewhisperer");
+        let acme = TenantOAuthConfig::for_tenant("acme");
+        let pw = TenantOAuthConfig::for_tenant("globex");
 
         assert_eq!(
-            hauliage
+            acme
                 .credentials_for(SupportedProvider::Google)
                 .map(|c| c.client_id.as_str()),
-            Some("haulier-google-id")
+            Some("acme-google-id")
         );
         assert_eq!(
             pw.credentials_for(SupportedProvider::Google)
                 .map(|c| c.client_id.as_str()),
-            Some("pw-google-id")
+            Some("globex-google-id")
         );
 
-        std::env::remove_var("SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_ID");
-        std::env::remove_var("SESAME_OAUTH__HAULIAGE__GOOGLE_CLIENT_SECRET");
-        std::env::remove_var("SESAME_OAUTH__PRICEWHISPERER__GOOGLE_CLIENT_ID");
-        std::env::remove_var("SESAME_OAUTH__PRICEWHISPERER__GOOGLE_CLIENT_SECRET");
+        std::env::remove_var("SESAME_OAUTH__ACME__GOOGLE_CLIENT_ID");
+        std::env::remove_var("SESAME_OAUTH__ACME__GOOGLE_CLIENT_SECRET");
+        std::env::remove_var("SESAME_OAUTH__GLOBEX__GOOGLE_CLIENT_ID");
+        std::env::remove_var("SESAME_OAUTH__GLOBEX__GOOGLE_CLIENT_SECRET");
     }
 }

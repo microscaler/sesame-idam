@@ -53,7 +53,7 @@ See [design doc §18](../../design-saas-of-saas-multi-tenancy.md#18-story-backlo
 - `TenantService::require_active` on all auth entry points
 - Platform admin REST API (`/platform/tenants/*`) + `sesame-idam tenant` CLI
 - BDD: `platform_tenant_admin.rs` (mint → login, suspend, OAuth rotate)
-- Dev seed: hauliage + pricewhisperer (CLI can replace for new tenants)
+- Dev seed: acme + globex (CLI can replace for new tenants)
 - [topic-platform-tenants.md](../../llmwiki/topics/topic-platform-tenants.md)
 
 ## P1 acceptance gate

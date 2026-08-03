@@ -10,7 +10,7 @@ use http::Method;
 use sesame_idam_identity_login_service::controllers::sms_magic_link_send;
 use sesame_idam_identity_login_service_gen::handlers::sms_magic_link_send::Request as SmsMagicRequest;
 
-use crate::common::{ensure_active_tenant, HAULIAGE_TENANT};
+use crate::common::{ensure_active_tenant, FIXTURE_TENANT};
 
 static INIT: Once = Once::new();
 
@@ -85,8 +85,8 @@ fn sms_magic_link_send_returns_generic_success() {
         println!("SKIP: Postgres not available");
         return;
     }
-    ensure_active_tenant(HAULIAGE_TENANT);
-    let resp = sms_magic_link_send::handle(send_request(HAULIAGE_TENANT, "+15555550123"));
+    ensure_active_tenant(FIXTURE_TENANT);
+    let resp = sms_magic_link_send::handle(send_request(FIXTURE_TENANT, "+15555550123"));
     assert_eq!(resp.status, 200, "sms magic send: {:?}", resp.body);
     assert_eq!(resp.body["success"], true);
 }

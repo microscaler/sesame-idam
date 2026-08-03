@@ -53,7 +53,7 @@ fn when_attacker_publishes(ctx: Arc<Mutex<SecurityTestContext>>) {
             if let Ok(handle) = handle {
                 // Attacker tries to set version to 999999 (DoS)
                 let _ = handle.block_on(p.publish_tenant(
-                    "hauliage",
+                    "acme",
                     999999,
                     BumpReason::Other("attacker".to_string()),
                 ));
@@ -124,7 +124,7 @@ fn when_fake_version_published(ctx: Arc<Mutex<SecurityTestContext>>) {
                 .build();
             if let Ok(handle) = handle {
                 let _ = handle.block_on(p.publish_tenant(
-                    "hauliage",
+                    "acme",
                     999999,
                     BumpReason::Other("doS".to_string()),
                 ));

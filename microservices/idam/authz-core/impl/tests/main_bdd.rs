@@ -1,7 +1,7 @@
 // BDD test hub for authz-core
 //
 // Single test crate that unifies BDD specs via rstest_bdd_macros.
-// Each controller has its own module following the hauliage pattern:
+// Each controller has its own module following the acme pattern:
 //   1. TestContext struct holds last_response for scenario sharing
 //   2. #[fixture] fn context() returns Arc<Mutex<TestContext>>
 //   3. #[given(...)] steps set up request/fixture state

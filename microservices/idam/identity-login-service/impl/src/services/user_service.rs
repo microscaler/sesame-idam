@@ -1,6 +1,6 @@
 //! User lookup and creation for authentication flows.
 //!
-//! Stateless service (hauliage pattern): methods are generic over
+//! Stateless service (BRRTRouter pattern): methods are generic over
 //! `E: LifeExecutor` and receive the executor from the controller edge
 //! (`sesame_idam_database::db()` in production, `MayPostgresExecutor` in
 //! tests).

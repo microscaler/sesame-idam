@@ -62,27 +62,17 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     }
 }
 
-/// Cheap structural + tenant check on the presented access token.
+/// Full access-token validation before minting a handoff code (Epic 14.2).
 ///
-/// Full signature validation happens at every resource server via JWKS; here
-/// we only need to establish that the caller holds a token this platform
-/// minted for THIS tenant, so a code cannot be conjured from nothing.
+/// Rejects payload-only trust: typ/alg/signature/iss/aud/time/tenant must pass
+/// [`sesame_common::verify_access_token`].
 fn token_is_ours(token: &str, tenant_id: &str) -> bool {
-    use base64::Engine;
-    if crate::services::token_issuer::SIGNER.verify(token).is_err() {
-        return false;
-    }
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() != 3 {
-        return false;
-    }
-    let Ok(bytes) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(parts[1]) else {
-        return false;
-    };
-    let Ok(claims) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
-        return false;
-    };
-    claims.get("tenant_id").and_then(|v| v.as_str()) == Some(tenant_id)
+    sesame_common::verify_access_token(
+        &crate::services::token_issuer::SIGNER,
+        token,
+        Some(tenant_id),
+    )
+    .is_ok()
 }
 
 fn bad_request(msg: &str) -> HttpJson<serde_json::Value> {

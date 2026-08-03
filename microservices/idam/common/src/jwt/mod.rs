@@ -22,6 +22,7 @@ pub mod helpers;
 pub mod keyset;
 pub mod signer;
 pub mod types;
+pub mod verified_access;
 
 #[cfg(test)]
 mod tests;
@@ -45,3 +46,4 @@ pub use signer::{Ed25519Signer, SignerError, SIGNING_KEY_ENV, SIGNING_KID_ENV};
 pub use types::{
     AccessClaims, ActorClaim, EntitlementsSnapshot, JwtError, JwtValidationError, SesameAuthzClaims,
 };
+pub use verified_access::verify_access_token;

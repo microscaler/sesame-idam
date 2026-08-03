@@ -34,9 +34,9 @@ use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as 
 use sesame_idam_identity_session_service::controllers::{auth_refresh, oauth_userinfo};
 use sesame_idam_identity_session_service_gen::handlers::oauth_userinfo::Request as UserinfoRequest;
 
-use crate::common::{ensure_active_tenant, HAULIAGE_TENANT, HAULIAGE_WEB_CLIENT};
+use crate::common::{ensure_active_tenant, FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
-const TEST_TENANT: &str = HAULIAGE_TENANT;
+const TEST_TENANT: &str = FIXTURE_TENANT;
 const TEST_KID: &str = "bdd-lifecycle-kid";
 
 static INIT: Once = Once::new();
@@ -130,7 +130,7 @@ fn login_request(email: &str, password: &str) -> TypedHandlerRequest<LoginReques
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: LoginRequest {
-            client_id: HAULIAGE_WEB_CLIENT.to_string(),
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             organization_id: None,
             password: password.to_string(),
@@ -208,7 +208,7 @@ fn userinfo_request(access_token: &str) -> HandlerRequest {
     }
 }
 
-/// Assert the JSON body matches the hauliage E2E `TokenResponse` contract (H2.5).
+/// Assert the JSON body matches the acme E2E `TokenResponse` contract (H2.5).
 pub(crate) fn assert_token_response_shape(
     body: &serde_json::Value,
     expected_user_id: Option<&str>,
@@ -228,7 +228,7 @@ pub(crate) fn assert_token_response_shape(
     assert!(Uuid::parse_str(user_id).is_ok(), "user_id must be a UUID");
     assert!(
         body["scope"].as_str().is_some(),
-        "scope should be returned for hauliage clients"
+        "scope should be returned for acme clients"
     );
 
     let header: serde_json::Value = {
@@ -366,9 +366,9 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
     );
 }
 
-/// Scenario: Register response alone satisfies the hauliage `TokenResponse` fixture.
+/// Scenario: Register response alone satisfies the acme `TokenResponse` fixture.
 #[test]
-fn register_token_response_matches_hauliage_contract() {
+fn register_token_response_matches_acme_contract() {
     if !infra_available() {
         println!("SKIP: Postgres and/or Redis not available");
         return;

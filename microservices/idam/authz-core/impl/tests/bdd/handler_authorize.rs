@@ -4,7 +4,7 @@
 /// schema serialization, these tests call the REAL controller handler
 /// and verify the actual response it produces (including audit event emission).
 ///
-/// Pattern: hauliage-style with #[given]/#[when]/#[then] step definitions
+/// Pattern: acme-style with #[given]/#[when]/#[then] step definitions
 /// sharing state via a thread-local context.
 use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;

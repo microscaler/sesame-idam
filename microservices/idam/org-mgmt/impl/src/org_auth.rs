@@ -76,13 +76,13 @@ mod tests {
 
     #[test]
     fn derives_tenant_from_validated_claims_without_public_header() {
-        let principal = require_caller(&claims(Some("hauliage")), None).expect("valid principal");
-        assert_eq!(principal, (USER_ID.to_string(), "hauliage".to_string()));
+        let principal = require_caller(&claims(Some("acme")), None).expect("valid principal");
+        assert_eq!(principal, (USER_ID.to_string(), "acme".to_string()));
     }
 
     #[test]
     fn rejects_legacy_header_that_conflicts_with_validated_claims() {
-        let response = require_caller(&claims(Some("hauliage")), Some("other"))
+        let response = require_caller(&claims(Some("acme")), Some("other"))
             .expect_err("tenant mismatch must fail");
         assert_eq!(response.status, 403);
     }

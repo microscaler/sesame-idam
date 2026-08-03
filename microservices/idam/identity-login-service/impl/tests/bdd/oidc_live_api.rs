@@ -18,8 +18,17 @@ const ID_BASE: &str = "https://id.sesameidentity.dev.local";
 const AUTH_BASE: &str = "https://auth.sesameidentity.dev.local";
 const API_BASE: &str = "https://api.sesameidentity.dev.local";
 
-const HAULIAGE_WEB: &str = "hauliage-web";
-const HAULIAGE_REDIRECT: &str = "https://loadlinker.dev.microscaler.local/auth/callback";
+/// Seeded confidential SPA client (`acme-web`). Override via `SESAME_LIVE_TEST_*`.
+fn demo_web_client() -> String {
+    std::env::var("SESAME_LIVE_TEST_CLIENT_ID").unwrap_or_else(|_| "acme-web".into())
+}
+fn demo_web_redirect() -> String {
+    std::env::var("SESAME_LIVE_TEST_REDIRECT")
+        .unwrap_or_else(|_| "https://app.example.com/auth/callback".into())
+}
+fn demo_tenant() -> String {
+    std::env::var("SESAME_LIVE_TEST_TENANT").unwrap_or_else(|_| "acme".into())
+}
 
 fn live_available() -> bool {
     let host = std::env::var("SESAME_OIDC_LIVE_HOST")
@@ -143,7 +152,7 @@ fn live_authorize_valid_pkce_redirects_to_hosted_auth() {
         return;
     }
     let client = http_client();
-    let url = authorize_url(HAULIAGE_WEB, HAULIAGE_REDIRECT, &pkce_challenge(), "S256");
+    let url = authorize_url(demo_web_client().as_str(), demo_web_redirect().as_str(), &pkce_challenge(), "S256");
     let resp = client.get(&url).send().expect("authorize request");
     assert_eq!(resp.status(), 302, "body={}", resp.text().unwrap_or_default());
     let location = resp
@@ -177,7 +186,7 @@ fn live_authorize_unknown_client_returns_invalid_client() {
     let client = http_client();
     let url = authorize_url(
         "not-a-real-client",
-        HAULIAGE_REDIRECT,
+        demo_web_redirect().as_str(),
         &pkce_challenge(),
         "S256",
     );
@@ -195,8 +204,8 @@ fn live_authorize_redirect_prefix_is_rejected() {
     }
     let client = http_client();
     let url = authorize_url(
-        HAULIAGE_WEB,
-        "https://loadlinker.dev.microscaler.local/auth/callback/evil",
+        demo_web_client().as_str(),
+        "https://app.example.com/auth/callback/evil",
         &pkce_challenge(),
         "S256",
     );
@@ -231,8 +240,8 @@ fn live_token_without_client_auth_fails_closed() {
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(format!(
             "grant_type=authorization_code&code=not-a-code&redirect_uri={}&client_id={}&code_verifier=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~",
-            urlencoding_encode(HAULIAGE_REDIRECT),
-            HAULIAGE_WEB
+            urlencoding_encode(demo_web_redirect().as_str()),
+            demo_web_client().as_str()
         ))
         .send()
         .expect("token request");
@@ -296,8 +305,9 @@ fn live_discovery_advertised_endpoints_are_reachable() {
         .as_str()
         .expect("authorization_endpoint");
     let authorize_url = format!(
-        "{authorize}?client_id={HAULIAGE_WEB}&response_type=code&redirect_uri={redirect}&scope=openid&state=state1234567890abcd&nonce=nonce1234567890abcd&code_challenge={challenge}&code_challenge_method=S256",
-        redirect = urlencoding_encode(HAULIAGE_REDIRECT),
+        "{authorize}?client_id={client_id}&response_type=code&redirect_uri={redirect}&scope=openid&state=state1234567890abcd&nonce=nonce1234567890abcd&code_challenge={challenge}&code_challenge_method=S256",
+        client_id = demo_web_client(),
+        redirect = urlencoding_encode(&demo_web_redirect()),
         challenge = pkce_challenge(),
     );
     let resp = client
@@ -314,7 +324,7 @@ fn live_discovery_advertised_endpoints_are_reachable() {
     let resp = client
         .post(token)
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .body("grant_type=authorization_code&code=x&client_id=hauliage-web&redirect_uri=https://example/cb&code_verifier=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+        .body("grant_type=authorization_code&code=x&client_id=acme-web&redirect_uri=https://example/cb&code_verifier=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
         .send()
         .expect("token probe");
     assert!(
@@ -324,9 +334,11 @@ fn live_discovery_advertised_endpoints_are_reachable() {
     );
 }
 
-const FIXTURE_PUBLIC: &str = "fixture-public-client";
-const FIXTURE_REDIRECT: &str = "https://client.example/callback";
-const DEMO_EMAIL: &str = "owner@hauliage.dev";
+const PUBLIC_CLIENT: &str = "fixture-public-client";
+const PUBLIC_REDIRECT: &str = "https://client.example/callback";
+fn demo_email() -> String {
+    std::env::var("SESAME_LIVE_TEST_EMAIL").unwrap_or_else(|_| "owner@acme.example".into())
+}
 const DEMO_PASSWORD: &str = "SecureP@ss123!";
 
 /// Live interactive path without the SPA: authorize → login → complete → token → userinfo.
@@ -340,7 +352,7 @@ fn live_interactive_pkce_round_trip() {
     let verifier = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~";
     let challenge = pkce_challenge();
 
-    let authorize = authorize_url(FIXTURE_PUBLIC, FIXTURE_REDIRECT, &challenge, "S256");
+    let authorize = authorize_url(PUBLIC_CLIENT, PUBLIC_REDIRECT, &challenge, "S256");
     let resp = client.get(&authorize).send().expect("authorize");
     if resp.status() == 400 {
         eprintln!("SKIP live_interactive_pkce: fixture-public-client not seeded");
@@ -362,9 +374,12 @@ fn live_interactive_pkce_round_trip() {
     let login = client
         .post(format!("{API_BASE}/idam/v1/auth/login"))
         .header("Content-Type", "application/json")
-        .header("X-Tenant-ID", "hauliage")
+        .header("X-Tenant-ID", demo_tenant().as_str())
         .body(format!(
-            r#"{{"email":"{DEMO_EMAIL}","password":"{DEMO_PASSWORD}","client_id":"{HAULIAGE_WEB}"}}"#
+            r#"{{"email":"{email}","password":"{password}","client_id":"{client_id}"}}"#,
+            email = demo_email(),
+            password = DEMO_PASSWORD,
+            client_id = demo_web_client(),
         ))
         .send()
         .expect("login");
@@ -378,7 +393,7 @@ fn live_interactive_pkce_round_trip() {
         .post(format!("{AUTH_BASE}/oauth/authorize/complete"))
         .header("Content-Type", "application/json")
         .header("Authorization", format!("Bearer {access}"))
-        .header("X-Tenant-ID", "hauliage")
+        .header("X-Tenant-ID", demo_tenant().as_str())
         .json(&serde_json::json!({ "request_id": request_id }))
         .send()
         .expect("complete");
@@ -394,7 +409,7 @@ fn live_interactive_pkce_round_trip() {
         .and_then(|v| v.to_str().ok())
         .unwrap_or_default()
         .to_string();
-    assert!(rp.starts_with(FIXTURE_REDIRECT), "rp redirect {rp}");
+    assert!(rp.starts_with(PUBLIC_REDIRECT), "rp redirect {rp}");
     let code = rp
         .split(['?', '&'])
         .find_map(|p| p.strip_prefix("code="))
@@ -405,8 +420,8 @@ fn live_interactive_pkce_round_trip() {
         .post(format!("{API_BASE}/oauth/token"))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(format!(
-            "grant_type=authorization_code&code={code}&redirect_uri={}&client_id={FIXTURE_PUBLIC}&code_verifier={verifier}",
-            urlencoding_encode(FIXTURE_REDIRECT),
+            "grant_type=authorization_code&code={code}&redirect_uri={}&client_id={PUBLIC_CLIENT}&code_verifier={verifier}",
+            urlencoding_encode(PUBLIC_REDIRECT),
         ))
         .send()
         .expect("token");

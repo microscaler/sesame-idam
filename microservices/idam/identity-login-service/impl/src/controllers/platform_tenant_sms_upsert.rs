@@ -241,9 +241,9 @@ mod tests {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         std::env::remove_var("SMS_ENVELOPE_CUSTODY_TENANTS");
-        assert!(!envelope_custody_allowed("hauliage"));
+        assert!(!envelope_custody_allowed("acme"));
         std::env::set_var("SMS_ENVELOPE_CUSTODY_TENANTS", "");
-        assert!(!envelope_custody_allowed("hauliage"));
+        assert!(!envelope_custody_allowed("acme"));
     }
 
     #[test]
@@ -251,13 +251,13 @@ mod tests {
         let _guard = ENV_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        std::env::set_var("SMS_ENVELOPE_CUSTODY_TENANTS", "hauliage, pricewhisperer");
-        assert!(envelope_custody_allowed("hauliage"));
-        assert!(envelope_custody_allowed("pricewhisperer"));
+        std::env::set_var("SMS_ENVELOPE_CUSTODY_TENANTS", "acme, globex");
+        assert!(envelope_custody_allowed("acme"));
+        assert!(envelope_custody_allowed("globex"));
         assert!(!envelope_custody_allowed("someone-else"));
         // Substring matches must not slip through.
         assert!(!envelope_custody_allowed("haul"));
-        assert!(!envelope_custody_allowed("hauliage-evil"));
+        assert!(!envelope_custody_allowed("acme-evil"));
         std::env::remove_var("SMS_ENVELOPE_CUSTODY_TENANTS");
     }
 

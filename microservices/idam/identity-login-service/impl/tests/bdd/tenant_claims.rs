@@ -11,35 +11,35 @@
 use sesame_common::jwt::*;
 
 /// Scenario: Tenant ID flows from login to token
-///   Given a user belonging to tenant hauliage (UUID: abc-123)
+///   Given a user belonging to tenant acme (UUID: abc-123)
 ///   When the user logs in with X-Tenant-ID: abc-123
 ///   Then the access token's tenant_id field equals abc-123 in both
 ///       top-level and sx.tenant
 #[test]
 fn scenario_tenant_id_flows_from_login_to_token() {
-    // Given — user belonging to hauliage tenant
-    let hauliage_uuid = "hauliage-tenant-uuid-abc123".to_string();
+    // Given — user belonging to acme tenant
+    let acme_uuid = "acme-tenant-uuid-abc123".to_string();
 
     // When — build a token like the login controller would, with tenant_id
     // from the X-Tenant-ID header
     let claims = AccessClaimsBuilder::new()
         .iss("https://sesame-idam.example.com")
-        .sub("alice-hauliage-001")
+        .sub("alice-acme-001")
         .aud(vec!["api".to_string(), "frontend".to_string()])
-        .client_id("hauliage-mobile")
+        .client_id("acme-mobile")
         .scope("openid profile".to_string())
         .exp(1_700_000_000)
         .nbf(1_700_000_000 - 60)
         .iat(1_700_000_000)
-        .jti("jti-alice-hauliage-001".to_string())
+        .jti("jti-alice-acme-001".to_string())
         .ver(1)
-        .sid("session-alice-hauliage-001".to_string())
-        .tenant_id(hauliage_uuid.clone())
-        .user_id("alice-hauliage-001".to_string())
+        .sid("session-alice-acme-001".to_string())
+        .tenant_id(acme_uuid.clone())
+        .user_id("alice-acme-001".to_string())
         .user_type("customer".to_string())
         .sx(SesameAuthzClaims::new(
-            hauliage_uuid.clone(),
-            "hauliage-mobile".to_string(),
+            acme_uuid.clone(),
+            "acme-mobile".to_string(),
             vec!["driver".to_string()],
             vec!["orders:read".to_string()],
         ))
@@ -49,14 +49,14 @@ fn scenario_tenant_id_flows_from_login_to_token() {
     // Then — tenant_id present at top level
     let json = claims.to_compact_json();
     assert!(
-        json.contains(&format!("\"tenant_id\":\"{}\"", hauliage_uuid)),
-        "top-level tenant_id must equal hauliage UUID"
+        json.contains(&format!("\"tenant_id\":\"{}\"", acme_uuid)),
+        "top-level tenant_id must equal acme UUID"
     );
 
     // And — tenant_id present in namespaced claims
     assert!(
-        json.contains(&format!("\"tenant\":\"{}\"", hauliage_uuid)),
-        "sx.tenant must equal hauliage UUID"
+        json.contains(&format!("\"tenant\":\"{}\"", acme_uuid)),
+        "sx.tenant must equal acme UUID"
     );
 
     // And — both must match
@@ -65,13 +65,13 @@ fn scenario_tenant_id_flows_from_login_to_token() {
         "top-level and namespaced tenant_id must match"
     );
     assert_eq!(
-        claims.tenant_id, hauliage_uuid,
+        claims.tenant_id, acme_uuid,
         "top-level tenant_id must match X-Tenant-ID from login request"
     );
 }
 
 /// Scenario: Cross-tenant login is rejected
-///   Given a user registered under tenant hauliage
+///   Given a user registered under tenant acme
 ///   When the user attempts to login with X-Tenant-ID: rerp
 ///   Then the login returns an error (not a password error — prevents
 ///       tenant enumeration)
@@ -80,8 +80,8 @@ fn scenario_tenant_id_flows_from_login_to_token() {
 /// match the request's X-Tenant-ID, login should be rejected.
 #[test]
 fn scenario_cross_tenant_login_rejected() {
-    // Given — user registered under hauliage tenant
-    let user_tenant = "hauliage-tenant-uuid".to_string();
+    // Given — user registered under acme tenant
+    let user_tenant = "acme-tenant-uuid".to_string();
 
     // When — attempt to login with different tenant ID (rerp)
     let rerp_tenant = "rerp-tenant-uuid".to_string();
@@ -128,20 +128,20 @@ fn scenario_cross_tenant_login_rejected() {
 }
 
 /// Scenario: Downstream service validates tenant
-///   Given a JWT with tenant_id = hauliage
+///   Given a JWT with tenant_id = acme
 ///   When a downstream service receives the request with
 ///       X-Tenant-ID: rerp
 ///   Then the service rejects the request with 401 Tenant Mismatch
 #[test]
 fn scenario_downstream_service_validates_tenant() {
-    // Given — a JWT from hauliage tenant
-    let jwt_tenant = "hauliage-tenant-uuid".to_string();
+    // Given — a JWT from acme tenant
+    let jwt_tenant = "acme-tenant-uuid".to_string();
 
     let claims = AccessClaimsBuilder::new()
         .iss("https://sesame-idam.example.com")
         .sub("driver-001")
         .aud(vec!["api".to_string()])
-        .client_id("hauliage-driver-app")
+        .client_id("acme-driver-app")
         .scope("openid".to_string())
         .exp(1_700_000_000)
         .nbf(1_700_000_000 - 60)
@@ -154,7 +154,7 @@ fn scenario_downstream_service_validates_tenant() {
         .user_type("customer".to_string())
         .sx(SesameAuthzClaims::new(
             jwt_tenant.clone(),
-            "hauliage-driver".to_string(),
+            "acme-driver".to_string(),
             vec!["driver".to_string()],
             vec!["rides:read".to_string()],
         ))
@@ -219,41 +219,41 @@ fn scenario_tenant_id_present_in_login_response() {
 }
 
 /// Scenario: Different users on different tenants have different JWT tenants
-///   Given user alice on tenant hauliage and user alice on tenant rerp
+///   Given user alice on tenant acme and user alice on tenant rerp
 ///   When both login
-///   Then alice@hauliage's JWT has tenant_id = hauliage_uuid and
+///   Then alice@acme's JWT has tenant_id = acme_uuid and
 ///       alice@rerp's JWT has tenant_id = rerp_uuid — confirming zero
 ///       cross-tenant identity
 #[test]
 fn scenario_zero_cross_tenant_identity() {
     // Given — two "alice" users on different tenants
-    let hauliage_uuid = "tenant-hauliage-xyz".to_string();
+    let acme_uuid = "tenant-acme-xyz".to_string();
     let rerp_uuid = "tenant-rerp-def".to_string();
 
     // When — both users login
-    let claims_hauliage = AccessClaimsBuilder::new()
+    let claims_acme = AccessClaimsBuilder::new()
         .iss("https://sesame-idam.example.com")
-        .sub("alice-hauliage-001")
+        .sub("alice-acme-001")
         .aud(vec!["api".to_string()])
-        .client_id("hauliage-app")
+        .client_id("acme-app")
         .scope("openid".to_string())
         .exp(1_700_000_000)
         .nbf(1_700_000_000 - 60)
         .iat(1_700_000_000)
-        .jti("jti-alice-hauliage".to_string())
+        .jti("jti-alice-acme".to_string())
         .ver(1)
-        .sid("session-alice-hauliage".to_string())
-        .tenant_id(hauliage_uuid.clone())
-        .user_id("alice-hauliage-001".to_string())
+        .sid("session-alice-acme".to_string())
+        .tenant_id(acme_uuid.clone())
+        .user_id("alice-acme-001".to_string())
         .user_type("customer".to_string())
         .sx(SesameAuthzClaims::new(
-            hauliage_uuid.clone(),
-            "hauliage-web".to_string(),
+            acme_uuid.clone(),
+            "acme-web".to_string(),
             vec!["customer".to_string()],
             vec![],
         ))
         .build()
-        .expect("valid hauliage claims");
+        .expect("valid acme claims");
 
     let claims_rerp = AccessClaimsBuilder::new()
         .iss("https://sesame-idam.example.com")
@@ -281,15 +281,15 @@ fn scenario_zero_cross_tenant_identity() {
 
     // Then — same email pattern but different tenants = completely unrelated
     assert_eq!(
-        claims_hauliage.tenant_id, hauliage_uuid,
-        "alice@hauliage must have hauliage tenant_id"
+        claims_acme.tenant_id, acme_uuid,
+        "alice@acme must have acme tenant_id"
     );
     assert_eq!(
         claims_rerp.tenant_id, rerp_uuid,
         "alice@rerp must have rerp tenant_id"
     );
     assert_ne!(
-        claims_hauliage.tenant_id, claims_rerp.tenant_id,
+        claims_acme.tenant_id, claims_rerp.tenant_id,
         "same email pattern on different tenants must have different tenant IDs"
     );
 }

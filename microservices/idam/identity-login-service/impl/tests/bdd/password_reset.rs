@@ -21,9 +21,9 @@ use sesame_idam_identity_login_service_gen::handlers::auth_login::Request as Log
 use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as RegisterReq;
 use sesame_idam_identity_login_service_gen::handlers::auth_reset_password::Request as ResetReq;
 
-use crate::common::{ensure_active_tenant, HAULIAGE_TENANT, HAULIAGE_WEB_CLIENT};
+use crate::common::{ensure_active_tenant, FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
-const TENANT: &str = HAULIAGE_TENANT;
+const TENANT: &str = FIXTURE_TENANT;
 const OLD_PASSWORD: &str = "SecureP@ss123!";
 const NEW_PASSWORD: &str = "BrandNewP@ss456!";
 
@@ -212,7 +212,7 @@ fn login(email: &str, password: &str) -> brrtrouter::typed::HttpJson<serde_json:
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: LoginReq {
-            client_id: HAULIAGE_WEB_CLIENT.to_string(),
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             organization_id: None,
             password: password.to_string(),

@@ -116,7 +116,7 @@ pub fn get_organization<E: LifeExecutor>(
 }
 
 /// Create org + owner membership. Caller becomes active owner. `metadata` is
-/// opaque tenant product metadata (e.g. Hauliage persona) persisted verbatim.
+/// opaque tenant product metadata (e.g. Acme persona) persisted verbatim.
 pub fn create_organization<E: LifeExecutor>(
     exec: &E,
     tenant_id: &str,

@@ -329,7 +329,7 @@ pub fn gate_otp_send(tenant: &str, channel: Channel, recipient: &str) -> SendDec
 
 /// Charge a send against a specific billing owner's daily budget
 /// (ADR-009 §2.4). `scope` comes from the resolved `SmsSender` — e.g.
-/// `"platform"` or `"tenant:hauliage"` — so budgets are isolated per payer.
+/// `"platform"` or `"tenant:acme"` — so budgets are isolated per payer.
 ///
 /// Returns `true` when the charge fits under `ceiling_cents`. Fails CLOSED
 /// (returns `false`) when Redis is unavailable: an unmetered SMS path is

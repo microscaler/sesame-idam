@@ -220,8 +220,8 @@ fn platform_mint_register_login() {
     assert_eq!(reg.status, 201, "register failed: {:?}", reg.body);
     assert!(reg.body["access_token"].is_string());
 
-    // Login with hauliage-web + minted slug must fail closed (client/tenant bind).
-    let login = auth_login::handle(login_request("hauliage-web", &slug, &email, password));
+    // Login with acme-web + minted slug must fail closed (client/tenant bind).
+    let login = auth_login::handle(login_request("acme-web", &slug, &email, password));
     assert_eq!(login.status, 401);
     assert_eq!(login.body["error"], "invalid_client");
 }
