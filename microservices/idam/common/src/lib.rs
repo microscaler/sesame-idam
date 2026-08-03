@@ -20,6 +20,7 @@
 pub mod config;
 pub mod cors;
 pub mod dpop;
+pub mod smtp;
 pub mod fallback_cache;
 pub mod http;
 pub mod jwks_cache;

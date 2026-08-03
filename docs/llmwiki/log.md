@@ -1,5 +1,21 @@
 # LLM Wiki — Session Log
 
+## [2026-08-03] feat | PRD v2 P0–P2 start (JWT invite, RLS emails, SMTP)
+
+- **P0** `invite_user_to_org`: typed handler + `org_auth::require_caller` + `invite_by_email_as_admin` (org admin). No longer requires `X-Tenant-ID`.
+- **org_auth** tenant header mismatch → **401** (aligned with session / PRD §13).
+- **P1** `fetch_users_in_org` runs `list_org_members` inside `with_pre_auth_tenant`; email SELECT filters `tenant_id`.
+- **P2** `sesame_common::smtp` (moved from login `email.rs`); invite path sends Mailpit SMTP after persist; helm defaults `SMTP_*` + `INVITE_MAGIC_LINK_BASE`.
+- OpenAPI invite/list descriptions updated (JWT tenant). `sesame-idam-client` bearer `auth_options` no longer sends `X-Tenant-ID` (needs publish + Hauliage pin bump).
+- Hauliage BFF `org_error_response` adds `upstream_status` / `upstream_message`.
+
+## [2026-08-03] docs | README capability status (done / in progress / upcoming)
+
+- Rewrote root [`README.md`](../../README.md) Status: removed false “Rust: Zero implementation” / “Helm ready once impl exists”.
+- Added prominent **Capability status** tables (Done / In progress / Upcoming) + Spec vs code; maturity blurb under title.
+- Sesame-only features table now has a Reality check column (no `SesameExecutor` claim).
+- Links refreshed to Launch 1.0, Epics, onboarding PRD v2, OIDC, llmwiki.
+
 ## [2026-08-03] docs | Workspace onboarding & org invites PRD v2
 
 - Authored [`PRD_workspace-onboarding-and-org-invites-v2.md`](../PRD_workspace-onboarding-and-org-invites-v2.md) (`v2026-08-03`); pairs with Hauliage Loadlinker consumer PRD.

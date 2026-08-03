@@ -1,55 +1,60 @@
 // BRRTRouter: user-owned
 
-//! Invite user by email — Sesame persists invite and logs magic-link token (dev).
+//! `POST /organizations/{org_id}/invitations` — invite by email (JWT tenant).
 
-use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
-use sesame_idam_database::db;
+use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
+use brrtrouter_macros::handler;
+use sesame_idam_org_mgmt_gen::handlers::invite_user_to_org::Request;
 
 use crate::services::org_lifecycle::{self, OrgLifecycleError};
+use sesame_idam_org_mgmt::org_auth;
 
-pub fn handle(req: HandlerRequest) -> HandlerResponse {
-    let tenant_id = req
-        .headers
-        .iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case("x-tenant-id"))
-        .map(|(_, v)| v.clone())
-        .unwrap_or_default();
-    let org_id = req.get_path_param("org_id").unwrap_or_default();
+#[handler(InviteUserToOrgController)]
+pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
+    let (caller_id, tenant_id) =
+        match org_auth::require_caller(&req.jwt_claims, req.data.x_tenant_id.as_deref()) {
+            Ok(principal) => principal,
+            Err(response) => return response,
+        };
 
-    let body = req.body.clone().unwrap_or(serde_json::json!({}));
-    let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
-    let role = body
-        .get("role")
-        .and_then(|v| v.as_str())
-        .unwrap_or("member");
-
-    if tenant_id.is_empty() || org_id.is_empty() || email.is_empty() {
-        return HandlerResponse::json(
-            400,
-            serde_json::json!({
-                "error": "validation_error",
-                "message": "X-Tenant-ID, org_id, and email are required"
-            }),
-        );
+    if req.data.email.trim().is_empty() {
+        return org_auth::error_json(400, "validation_error", "email is required");
     }
 
-    let exec = db();
-    match org_lifecycle::invite_by_email(exec, &tenant_id, org_id, email, role) {
-        Ok(created) => HandlerResponse::json(
-            200,
-            serde_json::json!({
-                "success": true,
-                "invite_id": created.invite_id.to_string(),
-                "invite_token": created.invite_token,
-            }),
+    let role = if req.data.role.trim().is_empty() {
+        "member"
+    } else {
+        req.data.role.as_str()
+    };
+
+    let exec = sesame_idam_database::db();
+    match org_lifecycle::invite_by_email_as_admin(
+        exec,
+        &tenant_id,
+        &req.data.org_id,
+        &caller_id,
+        &req.data.email,
+        role,
+    ) {
+        Ok(created) => HttpJson::ok(serde_json::json!({
+            "success": true,
+            "invite_id": created.invite_id.to_string(),
+            "invite_token": created.invite_token,
+        })),
+        Err(OrgLifecycleError::Forbidden) => org_auth::error_json(
+            403,
+            "forbidden",
+            "Insufficient permissions to invite members",
         ),
-        Err(OrgLifecycleError::NotFound) => HandlerResponse::json(
-            404,
-            serde_json::json!({
-                "error": "not_found",
-                "error_description": "Organization not found"
-            }),
-        ),
-        Err(e) => HandlerResponse::error(500, &format!("{e:?}")),
+        Err(OrgLifecycleError::NotFound) => {
+            org_auth::error_json(404, "not_found", "Organization not found")
+        }
+        Err(OrgLifecycleError::InvalidId(msg)) => {
+            org_auth::error_json(400, "validation_error", &msg)
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "invite_user_to_org failed");
+            org_auth::error_json(500, "internal_error", "An unexpected error occurred")
+        }
     }
 }

@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|--------|
 | **Version** | `v2026-08-03` |
-| **Status** | Draft — iterate before implementation freeze |
+| **Status** | Implementation in progress (P0–P2 started 2026-08-03) |
 | **Owner** | Sesame-IDAM (platform) |
 | **Paired consumer PRD** | [`../hauliage/docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md`](../../hauliage/docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md) |
 | **Supersedes** | Hauliage `PRD_account-first-onboarding.md` (product narrative); Sesame `topic-account-first-onboarding-checkpoint.md` (checkpoint) |

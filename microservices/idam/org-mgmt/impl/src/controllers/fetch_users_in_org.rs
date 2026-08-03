@@ -21,16 +21,29 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let page_number = req.data.page_number.unwrap_or(0);
     let role_filter = req.data.role.as_deref();
 
-    let exec = sesame_idam_database::db();
-    match org_lifecycle::list_org_members(
-        exec,
-        &tenant_id,
-        &req.data.org_id,
-        &caller_id,
-        role_filter,
-        page_number,
-        page_size,
-    ) {
+    // Member emails live behind tenant RLS — run the list inside a tenant session.
+    let listed = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+        match org_lifecycle::list_org_members(
+            exec,
+            &tenant_id,
+            &req.data.org_id,
+            &caller_id,
+            role_filter,
+            page_number,
+            page_size,
+        ) {
+            Ok(page) => Ok(Ok(page)),
+            Err(err) => Ok(Err(err)),
+        }
+    }) {
+        Ok(inner) => inner,
+        Err(e) => {
+            tracing::error!(error = %e, "fetch_users_in_org session failed");
+            return org_auth::error_json(500, "internal_error", "An unexpected error occurred");
+        }
+    };
+
+    match listed {
         Ok(page) => {
             let items: Vec<serde_json::Value> = page
                 .items

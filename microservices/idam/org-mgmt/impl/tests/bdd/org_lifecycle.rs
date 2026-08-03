@@ -637,6 +637,48 @@ fn remove_member_requires_org_admin() {
     assert!(matches!(err_self, OrgLifecycleError::Forbidden));
 }
 
+/// Scenario: invite_by_email_as_admin requires org owner/admin (JWT caller).
+#[test]
+fn invite_by_email_as_admin_requires_org_admin() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orginviteadmin");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Invite Admin Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, member, "member");
+
+    let exec = sesame_idam_database::db();
+    let created = org_lifecycle::invite_by_email_as_admin(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        "newhire@example.com",
+        "member",
+    )
+    .expect("owner may invite");
+    assert!(!created.invite_token.is_empty());
+
+    let err = org_lifecycle::invite_by_email_as_admin(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &member.to_string(),
+        "blocked@example.com",
+        "member",
+    )
+    .expect_err("member cannot invite");
+    assert!(matches!(err, OrgLifecycleError::Forbidden));
+}
+
 /// Scenario: org owner revokes a pending invite; non-admin is forbidden.
 #[test]
 fn revoke_pending_invite_requires_org_admin() {

@@ -1194,7 +1194,8 @@ paths:
 
 
 
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant is bound by the validated JWT `tenant_id` claim. Optional legacy
+        `X-Tenant-ID` must match the claim when present.'
       operationId: invite_user_to_org
       parameters:
       - *id003
@@ -1919,7 +1920,8 @@ paths:
 
 
 
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant is bound by the validated JWT `tenant_id` claim. Optional legacy
+        `X-Tenant-ID` must match the claim when present.'
       operationId: fetch_users_in_org
       parameters:
       - *id003

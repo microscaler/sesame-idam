@@ -238,17 +238,58 @@ pub fn invite_by_email<E: LifeExecutor>(
         .insert(exec)
         .map_err(|e| OrgLifecycleError::Db(format!("org_invites: {e}")))?;
 
-    tracing::info!(
-        email = %email,
-        org_id = %org_uuid,
-        invite_id = %invite_id,
-        "org invite created"
+    let org_name = OrgEntity::find()
+        .filter(OrgColumn::Id.eq(org_uuid))
+        .find_one(exec)
+        .ok()
+        .flatten()
+        .map(|o| o.name)
+        .unwrap_or_else(|| "your workspace".to_string());
+
+    let link = crate::services::invite_magic_link_url(&token);
+    let subject = format!("You're invited to join {org_name}");
+    let body = format!(
+        "You've been invited to join {org_name} as {role}.\n\n\
+         Accept the invitation:\n{link}\n\n\
+         This link expires in 7 days. If you did not expect this email, ignore it."
     );
+    match sesame_common::smtp::send_email(email, &subject, &body) {
+        Ok(()) => tracing::info!(
+            email = %email,
+            org_id = %org_uuid,
+            invite_id = %invite_id,
+            "org invite created and email sent"
+        ),
+        Err(e) => tracing::error!(
+            error = %e,
+            email = %email,
+            org_id = %org_uuid,
+            invite_id = %invite_id,
+            "org invite persisted but email send failed"
+        ),
+    }
 
     Ok(InviteCreated {
         invite_id,
         invite_token: token,
     })
+}
+
+/// Invite by email; caller must be org owner/admin. Tenant is JWT-bound at the controller.
+pub fn invite_by_email_as_admin<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: &str,
+    caller_user_id: &str,
+    email: &str,
+    role: &str,
+) -> Result<InviteCreated, OrgLifecycleError> {
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let caller_uuid =
+        Uuid::parse_str(caller_user_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    require_org_admin(exec, tenant_id, org_uuid, caller_uuid)?;
+    invite_by_email(exec, tenant_id, org_id, email, role)
 }
 
 #[derive(Debug)]
@@ -548,8 +589,8 @@ pub fn list_org_members<E: LifeExecutor>(
     for membership in page_items {
         let email = lifeguard::query_value::<String, _>(
             exec,
-            "SELECT email FROM sesame_idam.users WHERE id = $1",
-            &[&membership.user_id],
+            "SELECT email FROM sesame_idam.users WHERE id = $1 AND tenant_id = $2",
+            &[&membership.user_id, &tenant_id],
         )
         .ok()
         .unwrap_or_else(|| format!("user-{}", membership.user_id));

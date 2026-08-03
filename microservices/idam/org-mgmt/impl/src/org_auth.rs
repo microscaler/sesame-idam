@@ -46,9 +46,10 @@ pub fn require_caller(
 
     if let Some(tenant_header) = tenant_header.filter(|value| !value.trim().is_empty()) {
         if claim_tenant != tenant_header {
+            // PRD: header disagreeing with JWT → 401 (never prefer header).
             return Err(error_json(
-                403,
-                "tenant_mismatch",
+                401,
+                "unauthorized",
                 "Token tenant does not match X-Tenant-ID",
             ));
         }
@@ -84,7 +85,7 @@ mod tests {
     fn rejects_legacy_header_that_conflicts_with_validated_claims() {
         let response = require_caller(&claims(Some("acme")), Some("other"))
             .expect_err("tenant mismatch must fail");
-        assert_eq!(response.status, 403);
+        assert_eq!(response.status, 401);
     }
 
     #[test]

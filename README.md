@@ -6,7 +6,9 @@
 > Zero auth logic in your app. Deployed as six independent Rust microservices.  
 > Matches the full PropelAuth API surface with native PostgreSQL RLS security.
 
-[Design Document](docs/design-doc.md) · [Gap Analysis](docs/propelauth-gap-analysis.md) · [Service Topology](docs/service-topology-design.md) · [RLS Integration](docs/rls-design-v2.md)
+[Design Document](docs/design-doc.md) · [Gap Analysis](docs/propelauth-gap-analysis.md) · [Service Topology](docs/service-topology-design.md) · [RLS Integration](docs/rls-design-v2.md) · [Capability status](#capability-status)
+
+**Maturity (2026-08):** This is not an OpenAPI-only scaffold. Six Rust microservices (`gen/` + `impl/`) run on shared Kind via Tilt/Helm, issue **EdDSA** access tokens, expose public `api.` / `id.` edges, and power live Hauliage/Loadlinker dogfood (password login, JWKS validation, org profile). Auth is **usable and incomplete** — see [Capability status](#capability-status).
 
 ---
 
@@ -26,6 +28,66 @@ Sesame manages:
 - **MCP** — Model Context Protocol authentication for AI agents
 
 The application receives **enriched JWTs** containing all identity, org, role, and permission claims. It reads the JWT and enforces access control — route-level, RLS, feature flags. **Nothing else is needed.**
+
+The list above is the **target product surface**. What is already live vs still building is in [Capability status](#capability-status).
+
+---
+
+## Capability status
+
+Honest snapshot for contributors and consumers. **Done** means implemented, deployed on shared-k8s dogfood, and exercised by tests or a live product path (Hauliage/Loadlinker). **In progress** means active engineering with known gaps. **Upcoming** is sequenced but not the current critical path.
+
+Authoritative product sequencing: [Launch 1.0 roadmap](docs/ROADMAP-launch-1.0.md) · [Epics index](docs/Epics/INDEX.md) · [Workspace onboarding PRD v2](docs/PRD_workspace-onboarding-and-org-invites-v2.md) · [Portable OIDC contract](docs/standards-first-oidc/).
+
+### Done
+
+| Area | What works |
+|------|------------|
+| **Runtime platform** | Six services as BRRTRouter `gen/` + `impl/` crates; workspace builds/tests; Kind + Tilt/Helm on shared-k8s (`sesame-idam` namespace); ClusterIP `:8080` |
+| **Password auth** | Register, login, logout; argon2id; Redis-backed refresh; demo seeds (`shipper@amecorp.dev`, `transport@transportservices.dev`, …) |
+| **Asymmetric JWT / JWKS** | EdDSA (`typ: at+jwt`); JWKS publish + rotation/grace/revoke path; consumers validate via issuer JWKS (`id.`) |
+| **OIDC discovery** | Issuer well-known / OpenID configuration on session service; public issuer host wiring |
+| **Public edges** | `api.` / `id.` (and auth frontend hosts) via Gateway HTTPRoutes; Cookie / `X-Tenant-ID` strip policy on API |
+| **Platform tenancy** | SaaS-of-SaaS tenant registry; unknown-tenant rejection; Hauliage tenant + RP seed |
+| **Sessions / profile** | Token refresh; `GET/PATCH /identity/me` (JWT principal); userinfo endpoint |
+| **Orgs & memberships** | Create org, memberships, invite create/preview/accept APIs; JWT optional `org_id` + set-active-organization |
+| **Authz at login** | Login → authz-core enrichment into claims (hybrid path still evolving) |
+| **API keys** | Validate path implemented with BDD (broader lifecycle still growing) |
+| **Consumer contract** | Epic 15 docs + tenant-consumer OpenAPI + Rust `sesame-idam-client` used by Hauliage BFF |
+| **Dogfood** | Hauliage/Loadlinker password sign-in against public Sesame bases (Google social path seeded; live secrets operator-dependent) |
+
+### In progress
+
+| Area | Gap / focus |
+|------|-------------|
+| **Bearer tenancy (JWT-only)** | Public edge strips `X-Tenant-ID`; OpenAPI/handlers still require it on many routes → 502/500 in dogfood. Target: `client_id` for **pre-auth**, JWT `tenant_id` for **bearer** ([PRD §5](docs/PRD_workspace-onboarding-and-org-invites-v2.md)) |
+| **Team list emails** | Member list falls back to `user-{uuid}` when RLS blocks email lookup |
+| **Invite email** | Invites persist + return token; SMTP → Mailpit not wired for org invites |
+| **Workspace onboarding** | Account-first APIs exist; Loadlinker `/onboarding` + invite E2E incomplete (sibling repo: `hauliage/docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md`) |
+| **Epic 14–16** | Conformance hardening, portable contract freeze, Rust-only client + Hauliage dogfood close-out |
+| **Pre-auth `client_id` sweep** | Migrate remaining login OpenAPI from required `X-Tenant-ID` to client-bound tenancy |
+| **North–south only** | Remove consumer east–west Sesame ClusterIP bases from target Helm |
+
+### Upcoming (lined up)
+
+| Area | Direction |
+|------|-----------|
+| **Auth surface depth** | Full MFA, social, magic-link, dual OTP product polish (P2 launch roadmap) |
+| **RLS bridge as headline** | Documented + demoable consumer Postgres RLS story (P1) |
+| **RBAC / permissions in token** | Richer entitlements; selective online `/authorize` (Epics 2–4, 7) |
+| **Enterprise** | Webhooks, SSO/SAML, SCIM depth (P3) |
+| **Developer contract DX** | Hosted auth UI maturity; thin clients beyond Rust (Epic 16 deferred languages) |
+| **Trust & scale** | Revocation enforcement completeness, DPoP, audit/ops surfaces (P0/P5) |
+| **MCP / advanced** | Agent token flows beyond stub-quality |
+
+### Spec vs code
+
+| Layer | State |
+|-------|--------|
+| **OpenAPI** | Six service specs under `openapi/idam/` (~119–120 endpoints) + `tenant-consumer` public contract — design coverage is broad |
+| **Rust impl** | **Substantial** — not “codegen only”; critical auth/session/org paths are real; many admin/enterprise routes remain thin or stubbed |
+| **Kubernetes** | Helm + GitOps + Tilt **running** in shared Kind (not “ready once impl exists”) |
+| **Archive** | Pre-microservice pivot on `archive/saas-idam-pre-microservice-pivot` |
 
 ---
 
@@ -237,20 +299,18 @@ Each OpenAPI spec is self-contained (schemas duplicated across specs). Each feed
 
 ## Sesame-Only Features
 
-| Feature | Description |
-|---------|-------------|
-| **RLS Helper SQL** | `sesame_set_session()`, `sesame_current_*()` — database-level security |
-| **SesameExecutor** | Automatic RLS injection at ORM level via Lifeguard wrapper |
-| **Dual OTP** | Email + phone simultaneous verification |
-| **Phone OTP** | SMS OTP login |
-| **Role inheritance** | Explicit `parent_role_id` in data model |
-| **Application model** | First-class Application entities |
-| **Webhook system** | Complete delivery with retries, HMAC signing, tracking |
-| **User type** | `customer` / `platform` distinction at JWT claim level |
-| **Token rotation** | Explicit refresh token rotation on every `/refresh` |
-| **org_type** | Provider/consumer/platform persona classification |
-| **MCP support** | Model Context Protocol authentication for AI agents |
-| **Open source** | Self-hosted, no per-user pricing, no vendor lock-in |
+| Feature | Description | Reality check |
+|---------|-------------|---------------|
+| **RLS Helper SQL** | `sesame_set_session()`, `sesame_current_*()` — database-level security | **In use** on Sesame DB; consumer Lifeguard path per ADR-005 (no `SesameExecutor` type) |
+| **Dual OTP / Phone OTP** | Email + phone simultaneous / SMS OTP login | Spec + partial impl; not full product polish |
+| **Role inheritance** | Explicit `parent_role_id` in data model | Model/API surface; product depth varies |
+| **Application / RP model** | First-class applications + OIDC clients | Platform tenants + client registry in progress (Epics 10–11) |
+| **Webhook system** | Delivery with retries, HMAC signing | Spec-heavy; not launch-complete |
+| **User type** | `customer` / `platform` at JWT claim level | Present in claims path |
+| **Token rotation** | Refresh rotation + reuse detection | **Working** on session service |
+| **org_type** | Provider/consumer/platform personas | Used by consumers (e.g. Hauliage SHIPPER/HAULIER profiles) |
+| **MCP support** | Model Context Protocol auth for agents | Endpoints exist; not dogfood-primary |
+| **Open source** | Self-hosted, no per-user pricing | Intent / licensing as published |
 
 ---
 
@@ -290,25 +350,19 @@ just serve-identity-login # Start echo server for local testing
 
 ---
 
-## Status
-
-- **OpenAPI:** 146 endpoints across 7 spec files — **100% coverage** of PropelAuth API surface plus 11 Sesame-only features
-- **Gap Analysis:** [docs/propelauth-gap-analysis.md](docs/propalauth-gap-analysis.md) — full line-by-line comparison
-- **Design:** [docs/design-doc.md](docs/design-doc.md) — comprehensive architecture, data model, security, integration patterns
-- **Rust:** Zero implementation currently. `gen/` + `impl/` crates per microservice planned (BRRTRouter codegen + Lifeguard ORM)
-- **Kubernetes:** Helm charts and Tiltfile ready for deployment once implementations exist
-- **Archive:** Pre-pivot state preserved on branch `archive/saas-idam-pre-microservice-pivot`
-
----
-
 ## Links
 
 - [Full Design Document](docs/design-doc.md)
-- [Gap Analysis vs PropelAuth](docs/propalauth-gap-analysis.md)
+- [Gap Analysis vs PropelAuth](docs/propelauth-gap-analysis.md)
 - [Service Topology](docs/service-topology-design.md)
 - [RLS Integration Design](docs/rls-design-v2.md)
-- [OpenAPI Specs](openapi/README.md)
+- [Launch 1.0 Roadmap](docs/ROADMAP-launch-1.0.md)
+- [Epics Index](docs/Epics/INDEX.md)
+- [Workspace onboarding & invites PRD v2](docs/PRD_workspace-onboarding-and-org-invites-v2.md)
+- [Standards-first OIDC](docs/standards-first-oidc/)
+- [OpenAPI Specs](openapi/)
 - [AGENTS.md](AGENTS.md) — developer notes and tooling
+- [LLM wiki index](docs/llmwiki/index.md)
 
 ---
 
