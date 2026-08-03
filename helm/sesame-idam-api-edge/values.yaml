@@ -87,6 +87,10 @@ edge:
   # This is the same move as the cookie strip: forgeable ambient authority does
   # not cross the boundary. It is a MITIGATION, not the fix; task 48 is the fix,
   # because east–west callers still bypass this edge entirely.
+  #
+  # Companion: authenticated handlers MUST NOT require X-Tenant-ID (JWT
+  # tenant_id is authoritative). See POSTMORTEM-2026-08-03-identity-me-tenant-
+  # header-edge-502.md — requiring the header made this strip a 502 for dogfood.
   stripTenantHeader: true
 
 # The hostnames. Empty by default so that nothing is served until an

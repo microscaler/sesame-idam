@@ -450,8 +450,17 @@ paths:
           description: Internal server error
           content: *id003
       parameters:
-      - *id004
-      description: Requires `X-Tenant-ID` header for tenant resolution.
+      - &idOptionalTenant
+        name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Optional legacy tenant hint. Tenant is bound by the validated
+          access-token `tenant_id` claim; when this header is present it must match
+          that claim. Public API edges may strip the header.
+      description: Tenant is bound by the validated access-token `tenant_id` claim.
+        Optional `X-Tenant-ID` is a consistency check only and must not select tenancy.
       x-consumer: frontend
       x-consumer-note: Direct browser call to get current user profile
     patch:
@@ -518,8 +527,9 @@ paths:
           description: Internal server error
           content: *id003
       parameters:
-      - *id004
-      description: Requires `X-Tenant-ID` header for tenant resolution.
+      - *idOptionalTenant
+      description: Tenant is bound by the validated access-token `tenant_id` claim.
+        Optional `X-Tenant-ID` is a consistency check only and must not select tenancy.
       x-consumer: frontend
       x-consumer-note: Direct browser call to update current user profile
       x-brrtrouter-impl: true
@@ -594,8 +604,8 @@ paths:
       summary: User Info endpoint
       description: 'Returns user profile claims. Requires Bearer token.
 
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant is bound by the validated access-token `tenant_id` claim.
+        Optional `X-Tenant-ID` is a consistency check only and must not select tenancy.'
       operationId: oauth_userinfo
       responses:
         '400':
@@ -625,7 +635,7 @@ paths:
           description: Internal server error
           content: *id003
       parameters:
-      - *id004
+      - *idOptionalTenant
       x-consumer: frontend
       x-consumer-note: Direct browser call to get user info from OAuth token
   /mcp/agents:

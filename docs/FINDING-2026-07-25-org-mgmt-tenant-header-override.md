@@ -68,3 +68,9 @@ present and disagree, **reject** — the pattern already implemented in
 for exactly this and never applied here.
 
 Tracked as **task 48**.
+
+Related incident (2026-08-03): the public API edge correctly strips
+`X-Tenant-ID` (`stripTenantHeader`), but `identity-session-service`
+`GET/PATCH /identity/me` still *required* the header in OpenAPI. That made
+the mitigation unusable for north–south dogfood (Hauliage BFF → `api.` →
+session). See `docs/POSTMORTEM-2026-08-03-identity-me-tenant-header-edge-502.md`.

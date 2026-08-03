@@ -5,6 +5,12 @@
 > **Deciders:** Platform (Sesame-IDAM), Hauliage, future SaaS tenants  
 > **Related:** [topic-tenancy-model.md](./llmwiki/topics/topic-tenancy-model.md), [ADR-001-org-type-classification.md](./adr-001-org-type-classification.md), [cross-repo-auth-analysis.md](./cross-repo-auth-analysis.md)
 
+> **Current status (2026-08):** This ADR remains the **normative boundary** (Sesame SoT for users/orgs/memberships/invites; products hold domain profiles only). Delivery gaps for S1/S2 (JWT-bound tenant on bearer routes, invite email, member email RLS, Loadlinker dogfood) are tracked in
+> [`PRD_workspace-onboarding-and-org-invites-v2.md`](./PRD_workspace-onboarding-and-org-invites-v2.md)
+> and Hauliage
+> [`../../hauliage/docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md`](../../hauliage/docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md).
+> Do not treat July account-first checkpoints as the backlog.
+
 ---
 
 ## 1. Context

@@ -237,6 +237,31 @@ fn get_me_without_claims_is_unauthorized() {
     assert_eq!(resp.status, 401);
 }
 
+/// Scenario: Public API edge strips `X-Tenant-ID`; tenant comes from JWT alone.
+#[test]
+fn get_me_without_tenant_header_uses_jwt_tenant() {
+    if !db_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let user_id = Uuid::new_v4();
+    insert_user(TEST_TENANT, user_id);
+
+    let req = me_request(
+        Method::GET,
+        Some(claims_for(user_id, TEST_TENANT)),
+        None,
+        None,
+    );
+    let resp = invoke_get(req);
+
+    assert_eq!(resp.status, 200, "body: {}", resp.body);
+    assert_eq!(resp.body["user_id"], user_id.to_string());
+
+    cleanup_user(TEST_TENANT, user_id);
+}
+
 /// Scenario: X-Tenant-ID header disagreeing with the token tenant → 401.
 #[test]
 fn get_me_tenant_mismatch_is_unauthorized() {

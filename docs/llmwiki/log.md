@@ -1,5 +1,12 @@
 # LLM Wiki — Session Log
 
+## [2026-08-03] docs | Workspace onboarding & org invites PRD v2
+
+- Authored [`PRD_workspace-onboarding-and-org-invites-v2.md`](../PRD_workspace-onboarding-and-org-invites-v2.md) (`v2026-08-03`); pairs with Hauliage Loadlinker consumer PRD.
+- Superseded [`topic-account-first-onboarding-checkpoint.md`](./topics/topic-account-first-onboarding-checkpoint.md) (freeze resume-here edits).
+- ADR-002: added “Current status (2026-08)” pointer — ADR stays normative; delivery backlog is the v2 PRD.
+- Index: registered v2 PRD; checkpoint marked SUPERSEDED.
+
 ## [2026-07-17] fix | Shared JWT signing secret for login ↔ session JWKS
 
 - **Symptom:** Hauliage sign-in: Sesame login OK, BFF `GET /organizations/me` →

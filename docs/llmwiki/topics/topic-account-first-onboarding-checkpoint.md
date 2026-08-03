@@ -1,8 +1,14 @@
 # Account-first onboarding — Sesame implementation checkpoint (2026-07-08)
 
-- **Status**: `partially-verified` — org-admin handlers implemented; `fetch_users_in_org` impl on disk but **deployed image may still serve gen stub** until Tilt rebuild picks up `impl_registry.rs`
-- **Source docs**: [`../ADR-002-tenant-consumer-idam-api-boundary.md`](../../ADR-002-tenant-consumer-idam-api-boundary.md), [`openapi/idam/tenant-consumer/openapi.yaml`](../../openapi/idam/tenant-consumer/openapi.yaml), Hauliage [`PRD_account-first-onboarding.md`](../../../hauliage/docs/PRD_account-first-onboarding.md)
-- **Last updated**: 2026-07-15
+> **SUPERSEDED (2026-08-03).** Freeze “resume here” edits on this page.
+> Platform backlog and acceptance criteria live in
+> [`PRD_workspace-onboarding-and-org-invites-v2.md`](../../PRD_workspace-onboarding-and-org-invites-v2.md)
+> (`v2026-08-03`). Consumer dogfood:
+> [`../../../hauliage/docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md`](../../../hauliage/docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md).
+
+- **Status**: SUPERSEDED — historical checkpoint only (was `partially-verified`)
+- **Source docs**: ADR-002 (still normative for boundaries); v2 PRD for delivery
+- **Last updated**: 2026-08-03 (supersession banner only)
 
 ## What it is
 

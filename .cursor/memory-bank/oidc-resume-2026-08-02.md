@@ -1,21 +1,24 @@
 # OIDC / Epic resume — 2026-08-03
 
-## Shipped
+## Docs shipped (this session)
 
-| Item | Note |
-|---|---|
-| Epic 14–15 | On `main` |
-| Epic 16 selection | Rust-only, BFF mandate |
-| Client `b32d823` | `SESAME_PUBLIC_API_BASE_URL` / `from_public_api_base` |
-| Hauliage seed | `hauliage` tenant + Google OAuth metadata + `hauliage-web` |
-| Hauliage config | Public edge `api.` / JWKS on `id.` + caBundle |
+Paired PRDs `v2026-08-03` (draft — iterate before code):
 
-## Operator remaining
+| Repo | Path |
+|------|------|
+| sesame-idam | `docs/PRD_workspace-onboarding-and-org-invites-v2.md` |
+| hauliage | `docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md` |
 
-Runbook: `docs/runbooks/google-social-oauth-credentials.md` (generic; Hauliage example at end).
+Superseded (banners only): AFO PRD, EPIC-002, both account-first checkpoints. ADR-002 status note; profile-landing first-run routing handoff.
 
-Set live Google secrets on identity-login-service per runbook; re-apply seed; redeploy BFF; E2E Google sign-in.
+## Prior: Incident A — `/identity/me` 502
 
-## Active Epic 16
+Option A coded locally on session (JWT tenant). Redeploy still needed for live.
 
-16.1 done · 16.12 in progress (live secrets/E2E) · 16.11 Rust contract sync · 16.2 template pending
+## Prior: Incident B — `/transport/team`
+
+Placeholder emails (RLS); invite 502 (header strip); Mailpit has no org invites.
+
+## Next
+
+User review / iterate PRDs → then implementation P0–P4 per PRDs. No code until PRD freeze.

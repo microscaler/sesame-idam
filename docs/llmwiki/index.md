@@ -50,6 +50,7 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| Page | Description |
 |||------|-------------|
 ||| [../PRD_k8s-native-idam-platform-and-hauliage-integration.md](../PRD_k8s-native-idam-platform-and-hauliage-integration.md) | **Authoritative PRD:** 8080/8080 ClusterIP, data-namespace Postgres formalization, JWT/JWKS alignment, role-split demo users, Tilt/Helm/Just updates, Hauliage consumer URLs. |
+||| [../PRD_workspace-onboarding-and-org-invites-v2.md](../PRD_workspace-onboarding-and-org-invites-v2.md) | **Active (v2026-08-03):** Platform PRD — JWT-bound tenant/org, invites + email, member list RLS; pairs with Hauliage Loadlinker onboarding/team v2. |
 ||| [topic-architecture-overview](./topics/topic-architecture-overview.md) | Six-service split rationale, service map, 133 endpoints, 12 workspace crates. `cargo check --workspace` passes with 0 errors. |
 ||| [topic-package-naming-convention](./topics/topic-package-naming-convention.md) | Gen/impl package naming mismatch that breaks `brrtrouter client build` — current vs target |
 ||| [topic-build-infrastructure](./topics/topic-build-infrastructure.md) | Missing build.rs, config/service.yaml, services layer, tests, seeds |
@@ -68,7 +69,7 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||| [topic-rls-bridge](./topics/topic-rls-bridge.md) | RLS helpers, session injection, database security |
 |||| [topic-brrtrouter-codegen](./topics/topic-brrtrouter-codegen.md) | OpenAPI → codegen workflow, gen/ vs impl/, package naming warning |
 |||| [topic-brrtrouter-refactor-backlog](./topics/topic-brrtrouter-refactor-backlog.md) | Cross-repo BRRTRouter refactor tasks to remove sesame workarounds (BR-1..BR-7, SI-*, HI-*) |
-|||| [topic-account-first-onboarding-checkpoint](./topics/topic-account-first-onboarding-checkpoint.md) | **Paused 2026-07-08:** org lifecycle + JWT org_id resume point; links Hauliage checkpoint + BRRTRouter lifecycle PRD |
+|||| [topic-account-first-onboarding-checkpoint](./topics/topic-account-first-onboarding-checkpoint.md) | **SUPERSEDED 2026-08-03:** historical only — use [PRD_workspace-onboarding-and-org-invites-v2](../PRD_workspace-onboarding-and-org-invites-v2.md) |
 |||| [topic-jsf-linting](./topics/jsf-linting.md) | JSF-inspired clippy profile: pedantic mode, `-D warnings`, JSF-aligned thresholds in `clippy.toml`, Phase 1 warn → Phase 2 deny plan |
 |||| [topic-data-model](./topics/topic-data-model.md) | Full ERD, key design decisions |
 |||| [topic-entity-relationship-diagram](./topics/topic-entity-relationship-diagram.md) | Comprehensive ERD reconciled from OpenAPI specs + impl model verification |
