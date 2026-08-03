@@ -37,12 +37,12 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO sesame_idam.org_memberships
     (id, org_id, user_id, role, status, created_at, updated_at)
 VALUES
-    -- owner@acme.example → Transport Services (legacy default persona)
+    -- owner@hauliage.dev → Transport Services as Admin (sole Owner is transport@)
     (
         'c3000001-0001-4000-8000-000000000001',
         'b2000001-0001-4000-8000-000000000001',
         'a1000001-0001-4000-8000-000000000001',
-        'owner',
+        'admin',
         'active',
         NOW(),
         NOW()

@@ -48,6 +48,10 @@ pub struct Response {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "message")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "retry_after")]
     pub retry_after: Option<i32>,
 }

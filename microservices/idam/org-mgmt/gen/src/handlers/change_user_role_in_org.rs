@@ -32,20 +32,14 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(rename = "error")]
-    pub error: String,
+    #[serde(rename = "org_id")]
+    pub org_id: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "error_description")]
-    pub error_description: Option<String>,
+    #[serde(rename = "primary_role")]
+    pub primary_role: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "hint")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "retry_after")]
-    pub retry_after: Option<i32>,
+    #[serde(rename = "user_id")]
+    pub user_id: String,
 }
 
 impl TryFrom<HandlerRequest> for Request {

@@ -39,6 +39,9 @@ mod controllers {
     pub mod preview_invitation;
     pub mod remove_user_from_org;
     pub mod revoke_pending_invite;
+    pub mod challenge_org_owner_transfer;
+    pub mod transfer_org_owner;
+    pub mod cs_transfer_org_owner;
 }
 // Generated registry code may contain unused typed imports when every
 // discovered controller is untyped, and closures preserve its stable template.

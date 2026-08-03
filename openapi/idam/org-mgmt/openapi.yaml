@@ -19,6 +19,8 @@ tags:
   description: Organization lifecycle (create, fetch, update, delete, query)
 - name: Membership
   description: User-org relationships, invites, roles
+- name: TenantCs
+  description: Tenant customer-service / ops privileged APIs (not end-user product path)
 - name: SSO
   description: Enterprise SAML/OIDC/SCIM per-organisation configuration
 - name: Applications
@@ -2147,6 +2149,10 @@ paths:
       responses:
         '200':
           description: Role changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeUserRoleResponse'
         '400':
           description: Invalid request
           content:
@@ -2156,6 +2162,12 @@ paths:
               example:
                 error: invalid_request
                 error_description: Bad request (validation error)
+        '403':
+          description: Forbidden (cannot demote/assign Owner, or insufficient role)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -2174,6 +2186,193 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Change user role in organization, not
         direct frontend'
+      x-brrtrouter-impl: true
+  /organizations/{org_id}/owner/transfer/challenge:
+    post:
+      tags:
+      - Membership
+      summary: Send email OTP challenge for Owner transfer
+      description: |
+        Issues a short-lived email OTP to the current Owner before product-path
+        ownership transfer. Caller must be an active Owner. Prevents walk-away
+        console abuse (OTP lands outside the unlocked browser).
+
+        See `docs/design-org-owner-transfer-and-ops-consoles.md`.
+      operationId: challenge_org_owner_transfer
+      security:
+      - BearerAuth: []
+      parameters:
+      - *id003
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Challenge accepted (generic; email may or may not have been sent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerTransferChallengeResponse'
+        '401':
+          description: Unauthorized
+          content: *id001
+        '403':
+          description: Caller is not the current Owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Organization not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: OTP store or email unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content: *id002
+      x-brrtrouter-impl: true
+  /organizations/{org_id}/owner/transfer:
+    post:
+      tags:
+      - Membership
+      summary: Transfer organisation ownership (product path)
+      description: |
+        Transfers the organisation Owner role to an active member. Caller must be
+        the current Owner (Bearer JWT). Prefer this over remove/demote — product
+        DELETE/PATCH still return `cannot_remove_owner` for Owner targets.
+
+        Product path requires `otp` from `POST …/owner/transfer/challenge`.
+
+        See `docs/design-org-owner-transfer-and-ops-consoles.md`.
+      operationId: transfer_org_owner
+      security:
+      - BearerAuth: []
+      parameters:
+      - *id003
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnerTransferRequest'
+      responses:
+        '200':
+          description: Ownership transferred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerTransferResponse'
+        '400':
+          description: Validation error (ambiguous owner, bad disposition, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content: *id001
+        '403':
+          description: Caller is not the current Owner, or OTP missing/invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Owner or successor not found / not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Session invalidation unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content: *id002
+      x-brrtrouter-impl: true
+  /cs/organizations/{org_id}/owner/transfer:
+    post:
+      tags:
+      - TenantCs
+      summary: Transfer organisation ownership (tenant CS path)
+      description: |
+        Privileged Owner transfer for a tenant customer-service / ops backend.
+        Requires `X-Tenant-CS-Key` bound to `X-Tenant-ID` (required). Not callable
+        with an end-user Bearer JWT. `reason` is required.
+
+        See `docs/design-org-owner-transfer-and-ops-consoles.md`.
+      operationId: cs_transfer_org_owner
+      security:
+      - TenantCsAuth: []
+      parameters:
+      - name: X-Tenant-ID
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Tenant slug the CS key is bound to (must match org tenant)
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnerTransferRequest'
+      responses:
+        '200':
+          description: Ownership transferred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerTransferResponse'
+        '400':
+          description: Validation error (missing reason, ambiguous owner, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — missing or invalid tenant CS key
+          content: *id001
+        '404':
+          description: Owner or successor not found / not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Session invalidation unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content: *id002
       x-brrtrouter-impl: true
   /organizations/{org_id}/webhooks:
     get:
@@ -2688,6 +2887,14 @@ components:
       type: apiKey
       in: header
       name: X-API-KEY
+    TenantCsAuth:
+      type: apiKey
+      in: header
+      name: X-Tenant-CS-Key
+      description: |
+        Tenant-bound customer-service / ops service key. Must be paired with
+        `X-Tenant-ID`. Not an end-user JWT and not the platform admin key.
+        Configured via `SESAME_TENANT_CS_KEYS` JSON map (tenant slug → secret).
   schemas:
     Error:
       type: object
@@ -3064,10 +3271,113 @@ components:
           items:
             type: string
           description: Additional roles
+    ChangeUserRoleResponse:
+      type: object
+      required:
+      - org_id
+      - user_id
+      - primary_role
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        primary_role:
+          type: string
+          description: New primary role after the change
     RemoveUserFromOrgRequest:
       type: object
       required: []
       properties: {}
+    OwnerTransferRequest:
+      type: object
+      required:
+      - successor_user_id
+      properties:
+        successor_user_id:
+          type: string
+          format: uuid
+          description: Active org member who becomes the new Owner
+        password:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: >
+            Current Owner account password. Required on product path (dual-factor with otp);
+            ignored on CS path. Never logged.
+        otp:
+          type: string
+          minLength: 6
+          maxLength: 12
+          description: >
+            Email OTP from transfer/challenge. Required on product path; ignored on CS path.
+        from_user_id:
+          type: string
+          format: uuid
+          description: Current Owner when the org has multiple owners; optional if exactly one Owner
+        former_owner_disposition:
+          type: string
+          enum:
+          - demote_to_admin
+          - demote_to_member
+          - remove_membership
+          default: demote_to_admin
+          description: What happens to the former Owner after transfer
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Human-readable reason (required on CS path)
+        ticket_id:
+          type: string
+          maxLength: 128
+          description: External CS / support ticket identifier
+        idempotency_key:
+          type: string
+          maxLength: 128
+          description: Optional retry key (durable store is a follow-up)
+    OwnerTransferChallengeResponse:
+      type: object
+      required:
+      - success
+      - expires_in_secs
+      properties:
+        success:
+          type: boolean
+          description: Always true when the challenge request is accepted
+        expires_in_secs:
+          type: integer
+          description: OTP lifetime in seconds
+        channel:
+          type: string
+          enum:
+          - email
+          description: Delivery channel used for the challenge
+    OwnerTransferResponse:
+      type: object
+      required:
+      - org_id
+      - former_owner_user_id
+      - successor_user_id
+      - former_owner_disposition
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        former_owner_user_id:
+          type: string
+          format: uuid
+        successor_user_id:
+          type: string
+          format: uuid
+        former_owner_disposition:
+          type: string
+          enum:
+          - demote_to_admin
+          - demote_to_member
+          - remove_membership
     PendingInvitesResponse:
       type: object
       required:
@@ -3847,28 +4157,15 @@ components:
       properties:
         error:
           type: string
-          enum:
-          - invalid_request
-          - invalid_credentials
-          - invalid_grant
-          - invalid_code
-          - account_locked
-          - mfa_required
-          - email_not_confirmed
-          - phone_not_verified
-          - duplicate_email
-          - weak_password
-          - rate_limited
-          - invalid_token
-          - not_found
-          - permission_denied
-          - application_not_found
-          - role_not_found
-          - attribute_too_large
-          description: Machine-readable error code
+          description: >
+            Machine-readable error code (e.g. invalid_request, cannot_remove_owner,
+            otp_required, otp_invalid, password_invalid, forbidden, not_found).
+        message:
+          type: string
+          description: Human-readable error message (product / BFF convention)
         error_description:
           type: string
-          description: Human-readable error message
+          description: Human-readable error message (OAuth-style alias)
         hint:
           type: string
           description: Additional guidance for resolving the error

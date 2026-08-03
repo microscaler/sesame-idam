@@ -60,6 +60,9 @@ env:
   RUST_BACKTRACE: "1"
   BRRTR_LOG_FORMAT: "json"
   BRRTR_STACK_SIZE: "0x8000"
+  # Tenant CS / ops keys for Owner transfer. JSON map: tenant slug → secret.
+  # Never expose to product BFFs. See docs/design-org-owner-transfer-and-ops-consoles.md.
+  SESAME_TENANT_CS_KEYS: '{"hauliage":"dev-tenant-cs-hauliage"}'
 
 serviceType: ClusterIP
 

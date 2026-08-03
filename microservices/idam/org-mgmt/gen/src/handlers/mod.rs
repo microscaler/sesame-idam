@@ -27,6 +27,8 @@ pub mod assign_permission_to_role;
 
 pub mod revoke_permission_from_role;
 
+pub mod cs_transfer_org_owner;
+
 pub mod accept_invitation;
 
 pub mod preview_invitation;
@@ -52,6 +54,10 @@ pub mod invite_user_to_org_by_id;
 pub mod migrate_org_isolated;
 
 pub mod set_oidc_idp_metadata;
+
+pub mod transfer_org_owner;
+
+pub mod challenge_org_owner_transfer;
 
 pub mod revoke_pending_invite;
 

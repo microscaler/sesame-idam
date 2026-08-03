@@ -11,7 +11,9 @@ use chrono::Utc;
 use lifeguard::LifeExecutor;
 use uuid::Uuid;
 
-use sesame_idam_org_mgmt::services::org_lifecycle::{self, OrgLifecycleError};
+use sesame_idam_org_mgmt::services::org_lifecycle::{
+    self, is_placeholder_member_email, FormerOwnerDisposition, OrgLifecycleError, TransferActor,
+};
 
 use crate::common::{infra_available, unique_tenant};
 
@@ -514,6 +516,186 @@ fn list_org_members_returns_active_members() {
     assert!(matches!(err, OrgLifecycleError::Forbidden));
 }
 
+/// Scenario (positive): member emails resolve under tenant RLS session
+/// (`with_pre_auth_tenant` + `query_one_values` on ExclusivePrimary).
+#[test]
+fn list_org_members_returns_real_emails_under_tenant_session() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orglistmail");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Email Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, member, "member");
+
+    let page = sesame_idam_database::with_pre_auth_tenant(&tenant, |exec| {
+        org_lifecycle::list_org_members(
+            exec,
+            &tenant,
+            &org_id.to_string(),
+            &owner.to_string(),
+            None,
+            0,
+            10,
+        )
+        .map_err(|e| lifeguard::LifeError::Other(format!("{e:?}")))
+    })
+    .expect("list under tenant session");
+
+    assert_eq!(page.total, 2);
+    let owner_email = format!("orgtest_{owner}@example.com");
+    let member_email = format!("orgtest_{member}@example.com");
+    let emails: Vec<&str> = page.items.iter().map(|m| m.email.as_str()).collect();
+    assert!(emails.contains(&owner_email.as_str()));
+    assert!(emails.contains(&member_email.as_str()));
+    for item in &page.items {
+        assert!(
+            !is_placeholder_member_email(&item.email),
+            "unexpected placeholder {}",
+            item.email
+        );
+    }
+}
+
+/// Scenario (negative): without a tenant RLS session, forced `users` RLS hides
+/// emails and the list falls back to `user-{{uuid}}` (the Loadlinker team bug).
+#[test]
+fn list_org_members_without_tenant_session_uses_email_placeholders() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orglistnors");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    seed_org(&tenant, org_id, "No RLS Session Org");
+    seed_user(&tenant, owner);
+    seed_membership(org_id, owner, "owner");
+
+    // Context-free pool executor — memberships load (no RLS), users.email does not.
+    let page = org_lifecycle::list_org_members(
+        sesame_idam_database::db(),
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        None,
+        0,
+        10,
+    )
+    .expect("membership list still succeeds");
+
+    assert_eq!(page.total, 1);
+    assert!(
+        is_placeholder_member_email(&page.items[0].email),
+        "expected user-{{uuid}} fallback, got {}",
+        page.items[0].email
+    );
+    assert_eq!(
+        page.items[0].email,
+        org_lifecycle::placeholder_member_email(owner)
+    );
+}
+
+/// Scenario (negative): listing under a *different* tenant session cannot read
+/// the member's email row (RLS), so placeholders appear even though memberships
+/// are still visible via app-layer tenant filters.
+#[test]
+fn list_org_members_wrong_tenant_session_hides_emails() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orglistwrong");
+    let other = unique_tenant("orglistother");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Wrong Session Org");
+    seed_user(&tenant, owner);
+    seed_membership(org_id, owner, "owner");
+
+    let page = sesame_idam_database::with_pre_auth_tenant(&other, |exec| {
+        org_lifecycle::list_org_members(
+            exec,
+            &tenant,
+            &org_id.to_string(),
+            &owner.to_string(),
+            None,
+            0,
+            10,
+        )
+        .map_err(|e| lifeguard::LifeError::Other(format!("{e:?}")))
+    });
+
+    match page {
+        Ok(page) => {
+            assert_eq!(page.total, 1, "memberships are not RLS-gated");
+            assert!(
+                is_placeholder_member_email(&page.items[0].email),
+                "wrong-tenant GUC must not reveal email; got {}",
+                page.items[0].email
+            );
+        }
+        Err(e) => {
+            // Organizations may also be RLS-gated → NotFound/Forbidden mapped to LifeError.
+            let msg = format!("{e:?}");
+            assert!(
+                msg.contains("NotFound") || msg.contains("Forbidden") || msg.contains("Db"),
+                "unexpected failure under wrong tenant session: {msg}"
+            );
+        }
+    }
+}
+
+/// Scenario (positive): role filter still returns real emails under tenant session.
+#[test]
+fn list_org_members_role_filter_keeps_real_emails() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orglistrolemail");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Role Email Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, member, "member");
+
+    let page = sesame_idam_database::with_pre_auth_tenant(&tenant, |exec| {
+        org_lifecycle::list_org_members(
+            exec,
+            &tenant,
+            &org_id.to_string(),
+            &owner.to_string(),
+            Some("member"),
+            0,
+            10,
+        )
+        .map_err(|e| lifeguard::LifeError::Other(format!("{e:?}")))
+    })
+    .expect("filtered list");
+
+    assert_eq!(page.total, 1);
+    assert_eq!(page.items[0].user_id, member);
+    assert_eq!(
+        page.items[0].email,
+        format!("orgtest_{member}@example.com")
+    );
+    assert!(!is_placeholder_member_email(&page.items[0].email));
+}
+
 /// Scenario: owner changes a member role; member cannot escalate.
 #[test]
 fn change_member_role_requires_org_admin() {
@@ -635,6 +817,375 @@ fn remove_member_requires_org_admin() {
     )
     .expect_err("owner cannot remove self");
     assert!(matches!(err_self, OrgLifecycleError::Forbidden));
+}
+
+/// Scenario (positive): org admin can remove a non-owner member.
+#[test]
+fn remove_member_admin_removes_non_owner() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgrmadmin");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let admin = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Admin Remove Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, admin);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, admin, "admin");
+    seed_membership(org_id, member, "dispatcher");
+
+    let exec = sesame_idam_database::db();
+    org_lifecycle::remove_member(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &admin.to_string(),
+        &member.to_string(),
+    )
+    .expect("admin removes dispatcher");
+}
+
+/// Scenario (negative): product path cannot remove an owner (peer owner or admin).
+#[test]
+fn remove_member_rejects_owner_target() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgrmowner");
+    let org_id = Uuid::new_v4();
+    let owner_a = Uuid::new_v4();
+    let owner_b = Uuid::new_v4();
+    let admin = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Owner Guard Org");
+    seed_user(&tenant, owner_a);
+    seed_user(&tenant, owner_b);
+    seed_user(&tenant, admin);
+    seed_membership(org_id, owner_a, "owner");
+    seed_membership(org_id, owner_b, "owner");
+    seed_membership(org_id, admin, "admin");
+
+    let exec = sesame_idam_database::db();
+    let err_peer = org_lifecycle::remove_member(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner_a.to_string(),
+        &owner_b.to_string(),
+    )
+    .expect_err("peer owner cannot remove owner");
+    assert!(matches!(err_peer, OrgLifecycleError::CannotRemoveOwner));
+
+    let err_admin = org_lifecycle::remove_member(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &admin.to_string(),
+        &owner_a.to_string(),
+    )
+    .expect_err("admin cannot remove owner");
+    assert!(matches!(err_admin, OrgLifecycleError::CannotRemoveOwner));
+}
+
+/// Scenario (negative): product path cannot demote an owner via role change.
+#[test]
+fn change_member_role_rejects_owner_demotion() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgdemote");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let admin = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Demote Guard Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, admin);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, admin, "admin");
+
+    let exec = sesame_idam_database::db();
+    let err = org_lifecycle::change_member_role(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &admin.to_string(),
+        &owner.to_string(),
+        "admin",
+    )
+    .expect_err("cannot demote owner");
+    assert!(matches!(err, OrgLifecycleError::CannotRemoveOwner));
+}
+
+fn membership_role(org_id: Uuid, user_id: Uuid) -> Option<String> {
+    let exec = sesame_idam_database::db();
+    let row = exec
+        .query_one_values(
+            "SELECT role FROM sesame_idam.org_memberships WHERE org_id = $1 AND user_id = $2 AND status = 'active'",
+            &sea_query::Values(vec![org_id.into(), user_id.into()]),
+        )
+        .ok()?;
+    row.try_get::<usize, String>(0).ok()
+}
+
+/// Scenario (positive): org admin can elevate a member to admin (non-owner roles).
+#[test]
+fn change_member_role_elevates_to_admin() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgelevate");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Elevate Role Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, member, "dispatcher");
+
+    let exec = sesame_idam_database::db();
+    org_lifecycle::change_member_role(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        &member.to_string(),
+        "admin",
+    )
+    .expect("elevate to admin");
+    assert_eq!(
+        membership_role(org_id, member).as_deref(),
+        Some("admin")
+    );
+}
+
+/// Scenario (negative): product path cannot assign Owner via role change.
+#[test]
+fn change_member_role_rejects_assign_owner() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgassignown");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let admin = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Assign Owner Guard Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, admin);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, admin, "admin");
+
+    let exec = sesame_idam_database::db();
+    let err = org_lifecycle::change_member_role(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        &owner.to_string(),
+        &admin.to_string(),
+        "owner",
+    )
+    .expect_err("cannot assign owner via PATCH role");
+    assert!(matches!(err, OrgLifecycleError::CannotAssignOwner));
+}
+
+/// Scenario (positive): current Owner transfers ownership; former becomes admin.
+#[test]
+fn transfer_owner_product_owner_succeeds() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgxfer");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let admin = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Transfer Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, admin);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, admin, "admin");
+
+    let exec = sesame_idam_database::db();
+    let result = org_lifecycle::transfer_owner(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        TransferActor::ProductOwner {
+            caller_user_id: owner,
+        },
+        &admin.to_string(),
+        None,
+        FormerOwnerDisposition::DemoteToAdmin,
+    )
+    .expect("owner transfer");
+
+    assert_eq!(result.successor_user_id, admin);
+    assert_eq!(result.former_owner_user_id, owner);
+    assert_eq!(
+        membership_role(org_id, admin).as_deref(),
+        Some("owner")
+    );
+    assert_eq!(
+        membership_role(org_id, owner).as_deref(),
+        Some("admin")
+    );
+}
+
+/// Scenario (negative): Admin cannot initiate product-path Owner transfer.
+#[test]
+fn transfer_owner_rejects_non_owner_caller() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgxferforbid");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let admin = Uuid::new_v4();
+    let member = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Transfer Forbid Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, admin);
+    seed_user(&tenant, member);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, admin, "admin");
+    seed_membership(org_id, member, "member");
+
+    let exec = sesame_idam_database::db();
+    let err = org_lifecycle::transfer_owner(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        TransferActor::ProductOwner {
+            caller_user_id: admin,
+        },
+        &member.to_string(),
+        None,
+        FormerOwnerDisposition::DemoteToAdmin,
+    )
+    .expect_err("admin cannot transfer");
+    assert!(matches!(err, OrgLifecycleError::Forbidden));
+}
+
+/// Scenario (positive): tenant CS actor can transfer without being a member.
+#[test]
+fn transfer_owner_tenant_cs_succeeds() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgxfercs");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let admin = Uuid::new_v4();
+    seed_org(&tenant, org_id, "CS Transfer Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, admin);
+    seed_membership(org_id, owner, "owner");
+    seed_membership(org_id, admin, "admin");
+
+    let exec = sesame_idam_database::db();
+    org_lifecycle::transfer_owner(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        TransferActor::TenantCs,
+        &admin.to_string(),
+        Some(&owner.to_string()),
+        FormerOwnerDisposition::DemoteToMember,
+    )
+    .expect("cs transfer");
+
+    assert_eq!(
+        membership_role(org_id, admin).as_deref(),
+        Some("owner")
+    );
+    assert_eq!(
+        membership_role(org_id, owner).as_deref(),
+        Some("member")
+    );
+}
+
+/// Scenario (negative): successor must already be an active member.
+#[test]
+fn transfer_owner_rejects_non_member_successor() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgxfernm");
+    let org_id = Uuid::new_v4();
+    let owner = Uuid::new_v4();
+    let outsider = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Transfer NonMember Org");
+    seed_user(&tenant, owner);
+    seed_user(&tenant, outsider);
+    seed_membership(org_id, owner, "owner");
+
+    let exec = sesame_idam_database::db();
+    let err = org_lifecycle::transfer_owner(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        TransferActor::TenantCs,
+        &outsider.to_string(),
+        None,
+        FormerOwnerDisposition::DemoteToAdmin,
+    )
+    .expect_err("non-member successor");
+    assert!(matches!(err, OrgLifecycleError::SuccessorNotMember));
+}
+
+/// Scenario (negative): multiple owners require from_user_id.
+#[test]
+fn transfer_owner_ambiguous_without_from_user() {
+    if !infra_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let tenant = unique_tenant("orgxferamb");
+    let org_id = Uuid::new_v4();
+    let owner_a = Uuid::new_v4();
+    let owner_b = Uuid::new_v4();
+    let admin = Uuid::new_v4();
+    seed_org(&tenant, org_id, "Ambiguous Owner Org");
+    seed_user(&tenant, owner_a);
+    seed_user(&tenant, owner_b);
+    seed_user(&tenant, admin);
+    seed_membership(org_id, owner_a, "owner");
+    seed_membership(org_id, owner_b, "owner");
+    seed_membership(org_id, admin, "admin");
+
+    let exec = sesame_idam_database::db();
+    let err = org_lifecycle::transfer_owner(
+        exec,
+        &tenant,
+        &org_id.to_string(),
+        TransferActor::TenantCs,
+        &admin.to_string(),
+        None,
+        FormerOwnerDisposition::DemoteToAdmin,
+    )
+    .expect_err("ambiguous owner");
+    assert!(matches!(err, OrgLifecycleError::AmbiguousOwner));
 }
 
 /// Scenario: invite_by_email_as_admin requires org owner/admin (JWT caller).

@@ -21,24 +21,15 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(rename = "error")]
-    pub error: String,
-
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "error_description")]
-    pub error_description: Option<String>,
+    #[serde(rename = "channel")]
+    pub channel: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "hint")]
-    pub hint: Option<String>,
+    #[serde(rename = "expires_in_secs")]
+    pub expires_in_secs: i32,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "message")]
-    pub message: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "retry_after")]
-    pub retry_after: Option<i32>,
+    #[serde(rename = "success")]
+    pub success: bool,
 }
 
 impl TryFrom<HandlerRequest> for Request {
@@ -97,5 +88,5 @@ impl TryFrom<HandlerRequest> for Request {
 
 #[allow(dead_code)]
 pub fn handler(req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
-    crate::controllers::migrate_org_isolated::handle(req)
+    crate::controllers::challenge_org_owner_transfer::handle(req)
 }

@@ -1,6 +1,8 @@
 // BRRTRouter: user-owned
 
 //! `PATCH /organizations/{org_id}/users/{user_id}/role` — change member role.
+//!
+//! Owner demotion is enforced in [`org_lifecycle::change_member_role`] (authoritative).
 
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
@@ -23,17 +25,6 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return org_auth::error_json(400, "validation_error", "primary_role is required");
     }
 
-    if let Err(error) =
-        VersionStore::from_env().and_then(|store| store.increment_subject(&req.data.user_id))
-    {
-        tracing::error!(%error, user_id = %req.data.user_id, "token version bump failed");
-        return org_auth::error_json(
-            503,
-            "security_state_unavailable",
-            "Session invalidation is temporarily unavailable",
-        );
-    }
-
     let exec = sesame_idam_database::db();
     match org_lifecycle::change_member_role(
         exec,
@@ -43,7 +34,36 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         &req.data.user_id,
         primary_role,
     ) {
-        Ok(()) => HttpJson::new(200, serde_json::json!({})),
+        Ok(()) => {
+            if let Err(error) =
+                VersionStore::from_env().and_then(|store| store.increment_subject(&req.data.user_id))
+            {
+                tracing::error!(%error, user_id = %req.data.user_id, "token version bump failed");
+                return org_auth::error_json(
+                    503,
+                    "security_state_unavailable",
+                    "Session invalidation is temporarily unavailable",
+                );
+            }
+            HttpJson::new(
+                200,
+                serde_json::json!({
+                    "org_id": req.data.org_id,
+                    "user_id": req.data.user_id,
+                    "primary_role": primary_role,
+                }),
+            )
+        }
+        Err(OrgLifecycleError::CannotRemoveOwner) => org_auth::error_json(
+            403,
+            "cannot_remove_owner",
+            "Organization owners cannot be demoted on the product path",
+        ),
+        Err(OrgLifecycleError::CannotAssignOwner) => org_auth::error_json(
+            403,
+            "cannot_assign_owner",
+            "Use owner transfer to make a member the organization Owner",
+        ),
         Err(OrgLifecycleError::Forbidden) => org_auth::error_json(
             403,
             "forbidden",

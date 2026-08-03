@@ -29,6 +29,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
         error: "unauthorized".to_string(),
         error_description: Some("Authentication required".to_string()),
         hint: Some("example".to_string()),
+        message: Some("example".to_string()),
         retry_after: Some(42),
     })
 }

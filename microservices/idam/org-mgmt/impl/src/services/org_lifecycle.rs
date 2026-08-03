@@ -22,6 +22,16 @@ pub enum OrgLifecycleError {
     AlreadyHasOrganization,
     NotFound,
     Forbidden,
+    /// Product path cannot remove or demote org owners (use Owner transfer).
+    CannotRemoveOwner,
+    /// Product path cannot assign the `owner` role (use Owner transfer).
+    CannotAssignOwner,
+    /// Successor is not an active member of the organization.
+    SuccessorNotMember,
+    /// More than one Owner and `from_user_id` was not provided.
+    AmbiguousOwner,
+    /// Requested former Owner is not an Owner of the organization.
+    OwnerNotFound,
     InviteExpired,
     EmailMismatch,
 }
@@ -34,6 +44,19 @@ impl std::fmt::Display for OrgLifecycleError {
             Self::AlreadyHasOrganization => formatter.write_str("user already has an organization"),
             Self::NotFound => formatter.write_str("organization or invitation not found"),
             Self::Forbidden => formatter.write_str("organization access forbidden"),
+            Self::CannotRemoveOwner => {
+                formatter.write_str("organization owners cannot be removed on the product path")
+            }
+            Self::CannotAssignOwner => {
+                formatter.write_str("organization owner role can only be assigned via owner transfer")
+            }
+            Self::SuccessorNotMember => {
+                formatter.write_str("successor is not an active organization member")
+            }
+            Self::AmbiguousOwner => {
+                formatter.write_str("multiple owners; from_user_id is required")
+            }
+            Self::OwnerNotFound => formatter.write_str("specified owner was not found"),
             Self::InviteExpired => formatter.write_str("invitation expired"),
             Self::EmailMismatch => formatter.write_str("invitation email does not match user"),
         }
@@ -587,13 +610,14 @@ pub fn list_org_members<E: LifeExecutor>(
 
     let mut items = Vec::with_capacity(page_items.len());
     for membership in page_items {
-        let email = lifeguard::query_value::<String, _>(
-            exec,
-            "SELECT email FROM sesame_idam.users WHERE id = $1 AND tenant_id = $2",
-            &[&membership.user_id, &tenant_id],
-        )
-        .ok()
-        .unwrap_or_else(|| format!("user-{}", membership.user_id));
+        let email = resolve_member_email(exec, tenant_id, membership.user_id);
+        if is_placeholder_member_email(&email) {
+            tracing::debug!(
+                user_id = %membership.user_id,
+                tenant_id = %tenant_id,
+                "org member email unavailable; returning placeholder"
+            );
+        }
         items.push(OrgMemberSummary {
             user_id: membership.user_id,
             email,
@@ -608,6 +632,56 @@ pub fn list_org_members<E: LifeExecutor>(
         page: page_number,
         page_size,
     })
+}
+
+/// Synthetic label used when `users.email` cannot be read (RLS miss or executor error).
+#[must_use]
+pub fn placeholder_member_email(user_id: Uuid) -> String {
+    format!("user-{user_id}")
+}
+
+/// True when `email` is the synthetic `user-{{uuid}}` fallback (not a real address).
+#[must_use]
+pub fn is_placeholder_member_email(email: &str) -> bool {
+    let Some(rest) = email.strip_prefix("user-") else {
+        return false;
+    };
+    Uuid::parse_str(rest).is_ok()
+}
+
+/// Load `users.email` for a membership row.
+///
+/// Must use [`LifeExecutor::query_one_values`] — `ExclusivePrimaryLifeExecutor`
+/// (tenant RLS transactions) rejects `query_one(&dyn ToSql)`, which is what
+/// `lifeguard::query_value` uses. A failed lookup returns
+/// [`placeholder_member_email`].
+fn resolve_member_email<E: LifeExecutor>(exec: &E, tenant_id: &str, user_id: Uuid) -> String {
+    let values = sea_query::Values(vec![
+        sea_query::Value::Uuid(Some(user_id)),
+        sea_query::Value::String(Some(tenant_id.to_string())),
+    ]);
+    match exec.query_one_values(
+        "SELECT email FROM sesame_idam.users WHERE id = $1 AND tenant_id = $2",
+        &values,
+    ) {
+        Ok(row) => row.try_get::<usize, String>(0).unwrap_or_else(|e| {
+            tracing::warn!(
+                error = %e,
+                %user_id,
+                "member email column decode failed"
+            );
+            placeholder_member_email(user_id)
+        }),
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                %user_id,
+                tenant_id = %tenant_id,
+                "member email lookup failed under tenant session"
+            );
+            placeholder_member_email(user_id)
+        }
+    }
 }
 
 /// Change a member's primary role. Caller must be org owner/admin.
@@ -644,6 +718,263 @@ pub fn change_member_role<E: LifeExecutor>(
         return Err(OrgLifecycleError::NotFound);
     };
 
+    // Owners are immutable on the product role-change path (use transfer_owner).
+    if membership.role.eq_ignore_ascii_case("owner") && !role.eq_ignore_ascii_case("owner") {
+        return Err(OrgLifecycleError::CannotRemoveOwner);
+    }
+
+    // Minting Owner is transfer-only (avoids dual-owner via PATCH).
+    if role.eq_ignore_ascii_case("owner") {
+        if membership.role.eq_ignore_ascii_case("owner") {
+            return Ok(());
+        }
+        return Err(OrgLifecycleError::CannotAssignOwner);
+    }
+
+    let now = Utc::now();
+    let mut rec = OrgMembershipRecord::new();
+    rec.set_id(membership.id)
+        .set_org_id(membership.org_id)
+        .set_user_id(membership.user_id)
+        .set_role(role.to_ascii_lowercase())
+        .set_status(membership.status.clone())
+        .set_created_at(membership.created_at)
+        .set_updated_at(now);
+    rec.update(exec)
+        .map_err(|e| OrgLifecycleError::Db(format!("org_memberships update: {e}")))?;
+    Ok(())
+}
+
+/// Who is initiating an Owner transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferActor {
+    /// End-user Bearer JWT; must be the former Owner.
+    ProductOwner { caller_user_id: Uuid },
+    /// Tenant CS / ops service credential (tenant already authorized).
+    TenantCs,
+}
+
+/// What happens to the former Owner after succession.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FormerOwnerDisposition {
+    DemoteToAdmin,
+    DemoteToMember,
+    RemoveMembership,
+}
+
+impl FormerOwnerDisposition {
+    pub fn parse(raw: Option<&str>) -> Result<Self, OrgLifecycleError> {
+        match raw.map(str::trim).filter(|s| !s.is_empty()).unwrap_or("demote_to_admin") {
+            "demote_to_admin" => Ok(Self::DemoteToAdmin),
+            "demote_to_member" => Ok(Self::DemoteToMember),
+            "remove_membership" => Ok(Self::RemoveMembership),
+            other => Err(OrgLifecycleError::InvalidId(format!(
+                "unsupported former_owner_disposition: {other}"
+            ))),
+        }
+    }
+
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::DemoteToAdmin => "demote_to_admin",
+            Self::DemoteToMember => "demote_to_member",
+            Self::RemoveMembership => "remove_membership",
+        }
+    }
+}
+
+/// Result of a successful Owner transfer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnerTransferResult {
+    pub org_id: Uuid,
+    pub former_owner_user_id: Uuid,
+    pub successor_user_id: Uuid,
+    pub former_owner_disposition: FormerOwnerDisposition,
+}
+
+/// Transfer organization ownership (product Owner or tenant CS).
+///
+/// Promotes the successor before applying disposition to the former Owner so the
+/// org is never left Owner-less. See design-org-owner-transfer-and-ops-consoles.md.
+pub fn transfer_owner<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: &str,
+    actor: TransferActor,
+    successor_user_id: &str,
+    from_user_id: Option<&str>,
+    disposition: FormerOwnerDisposition,
+) -> Result<OwnerTransferResult, OrgLifecycleError> {
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let successor_uuid = Uuid::parse_str(successor_user_id)
+        .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    let from_uuid = match from_user_id {
+        Some(raw) => Some(
+            Uuid::parse_str(raw).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?,
+        ),
+        None => None,
+    };
+
+    ensure_org_tenant(exec, org_uuid, tenant_id)?;
+
+    let Some(successor_membership) = membership_for_user(exec, org_uuid, successor_uuid)? else {
+        return Err(OrgLifecycleError::SuccessorNotMember);
+    };
+
+    let owners = active_owners(exec, org_uuid)?;
+
+    // Idempotent retry: successor is already the sole Owner.
+    if successor_membership.role.eq_ignore_ascii_case("owner")
+        && owners.len() == 1
+        && owners[0].user_id == successor_uuid
+    {
+        let former = from_uuid.unwrap_or(successor_uuid);
+        if let TransferActor::ProductOwner { caller_user_id } = actor {
+            // Product retries must still be from an actor who was allowed; allow
+            // the new Owner (successor) to observe the completed transfer.
+            if caller_user_id != successor_uuid && from_uuid != Some(caller_user_id) {
+                return Err(OrgLifecycleError::Forbidden);
+            }
+        }
+        return Ok(OwnerTransferResult {
+            org_id: org_uuid,
+            former_owner_user_id: former,
+            successor_user_id: successor_uuid,
+            former_owner_disposition: disposition,
+        });
+    }
+
+    let former_owner_uuid = resolve_former_owner(&owners, from_uuid)?;
+
+    match actor {
+        TransferActor::ProductOwner { caller_user_id } => {
+            if caller_user_id != former_owner_uuid {
+                return Err(OrgLifecycleError::Forbidden);
+            }
+        }
+        TransferActor::TenantCs => {}
+    }
+
+    if successor_uuid == former_owner_uuid {
+        return Err(OrgLifecycleError::InvalidId(
+            "successor_user_id must differ from the current Owner".to_string(),
+        ));
+    }
+
+    let Some(former_membership) = membership_for_user(exec, org_uuid, former_owner_uuid)? else {
+        return Err(OrgLifecycleError::OwnerNotFound);
+    };
+
+    // Promote successor first (never Owner-less).
+    if !successor_membership.role.eq_ignore_ascii_case("owner") {
+        write_membership_role(exec, &successor_membership, "owner")?;
+    }
+
+    match disposition {
+        FormerOwnerDisposition::DemoteToAdmin => {
+            write_membership_role(exec, &former_membership, "admin")?;
+        }
+        FormerOwnerDisposition::DemoteToMember => {
+            write_membership_role(exec, &former_membership, "member")?;
+        }
+        FormerOwnerDisposition::RemoveMembership => {
+            lifeguard::LifeExecutor::execute_values(
+                exec,
+                "DELETE FROM sesame_idam.org_memberships WHERE id = $1",
+                &sea_query::Values(vec![former_membership.id.into()]),
+            )
+            .map_err(|e| OrgLifecycleError::Db(format!("org_memberships delete: {e}")))?;
+        }
+    }
+
+    let remaining_owners = active_owners(exec, org_uuid)?;
+    if remaining_owners.is_empty() {
+        return Err(OrgLifecycleError::Db(
+            "last_owner_violation: transfer left organization without an owner".to_string(),
+        ));
+    }
+
+    Ok(OwnerTransferResult {
+        org_id: org_uuid,
+        former_owner_user_id: former_owner_uuid,
+        successor_user_id: successor_uuid,
+        former_owner_disposition: disposition,
+    })
+}
+
+/// Ensure the caller is an active Owner of the org (product challenge / transfer).
+pub fn require_active_owner<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: &str,
+    caller_user_id: Uuid,
+) -> Result<(), OrgLifecycleError> {
+    let org_uuid =
+        Uuid::parse_str(org_id).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
+    ensure_org_tenant(exec, org_uuid, tenant_id)?;
+    let owners = active_owners(exec, org_uuid)?;
+    if owners.iter().any(|m| m.user_id == caller_user_id) {
+        Ok(())
+    } else {
+        Err(OrgLifecycleError::Forbidden)
+    }
+}
+
+/// Real account email for OTP delivery, or `None` when unavailable.
+pub fn lookup_user_email<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    user_id: Uuid,
+) -> Option<String> {
+    let email = resolve_member_email(exec, tenant_id, user_id);
+    if is_placeholder_member_email(&email) || !email.contains('@') {
+        None
+    } else {
+        Some(email)
+    }
+}
+
+fn active_owners<E: LifeExecutor>(
+    exec: &E,
+    org_id: Uuid,
+) -> Result<Vec<OrgMembershipModel>, OrgLifecycleError> {
+    let memberships = MembershipEntity::find()
+        .filter(MembershipColumn::OrgId.eq(org_id))
+        .filter(MembershipColumn::Status.eq("active".to_string()))
+        .all(exec)
+        .map_err(|e| OrgLifecycleError::Db(e.to_string()))?;
+    Ok(memberships
+        .into_iter()
+        .filter(|m| m.role.eq_ignore_ascii_case("owner"))
+        .collect())
+}
+
+fn resolve_former_owner(
+    owners: &[OrgMembershipModel],
+    from_user_id: Option<Uuid>,
+) -> Result<Uuid, OrgLifecycleError> {
+    if owners.is_empty() {
+        return Err(OrgLifecycleError::OwnerNotFound);
+    }
+    if let Some(from) = from_user_id {
+        if owners.iter().any(|m| m.user_id == from) {
+            return Ok(from);
+        }
+        return Err(OrgLifecycleError::OwnerNotFound);
+    }
+    if owners.len() == 1 {
+        return Ok(owners[0].user_id);
+    }
+    Err(OrgLifecycleError::AmbiguousOwner)
+}
+
+fn write_membership_role<E: LifeExecutor>(
+    exec: &E,
+    membership: &OrgMembershipModel,
+    role: &str,
+) -> Result<(), OrgLifecycleError> {
     let now = Utc::now();
     let mut rec = OrgMembershipRecord::new();
     rec.set_id(membership.id)
@@ -686,6 +1017,10 @@ pub fn remove_member<E: LifeExecutor>(
     else {
         return Err(OrgLifecycleError::NotFound);
     };
+
+    if membership.role.eq_ignore_ascii_case("owner") {
+        return Err(OrgLifecycleError::CannotRemoveOwner);
+    }
 
     lifeguard::LifeExecutor::execute_values(
         exec,
@@ -730,4 +1065,35 @@ pub fn revoke_invite<E: LifeExecutor>(
     )
     .map_err(|e| OrgLifecycleError::Db(format!("org_invites delete: {e}")))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod member_email_unit_tests {
+    use super::{is_placeholder_member_email, placeholder_member_email};
+    use uuid::Uuid;
+
+    #[test]
+    fn placeholder_member_email_positive_shape() {
+        let user_id = Uuid::parse_str("a1000001-0001-4000-8000-000000000004").unwrap();
+        let label = placeholder_member_email(user_id);
+        assert_eq!(label, "user-a1000001-0001-4000-8000-000000000004");
+        assert!(is_placeholder_member_email(&label));
+    }
+
+    #[test]
+    fn real_email_is_not_placeholder_negative() {
+        assert!(!is_placeholder_member_email("shipper@amecorp.dev"));
+        assert!(!is_placeholder_member_email("user-not-a-uuid"));
+        assert!(!is_placeholder_member_email(""));
+        assert!(!is_placeholder_member_email("a1000001-0001-4000-8000-000000000004"));
+    }
+
+    #[test]
+    fn placeholder_detection_rejects_near_misses_negative() {
+        assert!(!is_placeholder_member_email("users-a1000001-0001-4000-8000-000000000004"));
+        assert!(!is_placeholder_member_email("user-"));
+        assert!(!is_placeholder_member_email(
+            "user-a1000001-0001-4000-8000-000000000004@example.com"
+        ));
+    }
 }

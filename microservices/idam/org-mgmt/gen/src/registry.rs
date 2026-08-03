@@ -84,6 +84,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "cs_transfer_org_owner",
+        crate::controllers::cs_transfer_org_owner::CsTransferOrgOwnerController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "accept_invitation",
         crate::controllers::accept_invitation::AcceptInvitationController,
         20480,
@@ -158,6 +164,18 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "set_oidc_idp_metadata",
         crate::controllers::set_oidc_idp_metadata::SetOidcIdpMetadataController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "transfer_org_owner",
+        crate::controllers::transfer_org_owner::TransferOrgOwnerController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "challenge_org_owner_transfer",
+        crate::controllers::challenge_org_owner_transfer::ChallengeOrgOwnerTransferController,
         20480,
     );
 
@@ -402,6 +420,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "cs_transfer_org_owner" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::cs_transfer_org_owner::CsTransferOrgOwnerController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "accept_invitation" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::accept_invitation::AcceptInvitationController,
@@ -501,6 +527,22 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "set_oidc_idp_metadata" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::set_oidc_idp_metadata::SetOidcIdpMetadataController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "transfer_org_owner" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::transfer_org_owner::TransferOrgOwnerController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "challenge_org_owner_transfer" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::challenge_org_owner_transfer::ChallengeOrgOwnerTransferController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

@@ -1,6 +1,8 @@
 // BRRTRouter: user-owned
 
 //! `DELETE /organizations/{org_id}/users/{user_id}` — remove member from org.
+//!
+//! Owner immutability is enforced in [`org_lifecycle::remove_member`] (authoritative).
 
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
@@ -18,17 +20,6 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             Err(response) => return response,
         };
 
-    if let Err(error) =
-        VersionStore::from_env().and_then(|store| store.increment_subject(&req.data.user_id))
-    {
-        tracing::error!(%error, user_id = %req.data.user_id, "token version bump failed");
-        return org_auth::error_json(
-            503,
-            "security_state_unavailable",
-            "Session invalidation is temporarily unavailable",
-        );
-    }
-
     let exec = sesame_idam_database::db();
     match org_lifecycle::remove_member(
         exec,
@@ -37,7 +28,25 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         &caller_id,
         &req.data.user_id,
     ) {
-        Ok(()) => HttpJson::new(204, serde_json::Value::Null),
+        Ok(()) => {
+            // Invalidate target sessions only after a successful membership delete.
+            if let Err(error) =
+                VersionStore::from_env().and_then(|store| store.increment_subject(&req.data.user_id))
+            {
+                tracing::error!(%error, user_id = %req.data.user_id, "token version bump failed");
+                return org_auth::error_json(
+                    503,
+                    "security_state_unavailable",
+                    "Session invalidation is temporarily unavailable",
+                );
+            }
+            HttpJson::new(204, serde_json::Value::Null)
+        }
+        Err(OrgLifecycleError::CannotRemoveOwner) => org_auth::error_json(
+            403,
+            "cannot_remove_owner",
+            "Organization owners cannot be removed on the product path",
+        ),
         Err(OrgLifecycleError::Forbidden) => org_auth::error_json(
             403,
             "forbidden",

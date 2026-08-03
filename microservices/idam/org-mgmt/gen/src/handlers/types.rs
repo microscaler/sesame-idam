@@ -20,6 +20,9 @@ pub struct AcceptInvitationResponse {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
 }
 
@@ -39,6 +42,9 @@ pub struct AddUserToOrgResponse {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
 }
 
@@ -51,6 +57,9 @@ pub struct AllowOrgSamlResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -94,7 +103,20 @@ pub struct AssignPermissionToRoleResponse {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ChallengeOrgOwnerTransferResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<String>,
+
+    pub expires_in_secs: i32,
+
+    pub success: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -108,16 +130,11 @@ pub struct ChangeUserRoleInOrgRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ChangeUserRoleInOrgResponse {
-    pub error: String,
+    pub org_id: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
+    pub primary_role: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -127,6 +144,15 @@ pub struct ChangeUserRoleRequest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary_role: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ChangeUserRoleResponse {
+    pub org_id: String,
+
+    pub primary_role: String,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -293,6 +319,43 @@ pub struct CreateWebhookSubscriptionRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CsTransferOrgOwnerRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub former_owner_disposition: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_user_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub otp: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+
+    pub successor_user_id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ticket_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CsTransferOrgOwnerResponse {
+    pub former_owner_disposition: String,
+
+    pub former_owner_user_id: String,
+
+    pub org_id: String,
+
+    pub successor_user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct DeleteOrgResponse {
     pub error: String,
 
@@ -301,6 +364,9 @@ pub struct DeleteOrgResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -317,6 +383,9 @@ pub struct DeleteSamlResponse {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
 }
 
@@ -329,6 +398,9 @@ pub struct DeleteWebhookSubscriptionResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -345,6 +417,9 @@ pub struct DisallowOrgSamlResponse {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
 }
 
@@ -357,6 +432,9 @@ pub struct EnableSamlResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -377,6 +455,9 @@ pub struct ErrorResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -568,6 +649,9 @@ pub struct InviteUserToOrgByIdResponse {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
 }
 
@@ -601,6 +685,9 @@ pub struct MigrateOrgIsolatedResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -695,6 +782,53 @@ pub struct OrgDomainsRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OwnerTransferChallengeResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<String>,
+
+    pub expires_in_secs: i32,
+
+    pub success: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OwnerTransferRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub former_owner_disposition: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_user_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub otp: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+
+    pub successor_user_id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ticket_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OwnerTransferResponse {
+    pub former_owner_disposition: String,
+
+    pub former_owner_user_id: String,
+
+    pub org_id: String,
+
+    pub successor_user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PaginatedResponse {
     pub has_more: bool,
 
@@ -756,6 +890,9 @@ pub struct RemoveUserFromOrgResponse {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
 }
 
@@ -780,6 +917,9 @@ pub struct RevokePendingInviteResponse {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
 }
 
@@ -792,6 +932,9 @@ pub struct RevokePermissionFromRoleResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -1104,6 +1247,9 @@ pub struct SetOidcIdpMetadataResponse {
     pub hint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
 }
 
@@ -1116,6 +1262,9 @@ pub struct SetSamlIdpMetadataResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -1135,6 +1284,9 @@ pub struct SubscribeOrgToRoleMappingResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -1161,6 +1313,43 @@ pub struct TestWebhookDeliveryResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TransferOrgOwnerRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub former_owner_disposition: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_user_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub otp: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+
+    pub successor_user_id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ticket_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TransferOrgOwnerResponse {
+    pub former_owner_disposition: String,
+
+    pub former_owner_user_id: String,
+
+    pub org_id: String,
+
+    pub successor_user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateOrgDomainsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_join_domain: Option<bool>,
@@ -1181,6 +1370,9 @@ pub struct UpdateOrgDomainsResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
@@ -1243,6 +1435,9 @@ pub struct UpdateOrgResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,

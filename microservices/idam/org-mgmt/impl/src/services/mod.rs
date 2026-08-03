@@ -1,4 +1,6 @@
 pub mod org_lifecycle;
+pub mod owner_transfer_otp;
+pub mod password_verify;
 
 /// Invite magic-link base URL (product onboarding). Env: `INVITE_MAGIC_LINK_BASE`.
 pub fn invite_magic_link_url(token: &str) -> String {

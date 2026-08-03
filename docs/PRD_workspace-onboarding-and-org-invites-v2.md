@@ -7,7 +7,7 @@
 | **Owner** | Sesame-IDAM (platform) |
 | **Paired consumer PRD** | [`../hauliage/docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md`](../../hauliage/docs/PRD_loadlinker-workspace-onboarding-and-team-v2.md) |
 | **Supersedes** | Hauliage `PRD_account-first-onboarding.md` (product narrative); Sesame `topic-account-first-onboarding-checkpoint.md` (checkpoint) |
-| **Normative companions** | [ADR-002](./ADR-002-tenant-consumer-idam-api-boundary.md), [transport-policy-v1](./standards-first-oidc/transport-policy-v1.md), Epic 15 portable consumer contract |
+| **Normative companions** | [ADR-002](./ADR-002-tenant-consumer-idam-api-boundary.md), [Owner/Admin membership policy](./PRD_org-owner-admin-membership-policy-v1.md), [transport-policy-v1](./standards-first-oidc/transport-policy-v1.md), Epic 15 portable consumer contract |
 | **Evidence** | [POSTMORTEM-2026-08-03-identity-me-tenant-header-edge-502](./POSTMORTEM-2026-08-03-identity-me-tenant-header-edge-502.md) |
 
 ---
@@ -263,8 +263,11 @@ Platform fixtures (non-exhaustive):
 | Email | Role / org |
 |-------|------------|
 | `shipper@amecorp.dev` | Owner — AME Corp |
-| `transport@transportservices.dev` | Owner — Transport Services |
-| `owner@hauliage.dev`, `dispatcher@…`, `driver@…` | Memberships on Transport Services / demos |
+| `transport@transportservices.dev` | Owner — Transport Services (sole Owner) |
+| `owner@hauliage.dev` | Admin — Transport Services |
+| `dispatcher@…`, `driver@…` | Memberships on Transport Services / demos |
+
+**Owner vs Admin membership policy** (product-path immutability of Owner, `cannot_remove_owner`, CS follow-up): see [`PRD_org-owner-admin-membership-policy-v1.md`](./PRD_org-owner-admin-membership-policy-v1.md). Consumer UX twin: Hauliage [`PRD_loadlinker-owner-admin-roles-v1.md`](../../hauliage/docs/PRD_loadlinker-owner-admin-roles-v1.md).
 
 Password for local dogfood: documented in consumer integration wiki (not repeated here as a secret). Seeds must remain apply-ordered with platform tenants + RLS grants.
 

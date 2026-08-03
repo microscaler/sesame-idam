@@ -115,6 +115,30 @@ pub unsafe fn register_impl(dispatcher: &mut Dispatcher, routes: &[RouteMeta]) {
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "challenge_org_owner_transfer" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::challenge_org_owner_transfer::ChallengeOrgOwnerTransferController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "transfer_org_owner" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::transfer_org_owner::TransferOrgOwnerController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "cs_transfer_org_owner" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::cs_transfer_org_owner::CsTransferOrgOwnerController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             _ => {}
         }
     }

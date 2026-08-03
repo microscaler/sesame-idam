@@ -82,6 +82,18 @@ mod tests {
     }
 
     #[test]
+    fn accepts_matching_legacy_tenant_header_positive() {
+        let principal = require_caller(&claims(Some("acme")), Some("acme")).expect("match ok");
+        assert_eq!(principal, (USER_ID.to_string(), "acme".to_string()));
+    }
+
+    #[test]
+    fn ignores_empty_legacy_tenant_header_positive() {
+        let principal = require_caller(&claims(Some("acme")), Some("   ")).expect("blank ignored");
+        assert_eq!(principal.1, "acme");
+    }
+
+    #[test]
     fn rejects_legacy_header_that_conflicts_with_validated_claims() {
         let response = require_caller(&claims(Some("acme")), Some("other"))
             .expect_err("tenant mismatch must fail");
@@ -92,6 +104,12 @@ mod tests {
     fn rejects_token_without_tenant_claim() {
         let response =
             require_caller(&claims(None), None).expect_err("tenant-less token must fail");
+        assert_eq!(response.status, 401);
+    }
+
+    #[test]
+    fn rejects_missing_jwt_claims_negative() {
+        let response = require_caller(&None, None).expect_err("unauthenticated");
         assert_eq!(response.status, 401);
     }
 }

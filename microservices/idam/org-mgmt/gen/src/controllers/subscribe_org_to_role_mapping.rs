@@ -29,6 +29,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
         error: "invalid_request".to_string(),
         error_description: Some("Bad request (validation error)".to_string()),
         hint: Some("example".to_string()),
+        message: Some("example".to_string()),
         retry_after: Some(42),
     })
 }

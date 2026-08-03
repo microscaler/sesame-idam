@@ -51,6 +51,8 @@ Architectural concepts, workflows, and cross-cutting concerns.
 |||------|-------------|
 ||| [../PRD_k8s-native-idam-platform-and-hauliage-integration.md](../PRD_k8s-native-idam-platform-and-hauliage-integration.md) | **Authoritative PRD:** 8080/8080 ClusterIP, data-namespace Postgres formalization, JWT/JWKS alignment, role-split demo users, Tilt/Helm/Just updates, Hauliage consumer URLs. |
 ||| [../PRD_workspace-onboarding-and-org-invites-v2.md](../PRD_workspace-onboarding-and-org-invites-v2.md) | **Active (v2026-08-03):** Platform PRD — JWT-bound tenant/org, invites + email, member list RLS; pairs with Hauliage Loadlinker onboarding/team v2. |
+||| [../PRD_org-owner-admin-membership-policy-v1.md](../PRD_org-owner-admin-membership-policy-v1.md) | **Active (v2026-08-03):** Owner vs Admin membership + product-path Owner immutability (`cannot_remove_owner`); pairs with Loadlinker Owner/Admin roles PRD. |
+||| [../design-org-owner-transfer-and-ops-consoles.md](../design-org-owner-transfer-and-ops-consoles.md) | **Active:** Owner transfer (product + tenant CS) and reusable ops-console principal pattern. |
 ||| [topic-architecture-overview](./topics/topic-architecture-overview.md) | Six-service split rationale, service map, 133 endpoints, 12 workspace crates. `cargo check --workspace` passes with 0 errors. |
 ||| [topic-package-naming-convention](./topics/topic-package-naming-convention.md) | Gen/impl package naming mismatch that breaks `brrtrouter client build` — current vs target |
 ||| [topic-build-infrastructure](./topics/topic-build-infrastructure.md) | Missing build.rs, config/service.yaml, services layer, tests, seeds |

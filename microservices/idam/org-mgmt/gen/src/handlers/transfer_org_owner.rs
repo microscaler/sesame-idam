@@ -11,6 +11,37 @@ use std::convert::TryFrom;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "former_owner_disposition")]
+    pub former_owner_disposition: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "from_user_id")]
+    pub from_user_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "otp")]
+    pub otp: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "password")]
+    pub password: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "reason")]
+    pub reason: Option<String>,
+
+    #[serde(rename = "successor_user_id")]
+    pub successor_user_id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "ticket_id")]
+    pub ticket_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "X-Tenant-ID")]
     pub x_tenant_id: Option<String>,
 
@@ -21,24 +52,17 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(rename = "error")]
-    pub error: String,
+    #[serde(rename = "former_owner_disposition")]
+    pub former_owner_disposition: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "error_description")]
-    pub error_description: Option<String>,
+    #[serde(rename = "former_owner_user_id")]
+    pub former_owner_user_id: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "hint")]
-    pub hint: Option<String>,
+    #[serde(rename = "org_id")]
+    pub org_id: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "message")]
-    pub message: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "retry_after")]
-    pub retry_after: Option<i32>,
+    #[serde(rename = "successor_user_id")]
+    pub successor_user_id: String,
 }
 
 impl TryFrom<HandlerRequest> for Request {
@@ -97,5 +121,5 @@ impl TryFrom<HandlerRequest> for Request {
 
 #[allow(dead_code)]
 pub fn handler(req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
-    crate::controllers::migrate_org_isolated::handle(req)
+    crate::controllers::transfer_org_owner::handle(req)
 }

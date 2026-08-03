@@ -13,3 +13,4 @@
 pub mod models;
 pub mod org_auth;
 pub mod services;
+pub mod tenant_cs_auth;

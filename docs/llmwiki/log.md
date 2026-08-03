@@ -1,5 +1,53 @@
 # LLM Wiki — Session Log
 
+## [2026-08-03] fix | Role PATCH 500 + dual-factor Owner transfer
+
+- Root cause: `change_user_role_in_org` 200 had no schema → BRRTRouter fell back to ErrorResponse → success `{}` failed `"error" is a required property` (surfaced as BFF 502).
+- Fix: `ChangeUserRoleResponse` on 200; loosened ErrorResponse `error` enum (membership codes).
+- Owner transfer step-up upgraded: **password re-entry + email OTP** (email alone insufficient if hijacker can open webmail). v2: TOTP/SMS when enrolled.
+
+## [2026-08-03] feat | Owner transfer email OTP + role-change confirm
+
+- Product Owner transfer requires email OTP (`POST …/owner/transfer/challenge` then `otp` on transfer). CS path unchanged.
+- Non-Owner role elevation: consumer UI confirmation only (not Sesame-enforced).
+- Hauliage team pages: confirm on role change; Send email code + OTP input on transfer.
+- Design open question #1 closed in `design-org-owner-transfer-and-ops-consoles.md`.
+
+## [2026-08-03] feat | Role elevation + Owner via transfer only
+
+- Product `PATCH …/role` elevates non-owner roles (e.g. dispatcher → admin).
+- Assigning `owner` via PATCH → `CannotAssignOwner` / 403 `cannot_assign_owner` (use transfer).
+- Hauliage: `PATCH /organizations/me/team/{user_id}` + `POST …/owner/transfer` + team UI role select / transfer.
+
+## [2026-08-03] feat | Owner transfer + tenant CS ops path
+
+- Design: [`design-org-owner-transfer-and-ops-consoles.md`](../design-org-owner-transfer-and-ops-consoles.md) — product Owner transfer, tenant CS principal pattern, reusable ops-console guidance.
+- API: `POST /organizations/{org_id}/owner/transfer` (Bearer Owner) and `POST /cs/organizations/{org_id}/owner/transfer` (`TenantCsAuth` + required `X-Tenant-ID` / reason).
+- Lifecycle: `org_lifecycle::transfer_owner` (promote-before-demote, dispositions, ambiguous-owner handling).
+- Auth: `tenant_cs_auth` + `SESAME_TENANT_CS_KEYS` JSON map; provider registered in org-mgmt `security.rs`.
+- Product DELETE/PATCH Owner guards unchanged (`cannot_remove_owner`).
+
+## [2026-08-03] docs | Owner vs Admin membership policy PRD
+
+- Authored [`PRD_org-owner-admin-membership-policy-v1.md`](../PRD_org-owner-admin-membership-policy-v1.md) — platform Owner immutability, `cannot_remove_owner`, demo seeds, CS follow-up.
+- Paired consumer: Hauliage `PRD_loadlinker-owner-admin-roles-v1.md` (shipper + transporter).
+- Index + onboarding PRD v2 seed section link to the new policy PRD.
+
+## [2026-08-03] feat | Separate Owner vs Admin (team roles)
+
+- UI labels: `Owner` / `Admin` (no combined "Owner / Admin"); invite offers Admin, not Owner.
+- Sesame `remove_member` / owner demotion → `CannotRemoveOwner` → 403 `cannot_remove_owner` (CS path later).
+- BFF DELETE team member orchestrates Sesame (later thinned to pass-through only; see authority log entry).
+- Demo seed: `owner@hauliage.dev` demoted to `admin`; sole Owner `transport@transportservices.dev`.
+
+## [2026-08-03] test | Org member email placeholder ± unit + BDD
+
+- Root cause of Loadlinker `user-{uuid}` team labels: `query_value`/`query_one(&dyn ToSql)` rejected inside `with_pre_auth_tenant` (`ExclusivePrimaryLifeExecutor`) → silent placeholder.
+- Fix already uses `query_one_values`; helpers `placeholder_member_email` / `is_placeholder_member_email`.
+- **Unit:** shape + near-miss negatives (`member_email_unit_tests`); `org_auth` ± header/claims cases.
+- **BDD:** real emails under tenant session (2 members + role filter); placeholders without tenant session; wrong-tenant session hides emails.
+- Run: `TEST_DB_HOST=192.168.1.189 TEST_DB_PORT=5433 cargo test -p sesame_idam_org_mgmt --test main_bdd list_org_members_`.
+
 ## [2026-08-03] feat | PRD v2 P0–P2 start (JWT invite, RLS emails, SMTP)
 
 - **P0** `invite_user_to_org`: typed handler + `org_auth::require_caller` + `invite_by_email_as_admin` (org admin). No longer requires `X-Tenant-ID`.
@@ -1030,3 +1078,15 @@ No runtime code changed and no build or test command was run.
 - The downstream Hauliage BFF schema required the same correction before the
   complete request returned HTTP 200; both authenticated profile and
   organization calls now pass in the live login flow.
+
+## [2026-08-03] fix | Owner immutability authority stays in Sesame
+
+- Confirmed product-path Owner remove/demote is owned by org-mgmt
+  (`CannotRemoveOwner` → 403 `cannot_remove_owner`).
+- Controllers now bump `VersionStore` only after a successful membership
+  mutation (failed Owner delete must not invalidate the target session).
+- Hauliage BFF no longer preflight-lists members to decide Owner policy;
+  it calls Sesame and passes through Sesame `error`/`message` codes.
+- Paired PRDs updated: BFF is orchestration + error surface only; UI hide
+  of Owner remove remains UX-only.
+- Live: Admin DELETE Owner via Loadlinker BFF → 403 `cannot_remove_owner`.
