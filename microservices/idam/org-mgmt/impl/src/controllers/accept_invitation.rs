@@ -3,9 +3,6 @@
 //! POST /invitations/accept — accept org invite token (authenticated user).
 
 use brrtrouter::dispatcher::{HandlerRequest, HandlerResponse};
-use lifeguard::LifeExecutor;
-use sesame_common::VersionStore;
-use sesame_idam_database::db;
 
 use crate::jwt_context;
 use crate::services::org_lifecycle::{self, OrgLifecycleError};
@@ -16,7 +13,7 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
             400,
             serde_json::json!({
                 "error": "missing_tenant",
-                "message": "X-Tenant-ID header is required"
+                "message": "Validated JWT tenant_id claim is required"
             }),
         );
     };
@@ -27,17 +24,6 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
             serde_json::json!({
                 "error": "unauthorized",
                 "message": "Authentication required"
-            }),
-        );
-    };
-
-    let exec = db();
-    let Some(email) = user_email(exec, &tenant_id, &user_id) else {
-        return HandlerResponse::json(
-            404,
-            serde_json::json!({
-                "error": "user_not_found",
-                "message": "User profile not found"
             }),
         );
     };
@@ -58,29 +44,72 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
         );
     }
 
-    let bumped_version = match VersionStore::from_env()
-        .and_then(|store| store.increment_subject(&user_id))
-    {
-        Ok(version) => version,
-        Err(error) => {
-            tracing::error!(%error, user_id, "token version bump failed before invitation acceptance");
+    let user_uuid = match uuid::Uuid::parse_str(&user_id) {
+        Ok(id) => id,
+        Err(_) => {
             return HandlerResponse::json(
-                503,
+                401,
                 serde_json::json!({
-                    "error": "security_state_unavailable",
-                    "message": "Session invalidation is temporarily unavailable"
+                    "error": "unauthorized",
+                    "message": "Invalid token subject"
                 }),
             );
         }
     };
 
-    match org_lifecycle::accept_invitation(exec, &tenant_id, &user_id, &email, token) {
-        Ok(org) => {
-            tracing::info!(
-                user_id,
-                token_version = bumped_version,
-                "invitation acceptance invalidated existing access tokens"
+    // users.email (and invite/membership writes) sit behind tenant RLS.
+    let email = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+        Ok(org_lifecycle::lookup_user_email(exec, &tenant_id, user_uuid))
+    }) {
+        Ok(Some(email)) => email,
+        Ok(None) => {
+            return HandlerResponse::json(
+                404,
+                serde_json::json!({
+                    "error": "user_not_found",
+                    "message": "User profile not found"
+                }),
             );
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "accept_invitation: tenant session failed for user lookup");
+            return HandlerResponse::json(
+                500,
+                serde_json::json!({
+                    "error": "internal_error",
+                    "message": "An unexpected error occurred"
+                }),
+            );
+        }
+    };
+
+    // Do not bump token version here. The BFF immediately calls
+    // `POST /sessions/active-organization` with the same bearer token to re-issue
+    // JWT with `org_id`. A pre-accept bump would 401 that re-issue (Launch 1.0
+    // revocation enforcement). Token rotation happens on successful activate.
+
+    let accepted = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+        match org_lifecycle::accept_invitation(exec, &tenant_id, &user_id, &email, token) {
+            Ok(org) => Ok(Ok(org)),
+            Err(err) => Ok(Err(err)),
+        }
+    }) {
+        Ok(inner) => inner,
+        Err(e) => {
+            tracing::error!(error = %e, "accept_invitation: tenant session failed");
+            return HandlerResponse::json(
+                500,
+                serde_json::json!({
+                    "error": "internal_error",
+                    "message": "An unexpected error occurred"
+                }),
+            );
+        }
+    };
+
+    match accepted {
+        Ok(org) => {
+            tracing::info!(user_id, org_id = %org.id, "invitation accepted; await active-org token re-issue");
             HandlerResponse::json(
                 200,
                 serde_json::json!({
@@ -120,19 +149,4 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
         ),
         Err(e) => HandlerResponse::error(500, &format!("{e:?}")),
     }
-}
-
-fn user_email(
-    exec: &lifeguard::PooledLifeExecutor,
-    tenant_id: &str,
-    user_id: &str,
-) -> Option<String> {
-    let uid = uuid::Uuid::parse_str(user_id).ok()?;
-    let row = exec
-        .query_one_values(
-            "SELECT email FROM sesame_idam.users WHERE id = $1 AND tenant_id = $2",
-            &sea_query::Values(vec![uid.into(), tenant_id.into()]),
-        )
-        .ok()?;
-    Some(row.get(0))
 }

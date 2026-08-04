@@ -11,19 +11,11 @@ pub struct AcceptInvitationRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AcceptInvitationResponse {
-    pub error: String,
+    pub id: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
+    pub name: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
+    pub tenant_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

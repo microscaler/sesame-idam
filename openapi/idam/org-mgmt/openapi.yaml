@@ -865,8 +865,28 @@ paths:
       responses:
         '200':
           description: Invitation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptInvitationResponse'
+        '403':
+          description: Email mismatch or forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Invite not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Account already belongs to an organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
           content: *id001
@@ -4150,6 +4170,27 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScimUser'
+    AcceptInvitationResponse:
+      type: object
+      required:
+      - id
+      - name
+      - tenant_id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Organization id the caller joined
+        name:
+          type: string
+          description: Organization display name
+        tenant_id:
+          type: string
+          description: Tenant slug for the organization
+      example:
+        id: b2000001-0001-4000-8000-000000000001
+        name: Transport Services
+        tenant_id: hauliage
     ErrorResponse:
       type: object
       required:

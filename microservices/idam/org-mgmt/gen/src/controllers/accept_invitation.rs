@@ -7,29 +7,9 @@ use brrtrouter_macros::handler;
 
 #[handler(AcceptInvitationController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
-    // Example response:
-    // {
-    //   "error": "unauthorized",
-    //   "error_description": "Authentication required"
-    // }
-    match serde_json::from_str::<Response>(
-        r###"{
-  "error": "unauthorized",
-  "error_description": "Authentication required"
-}"###,
-    ) {
-        Ok(parsed) => return HttpJson::ok(parsed),
-        Err(e) => {
-            eprintln!("Failed to parse mock example JSON into Response: {}", e);
-            // Fallback to empty default structs below
-        }
-    }
-
     HttpJson::ok(Response {
-        error: "unauthorized".to_string(),
-        error_description: Some("Authentication required".to_string()),
-        hint: Some("example".to_string()),
-        message: Some("example".to_string()),
-        retry_after: Some(42),
+        id: "example".to_string(),
+        name: "example".to_string(),
+        tenant_id: "example".to_string(),
     })
 }
