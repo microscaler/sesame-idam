@@ -96,6 +96,8 @@ pub struct AuthLogoutResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthRegisterRequest {
+    pub client_id: String,
+
     pub email: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1146,6 +1148,8 @@ pub struct PlatformTenantStatusPatchResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct RegisterRequest {
+    pub client_id: String,
+
     pub email: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]

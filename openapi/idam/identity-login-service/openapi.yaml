@@ -747,7 +747,9 @@ paths:
 
 
 
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant is bound via registered `client_id` (same as login). Optional legacy
+
+        `X-Tenant-ID` must match the client tenant when present; public edges may strip it.'
       operationId: auth_register
       x-public-reason: "pre-authentication: creates the account a token would belong to"
       security: []
@@ -761,6 +763,7 @@ paths:
               default: &id022
                 summary: Example for auth_register
                 value: &id050
+                  client_id: hauliage-web
                   email: newuser@example.com
                   password: SecureP@ss123!
                   first_name: New
@@ -802,7 +805,12 @@ paths:
           description: Internal server error
           content: *id006
       parameters:
-      - *id007
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Legacy tenant hint. Public callers use client_id; when present this value must match the registered client tenant.
       x-consumer: frontend
       x-consumer-note: Direct browser call for new user registration
       x-brrtrouter-impl: true
@@ -2909,9 +2917,15 @@ components:
     RegisterRequest:
       type: object
       required:
+      - client_id
       - email
       - password
       properties:
+        client_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Registered relying-party client used to derive tenant and application context
         email:
           type: string
           format: email

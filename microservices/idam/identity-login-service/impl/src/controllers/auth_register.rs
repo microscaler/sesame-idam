@@ -2,10 +2,14 @@
 
 //! `POST /auth/register` — create a user with email + password.
 //!
+//! Tenant is bound via registered `client_id` (public north–south). Optional
+//! legacy `X-Tenant-ID` must match the client tenant when present.
+//!
 //! Hashes the password with argon2id, inserts the user (tenant-scoped,
 //! `UNIQUE(tenant_id, email)`), and issues a real token pair. Returns:
 //! - 201 `TokenResponse` on success
 //! - 400 for weak passwords or duplicate email
+//! - 401 `invalid_client` for unknown/inactive client or tenant hint mismatch
 //! - 500 on infrastructure failure
 
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
@@ -13,6 +17,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::{Request, Response};
 
 use crate::audit::EMITTER;
+use crate::services::client_registry::{ClientRegistry, ClientRegistryError};
 use crate::services::password;
 use crate::services::tenant_gate::tenant_http_error;
 use crate::services::tenant_service::TenantService;
@@ -25,8 +30,36 @@ const DEFAULT_PORTAL: &str = "frontend";
 
 #[handler(AuthRegisterController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let tenant_id = req.data.x_tenant_id.clone();
     let email = req.data.email.trim().to_lowercase();
+    let exec = sesame_idam_database::db();
+
+    let binding = match ClientRegistry::resolve_active(&req.data.client_id, exec) {
+        Ok(binding) => binding,
+        Err(ClientRegistryError::Unknown | ClientRegistryError::NotActive) => {
+            return invalid_client();
+        }
+        Err(ClientRegistryError::InvalidPolicy(error)) => {
+            tracing::error!(
+                %error,
+                client_id = %req.data.client_id,
+                "auth_register: invalid registered client policy"
+            );
+            return internal_error();
+        }
+        Err(ClientRegistryError::Db(error)) => {
+            tracing::error!(%error, "auth_register: client registry lookup failed");
+            return internal_error();
+        }
+    };
+    if req
+        .data
+        .x_tenant_id
+        .as_deref()
+        .is_some_and(|tenant| tenant.trim() != binding.tenant_id)
+    {
+        return invalid_client();
+    }
+    let tenant_id = binding.tenant_id;
 
     if let Err(reason) = password::validate_password_strength(&req.data.password) {
         return HttpJson::new(
@@ -37,8 +70,6 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             }),
         );
     }
-
-    let exec = sesame_idam_database::db();
 
     if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
         return tenant_http_error(&e);
@@ -155,6 +186,16 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             internal_error()
         }
     }
+}
+
+fn invalid_client() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        401,
+        serde_json::json!({
+            "error": "invalid_client",
+            "error_description": "Unknown or inactive client"
+        }),
+    )
 }
 
 fn internal_error() -> HttpJson<serde_json::Value> {
