@@ -20,6 +20,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_forgot_password::Request;
 
 use crate::services::abuse_guard::{self, Channel};
+use crate::services::client_registry::{ClientRegistry, ClientRegistryError};
 use crate::services::tenant_gate::tenant_http_error;
 use crate::services::tenant_service::TenantService;
 use crate::services::user_service::{UserService, STATUS_ACTIVE};
@@ -27,10 +28,33 @@ use crate::services::{email, otp};
 
 #[handler(AuthForgotPasswordController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let tenant_id = req.data.x_tenant_id.clone().unwrap_or_default();
     let recipient = req.data.email.clone();
-
     let exec = sesame_idam_database::db();
+
+    let binding = match ClientRegistry::resolve_pre_auth(
+        &req.data.client_id,
+        req.data.x_tenant_id.as_deref(),
+        exec,
+    ) {
+        Ok(binding) => binding,
+        Err(ClientRegistryError::Unknown | ClientRegistryError::NotActive) => {
+            return invalid_client();
+        }
+        Err(ClientRegistryError::InvalidPolicy(error)) => {
+            tracing::error!(
+                %error,
+                client_id = %req.data.client_id,
+                "auth_forgot_password: invalid registered client policy"
+            );
+            return internal_error();
+        }
+        Err(ClientRegistryError::Db(error)) => {
+            tracing::error!(%error, "auth_forgot_password: client registry lookup failed");
+            return internal_error();
+        }
+    };
+    let tenant_id = binding.tenant_id;
+
     if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
         return tenant_http_error(&e);
     }
@@ -77,4 +101,24 @@ fn generic_success() -> HttpJson<serde_json::Value> {
         "success": true,
         "message": "If the account exists, a reset link has been sent"
     }))
+}
+
+fn invalid_client() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        401,
+        serde_json::json!({
+            "error": "invalid_client",
+            "error_description": "Unknown or inactive client"
+        }),
+    )
+}
+
+fn internal_error() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        500,
+        serde_json::json!({
+            "error": "internal_error",
+            "error_description": "An unexpected error occurred"
+        }),
+    )
 }

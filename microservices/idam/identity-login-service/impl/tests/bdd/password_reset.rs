@@ -182,6 +182,7 @@ fn forgot(email: &str) -> brrtrouter::typed::HttpJson<serde_json::Value> {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: ForgotReq {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             x_tenant_id: Some(TENANT.to_string()),
         },
@@ -197,6 +198,7 @@ fn reset(token: &str, new_password: &str) -> brrtrouter::typed::HttpJson<serde_j
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: ResetReq {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             new_password: new_password.to_string(),
             token: token.to_string(),
             x_tenant_id: Some(TENANT.to_string()),

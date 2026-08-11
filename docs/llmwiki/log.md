@@ -1125,3 +1125,15 @@ No runtime code changed and no build or test command was run.
 - Root cause: gen/config overwritten from templates/config.yaml which omitted QUERY; builder/RouteCorsConfig defaults also omitted QUERY while CorsMiddleware::default/permissive already had it.
 - Fix: default_cors_allowed_methods() shared helper; template + builder + RouteCorsConfig; docs/CORS.md + consumer-guide Allow-Methods aligned; tests for template/builder/route defaults.
 - OpenAPI query: parsing already complete — not an OpenAPI gap for CORS methods.
+
+## [2026-08-11] Series A | pre-auth client_id bind helper + P0/P1
+
+- Added `ClientRegistry::resolve_pre_auth(client_id, optional X-Tenant-ID)` — active
+  client bind + header mismatch → `Unknown` (same as invalid client). Reused by
+  `auth_login`, `auth_register`, `signup_validate`, `social_login`,
+  `auth_forgot_password`, `auth_reset_password`.
+- P0 `social_login`: required `client_id` query; tenant (+ client_id) stored in
+  OAuth state for header-free callback. P1 forgot/reset: required body `client_id`.
+- Client `social_login_start` injects `client_id`, omits `X-Tenant-ID`.
+- Verified: login nextest social/password_reset/signup_validate/client_registry
+  (18/18); client `contract_sync` binary.

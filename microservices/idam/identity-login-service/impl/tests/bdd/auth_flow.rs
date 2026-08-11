@@ -132,6 +132,60 @@ fn decode_jwt_payload(token: &str) -> serde_json::Value {
     serde_json::from_slice(&bytes).expect("payload JSON")
 }
 
+/// Scenario: Series A north–south — register + login with only `client_id`
+/// (no `X-Tenant-ID`). Public edges may strip the header.
+#[test]
+fn register_then_login_without_tenant_header() {
+    if !db_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+    ensure_active_tenant(FIXTURE_TENANT);
+
+    let email = unique_email("nohdr");
+    let password = "SecureP@ss123!";
+
+    let resp = auth_register::handle(TypedHandlerRequest {
+        method: Method::POST,
+        path: "/auth/register".to_string(),
+        handler_name: "auth_register".to_string(),
+        path_params: std::collections::HashMap::new(),
+        query_params: std::collections::HashMap::new(),
+        data: RegisterRequest {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
+            email: email.clone(),
+            first_name: None,
+            last_name: None,
+            password: password.to_string(),
+            phone: None,
+            username: None,
+            x_tenant_id: None,
+        },
+        jwt_claims: None,
+    });
+    assert_eq!(
+        resp.status, 201,
+        "register without X-Tenant-ID: {:?}",
+        resp.body
+    );
+
+    let resp = auth_login::handle(login_request(
+        FIXTURE_WEB_CLIENT,
+        None,
+        &email,
+        password,
+    ));
+    assert_eq!(
+        resp.status, 200,
+        "login without X-Tenant-ID: {:?}",
+        resp.body
+    );
+    assert_eq!(
+        decode_jwt_payload(resp.body["access_token"].as_str().unwrap())["tenant_id"],
+        FIXTURE_TENANT
+    );
+}
+
 /// Scenario: Register a new user, then log in with the same credentials.
 #[test]
 fn register_then_login_round_trip() {

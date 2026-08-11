@@ -196,6 +196,29 @@ impl ClientRegistry {
         })
     }
 
+    /// Resolve tenant/application for public pre-auth north–south handlers.
+    ///
+    /// Active `client_id` is authoritative. When optional legacy `X-Tenant-ID`
+    /// is present (non-empty after trim), it must match the registered client
+    /// tenant; mismatches map to [`ClientRegistryError::Unknown`] so callers
+    /// can return the same `invalid_client` / `client_invalid` shape as an
+    /// unknown client (no tenant oracle).
+    pub fn resolve_pre_auth<E: LifeExecutor>(
+        client_id: &str,
+        x_tenant_id: Option<&str>,
+        exec: &E,
+    ) -> Result<ClientBinding, ClientRegistryError> {
+        let binding = Self::resolve_active(client_id, exec)?;
+        if x_tenant_id
+            .map(str::trim)
+            .filter(|tenant| !tenant.is_empty())
+            .is_some_and(|tenant| tenant != binding.tenant_id)
+        {
+            return Err(ClientRegistryError::Unknown);
+        }
+        Ok(binding)
+    }
+
     /// Authenticate a confidential client without disclosing whether its id,
     /// status, policy, or secret caused rejection.
     pub fn authenticate_confidential<E: LifeExecutor>(

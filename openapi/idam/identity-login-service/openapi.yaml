@@ -618,9 +618,8 @@ paths:
       summary: Request password reset email
       description: 'Sends a password reset email with a time-limited token to the given email.
 
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant is bound via registered `client_id`. Optional legacy `X-Tenant-ID`
+        must match the client tenant when present; public edges may strip it.'
       operationId: auth_forgot_password
       x-public-reason: "pre-authentication: the user cannot sign in, that is the point"
       security: []
@@ -633,6 +632,7 @@ paths:
               default: &id020
                 summary: Example for auth_forgot_password
                 value: &id052
+                  client_id: hauliage-web
                   email: alice@example.com
             example: *id020
       responses:
@@ -687,9 +687,8 @@ paths:
       summary: Confirm password reset with token
       description: 'Validates the reset token from the password reset email and sets a new password.
 
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant is bound via registered `client_id`. Optional legacy `X-Tenant-ID`
+        must match the client tenant when present; public edges may strip it.'
       operationId: auth_reset_password
       x-public-reason: "the emailed reset token in the request IS the credential"
       security: []
@@ -702,6 +701,7 @@ paths:
               default: &id021
                 summary: Example for auth_reset_password
                 value: &id053
+                  client_id: hauliage-web
                   token: reset-token-abc123
                   new_password: NewSecureP@ss456!
             example: *id021
@@ -1029,9 +1029,9 @@ paths:
 
         Providers: google, github, linkedin, facebook, apple, microsoft, or custom.
 
-        Tenant is currently accepted via optional legacy `X-Tenant-ID` (and stored
-        in OAuth state for the callback). Prefer registering a `client_id` bind in
-        a follow-up; public edges may strip the header.
+        Tenant is bound via registered `client_id` (stored in OAuth state for the
+        header-free callback). Optional legacy `X-Tenant-ID` must match the client
+        tenant when present; public edges may strip it.
       operationId: social_login
       x-public-reason: "pre-authentication: start of the redirect flow"
       security: []
@@ -1043,6 +1043,14 @@ paths:
         schema:
           type: string
         description: OAuth provider name (e.g., github, google)
+      - name: client_id
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description: Registered public client; determines tenant and application.
       - name: redirect_uri
         in: query
         required: true
@@ -3092,8 +3100,14 @@ components:
     ForgotPasswordRequest:
       type: object
       required:
+      - client_id
       - email
       properties:
+        client_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Registered public client; determines tenant and application.
         email:
           type: string
           format: email
@@ -3102,9 +3116,15 @@ components:
     ResetPasswordRequest:
       type: object
       required:
+      - client_id
       - token
       - new_password
       properties:
+        client_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Registered public client; determines tenant and application.
         token:
           type: string
           description: Password reset token from the reset email

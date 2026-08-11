@@ -12,6 +12,9 @@ const STATE_TTL_SECS: u64 = 600;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct OAuthState {
     pub tenant_id: String,
+    /// Registered public client that started the flow (Series A north–south).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
     pub provider: String,
     pub redirect_uri: String,
 }

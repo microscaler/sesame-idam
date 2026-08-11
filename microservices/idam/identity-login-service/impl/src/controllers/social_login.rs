@@ -7,6 +7,7 @@ use brrtrouter::typed::{HandlerResponseOutput, HttpJson, HttpRedirect, TypedHand
 use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::social_login::Request;
 
+use crate::services::client_registry::{ClientRegistry, ClientRegistryError};
 use crate::services::oauth::{
     build_authorize_url, store_oauth_state, OAuthState, SupportedProvider,
 };
@@ -31,13 +32,9 @@ impl HandlerResponseOutput for SocialLoginOutcome {
 
 #[handler(SocialLoginController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> SocialLoginOutcome {
-    let tenant_id = req.data.x_tenant_id.as_deref().unwrap_or("").trim();
     let provider_name = req.data.provider.trim();
     let redirect_uri = req.data.redirect_uri.trim();
 
-    if tenant_id.is_empty() {
-        return SocialLoginOutcome::Error(oauth_json_error(400, "tenant_required"));
-    }
     if redirect_uri.is_empty() {
         return SocialLoginOutcome::Error(oauth_json_error(400, "redirect_uri_required"));
     }
@@ -47,6 +44,30 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> SocialLoginOutcome {
     };
 
     let exec = sesame_idam_database::db();
+    let binding = match ClientRegistry::resolve_pre_auth(
+        &req.data.client_id,
+        req.data.x_tenant_id.as_deref(),
+        exec,
+    ) {
+        Ok(binding) => binding,
+        Err(ClientRegistryError::Unknown | ClientRegistryError::NotActive) => {
+            return SocialLoginOutcome::Error(oauth_json_error(401, "invalid_client"));
+        }
+        Err(ClientRegistryError::InvalidPolicy(error)) => {
+            tracing::error!(
+                %error,
+                client_id = %req.data.client_id,
+                "social_login: invalid registered client policy"
+            );
+            return SocialLoginOutcome::Error(oauth_json_error(500, "internal_error"));
+        }
+        Err(ClientRegistryError::Db(error)) => {
+            tracing::error!(%error, "social_login: client registry lookup failed");
+            return SocialLoginOutcome::Error(oauth_json_error(500, "internal_error"));
+        }
+    };
+    let tenant_id = binding.tenant_id.as_str();
+
     if let Err(e) = TenantService::require_active(tenant_id, exec) {
         return SocialLoginOutcome::Error(tenant_http_error(&e));
     }
@@ -71,6 +92,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> SocialLoginOutcome {
 
     let state_payload = OAuthState {
         tenant_id: tenant_id.to_string(),
+        client_id: Some(binding.client_id.clone()),
         provider: provider.as_str().to_string(),
         redirect_uri: redirect_uri.to_string(),
     };

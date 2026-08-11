@@ -13,7 +13,7 @@ use http::Method;
 use sesame_idam_identity_login_service::controllers::social_login::{self, SocialLoginOutcome};
 use sesame_idam_identity_login_service_gen::handlers::social_login::Request as SocialRequest;
 
-use crate::common::{ensure_active_tenant, FIXTURE_TENANT};
+use crate::common::{ensure_active_tenant, ensure_public_login_client, FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
 static INIT: Once = Once::new();
 
@@ -50,7 +50,8 @@ fn db_available() -> bool {
 }
 
 fn social_request(
-    tenant: &str,
+    client_id: &str,
+    tenant: Option<&str>,
     provider: &str,
     redirect_uri: &str,
 ) -> TypedHandlerRequest<SocialRequest> {
@@ -64,7 +65,8 @@ fn social_request(
         )]),
         query_params: std::collections::HashMap::new(),
         data: SocialRequest {
-            x_tenant_id: Some(tenant.to_string()),
+            client_id: client_id.to_string(),
+            x_tenant_id: tenant.map(str::to_string),
             provider: provider.to_string(),
             redirect_uri: redirect_uri.to_string(),
             scope: None,
@@ -88,7 +90,8 @@ fn social_login_rejects_unsupported_provider() {
     }
     ensure_active_tenant(FIXTURE_TENANT);
     let (status, body) = error_body(social_login::handle(social_request(
-        FIXTURE_TENANT,
+        FIXTURE_WEB_CLIENT,
+        Some(FIXTURE_TENANT),
         "not-a-provider",
         "https://app.example/callback",
     )));
@@ -104,12 +107,29 @@ fn social_login_rejects_empty_redirect() {
     }
     ensure_active_tenant(FIXTURE_TENANT);
     let (status, body) = error_body(social_login::handle(social_request(
-        FIXTURE_TENANT,
+        FIXTURE_WEB_CLIENT,
+        Some(FIXTURE_TENANT),
         "google",
         "",
     )));
     assert_eq!(status, 400);
     assert_eq!(body["error"], "redirect_uri_required");
+}
+
+#[test]
+fn social_login_rejects_invalid_client() {
+    if !db_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+    let (status, body) = error_body(social_login::handle(social_request(
+        "not-a-registered-client",
+        None,
+        "google",
+        "https://app.example/callback",
+    )));
+    assert_eq!(status, 401);
+    assert_eq!(body["error"], "invalid_client");
 }
 
 #[test]
@@ -120,8 +140,10 @@ fn social_login_unconfigured_provider_is_unavailable() {
     }
     let tenant = format!("social-{}", uuid::Uuid::new_v4().simple());
     ensure_active_tenant(&tenant);
+    let client_id = ensure_public_login_client(&tenant);
     let (status, body) = error_body(social_login::handle(social_request(
-        &tenant,
+        &client_id,
+        None,
         "google",
         "https://app.example/callback",
     )));

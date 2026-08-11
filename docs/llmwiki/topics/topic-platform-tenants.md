@@ -40,7 +40,12 @@ Migrations: `migrations/identity-login-service/20260714102157_{tenants,tenant_oa
 | Unknown slug | 404 | `tenant_unknown` |
 | Non-active | 403 | `tenant_not_active` |
 
-**Wired:** `auth_login`, `auth_register`, `signup_validate`, `social_login`, `social_callback`.
+**Wired (tenant gate):** `auth_login`, `auth_register`, `signup_validate`,
+`social_login`, `social_callback`, `auth_forgot_password`, `auth_reset_password`.
+
+**Pre-auth north–south tenant bind:** public callers use registered `client_id`
+via `ClientRegistry::resolve_pre_auth` (optional legacy `X-Tenant-ID` must match).
+`social_callback` takes tenant from OAuth state minted at `social_login` start.
 
 ## OAuth resolution
 

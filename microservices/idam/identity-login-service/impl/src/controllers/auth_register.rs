@@ -33,7 +33,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let email = req.data.email.trim().to_lowercase();
     let exec = sesame_idam_database::db();
 
-    let binding = match ClientRegistry::resolve_active(&req.data.client_id, exec) {
+    let binding = match ClientRegistry::resolve_pre_auth(
+        &req.data.client_id,
+        req.data.x_tenant_id.as_deref(),
+        exec,
+    ) {
         Ok(binding) => binding,
         Err(ClientRegistryError::Unknown | ClientRegistryError::NotActive) => {
             return invalid_client();
@@ -51,14 +55,6 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             return internal_error();
         }
     };
-    if req
-        .data
-        .x_tenant_id
-        .as_deref()
-        .is_some_and(|tenant| tenant.trim() != binding.tenant_id)
-    {
-        return invalid_client();
-    }
     let tenant_id = binding.tenant_id;
 
     if let Err(reason) = password::validate_password_strength(&req.data.password) {

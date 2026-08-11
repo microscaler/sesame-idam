@@ -41,7 +41,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     }
 
     let exec = sesame_idam_database::db();
-    let binding = match ClientRegistry::resolve_active(&req.data.client_id, exec) {
+    let binding = match ClientRegistry::resolve_pre_auth(
+        &req.data.client_id,
+        req.data.x_tenant_id.as_deref(),
+        exec,
+    ) {
         Ok(binding) => binding,
         Err(ClientRegistryError::Unknown | ClientRegistryError::NotActive) => {
             reasons.push("client_invalid".to_string());
@@ -74,20 +78,6 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
             };
         }
     };
-
-    if req
-        .data
-        .x_tenant_id
-        .as_deref()
-        .is_some_and(|tenant| tenant.trim() != binding.tenant_id)
-    {
-        reasons.push("client_invalid".to_string());
-        return Response {
-            allowed: false,
-            reasons: Some(reasons),
-            requires_mfa: Some(false),
-        };
-    }
 
     let tenant_id = binding.tenant_id.as_str();
     match TenantService::require_active(tenant_id, exec) {

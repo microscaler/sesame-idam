@@ -10,6 +10,9 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
+    #[serde(rename = "client_id")]
+    pub client_id: String,
+
     #[serde(rename = "new_password")]
     pub new_password: String,
 

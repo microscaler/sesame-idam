@@ -22,6 +22,7 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::auth_reset_password::Request;
 
 use crate::audit::EMITTER;
+use crate::services::client_registry::{ClientRegistry, ClientRegistryError};
 use crate::services::tenant_gate::tenant_http_error;
 use crate::services::tenant_service::TenantService;
 use crate::services::{abuse_guard, otp, password, user_service::UserService};
@@ -29,9 +30,31 @@ use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
 #[handler(AuthResetPasswordController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let tenant_id = req.data.x_tenant_id.clone().unwrap_or_default();
-
     let exec = sesame_idam_database::db();
+    let binding = match ClientRegistry::resolve_pre_auth(
+        &req.data.client_id,
+        req.data.x_tenant_id.as_deref(),
+        exec,
+    ) {
+        Ok(binding) => binding,
+        Err(ClientRegistryError::Unknown | ClientRegistryError::NotActive) => {
+            return invalid_client();
+        }
+        Err(ClientRegistryError::InvalidPolicy(error)) => {
+            tracing::error!(
+                %error,
+                client_id = %req.data.client_id,
+                "auth_reset_password: invalid registered client policy"
+            );
+            return internal_error();
+        }
+        Err(ClientRegistryError::Db(error)) => {
+            tracing::error!(%error, "auth_reset_password: client registry lookup failed");
+            return internal_error();
+        }
+    };
+    let tenant_id = binding.tenant_id;
+
     if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
         return tenant_http_error(&e);
     }
@@ -84,6 +107,16 @@ fn invalid_token() -> HttpJson<serde_json::Value> {
         serde_json::json!({
             "error": "invalid_token",
             "error_description": "This reset link is invalid or has expired"
+        }),
+    )
+}
+
+fn invalid_client() -> HttpJson<serde_json::Value> {
+    HttpJson::new(
+        401,
+        serde_json::json!({
+            "error": "invalid_client",
+            "error_description": "Unknown or inactive client"
         }),
     )
 }
