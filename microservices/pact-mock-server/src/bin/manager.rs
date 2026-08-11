@@ -183,6 +183,10 @@ fn get_providers_from_configmap(configmap_path: &Path) -> Result<HashMap<String,
         ("Sesame-SSO-Broker", "Sesame-SSO-Broker.json"),
         ("Google-OAuth-Mock", "Sesame-OAuth-Google.json"),
         ("Microsoft-OAuth-Mock", "Sesame-OAuth-Microsoft.json"),
+        (
+            "identity-login-service",
+            "Sesame-Identity-Login-PreAuth.json",
+        ),
     ];
 
     for (provider_name, pact_file) in provider_mappings {

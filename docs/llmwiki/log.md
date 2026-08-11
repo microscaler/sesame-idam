@@ -1137,3 +1137,17 @@ No runtime code changed and no build or test command was run.
 - Client `social_login_start` injects `client_id`, omits `X-Tenant-ID`.
 - Verified: login nextest social/password_reset/signup_validate/client_registry
   (18/18); client `contract_sync` binary.
+
+## [2026-08-11] Series A | Pact HTTP contracts for P0/P1 pre-auth
+
+- Added consumer→provider Pact JSON
+  `pact-mock-server/pacts/Sesame-Identity-Login-PreAuth.json`
+  (consumer `sesame-idam-client`, provider `identity-login-service`):
+  forgot/reset/social without `X-Tenant-ID`.
+- Provider verify: `bdd/pact_preauth_provider.rs` replays interactions over real
+  HTTP (`SESAME_PACT_PROVIDER_BASE` or north edge).
+- Consumer live: `sesame-idam-client/tests/pact_preauth_live.rs` + typed
+  `forgot_password` / `reset_password`; `contract_sync` asserts client_id on
+  forgot/reset/social OpenAPI.
+- Publish wiring: Tilt ConfigMap + pact-manager mapping.
+- Verified against local login binary on `:18081` (2/2 provider, 6/6 consumer).

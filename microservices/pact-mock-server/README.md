@@ -64,13 +64,30 @@ Point Sesame OAuth client URLs at the broker in test env:
 
 ## Pact contracts
 
-| File | Provider name |
-|------|---------------|
-| `pacts/Sesame-SSO-Broker.json` | `Sesame-SSO-Broker` |
-| `pacts/Sesame-OAuth-Google.json` | `Google-OAuth-Mock` |
-| `pacts/Sesame-OAuth-Microsoft.json` | `Microsoft-OAuth-Mock` |
+| File | Consumer | Provider | Direction |
+|------|----------|----------|-----------|
+| `pacts/Sesame-SSO-Broker.json` | sesame-identity-login-service | `Sesame-SSO-Broker` | login → IdP mock |
+| `pacts/Sesame-OAuth-Google.json` | sesame-identity-login-service | `Google-OAuth-Mock` | login → IdP mock |
+| `pacts/Sesame-OAuth-Microsoft.json` | sesame-identity-login-service | `Microsoft-OAuth-Mock` | login → IdP mock |
+| `pacts/Sesame-Identity-Login-PreAuth.json` | `sesame-idam-client` | `identity-login-service` | client → login (Series A P0/P1) |
 
 The `manager` sidecar publishes these when a Pact broker + ConfigMap are present (same pattern as Hauliage Searates mocks).
+
+### Pre-auth north–south (`Sesame-Identity-Login-PreAuth.json`)
+
+Documents public forgot/reset/social-start without `X-Tenant-ID` (tenant via `client_id`).
+
+Provider verification (live HTTP against the API edge):
+
+```bash
+cd microservices && cargo nextest run -p sesame_idam_identity_login_service pact_preauth_provider
+```
+
+Consumer live checks (typed client):
+
+```bash
+cd ../sesame-idam-client && cargo nextest run -E 'binary(pact_preauth_live)'
+```
 
 ## Tests
 

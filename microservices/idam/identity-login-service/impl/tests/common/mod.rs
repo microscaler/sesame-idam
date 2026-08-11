@@ -72,6 +72,95 @@ pub fn ensure_active_tenant(slug: &str) {
     }
 }
 
+/// Ensure the fixture SPA client [`FIXTURE_WEB_CLIENT`] exists for [`FIXTURE_TENANT`].
+///
+/// Used by Pact provider verification when the LAN/demo DB is missing seed rows.
+///
+/// # Panics
+///
+/// Panics when the registry upsert fails.
+pub fn ensure_fixture_web_client() {
+    use sesame_idam_identity_login_service::services::client_registry::ClientRegistry;
+
+    ensure_active_tenant(FIXTURE_TENANT);
+    let exec = sesame_idam_database::db();
+    if ClientRegistry::resolve_active(FIXTURE_WEB_CLIENT, exec).is_ok() {
+        return;
+    }
+
+    // Fresh UUID — demo DBs may already use seed PKs for other client_ids.
+    let _ = ensure_public_login_client_named(FIXTURE_TENANT, FIXTURE_WEB_CLIENT);
+}
+
+/// Idempotent public client insert for a fixed `client_id` (Pact provider state).
+fn ensure_public_login_client_named(tenant: &str, client_id: &str) -> String {
+    let client_pk = Uuid::new_v4();
+    let redirect = "https://app.example.com/auth/callback";
+
+    sesame_idam_database::with_pre_auth_tenant(tenant, |exec| {
+        exec.execute_values(
+            "INSERT INTO sesame_idam.relying_party_clients (
+                id, client_id, tenant_slug, portal, application_id, client_type,
+                token_endpoint_auth_method, pkce_s256_required, authority_class,
+                status, created_at, updated_at
+             ) VALUES (
+                $1, $2, $3, 'frontend', 'frontend', 'public',
+                'none', true, 'tenant', 'active', NOW(), NOW()
+             )
+             ON CONFLICT (client_id) DO UPDATE SET
+                status = 'active',
+                updated_at = NOW()",
+            &Values(vec![
+                client_pk.into(),
+                client_id.to_string().into(),
+                tenant.into(),
+            ]),
+        )?;
+
+        // Best-effort redirect/capability rows; ignore duplicates.
+        let _ = exec.execute_values(
+            "INSERT INTO sesame_idam.relying_party_client_redirect_uris (
+                id, relying_party_client_id, kind, uri, created_at
+             )
+             SELECT $1, id, 'login', $2, NOW()
+             FROM sesame_idam.relying_party_clients WHERE client_id = $3
+             ON CONFLICT DO NOTHING",
+            &Values(vec![
+                Uuid::new_v4().into(),
+                redirect.into(),
+                client_id.to_string().into(),
+            ]),
+        );
+
+        for (kind, value) in [
+            ("grant", "authorization_code"),
+            ("grant", "refresh_token"),
+            ("response_type", "code"),
+            ("scope", "openid"),
+            ("scope", "profile"),
+            ("scope", "email"),
+            ("audience", "sesame-idam"),
+        ] {
+            let _ = exec.execute_values(
+                "INSERT INTO sesame_idam.relying_party_client_capabilities (
+                    id, relying_party_client_id, kind, value, created_at
+                 )
+                 SELECT $1, id, $2, $3, NOW()
+                 FROM sesame_idam.relying_party_clients WHERE client_id = $4
+                 ON CONFLICT DO NOTHING",
+                &Values(vec![
+                    Uuid::new_v4().into(),
+                    kind.into(),
+                    value.into(),
+                    client_id.to_string().into(),
+                ]),
+            );
+        }
+        Ok(client_id.to_string())
+    })
+    .unwrap_or_else(|e| panic!("ensure_public_login_client_named({tenant},{client_id}): {e}"))
+}
+
 /// Create a public OIDC client bound to `tenant` so classic `/auth/login`
 /// (which resolves tenant from `client_id`) can succeed for synthetic tenants.
 ///

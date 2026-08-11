@@ -801,6 +801,7 @@ _cmd_pact_configmap = (
     + '--from-file=Sesame-SSO-Broker.json=' + _PACT_MOCK_DIR + '/pacts/Sesame-SSO-Broker.json '
     + '--from-file=Sesame-OAuth-Google.json=' + _PACT_MOCK_DIR + '/pacts/Sesame-OAuth-Google.json '
     + '--from-file=Sesame-OAuth-Microsoft.json=' + _PACT_MOCK_DIR + '/pacts/Sesame-OAuth-Microsoft.json '
+    + '--from-file=Sesame-Identity-Login-PreAuth.json=' + _PACT_MOCK_DIR + '/pacts/Sesame-Identity-Login-PreAuth.json '
     + '--dry-run=client -o yaml'
 )
 k8s_yaml(local(_cmd_pact_configmap))

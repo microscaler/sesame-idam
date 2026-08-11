@@ -1,0 +1,130 @@
+{
+  "consumer": {
+    "name": "sesame-idam-client"
+  },
+  "provider": {
+    "name": "identity-login-service"
+  },
+  "interactions": [
+    {
+      "description": "forgot password without X-Tenant-ID binds tenant via client_id",
+      "providerState": "registered public client acme-web exists for tenant acme",
+      "request": {
+        "method": "POST",
+        "path": "/auth/password/forgot",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "client_id": "acme-web",
+          "email": "pact-unknown@example.com"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "success": true,
+          "message": "If the account exists, a reset link has been sent"
+        }
+      }
+    },
+    {
+      "description": "forgot password rejects unknown client_id without disclosing tenant",
+      "providerState": "no registered client named not-a-registered-client",
+      "request": {
+        "method": "POST",
+        "path": "/auth/password/forgot",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "client_id": "not-a-registered-client",
+          "email": "anyone@example.com"
+        }
+      },
+      "response": {
+        "status": 401,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "error": "invalid_client"
+        }
+      }
+    },
+    {
+      "description": "reset password with invalid token without X-Tenant-ID",
+      "providerState": "registered public client acme-web exists for tenant acme",
+      "request": {
+        "method": "POST",
+        "path": "/auth/password/reset",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "client_id": "acme-web",
+          "token": "pact-invalid-or-expired-reset-token",
+          "new_password": "BrandNewP@ss456!"
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "error": "invalid_token"
+        }
+      }
+    },
+    {
+      "description": "social login start rejects unknown client_id without X-Tenant-ID",
+      "providerState": "no registered client named not-a-registered-client",
+      "request": {
+        "method": "GET",
+        "path": "/auth/social/google/login",
+        "query": "client_id=not-a-registered-client&redirect_uri=https%3A%2F%2Fapp.example%2Fcallback"
+      },
+      "response": {
+        "status": 401,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "error": "invalid_client"
+        }
+      }
+    },
+    {
+      "description": "social login start rejects unsupported provider with registered client_id",
+      "providerState": "registered public client acme-web exists for tenant acme",
+      "request": {
+        "method": "GET",
+        "path": "/auth/social/not-a-provider/login",
+        "query": "client_id=acme-web&redirect_uri=https%3A%2F%2Fapp.example%2Fcallback"
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "error": "unsupported_provider"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "2.0.0"
+    },
+    "sesame": {
+      "series": "A",
+      "slice": "P0-P1-preauth-client-id",
+      "note": "Public north-south: tenant from client_id; X-Tenant-ID omitted"
+    }
+  }
+}

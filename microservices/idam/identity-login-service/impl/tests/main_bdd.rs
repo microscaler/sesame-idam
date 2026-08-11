@@ -18,6 +18,7 @@ pub mod bdd {
     pub mod oidc_live_api;
     pub mod oidc_protocol;
     pub mod otp_caps;
+    pub mod pact_preauth_provider;
     pub mod password_reset;
     pub mod phone_otp;
     pub mod pii_entitlements;
