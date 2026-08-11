@@ -142,7 +142,15 @@ fn tenant_consumer_freezes_transport_schemas() {
         .and_then(|c| c.get("schemas"))
         .and_then(Value::as_mapping)
         .expect("components.schemas");
-    for schema in ["TokenResponse", "ErrorObject", "MembershipPage"] {
+    for schema in [
+        "TokenResponse",
+        "ErrorObject",
+        "MembershipPage",
+        "RegisterRequest",
+        "InvitationCreated",
+        "OrganizationSummary",
+        "InvitationPreview",
+    ] {
         assert!(
             schemas.contains_key(&Value::String(schema.into())),
             "missing schema {schema}"
@@ -153,10 +161,58 @@ fn tenant_consumer_freezes_transport_schemas() {
         .and_then(|s| s.get("required"))
         .and_then(Value::as_sequence)
         .expect("TokenResponse.required");
-    for field in ["access_token", "expires_in", "token_type", "user_id"] {
+    for field in [
+        "access_token",
+        "expires_in",
+        "token_type",
+        "user_id",
+        "refresh_token",
+    ] {
         assert!(
             token.iter().any(|v| v.as_str() == Some(field)),
             "TokenResponse must require {field}"
+        );
+    }
+
+    let register_required = schemas
+        .get(&Value::String("RegisterRequest".into()))
+        .and_then(|s| s.get("required"))
+        .and_then(Value::as_sequence)
+        .expect("RegisterRequest.required");
+    for field in ["client_id", "email", "password"] {
+        assert!(
+            register_required.iter().any(|v| v.as_str() == Some(field)),
+            "RegisterRequest must require {field}"
+        );
+    }
+    assert!(
+        !register_required
+            .iter()
+            .any(|v| matches!(v.as_str(), Some("first_name" | "last_name"))),
+        "RegisterRequest must not require first_name/last_name"
+    );
+
+    let invite = schemas
+        .get(&Value::String("InvitationCreated".into()))
+        .and_then(|s| s.get("required"))
+        .and_then(Value::as_sequence)
+        .expect("InvitationCreated.required");
+    for field in ["success", "invite_id", "invite_token"] {
+        assert!(
+            invite.iter().any(|v| v.as_str() == Some(field)),
+            "InvitationCreated must require {field}"
+        );
+    }
+
+    let org = schemas
+        .get(&Value::String("OrganizationSummary".into()))
+        .and_then(|s| s.get("required"))
+        .and_then(Value::as_sequence)
+        .expect("OrganizationSummary.required");
+    for field in ["id", "name", "tenant_id"] {
+        assert!(
+            org.iter().any(|v| v.as_str() == Some(field)),
+            "OrganizationSummary must require {field}"
         );
     }
 }

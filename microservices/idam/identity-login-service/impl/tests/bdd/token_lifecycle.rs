@@ -110,13 +110,14 @@ fn register_request(email: &str, password: &str) -> TypedHandlerRequest<Register
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: RegisterRequest {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             first_name: Some("Lifecycle".to_string()),
             last_name: Some("Test".to_string()),
             password: password.to_string(),
             phone: None,
             username: None,
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     }
@@ -167,7 +168,7 @@ fn logout_request(refresh_token: &str) -> TypedHandlerRequest<LogoutRequest> {
         query_params: std::collections::HashMap::new(),
         data: LogoutRequest {
             refresh_token: Some(refresh_token.to_string()),
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     }
@@ -199,6 +200,7 @@ fn userinfo_request(access_token: &str) -> HandlerRequest {
         handler_name: "oauth_userinfo".to_string(),
         path_params: ParamVec::new(),
         query_params: ParamVec::new(),
+        raw_query: None,
         headers,
         cookies: HeaderVec::new(),
         body: None,

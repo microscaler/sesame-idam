@@ -234,7 +234,7 @@ fn capped_send_response_indistinguishable() {
         query_params: std::collections::HashMap::new(),
         data: EmailOtpRequest {
             email: email.to_string(),
-            x_tenant_id: tenant.to_string(),
+            x_tenant_id: Some(tenant.to_string()),
         },
         jwt_claims: None,
     };

@@ -33,7 +33,7 @@ use sesame_idam_identity_login_service_gen::handlers::magic_link_send::Request a
 use sesame_idam_identity_login_service_gen::handlers::magic_link_verify::Request as MagicVerifyRequest;
 use sesame_idam_identity_login_service_gen::handlers::verify_email_otp::Request as OtpVerifyRequest;
 
-use crate::common::ensure_active_tenant;
+use crate::common::{ensure_active_tenant, FIXTURE_WEB_CLIENT};
 
 const TEST_TENANT: &str = "email-e2e-tenant";
 const PASSWORD: &str = "SecureP@ss123!";
@@ -134,13 +134,14 @@ fn register(email: &str) {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: RegisterRequest {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             first_name: None,
             last_name: None,
             password: PASSWORD.to_string(),
             phone: None,
             username: None,
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     });
@@ -156,7 +157,7 @@ fn request_otp(email: &str) -> brrtrouter::typed::HttpJson<serde_json::Value> {
         query_params: std::collections::HashMap::new(),
         data: OtpSendRequest {
             email: email.to_string(),
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     })
@@ -171,7 +172,7 @@ fn request_magic_link(email: &str) -> brrtrouter::typed::HttpJson<serde_json::Va
         query_params: std::collections::HashMap::new(),
         data: MagicSendRequest {
             email: email.to_string(),
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     })
@@ -187,7 +188,7 @@ fn verify_otp(email: &str, code: &str) -> brrtrouter::typed::HttpJson<serde_json
         data: OtpVerifyRequest {
             code: code.to_string(),
             email: email.to_string(),
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     })
@@ -202,7 +203,7 @@ fn click_magic_link(token: &str) -> brrtrouter::typed::HttpJson<serde_json::Valu
         query_params: std::collections::HashMap::new(),
         data: MagicVerifyRequest {
             token: token.to_string(),
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     })

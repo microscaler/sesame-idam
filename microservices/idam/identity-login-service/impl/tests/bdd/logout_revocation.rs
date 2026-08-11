@@ -39,7 +39,7 @@ fn logout_request(jti: &str, exp: u64) -> TypedHandlerRequest<LogoutRequest> {
         query_params: std::collections::HashMap::new(),
         data: LogoutRequest {
             refresh_token: None,
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: Some(serde_json::json!({
             "sub": "00000000-0000-0000-0000-000000000001",
@@ -60,6 +60,7 @@ fn logout_http_request(jti: &str, exp: u64) -> HandlerRequest {
         handler_name: "auth_logout".to_string(),
         path_params: ParamVec::new(),
         query_params: ParamVec::new(),
+        raw_query: None,
         headers,
         cookies: HeaderVec::new(),
         body: Some(serde_json::json!({})),

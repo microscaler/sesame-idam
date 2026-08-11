@@ -181,13 +181,14 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
             path_params: HashMap::new(),
             query_params: HashMap::new(),
             data: RegisterRequest {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
                 email: email.clone(),
                 first_name: None,
                 last_name: None,
                 password: DEMO_PASSWORD.to_string(),
                 phone: None,
                 username: None,
-                x_tenant_id: FIXTURE_TENANT.to_string(),
+                x_tenant_id: Some(FIXTURE_TENANT.to_string()),
             },
             jwt_claims: None,
         });

@@ -24,14 +24,10 @@ const DEFAULT_PORTAL: &str = "frontend";
 
 #[handler(SocialCallbackController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let tenant_id = req.data.x_tenant_id.trim();
+    let tenant_hint = req.data.x_tenant_id.as_deref().unwrap_or("").trim();
     let provider_name = req.data.provider.trim();
     let code = req.data.code.trim();
     let state = req.data.state.trim();
-
-    if tenant_id.is_empty() {
-        return oauth_error(400, "tenant_required");
-    }
 
     let Some(provider) = SupportedProvider::parse(provider_name) else {
         return oauth_error(400, "unsupported_provider");
@@ -45,9 +41,12 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         }
     };
 
-    if stored.tenant_id != tenant_id {
+    // Tenant is bound by OAuth state from social_login start. Optional legacy
+    // X-Tenant-ID must match when present (public edges may strip it).
+    if !tenant_hint.is_empty() && tenant_hint != stored.tenant_id {
         return oauth_error(400, "tenant_state_mismatch");
     }
+    let tenant_id = stored.tenant_id.as_str();
     if stored.provider != provider.as_str() {
         return oauth_error(400, "provider_state_mismatch");
     }

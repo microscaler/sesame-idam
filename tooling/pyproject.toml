@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
     # Path from sesame-idam/tooling → microscaler/BRRTRouter/tooling
     "brrtrouter-tooling @ file:../../BRRTRouter/tooling",
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]

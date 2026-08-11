@@ -42,9 +42,8 @@ paths:
 
         If MFA is enabled on the account, returns 202 with MFA verification flow.
 
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant is bound via registered `client_id`. Optional legacy `X-Tenant-ID`
+        must match the client tenant when present; public edges may strip it.'
       operationId: auth_login
       x-public-reason: "pre-authentication: this is how a token is obtained"
       security: []
@@ -199,10 +198,13 @@ paths:
       - &id007
         name: X-Tenant-ID
         in: header
-        required: true
+        required: false
         schema:
           type: string
-        description: Tenant identifier. Routes the request to the correct tenant context for user lookup and authentication.
+        description: >
+          Legacy tenant hint. Pre-auth callers should bind tenant via registered
+          `client_id` (query/body). When present this value must match the client
+          tenant; public edges may strip it.
       x-consumer: frontend
       x-consumer-note: Direct browser call to send OTP to email+phone
       x-brrtrouter-impl: true
@@ -860,16 +862,31 @@ paths:
       tags:
       - Signup
       summary: Validate signup eligibility
-      description: 'Check if email/phone is allowed to register before the user starts filling forms.
+      description: |
+        Check if email/phone is allowed to register before the user starts filling forms.
 
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant is bound via registered `client_id` (same as login/register). Optional
+        legacy `X-Tenant-ID` must match the client tenant when present; public edges
+        may strip it.
       operationId: signup_validate
       x-brrtrouter-impl: true
       x-public-reason: "pre-authentication UX pre-check; creates no state"
       security: []
       parameters:
-      - *id007
+      - name: client_id
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description: Registered public client; determines tenant and application.
+      - name: X-Tenant-ID
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Legacy tenant hint. Public callers use client_id; when present this value must match the registered client tenant.
       - name: email
         in: query
         required: false
@@ -920,24 +937,27 @@ paths:
       tags:
       - SocialLogin
       summary: Exchange OAuth provider callback for tokens
-      description: 'Step 2 of social login. Receives the provider''s authorization code
-
+      description: |
+        Step 2 of social login. Receives the provider's authorization code
         (from OAuth redirect), exchanges it for tokens, and completes login.
 
-        For GitHub: exchanges the GitHub code for user profile + access tokens.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant should match the OAuth state established at social login start.
+        Optional legacy `X-Tenant-ID` must match that state when present; public
+        edges may strip it.
       operationId: social_callback
+      x-public-reason: "pre-authentication: completes the redirect flow"
+      security: []
       parameters:
       - &id033
         name: X-Tenant-ID
         in: header
-        required: true
+        required: false
         schema:
           type: string
-        description: Tenant identifier. Required for resolving the user to the correct tenant context.
+        description: >
+          Legacy tenant hint. Prefer credential-derived tenant (registered client,
+          OAuth state, or verified token). When present this value must match;
+          public edges may strip it.
       - name: provider
         in: path
         required: true
@@ -1004,16 +1024,17 @@ paths:
       tags:
       - SocialLogin
       summary: Initiate OAuth login with provider
-      description: 'Redirects the user to the OAuth provider''s login page.
+      description: |
+        Redirects the user to the OAuth provider's login page.
 
         Providers: google, github, linkedin, facebook, apple, microsoft, or custom.
 
-        For GitHub specifically: used by hosted platform login flows.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Tenant is currently accepted via optional legacy `X-Tenant-ID` (and stored
+        in OAuth state for the callback). Prefer registering a `client_id` bind in
+        a follow-up; public edges may strip the header.
       operationId: social_login
+      x-public-reason: "pre-authentication: start of the redirect flow"
+      security: []
       parameters:
       - *id007
       - name: provider

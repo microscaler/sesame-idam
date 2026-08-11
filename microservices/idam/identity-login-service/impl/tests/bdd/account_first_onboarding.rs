@@ -20,7 +20,7 @@ use sesame_idam_identity_login_service_gen::handlers::set_active_organization::R
 
 use super::token_lifecycle::{assert_token_response_shape, infra_available, unique_email};
 
-use crate::common::ensure_active_tenant;
+use crate::common::{ensure_active_tenant, FIXTURE_WEB_CLIENT};
 
 const TEST_TENANT: &str = "bdd-account-first-tenant";
 
@@ -32,13 +32,14 @@ fn register_request(email: &str, password: &str) -> TypedHandlerRequest<Register
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: RegisterRequest {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             first_name: Some("Account".to_string()),
             last_name: Some("First".to_string()),
             password: password.to_string(),
             phone: None,
             username: None,
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: Some(TEST_TENANT.to_string()),
         },
         jwt_claims: None,
     }

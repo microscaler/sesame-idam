@@ -31,7 +31,7 @@ impl HandlerResponseOutput for SocialLoginOutcome {
 
 #[handler(SocialLoginController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> SocialLoginOutcome {
-    let tenant_id = req.data.x_tenant_id.trim();
+    let tenant_id = req.data.x_tenant_id.as_deref().unwrap_or("").trim();
     let provider_name = req.data.provider.trim();
     let redirect_uri = req.data.redirect_uri.trim();
 

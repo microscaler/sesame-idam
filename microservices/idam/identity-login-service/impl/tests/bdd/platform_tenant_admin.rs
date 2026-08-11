@@ -1,6 +1,7 @@
 //! Platform tenant admin BDD: mint → register → login; suspend blocks auth;
 //! OAuth rotate bumps `config_version` on GET.
 
+use crate::common::FIXTURE_WEB_CLIENT;
 use std::collections::HashMap;
 use std::net::TcpStream;
 use std::sync::Once;
@@ -162,13 +163,14 @@ fn register_request(
         path_params: HashMap::new(),
         query_params: HashMap::new(),
         data: RegisterRequest {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             first_name: None,
             last_name: None,
             password: password.to_string(),
             phone: None,
             username: None,
-            x_tenant_id: tenant.to_string(),
+            x_tenant_id: Some(tenant.to_string()),
         },
         jwt_claims: None,
     }

@@ -86,13 +86,14 @@ fn register_request(
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: RegisterRequest {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             first_name: None,
             last_name: None,
             password: password.to_string(),
             phone: None,
             username: None,
-            x_tenant_id: tenant.to_string(),
+            x_tenant_id: Some(tenant.to_string()),
         },
         jwt_claims: None,
     }

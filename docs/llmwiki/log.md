@@ -1090,3 +1090,38 @@ No runtime code changed and no build or test command was run.
 - Paired PRDs updated: BFF is orchestration + error surface only; UI hide
   of Owner remove remains UX-only.
 - Live: Admin DELETE Owner via Loadlinker BFF → 403 `cannot_remove_owner`.
+
+
+## [2026-08-04] Series A | register client_id + accept-invite dogfood green
+
+- Register: OpenAPI/handler bind tenant via client_id (no required X-Tenant-ID); client 56c9e16; login 79bcf15.
+- Accept invite: RLS with_pre_auth_tenant, AcceptInvitationResponse 200 schema, no pre-accept token ver bump; be917ea.
+- Hauliage BFF: join existing company profile on 409; Onboarding ?token= + profile land; 00e08b82.
+- Verified: register -> invite -> accept -> JWT org_id via BFF 200.
+
+## [2026-08-11] Series A P4 | tenant-consumer OpenAPI 1.1.0 lockstep
+
+- Aligned `openapi/idam/tenant-consumer/openapi.yaml` with live login/org-mgmt dogfood shapes:
+  register `client_id` + optional names; `InvitationCreated` (`invite_id`/`invite_token`);
+  `OrganizationSummary` requires `tenant_id`; preview `valid`/`expired`.
+- Bumped public API `info.version` to `1.1.0`; `sesame-idam-client` `SUPPORTED_TENANT_CONSUMER_API` lockstep.
+- Extended `tenant_consumer_live_contract` + client `contract_sync` schema assertions.
+- `python -m sesame_idam_tooling.contract_sync` remains green (profile/fixture versions unchanged).
+
+## [2026-08-11] Pre-auth cleanup + may_minihttp lock sync
+
+- Root cause of Rust contract compile break: sesame + client Cargo.lock pinned
+  `may_minihttp` at `fbf2362` (pre-streaming); BRRTRouter needs `7f91f65`
+  (`into_stream` / `begin_chunked_stream`). Updated both locks; added `sse: None`
+  on sesame-common `HandlerResponse` constructors.
+- Pre-auth: shared OpenAPI `X-Tenant-ID` anchors now optional; `signup_validate`
+  binds tenant via required `client_id` query (register/login pattern); social
+  callback derives tenant from OAuth state when header stripped; client injects
+  `client_id` on signup validate.
+- Verified: signup_validate + tenant_consumer BDD (10/10), client contract_sync (3/3).
+
+## [2026-08-11] contribute | Epic 11 QUERY in Askama config CORS defaults
+
+- Root cause: gen/config overwritten from templates/config.yaml which omitted QUERY; builder/RouteCorsConfig defaults also omitted QUERY while CorsMiddleware::default/permissive already had it.
+- Fix: default_cors_allowed_methods() shared helper; template + builder + RouteCorsConfig; docs/CORS.md + consumer-guide Allow-Methods aligned; tests for template/builder/route defaults.
+- OpenAPI query: parsing already complete — not an OpenAPI gap for CORS methods.

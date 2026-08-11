@@ -221,6 +221,7 @@ impl Middleware for JwtAuthMiddleware {
                             "application/json".to_string()
                         )],
                         body,
+                        sse: None,
                     });
                 }
 
@@ -239,6 +240,7 @@ impl Middleware for JwtAuthMiddleware {
                         "application/json".to_string()
                     )],
                     body,
+                    sse: None,
                 })
             }
         }

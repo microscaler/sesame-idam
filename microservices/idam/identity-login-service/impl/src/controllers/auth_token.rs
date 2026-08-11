@@ -896,7 +896,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     );
     let _guard = span.enter();
 
-    let tenant_id = req.data.x_tenant_id.clone();
+    let tenant_id = req.data.x_tenant_id.clone().unwrap_or_default();
     let emit_audit = |success: bool, reason: &str| {
         let event_type = if success {
             AuditEventType::JwtIssued
@@ -1092,7 +1092,7 @@ fn handle_client_credentials(req: &Request) -> Result<Response, ErrorResponse> {
         .as_deref()
         .filter(|s| !s.is_empty())
         .ok_or_else(|| invalid_client("client_secret is required"))?;
-    let tenant_id = req.x_tenant_id.trim();
+    let tenant_id = req.x_tenant_id.as_deref().unwrap_or("").trim();
     if tenant_id.is_empty() {
         return Err(invalid_client("X-Tenant-ID header is required"));
     }
@@ -1195,7 +1195,7 @@ mod tests {
     fn test_client_credentials_requires_client_id_and_secret() {
         let req = Request {
             grant_type: "client_credentials".to_string(),
-            x_tenant_id: "tenant_abc".to_string(),
+            x_tenant_id: Some("tenant_abc".to_string()),
             ..base_request()
         };
         let err = handle_client_credentials(&req).unwrap_err();
@@ -1205,7 +1205,7 @@ mod tests {
         let req = Request {
             grant_type: "client_credentials".to_string(),
             client_id: Some("opengroupware-admin-api".to_string()),
-            x_tenant_id: "tenant_abc".to_string(),
+            x_tenant_id: Some("tenant_abc".to_string()),
             ..base_request()
         };
         let err = handle_client_credentials(&req).unwrap_err();
@@ -1227,7 +1227,7 @@ mod tests {
             scope: None,
             subject_token: None,
             subject_token_type: None,
-            x_tenant_id: String::new(),
+            x_tenant_id: None,
         }
     }
 
@@ -1412,7 +1412,7 @@ mod tests {
             actor_token: Some(default_actor_token()),
             scope: Some("profile:read".to_string()),
             subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
-            x_tenant_id: "tenant_abc".to_string(),
+            x_tenant_id: Some("tenant_abc".to_string()),
             ..base_request()
         };
         let result = handle_token_exchange(&req).unwrap();
@@ -1429,7 +1429,7 @@ mod tests {
             actor_token: Some(default_actor_token()),
             scope: Some("profile:read".to_string()),
             subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
-            x_tenant_id: "tenant_abc".to_string(),
+            x_tenant_id: Some("tenant_abc".to_string()),
             ..base_request()
         };
         let result = handle_token_exchange(&req).unwrap();
@@ -1457,7 +1457,7 @@ mod tests {
             actor_token: Some(default_actor_token()),
             scope: Some("profile:read".to_string()),
             subject_token_type: Some("urn:ietf:params:oauth:token-type:access_token".to_string()),
-            x_tenant_id: "tenant_abc".to_string(),
+            x_tenant_id: Some("tenant_abc".to_string()),
             ..base_request()
         };
         let err = handle_token_exchange(&req).unwrap_err();
@@ -1473,7 +1473,7 @@ mod tests {
             actor_token: None,
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
-            x_tenant_id: "tenant_abc".to_string(),
+            x_tenant_id: Some("tenant_abc".to_string()),
             ..base_request()
         };
         let result = handle_token_exchange(&req).unwrap();
@@ -1490,7 +1490,7 @@ mod tests {
             actor_token: None,
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
-            x_tenant_id: "tenant_abc".to_string(),
+            x_tenant_id: Some("tenant_abc".to_string()),
             ..base_request()
         };
         let result = handle_token_exchange(&req).unwrap();
@@ -1522,7 +1522,7 @@ mod tests {
             actor_token: Some("actor_token".to_string()),
             scope: None,
             subject_token_type: None,
-            x_tenant_id: "tenant_abc".to_string(),
+            x_tenant_id: Some("tenant_abc".to_string()),
             ..base_request()
         };
         let err = handle_token_exchange(&req).unwrap_err();
@@ -1964,7 +1964,7 @@ mod tests {
             actor_token: Some(actor_jwt),
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
-            x_tenant_id: "tenant_mismatch".to_string(),
+            x_tenant_id: Some("tenant_mismatch".to_string()),
             ..base_request()
         };
 
@@ -1996,7 +1996,7 @@ mod tests {
             actor_token: Some(actor_jwt),
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
-            x_tenant_id: "same-tenant".to_string(),
+            x_tenant_id: Some("same-tenant".to_string()),
             ..base_request()
         };
 
@@ -2084,7 +2084,7 @@ mod tests {
             actor_token: Some(actor_jwt),
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
-            x_tenant_id: "tenant_a".to_string(),
+            x_tenant_id: Some("tenant_a".to_string()),
             ..base_request()
         };
 
@@ -2121,7 +2121,7 @@ mod tests {
             actor_token: Some(actor_jwt),
             scope: Some("profile:read orders:write".to_string()),
             subject_token_type: None,
-            x_tenant_id: "tenant_a".to_string(),
+            x_tenant_id: Some("tenant_a".to_string()),
             ..base_request()
         };
 
@@ -2159,7 +2159,7 @@ mod tests {
             actor_token: Some(actor_jwt),
             scope: Some("profile:read".to_string()),
             subject_token_type: None,
-            x_tenant_id: "tenant_a".to_string(),
+            x_tenant_id: Some("tenant_a".to_string()),
             ..base_request()
         };
 
@@ -2180,7 +2180,7 @@ mod tests {
             actor_token: None,
             scope: None,
             subject_token_type: None,
-            x_tenant_id: "tenant_a".to_string(),
+            x_tenant_id: Some("tenant_a".to_string()),
             ..base_request()
         };
 
@@ -2211,7 +2211,7 @@ mod tests {
             actor_token: Some(actor_jwt),
             scope: Some("".to_string()),
             subject_token_type: None,
-            x_tenant_id: "tenant_a".to_string(),
+            x_tenant_id: Some("tenant_a".to_string()),
             ..base_request()
         };
 
@@ -2245,7 +2245,7 @@ mod tests {
             actor_token: Some(actor_jwt),
             scope: Some("profile:read orders:write".to_string()),
             subject_token_type: None,
-            x_tenant_id: "tenant_a".to_string(),
+            x_tenant_id: Some("tenant_a".to_string()),
             ..base_request()
         };
 

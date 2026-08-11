@@ -89,13 +89,14 @@ fn authenticate() -> (String, Option<String>) {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: RegisterReq {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.clone(),
             first_name: None,
             last_name: None,
             password: PASSWORD.to_string(),
             phone: None,
             username: None,
-            x_tenant_id: TENANT.to_string(),
+            x_tenant_id: Some(TENANT.to_string()),
         },
         jwt_claims: None,
     });
@@ -138,7 +139,7 @@ fn mint(
             access_token: access_token.to_string(),
             refresh_token,
             redirect_uri: redirect_uri.to_string(),
-            x_tenant_id: TENANT.to_string(),
+            x_tenant_id: Some(TENANT.to_string()),
         },
         jwt_claims: None,
     })
@@ -167,7 +168,7 @@ fn redeem(
             scope: None,
             subject_token: None,
             subject_token_type: None,
-            x_tenant_id: tenant.to_string(),
+            x_tenant_id: Some(tenant.to_string()),
         },
         jwt_claims: None,
     })

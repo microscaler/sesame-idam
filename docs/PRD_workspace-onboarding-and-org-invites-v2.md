@@ -281,7 +281,7 @@ Password for local dogfood: documented in consumer integration wiki (not repeate
 | **P1** | RLS-safe member email resolution | List members returns real emails for seeded users |
 | **P2** | SMTP invite email + Mailpit verification | Invite creates Mailpit message; token still in JSON |
 | **P3** | Accept-invite + active-org token re-issue hardening | Contract tests / BDD green on Kind |
-| **P4** | Align tenant-consumer OpenAPI + conformance fixtures | Consumer contract sync CI green |
+| **P4** | Align tenant-consumer OpenAPI + conformance fixtures | Consumer contract sync CI green — tenant-consumer `1.1.0` locked to live register/invite/accept shapes |
 
 Hauliage phases mirror these in the paired PRD.
 

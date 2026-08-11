@@ -3,6 +3,12 @@
 > Four independent services, each with its own OpenAPI spec.
 > Date: 2026-05-02 (updated)
 
+## OpenAPI version policy
+
+Keep specs at **`openapi: 3.1.0`**. Do **not** bump to `3.2.0` for QUERY alone —
+use path-item `query:` / `x-brrtrouter-query` on 3.1.0. See
+[BRRTRouter OPENAPI_VERSION_SUPPORT.md](../../BRRTRouter/docs/OPENAPI_VERSION_SUPPORT.md).
+
 ## Service Map
 
 | Service | Directory | Spec Files | Base Path | Port |

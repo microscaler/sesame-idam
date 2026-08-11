@@ -21,7 +21,7 @@ use crate::services::tenant_service::TenantService;
 
 #[handler(AuthSessionCodeController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let tenant_id = req.data.x_tenant_id.clone();
+    let tenant_id = req.data.x_tenant_id.clone().unwrap_or_default();
 
     let exec = sesame_idam_database::db();
     if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {

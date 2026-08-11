@@ -1,12 +1,7 @@
 //! Signup validation BDD (D3): `GET /auth/signup/validate` availability pre-check.
 //!
-//! Pure-validation cases (empty/invalid email) run without infra; the
-//! email-taken case needs Postgres and skips otherwise.
-//!
-//! ```bash
-//! ssh ms02 'source ~/.cargo/env && cd ~/Workspace/microscaler/seasame-idam/microservices && \
-//!   cargo test -p sesame_idam_identity_login_service --test main_bdd signup_validate -- --nocapture'
-//! ```
+//! Tenant is bound via registered `client_id`. Pure-validation cases
+//! (empty/invalid email) run without infra; email-taken needs Postgres.
 
 use http::Method;
 
@@ -19,11 +14,11 @@ use sesame_idam_identity_login_service_gen::handlers::signup_validate::{
 
 use super::token_lifecycle::{infra_available, unique_email};
 
-use crate::common::ensure_active_tenant;
+use crate::common::{ensure_active_tenant, ensure_public_login_client};
 
 const TEST_TENANT: &str = "bdd-signup-validate-tenant";
 
-fn validate_request(email: Option<&str>) -> TypedHandlerRequest<ValidateRequest> {
+fn validate_request(client_id: &str, email: Option<&str>) -> TypedHandlerRequest<ValidateRequest> {
     TypedHandlerRequest {
         method: Method::GET,
         path: "/auth/signup/validate".to_string(),
@@ -31,7 +26,8 @@ fn validate_request(email: Option<&str>) -> TypedHandlerRequest<ValidateRequest>
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: ValidateRequest {
-            x_tenant_id: TEST_TENANT.to_string(),
+            client_id: client_id.to_string(),
+            x_tenant_id: None,
             email: email.map(str::to_string),
             phone: None,
         },
@@ -39,7 +35,11 @@ fn validate_request(email: Option<&str>) -> TypedHandlerRequest<ValidateRequest>
     }
 }
 
-fn register_request(email: &str, password: &str) -> TypedHandlerRequest<RegisterRequest> {
+fn register_request(
+    client_id: &str,
+    email: &str,
+    password: &str,
+) -> TypedHandlerRequest<RegisterRequest> {
     TypedHandlerRequest {
         method: Method::POST,
         path: "/auth/register".to_string(),
@@ -47,13 +47,14 @@ fn register_request(email: &str, password: &str) -> TypedHandlerRequest<Register
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: RegisterRequest {
+            client_id: client_id.to_string(),
             email: email.to_string(),
             first_name: Some("Sign".to_string()),
             last_name: Some("Up".to_string()),
             password: password.to_string(),
             phone: None,
             username: None,
-            x_tenant_id: TEST_TENANT.to_string(),
+            x_tenant_id: None,
         },
         jwt_claims: None,
     }
@@ -66,7 +67,7 @@ fn reasons(resp: &ValidateResponse) -> Vec<String> {
 /// Scenario: an empty email is rejected without touching the database.
 #[test]
 fn signup_validate_requires_email() {
-    let resp = signup_validate::handle(validate_request(None));
+    let resp = signup_validate::handle(validate_request("any-client", None));
     assert!(!resp.allowed);
     assert!(reasons(&resp).contains(&"email_required".to_string()));
 }
@@ -75,7 +76,7 @@ fn signup_validate_requires_email() {
 #[test]
 fn signup_validate_rejects_malformed_email() {
     for bad in ["not-an-email", "no@domain", "@example.com", "a@b."] {
-        let resp = signup_validate::handle(validate_request(Some(bad)));
+        let resp = signup_validate::handle(validate_request("any-client", Some(bad)));
         assert!(!resp.allowed, "{bad} should be rejected");
         assert!(
             reasons(&resp).contains(&"email_invalid".to_string()),
@@ -83,6 +84,21 @@ fn signup_validate_rejects_malformed_email() {
             reasons(&resp)
         );
     }
+}
+
+/// Scenario: unknown client_id is rejected before the availability check.
+#[test]
+fn signup_validate_rejects_unknown_client() {
+    if !infra_available() {
+        println!("SKIP: Postgres and/or Redis not available");
+        return;
+    }
+    let resp = signup_validate::handle(validate_request(
+        "not-a-registered-client",
+        Some("fresh@example.com"),
+    ));
+    assert!(!resp.allowed);
+    assert!(reasons(&resp).contains(&"client_invalid".to_string()));
 }
 
 /// Scenario: a fresh, well-formed email is allowed.
@@ -93,7 +109,11 @@ fn signup_validate_allows_fresh_email() {
         return;
     }
     ensure_active_tenant(TEST_TENANT);
-    let resp = signup_validate::handle(validate_request(Some(&unique_email("fresh"))));
+    let client_id = ensure_public_login_client(TEST_TENANT);
+    let resp = signup_validate::handle(validate_request(
+        &client_id,
+        Some(&unique_email("fresh")),
+    ));
     assert!(
         resp.allowed,
         "fresh email should be allowed: {:?}",
@@ -110,11 +130,12 @@ fn signup_validate_flags_taken_email() {
         return;
     }
     ensure_active_tenant(TEST_TENANT);
+    let client_id = ensure_public_login_client(TEST_TENANT);
     let email = unique_email("taken");
-    let reg = auth_register::handle(register_request(&email, "SecureP@ss123!"));
+    let reg = auth_register::handle(register_request(&client_id, &email, "SecureP@ss123!"));
     assert_eq!(reg.status, 201, "register: {:?}", reg.body);
 
-    let resp = signup_validate::handle(validate_request(Some(&email)));
+    let resp = signup_validate::handle(validate_request(&client_id, Some(&email)));
     assert!(!resp.allowed, "taken email must not be allowed");
     assert!(reasons(&resp).contains(&"email_taken".to_string()));
 }

@@ -59,7 +59,7 @@ fn send_request(tenant: &str, phone: &str) -> TypedHandlerRequest<SmsMagicReques
         query_params: std::collections::HashMap::new(),
         data: SmsMagicRequest {
             phone: phone.to_string(),
-            x_tenant_id: tenant.to_string(),
+            x_tenant_id: Some(tenant.to_string()),
         },
         jwt_claims: None,
     }

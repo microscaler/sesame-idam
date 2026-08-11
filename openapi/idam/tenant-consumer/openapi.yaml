@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sesame IDAM — Tenant Consumer API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     **Sole public SDK OpenAPI** for tenant-facing Sesame IDAM operations.
 
@@ -16,6 +16,10 @@ info:
 
     Transport semantics: `docs/standards-first-oidc/transport-policy-v1.md`.
     Platform admin / SCIM / SAML remain in internal service OpenAPI and are out of scope.
+
+    ## 1.1.0
+    Aligned register / invite / accept schemas with live org-mgmt and login
+    service contracts used by dogfood onboarding (Series A P4).
   contact:
     name: Platform / Security
   x-provider-profile: "1.0.0"
@@ -44,6 +48,9 @@ paths:
       tags: [Account]
       operationId: register_user
       summary: Create user account (no organization)
+      description: |
+        Tenant and application are derived from registered `client_id`.
+        Public edges may strip `X-Tenant-ID`; callers must not rely on it.
       x-public-reason: "public signup: reachable before an account exists"
       security: []
       requestBody:
@@ -54,7 +61,7 @@ paths:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
         '201':
-          description: Registered; token may omit organization_id
+          description: Registered; token may omit organization_id (pre-org)
           headers:
             X-RateLimit-Limit:
               $ref: '#/components/headers/X-RateLimit-Limit'
@@ -144,11 +151,11 @@ paths:
               $ref: '#/components/schemas/InviteByEmailRequest'
       responses:
         '200':
-          description: Invitation queued/sent
+          description: Invitation created; Sesame sends magic-link email when SMTP is configured
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InvitationQueued'
+                $ref: '#/components/schemas/InvitationCreated'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -165,13 +172,27 @@ paths:
               $ref: '#/components/schemas/AcceptInvitationRequest'
       responses:
         '200':
-          description: Membership active; client should refresh token for org_id claim
+          description: Membership active; client should call set_active_organization for org_id claim
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrganizationSummary'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Email mismatch or forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorObject'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Account already belongs to an organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorObject'
 
   /invitations/preview:
     get:
@@ -189,7 +210,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Invite still valid
+          description: Invite preview (org name + validity)
           content:
             application/json:
               schema:
@@ -306,10 +327,12 @@ components:
   schemas:
     RegisterRequest:
       type: object
-      required: [client_id, email, password, first_name, last_name]
+      required: [client_id, email, password]
       properties:
         client_id:
           type: string
+          minLength: 1
+          maxLength: 128
           description: Registered public client; determines tenant and application.
         email:
           type: string
@@ -317,14 +340,27 @@ components:
         password:
           type: string
           minLength: 8
+          maxLength: 128
         first_name:
           type: string
+          maxLength: 100
+          nullable: true
         last_name:
           type: string
+          maxLength: 100
+          nullable: true
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          nullable: true
+        phone:
+          type: string
+          nullable: true
 
     TokenResponse:
       type: object
-      required: [access_token, expires_in, token_type, user_id]
+      required: [access_token, expires_in, token_type, refresh_token, user_id]
       properties:
         access_token:
           type: string
@@ -338,11 +374,15 @@ components:
         user_id:
           type: string
           format: uuid
+        refresh_token_expires_in:
+          type: integer
         organization_id:
           type: string
           format: uuid
           nullable: true
-          description: Present when user has an active org context; null/omitted pre-org
+          description: |
+            Present on set_active_organization responses. JWT claim remains `org_id`;
+            null/omitted for pre-organization registration/login.
 
     ErrorObject:
       type: object
@@ -352,6 +392,9 @@ components:
           type: string
         error_description:
           type: string
+        message:
+          type: string
+          description: Human-readable detail (some implementing services use this key)
         request_id:
           type: string
 
@@ -369,12 +412,16 @@ components:
 
     OrganizationSummary:
       type: object
+      required: [id, name, tenant_id]
       properties:
         id:
           type: string
           format: uuid
         name:
           type: string
+        tenant_id:
+          type: string
+          description: Tenant slug for the organization
         metadata:
           type: object
           additionalProperties: true
@@ -416,15 +463,18 @@ components:
           type: string
           description: Tenant-defined role slug
 
-    InvitationQueued:
+    InvitationCreated:
       type: object
+      required: [success, invite_id, invite_token]
       properties:
-        invitation_id:
+        success:
+          type: boolean
+        invite_id:
           type: string
           format: uuid
-        status:
+        invite_token:
           type: string
-          enum: [queued, sent]
+          description: Opaque token for accept-invite (dev/E2E; production delivery via email)
 
     AcceptInvitationRequest:
       type: object
@@ -436,11 +486,11 @@ components:
 
     InvitationPreview:
       type: object
+      required: [organization_name, valid, expired]
       properties:
         organization_name:
           type: string
-        inviter_email:
-          type: string
-        expires_at:
-          type: string
-          format: date-time
+        valid:
+          type: boolean
+        expired:
+          type: boolean

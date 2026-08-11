@@ -1,6 +1,6 @@
 # Epic 15: Language-Neutral Sesame Consumer Contract
 
-> **Status:** In progress  
+> **Status:** Complete (public OpenAPI 1.1.0 dogfood lockstep 2026-08-11)  
 > **Program:** Standards-first OIDC provider  
 > **Audit source:** [Non-BRRTRouter framework readiness audit](../../audit/non-brrtrouter-framework-readiness-2026-07-25.md)  
 > **Dependencies:** Epics 11–14; tenant-consumer API; ADR-005 RLS contract  

@@ -64,7 +64,7 @@ fn social_request(
         )]),
         query_params: std::collections::HashMap::new(),
         data: SocialRequest {
-            x_tenant_id: tenant.to_string(),
+            x_tenant_id: Some(tenant.to_string()),
             provider: provider.to_string(),
             redirect_uri: redirect_uri.to_string(),
             scope: None,

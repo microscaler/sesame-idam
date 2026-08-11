@@ -70,6 +70,7 @@ fn make_request(
         handler_name: handler_name.to_string(),
         path_params: brrtrouter::router::ParamVec::default(),
         query_params: brrtrouter::router::ParamVec::default(),
+        raw_query: None,
         headers: hv,
         cookies: HeaderVec::new(),
         body,

@@ -20,8 +20,9 @@ pub struct Request {
     #[serde(rename = "state")]
     pub state: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "X-Tenant-ID")]
-    pub x_tenant_id: String,
+    pub x_tenant_id: Option<String>,
 
     #[serde(rename = "provider")]
     pub provider: String,
@@ -72,7 +73,8 @@ impl TryFrom<HandlerRequest> for Request {
                 ),
             );
         } else {
-            return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
+
+            // optional parameter
         }
 
         if let Some(v) = req.get_path_param("provider") {

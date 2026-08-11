@@ -25,6 +25,7 @@ fn make_request(
         handler_name: "auth_token".to_string(),
         path_params: brrtrouter::router::ParamVec::default(),
         query_params: brrtrouter::router::ParamVec::default(),
+        raw_query: None,
         headers: hv,
         cookies: HeaderVec::new(),
         body: Some(serde_json::json!({

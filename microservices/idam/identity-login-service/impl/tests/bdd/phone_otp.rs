@@ -91,7 +91,7 @@ fn send_request(phone: &str) -> brrtrouter::typed::HttpJson<serde_json::Value> {
         handler_name: "login_phone_otp".to_string(),
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
-        data: SendReq { phone: phone.to_string(), x_tenant_id: TENANT.to_string() },
+        data: SendReq { phone: phone.to_string(), x_tenant_id: Some(TENANT.to_string()) },
         jwt_claims: None,
     })
 }
@@ -106,7 +106,7 @@ fn verify_request(phone: &str, code: &str) -> brrtrouter::typed::HttpJson<serde_
         data: VerifyReq {
             code: code.to_string(),
             phone: phone.to_string(),
-            x_tenant_id: TENANT.to_string(),
+            x_tenant_id: Some(TENANT.to_string()),
         },
         jwt_claims: None,
     })

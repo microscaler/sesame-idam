@@ -160,13 +160,14 @@ fn register(email: &str) {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data: RegisterReq {
+            client_id: FIXTURE_WEB_CLIENT.to_string(),
             email: email.to_string(),
             first_name: None,
             last_name: None,
             password: OLD_PASSWORD.to_string(),
             phone: None,
             username: None,
-            x_tenant_id: TENANT.to_string(),
+            x_tenant_id: Some(TENANT.to_string()),
         },
         jwt_claims: None,
     });
@@ -182,7 +183,7 @@ fn forgot(email: &str) -> brrtrouter::typed::HttpJson<serde_json::Value> {
         query_params: std::collections::HashMap::new(),
         data: ForgotReq {
             email: email.to_string(),
-            x_tenant_id: TENANT.to_string(),
+            x_tenant_id: Some(TENANT.to_string()),
         },
         jwt_claims: None,
     })
@@ -198,7 +199,7 @@ fn reset(token: &str, new_password: &str) -> brrtrouter::typed::HttpJson<serde_j
         data: ResetReq {
             new_password: new_password.to_string(),
             token: token.to_string(),
-            x_tenant_id: TENANT.to_string(),
+            x_tenant_id: Some(TENANT.to_string()),
         },
         jwt_claims: None,
     })

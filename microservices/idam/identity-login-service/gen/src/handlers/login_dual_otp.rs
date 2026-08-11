@@ -20,8 +20,9 @@ pub struct Request {
     #[serde(rename = "send_welcome_email")]
     pub send_welcome_email: Option<bool>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "X-Tenant-ID")]
-    pub x_tenant_id: String,
+    pub x_tenant_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -72,7 +73,8 @@ impl TryFrom<HandlerRequest> for Request {
                 ),
             );
         } else {
-            return Err(anyhow::anyhow!("Missing required parameter 'X-Tenant-ID'"));
+
+            // optional parameter
         }
 
         if let Some(body) = req.body {

@@ -11,7 +11,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
     use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
-    let tenant_id = req.data.x_tenant_id.clone();
+    let tenant_id = req.data.x_tenant_id.clone().unwrap_or_default();
 
     if let Some(refresh_token) = req.data.refresh_token.as_deref() {
         if let Err(e) = crate::redis::revoke_refresh_token(refresh_token) {
