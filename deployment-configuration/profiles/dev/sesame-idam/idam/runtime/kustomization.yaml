@@ -25,10 +25,6 @@ resources:
   # topology, not identity: it removes "any pod in a shared cluster" from the
   # caller set. Task 44 is the real fix and this does not replace it.
   - authz-core-ingress.networkpolicy.yaml
-  # US_31_03 (PriceWhisperer #134): allow the pw-platform portal's
-  # HTTPRoute (pw namespace) to target identity-login-service so staff
-  # sign in same-origin at /idam/v1/auth/* (D2 sole issuer, D7 no BFF).
-  - allow-pw-httproutes.referencegrant.yaml
 
 configMapGenerator:
   - name: sesame-idam-database-config
