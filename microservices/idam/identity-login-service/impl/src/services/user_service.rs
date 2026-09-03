@@ -11,6 +11,7 @@ use lifeguard::{ColumnTrait, LifeError, LifeExecutor, LifeModelTrait};
 use uuid::Uuid;
 
 use crate::models::user::{Column, Entity, UserModel, UserRecord};
+use crate::models::user_profile::UserProfileRecord;
 
 /// User status for freshly registered accounts.
 pub const STATUS_ACTIVE: &str = "active";
@@ -160,6 +161,38 @@ impl UserService {
             .set_updated_at(Utc::now());
         record
             .update(exec)
+            .map_err(|e| LifeError::Other(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Seed the user's profile row (display name) at registration.
+    ///
+    /// `user_profiles` holds the display name and avatar, separate from the
+    /// auth `users` row. Best-effort at registration: callers log and
+    /// continue if it fails, since the account already exists and the name
+    /// can be set later via `PATCH /users/me`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LifeError`] on insert failure.
+    pub fn create_profile<E: LifeExecutor>(
+        user_id: Uuid,
+        first_name: Option<String>,
+        last_name: Option<String>,
+        exec: &E,
+    ) -> Result<(), LifeError> {
+        let now = Utc::now();
+        let mut record = UserProfileRecord::new();
+        record
+            .set_id(Uuid::new_v4())
+            .set_user_id(user_id)
+            .set_first_name(first_name)
+            .set_last_name(last_name)
+            .set_avatar_url(None)
+            .set_created_at(now)
+            .set_updated_at(now);
+        record
+            .insert(exec)
             .map_err(|e| LifeError::Other(e.to_string()))?;
         Ok(())
     }

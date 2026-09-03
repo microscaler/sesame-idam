@@ -16,3 +16,4 @@ pub mod tenant;
 pub mod tenant_oauth_provider;
 pub mod tenant_sms_config;
 pub mod user;
+pub mod user_profile;

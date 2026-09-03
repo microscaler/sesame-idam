@@ -128,6 +128,23 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     };
 
     let user_id_str = user_id.to_string();
+
+    // US_31_13: persist the display name into user_profiles (separate from the
+    // auth `users` row). Best-effort - the account already exists, so a failed
+    // profile write must not fail registration; the name can be set later via
+    // PATCH /users/me.
+    if req.data.first_name.is_some() || req.data.last_name.is_some() {
+        if let Err(e) = sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+            UserService::create_profile(
+                user_id,
+                req.data.first_name.clone(),
+                req.data.last_name.clone(),
+                exec,
+            )
+        }) {
+            tracing::warn!(error = %e, "auth_register: profile insert failed (name not saved)");
+        }
+    }
     let tokens = match token_issuer::issue_tokens(
         &user_id_str,
         &tenant_id,
