@@ -85,10 +85,35 @@ pub fn issue_rotated_tokens(
         }
     };
 
+    // Re-fetch effective roles + permissions from authz-core so a refresh
+    // reflects the user's CURRENT authorization: a role granted after the
+    // session was established takes effect on the next refresh, not only on a
+    // fresh sign-in. This previously minted `roles: vec![]`, so a user
+    // silently lost every role ~one access-TTL after login (the first
+    // rotation). Degrades to empty on failure — the same graceful-degradation
+    // contract as login-time enrichment; the client refreshes again once
+    // authz-core is back.
+    let authz = crate::services::authz_client::fetch_effective_authz(
+        &token.sub,
+        tenant_id,
+        &token.client_id,
+    )
+    .unwrap_or_else(|e| {
+        tracing::warn!(
+            error = %e,
+            "issue_rotated_tokens: authz-core enrichment failed — refreshing token without roles"
+        );
+        crate::services::authz_client::EffectiveAuthz {
+            roles: vec![],
+            permissions: vec![],
+        }
+    });
+
     let sx = SesameAuthzClaimsBuilder::new()
         .tenant(tenant_id)
         .portal(&token.client_id)
-        .roles(vec![])
+        .roles(authz.roles)
+        .permissions(authz.permissions)
         .build()
         .map_err(|e| IssueError::Claims(e.to_string()))?;
 

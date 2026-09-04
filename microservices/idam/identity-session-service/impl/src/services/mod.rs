@@ -5,6 +5,7 @@
 //!   cross-session notification triggers
 //! - Current-user profile resolution (`/identity/me`)
 
+pub mod authz_client;
 pub mod discovery;
 pub mod profile_service;
 pub mod token_issuer;
