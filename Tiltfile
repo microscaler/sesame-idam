@@ -367,21 +367,49 @@ def create_microservice_deployment(name, port):
         local_resource(
             'image-%s' % image_repo,
             '''set -eu
-%s docker build-image-simple %s %s %s %s --service %s
+# Publish the dev-<ns> tag for Flux image discovery. Prefer docker tag+push,
+# then buildx imagetools, and only fall back to a buildx build FROM :tilt:
+# buildx cannot resolve the local :tilt base (it resolves to docker.io and is
+# denied), and buildx OCI pushes to zot flake with digest mismatch. Retry 3x.
+# BUILDX_NO_DEFAULT_ATTESTATIONS avoids the tag+push digest-mismatch failure.
+# Matches PriceWhisperer's publish flow.
+export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+%s docker build-image-simple %s %s %s %s --service %s --no-cache
 DEV_REF="%s:dev-$(date +%%s%%N)"
-docker tag %s:tilt "$DEV_REF"
-docker push "$DEV_REF"
+publish_dev() {
+  if docker image inspect "%s:tilt" >/dev/null 2>&1; then
+    docker tag "%s:tilt" "$DEV_REF" && docker push "$DEV_REF" && return 0
+  fi
+  if docker buildx imagetools create -t "$DEV_REF" "%s:tilt" 2>/dev/null; then
+    return 0
+  fi
+  docker buildx build --provenance=false --sbom=false \
+    --output "type=image,name=$DEV_REF,push=true,oci-mediatypes=true" \
+    -f - . <<EOF
+FROM %s:tilt
+EOF
+}
+n=0
+until publish_dev; do
+  n=$((n+1))
+  if [ "$n" -ge 3 ]; then exit 1; fi
+  echo "zot publish failed for $DEV_REF (attempt $n/3); retrying"
+  sleep $((2*n))
+done
 echo "Published $DEV_REF for Flux image discovery"
 ''' % (
                 sesame_idam_bin,
-                image_name,
+                registry_image,
                 dockerfile_template,
                 hash_path,
                 artifact_path,
                 name,
                 registry_image,
-                image_name,
-            ),
+                registry_image,
+                registry_image,
+                 registry_image,
+                registry_image,
+              ),
             deps=[
                 artifact_path,
                 hash_path,
@@ -518,10 +546,15 @@ DB_INIT_IMAGE = 'sesame-idam-db-init'
 DB_INIT_DOCKERFILE = 'docker/jobs/Dockerfile'
 DB_INIT_REF = '%s/%s' % (_SHARED_K8S_REGISTRY, DB_INIT_IMAGE)
 DB_INIT_BUILD = '''set -eu
-docker build -f %s -t %s:tilt .
+export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+docker build --provenance=false --sbom=false -f %s -t %s:tilt .
 DEV_REF="%s:dev-$(date +%%s%%N)"
-docker tag %s:tilt "$DEV_REF"
-docker push "$DEV_REF"
+# Zot rejects Docker schema2 manifest PUT (415 MANIFEST_INVALID); OCI media types work.
+docker buildx build --provenance=false --sbom=false \
+  --output "type=image,name=$DEV_REF,push=true,oci-mediatypes=true" \
+  -f - . <<EOF
+FROM %s:tilt
+EOF
 echo "Published $DEV_REF for Flux image discovery"
 ''' % (DB_INIT_DOCKERFILE, DB_INIT_IMAGE, DB_INIT_REF, DB_INIT_IMAGE)
 local_resource(
@@ -776,13 +809,18 @@ _dev_registry = _SHARED_K8S_REGISTRY if (_use_shared_k8s and os.path.exists(_SHA
 
 _sesame_broker_image = '%s/sesame-idam-broker' % _dev_registry
 if _use_shared_k8s and os.path.exists(_SHARED_K8S_KCFG):
-    _sesame_broker_push = 'docker tag %s:tilt $EXPECTED_REF && docker push $EXPECTED_REF' % _sesame_broker_image
+    # Zot rejects Docker schema2 manifest PUT (415); push as OCI media types.
+    _sesame_broker_push = (
+        'docker buildx build --provenance=false --sbom=false '
+        + '--output "type=image,name=$EXPECTED_REF,push=true,oci-mediatypes=true" '
+        + '-f - . <<EOF\nFROM %s:tilt\nEOF' % _sesame_broker_image
+    )
 else:
     _sesame_broker_push = '(docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (_sesame_broker_image, _sesame_broker_image)
 
 custom_build(
     _sesame_broker_image,
-    'docker build -f docker/microservices/Dockerfile.sesame_idam_broker -t %s:tilt . && %s' % (_sesame_broker_image, _sesame_broker_push),
+    'export BUILDX_NO_DEFAULT_ATTESTATIONS=1 && docker build --provenance=false --sbom=false -f docker/microservices/Dockerfile.sesame_idam_broker -t %s:tilt . && %s' % (_sesame_broker_image, _sesame_broker_push),
     deps=_PACT_MOCK_DEPS + ['./docker/microservices/Dockerfile.sesame_idam_broker'],
     tag='tilt',
 )
@@ -808,13 +846,17 @@ k8s_yaml(local(_cmd_pact_configmap))
 
 _sesame_pact_manager_image = '%s/sesame-pact-manager' % _dev_registry
 if _use_shared_k8s and os.path.exists(_SHARED_K8S_KCFG):
-    _sesame_pact_manager_push = 'docker tag %s:tilt $EXPECTED_REF && docker push $EXPECTED_REF' % _sesame_pact_manager_image
+    _sesame_pact_manager_push = (
+        'docker buildx build --provenance=false --sbom=false '
+        + '--output "type=image,name=$EXPECTED_REF,push=true,oci-mediatypes=true" '
+        + '-f - . <<EOF\nFROM %s:tilt\nEOF' % _sesame_pact_manager_image
+    )
 else:
     _sesame_pact_manager_push = '(docker push %s:tilt 2>/dev/null || kind load docker-image %s:tilt --name sesame-idam)' % (_sesame_pact_manager_image, _sesame_pact_manager_image)
 
 custom_build(
     _sesame_pact_manager_image,
-    'docker build -f docker/microservices/Dockerfile.pact_manager -t %s:tilt . && %s' % (_sesame_pact_manager_image, _sesame_pact_manager_push),
+    'export BUILDX_NO_DEFAULT_ATTESTATIONS=1 && docker build --provenance=false --sbom=false -f docker/microservices/Dockerfile.pact_manager -t %s:tilt . && %s' % (_sesame_pact_manager_image, _sesame_pact_manager_push),
     deps=_PACT_MOCK_DEPS + ['./docker/microservices/Dockerfile.pact_manager'],
     tag='tilt',
 )
@@ -925,7 +967,7 @@ for _app, _svc in FRONTEND_APPS.items():
     _image = '%s/sesame-idam-frontend-%s' % (_SHARED_K8S_REGISTRY, _app)
     custom_build(
         _image,
-        'docker build -f docker/frontend/Dockerfile --build-arg APP=%s -t $EXPECTED_REF . && docker push $EXPECTED_REF' % _app,
+        'export BUILDX_NO_DEFAULT_ATTESTATIONS=1 && docker buildx build --provenance=false --sbom=false --output "type=image,name=$EXPECTED_REF,push=true,oci-mediatypes=true" -f docker/frontend/Dockerfile --build-arg APP=%s .' % _app,
         deps=[
             'frontend/%s' % _app,
             'frontend/shared',
