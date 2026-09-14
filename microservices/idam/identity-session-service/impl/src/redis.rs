@@ -161,6 +161,46 @@ pub fn add_to_denylist(jti: &str) -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Rotation receipts (replay grace)
+// ---------------------------------------------------------------------------
+
+/// How long a rotated-out refresh token may be presented AGAIN and receive
+/// the same successor tokens instead of `invalid_grant`.
+///
+/// Rotation is not atomic from the client's point of view: a browser tab
+/// reloaded while /auth/refresh was in flight, a second tab that raced the
+/// first with the same token, or a mobile client whose response was lost
+/// all end up holding ONLY the old token. Under strict rotation that old
+/// token is gone and the legitimate session is dead; the user is signed
+/// out for no reason (the hauliage and PriceWhisperer "random logout").
+/// Within this window the successor is handed back idempotently - the
+/// same tokens the legitimate client already holds, so an attacker who
+/// replays a stolen old token gains nothing beyond what stealing the new
+/// one would have given. Reuse AFTER the window is still a hard failure.
+pub const ROTATION_REPLAY_GRACE_SECS: u64 = 60;
+const ROTATION_RECEIPT_KEY_PREFIX: &str = "idam:rotation_receipt";
+
+/// Remember what a rotated-out jti was replaced with, for the grace window.
+pub fn store_rotation_receipt(old_jti: &str, receipt: &serde_json::Value) -> Result<()> {
+    let mut conn = get_redis_connection()?;
+    let key = format!("{ROTATION_RECEIPT_KEY_PREFIX}:{old_jti}");
+    let json = serde_json::to_string(receipt)?;
+    let _: () = conn.set_ex(&key, json, ROTATION_REPLAY_GRACE_SECS)?;
+    Ok(())
+}
+
+/// The successor issued for `old_jti`, if it was rotated within the grace window.
+pub fn lookup_rotation_receipt(old_jti: &str) -> Result<Option<serde_json::Value>> {
+    let mut conn = get_redis_connection()?;
+    let key = format!("{ROTATION_RECEIPT_KEY_PREFIX}:{old_jti}");
+    let value: Option<String> = conn.get(&key)?;
+    match value {
+        Some(v) => Ok(Some(serde_json::from_str(&v)?)),
+        None => Ok(None),
+    }
+}
+
 /// Check if a jti is in the denylist.
 pub fn is_in_denylist(jti: &str) -> Result<bool> {
     let mut conn = get_redis_connection()?;

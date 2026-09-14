@@ -150,6 +150,22 @@ fn rotate_refresh_token_bound(
     let token = match redis::lookup_refresh_token(&jti) {
         Ok(Some(t)) => t,
         Ok(None) => {
+            // Rotated out moments ago? Hand back the same successor (replay
+            // grace: a reloaded tab, a racing second tab, a lost response).
+            // See redis::ROTATION_REPLAY_GRACE_SECS.
+            if let Ok(Some(receipt)) = redis::lookup_rotation_receipt(&jti) {
+                if let Some(outcome) = rotated_from_receipt(&receipt, expected_tenant_id, expected_client_id) {
+                    TOKEN_REFRESH_TOTAL
+                        .with_label_values(&["success", "replayed"])
+                        .inc();
+                    tracing::info!(
+                        event = "refresh_replayed_within_grace",
+                        old_jti = jti,
+                        "Rotated-out refresh token presented again within the grace window; successor returned"
+                    );
+                    return outcome;
+                }
+            }
             TOKEN_REFRESH_TOTAL
                 .with_label_values(&["failure", "not_found"])
                 .inc();
@@ -266,14 +282,37 @@ fn rotate_refresh_token_bound(
 
     // Step 6: Sign new access + refresh JWTs with the shared Ed25519 key
     match super::token_issuer::issue_rotated_tokens(&new_token, tenant_id) {
-        Ok(issued) => RotationOutcome::Rotated {
-            new_access_token: issued.access_token,
-            new_refresh_token: issued.refresh_token,
-            access_expires_in: issued.access_expires_in,
-            refresh_expires_in: issued.refresh_expires_in,
-            user_id: issued.user_id,
-            scope: issued.scope,
-        },
+        Ok(issued) => {
+            // Step 7: Rotation receipt for the replay grace window (best
+            // effort: without it a replay is the strict invalid_grant).
+            let receipt = serde_json::json!({
+                "access_token": issued.access_token,
+                "refresh_token": issued.refresh_token,
+                "access_expires_in": issued.access_expires_in,
+                "refresh_expires_in": issued.refresh_expires_in,
+                "user_id": issued.user_id,
+                "scope": issued.scope,
+                "tenant_id": tenant_id,
+                "client_id": token.client_id,
+                "rotated_at": now,
+            });
+            if let Err(e) = redis::store_rotation_receipt(&jti, &receipt) {
+                tracing::warn!(
+                    event = "rotation_receipt_store_failed",
+                    old_jti = jti,
+                    error = e.to_string(),
+                    "Failed to store rotation receipt; a replay within the grace window will be refused"
+                );
+            }
+            RotationOutcome::Rotated {
+                new_access_token: issued.access_token,
+                new_refresh_token: issued.refresh_token,
+                access_expires_in: issued.access_expires_in,
+                refresh_expires_in: issued.refresh_expires_in,
+                user_id: issued.user_id,
+                scope: issued.scope,
+            }
+        }
         Err(e) => {
             tracing::error!(
                 event = "rotation_signing_failed",
@@ -287,6 +326,41 @@ fn rotate_refresh_token_bound(
             RotationOutcome::RedisUnavailable
         }
     }
+}
+
+/// A `Rotated` outcome rebuilt from a rotation receipt, or None when the
+/// receipt does not match the caller's tenant / client binding (then the
+/// strict not-found path applies). The successor's remaining lifetimes are
+/// reported as issued minus the seconds elapsed since rotation.
+fn rotated_from_receipt(
+    receipt: &serde_json::Value,
+    expected_tenant_id: Option<&str>,
+    expected_client_id: Option<&str>,
+) -> Option<RotationOutcome> {
+    let s = |k: &str| receipt.get(k).and_then(|v| v.as_str()).map(str::to_string);
+    let i = |k: &str| receipt.get(k).and_then(|v| v.as_i64());
+    let tenant = s("tenant_id").unwrap_or_default();
+    let client = s("client_id").unwrap_or_default();
+    if let Some(t) = expected_tenant_id {
+        if !tenant.is_empty() && tenant != t {
+            return None;
+        }
+    }
+    if let Some(c) = expected_client_id {
+        if client != c {
+            return None;
+        }
+    }
+    let elapsed = (chrono::Utc::now().timestamp() - i("rotated_at").unwrap_or(0)).max(0);
+    let remaining = |k: &str| (i(k).unwrap_or(0) - elapsed).max(0) as i32;
+    Some(RotationOutcome::Rotated {
+        new_access_token: s("access_token")?,
+        new_refresh_token: s("refresh_token")?,
+        access_expires_in: remaining("access_expires_in"),
+        refresh_expires_in: remaining("refresh_expires_in"),
+        user_id: s("user_id").unwrap_or_default(),
+        scope: s("scope").unwrap_or_default(),
+    })
 }
 
 /// Decode the JTI from a refresh token string.
