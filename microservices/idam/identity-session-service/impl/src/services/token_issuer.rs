@@ -140,8 +140,15 @@ pub fn issue_rotated_tokens(
         .sign_access_claims(&claims)
         .map_err(|e| IssueError::Signing(e.to_string()))?;
 
-    let refresh_jti = Uuid::new_v4().to_string();
-    let refresh_exp = now + i64::from(REFRESH_TOKEN_TTL);
+    // The refresh JWT MUST carry the jti the rotated token was STORED under
+    // (rotate_refresh_token_bound minted `token.jti` and put it in Redis).
+    // This used to mint a second, unrelated UUID, so the token handed to
+    // the client was never in Redis: the second refresh of every session
+    // was `not_found` -> invalid_grant, and every client signed out about
+    // two access-token lifetimes after login. The "random logout" in
+    // hauliage and PriceWhisperer was this line.
+    let refresh_jti = token.jti.clone();
+    let refresh_exp = token.exp;
     let refresh_payload = serde_json::json!({
         "jti": refresh_jti,
         "sub": token.sub,
