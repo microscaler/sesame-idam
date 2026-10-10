@@ -1,0 +1,86 @@
+name: Release images
+
+# Octopilot pipeline (docs/DESIGN-octopilot-build-and-release.md). main: lint, test and integration builds into the
+# private integration registry. A v* tag (Trigger Release) creates the GitHub Release and promotes those exact digests
+# into the pp acceptance registry.
+#
+# Public repository: every job runs on GitHub-hosted runners, never self-hosted ones. Registry access is federated
+# (OIDC, id-token: write), so nothing is stored as a secret. This workflow has no pull_request trigger: pull requests
+# (including forks) get pr.yml, which has no credentials at all. Promotion runs only for v* tags, which only
+# administrators can create, inside the pp environment.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    # main builds only when something that goes into an artifact changed. Skipped (a commit touching only these):
+    # VERSION (the release commit is tagged at once; the tag run builds it), docs and other Markdown, dev-only
+    # configuration (deployment-configuration, k8s, Tilt, docker-compose). GitHub does not apply path filters to tag
+    # pushes, so every v* tag builds and releases everything.
+    paths-ignore:
+      - VERSION
+      - "**/*.md"
+      - docs/**
+      - deployment-configuration/**
+      - k8s/**
+      - "Tiltfile*"
+      - docker-compose.yaml
+      - kind-config.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: sesame-idam-release-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    name: Octopilot
+    # The reusable workflow's release job requests contents: write; a caller granting less fails at startup.
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      pull-requests: write
+      actions: read     # the acceptance stage downloads this run's build results
+    uses: octopilot/actions/.github/workflows/pipeline.yml@main
+    with:
+      integration: false
+      # The op image from main passes Skaffold buildArgs (v1.2.0 does not). Pin the next op release once it is cut.
+      op_version: main
+      runner: ubuntu-24.04
+      # Where artifacts go and which identities the run federates to are repository variables (Settings, Variables),
+      # kept out of this public repository. None of them is a secret.
+      integration_registry: ${{ vars.INTEGRATION_REGISTRY }}
+      registry_auth: gcp-wif
+      gcp_workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      release_to_ghcr: false
+      acceptance_environment: pp
+      acceptance_registry: ${{ vars.ACCEPTANCE_REGISTRY }}
+      acceptance_service_account: ${{ vars.ACCEPTANCE_SERVICE_ACCOUNT }}
+      acceptance_runner: ubuntu-24.04
+
+  guards:
+    name: Guards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Release dependencies are pinned (no paths outside the repository)
+        run: |
+          if grep -rn --include=Cargo.toml -E 'path *= *"\.\./\.\./' microservices; then
+            echo "::error::a Cargo.toml depends on a path outside this repository; pin a git revision"; exit 1
+          fi
+      - name: Migration lists name files that exist
+        run: |
+          rc=0
+          while IFS= read -r f; do
+            [[ -z "$f" || "$f" =~ ^# ]] && continue
+            [ -f "migrations/$f" ] || { echo "::error::migrations/apply_order.txt lists migrations/$f, which does not exist"; rc=1; }
+          done < migrations/apply_order.txt
+          while IFS= read -r f; do
+            [[ -z "$f" || "$f" =~ ^# ]] && continue
+            [ -f "microservices/idam/$f" ] || { echo "::error::seed_environments.txt lists $f, which does not exist"; rc=1; }
+          done < microservices/idam/seed_environments.txt
+          exit $rc

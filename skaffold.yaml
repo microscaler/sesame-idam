@@ -1,0 +1,42 @@
+# Release shape, read by Octopilot's detect-contexts (Tilt does not read this file).
+# The Rust suite is one buildpack build; op publishes one image per line of suite-images.txt from it. The schema and
+# the charts are their own artifacts. Frontends and the API edge join with the public entry.
+# docs/DESIGN-octopilot-build-and-release.md.
+apiVersion: skaffold/v4beta7
+kind: Config
+metadata:
+  name: sesame-idam
+build:
+  artifacts:
+    - image: ghcr.io/microscaler/sesame-idam-suite
+      context: .
+      buildpacks:
+        # Bundles octopilot/rust (one cargo invocation for the suite). rust-builder-a954ea2 or later: earlier builders
+        # tried Paketo python before Rust and built a repository with .py tooling as a Python app.
+        builder: ghcr.io/octopilot/builder-jammy-base:rust-builder-a954ea2
+        env:
+          - BP_RUST_BRRTROUTER=1
+          - BP_RUST_WORKSPACE_DIR=microservices
+          - BP_RUST_PACKAGES=sesame_idam_identity_login_service,sesame_idam_identity_session_service,sesame_idam_identity_user_mgmt_service,sesame_idam_api_keys,sesame_idam_authz_core,sesame_idam_org_mgmt
+          # The buildpack ships only bin/ unless told otherwise. Each service is started with its OpenAPI spec, docs
+          # and static site under /workspace/microservices/idam/<service>/gen (chart workload.args) and its config
+          # mounted at /app/config: keep gen/doc and gen/static_site, and impl/config as the defaults.
+          - BP_RUST_KEEP=microservices/idam/identity-login-service/gen/doc,microservices/idam/identity-login-service/gen/static_site,microservices/idam/identity-login-service/impl/config,microservices/idam/identity-session-service/gen/doc,microservices/idam/identity-session-service/gen/static_site,microservices/idam/identity-session-service/impl/config,microservices/idam/identity-user-mgmt-service/gen/doc,microservices/idam/identity-user-mgmt-service/gen/static_site,microservices/idam/identity-user-mgmt-service/impl/config,microservices/idam/api-keys/gen/doc,microservices/idam/api-keys/gen/static_site,microservices/idam/api-keys/impl/config,microservices/idam/authz-core/gen/doc,microservices/idam/authz-core/gen/static_site,microservices/idam/authz-core/impl/config,microservices/idam/org-mgmt/gen/doc,microservices/idam/org-mgmt/gen/static_site,microservices/idam/org-mgmt/impl/config
+    # The schema (migrations, RLS contract, seeds) as the migration Job of every release.
+    - image: ghcr.io/microscaler/sesame-idam-migrations
+      context: .
+      docker:
+        dockerfile: docker/migrations/Dockerfile
+    # Charts (helm buildpack). detect-contexts finds every Chart.yaml; each needs its own artifact.
+    - image: ghcr.io/microscaler/sesame-idam-microservice-chart
+      context: helm/sesame-idam-microservice
+      buildpacks:
+        builder: ghcr.io/octopilot/builder-jammy-base:rust-builder-a954ea2
+    - image: ghcr.io/microscaler/sesame-idam-frontend-chart
+      context: helm/sesame-idam-frontend
+      buildpacks:
+        builder: ghcr.io/octopilot/builder-jammy-base:rust-builder-a954ea2
+    - image: ghcr.io/microscaler/sesame-idam-api-edge-chart
+      context: helm/sesame-idam-api-edge
+      buildpacks:
+        builder: ghcr.io/octopilot/builder-jammy-base:rust-builder-a954ea2

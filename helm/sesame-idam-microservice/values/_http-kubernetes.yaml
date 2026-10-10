@@ -5,3 +5,7 @@ service:
   nodePort: null
 
 serviceType: ClusterIP
+
+# helm test runs in released environments (Flux HelmRelease spec.test); Tilt does not run it.
+helmTest:
+  enabled: false

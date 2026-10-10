@@ -1,0 +1,8 @@
+# cargo bin (the /cnb/process name), then the image repository.
+# op copies the suite image once per line and sets that process as the entrypoint. It does not compile again.
+sesame_idam_identity_login_service ghcr.io/microscaler/sesame-idam-identity-login-service
+sesame_idam_identity_session_service ghcr.io/microscaler/sesame-idam-identity-session-service
+sesame_idam_identity_user_mgmt_service ghcr.io/microscaler/sesame-idam-identity-user-mgmt-service
+sesame_idam_api_keys ghcr.io/microscaler/sesame-idam-api-keys
+sesame_idam_authz_core ghcr.io/microscaler/sesame-idam-authz-core
+sesame_idam_org_mgmt ghcr.io/microscaler/sesame-idam-org-mgmt

@@ -1,0 +1,32 @@
+name: Pull request
+
+# Checks for pull requests, including forks: no secrets, no cloud identity, read-only token, GitHub-hosted runner.
+# Builds, releases and promotion run only from main and v* tags (ci.yml).
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sesame-idam-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Format and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: rustfmt
+        working-directory: microservices
+        run: cargo fmt --all -- --check
+      - name: cargo check
+        working-directory: microservices
+        run: cargo check --workspace --all-targets --locked

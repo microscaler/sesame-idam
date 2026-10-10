@@ -6,6 +6,19 @@
 repos:
   - repo: local
     hooks:
+      - id: sops-encrypted
+        name: Secret files are SOPS-encrypted
+        entry: scripts/check-sops-encrypted.sh
+        language: system
+        files: '[.]secrets?[.](env|ya?ml)$'
+        pass_filenames: true
+      - id: microservices-rustfmt
+        name: cargo fmt --check (microservices, as the pipeline's lint)
+        # The command the Octopilot lint fails on. Check only: run (cd microservices && cargo fmt --all) to fix.
+        entry: bash -c 'cd microservices && cargo fmt --all -- --check'
+        language: system
+        files: '^microservices/.*[.]rs$'
+        pass_filenames: false
       - id: qa
         name: Tooling QA (lint, format-check, tests)
         entry: just qa

@@ -1,0 +1,7 @@
+# Seeds every environment gets, paths as in seed_order.txt (which stays the FK-safe order), one per line.
+#
+# A released environment (pp, production) applies only the seeds listed here. Everything else in seed_order.txt is
+# dev and demo data (demo tenants, users, roles, OIDC conformance fixtures) and is applied only with
+# SESAME_SEEDS=dev. A seed belongs here only if it is the same in every environment and holds no demo identity.
+#
+# None today: an environment's tenants and clients are created through Sesame's own APIs.

@@ -1,3 +1,4 @@
+{{- if eq .Values.workload.kind "service" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,6 +6,9 @@ metadata:
   namespace: {{ .Values.deployment.namespace }}
   labels:
     app: {{ .Values.service.name }}
+    {{- with .Values.podLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- /* Gate B1 / ADR-006: with in-memory (ephemeral) signing keys, multiple
        replicas would serve disagreeing keysets. Scaling is allowed ONLY when
@@ -21,13 +25,33 @@ spec:
     metadata:
       labels:
         app: {{ .Values.service.name }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         checksum/config: "{{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum | trunc 8 }}"
     spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Values.service.name }}
           image: "{{ .Values.image.repository }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.workload.workingDir }}
+          # The services read ./config/config.yaml (mounted at /app/config). Dev images set WORKDIR /app; release
+          # images (buildpacks) start elsewhere.
+          workingDir: {{ . | quote }}
+          {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workload.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.containerPort }}
@@ -54,12 +78,13 @@ spec:
               value: {{ .Values.app.config.database.host | quote }}
             - name: DB_PORT
               value: {{ .Values.app.config.database.port | quote }}
+            - name: DB_POOL_MAX
+              value: {{ .Values.app.config.database.max_connections | quote }}
+            {{- if not .Values.database.secretName }}
             - name: DB_NAME
               value: {{ .Values.app.config.database.name | quote }}
             - name: DB_USER
               value: {{ .Values.app.config.database.user | quote }}
-            - name: DB_POOL_MAX
-              value: {{ .Values.app.config.database.max_connections | quote }}
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
@@ -69,9 +94,18 @@ spec:
             # Dev fallback when the Secret is absent (local Kind only).
             - name: SESAME_IDAM_DB_PASSWORD
               value: {{ .Values.app.config.database.password | quote }}
+            {{- end }}
             # ── Redis (refresh tokens, denylist, version store) ──
+            {{- if .Values.redis.urlSecret.name }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redis.urlSecret.name | quote }}
+                  key: {{ .Values.redis.urlSecret.key | quote }}
+            {{- else }}
             - name: REDIS_URL
               value: "redis://{{ .Values.app.config.redis.host }}:{{ .Values.app.config.redis.port }}"
+            {{- end }}
             {{- if .Values.app.config.authzCoreUrl }}
             # ── authz-core enrichment (identity-login-service) ──
             - name: AUTHZ_CORE_URL
@@ -159,6 +193,20 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: {{ .Values.app.serviceName | quote }}
             {{- end }}
+            {{- with .Values.workload.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if or .Values.database.secretName .Values.workload.envFrom }}
+          envFrom:
+            {{- if .Values.database.secretName }}
+            # The service's own database login: DB_USER, DB_PASS, DB_NAME (and PG*, DATABASE_URL*).
+            - secretRef:
+                name: {{ .Values.database.secretName | quote }}
+            {{- end }}
+            {{- with .Values.workload.envFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /health
@@ -214,3 +262,4 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: 128Mi
+{{- end }}

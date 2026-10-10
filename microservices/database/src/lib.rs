@@ -4,6 +4,8 @@
 //! `sesame-idam-db-credentials` (see k8s/microservices/). Local: set env or rely on defaults below.
 //! `DB_HOST`, `DB_PORT`, `DB_USER` (default `sesame_idam`), `DB_PASS` or `SESAME_IDAM_DB_PASSWORD`, `DB_NAME`,
 //! optional `DB_POOL_MAX` (default `2`).
+//!
+//! TLS: `DB_SSLMODE`, `DB_SSLROOTCERT`, `DB_SSLCERT`, `DB_SSLKEY` (libpq meanings; unset = prefer).
 
 use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
@@ -57,6 +59,18 @@ fn load_pool_config() -> (DatabaseConfig, DbSplashMeta) {
     let mut url = format!("host={db_host} port={db_port} user={db_user} dbname={db_name}");
     if !db_pass.is_empty() {
         let _ = write!(url, " password={db_pass}");
+    }
+    // TLS, libpq names and meanings: DB_SSLMODE disable | prefer (default) | require | verify-ca | verify-full,
+    // DB_SSLROOTCERT, and DB_SSLCERT + DB_SSLKEY for a client certificate. Unset: prefer.
+    for (key, param) in [
+        ("DB_SSLMODE", "sslmode"),
+        ("DB_SSLROOTCERT", "sslrootcert"),
+        ("DB_SSLCERT", "sslcert"),
+        ("DB_SSLKEY", "sslkey"),
+    ] {
+        if let Some(v) = non_empty_env(key) {
+            let _ = write!(url, " {param}={v}");
+        }
     }
 
     let cfg = DatabaseConfig {

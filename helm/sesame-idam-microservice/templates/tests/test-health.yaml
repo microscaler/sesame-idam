@@ -1,0 +1,51 @@
+{{- /*
+  helm test: the service answers its health endpoint through its Service, the path traffic takes. Run by Flux
+  (HelmRelease spec.test.enable) after every install and upgrade.
+*/}}
+{{- if and (eq .Values.workload.kind "service") .Values.helmTest.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Values.service.name }}-test-health
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+    app: {{ .Values.service.name }}-test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 100
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: health
+      image: {{ .Values.helmTest.image | quote }}
+      command: ["curl"]
+      args:
+        - "--fail"
+        - "--silent"
+        - "--show-error"
+        - "--max-time"
+        - "5"
+        - "--retry"
+        - "10"
+        - "--retry-delay"
+        - "3"
+        - "--retry-all-errors"
+        - "http://{{ .Values.service.name }}.{{ .Values.deployment.namespace }}.svc:{{ .Values.service.port }}/health"
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 100m
+          memory: 32Mi
+{{- end }}

@@ -1,0 +1,31 @@
+name: Trigger Release
+
+# Bumps VERSION, commits, tags v<version> and creates the GitHub release. The tag push starts ci.yml, which releases
+# the integration artifacts and promotes them to pp by digest.
+#
+# REPO_PAT (contents: write) does the push: a GITHUB_TOKEN push would not trigger ci.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Bump type (patch, minor, major)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: octopilot/octopilot-workflows/.github/workflows/workflow-release.yml@main
+    with:
+      mode: text
+      bump: ${{ inputs.bump }}
+      file: VERSION
+    secrets:
+      repo_token: ${{ secrets.REPO_PAT }}

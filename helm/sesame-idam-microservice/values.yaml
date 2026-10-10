@@ -22,10 +22,7 @@ app:
   binaryName: ""
   serviceName: ""
   config:
-    security:
-      api_keys:
-        ApiKeyHeader:
-          key: "test123"
+    # No API keys by default: each environment sets its own (dev: values/<service>.yaml).
     http:
       keep_alive: true
       timeout_secs: 5
@@ -35,7 +32,8 @@ app:
       port: 5432
       name: "sesame_idam"
       user: "sesame_idam"
-      password: "dev_password_change_in_prod"
+      # Dev only (values/_database-kubernetes.yaml). Elsewhere: database.secretName.
+      password: ""
       max_connections: 2
     redis:
       # Shared platform Redis (namespace data, shared-k8s-cluster)
@@ -97,3 +95,45 @@ prometheus:
   enabled: true
   port: 9090
   path: "/metrics"
+
+# ---------------------------------------------------------------------------
+# Release shape (Octopilot). Defaults keep the dev (Tilt) behaviour.
+# ---------------------------------------------------------------------------
+workload:
+  kind: service            # service | job (one-shot, Helm pre-install/pre-upgrade hook: the schema migration)
+  # The services read ./config/config.yaml, mounted at /app/config. Dev images set WORKDIR /app; release images
+  # (buildpacks) start in /workspace, so the chart sets it.
+  workingDir: /app
+  extraEnv: []             # plain env list, appended last (e.g. DB_SSLMODE)
+  # Container args. Dev images pass the spec, docs, static site and config paths in their entrypoint. Release images
+  # (/cnb/process/<binary>) need them here, e.g. for <service>:
+  #   --spec /workspace/microservices/idam/<service>/gen/doc/openapi.yaml --doc-dir .../gen/doc
+  #   --static-dir .../gen/static_site --config /app/config/config.yaml
+  args: []
+  envFrom: []              # extra envFrom sources
+
+# Extra labels on the workload and its pods (e.g. the label an environment's credential rotation restarts by).
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+database:
+  # Secret holding the service's own login (DB_USER, DB_PASS, DB_NAME). Set: the chart's DB_NAME / DB_USER /
+  # password values are not used. Empty: dev (sesame-idam-db-credentials, then the dev password).
+  secretName: ""
+
+redis:
+  # Secret key holding the full REDIS_URL (with password and database). Empty: redis://<host>:<port> from
+  # app.config.redis.
+  urlSecret:
+    name: ""
+    key: REDIS_URL
+
+helmTest:
+  enabled: true
+  image: curlimages/curl:8.10.1
+
+# workload.kind job only.
+job:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900

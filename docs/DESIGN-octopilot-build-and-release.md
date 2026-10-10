@@ -30,6 +30,11 @@ revision.
   ancestor cargo config that patches those URLs to sibling checkouts (2026-10-10, `dac59a4`).
 - **Current BRRTRouter.** `HandlerRequest.raw_query` / `.span` and `HandlerResponse.sse` (2026-10-10).
 - **rustfmt clean.** The pipeline's lint blocks on `cargo fmt --check` (2026-10-10, `2f5ad6b`).
+- **The schema applies from scratch, twice, without a superuser** (2026-10-10). `apply_order.txt` listed four generated
+  files that were never committed and are superseded by `20260802090000_oidc_client_registry_policy.sql` (which creates
+  those tables with the constraints it relies on); its CHECK constraints are now added only when absent, and
+  `rp_directory` grants its view owner CREATE on the schema. The Lifeguard models still generate different DDL for the
+  relying-party tables than that migration: the migrator re-emits them until the two agree.
 
 ## 3. Pipeline
 
@@ -62,11 +67,14 @@ as secrets; pull requests from forks get no OIDC token and so cannot push or pro
   `gen/doc`, `gen/static_site` and `impl/config`. The spec path is `CARGO_MANIFEST_DIR/../gen/doc/openapi.yaml`
   (`impl/../gen/doc`); the kernel resolves `..` only through an existing directory, so `impl/` must exist in the image
   (PriceWhisperer v0.1.5 lesson).
-- **Working directory.** The services read `./config/config.yaml`, which the chart mounts at `/app/config`: the chart sets
-  `workingDir: /app` (dev images already `WORKDIR /app`).
+- **Paths.** The services take `--spec`, `--doc-dir`, `--static-dir` and `--config`. Dev images pass `/app/...` in their
+  entrypoint; release images start at `/cnb/process/<binary>`, so the chart passes them (`workload.args`, pointing at
+  `/workspace/microservices/idam/<service>/gen`) and mounts the config at `/app/config` (`workload.workingDir: /app`).
 - **Migrations image.** `docker/migrations/Dockerfile` (Postgres client image + the SQL) and a `sesame-migrate` script:
-  applies `migrations/apply_order.txt`, the RLS install and the seeds of `seed_order.txt` listed for every
-  environment (see 3.4), as the environment's migration login, recording each file in a ledger table. Run by the chart as
+  applies `migrations/apply_order.txt` (RLS contract included) and the seeds listed for every environment (see 3.4),
+  as the environment's migration login (never a superuser), recording each file in a ledger table. Every file is
+  applied on every release, so every file must be re-runnable. Roles outside the database (`rp_directory_owner`,
+  `rp_directory_read`) are created by the platform, which grants `rp_directory_owner` to the environment's owner group. Run by the chart as
   a pre-install/pre-upgrade hook Job (`workload.kind: job`), so a release rolls out only onto its own schema.
 - **Frontends.** `docker/frontend/Dockerfile` with `APP` as a build argument, one artifact per app. Pinned base images
   (`node:22-alpine`, `nginx:1.27-alpine` by digest), `pnpm install --frozen-lockfile`.
@@ -103,7 +111,7 @@ The chart's default `config.yaml` must carry nothing environment-specific or sec
    SOPS. Platform: the acceptance identity trusts `repo:microscaler/sesame-idam:environment:pp`; the `pp` environment and
    the tag ruleset on this repository; the release token secret.
 2. Migrations image and seed classification (3.4).
-3. First release (`v0.1.0`), promoted to pp and deployed there (services, migrations). Frontends and the API edge follow
+3. First Octopilot release (the next tag after `v0.1.2`), promoted to pp and deployed there (services, migrations). Frontends and the API edge follow
    with the public entry.
 4. Acceptance tests in the pipeline (the OIDC conformance suite against the deployed release), replacing human checks.
 5. `sesame-idam-client`: Octopilot lint/test/tag pipeline.

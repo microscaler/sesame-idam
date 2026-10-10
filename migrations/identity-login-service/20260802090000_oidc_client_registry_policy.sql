@@ -21,24 +21,36 @@ ALTER TABLE sesame_idam.relying_party_clients
     ALTER COLUMN pkce_s256_required SET NOT NULL,
     ALTER COLUMN authority_class SET NOT NULL;
 
-ALTER TABLE sesame_idam.relying_party_clients
-    ADD CONSTRAINT relying_party_clients_type_check
-        CHECK (client_type IN ('public', 'confidential')),
-    ADD CONSTRAINT relying_party_clients_status_check
-        CHECK (status IN ('active', 'disabled', 'deleted')),
-    ADD CONSTRAINT relying_party_clients_auth_method_check
-        CHECK (token_endpoint_auth_method IN ('none', 'client_secret_basic', 'client_secret_post')),
-    ADD CONSTRAINT relying_party_clients_authority_check
-        CHECK (authority_class IN ('tenant', 'platform')),
-    ADD CONSTRAINT relying_party_clients_public_policy_check
-        CHECK (
-            client_type <> 'public'
+-- Re-runnable (every release applies every file): add each CHECK only when it is not there yet.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'relying_party_clients_type_check'
+                   AND conrelid = 'sesame_idam.relying_party_clients'::regclass) THEN
+        ALTER TABLE sesame_idam.relying_party_clients ADD CONSTRAINT relying_party_clients_type_check CHECK (client_type IN ('public', 'confidential'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'relying_party_clients_status_check'
+                   AND conrelid = 'sesame_idam.relying_party_clients'::regclass) THEN
+        ALTER TABLE sesame_idam.relying_party_clients ADD CONSTRAINT relying_party_clients_status_check CHECK (status IN ('active', 'disabled', 'deleted'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'relying_party_clients_auth_method_check'
+                   AND conrelid = 'sesame_idam.relying_party_clients'::regclass) THEN
+        ALTER TABLE sesame_idam.relying_party_clients ADD CONSTRAINT relying_party_clients_auth_method_check CHECK (token_endpoint_auth_method IN ('none', 'client_secret_basic', 'client_secret_post'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'relying_party_clients_authority_check'
+                   AND conrelid = 'sesame_idam.relying_party_clients'::regclass) THEN
+        ALTER TABLE sesame_idam.relying_party_clients ADD CONSTRAINT relying_party_clients_authority_check CHECK (authority_class IN ('tenant', 'platform'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'relying_party_clients_public_policy_check'
+                   AND conrelid = 'sesame_idam.relying_party_clients'::regclass) THEN
+        ALTER TABLE sesame_idam.relying_party_clients ADD CONSTRAINT relying_party_clients_public_policy_check CHECK (client_type <> 'public'
             OR (
                 token_endpoint_auth_method = 'none'
                 AND pkce_s256_required
                 AND authority_class = 'tenant'
-            )
-        );
+            ));
+    END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS sesame_idam.relying_party_client_redirect_uris (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

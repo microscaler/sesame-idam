@@ -35,6 +35,9 @@ END
 $$;
 
 GRANT USAGE ON SCHEMA sesame_idam TO rp_directory_owner;
+-- ALTER VIEW ... OWNER TO needs the new owner to hold CREATE on the view's schema (a superuser applying this, as in
+-- dev, is exempt; an environment's migration login is not).
+GRANT USAGE, CREATE ON SCHEMA rp_directory TO rp_directory_owner;
 GRANT SELECT ON sesame_idam.users, sesame_idam.tenants,
                sesame_idam.app_passwords TO rp_directory_owner;
 
