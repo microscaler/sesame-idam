@@ -42,7 +42,8 @@ and needs no SAML code.
 - **identity-login-service** owns the sign-in flow: starts it (AuthnRequest), receives the IdP's POST at the assertion
   consumer service (ACS), asks the verifier, links the identity, completes the login.
 - **saml-verifier** (new, ADR-014) owns XML: verifies responses and parses IdP metadata. Internal only, stateless,
-  holds nothing worth stealing, reaches nothing.
+  holds nothing worth stealing, reaches nothing. libxmlsec1 (through samael) decides; xml-sec (pure Rust, our fork) runs
+  beside it in shadow, then in consensus (section 14).
 - **org-mgmt** owns connections: who may configure SAML, the IdP metadata, enabling and disabling.
 
 identity-login-service and org-mgmt stay pure Rust; only the verifier links C libraries.
@@ -237,7 +238,10 @@ the hand-written parts are the RLS policies and the backfill). Redis keys (ident
   contract.
 - **Live acceptance** (pp): one test organisation per IdP; sign in to a relying party through each; disable, refresh,
   certificate rollover and replay exercised.
-- **Upgrades**: every samael, libxmlsec1 or libxml2 bump runs the whole corpus (ADR-014 §4).
+- **Upgrades**: every samael, libxmlsec1, libxml2 or xml-sec bump runs the whole corpus (ADR-014 §4).
+- **Differential fuzzing**: a fuzz target feeds the same mutated responses (from the corpus) to libxmlsec1 and xml-sec and
+  fails on any difference in verdict or in the verified assertion; it runs continuously, not only as a CI smoke test.
+- **Both verifiers** run the full corpus; a case where they disagree is a finding before it is a test.
 
 ## 10. Deployment
 
@@ -268,6 +272,7 @@ Sesame shows these per connection, with the SP metadata URL for IdPs that import
 ## 12. Order of work
 
 1. **Verifier**: crate, Dockerfile, `/verify` and `/metadata/parse`, the corpus (section 9). Gate: corpus green.
+   In parallel: fork xml-sec, audit the modules in scope (section 14.4), wire it in shadow.
 2. **org-mgmt**: schema migration, organisation-scoped connection API (pending contract tests pass), metadata via the
    verifier, lifecycle (section 7), test sign-in.
 3. **identity-login**: `saml_login` (signed AuthnRequest), ACS, `saml_callback`, SP metadata, discovery; replay; linking
@@ -280,3 +285,66 @@ Sesame shows these per connection, with the SP metadata URL for IdPs that import
 IdP-initiated login (unsolicited responses: its own replay and destination rules), single logout, encrypted assertions
 (SP decryption key in the verifier would give it a secret: design first), signed metadata verification, SCIM
 provisioning alongside SAML, more IdPs (they need only set-up rows in section 11 if they follow the profile).
+
+## 14. xml-sec: audit and path to a pure-Rust verifier
+
+Reviewed 2026-10-10 at xml-sec 0.1.21 (`structured-world/xml-sec`).
+
+### 14.1 What it is
+
+| | |
+| --- | --- |
+| Scope | XMLDSig sign/verify, XMLEnc, C14N 1.0/1.1/exclusive, X.509 path validation, key management, an XSLT 1.0 and XPath engine, a libxmlsec1-compatible CLI; about 133,000 lines of Rust |
+| History | first commit 2026-03-15; 844 commits, 811 by one author; developed with coding agents (`AGENTS.md`); releases every few days |
+| Licence | Apache-2.0 AND MIT (compatible with ours) |
+| Rust | edition 2024, MSRV 1.92; crate-level `#![deny(unsafe_code)]`, vendored DOM/XPath crates built in no-unsafe variants |
+| Crypto | RustCrypto (`rsa`, `p256`, `p384`, `p521`, `sha2`, …); optional aws-lc-rs FIPS provider |
+| Stated status | "Early-stage pre-release. The API is unstable … should not yet be used in production." |
+| Tests | interop and negative suites from libxmlsec1 ("donor") and the W3C Merlin vectors, golden C14N, fuzz targets (CI runs a 256-iteration smoke); `donor_negative_vectors`, `merlin_interop` and `donor_interop_suite` pass on 2026-10-10 |
+
+### 14.2 Against what a SAML verifier needs
+
+| Need | xml-sec | Assessment |
+| --- | --- | --- |
+| Enveloped-signature transform, exclusive C14N with `InclusiveNamespaces` | implemented | covers |
+| RSA-SHA256/384/512 (PKCS#1 v1.5), ECDSA P-256/384 | implemented; XMLDSig `r‖s` ECDSA encoding by default | covers |
+| Verify only with pinned keys, never `KeyInfo` | `RequireTrustedKey` is the default; `CallerTrustedSignatureKey` binds a key to one signature; embedded keys are candidates, not authority | covers, and by default |
+| Consume exactly what was signed (signature wrapping) | `VerificationRequest.expected_targets` by node identity, `covers_element` proofs bound to the document generation; duplicate IDs never resolve | covers; stronger API than libxmlsec1's |
+| SAML `ID` attributes | default ID indexing; explicit registrations as request context | covers (to confirm with our corpus) |
+| No DTD, bounded parsing | DTDs off by default; byte, node, depth and parse-work ceilings checked before any DOM | covers |
+| Parser differentials | optional differential mode parses with two backends (xmloxide, roxmltree) against the same limits | covers; unique among the options |
+| Algorithm allow-list | typed, immutable policy | covers |
+| SAML semantics (issuer, audience, conditions, subject confirmation) | out of scope (XMLDSig only) | ours, as with libxmlsec1 |
+| Real IdP responses, SAML wrapping corpus | two SAML fixtures (ECDSA) | **gap**: our corpus fills it and goes upstream |
+| Minimal build | the `xmldsig` feature also compiles DSA, DES, MD5, SHA-1, PKCS#12 code paths (policy-disabled) | **gap**: a SAML-verify feature profile, contributed |
+| Independent review | none known; single author, agent-written | **gap**: our audit of the modules in scope |
+| Continuous fuzzing | smoke only | **gap**: differential fuzzing against libxmlsec1 (section 9) |
+| API stability | changes between minors (migration notes per release) | managed by the fork's pinning; contribute a stable subset |
+
+Conclusion: the design is right for our problem; the evidence is not there yet. It is worth investing in, and the shadow
+deployment is how the evidence is produced.
+
+### 14.3 Risks
+
+- **Unreviewed security code at high velocity.** Mitigated by pinning, reviewed bumps, our corpus and differential
+  fuzzing, and by never letting it decide alone until section 14.4 holds.
+- **RustCrypto `rsa`**: its known timing weakness (RUSTSEC-2023-0071, Marvin) concerns private-key operations; a SAML SP
+  verifies with public keys only. The SP's own signing (AuthnRequests) is not done with it (ring, ADR-014 §5).
+- **Single maintainer**: the fork keeps us independent of the upstream's pace or continuity.
+
+### 14.4 Plan and promotion criteria
+
+1. **Fork** `microscaler/xml-sec`; the verifier depends on an exact revision. Contributions upstream first: the SAML
+   verify feature profile, SAML fixtures from the three IdPs (re-signed with test keys), the wrapping and
+   parser-differential corpus, and fixes found by the audit or fuzzing.
+2. **Audit** of the modules in scope: XML input and both parser backends, document indexing and ID resolution,
+   XMLDSig parse, verify, URI dereferencing and the enveloped and exclusive-C14N transforms, C14N serialisation, the
+   caller-trusted key path and the policy compiler. Findings are fixed upstream (or in the fork until released).
+3. **Shadow** (from the first deployment): xml-sec verifies every response beside libxmlsec1; disagreements alert and
+   are kept as cases.
+4. **Consensus** (accept only if both accept and agree) when: the audit is closed; the corpus is green on both;
+   differential fuzzing has run continuously for at least a month without an unexplained divergence; at least three
+   months of shadow across all three IdPs without an unexplained disagreement; the API subset we use has not broken across
+   two upstream releases.
+5. **Sole verifier** (libxmlsec1 retired): upstream declares production readiness, consensus has held for a sustained
+   period, and a new ADR records it.
