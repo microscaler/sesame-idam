@@ -42,6 +42,7 @@ defers language/framework packages until the public provider contract is stable.
 | [14](./14-oidc-security-conformance/README.md) | OIDC Security Profile and Conformance | Shared validator, adversarial fixtures, independent conformance, framework matrix | Epics 1, 5, 8, 11–13 | In progress |
 | [15](./15-portable-consumer-contract/README.md) | Language-Neutral Sesame Consumer Contract | Provider profile, verified principal, public OpenAPI, errors, fixtures, versioning | Epics 11–14 | In progress |
 | [16](./16-mainstream-client-ecosystem/README.md) | Mainstream Framework Client Ecosystem | Rust-only Supported client + Hauliage dogfood; other languages deferred | Epics 11–15 | In progress |
+| [17](./17-enterprise-sso-saml/README.md) | Enterprise SSO: SAML and Verified Organisation Domains | DNS TXT domain proof, isolated `saml-verifier` (samael + libxmlsec1), SP-initiated SAML for Entra ID, Okta, Google Workspace | Epics 10–12, ADR-007, ADR-014 | In progress |
 
 ### Program order
 
@@ -51,6 +52,7 @@ defers language/framework packages until the public provider contract is stable.
 4. **Epic 14** proves security and interoperability independently.
 5. **Epic 15** freezes the portable contract used by every language.
 6. **Epic 16** dogfoods the Rust server client via Hauliage (other languages deferred).
+7. **Epic 17** adds enterprise SSO: organisations prove their email domains by DNS TXT, then sign in through their own SAML IdP. Track A (domains) and track B (verifier) run in parallel.
 
 Epic 16 must not compensate for an incomplete provider. If a framework requires
 a proprietary protocol workaround, the default disposition is to fix Epics
