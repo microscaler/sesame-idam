@@ -1,7 +1,7 @@
 # Story 17.1 — Domain claim primitives: normalisation, eligibility, tokens
 
 > **Epic:** [17 Enterprise SSO](../README.md) · **Track:** A. Domains · **Depends on:** — · **Size:** M  
-> **Status:** In progress
+> **Status:** Done (2026-10-10)
 
 ## Goal
 
@@ -33,12 +33,12 @@ One library function set that every domain-verification path uses: turn user inp
 
 ## Acceptance criteria
 
-- [ ] `BüCher.Example.` normalises to `xn--bcher-kva.example`; IP literals, `a..b`, 64-octet labels and 254-octet names are refused.
-- [ ] `com`, `co.uk`, `github.io` (public suffixes) and `gmail.com`, `outlook.com` are refused with distinct codes; `bigbank.com` and `eu.bigbank.co.uk` are accepted.
-- [ ] Tokens differ when any of tenant, organisation, scope, purpose, domain or epoch differs (property test).
-- [ ] A record string with another version, extra whitespace inside, or another prefix never matches; a match succeeds with either the current or the previous epoch key and fails with a retired one.
-- [ ] Published vectors reproduce the designs' construction byte for byte.
-- [ ] No secret appears in `Debug` output or errors.
+- [x] `BüCher.Example.` normalises to `xn--bcher-kva.example`; IP literals, `a..b`, 64-octet labels and 254-octet names are refused.
+- [x] `com`, `co.uk`, `github.io` (public suffixes) and `gmail.com`, `outlook.com` are refused with distinct codes; `bigbank.com` and `eu.bigbank.co.uk` are accepted.
+- [x] Tokens differ when any of tenant, organisation, scope, purpose, domain or epoch differs (property test).
+- [x] A record string with another version, extra whitespace inside, or another prefix never matches; a match succeeds with either the current or the previous epoch key and fails with a retired one.
+- [x] Published vectors reproduce the designs' construction byte for byte.
+- [x] No secret appears in `Debug` output or errors.
 
 ## Tests
 
@@ -49,3 +49,19 @@ One library function set that every domain-verification path uses: turn user inp
 
 - Acceptance criteria met with tests in CI; rustfmt and clippy clean; OpenAPI and docs updated where touched;
   security-relevant behaviour covered by a negative test; evidence noted in the epic README.
+
+## Implementation notes
+
+- Code: `microservices/idam/common/src/domain_verify/` (`normalize.rs`, `eligibility.rs`, `token.rs`), exported as
+  `sesame_common::domain_verify`.
+- Dependencies: `idna` 1.1 (same version `url` already pulls in) and `psl` pinned to `=2.1.241`; bumping `psl` is how
+  the Public Suffix List is refreshed, once per release.
+- A top-level domain absent from the Public Suffix List (`.internal`, `.local`, `.example`) is refused with its own
+  code, `unknown_suffix`: nothing outside the public DNS can be proven.
+- Constant-time comparison uses `hmac::Mac::verify_slice` (hmac 0.12, sha2 0.10, already dependencies) rather than
+  ring; every acceptable epoch key is checked with no early exit.
+- `K_enroll` file format (a mounted secret): `{"current": {"epoch": N, "key": "<base64url, 32+ bytes>"},
+  "previous": {...}}`, `previous` optional. Load errors never quote the file; `Debug` shows epochs only.
+- `Scope::covers` and `Domain::is_same_or_under` are provided for the consumers (discovery, linking, 17.12).
+- Vectors: `tests/fixtures/domain_verify_vectors.json`, produced by `gen_domain_verify_vectors.py`, an independent
+  Python implementation (hmac and hashlib); the Rust tests reproduce every token byte for byte.

@@ -1,0 +1,130 @@
+{
+  "description": "Sesame domain verification token vectors (v1). Keys are public test values.",
+  "keys": {
+    "k32_00_1f": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "k32_aa": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo",
+    "k48_ascii": "c2VzYW1lLWRvbWFpbi12ZXJpZnkgdGVzdCBrZXksIG5ldmVyIHByb2R1Y3Rpb24h"
+  },
+  "vectors": [
+    {
+      "key_id": "k32_00_1f",
+      "kind": "organisation",
+      "tenant_id": "acme",
+      "org_id": "b2000002-0002-4000-8000-000000000002",
+      "scope": "exact",
+      "input": "bigbank.com",
+      "domain": "bigbank.com",
+      "record_name": "_sesame-challenge.bigbank.com",
+      "record_value": "sesame-domain-verify=v1;t=3ZkGjwmQMhSqbyHIUv0K5NPdzOClr_dso78OGVj8V7M",
+      "token": "3ZkGjwmQMhSqbyHIUv0K5NPdzOClr_dso78OGVj8V7M"
+    },
+    {
+      "key_id": "k32_00_1f",
+      "kind": "organisation",
+      "tenant_id": "acme",
+      "org_id": "b2000002-0002-4000-8000-000000000002",
+      "scope": "subdomains",
+      "input": "bigbank.com",
+      "domain": "bigbank.com",
+      "record_name": "_sesame-challenge.bigbank.com",
+      "record_value": "sesame-domain-verify=v1;t=uGDP8yGoKiuA0uK0EnlrAW_trY296ZrRIrnV-sNQsPo",
+      "token": "uGDP8yGoKiuA0uK0EnlrAW_trY296ZrRIrnV-sNQsPo"
+    },
+    {
+      "key_id": "k32_00_1f",
+      "kind": "organisation",
+      "tenant_id": "acme",
+      "org_id": "b2000002-0002-4000-8000-000000000003",
+      "scope": "exact",
+      "input": "bigbank.com",
+      "domain": "bigbank.com",
+      "record_name": "_sesame-challenge.bigbank.com",
+      "record_value": "sesame-domain-verify=v1;t=GRD60fHpG0qCibmtgyQ2jlDn7UvMcgB75_-AEQX5VTg",
+      "token": "GRD60fHpG0qCibmtgyQ2jlDn7UvMcgB75_-AEQX5VTg"
+    },
+    {
+      "key_id": "k32_00_1f",
+      "kind": "organisation",
+      "tenant_id": "globex",
+      "org_id": "b2000002-0002-4000-8000-000000000002",
+      "scope": "exact",
+      "input": "bigbank.com",
+      "domain": "bigbank.com",
+      "record_name": "_sesame-challenge.bigbank.com",
+      "record_value": "sesame-domain-verify=v1;t=IxMjbWjPsKS483t_1_PAV1VUhPvXVG_mixlQuIwg-rU",
+      "token": "IxMjbWjPsKS483t_1_PAV1VUhPvXVG_mixlQuIwg-rU"
+    },
+    {
+      "key_id": "k32_aa",
+      "kind": "organisation",
+      "tenant_id": "acme",
+      "org_id": "b2000002-0002-4000-8000-000000000002",
+      "scope": "exact",
+      "input": "bigbank.com",
+      "domain": "bigbank.com",
+      "record_name": "_sesame-challenge.bigbank.com",
+      "record_value": "sesame-domain-verify=v1;t=FnrMsPP2KALXv1Z1K5Gh6Nu9LStNmso2t_-MWnfo-tg",
+      "token": "FnrMsPP2KALXv1Z1K5Gh6Nu9LStNmso2t_-MWnfo-tg"
+    },
+    {
+      "key_id": "k32_aa",
+      "kind": "organisation",
+      "tenant_id": "acme",
+      "org_id": "b2000002-0002-4000-8000-000000000002",
+      "scope": "exact",
+      "input": "EU.BigBank.co.uk.",
+      "domain": "eu.bigbank.co.uk",
+      "record_name": "_sesame-challenge.eu.bigbank.co.uk",
+      "record_value": "sesame-domain-verify=v1;t=mXSihoW_J4-f6VNt7fbz2AlzMmGjS7RBkPh_hICXZ_Y",
+      "token": "mXSihoW_J4-f6VNt7fbz2AlzMmGjS7RBkPh_hICXZ_Y"
+    },
+    {
+      "key_id": "k48_ascii",
+      "kind": "organisation",
+      "tenant_id": "pricewhisperer",
+      "org_id": "0193a4b2-7c1e-7d3a-9f00-1234567890ab",
+      "scope": "subdomains",
+      "input": "BüCher.de",
+      "domain": "xn--bcher-kva.de",
+      "record_name": "_sesame-challenge.xn--bcher-kva.de",
+      "record_value": "sesame-domain-verify=v1;t=4VAhZlyHUb4d2HV8u9lTco_SAYO7gomQSxHAwLzMxJA",
+      "token": "4VAhZlyHUb4d2HV8u9lTco_SAYO7gomQSxHAwLzMxJA"
+    },
+    {
+      "key_id": "k32_00_1f",
+      "kind": "tenant_issuer",
+      "tenant_id": "acme",
+      "org_id": null,
+      "scope": null,
+      "input": "idam.acme.com",
+      "domain": "idam.acme.com",
+      "record_name": "_sesame-challenge.idam.acme.com",
+      "record_value": "sesame-domain-verify=v1;t=STFVMaNOeKPQOVXkYKYUh0E1UN2W3DZHm3UDeOJ7BOQ",
+      "token": "STFVMaNOeKPQOVXkYKYUh0E1UN2W3DZHm3UDeOJ7BOQ"
+    },
+    {
+      "key_id": "k32_00_1f",
+      "kind": "tenant_issuer",
+      "tenant_id": "acme",
+      "org_id": null,
+      "scope": null,
+      "input": "acme.com",
+      "domain": "acme.com",
+      "record_name": "_sesame-challenge.acme.com",
+      "record_value": "sesame-domain-verify=v1;t=H2GWmOa8oCP4KsYkWf6G1KCINPLLcTGH2bbDZAoKRsc",
+      "token": "H2GWmOa8oCP4KsYkWf6G1KCINPLLcTGH2bbDZAoKRsc"
+    },
+    {
+      "key_id": "k48_ascii",
+      "kind": "tenant_issuer",
+      "tenant_id": "loadlinker",
+      "org_id": null,
+      "scope": null,
+      "input": "Idam.LoadLinker.com.",
+      "domain": "idam.loadlinker.com",
+      "record_name": "_sesame-challenge.idam.loadlinker.com",
+      "record_value": "sesame-domain-verify=v1;t=pR6ylSEMfagdaKhMyQoY_3FRrdtcAumaK9wgGIboOOs",
+      "token": "pR6ylSEMfagdaKhMyQoY_3FRrdtcAumaK9wgGIboOOs"
+    }
+  ]
+}

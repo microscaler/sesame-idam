@@ -1,6 +1,6 @@
 # Epic 17: Enterprise SSO — SAML and verified organisation domains
 
-> **Status:** In progress (17.1 started 2026-10-10)
+> **Status:** In progress (17.1 done 2026-10-10)
 > **Program:** Enterprise identity
 > **Decisions:** [ADR-014](../../ADR-014-saml-signature-verification.md) (samael and libxmlsec1, isolated verifier),
 > [ADR-007](../../ADR-007-tenant-domain-verification.md) as amended 2026-10-10 (organisation domains)
@@ -47,7 +47,7 @@ admin configures all of it without help from the platform.
 
 | Story | Title | Track | Depends on | Size |
 |---|---|---|---|---|
-| [17.1](stories/story-17.1.md) | Domain claim primitives: normalisation, eligibility, tokens | A. Domains | — | M |
+| [17.1](stories/story-17.1.md) | Domain claim primitives: normalisation, eligibility, tokens | A. Domains | — | M ✅ |
 | [17.2](stories/story-17.2.md) | DNS-over-HTTPS quorum resolver | A. Domains | 17.1 | M |
 | [17.3](stories/story-17.3.md) | Domain claim schema and lifecycle | A. Domains | 17.1 | M |
 | [17.4](stories/story-17.4.md) | Organisation domain API | A. Domains | 17.2, 17.3 | M |
@@ -112,3 +112,7 @@ E                              17.4 + 17.14 ─► 17.15;  17.13 ─► 17.16
 ## Implementation evidence
 
 Recorded per story as it lands.
+
+| Story | Evidence |
+|---|---|
+| 17.1 | `sesame_common::domain_verify`; 21 unit tests and 7 integration tests (`tests/domain_verify.rs`: published vectors reproduced byte for byte against an independent Python implementation, 4 proptest properties over field binding, record binding, idempotent normalisation and arbitrary TXT input); clippy pedantic and rustfmt clean on the new code. |

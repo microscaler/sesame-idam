@@ -3,6 +3,7 @@
 //! and token versioning for Sesame-IDAM microservices.
 //!
 //! This crate provides:
+//! - `domain_verify` module — domain claim primitives: normalisation, eligibility, DNS TXT tokens (Epic 17)
 //! - `jwt` module — JWT claim structures (`AccessClaims`, `SesameAuthzClaims`, `ActorClaim`)
 //! - `middleware` module — JWT Common-Path Authorization Middleware for `BRRTRouter`
 //! - `jwks_cache` module — JWKS cache with background refresh, stale tolerance, and security protections
@@ -19,6 +20,7 @@
 // Existing modules
 pub mod config;
 pub mod cors;
+pub mod domain_verify;
 pub mod dpop;
 pub mod fallback_cache;
 pub mod http;
