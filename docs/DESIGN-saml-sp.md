@@ -75,8 +75,8 @@ sequenceDiagram
     L-->>RP: TokenResponse (as every login)
 ```
 
-- **Hosted auth UI.** "Sign in with SSO" takes an email address, finds the organisation whose **verified** domain
-  (ADR-007) it is, and starts the flow above with the pending OIDC authorize transaction as its `redirect_uri`
+- **Hosted auth UI.** "Sign in with SSO" takes an email address, finds the organisation whose verified domain
+  (VERIFIED or GRACE, DESIGN-org-domain-verification.md) it is, and starts the flow above with the pending OIDC authorize transaction as its `redirect_uri`
   (`/oauth/authorize/complete`), so an OIDC relying party receives an ordinary authorization code. Domain discovery
   answers the same way whether or not a domain has SSO (no enumeration).
 - **RelayState** is an opaque random key; everything it stands for is server side.
@@ -152,7 +152,7 @@ present, caps the Sesame session.
 - **Identity**: (`connection_id`, NameID, NameID format) in `saml_identities`, linked to a Sesame user. A persistent
   NameID is preferred; an email-format NameID is accepted (Google Workspace, Entra's default UPN).
 - **First sign-in**: the email (the connection's `email_attribute`, else the NameID when it is an email) must be in one
-  of the organisation's **verified** domains (ADR-007). Then:
+  of the organisation's domains in state **VERIFIED** (not GRACE; DESIGN-org-domain-verification.md §5). Then:
   - an existing user of the tenant with that email, who is a member of the organisation, is linked;
   - otherwise, with just-in-time provisioning on, a user is created in the tenant and added to the organisation with
     the connection's default role (never an admin role);
@@ -179,7 +179,8 @@ none ──allow (tenant admin)──► allowed ──metadata──► configu
   back (section 11).
 - **test sign-in**: an org admin signs in through the connection with `test=true`; it proves the IdP configuration and
   the admin's own identity link, issues no tokens for the RP, and moves the connection to tested.
-- **enabled**: members sign in with it. Hosted discovery offers it for the organisation's verified domains.
+- **enabled**: members sign in with it. Hosted discovery offers it for the organisation's verified domains
+  (VERIFIED or GRACE).
 - **Refresh**: a connection with a metadata URL is re-fetched daily; new certificates are added, removed ones dropped
   after a 7-day overlap; a change of entity ID or SSO host is not applied automatically (audited, admin confirms).
   Certificates expiring within 30 days raise an alert to the organisation's admins.
@@ -274,7 +275,8 @@ Sesame shows these per connection, with the SP metadata URL for IdPs that import
 ## 12. Order of work
 
 1. **Verifier**: crate, Dockerfile, `/verify` and `/metadata/parse`, the corpus (section 9). Gate: corpus green.
-2. **org-mgmt**: schema migration, organisation-scoped connection API (pending contract tests pass), metadata via the
+2. **Prerequisite, organisation domain verification** (DESIGN-org-domain-verification.md), then **org-mgmt**: schema
+   migration, organisation-scoped connection API (pending contract tests pass), metadata via the
    verifier, lifecycle (section 7), test sign-in.
 3. **identity-login**: `saml_login` (signed AuthnRequest), ACS, `saml_callback`, SP metadata, discovery; replay; linking
    and provisioning; `amr`.

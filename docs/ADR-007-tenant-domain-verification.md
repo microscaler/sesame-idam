@@ -1,7 +1,8 @@
 # ADR-007: Tenant domain-control verification (DNS TXT challenge with continuous re-verification)
 
-Status: PROPOSED (2026-07-22)
-Related: ADR-004 (platform-tenant provisioning), ADR-006 (shared signing keys),
+Status: ACCEPTED (2026-10-10; proposed 2026-07-22), amended 2026-10-10 to cover organisation email domains (below)
+Related: ADR-004 (platform-tenant provisioning), ADR-006 (shared signing keys), ADR-014 (SAML),
+`docs/DESIGN-org-domain-verification.md` (organisation domains),
 `docs/DESIGN-tenant-domain-verification.md` (accompanying design, diagrams,
 threat model, RFC compliance matrix).
 
@@ -94,3 +95,31 @@ RFC 4033–4035 (DNSSEC validation), RFC 6125 / RFC 9110 (TLS host
 verification of issuer/JWKS), RFC 8484 (DoH), RFC 8552/8553 (underscored
 node names, `_sesame-challenge` registration practice), RFC 8555 §8.4
 (pattern prior art), RFC 7638 (kid thumbprints, via ADR-006).
+
+## Amendment (2026-10-10): organisation email domains
+
+The same DNS TXT proof also establishes that an **organisation controls an email domain** (`bigbank.com` for users
+`@bigbank.com`). Sesame relies on that claim wherever an email address alone would otherwise decide who someone is:
+
+- **SAML** (ADR-014, DESIGN-saml-sp.md §6): first-time linking of an IdP identity to a Sesame user, and just-in-time
+  provisioning, happen only for emails in a domain the organisation has verified. Without this, any organisation could
+  claim `@bigbank.com` and have its IdP assert those users.
+- **"Sign in with SSO"** discovery: an email domain routes to an organisation's SAML connection only if verified.
+- **Domain-based auto-join** (organisation settings): only for verified domains.
+
+Decisions for this subject (full design: `docs/DESIGN-org-domain-verification.md`):
+
+1. **Same mechanism**: token, record name and value form, DoH quorum, DNSSEC, constant-time comparison, daily
+   re-verification with grace and revocation, `K_enroll` custody: as decided above.
+2. **Separate claims**: the token's PRF input carries `purpose = "sesame-org-domain"` and the organisation, so an
+   organisation's record can never satisfy a tenant-issuer check or another organisation's, and vice versa.
+3. **Exact domain by default**; `*.bigbank.com` emails need an explicit "include subdomains" claim, proven at the
+   apex.
+4. **Never claimable**: public suffixes (Public Suffix List) and consumer mail providers (`gmail.com`, `outlook.com`,
+   …, a maintained list).
+5. **One organisation per domain per tenant** while a claim is verified or in grace; tenants remain isolated, so two
+   tenants may each have an organisation with the same verified domain.
+6. **Stricter grace than issuers**: during grace, existing links keep working but nothing new is bound to the domain
+   (no first-time linking, no provisioning, no auto-join); on revocation, discovery and auto-join stop for it.
+   Existing SAML identities, which are bound to the connection and NameID rather than to DNS, keep working; the
+   organisation's admins are alerted at every transition.
