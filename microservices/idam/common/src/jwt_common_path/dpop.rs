@@ -993,6 +993,8 @@ mod tests {
         std::env::set_var("RUST_ENV", "production");
         let (reply_tx, _reply_rx) = may::sync::mpsc::channel();
         let req = brrtrouter::dispatcher::HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/test".to_string(),
@@ -1019,6 +1021,8 @@ mod tests {
         let mut headers = brrtrouter::dispatcher::HeaderVec::new();
         headers.push((std::sync::Arc::from("DPoP"), "dpop-proof-jwt".to_string()));
         let req = brrtrouter::dispatcher::HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/test".to_string(),
@@ -1041,6 +1045,8 @@ mod tests {
         std::env::set_var("DPoP_ENABLED", "false");
         let (reply_tx, _reply_rx) = may::sync::mpsc::channel();
         let req = brrtrouter::dispatcher::HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/test".to_string(),

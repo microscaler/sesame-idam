@@ -355,6 +355,8 @@ mod tests {
         use brrtrouter::ids::RequestId;
         use brrtrouter::router::ParamVec;
         HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: RequestId::new(),
             method: method.parse::<Method>().unwrap_or(Method::GET),
             path: path.to_string(),
@@ -376,6 +378,8 @@ mod tests {
         use brrtrouter::router::ParamVec;
         use http::Method;
         HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: RequestId::new(),
             method: method.parse::<Method>().unwrap_or(Method::GET),
             path: path.to_string(),
@@ -527,6 +531,8 @@ mod tests {
         ));
         headers.push((std::sync::Arc::from("X-Tenant-ID"), "tenant-a".to_string()));
         let req = HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: "GET".parse().unwrap(),
             path: "/admin/users/me".to_string(),
@@ -555,6 +561,8 @@ mod tests {
         ));
         headers.push((std::sync::Arc::from("X-Tenant-ID"), "tenant-a".to_string()));
         let req = HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: "GET".parse().unwrap(),
             path: "/admin/users/me".to_string(),
@@ -585,6 +593,8 @@ mod tests {
         headers.push(("Authorization".into(), format!("Bearer {token}")));
         headers.push(("X-Tenant-ID".into(), "tenant-a".to_string()));
         let req = HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: "GET".parse().unwrap(),
             path: "/admin/users/me".to_string(),

@@ -13,6 +13,8 @@ use sesame_idam_identity_session_service::jwt::ttl::{
 fn make_refresh_request(refresh_token: &str) -> HandlerRequest {
     let hv = HeaderVec::new();
     HandlerRequest {
+        raw_query: None,
+        span: tracing::Span::none(),
         request_id: RequestId::new(),
         method: Method::POST,
         path: "/auth/refresh".to_string(),

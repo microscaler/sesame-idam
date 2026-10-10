@@ -22,6 +22,8 @@ fn make_export_status_request(
         hv.push((std::sync::Arc::from(k), v.to_string()));
     }
     brrtrouter::dispatcher::HandlerRequest {
+        raw_query: None,
+        span: tracing::Span::none(),
         request_id: RequestId::new(),
         method,
         path: path.to_string(),

@@ -19,6 +19,7 @@ fn make_request(
 ) -> HandlerRequest {
     let hv = HeaderVec::new();
     HandlerRequest {
+        span: tracing::Span::none(),
         request_id: RequestId::new(),
         method: Method::POST,
         path: "/auth/token".to_string(),

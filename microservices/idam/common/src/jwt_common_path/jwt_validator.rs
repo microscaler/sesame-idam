@@ -275,6 +275,8 @@ mod tests {
             headers.push(("authorization".into(), auth_header.to_string()));
         }
         HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: RequestId::new(),
             method: Method::GET,
             path: "/test".to_string(),

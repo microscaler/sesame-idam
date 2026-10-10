@@ -565,6 +565,8 @@ mod tests {
     #[test]
     fn test_get_key_jwks_no_tenant() {
         let req = HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/.well-known/jwks.json".to_string(),
@@ -588,6 +590,8 @@ mod tests {
         let mut headers = brrtrouter::dispatcher::HeaderVec::new();
         headers.push((std::sync::Arc::from("x-tenant-id"), "acme".to_string()));
         let req = HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/.well-known/jwks.json".to_string(),
@@ -609,6 +613,8 @@ mod tests {
     #[test]
     fn test_get_key_global_non_jwks() {
         let req = HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/api/v1/users".to_string(),
@@ -641,6 +647,8 @@ mod tests {
         let mut headers = brrtrouter::dispatcher::HeaderVec::new();
         headers.push((std::sync::Arc::from("x-tenant-id"), "test".to_string()));
         let req = HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/.well-known/jwks.json".to_string(),
@@ -678,6 +686,8 @@ mod tests {
             "limit-test".to_string(),
         ));
         let req = HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: "/.well-known/jwks.json".to_string(),
@@ -882,6 +892,8 @@ rate_limit:
     /// Helper to create a `HandlerRequest` with the given headers and path.
     fn make_req(headers: &brrtrouter::dispatcher::HeaderVec, path: &str) -> HandlerRequest {
         HandlerRequest {
+            raw_query: None,
+            span: tracing::Span::none(),
             request_id: brrtrouter::ids::RequestId::new(),
             method: http::Method::GET,
             path: path.to_string(),

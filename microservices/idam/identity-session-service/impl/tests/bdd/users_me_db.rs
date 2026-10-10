@@ -105,6 +105,8 @@ fn me_request(
         headers.push((Arc::from("x-tenant-id"), tenant.to_string()));
     }
     HandlerRequest {
+        raw_query: None,
+        span: tracing::Span::none(),
         request_id: RequestId::new(),
         method,
         path: "/identity/me".to_string(),

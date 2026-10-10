@@ -64,6 +64,7 @@ fn make_request(
         hv.push((Arc::from(k), v.to_string()));
     }
     HandlerRequest {
+        span: tracing::Span::none(),
         request_id: RequestId::new(),
         method,
         path: "/health".to_string(),

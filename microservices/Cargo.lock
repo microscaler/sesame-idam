@@ -551,6 +551,7 @@ dependencies = [
 [[package]]
 name = "brrtrouter"
 version = "0.1.0-alpha.1"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198#19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -567,6 +568,7 @@ dependencies = [
  "lru",
  "may",
  "may_minihttp",
+ "may_tracing",
  "memory-stats",
  "microscaler-observability",
  "minijinja",
@@ -603,6 +605,7 @@ dependencies = [
 [[package]]
 name = "brrtrouter_macros"
 version = "0.1.0"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198#19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -3124,6 +3127,7 @@ checksum = "2e126dda6f34391ab7b444f9922055facc83c07a910da3eb16f1e4d9c45dc777"
 [[package]]
 name = "lifeguard"
 version = "0.1.0"
+source = "git+https://github.com/microscaler/lifeguard.git?rev=75e0e5fa57e585b4345f7b0e9da49e381c5bf44f#75e0e5fa57e585b4345f7b0e9da49e381c5bf44f"
 dependencies = [
  "bytes",
  "chrono",
@@ -3136,6 +3140,7 @@ dependencies = [
  "may",
  "may_minihttp",
  "may_postgres",
+ "may_tracing",
  "once_cell",
  "opentelemetry",
  "opentelemetry-prometheus",
@@ -3159,6 +3164,7 @@ dependencies = [
 [[package]]
 name = "lifeguard-derive"
 version = "0.1.0"
+source = "git+https://github.com/microscaler/lifeguard.git?rev=75e0e5fa57e585b4345f7b0e9da49e381c5bf44f#75e0e5fa57e585b4345f7b0e9da49e381c5bf44f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3168,6 +3174,7 @@ dependencies = [
 [[package]]
 name = "lifeguard-migrate"
 version = "0.1.0"
+source = "git+https://github.com/microscaler/lifeguard.git?rev=75e0e5fa57e585b4345f7b0e9da49e381c5bf44f#75e0e5fa57e585b4345f7b0e9da49e381c5bf44f"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3296,6 +3303,7 @@ dependencies = [
 [[package]]
 name = "may_postgres"
 version = "0.1.0"
+source = "git+https://github.com/microscaler/may_postgres.git?rev=4cff8ff730fa948b680d3c1f34d158120b205df7#4cff8ff730fa948b680d3c1f34d158120b205df7"
 dependencies = [
  "byteorder",
  "bytes",
@@ -3307,6 +3315,8 @@ dependencies = [
  "phf",
  "postgres-protocol",
  "postgres-types",
+ "rustls",
+ "rustls-pemfile",
  "smallvec",
  "spin",
 ]
@@ -3320,6 +3330,15 @@ dependencies = [
  "crossbeam-utils",
  "rustversion",
  "smallvec",
+]
+
+[[package]]
+name = "may_tracing"
+version = "0.1.1"
+source = "git+https://github.com/microscaler/may_tracing.git?tag=v0.1.1#121de43e6e5e96d45f3339a238150804070a4be8"
+dependencies = [
+ "may",
+ "tracing",
 ]
 
 [[package]]
@@ -3382,6 +3401,7 @@ dependencies = [
 [[package]]
 name = "microscaler-observability"
 version = "0.1.0"
+source = "git+https://github.com/microscaler/microscaler-observability.git?rev=9b9de6ba2e376b21219f4581262490e600e68c86#9b9de6ba2e376b21219f4581262490e600e68c86"
 dependencies = [
  "opentelemetry",
  "opentelemetry-appender-tracing",
@@ -7554,7 +7574,3 @@ name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
-
-[[patch.unused]]
-name = "sesame-idam-client"
-version = "0.1.0"

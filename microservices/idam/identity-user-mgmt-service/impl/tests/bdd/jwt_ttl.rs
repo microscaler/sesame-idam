@@ -13,6 +13,8 @@ use sesame_idam_identity_user_mgmt_service::jwt::ttl::{
 fn make_oauth_request(user_id: &str) -> HandlerRequest {
     let hv = HeaderVec::new();
     HandlerRequest {
+        raw_query: None,
+        span: tracing::Span::none(),
         request_id: RequestId::new(),
         method: Method::POST,
         path: "/oauth/fresh-token".to_string(),

@@ -206,6 +206,7 @@ impl AuthError {
         headers.push((Arc::from("Retry-After"), retry_after.to_string()));
 
         HandlerResponse {
+            sse: None,
             status: StatusCode::UNAUTHORIZED.as_u16(),
             body,
             headers,

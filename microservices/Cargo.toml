@@ -30,11 +30,14 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
+# Microscaler crates are pinned git revisions, so a clean checkout (CI, Octopilot) builds without sibling checkouts.
+# Local co-development: the ancestor cargo config (~/Workspace/microscaler/.cargo/config.toml) patches these git
+# URLs to the sibling paths, as for PriceWhisperer and hauliage.
 sesame_common = { package = "sesame-common", path = "idam/common" }
 # All shared libs are now modules within common, so individual workspace deps are removed
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
-brrtrouter = { path = "../../BRRTRouter", default-features = false }
-brrtrouter_macros = { path = "../../BRRTRouter/brrtrouter_macros" }
+brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198", default-features = false }
+brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198" }
 
 # Standard dependencies
 serde = { version = "1.0", features = ["derive"] }
@@ -77,9 +80,11 @@ ed25519-zebra = "4"
 p256 = { version = "0.13", features = ["ecdsa"] }
 
 # Database
-lifeguard = { path = "../../lifeguard" }
-lifeguard-derive = { path = "../../lifeguard/lifeguard-derive" }
-lifeguard-migrate = { path = "../../lifeguard/lifeguard-migrate" }
+lifeguard = { git = "https://github.com/microscaler/lifeguard.git", rev = "75e0e5fa57e585b4345f7b0e9da49e381c5bf44f" }
+lifeguard-derive = { git = "https://github.com/microscaler/lifeguard.git", rev = "75e0e5fa57e585b4345f7b0e9da49e381c5bf44f" }
+lifeguard-migrate = { git = "https://github.com/microscaler/lifeguard.git", rev = "75e0e5fa57e585b4345f7b0e9da49e381c5bf44f" }
+# The revision lifeguard pins: lifeguard-derive generates code against this crate, so the services must share it.
+may_postgres = { git = "https://github.com/microscaler/may_postgres.git", rev = "4cff8ff730fa948b680d3c1f34d158120b205df7" }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 
@@ -87,9 +92,6 @@ uuid = { version = "1", features = ["v4"] }
 rust_decimal = { version = "1.33", features = ["serde-float", "db-postgres"] }
 sea-query = { version = "1.0.2", features = ["with-json", "with-chrono", "with-uuid", "with-rust_decimal"] }
 
-# Patch may_postgres to use local fork for dev
-[patch."https://github.com/microscaler/may_postgres.git"]
-may_postgres = { path = "../../may_postgres" }
 
 # Patch crates.io may_minihttp → merged microscaler integration branch.
 [patch.crates-io]

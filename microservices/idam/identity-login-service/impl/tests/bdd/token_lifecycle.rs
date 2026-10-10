@@ -194,6 +194,7 @@ fn userinfo_request(access_token: &str) -> HandlerRequest {
     let mut headers = HeaderVec::new();
     headers.push((Arc::from("x-tenant-id"), tenant.to_string()));
     HandlerRequest {
+        span: tracing::Span::none(),
         request_id: RequestId::new(),
         method: Method::GET,
         path: "/identity/userinfo".to_string(),

@@ -54,6 +54,7 @@ fn logout_http_request(jti: &str, exp: u64) -> HandlerRequest {
     let mut headers = HeaderVec::new();
     headers.push((Arc::from("x-tenant-id"), TEST_TENANT.to_string()));
     HandlerRequest {
+        span: tracing::Span::none(),
         request_id: RequestId::new(),
         method: Method::POST,
         path: "/auth/logout".to_string(),
