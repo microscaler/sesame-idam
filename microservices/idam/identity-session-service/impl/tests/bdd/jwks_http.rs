@@ -208,17 +208,19 @@ fn test_jwks_handler_response_has_content_type() {
     let req = make_request("/.well-known/jwks.json", Method::GET, vec![]);
     let hr = invoke_jwks_request(req);
 
-    // Then: Content-Type is set by brrtrouter's HandlerResponse::json()
+    // Then: the handler does not override the content type. BRRTRouter's HandlerResponse::json()
+    // leaves it unset so the service applies the type the OpenAPI spec declares for this response
+    // (application/json for jwks.json), falling back to application/json for JSON bodies; a handler
+    // that set anything else would override the spec.
     let content_type = hr
         .headers
         .iter()
         .find(|(k, _)| k.to_lowercase() == "content-type")
         .map(|(_, v)| v.as_str());
 
-    assert_eq!(
-        content_type,
-        Some("application/json"),
-        "HandlerResponse::json() sets Content-Type: application/json"
+    assert!(
+        matches!(content_type, None | Some("application/json")),
+        "JWKS handler must not override the spec's application/json, got {content_type:?}"
     );
 }
 

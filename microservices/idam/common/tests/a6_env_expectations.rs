@@ -21,7 +21,8 @@ fn set_env_once() {
 }
 
 fn claims_with(iss: &str, aud: &str) -> sesame_common::AccessClaims {
-    let now = 1_800_000_000i64;
+    // validate() checks exp/nbf against the real clock: the token must be valid now.
+    let now = chrono::Utc::now().timestamp();
     let sx = SesameAuthzClaimsBuilder::new()
         .tenant("tenant-a")
         .portal("frontend")

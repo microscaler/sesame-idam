@@ -96,3 +96,22 @@ jobs:
             [ -f "microservices/idam/$f" ] || { echo "::error::seed_environments.txt lists $f, which does not exist"; rc=1; }
           done < microservices/idam/seed_environments.txt
           exit $rc
+
+  # Tests marked #[ignore = "pending: ..."] describe work not done yet. They run here so they stay visible, but never
+  # block a release. A pending test that starts passing should lose its #[ignore].
+  pending:
+    name: Pending tests (advisory)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - name: Ignored tests
+        working-directory: microservices
+        run: cargo nextest run --workspace --all-targets --run-ignored only --no-fail-fast

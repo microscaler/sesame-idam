@@ -566,9 +566,10 @@ fn scenario_empty_sx_tenant_rejected() {
         aud: vec!["api".to_string()],
         client_id: "app".to_string(),
         scope: "openid".to_string(),
-        exp: 1_700_000_000,
-        nbf: 1_700_000_000 - 60,
-        iat: 1_700_000_000,
+        // Valid now, so the empty sx.tenant (not expiry) is what validate() rejects.
+        exp: chrono::Utc::now().timestamp() + 300,
+        nbf: chrono::Utc::now().timestamp() - 60,
+        iat: chrono::Utc::now().timestamp(),
         jti: "jti-null".to_string(),
         ver: 1,
         sid: "session-null".to_string(),

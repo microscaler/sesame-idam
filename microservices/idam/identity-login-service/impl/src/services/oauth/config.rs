@@ -192,6 +192,10 @@ mod tests {
     fn dev_redirect_uri_heuristic() {
         assert!(is_dev_redirect_uri("http://localhost:7174/oauth/callback"));
         assert!(is_dev_redirect_uri(
+            "http://app.dev.example.local/oauth/callback"
+        ));
+        // A production-shaped URI is never a dev redirect.
+        assert!(!is_dev_redirect_uri(
             "https://app.example.com/oauth/callback"
         ));
         assert!(!is_dev_redirect_uri("https://evil.example/callback"));

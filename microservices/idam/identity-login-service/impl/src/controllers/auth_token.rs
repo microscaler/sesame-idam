@@ -1225,9 +1225,61 @@ mod tests {
         }
     }
 
+    /// Sign a test access token that passes the shared verify path (Epic 14.2): every required
+    /// claim is present, issuer and audience are this environment's (Gate A6), and the token is
+    /// valid now. The test's own fields win; its `sx` object is merged into the namespaced authz
+    /// claims, whose tenant defaults to the token's `tenant_id`.
     fn signed_test_token(payload: serde_json::Value) -> String {
+        use sesame_common::jwt::helpers::{allowed_issuers, expected_audiences};
+        let fields = payload.as_object().expect("test payload is a JSON object");
+        let text = |key: &str, default: &str| {
+            fields
+                .get(key)
+                .and_then(|v| v.as_str())
+                .unwrap_or(default)
+                .to_string()
+        };
+        let sub = text("sub", "test_user");
+        let tenant = text("tenant_id", "tenant_abc");
+
+        let mut sx = serde_json::json!({
+            "tenant": tenant,
+            "portal": "frontend",
+            "roles": [],
+            "permissions": []
+        });
+        if let Some(extra) = fields.get("sx").and_then(|v| v.as_object()) {
+            for (k, v) in extra {
+                sx[k] = v.clone();
+            }
+        }
+
+        let now = chrono::Utc::now().timestamp();
+        let mut claims = serde_json::json!({
+            "iss": allowed_issuers()[0],
+            "sub": sub,
+            "aud": [expected_audiences()[0]],
+            "client_id": "test-client",
+            "scope": "",
+            "exp": now + 300,
+            "nbf": now - 60,
+            "iat": now,
+            "jti": format!("test-{sub}-{now}"),
+            "ver": 1,
+            "sid": "test-session",
+            "tenant_id": tenant,
+            "user_id": sub,
+            "user_type": "customer"
+        });
+        for (k, v) in fields {
+            if k != "sx" {
+                claims[k] = v.clone();
+            }
+        }
+        claims["https://sesame-idam.dev/claims"] = sx;
+
         crate::services::token_issuer::SIGNER
-            .sign_payload(&payload.to_string())
+            .sign_payload(&claims.to_string())
             .expect("test token signs")
     }
 
