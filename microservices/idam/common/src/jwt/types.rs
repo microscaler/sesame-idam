@@ -140,8 +140,9 @@ pub struct SesameAuthzClaims {
 }
 
 /// Top-level JWT claim structure.
-/// Standard JWT claims at top level, authz claims namespaced under <https://sesame-idam.dev/claims>.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Standard JWT claims at top level; the authz claims (`sx`) are namespaced under the deployment's claim
+/// namespace ([`crate::jwt::helpers::claims_namespace`], `SESAME_CLAIMS_NAMESPACE`).
+#[derive(Debug, Clone, PartialEq)]
 pub struct AccessClaims {
     // Standard claims
     pub iss: String,
@@ -161,17 +162,104 @@ pub struct AccessClaims {
     pub user_id: String,
     pub user_type: String,
     /// Active organization workspace (Sesame org id). Omitted until user creates or joins an org.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub org_id: Option<String>,
-    // Namespaced authz claims
-    #[serde(rename = "https://sesame-idam.dev/claims")]
+    // Namespaced authz claims: serialized under the configured claim namespace (see the serde impls below).
     pub sx: SesameAuthzClaims,
     // Optional delegation (RFC 8693)
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub act: Option<ActorClaim>,
     // DPoP confirmation (RFC 9449)
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub cnf: Option<DpopConfirmation>,
+}
+
+/// Wire form of [`AccessClaims`]: every claim but `sx`, plus the remaining members, among them the
+/// namespaced authz claims under the configured key. The namespace is deployment configuration, so it
+/// cannot be a compile-time `#[serde(rename)]`.
+#[derive(Serialize, Deserialize)]
+struct AccessClaimsWire {
+    iss: String,
+    sub: String,
+    aud: Vec<String>,
+    client_id: String,
+    scope: String,
+    exp: i64,
+    nbf: i64,
+    iat: i64,
+    jti: String,
+    ver: u64,
+    sid: String,
+    tenant_id: String,
+    user_id: String,
+    user_type: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    org_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    act: Option<ActorClaim>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    cnf: Option<DpopConfirmation>,
+    #[serde(flatten)]
+    rest: serde_json::Map<String, serde_json::Value>,
+}
+
+impl Serialize for AccessClaims {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let sx = serde_json::to_value(&self.sx).map_err(serde::ser::Error::custom)?;
+        let mut rest = serde_json::Map::new();
+        rest.insert(super::helpers::claims_namespace().to_string(), sx);
+        AccessClaimsWire {
+            iss: self.iss.clone(),
+            sub: self.sub.clone(),
+            aud: self.aud.clone(),
+            client_id: self.client_id.clone(),
+            scope: self.scope.clone(),
+            exp: self.exp,
+            nbf: self.nbf,
+            iat: self.iat,
+            jti: self.jti.clone(),
+            ver: self.ver,
+            sid: self.sid.clone(),
+            tenant_id: self.tenant_id.clone(),
+            user_id: self.user_id.clone(),
+            user_type: self.user_type.clone(),
+            org_id: self.org_id.clone(),
+            act: self.act.clone(),
+            cnf: self.cnf.clone(),
+            rest,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for AccessClaims {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let mut wire = AccessClaimsWire::deserialize(deserializer)?;
+        // Only the configured namespace counts: a token whose authz claims sit under another key has none.
+        let namespace = super::helpers::claims_namespace();
+        let sx = wire
+            .rest
+            .remove(namespace)
+            .ok_or_else(|| serde::de::Error::custom(format!("missing field `{namespace}`")))?;
+        let sx: SesameAuthzClaims = serde_json::from_value(sx).map_err(serde::de::Error::custom)?;
+        Ok(AccessClaims {
+            iss: wire.iss,
+            sub: wire.sub,
+            aud: wire.aud,
+            client_id: wire.client_id,
+            scope: wire.scope,
+            exp: wire.exp,
+            nbf: wire.nbf,
+            iat: wire.iat,
+            jti: wire.jti,
+            ver: wire.ver,
+            sid: wire.sid,
+            tenant_id: wire.tenant_id,
+            user_id: wire.user_id,
+            user_type: wire.user_type,
+            org_id: wire.org_id,
+            sx,
+            act: wire.act,
+            cnf: wire.cnf,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

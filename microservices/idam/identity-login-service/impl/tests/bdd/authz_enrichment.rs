@@ -163,7 +163,7 @@ fn login_enriches_roles_from_authz_core() {
         serde_json::from_slice(&URL_SAFE_NO_PAD.decode(payload_b64).unwrap()).unwrap()
     };
     assert_eq!(
-        payload["https://sesame-idam.dev/claims"]["roles"],
+        payload[sesame_common::jwt::helpers::claims_namespace()]["roles"],
         serde_json::json!(["OWNER"]),
         "roles must be embedded in sx claims"
     );

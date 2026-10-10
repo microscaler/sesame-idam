@@ -250,8 +250,8 @@ const rows = await db.query('SELECT * FROM my_custom_table');
 ## JWT Schema
 
 **Current truth:** access tokens are **EdDSA**-signed (`typ=at+jwt`). Roles and
-permissions live under `https://sesame-idam.dev/claims` (not flat top-level
-arrays). `org_id` is optional until the user has an active organization.
+permissions live under the deployment's claim namespace (`SESAME_CLAIMS_NAMESPACE`; default
+`https://sesame-idam.dev/claims`, shown below), not flat top-level arrays. `org_id` is optional until the user has an active organization.
 Normative tables: [provider-profile-v1.md](docs/standards-first-oidc/provider-profile-v1.md).
 
 ```json

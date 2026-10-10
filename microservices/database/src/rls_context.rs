@@ -64,6 +64,17 @@ fn string_array(value: &Value, field: &'static str) -> Result<Vec<String>, RlsCo
         .collect()
 }
 
+/// Key of the namespaced authz claims in a validated token: `SESAME_CLAIMS_NAMESPACE`, else the default.
+/// The same variable and default as `sesame_common::jwt::claims_namespace` (this crate stays free of
+/// sesame-common); the issuer and every consumer of a deployment's tokens must agree on it.
+pub fn claims_namespace() -> &'static str {
+    static NAMESPACE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    NAMESPACE.get_or_init(|| match std::env::var("SESAME_CLAIMS_NAMESPACE") {
+        Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
+        _ => "https://sesame-idam.dev/claims".to_string(),
+    })
+}
+
 /// Build Lifeguard session context from claims already validated by `BRRTRouter`.
 ///
 /// An optional `X-Tenant-ID` value is only a cross-check; it cannot supply a missing tenant.
@@ -114,11 +125,9 @@ pub fn session_context_from_validated_claims(
     )?;
 
     let sx = claims
-        .get("https://sesame-idam.dev/claims")
+        .get(claims_namespace())
         .and_then(Value::as_object)
-        .ok_or(RlsContextError::MissingField(
-            "https://sesame-idam.dev/claims",
-        ))?;
+        .ok_or(RlsContextError::MissingField("sx (claims namespace)"))?;
     let authz_tenant = required_string(
         sx.get("tenant")
             .ok_or(RlsContextError::MissingField("sx.tenant"))?,
@@ -175,19 +184,20 @@ mod tests {
     use super::*;
 
     fn sample_claims() -> Value {
-        serde_json::json!({
+        let mut claims = serde_json::json!({
             "sub": "a1000001-0001-4000-8000-000000000001",
             "user_id": "a1000001-0001-4000-8000-000000000001",
             "sid": "session-1",
             "tenant_id": "tenant-alpha",
             "org_id": "b2000002-0002-4000-8000-000000000002",
             "user_type": "customer",
-            "https://sesame-idam.dev/claims": {
-                "tenant": "tenant-alpha",
-                "roles": ["member"],
-                "permissions": ["user:read"]
-            }
-        })
+        });
+        claims[claims_namespace()] = serde_json::json!({
+            "tenant": "tenant-alpha",
+            "roles": ["member"],
+            "permissions": ["user:read"]
+        });
+        claims
     }
 
     #[test]
@@ -226,8 +236,7 @@ mod tests {
     #[test]
     fn rejects_namespaced_tenant_mismatch() {
         let mut claims = sample_claims();
-        claims["https://sesame-idam.dev/claims"]["tenant"] =
-            Value::String("tenant-beta".to_string());
+        claims[claims_namespace()]["tenant"] = Value::String("tenant-beta".to_string());
         assert!(matches!(
             session_context_from_validated_claims(&claims, None),
             Err(RlsContextError::ClaimMismatch {

@@ -1276,7 +1276,7 @@ mod tests {
                 claims[k] = v.clone();
             }
         }
-        claims["https://sesame-idam.dev/claims"] = sx;
+        claims[sesame_common::jwt::helpers::claims_namespace()] = sx;
 
         crate::services::token_issuer::SIGNER
             .sign_payload(&claims.to_string())

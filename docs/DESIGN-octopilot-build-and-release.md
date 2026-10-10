@@ -105,6 +105,16 @@ committed.
 The chart's default `config.yaml` must carry nothing environment-specific or secret: no static API keys (the dev
 `ApiKeyHeader` key), no dev issuer. Environments set `security.jwks.*` and API keys from their own values and secrets.
 
+### 3.7 Deployment identity is configuration
+
+What identifies a deployment to its relying parties is environment configuration, never code, so one image serves every
+environment and the repository stays product-neutral: the issuer (`SESAME_JWT_ISSUER`), the accepted issuers and
+audiences (`JWT_ALLOWED_ISSUERS`, `JWT_EXPECTED_AUDIENCES`), the public URLs, and the **claim namespace**
+(`SESAME_CLAIMS_NAMESPACE`): the key under which the authorization claims (`sx`) travel in an access token, a URI the
+deployment controls. The issuer and every consumer of its tokens (services, `sesame-idam-client`, the RLS bridge) read
+the same value; unset, it is `https://sesame-idam.dev/claims`. A token whose authorization claims sit under another key
+carries none for that deployment and is rejected.
+
 ## 4. Order of work
 
 1. `VERSION`, `release.yml`, `ci.yml`, `skaffold.yaml` (suite, chart, migrations); `ci.yaml` retired; pre-commit rustfmt +

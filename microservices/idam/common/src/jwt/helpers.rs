@@ -211,6 +211,22 @@ pub fn allowed_issuers() -> &'static [String] {
     ISSUERS.get_or_init(|| env_list("JWT_ALLOWED_ISSUERS", ALLOWED_ISSUERS))
 }
 
+/// Default key of the namespaced authorization claims (`sx`) in an access token.
+pub const DEFAULT_CLAIMS_NAMESPACE: &str = "https://sesame-idam.dev/claims";
+
+/// Key under which the namespaced authorization claims (`sx`) travel in an access token:
+/// `SESAME_CLAIMS_NAMESPACE` env when set, else [`DEFAULT_CLAIMS_NAMESPACE`]. Read once per process.
+///
+/// Deployment configuration, like the issuer: each deployment names its own claim namespace (a URI
+/// it controls), and the issuer and every consumer of its tokens must use the same value.
+pub fn claims_namespace() -> &'static str {
+    static NAMESPACE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    NAMESPACE.get_or_init(|| match std::env::var("SESAME_CLAIMS_NAMESPACE") {
+        Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
+        _ => DEFAULT_CLAIMS_NAMESPACE.to_string(),
+    })
+}
+
 /// Effective audience allow-list: `JWT_EXPECTED_AUDIENCES` env
 /// (comma-separated) when set, else [`EXPECTED_AUDIENCE`]. Read once per
 /// process.

@@ -34,10 +34,11 @@ mod tests;
 
 pub use builders::{AccessClaimsBuilder, SesameAuthzClaimsBuilder};
 pub use helpers::{
-    compute_entitlements_hash, generate_entitlements_ref, measure_jwt_token_size,
+    claims_namespace, compute_entitlements_hash, generate_entitlements_ref, measure_jwt_token_size,
     truncate_authz_claims_permissions, truncate_permissions, validate_entitlements_ref,
-    verify_entitlements_hash, ALLOWED_ISSUERS, EXPECTED_AUDIENCE, MAX_ENTITLEMENTS_REF_LENGTH,
-    MAX_PERMISSIONS_PER_ROLE, MAX_TOKEN_SIZE_BYTES, TOKEN_SIZE_WARNING_BYTES,
+    verify_entitlements_hash, ALLOWED_ISSUERS, DEFAULT_CLAIMS_NAMESPACE, EXPECTED_AUDIENCE,
+    MAX_ENTITLEMENTS_REF_LENGTH, MAX_PERMISSIONS_PER_ROLE, MAX_TOKEN_SIZE_BYTES,
+    TOKEN_SIZE_WARNING_BYTES,
 };
 pub use keyset::{
     configured_keyset_file, load_keyset_file, parse_keyset, rfc7638_okp_thumbprint, signing_key,

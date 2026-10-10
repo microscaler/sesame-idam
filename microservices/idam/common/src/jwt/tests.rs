@@ -674,10 +674,14 @@ fn test_token_size_under_budget() {
         cnf: None,
     };
 
-    let size = claims.json_payload_size();
+    // The claim namespace is deployment configuration (SESAME_CLAIMS_NAMESPACE): its length is the deployment's
+    // choice, counted against its own header budget. Measure what this code controls, at the default namespace.
+    let namespace_delta = crate::jwt::helpers::claims_namespace().len() as isize
+        - crate::jwt::helpers::DEFAULT_CLAIMS_NAMESPACE.len() as isize;
+    let size = (claims.json_payload_size() as isize - namespace_delta) as usize;
     assert!(
         size < 750,
-        "JWT payload size {size} exceeds 750-byte budget"
+        "JWT payload size {size} (at the default claim namespace) exceeds 750-byte budget"
     );
 }
 

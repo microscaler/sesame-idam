@@ -210,7 +210,7 @@ fn register_then_login_round_trip() {
     assert_eq!(payload["sub"], user_id);
     assert_eq!(payload["tenant_id"], FIXTURE_TENANT);
     assert_eq!(
-        payload["https://sesame-idam.dev/claims"]["tenant"],
+        payload[sesame_common::jwt::helpers::claims_namespace()]["tenant"],
         FIXTURE_TENANT
     );
     assert!(payload["ver"].as_u64().unwrap() >= 1);
