@@ -1,142 +1,282 @@
-# DESIGN: SAML service provider
+# DESIGN: SAML in Sesame
 
-Status: design (October 2026). Owner: Charles Sibbald.
+Status: design, accepted for implementation (October 2026). Owner: Charles Sibbald.
+Decision record: [ADR-014](ADR-014-saml-signature-verification.md) (samael and libxmlsec1, in an isolated verifier).
 
-Sesame signs users in through their organisation's SAML identity provider. First IdPs: **Microsoft Entra ID, Okta,
-Google Workspace**; first flow: **SP-initiated** (the user starts at a Sesame relying party). IdP-initiated login,
-single logout and encrypted assertions come later (section 9).
+Sesame signs users in through their organisation's SAML 2.0 identity provider. First IdPs: **Microsoft Entra ID, Okta,
+Google Workspace**. First flow: **SP-initiated**, HTTP-Redirect binding out, HTTP-POST binding back. IdP-initiated login,
+single logout, encrypted assertions and SCIM come later (section 13).
 
-SAML is an upstream login method, like Google or Microsoft social login: the IdP vouches for a user, Sesame decides who
-that user is in which tenant and organisation, and Sesame alone issues tokens. A relying party never sees a SAML message.
+SAML is an upstream login method, like Google or Microsoft social login: the IdP vouches for a person, Sesame decides
+who that is in which tenant and organisation, and Sesame alone issues tokens. A relying party never sees a SAML message
+and needs no SAML code.
 
-## 1. What exists
+---
 
-- `saml_connections` (org-mgmt): `org_id`, `issuer`, `metadata_url`, `sso_url`, `signing_cert`.
-- org-mgmt operations for allow / enable / disable / link / metadata / delete: **stubs** (they audit and echo); their
-  paths are not organisation-scoped (`/sso/saml/...`).
-- `sesame-idam-client` already calls `GET /auth/saml/login` and `POST /auth/saml/callback`; the identity-login OpenAPI
-  does not publish them (the client marks them pre-contract).
-- Pending contract tests (`pact-mock-server/tests/saml_track_a_contract.rs`) describe the target paths; they are
-  ignored until this lands and then gate it.
-- Nothing parses or verifies SAML.
+## 1. Today
 
-## 2. Flow (SP-initiated)
+| Piece | State |
+| --- | --- |
+| `saml_connections` table (org-mgmt) | `org_id`, `issuer`, `metadata_url`, `sso_url`, `signing_cert` |
+| org-mgmt SAML operations (allow, enable, disable, link, metadata, delete) | stubs that audit and echo; paths not organisation-scoped (`/sso/saml/…`) |
+| `sesame-idam-client` | calls `GET /auth/saml/login` and `POST /auth/saml/callback`; marked pre-contract (the login OpenAPI does not publish them) |
+| Contract tests (`pact-mock-server/tests/saml_track_a_contract.rs`) | describe the target paths; ignored, run in the advisory CI job, and become gating when this lands |
+| SAML parsing or verification | none |
+| Social login (Google, Microsoft) | complete; the model SAML follows (state in Redis, shared `issue_login_response`) |
+
+## 2. Architecture
 
 ```
-RP / hosted auth UI            Sesame identity-login                     Organisation IdP
-  GET /auth/saml/login?org_id&redirect_uri&client_id
-                       ──►  connection enabled? redirect_uri registered for client_id?
-                            AuthnRequest(ID) signed (HTTP-Redirect binding), state in Redis (5 min, one use)
-  ◄── 302 IdP SSO URL ?SAMLRequest&RelayState&SigAlg&Signature ─────────────────────►  user authenticates
-                            POST /auth/saml/acs/{connection_id}  SAMLResponse, RelayState  ◄──
-                            verify (section 4), resolve user (section 5)
-  ◄── 302 redirect_uri?code=<saml_access_code>   (one use, 60 s, bound to client_id + redirect_uri)
-  POST /auth/saml/callback {saml_access_code, client_id[, client_secret]}  (RP back end)
-  ◄── TokenResponse (access, refresh, id token as for any login)
+ browser ──► RP / hosted auth UI
+                │ GET /auth/saml/login                      ┌──────────────────────────┐
+                ▼                                           │ saml-verifier (internal) │
+ identity-login-service (public routes) ── POST /verify ──► │ samael + libxmlsec1      │
+   state, replay cache: Redis                               │ stateless, no secrets,   │
+   SP key: secret backend (signs AuthnRequest, ring)        │ no DB, no Redis, no      │
+   connections, identities: Postgres (RLS)                  │ egress                   │
+                ▲                                           └──────────────────────────┘
+ org-mgmt (admin API) ── POST /metadata/parse ──────────────────────▲
+   connection lifecycle, metadata fetch (egress, HTTPS only)
 ```
 
-The hosted authorize flow uses the same machinery: "Sign in with SSO" on the login page takes an email, finds the
-organisation whose **verified** domain (ADR-007) it is, and starts the login above with the pending authorize
-transaction as its `redirect_uri`, so the RP receives an ordinary OIDC authorization code.
+- **identity-login-service** owns the sign-in flow: starts it (AuthnRequest), receives the IdP's POST at the assertion
+  consumer service (ACS), asks the verifier, links the identity, completes the login.
+- **saml-verifier** (new, ADR-014) owns XML: verifies responses and parses IdP metadata. Internal only, stateless,
+  holds nothing worth stealing, reaches nothing.
+- **org-mgmt** owns connections: who may configure SAML, the IdP metadata, enabling and disabling.
 
-## 3. Endpoints
+identity-login-service and org-mgmt stay pure Rust; only the verifier links C libraries.
 
-identity-login-service (public, `…/idam/v1`):
+## 3. Sign-in flow (SP-initiated)
 
-| Operation | Path | Notes |
-| --- | --- | --- |
-| `saml_login` | `GET /auth/saml/login` | `org_id`, `redirect_uri`, `client_id`; 302 to the IdP |
-| `saml_acs` | `POST /auth/saml/acs/{connection_id}` | form post from the IdP (`SAMLResponse`, `RelayState`) |
-| `saml_callback` | `POST /auth/saml/callback` | code exchange by the RP back end |
-| `saml_sp_metadata` | `GET /auth/saml/sp/{connection_id}/metadata` | SP metadata for the IdP admin |
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant RP as Relying party
+    participant L as identity-login
+    participant V as saml-verifier
+    participant I as Organisation IdP
+    B->>RP: Sign in with SSO
+    RP->>L: GET /auth/saml/login?org_id&client_id&redirect_uri
+    L->>L: connection enabled? redirect_uri registered for client_id?
+    L->>L: AuthnRequest(ID), state {request ID, tenant, org, connection, client, redirect_uri} in Redis 10 min
+    L-->>B: 302 IdP SSO URL ?SAMLRequest&RelayState&SigAlg&Signature
+    B->>I: authenticate
+    I-->>B: auto-submitting form
+    B->>L: POST /auth/saml/acs/{connection_id} SAMLResponse, RelayState
+    L->>L: consume state (one use); state.connection == path connection
+    L->>V: POST /verify {response, certs, entity IDs, ACS, request ID, now}
+    V-->>L: verified {name_id, attributes, assertion ID, session_not_on_or_after} | refused
+    L->>L: replay check; resolve or provision user (section 6)
+    L->>L: saml_access_code in Redis (60 s, one use, bound to client_id + redirect_uri)
+    L-->>B: 302 redirect_uri?code=…
+    B->>RP: follows
+    RP->>L: POST /auth/saml/callback {saml_access_code, client_id[, client_secret]}
+    L-->>RP: TokenResponse (as every login)
+```
 
-One SP entity per connection: entity ID `https://<public host>/idam/v1/auth/saml/sp/{connection_id}`, ACS as above.
-Each organisation's IdP application is then independent, and the audience check names exactly one connection.
+- **Hosted auth UI.** "Sign in with SSO" takes an email address, finds the organisation whose **verified** domain
+  (ADR-007) it is, and starts the flow above with the pending OIDC authorize transaction as its `redirect_uri`
+  (`/oauth/authorize/complete`), so an OIDC relying party receives an ordinary authorization code. Domain discovery
+  answers the same way whether or not a domain has SSO (no enumeration).
+- **RelayState** is an opaque random key; everything it stands for is server side.
+- **Failures** after the IdP returns redirect the browser to the RP's `redirect_uri` with `error=access_denied` (no
+  detail) when the state is valid, and to a static error page otherwise; the cause is in the audit log.
 
-org-mgmt (organisation-scoped, `/organizations/{org_id}/sso/saml…`):
+## 4. Endpoints
 
-| Operation | Path | Who |
-| --- | --- | --- |
-| get / `delete_saml` | `GET`, `DELETE /organizations/{org_id}/sso/saml` | org admin |
-| `allow_org_saml` / `disallow_org_saml` | `POST …/sso/saml/allow`, `…/disable` | tenant admin (entitlement) |
-| `enable_saml` | `POST …/sso/saml/enable` | org admin, after a successful test login |
-| `create_saml_link` | `POST …/sso/saml/link` | org admin: a one-time setup link for the org's IT admin |
-| `set_saml_idp_metadata` | `PUT …/sso/saml/metadata` | org admin: IdP metadata XML or URL |
+### identity-login-service
 
-The stale unscoped `/sso/saml/*` paths go (the contract test forbids them).
-
-## 4. Verifying a response
-
-Every rule is mandatory; any failure rejects the login with an audit event and no detail to the browser.
-
-- **Parsing.** `SAMLResponse` at most 256 KiB, strict base64. No DTD, no external entities, no XInclude (XXE).
-- **Signature.** Required, on the Assertion or on a Response that contains exactly one Assertion. Verified only with the
-  connection's pinned IdP certificates (from its metadata); a certificate in `KeyInfo` may select among them, never add
-  one. Exactly one `Reference`, `URI="#<ID of the signed element>"`; transforms only enveloped-signature and exclusive
-  C14N; algorithms RSA-SHA256/384/512 and ECDSA-SHA256/384 (SHA-1 rejected).
-- **Signature wrapping.** The assertion consumed is the node the signature verified, located by the verified
-  reference, never found again by searching the document; a second Assertion anywhere fails the response.
-- **Message.** `Status` Success; `Issuer` = the connection's IdP entity ID; `Destination` (when present) = this ACS;
-  `InResponseTo` = the pending request for this browser's `RelayState` (one use, consumed here; unsolicited responses
-  are rejected until IdP-initiated login exists).
-- **Assertion.** `SubjectConfirmation` method bearer with `Recipient` = this ACS, `NotOnOrAfter` in the future and the
-  same `InResponseTo`; `Conditions` `NotBefore`/`NotOnOrAfter` with at most 120 s skew; `AudienceRestriction` contains
-  the connection's SP entity ID; an `AuthnStatement`; `SessionNotOnOrAfter` caps the Sesame session.
-- **Replay.** Assertion IDs are kept (Redis) until their `NotOnOrAfter`; a repeat is rejected.
-- **NameID.** Compared and stored as received after XML normalisation; comments inside text nodes do not truncate it
-  (the 2018 comment-injection class).
-
-The verifier is one module with a corpus of real-shaped responses from the three IdPs (test tenants, test keys) and a
-negative corpus: every rule above, the XSW1-8 wrapping variants, comment injection, DTD/XXE, SHA-1, two assertions.
-
-## 5. Who the user is
-
-- A user is identified by (`connection_id`, NameID) in `saml_identities` (new, RLS by tenant), linked to a Sesame user.
-- First sign-in: the email attribute (configurable per connection; defaults per IdP below) must be in one of the
-  organisation's verified domains. It links to an existing member of the organisation with that email, or, if the
-  connection allows just-in-time provisioning, creates the user with the connection's default role. Never linked on an
-  unverified domain, never across tenants.
-- The token is issued as for any login: tenant and organisation from the connection, roles from authz-core, `amr`
-  `saml`, session lifetime capped by the IdP's.
-
-Per-IdP defaults (each is configurable in the IdP; the verifier accepts any of them, section 4):
-
-| IdP | Signs by default | NameID by default | Email |
+| operationId | Method, path | Access | Notes |
 | --- | --- | --- | --- |
-| Entra ID | Assertion (Response optional) | user principal name | `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress` |
-| Okta | Response and Assertion (configurable) | set per application | an `email` attribute statement |
-| Google Workspace | Assertion (Response optional) | primary email | NameID, or an `email` attribute |
+| `saml_login` | `GET /auth/saml/login` | public | `org_id`, `client_id`, `redirect_uri`; 302 to the IdP |
+| `saml_acs` | `POST /auth/saml/acs/{connection_id}` | public | `application/x-www-form-urlencoded`: `SAMLResponse`, `RelayState` |
+| `saml_callback` | `POST /auth/saml/callback` | public (RP back end) | code exchange; client authentication as for the token endpoint |
+| `saml_sp_metadata` | `GET /auth/saml/sp/{connection_id}/metadata` | public | SP metadata XML (built with quick-xml; no signing) |
+| `saml_domain_discovery` | `POST /auth/saml/discover` | public, rate-limited | `{email}` → `{org_id}` or nothing |
 
-## 6. Data
+One SP entity per connection: entity ID `https://<public host>/idam/v1/auth/saml/sp/{connection_id}`, ACS
+`https://<public host>/idam/v1/auth/saml/acs/{connection_id}`. Each organisation's IdP application is then independent,
+an audience names exactly one connection, and a connection can be deleted without touching another.
 
-`saml_connections` gains: `tenant_id` (RLS), `status` (`allowed`, `configured`, `enabled`, `disabled`),
-`idp_entity_id`, `signing_certs` (several, for IdP key rollover), `metadata_xml`, `metadata_refreshed_at`,
-`email_attribute`, `jit_provisioning`, `default_role`; one connection per organisation. New: `saml_identities`. The SP's
-own key and certificate (AuthnRequest signing, SP metadata) is per deployment, from the secret backend (as ADR-006).
+### org-mgmt (organisation-scoped)
 
-## 7. Library
+| operationId | Method, path | Who |
+| --- | --- | --- |
+| `get_saml` | `GET /organizations/{org_id}/sso/saml` | org admin |
+| `delete_saml` | `DELETE /organizations/{org_id}/sso/saml` | org admin |
+| `allow_org_saml` | `POST /organizations/{org_id}/sso/saml/allow` | tenant admin: the org may use SAML (entitlement) |
+| `disallow_org_saml` | `POST /organizations/{org_id}/sso/saml/disable` | tenant admin: withdraws it; the connection stops working |
+| `enable_saml` | `POST /organizations/{org_id}/sso/saml/enable` | org admin, only after a successful test sign-in |
+| `create_saml_link` | `POST /organizations/{org_id}/sso/saml/link` | org admin: a one-time setup link (7 days) for the org's IT admin |
+| `set_saml_idp_metadata` | `PUT /organizations/{org_id}/sso/saml/metadata` | org admin or link holder: metadata XML or an HTTPS metadata URL |
 
-Signature verification is the part that must not be written from scratch. Options (October 2026):
+The unscoped `/sso/saml/*` paths are removed (the contract test forbids them). org-mgmt derives the organisation from the
+path and the validated token, never from a header (FINDING-2026-07-25).
 
-- **samael** with its `xmlsec` feature: SP-initiated SSO, metadata, verification through libxmlsec1 (the reference
-  XML-DSig implementation behind most SAML stacks). Costs: C libraries (libxmlsec1, libxml2, libxslt) in the
-  identity-login runtime image, so a run image beyond the default; the Rust binding is a modified copy maintained in
-  samael (0.0.19, May 2025).
-- **xml-sec** (pure Rust, exclusive C14N, RSA/ECDSA): no C dependencies, but it states it is not yet for production.
-- Writing our own: rejected.
+### saml-verifier (internal)
 
-Recommendation: samael + libxmlsec1 for the signature, wrapped by our own verifier (section 4 owns every check that is
-not the cryptographic signature), with the run image built and pinned like the builder. Revisit xml-sec when it is
-declared production-ready. Decision recorded as an ADR before implementation.
+| Method, path | Request | Response |
+| --- | --- | --- |
+| `POST /verify` | `saml_response` (base64), `idp_entity_id`, `idp_certs` (DER, base64), `sp_entity_id`, `acs_url`, `request_id`, `now`, `max_clock_skew_secs` | `200 {name_id, name_id_format, attributes: {name: [values]}, assertion_id, not_on_or_after, session_not_on_or_after, authn_instant}` or `422 {reason}` (a fixed code, never echoing input) |
+| `POST /metadata/parse` | `metadata` (XML, ≤ 1 MiB) | `200 {entity_id, sso_redirect_url, signing_certs: [{der, not_after}], name_id_formats}` or `422 {reason}` |
 
-## 8. Order
+## 5. Verification rules
 
-1. ADR (library, run image). Schema migration; org-mgmt connection API real and organisation-scoped (the pending
-   contract tests pass); metadata parsing; SP metadata.
-2. `saml_login`, ACS, `saml_callback`; the verifier with both corpora; identity linking; hosted "Sign in with SSO".
-3. Live acceptance against Entra ID, Okta and Google Workspace test tenants, end to end through a relying party.
+All mandatory. The verifier refuses anything it cannot classify; identity-login treats every refusal the same way.
 
-## 9. Later
+**Before samael (verifier):**
+- `SAMLResponse` ≤ 256 KiB, strict base64, UTF-8.
+- No DOCTYPE, no XML comments, no processing instructions, no CDATA, no `EncryptedAssertion` (scanned with quick-xml on the
+  raw document; comments matter because a comment inside a NameID truncates it after signing).
+- Exactly one `Assertion` element anywhere in the document.
+- At least one pinned certificate (samael verifies nothing without one).
 
-IdP-initiated login (unsolicited responses, with its own replay and destination rules), single logout, encrypted
-assertions, scheduled metadata refresh and certificate-rollover alerts, SCIM provisioning alongside SAML.
+**samael with libxmlsec1** (configured as ADR-014 §1):
+- every `Signature` verifies with a pinned certificate; `KeyInfo` never supplies a key;
+- algorithms RSA-SHA256/384/512, ECDSA-SHA256/384 only;
+- default reduction: only verified content survives (signature-wrapping defence);
+- `Destination` = ACS when present or when the Response is signed; issuer = `idp_entity_id`;
+- `InResponseTo` = `request_id` (IdP-initiated disabled); `SubjectConfirmation` bearer with `Recipient` = ACS and
+  `NotOnOrAfter` in the future; `Conditions` time window and `AudienceRestriction` = `sp_entity_id`; skew ≤ 120 s.
+
+**After samael (verifier):** `Status` Success; the returned assertion's ID is the verified reference's; an
+`AuthnStatement` is present; NameID non-empty.
+
+**identity-login:** the state was valid and consumed; the path's connection is the state's; the connection is enabled
+and allowed; the assertion ID is not in the replay cache (then stored until `NotOnOrAfter`); `SessionNotOnOrAfter`, when
+present, caps the Sesame session.
+
+## 6. Who the user is
+
+- **Identity**: (`connection_id`, NameID, NameID format) in `saml_identities`, linked to a Sesame user. A persistent
+  NameID is preferred; an email-format NameID is accepted (Google Workspace, Entra's default UPN).
+- **First sign-in**: the email (the connection's `email_attribute`, else the NameID when it is an email) must be in one
+  of the organisation's **verified** domains (ADR-007). Then:
+  - an existing user of the tenant with that email, who is a member of the organisation, is linked;
+  - otherwise, with just-in-time provisioning on, a user is created in the tenant and added to the organisation with
+    the connection's default role (never an admin role);
+  - otherwise refused (`not_provisioned`).
+  Never linked through an unverified domain, never across tenants, never to a user who is not in the organisation.
+- **Later sign-ins** use the link only; a changed email at the IdP updates nothing silently (audited).
+- **Tokens** come from `issue_login_response` like every login: tenant and organisation from the connection, roles from
+  authz-core, `amr: ["saml"]`, `acr` per ADR-008, session lifetime capped by the IdP's.
+- **MFA**: the IdP's authentication is accepted for the organisation (an organisation using SSO owns its MFA); Sesame
+  step-up (ADR-008) still applies to Sesame-sensitive operations.
+
+## 7. Connection lifecycle
+
+```
+none ──allow (tenant admin)──► allowed ──metadata──► configured ──test sign-in ok──► tested ──enable──► enabled
+                                  ▲                      │                                               │
+                                  └──────── disable (tenant admin) / delete (org admin) ◄────────────────┘
+```
+
+- **allowed**: the tenant permits the organisation to use SAML.
+- **metadata** (XML or HTTPS URL): org-mgmt fetches a URL (HTTPS only, ≤ 1 MiB, no redirects to other hosts, 10 s), has
+  the verifier parse it, and stores entity ID, SSO URL (HTTP-Redirect), signing certificates (all of them, for rollover)
+  and the raw XML. The SP metadata and the values the IdP admin needs (entity ID, ACS URL, NameID, attributes) are shown
+  back (section 11).
+- **test sign-in**: an org admin signs in through the connection with `test=true`; it proves the IdP configuration and
+  the admin's own identity link, issues no tokens for the RP, and moves the connection to tested.
+- **enabled**: members sign in with it. Hosted discovery offers it for the organisation's verified domains.
+- **Refresh**: a connection with a metadata URL is re-fetched daily; new certificates are added, removed ones dropped
+  after a 7-day overlap; a change of entity ID or SSO host is not applied automatically (audited, admin confirms).
+  Certificates expiring within 30 days raise an alert to the organisation's admins.
+- **Disable/delete**: immediately refuses new sign-ins; existing Sesame sessions continue to their normal expiry unless
+  the admin also revokes them.
+
+## 8. Data
+
+```sql
+ALTER TABLE sesame_idam.saml_connections
+    ADD COLUMN tenant_id              VARCHAR(64),          -- RLS; backfilled from the organisation, then NOT NULL
+    ADD COLUMN status                 VARCHAR(16) NOT NULL DEFAULT 'allowed',
+    ADD COLUMN idp_entity_id          TEXT,
+    ADD COLUMN idp_sso_url            TEXT,
+    ADD COLUMN idp_signing_certs      JSONB NOT NULL DEFAULT '[]',   -- [{der_b64, not_after, added_at}]
+    ADD COLUMN metadata_xml           TEXT,
+    ADD COLUMN metadata_refreshed_at  TIMESTAMPTZ,
+    ADD COLUMN email_attribute        TEXT,
+    ADD COLUMN jit_provisioning       BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN default_role           VARCHAR(64),
+    ADD COLUMN tested_at              TIMESTAMPTZ;
+-- one connection per organisation; status IN ('allowed','configured','tested','enabled','disabled')
+
+CREATE TABLE sesame_idam.saml_identities (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id      VARCHAR(64) NOT NULL,
+    connection_id  UUID NOT NULL REFERENCES sesame_idam.saml_connections(id) ON DELETE CASCADE,
+    name_id        TEXT NOT NULL,
+    name_id_format TEXT NOT NULL,
+    user_id        UUID NOT NULL REFERENCES sesame_idam.users(id) ON DELETE CASCADE,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_login_at  TIMESTAMPTZ,
+    UNIQUE (connection_id, name_id)
+);
+```
+
+Both tables get tenant RLS (ADR-005) and are written through Lifeguard models (`lifeguard-migrate` emits the migrations;
+the hand-written parts are the RLS policies and the backfill). Redis keys (identity-login): `saml_state:<relay>`
+(10 min), `saml_code:<code>` (60 s), `saml_assertion:<connection>:<assertion id>` (until `NotOnOrAfter`).
+
+## 9. Testing
+
+- **Verifier unit and corpus tests** (run in the verifier's image, CI-gating):
+  - positive: real-shaped responses from Entra ID, Okta and Google Workspace test tenants (re-signed with test keys),
+    Response-signed, Assertion-signed and both, RSA and ECDSA;
+  - negative, one per rule in section 5: unsigned, wrong key, certificate only in `KeyInfo`, SHA-1, XSW1-8 variants,
+    a second Assertion, comment in NameID, DOCTYPE/external entity/entity expansion, processing instruction, CDATA,
+    `EncryptedAssertion`, wrong issuer, audience, recipient, destination, `InResponseTo`, expired, not yet valid, no
+    `AuthnStatement`, non-Success status, oversize, bad base64;
+  - parser differential: documents libxml2 and quick-xml might read differently (namespace redeclaration, duplicate
+    attributes, entity references) must be refused or read identically.
+- **identity-login**: state and code handling, replay, linking and provisioning rules (section 6), against a mock
+  verifier; then end to end with the verifier and the local IdP of `pact-mock-server` (Tilt).
+- **Contract**: the pending SAML contract tests become gating; sesame-idam-client's SAML calls move from pre-contract to
+  contract.
+- **Live acceptance** (pp): one test organisation per IdP; sign in to a relying party through each; disable, refresh,
+  certificate rollover and replay exercised.
+- **Upgrades**: every samael, libxmlsec1 or libxml2 bump runs the whole corpus (ADR-014 §4).
+
+## 10. Deployment
+
+- **saml-verifier**: Deployment (2 replicas once production), ClusterIP Service, no Ingress; NetworkPolicy ingress only
+  from identity-login-service and org-mgmt, egress none (not even DNS); non-root, read-only root file system, no service
+  account token, CPU and memory limits, request body limit at the HTTP layer. Image built from its Dockerfile in the
+  Octopilot pipeline (docker artifact).
+- **identity-login-service**: public routes for section 4 on the deployment's public host; its SP key mounted from the
+  secret backend (as the signing keyset); Redis as today.
+- **org-mgmt**: egress to HTTPS metadata URLs (allow-listed per deployment where the platform supports it).
+- **Configuration**: `SESAME_SAML_VERIFIER_URL`, `SESAME_SAML_SP_KEY_FILE`, `SESAME_SAML_MAX_CLOCK_SKEW_SECS` (default
+  120), `SESAME_SAML_ENABLED` (off by default); public URLs and the claim namespace as for every login
+  (DESIGN-octopilot-build-and-release §3.7).
+
+## 11. IdP set-up (what the organisation's admin enters)
+
+Sesame shows these per connection, with the SP metadata URL for IdPs that import it.
+
+| | Entra ID (Enterprise application, SAML) | Okta (SAML 2.0 app) | Google Workspace (custom SAML app) |
+| --- | --- | --- | --- |
+| Identifier / Audience / Entity ID | SP entity ID | Audience URI (SP Entity ID) | Entity ID |
+| Reply URL / SSO URL / ACS URL | ACS URL | Single sign-on URL (use for Recipient and Destination) | ACS URL |
+| NameID | persistent or email | Persistent or EmailAddress | Primary email |
+| Email attribute | `…/claims/emailaddress` (default) | add `email` → `user.email` | NameID, or add `email` |
+| Signing | assertion (default) or both; SHA-256 | response and assertion; SHA-256 | assertion; response optional |
+| Metadata for Sesame | App Federation Metadata URL | Metadata URL | download IdP metadata (XML) |
+
+## 12. Order of work
+
+1. **Verifier**: crate, Dockerfile, `/verify` and `/metadata/parse`, the corpus (section 9). Gate: corpus green.
+2. **org-mgmt**: schema migration, organisation-scoped connection API (pending contract tests pass), metadata via the
+   verifier, lifecycle (section 7), test sign-in.
+3. **identity-login**: `saml_login` (signed AuthnRequest), ACS, `saml_callback`, SP metadata, discovery; replay; linking
+   and provisioning; `amr`.
+4. **Hosted UI**: "Sign in with SSO".
+5. **Deployment** (pp): verifier and policies, SP key, configuration; live acceptance with the three IdPs.
+
+## 13. Later
+
+IdP-initiated login (unsolicited responses: its own replay and destination rules), single logout, encrypted assertions
+(SP decryption key in the verifier would give it a secret: design first), signed metadata verification, SCIM
+provisioning alongside SAML, more IdPs (they need only set-up rows in section 11 if they follow the profile).
