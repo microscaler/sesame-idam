@@ -3,14 +3,15 @@
 # Database: Supabase stack from microscaler-supabase (namespace data). Host: postgres.data.svc.cluster.local, db: postgres, user: postgres (local dev).
 
 service:
-  name: ""
+  # Placeholder so a bare render (helm template, the pipeline's chart check) is valid. Every release sets it.
+  name: sesame-idam-microservice
   port: 8080
   containerPort: 8080
   nodePort: null
 
 image:
   repository: localhost:5001
-  name: ""
+  name: sesame-idam-microservice         # placeholder, as service.name
   tag: tilt
   pullPolicy: IfNotPresent
 

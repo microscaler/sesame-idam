@@ -1,12 +1,13 @@
 # Defaults for a Sesame frontend app. Per-app overrides live in values/<app>.yaml.
 service:
-  name: ""          # e.g. sesame-portal
+  # Placeholder so a bare render (helm template, the pipeline's chart check) is valid. Every release sets it.
+  name: sesame-idam-frontend
   port: 8080
   containerPort: 8080
 
 image:
   repository: localhost:5001
-  name: ""          # e.g. sesame-idam-frontend-platform
+  name: sesame-idam-frontend         # placeholder, as service.name
   tag: tilt
   pullPolicy: IfNotPresent
 

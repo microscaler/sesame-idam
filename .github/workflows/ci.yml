@@ -68,10 +68,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Release dependencies are pinned (no paths outside the repository)
+        shell: python3 {0}
         run: |
-          if grep -rn --include=Cargo.toml -E 'path *= *"\.\./\.\./' microservices; then
-            echo "::error::a Cargo.toml depends on a path outside this repository; pin a git revision"; exit 1
-          fi
+          import pathlib, re, sys
+          root = pathlib.Path.cwd().resolve()
+          bad = []
+          for toml in root.glob("microservices/**/Cargo.toml"):
+              if "target" in toml.parts:
+                  continue
+              for n, line in enumerate(toml.read_text().splitlines(), 1):
+                  for rel in re.findall(r'path\s*=\s*"([^"]+)"', line):
+                      dep = (toml.parent / rel).resolve()
+                      if root not in dep.parents and dep != root:
+                          bad.append(f"{toml.relative_to(root)}:{n}: {rel}")
+          for b in bad:
+              print(f"::error::{b} is outside this repository; pin a git revision")
+          sys.exit(1 if bad else 0)
       - name: Migration lists name files that exist
         run: |
           rc=0
