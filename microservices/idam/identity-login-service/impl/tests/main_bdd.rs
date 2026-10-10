@@ -26,8 +26,8 @@ pub mod bdd {
     pub mod pre_oidc_stubs;
     pub mod session_handoff;
     pub mod signup_validate;
-    pub mod sms_magic_link;
     pub mod smoke;
+    pub mod sms_magic_link;
     pub mod social_login_flow;
     pub mod tenant_claims;
     pub mod tenant_consumer_live_contract;

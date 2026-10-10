@@ -267,9 +267,8 @@ mod tests {
 
     #[test]
     fn active_client_and_tenant_produce_binding() {
-        let binding =
-            binding_from_statuses("acme-web", "acme", "frontend", "active", "active")
-                .expect("active binding");
+        let binding = binding_from_statuses("acme-web", "acme", "frontend", "active", "active")
+            .expect("active binding");
 
         assert_eq!(binding.client_id, "acme-web");
         assert_eq!(binding.tenant_id, "acme");
@@ -287,13 +286,7 @@ mod tests {
     #[test]
     fn suspended_tenant_is_rejected() {
         assert_eq!(
-            binding_from_statuses(
-                "acme-web",
-                "acme",
-                "frontend",
-                "active",
-                "suspended",
-            ),
+            binding_from_statuses("acme-web", "acme", "frontend", "active", "suspended",),
             Err(ClientRegistryError::NotActive)
         );
     }

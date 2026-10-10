@@ -78,9 +78,8 @@ fn http_client() -> reqwest::blocking::Client {
 }
 
 fn load_pact() -> Value {
-    let text = fs::read_to_string(pact_path()).unwrap_or_else(|e| {
-        panic!("missing Pact contract at {}: {e}", pact_path().display())
-    });
+    let text = fs::read_to_string(pact_path())
+        .unwrap_or_else(|e| panic!("missing Pact contract at {}: {e}", pact_path().display()));
     serde_json::from_str(&text).expect("Sesame-Identity-Login-PreAuth.json must be valid JSON")
 }
 
@@ -130,7 +129,9 @@ fn verify_interaction(client: &reqwest::blocking::Client, base: &str, interactio
             }
         }
         assert!(
-            !headers.keys().any(|k| k.eq_ignore_ascii_case("X-Tenant-ID")),
+            !headers
+                .keys()
+                .any(|k| k.eq_ignore_ascii_case("X-Tenant-ID")),
             "{description}: Pact request must omit X-Tenant-ID"
         );
     }
@@ -164,9 +165,7 @@ fn pact_file_documents_series_a_p0_p1_preauth() {
     let pact = load_pact();
     assert_eq!(pact["consumer"]["name"], "sesame-idam-client");
     assert_eq!(pact["provider"]["name"], "identity-login-service");
-    let interactions = pact["interactions"]
-        .as_array()
-        .expect("interactions array");
+    let interactions = pact["interactions"].as_array().expect("interactions array");
     assert!(
         interactions.len() >= 5,
         "expected forgot/reset/social interactions"
@@ -199,9 +198,7 @@ fn provider_verifies_preauth_pact_over_http() {
 
     let pact = load_pact();
     let client = http_client();
-    let interactions = pact["interactions"]
-        .as_array()
-        .expect("interactions array");
+    let interactions = pact["interactions"].as_array().expect("interactions array");
 
     for interaction in interactions {
         verify_interaction(&client, &base, interaction);

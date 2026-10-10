@@ -30,8 +30,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     ) {
         Ok(()) => {
             // Invalidate target sessions only after a successful membership delete.
-            if let Err(error) =
-                VersionStore::from_env().and_then(|store| store.increment_subject(&req.data.user_id))
+            if let Err(error) = VersionStore::from_env()
+                .and_then(|store| store.increment_subject(&req.data.user_id))
             {
                 tracing::error!(%error, user_id = %req.data.user_id, "token version bump failed");
                 return org_auth::error_json(

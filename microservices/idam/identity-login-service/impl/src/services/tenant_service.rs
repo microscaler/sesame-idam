@@ -247,9 +247,6 @@ mod tests {
 
     #[test]
     fn validate_slug_accepts_acme() {
-        assert_eq!(
-            TenantService::validate_slug("acme"),
-            Ok("acme".to_string())
-        );
+        assert_eq!(TenantService::validate_slug("acme"), Ok("acme".to_string()));
     }
 }

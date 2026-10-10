@@ -177,8 +177,8 @@ fn owner_role_resolves_seeded_permissions() {
     }
 
     const FIXTURE_TENANT: &str = "acme";
-    let user_id = Uuid::parse_str("a1000001-0001-4000-8000-000000000001")
-        .expect("demo owner user id");
+    let user_id =
+        Uuid::parse_str("a1000001-0001-4000-8000-000000000001").expect("demo owner user id");
 
     let response = handle(make_request_with_app(
         &user_id.to_string(),
@@ -196,7 +196,9 @@ fn owner_role_resolves_seeded_permissions() {
         "demo owner must have OWNER role assignment"
     );
     assert!(
-        response.permissions.contains(&"organization:read".to_string()),
+        response
+            .permissions
+            .contains(&"organization:read".to_string()),
         "OWNER must resolve organization:read from app_role_permissions seed; got {:?}",
         response.permissions
     );

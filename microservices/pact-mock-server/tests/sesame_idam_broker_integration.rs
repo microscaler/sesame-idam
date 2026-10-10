@@ -5,7 +5,10 @@ use pact_mock_server::sesame_idam_broker::BrokerState;
 use serde_json::json;
 
 fn test_server() -> TestServer {
-    let state = BrokerState::new("http://127.0.0.1:9190", "http://localhost:7174/saml/callback");
+    let state = BrokerState::new(
+        "http://127.0.0.1:9190",
+        "http://localhost:7174/saml/callback",
+    );
     let app = pact_mock_server::sesame_idam_broker::build_app(state);
     TestServer::new(app).expect("test server")
 }

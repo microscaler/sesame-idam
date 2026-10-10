@@ -79,7 +79,10 @@ fn fixture_ready(client_id: &str) -> bool {
     .is_ok()
 }
 
-fn authorize_from_valid(cases: &serde_json::Value, mutate: Option<&serde_json::Value>) -> AuthorizeRequest {
+fn authorize_from_valid(
+    cases: &serde_json::Value,
+    mutate: Option<&serde_json::Value>,
+) -> AuthorizeRequest {
     let valid = &cases["authorization"]["valid"];
     let mut req = AuthorizeRequest {
         client_id: valid["client_id"].as_str().unwrap().to_string(),
@@ -149,7 +152,11 @@ fn conformance_authorization_redirect_prefix_rejected() {
         return;
     }
     let cases = protocol_cases();
-    if !fixture_ready(cases["authorization"]["valid"]["client_id"].as_str().unwrap()) {
+    if !fixture_ready(
+        cases["authorization"]["valid"]["client_id"]
+            .as_str()
+            .unwrap(),
+    ) {
         eprintln!("SKIP conformance redirect prefix: fixture client missing");
         return;
     }
@@ -178,7 +185,11 @@ fn conformance_authorization_pkce_plain_rejected() {
         return;
     }
     let cases = protocol_cases();
-    if !fixture_ready(cases["authorization"]["valid"]["client_id"].as_str().unwrap()) {
+    if !fixture_ready(
+        cases["authorization"]["valid"]["client_id"]
+            .as_str()
+            .unwrap(),
+    ) {
         eprintln!("SKIP conformance pkce plain: fixture client missing");
         return;
     }
@@ -204,7 +215,11 @@ fn conformance_authorization_valid_public_pkce_redirects() {
         return;
     }
     let cases = protocol_cases();
-    if !fixture_ready(cases["authorization"]["valid"]["client_id"].as_str().unwrap()) {
+    if !fixture_ready(
+        cases["authorization"]["valid"]["client_id"]
+            .as_str()
+            .unwrap(),
+    ) {
         eprintln!("SKIP conformance valid pkce: fixture client missing");
         return;
     }
@@ -217,7 +232,10 @@ fn conformance_authorization_valid_public_pkce_redirects() {
             );
         }
         OauthAuthorizeOutcome::Error(err) => {
-            panic!("valid public PKCE should redirect: {} {:?}", err.status, err.body);
+            panic!(
+                "valid public PKCE should redirect: {} {:?}",
+                err.status, err.body
+            );
         }
     }
 }
@@ -439,23 +457,30 @@ fn conformance_refresh_rotation_replay_and_cross_client() {
         .as_str()
         .unwrap();
 
-    let issued = sesame_idam_identity_login_service::services::token_issuer::issue_tokens_for_client(
-        "00000000-0000-4000-8000-000000000099",
-        "acme",
-        "frontend",
-        client_a,
-        vec![],
-        vec![],
-        "user",
-        None,
-        "openid",
-    )
-    .expect("issue tokens");
+    let issued =
+        sesame_idam_identity_login_service::services::token_issuer::issue_tokens_for_client(
+            "00000000-0000-4000-8000-000000000099",
+            "acme",
+            "frontend",
+            client_a,
+            vec![],
+            vec![],
+            "user",
+            None,
+            "openid",
+        )
+        .expect("issue tokens");
 
     let first = handle_token("refresh_token", client_a, Some(&issued.refresh_token));
-    assert_eq!(first.status, 200, "refresh-rotation must succeed: {:?}", first.body);
+    assert_eq!(
+        first.status, 200,
+        "refresh-rotation must succeed: {:?}",
+        first.body
+    );
     assert!(
-        first.body["refresh_token"].as_str().is_some_and(|t| !t.is_empty()),
+        first.body["refresh_token"]
+            .as_str()
+            .is_some_and(|t| !t.is_empty()),
         "expect_new_refresh_token"
     );
     let new_refresh = first.body["refresh_token"].as_str().unwrap().to_string();
@@ -464,23 +489,26 @@ fn conformance_refresh_rotation_replay_and_cross_client() {
     let replay = handle_token("refresh_token", client_a, Some(&issued.refresh_token));
     assert_eq!(
         replay.body["error"],
-        cases["refresh"]["replay"]["expected_error"].as_str().unwrap(),
+        cases["refresh"]["replay"]["expected_error"]
+            .as_str()
+            .unwrap(),
         "refresh-replay must fail: {:?}",
         replay.body
     );
 
-    let issued2 = sesame_idam_identity_login_service::services::token_issuer::issue_tokens_for_client(
-        "00000000-0000-4000-8000-000000000099",
-        "acme",
-        "frontend",
-        client_a,
-        vec![],
-        vec![],
-        "user",
-        None,
-        "openid",
-    )
-    .expect("issue2");
+    let issued2 =
+        sesame_idam_identity_login_service::services::token_issuer::issue_tokens_for_client(
+            "00000000-0000-4000-8000-000000000099",
+            "acme",
+            "frontend",
+            client_a,
+            vec![],
+            vec![],
+            "user",
+            None,
+            "openid",
+        )
+        .expect("issue2");
     let cross = handle_token("refresh_token", client_b, Some(&issued2.refresh_token));
     assert_eq!(
         cross.body["error"],
@@ -501,11 +529,13 @@ fn conformance_userinfo_sub_matches_token_subject() {
     let signer = sesame_common::jwt::Ed25519Signer::from_env_or_generate().expect("signer");
     let user_a = "00000000-0000-4000-8000-0000000000aa";
     let user_b = "00000000-0000-4000-8000-0000000000bb";
-    let mut claims = sample_access_claims("https://idam.example.com", "identity-login", "acme", 300);
+    let mut claims =
+        sample_access_claims("https://idam.example.com", "identity-login", "acme", 300);
     claims.sub = user_a.into();
     claims.user_id = user_a.into();
     let token = signer.sign_access_claims(&claims).expect("sign");
-    let verified = sesame_common::verify_access_token(&signer, &token, Some("acme")).expect("verify");
+    let verified =
+        sesame_common::verify_access_token(&signer, &token, Some("acme")).expect("verify");
     assert_eq!(verified.sub, user_a, "userinfo-valid: sub from token");
     assert_ne!(
         verified.sub, user_b,
@@ -523,7 +553,10 @@ fn conformance_metadata_fixture_contract() {
     assert_eq!(meta["response_types_supported"][0], "code");
     assert_eq!(meta["code_challenge_methods_supported"][0], "S256");
     for grant in meta["forbidden_grants"].as_array().unwrap() {
-        assert!(matches!(grant.as_str(), Some("implicit") | Some("password")));
+        assert!(matches!(
+            grant.as_str(),
+            Some("implicit") | Some("password")
+        ));
     }
     assert_eq!(cases["metadata"]["issuer_mismatch"]["accept"], false);
     assert_eq!(cases["jwks"]["unknown_kid"]["accept"], false);

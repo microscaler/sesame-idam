@@ -48,12 +48,7 @@ fn db_available() -> bool {
 
 fn rls_contract_installed() -> bool {
     let exec = db();
-    query_value::<i32, _>(
-        exec,
-        "SELECT public.sesame_rls_contract_version()",
-        &[],
-    )
-    .is_ok()
+    query_value::<i32, _>(exec, "SELECT public.sesame_rls_contract_version()", &[]).is_ok()
 }
 
 fn session_context(tenant: &str, subject: Uuid, org: Uuid) -> SessionContext {
@@ -86,12 +81,7 @@ fn insert_user(
 }
 
 fn delete_user(exec: &impl lifeguard::LifeExecutor, id: Uuid) -> Result<(), lifeguard::LifeError> {
-    execute_statement(
-        exec,
-        "DELETE FROM sesame_idam.users WHERE id = $1",
-        &[&id],
-    )
-    .map(|_| ())
+    execute_statement(exec, "DELETE FROM sesame_idam.users WHERE id = $1", &[&id]).map(|_| ())
 }
 
 #[test]
@@ -119,10 +109,14 @@ fn users_rls_unqualified_select_is_tenant_scoped() {
     let beta_ctx = session_context(&tenant_beta, beta_id, beta_org);
     let pool = db().pool();
 
-    pool.with_session_transaction(&alpha_ctx, |exec| insert_user(exec, alpha_id, &tenant_alpha, &alpha_email))
-        .expect("insert alpha user");
-    pool.with_session_transaction(&beta_ctx, |exec| insert_user(exec, beta_id, &tenant_beta, &beta_email))
-        .expect("insert beta user");
+    pool.with_session_transaction(&alpha_ctx, |exec| {
+        insert_user(exec, alpha_id, &tenant_alpha, &alpha_email)
+    })
+    .expect("insert alpha user");
+    pool.with_session_transaction(&beta_ctx, |exec| {
+        insert_user(exec, beta_id, &tenant_beta, &beta_email)
+    })
+    .expect("insert beta user");
 
     let alpha_count = pool
         .with_session_transaction(&alpha_ctx, |exec| {

@@ -47,9 +47,8 @@ impl std::fmt::Display for OrgLifecycleError {
             Self::CannotRemoveOwner => {
                 formatter.write_str("organization owners cannot be removed on the product path")
             }
-            Self::CannotAssignOwner => {
-                formatter.write_str("organization owner role can only be assigned via owner transfer")
-            }
+            Self::CannotAssignOwner => formatter
+                .write_str("organization owner role can only be assigned via owner transfer"),
             Self::SuccessorNotMember => {
                 formatter.write_str("successor is not an active organization member")
             }
@@ -764,7 +763,11 @@ pub enum FormerOwnerDisposition {
 
 impl FormerOwnerDisposition {
     pub fn parse(raw: Option<&str>) -> Result<Self, OrgLifecycleError> {
-        match raw.map(str::trim).filter(|s| !s.is_empty()).unwrap_or("demote_to_admin") {
+        match raw
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or("demote_to_admin")
+        {
             "demote_to_admin" => Ok(Self::DemoteToAdmin),
             "demote_to_member" => Ok(Self::DemoteToMember),
             "remove_membership" => Ok(Self::RemoveMembership),
@@ -811,9 +814,9 @@ pub fn transfer_owner<E: LifeExecutor>(
     let successor_uuid = Uuid::parse_str(successor_user_id)
         .map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?;
     let from_uuid = match from_user_id {
-        Some(raw) => Some(
-            Uuid::parse_str(raw).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?,
-        ),
+        Some(raw) => {
+            Some(Uuid::parse_str(raw).map_err(|e| OrgLifecycleError::InvalidId(e.to_string()))?)
+        }
         None => None,
     };
 
@@ -1085,12 +1088,16 @@ mod member_email_unit_tests {
         assert!(!is_placeholder_member_email("shipper@amecorp.dev"));
         assert!(!is_placeholder_member_email("user-not-a-uuid"));
         assert!(!is_placeholder_member_email(""));
-        assert!(!is_placeholder_member_email("a1000001-0001-4000-8000-000000000004"));
+        assert!(!is_placeholder_member_email(
+            "a1000001-0001-4000-8000-000000000004"
+        ));
     }
 
     #[test]
     fn placeholder_detection_rejects_near_misses_negative() {
-        assert!(!is_placeholder_member_email("users-a1000001-0001-4000-8000-000000000004"));
+        assert!(!is_placeholder_member_email(
+            "users-a1000001-0001-4000-8000-000000000004"
+        ));
         assert!(!is_placeholder_member_email("user-"));
         assert!(!is_placeholder_member_email(
             "user-a1000001-0001-4000-8000-000000000004@example.com"

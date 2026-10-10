@@ -265,11 +265,7 @@ fn suspend_blocks_login() {
     let patch = platform_tenant_status_patch::handle(status_patch_request(&slug, "suspended"));
     assert_eq!(patch.status, 200, "suspend failed: {:?}", patch.body);
 
-    let reg2 = auth_register::handle(register_request(
-        &slug,
-        &format!("after_{email}"),
-        password,
-    ));
+    let reg2 = auth_register::handle(register_request(&slug, &format!("after_{email}"), password));
     assert_eq!(reg2.status, 403);
     assert_eq!(reg2.body["error"], "tenant_not_active");
 }

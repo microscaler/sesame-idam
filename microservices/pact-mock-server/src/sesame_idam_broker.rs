@@ -223,7 +223,10 @@ async fn issue_access_code(
         return Err(StatusCode::NOT_FOUND);
     };
     if !org.users.iter().any(|u| u.eq_ignore_ascii_case(email)) {
-        warn!(email, org_external_id, "IdP login rejected: user not in org");
+        warn!(
+            email,
+            org_external_id, "IdP login rejected: user not in org"
+        );
         return Err(StatusCode::FORBIDDEN);
     }
     let broker_org_id = org.broker_org_id.clone();
@@ -266,7 +269,10 @@ pub async fn saml_redirect(
         },
     );
 
-    let redirect_url = format!("{}/idp/login?session={session_id}", state.base_url.trim_end_matches('/'));
+    let redirect_url = format!(
+        "{}/idp/login?session={session_id}",
+        state.base_url.trim_end_matches('/')
+    );
     info!(%redirect_url, "SAML redirect issued");
     Ok(Json(SamlRedirectResponse { redirect_url }))
 }
@@ -317,10 +323,7 @@ pub async fn idp_simulate(
         .or(body.organization_external_id_camel)
         .ok_or(StatusCode::BAD_REQUEST)?;
     let code = issue_access_code(&state, &org_id, &body.email).await?;
-    let redirect_url = format!(
-        "{}?saml_access_code={}",
-        state.app_redirect_url, code
-    );
+    let redirect_url = format!("{}?saml_access_code={}", state.app_redirect_url, code);
     Ok(Json(IdpSimulateResponse {
         saml_access_code: code,
         organization_external_id: org_id,
@@ -406,7 +409,11 @@ async fn oauth_authorize(
             },
         );
     }
-    let separator = if query.redirect_uri.contains('?') { '&' } else { '?' };
+    let separator = if query.redirect_uri.contains('?') {
+        '&'
+    } else {
+        '?'
+    };
     let target = format!(
         "{redirect_uri}{separator}code={code}&state={state}",
         redirect_uri = query.redirect_uri,
@@ -421,14 +428,7 @@ pub async fn google_authorize(
     State(state): State<BrokerState>,
     Query(query): Query<OAuthAuthorizeQuery>,
 ) -> Result<Response, StatusCode> {
-    oauth_authorize(
-        state,
-        "google",
-        "alice@gmail.com",
-        "google-sub-001",
-        query,
-    )
-    .await
+    oauth_authorize(state, "google", "alice@gmail.com", "google-sub-001", query).await
 }
 
 pub async fn microsoft_authorize(
@@ -449,7 +449,8 @@ pub async fn google_token(
     State(state): State<BrokerState>,
     body: Bytes,
 ) -> Result<Json<Value>, StatusCode> {
-    let form: OAuthTokenForm = serde_urlencoded::from_bytes(&body).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let form: OAuthTokenForm =
+        serde_urlencoded::from_bytes(&body).map_err(|_| StatusCode::BAD_REQUEST)?;
     oauth_token_response(&state, "google", &form).await
 }
 
@@ -457,7 +458,8 @@ pub async fn microsoft_token(
     State(state): State<BrokerState>,
     body: Bytes,
 ) -> Result<Json<Value>, StatusCode> {
-    let form: OAuthTokenForm = serde_urlencoded::from_bytes(&body).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let form: OAuthTokenForm =
+        serde_urlencoded::from_bytes(&body).map_err(|_| StatusCode::BAD_REQUEST)?;
     oauth_token_response(&state, "microsoft", &form).await
 }
 
@@ -523,7 +525,8 @@ pub async fn microsoft_me(headers: HeaderMap) -> Result<Json<Value>, StatusCode>
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    if auth == "Bearer microsoft_mock_access_token" || auth.starts_with("Bearer microsoft_token_for_")
+    if auth == "Bearer microsoft_mock_access_token"
+        || auth.starts_with("Bearer microsoft_token_for_")
     {
         return Ok(Json(json!({
             "id": "microsoft-sub-001",
@@ -587,15 +590,9 @@ pub fn build_app(state: BrokerState) -> Router {
         .route("/idp/simulate", post(idp_simulate))
         .route("/idp/login", get(idp_login_get).post(idp_login_post))
         .route("/admin/organizations", post(admin_register_org))
-        .route(
-            "/mock/google/o/oauth2/v2/auth",
-            get(google_authorize),
-        )
+        .route("/mock/google/o/oauth2/v2/auth", get(google_authorize))
         .route("/mock/google/token", post(google_token))
-        .route(
-            "/mock/google/userinfo",
-            get(google_userinfo),
-        )
+        .route("/mock/google/userinfo", get(google_userinfo))
         .route(
             "/mock/microsoft/common/oauth2/v2.0/authorize",
             get(microsoft_authorize),

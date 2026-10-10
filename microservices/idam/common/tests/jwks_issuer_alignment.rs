@@ -62,13 +62,11 @@ fn chart_sesame_jwt_issuer_matches_service_bearer_iss() {
         );
     }
 
-    let flux_common = root.join(
-        "deployment-configuration/profiles/dev/sesame-idam/idam/services/values/common.yaml",
-    );
-    let common: serde_yaml::Value = serde_yaml::from_str(
-        &fs::read_to_string(&flux_common).expect("read flux common values"),
-    )
-    .expect("parse flux common values");
+    let flux_common = root
+        .join("deployment-configuration/profiles/dev/sesame-idam/idam/services/values/common.yaml");
+    let common: serde_yaml::Value =
+        serde_yaml::from_str(&fs::read_to_string(&flux_common).expect("read flux common values"))
+            .expect("parse flux common values");
     let common_iss = yaml_string_value(
         &common,
         &["app", "config", "security", "jwks", "BearerAuth", "iss"],

@@ -5,7 +5,7 @@
 //! public hosts.
 
 use std::fs;
-use std::net::{SocketAddr, ToSocketAddrs, TcpStream};
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -119,17 +119,14 @@ fn tenant_consumer_server_is_public_idam_v1() {
 
 #[test]
 fn tenant_consumer_forbids_caller_selected_tenancy_header() {
-    let text = fs::read_to_string(
-        repo_root().join("openapi/idam/tenant-consumer/openapi.yaml"),
-    )
-    .expect("openapi text");
+    let text = fs::read_to_string(repo_root().join("openapi/idam/tenant-consumer/openapi.yaml"))
+        .expect("openapi text");
     assert!(
         !text.contains("X-Tenant-ID:") && !text.contains("name: X-Tenant-ID"),
         "caller-selected X-Tenant-ID must not appear as an API parameter"
     );
     assert!(
-        text.contains("must not send `X-Tenant-ID`")
-            || text.contains("must not send X-Tenant-ID"),
+        text.contains("must not send `X-Tenant-ID`") || text.contains("must not send X-Tenant-ID"),
         "OpenAPI must document that X-Tenant-ID is not a tenancy selector"
     );
 }

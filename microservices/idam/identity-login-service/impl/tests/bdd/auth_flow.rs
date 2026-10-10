@@ -169,12 +169,7 @@ fn register_then_login_without_tenant_header() {
         resp.body
     );
 
-    let resp = auth_login::handle(login_request(
-        FIXTURE_WEB_CLIENT,
-        None,
-        &email,
-        password,
-    ));
+    let resp = auth_login::handle(login_request(FIXTURE_WEB_CLIENT, None, &email, password));
     assert_eq!(
         resp.status, 200,
         "login without X-Tenant-ID: {:?}",
@@ -300,11 +295,7 @@ fn tenant_isolation_same_email_different_tenant() {
     let acme_password = "SecureP@ss123!";
     let other_password = "OtherTenantP@ss456!";
 
-    let resp = auth_register::handle(register_request(
-        FIXTURE_TENANT,
-        &email,
-        acme_password,
-    ));
+    let resp = auth_register::handle(register_request(FIXTURE_TENANT, &email, acme_password));
     assert_eq!(resp.status, 201);
 
     let resp = auth_register::handle(register_request(&other, &email, other_password));

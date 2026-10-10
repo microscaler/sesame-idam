@@ -191,8 +191,7 @@ mod tests {
 
     #[test]
     fn ordinary_tenant_user_is_forbidden_not_unauthorized() {
-        let err =
-            tenant_admin_principal(&claims("acme", &["member"])).expect_err("no admin role");
+        let err = tenant_admin_principal(&claims("acme", &["member"])).expect_err("no admin role");
         assert_eq!(err.status, 403, "known identity, not their resource");
     }
 

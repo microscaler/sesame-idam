@@ -80,12 +80,11 @@ fn main() -> io::Result<()> {
         may::go!(|| {
             loop {
                 may::coroutine::sleep(std::time::Duration::from_secs(30));
-                let mut km = match sesame_idam_identity_session_service::key_manager::KEY_MANAGER
-                    .write()
-                {
-                    Ok(km) => km,
-                    Err(poisoned) => poisoned.into_inner(),
-                };
+                let mut km =
+                    match sesame_idam_identity_session_service::key_manager::KEY_MANAGER.write() {
+                        Ok(km) => km,
+                        Err(poisoned) => poisoned.into_inner(),
+                    };
                 match km.reload_from_keyset_if_changed() {
                     Ok(true) => tracing::info!("shared signing keyset reloaded"),
                     Ok(false) => {}

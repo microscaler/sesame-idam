@@ -199,7 +199,10 @@ fn envelope_custody_refused_when_not_allow_listed() {
 
     // Nothing was written on the way to refusing.
     let (get_status, _) = get(&slug);
-    assert_eq!(get_status, 404, "a refused upsert must not persist anything");
+    assert_eq!(
+        get_status, 404,
+        "a refused upsert must not persist anything"
+    );
 }
 
 /// Scenario: an allow-listed tenant may store a credential, but it is sealed,

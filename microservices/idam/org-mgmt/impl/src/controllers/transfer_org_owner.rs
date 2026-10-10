@@ -39,11 +39,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     }
     let exec = sesame_idam_database::db();
     if !password_verify::verify_caller_password(exec, &tenant_id, caller_uuid, password) {
-        return org_auth::error_json(
-            403,
-            "password_invalid",
-            "Password is incorrect",
-        );
+        return org_auth::error_json(403, "password_invalid", "Password is incorrect");
     }
 
     let otp = req.data.otp.as_deref().map(str::trim).unwrap_or("");
@@ -62,16 +58,16 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         );
     }
 
-    let disposition = match FormerOwnerDisposition::parse(req.data.former_owner_disposition.as_deref())
-    {
-        Ok(d) => d,
-        Err(OrgLifecycleError::InvalidId(msg)) => {
-            return org_auth::error_json(400, "validation_error", &msg);
-        }
-        Err(_) => {
-            return org_auth::error_json(400, "validation_error", "Invalid disposition");
-        }
-    };
+    let disposition =
+        match FormerOwnerDisposition::parse(req.data.former_owner_disposition.as_deref()) {
+            Ok(d) => d,
+            Err(OrgLifecycleError::InvalidId(msg)) => {
+                return org_auth::error_json(400, "validation_error", &msg);
+            }
+            Err(_) => {
+                return org_auth::error_json(400, "validation_error", "Invalid disposition");
+            }
+        };
 
     match org_lifecycle::transfer_owner(
         exec,
@@ -84,7 +80,12 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         req.data.from_user_id.as_deref(),
         disposition,
     ) {
-        Ok(result) => finish_transfer(result, "product_owner", req.data.reason.as_deref(), req.data.ticket_id.as_deref()),
+        Ok(result) => finish_transfer(
+            result,
+            "product_owner",
+            req.data.reason.as_deref(),
+            req.data.ticket_id.as_deref(),
+        ),
         Err(err) => map_transfer_error(err),
     }
 }
@@ -156,9 +157,7 @@ pub(crate) fn map_transfer_error(err: OrgLifecycleError) -> HttpJson<serde_json:
         OrgLifecycleError::NotFound => {
             org_auth::error_json(404, "not_found", "Organization not found")
         }
-        OrgLifecycleError::InvalidId(msg) => {
-            org_auth::error_json(400, "validation_error", &msg)
-        }
+        OrgLifecycleError::InvalidId(msg) => org_auth::error_json(400, "validation_error", &msg),
         other => {
             tracing::error!(error = %other, "owner transfer failed");
             org_auth::error_json(500, "internal_error", "An unexpected error occurred")

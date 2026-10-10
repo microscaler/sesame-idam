@@ -59,7 +59,9 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
 
     // users.email (and invite/membership writes) sit behind tenant RLS.
     let email = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
-        Ok(org_lifecycle::lookup_user_email(exec, &tenant_id, user_uuid))
+        Ok(org_lifecycle::lookup_user_email(
+            exec, &tenant_id, user_uuid,
+        ))
     }) {
         Ok(Some(email)) => email,
         Ok(None) => {

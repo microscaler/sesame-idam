@@ -35,7 +35,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
 
     let (result, response) = match outcome {
         ValidationOutcome::Valid(key) => {
-            let scope_type = if key.user_id.is_some() { "personal" } else { "org" };
+            let scope_type = if key.user_id.is_some() {
+                "personal"
+            } else {
+                "org"
+            };
             (
                 "allowed",
                 HttpJson::new(

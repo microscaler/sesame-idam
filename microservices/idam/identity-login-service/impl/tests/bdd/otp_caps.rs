@@ -170,7 +170,10 @@ fn sms_requires_tenant_opt_in() {
         SendDecision::TenantNotOptedIn
     );
 
-    std::env::set_var("SMS_OPTED_IN_TENANTS", format!("some-other-tenant,{tenant}"));
+    std::env::set_var(
+        "SMS_OPTED_IN_TENANTS",
+        format!("some-other-tenant,{tenant}"),
+    );
     assert_eq!(
         abuse_guard::gate_otp_send(&tenant, Channel::Sms, "+15551230001"),
         SendDecision::Allow

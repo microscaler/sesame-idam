@@ -1097,7 +1097,8 @@ mod tests {
     #[test]
     fn consumer_version_changes_when_pact_content_changes() {
         let before = br#"redirect_uri=https%3A%2F%2Fapp.example.com%2Foauth%2Fcallback"#;
-        let after = br#"redirect_uri=http%3A%2F%2Floadlinker.dev.microscaler.local%2Foauth%2Fcallback"#;
+        let after =
+            br#"redirect_uri=http%3A%2F%2Floadlinker.dev.microscaler.local%2Foauth%2Fcallback"#;
         let v1 = consumer_app_version("Microsoft-OAuth-Mock", "dev", "local", before);
         let v2 = consumer_app_version("Microsoft-OAuth-Mock", "dev", "local", after);
         assert_ne!(v1, v2);

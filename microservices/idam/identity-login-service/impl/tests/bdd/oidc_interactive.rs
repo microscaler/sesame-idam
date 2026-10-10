@@ -153,7 +153,9 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
     };
     assert!(hosted.location.contains("request_id="));
     assert!(hosted.location.contains("tenant=acme"));
-    assert!(hosted.location.contains(&format!("client_id={FIXTURE_CLIENT}")));
+    assert!(hosted
+        .location
+        .contains(&format!("client_id={FIXTURE_CLIENT}")));
     let request_id = query_param(&hosted.location, "request_id").expect("request_id");
 
     // 2) Password login (demo user or freshly registered)
@@ -181,7 +183,7 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
             path_params: HashMap::new(),
             query_params: HashMap::new(),
             data: RegisterRequest {
-            client_id: FIXTURE_WEB_CLIENT.to_string(),
+                client_id: FIXTURE_WEB_CLIENT.to_string(),
                 email: email.clone(),
                 first_name: None,
                 last_name: None,

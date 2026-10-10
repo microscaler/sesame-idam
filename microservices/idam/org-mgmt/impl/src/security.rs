@@ -45,7 +45,9 @@ impl SecurityProvider for TenantCsKeyProvider {
         if location != "header" {
             return false;
         }
-        let presented = req.get_header(name).or_else(|| req.get_header(TENANT_CS_HEADER));
+        let presented = req
+            .get_header(name)
+            .or_else(|| req.get_header(TENANT_CS_HEADER));
         let tenant = req
             .get_header("X-Tenant-ID")
             .or_else(|| req.get_header("x-tenant-id"));
@@ -124,9 +126,10 @@ pub fn init_security(
                     Arc::new(StaticApiKeyProvider { key: fallback }),
                 );
             }
-            SecurityScheme::Http { scheme: http_scheme, .. }
-                if http_scheme.eq_ignore_ascii_case("bearer") =>
-            {
+            SecurityScheme::Http {
+                scheme: http_scheme,
+                ..
+            } if http_scheme.eq_ignore_ascii_case("bearer") => {
                 if let Some(jwks_map) = sec_cfg.and_then(|s| s.jwks.as_ref()) {
                     if let Some(jwks) = jwks_map.get(&scheme_name) {
                         let mut provider = JwksBearerProvider::new(&jwks.jwks_url)

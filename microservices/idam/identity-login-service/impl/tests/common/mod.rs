@@ -187,7 +187,11 @@ pub fn ensure_public_login_client(tenant: &str) -> String {
                 $1, $2, $3, 'bdd-login', 'bdd-login', 'public',
                 'none', true, 'tenant', 'active', NOW(), NOW()
              )",
-            &Values(vec![client_pk.into(), client_id.clone().into(), tenant.into()]),
+            &Values(vec![
+                client_pk.into(),
+                client_id.clone().into(),
+                tenant.into(),
+            ]),
         )?;
 
         exec.execute_values(

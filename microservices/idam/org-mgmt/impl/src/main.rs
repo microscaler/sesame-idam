@@ -30,8 +30,10 @@ mod services;
 mod controllers {
     pub mod accept_invitation;
     pub mod add_user_to_org;
+    pub mod challenge_org_owner_transfer;
     pub mod change_user_role_in_org;
     pub mod create_organization;
+    pub mod cs_transfer_org_owner;
     pub mod fetch_org;
     pub mod fetch_users_in_org;
     pub mod invite_user_to_org;
@@ -39,9 +41,7 @@ mod controllers {
     pub mod preview_invitation;
     pub mod remove_user_from_org;
     pub mod revoke_pending_invite;
-    pub mod challenge_org_owner_transfer;
     pub mod transfer_org_owner;
-    pub mod cs_transfer_org_owner;
 }
 // Generated registry code may contain unused typed imports when every
 // discovered controller is untyped, and closures preserve its stable template.

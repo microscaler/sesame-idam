@@ -330,12 +330,9 @@ fn parse_subject_token(token: &str) -> Result<SubjectClaims, ErrorResponse> {
     }
 
     // Epic 14.2: shared verify path (typ/alg/signature/iss/aud/time) — no payload-only trust.
-    let claims = sesame_common::verify_access_token(
-        &crate::services::token_issuer::SIGNER,
-        token,
-        None,
-    )
-    .map_err(|_| invalid_credential_token("Subject token validation failed"))?;
+    let claims =
+        sesame_common::verify_access_token(&crate::services::token_issuer::SIGNER, token, None)
+            .map_err(|_| invalid_credential_token("Subject token validation failed"))?;
 
     Ok(SubjectClaims {
         sub: claims.sub,
@@ -368,12 +365,9 @@ fn parse_actor_token(token: &str) -> Result<ActorClaim, ErrorResponse> {
     }
 
     // Epic 14.2: shared verify path before trusting actor portal/tenant claims.
-    let claims = sesame_common::verify_access_token(
-        &crate::services::token_issuer::SIGNER,
-        token,
-        None,
-    )
-    .map_err(|_| invalid_credential_token("Actor token validation failed"))?;
+    let claims =
+        sesame_common::verify_access_token(&crate::services::token_issuer::SIGNER, token, None)
+            .map_err(|_| invalid_credential_token("Actor token validation failed"))?;
 
     Ok(ActorClaim {
         sub: claims.sub,

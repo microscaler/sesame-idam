@@ -13,7 +13,9 @@ use http::Method;
 use sesame_idam_identity_login_service::controllers::social_login::{self, SocialLoginOutcome};
 use sesame_idam_identity_login_service_gen::handlers::social_login::Request as SocialRequest;
 
-use crate::common::{ensure_active_tenant, ensure_public_login_client, FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
+use crate::common::{
+    ensure_active_tenant, ensure_public_login_client, FIXTURE_TENANT, FIXTURE_WEB_CLIENT,
+};
 
 static INIT: Once = Once::new();
 

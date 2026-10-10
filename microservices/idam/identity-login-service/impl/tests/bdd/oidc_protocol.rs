@@ -10,11 +10,11 @@ use std::net::TcpStream;
 use std::sync::Once;
 use std::time::Duration;
 
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 use brrtrouter::typed::TypedHandlerRequest;
 use http::Method;
 use sha2::{Digest, Sha256};
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use base64::Engine;
 
 use sesame_idam_identity_login_service::controllers::oauth_authorize::{
     self, OauthAuthorizeOutcome,
@@ -132,7 +132,11 @@ fn preauth_registry_resolves_fixture_web_without_tenant_guc() {
         "registered login redirect missing: {:?}",
         binding.redirect_uris
     );
-    assert!(binding.policy.grants.iter().any(|g| g == "authorization_code"));
+    assert!(binding
+        .policy
+        .grants
+        .iter()
+        .any(|g| g == "authorization_code"));
 }
 
 #[test]
@@ -183,7 +187,10 @@ fn authorize_handler_redirects_valid_pkce_request() {
             );
         }
         OauthAuthorizeOutcome::Error(err) => {
-            panic!("expected redirect, got error {}: {:?}", err.status, err.body);
+            panic!(
+                "expected redirect, got error {}: {:?}",
+                err.status, err.body
+            );
         }
     }
 }
@@ -207,7 +214,10 @@ fn authorize_handler_rejects_unknown_client() {
             assert_eq!(err.body["error"], "invalid_client");
         }
         OauthAuthorizeOutcome::Redirect(redirect) => {
-            panic!("expected invalid_client, got redirect {}", redirect.location);
+            panic!(
+                "expected invalid_client, got redirect {}",
+                redirect.location
+            );
         }
     }
 }

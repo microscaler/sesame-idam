@@ -226,7 +226,10 @@ fn progressive_backoff_doubles_and_caps() {
             FailureOutcome::Counted { .. } => {}
             FailureOutcome::Locked { lock_secs, .. } => {
                 if let Some(prev) = last_lock_secs {
-                    assert!(lock_secs >= prev, "backoff must not shrink: {prev} → {lock_secs}");
+                    assert!(
+                        lock_secs >= prev,
+                        "backoff must not shrink: {prev} → {lock_secs}"
+                    );
                 }
                 last_lock_secs = Some(lock_secs);
                 saw_lock = true;

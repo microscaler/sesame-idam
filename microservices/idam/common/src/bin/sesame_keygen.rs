@@ -47,8 +47,7 @@ fn keyset_main(n: usize, out: Option<&str>, encrypt: bool) {
         kids.push(kid);
     }
     let keyset = serde_json::json!({ "keys": entries });
-    let keyset_json =
-        serde_json::to_string_pretty(&keyset).expect("keyset serialization failed");
+    let keyset_json = serde_json::to_string_pretty(&keyset).expect("keyset serialization failed");
 
     let manifest = format!(
         "\
@@ -97,7 +96,10 @@ stringData:
         // Encrypt in place at the FINAL path so .sops.yaml creation rules
         // (path_regex on *.secret.yaml) apply. On failure, delete the
         // plaintext — keys are cheap, plaintext key material in git is not.
-        match std::process::Command::new("sops").args(["-e", "-i", path]).status() {
+        match std::process::Command::new("sops")
+            .args(["-e", "-i", path])
+            .status()
+        {
             Ok(status) if status.success() => {
                 eprintln!("encrypted in place with sops: {path}");
             }

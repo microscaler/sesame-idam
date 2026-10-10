@@ -7,7 +7,7 @@
 //!
 //! Skips when the issuer host is unreachable so CI without the cluster still passes.
 
-use std::net::{SocketAddr, ToSocketAddrs, TcpStream};
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -103,20 +103,12 @@ fn live_discovery_is_truthful_oidc_metadata() {
         doc["userinfo_endpoint"],
         format!("{API_BASE}/oauth/userinfo")
     );
-    assert_eq!(
-        doc["jwks_uri"],
-        format!("{ID_BASE}/.well-known/jwks.json")
-    );
-    let grants = doc["grant_types_supported"]
-        .as_array()
-        .expect("grants");
+    assert_eq!(doc["jwks_uri"], format!("{ID_BASE}/.well-known/jwks.json"));
+    let grants = doc["grant_types_supported"].as_array().expect("grants");
     assert!(grants.iter().any(|g| g == "authorization_code"));
     assert!(grants.iter().any(|g| g == "refresh_token"));
     assert!(!grants.iter().any(|g| g == "implicit"));
-    assert_eq!(
-        doc["response_types_supported"],
-        serde_json::json!(["code"])
-    );
+    assert_eq!(doc["response_types_supported"], serde_json::json!(["code"]));
     assert_eq!(
         doc["code_challenge_methods_supported"],
         serde_json::json!(["S256"])
@@ -141,7 +133,10 @@ fn live_jwks_publishes_verification_keys_only() {
     for key in keys {
         assert!(key.get("kid").and_then(|v| v.as_str()).is_some());
         assert!(key.get("d").is_none(), "private key material must not leak");
-        assert!(key.get("k").is_none(), "symmetric key material must not leak");
+        assert!(
+            key.get("k").is_none(),
+            "symmetric key material must not leak"
+        );
     }
 }
 
@@ -152,9 +147,19 @@ fn live_authorize_valid_pkce_redirects_to_hosted_auth() {
         return;
     }
     let client = http_client();
-    let url = authorize_url(demo_web_client().as_str(), demo_web_redirect().as_str(), &pkce_challenge(), "S256");
+    let url = authorize_url(
+        demo_web_client().as_str(),
+        demo_web_redirect().as_str(),
+        &pkce_challenge(),
+        "S256",
+    );
     let resp = client.get(&url).send().expect("authorize request");
-    assert_eq!(resp.status(), 302, "body={}", resp.text().unwrap_or_default());
+    assert_eq!(
+        resp.status(),
+        302,
+        "body={}",
+        resp.text().unwrap_or_default()
+    );
     let location = resp
         .headers()
         .get("location")
@@ -253,7 +258,10 @@ fn live_token_without_client_auth_fails_closed() {
     let body: serde_json::Value = resp.json().expect("error json");
     let error = body["error"].as_str().unwrap_or_default();
     assert!(
-        matches!(error, "invalid_client" | "invalid_grant" | "invalid_request"),
+        matches!(
+            error,
+            "invalid_client" | "invalid_grant" | "invalid_request"
+        ),
         "unexpected error {error}"
     );
 }
@@ -310,17 +318,16 @@ fn live_discovery_advertised_endpoints_are_reachable() {
         redirect = urlencoding_encode(&demo_web_redirect()),
         challenge = pkce_challenge(),
     );
-    let resp = client
-        .get(&authorize_url)
-        .send()
-        .expect("authorize probe");
+    let resp = client.get(&authorize_url).send().expect("authorize probe");
     assert!(
         matches!(resp.status().as_u16(), 302 | 400),
         "authorize probe unexpected {}",
         resp.status()
     );
 
-    let token = discovery["token_endpoint"].as_str().expect("token_endpoint");
+    let token = discovery["token_endpoint"]
+        .as_str()
+        .expect("token_endpoint");
     let resp = client
         .post(token)
         .header("Content-Type", "application/x-www-form-urlencoded")
@@ -358,7 +365,12 @@ fn live_interactive_pkce_round_trip() {
         eprintln!("SKIP live_interactive_pkce: fixture-public-client not seeded");
         return;
     }
-    assert_eq!(resp.status(), 302, "authorize: {}", resp.text().unwrap_or_default());
+    assert_eq!(
+        resp.status(),
+        302,
+        "authorize: {}",
+        resp.text().unwrap_or_default()
+    );
     let location = resp
         .headers()
         .get("location")

@@ -154,7 +154,9 @@ fn rotate_refresh_token_bound(
             // grace: a reloaded tab, a racing second tab, a lost response).
             // See redis::ROTATION_REPLAY_GRACE_SECS.
             if let Ok(Some(receipt)) = redis::lookup_rotation_receipt(&jti) {
-                if let Some(outcome) = rotated_from_receipt(&receipt, expected_tenant_id, expected_client_id) {
+                if let Some(outcome) =
+                    rotated_from_receipt(&receipt, expected_tenant_id, expected_client_id)
+                {
                     TOKEN_REFRESH_TOTAL
                         .with_label_values(&["success", "replayed"])
                         .inc();

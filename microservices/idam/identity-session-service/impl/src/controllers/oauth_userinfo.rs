@@ -25,8 +25,14 @@ fn internal_error() -> HttpJson<serde_json::Value> {
 /// Map DB user + profile to the OIDC userinfo response shape.
 fn userinfo_json(user: &UserModel, profile: Option<&UserProfileModel>) -> serde_json::Value {
     let base = profile_json(user, profile);
-    let first_name = base.get("first_name").and_then(|v| v.as_str()).map(String::from);
-    let last_name = base.get("last_name").and_then(|v| v.as_str()).map(String::from);
+    let first_name = base
+        .get("first_name")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let last_name = base
+        .get("last_name")
+        .and_then(|v| v.as_str())
+        .map(String::from);
     let name = base.get("name").and_then(|v| v.as_str()).map(String::from);
 
     serde_json::json!({
@@ -50,13 +56,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     use crate::audit::EMITTER;
     use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
-    let (user_id, tenant_id) = match authenticated_principal(
-        &req.jwt_claims,
-        req.data.x_tenant_id.as_deref(),
-    ) {
-        Ok(principal) => principal,
-        Err(response) => return response,
-    };
+    let (user_id, tenant_id) =
+        match authenticated_principal(&req.jwt_claims, req.data.x_tenant_id.as_deref()) {
+            Ok(principal) => principal,
+            Err(response) => return response,
+        };
 
     let entry = AuditLogEntry::new(AuditEventType::JwtValidated, "identity-session-service")
         .tenant_id(tenant_id.clone())

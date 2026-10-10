@@ -45,7 +45,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         .tenant_id(tenant_id)
         .user_id(outcome.user.id.to_string())
         .decision_source("admin_create_user")
-        .result(if outcome.created { "allowed" } else { "idempotent" })
+        .result(if outcome.created {
+            "allowed"
+        } else {
+            "idempotent"
+        })
         .build();
     if let Ok(entry) = entry {
         EMITTER.emit(entry);

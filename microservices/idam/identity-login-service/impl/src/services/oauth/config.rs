@@ -199,18 +199,12 @@ mod tests {
 
     #[test]
     fn tenant_configs_are_independent() {
-        std::env::set_var(
-            "SESAME_OAUTH__ACME__GOOGLE_CLIENT_ID",
-            "acme-google-id",
-        );
+        std::env::set_var("SESAME_OAUTH__ACME__GOOGLE_CLIENT_ID", "acme-google-id");
         std::env::set_var(
             "SESAME_OAUTH__ACME__GOOGLE_CLIENT_SECRET",
             "acme-google-secret",
         );
-        std::env::set_var(
-            "SESAME_OAUTH__GLOBEX__GOOGLE_CLIENT_ID",
-            "globex-google-id",
-        );
+        std::env::set_var("SESAME_OAUTH__GLOBEX__GOOGLE_CLIENT_ID", "globex-google-id");
         std::env::set_var(
             "SESAME_OAUTH__GLOBEX__GOOGLE_CLIENT_SECRET",
             "globex-google-secret",
@@ -220,8 +214,7 @@ mod tests {
         let pw = TenantOAuthConfig::for_tenant("globex");
 
         assert_eq!(
-            acme
-                .credentials_for(SupportedProvider::Google)
+            acme.credentials_for(SupportedProvider::Google)
                 .map(|c| c.client_id.as_str()),
             Some("acme-google-id")
         );

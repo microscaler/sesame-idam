@@ -20,7 +20,6 @@
 pub mod config;
 pub mod cors;
 pub mod dpop;
-pub mod smtp;
 pub mod fallback_cache;
 pub mod http;
 pub mod jwks_cache;
@@ -28,6 +27,7 @@ pub mod jwt;
 pub mod middleware;
 pub mod observability;
 pub mod oidc_client;
+pub mod smtp;
 
 // Consolidated sibling crate modules
 pub mod audit;
@@ -78,5 +78,6 @@ pub use http::{
 };
 
 pub use observability::{
-    assert_no_redacted_fields, redact_sensitive_object, redacted_field_names, DEFAULT_REDACTED_FIELDS,
+    assert_no_redacted_fields, redact_sensitive_object, redacted_field_names,
+    DEFAULT_REDACTED_FIELDS,
 };

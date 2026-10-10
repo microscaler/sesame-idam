@@ -76,11 +76,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
          It expires in {expires_in_secs} seconds. If you did not request a transfer, \
          secure your account and ignore this email."
     );
-    if let Err(error) = sesame_common::smtp::send_email(
-        &email,
-        "Confirm organization ownership transfer",
-        &body,
-    ) {
+    if let Err(error) =
+        sesame_common::smtp::send_email(&email, "Confirm organization ownership transfer", &body)
+    {
         tracing::error!(%error, tenant = %tenant_id, "owner transfer OTP email failed");
         // Still return generic success so attackers cannot probe delivery; code remains valid.
     }

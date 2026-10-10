@@ -110,10 +110,7 @@ fn signup_validate_allows_fresh_email() {
     }
     ensure_active_tenant(TEST_TENANT);
     let client_id = ensure_public_login_client(TEST_TENANT);
-    let resp = signup_validate::handle(validate_request(
-        &client_id,
-        Some(&unique_email("fresh")),
-    ));
+    let resp = signup_validate::handle(validate_request(&client_id, Some(&unique_email("fresh"))));
     assert!(
         resp.allowed,
         "fresh email should be allowed: {:?}",

@@ -7,7 +7,9 @@ use brrtrouter_macros::handler;
 use sesame_idam_org_mgmt_gen::handlers::cs_transfer_org_owner::Request;
 
 use super::transfer_org_owner::{finish_transfer, map_transfer_error};
-use crate::services::org_lifecycle::{self, FormerOwnerDisposition, OrgLifecycleError, TransferActor};
+use crate::services::org_lifecycle::{
+    self, FormerOwnerDisposition, OrgLifecycleError, TransferActor,
+};
 use sesame_idam_org_mgmt::org_auth;
 use sesame_idam_org_mgmt::tenant_cs_auth::{self, TENANT_CS_HEADER};
 
@@ -44,16 +46,16 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         );
     }
 
-    let disposition = match FormerOwnerDisposition::parse(req.data.former_owner_disposition.as_deref())
-    {
-        Ok(d) => d,
-        Err(OrgLifecycleError::InvalidId(msg)) => {
-            return org_auth::error_json(400, "validation_error", &msg);
-        }
-        Err(_) => {
-            return org_auth::error_json(400, "validation_error", "Invalid disposition");
-        }
-    };
+    let disposition =
+        match FormerOwnerDisposition::parse(req.data.former_owner_disposition.as_deref()) {
+            Ok(d) => d,
+            Err(OrgLifecycleError::InvalidId(msg)) => {
+                return org_auth::error_json(400, "validation_error", &msg);
+            }
+            Err(_) => {
+                return org_auth::error_json(400, "validation_error", "Invalid disposition");
+            }
+        };
 
     let exec = sesame_idam_database::db();
     match org_lifecycle::transfer_owner(

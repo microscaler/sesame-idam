@@ -47,13 +47,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     use crate::audit::EMITTER;
     use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
-    let (user_id, tenant_id) = match authenticated_principal(
-        &req.jwt_claims,
-        req.data.x_tenant_id.as_deref(),
-    ) {
-        Ok(principal) => principal,
-        Err(response) => return response,
-    };
+    let (user_id, tenant_id) =
+        match authenticated_principal(&req.jwt_claims, req.data.x_tenant_id.as_deref()) {
+            Ok(principal) => principal,
+            Err(response) => return response,
+        };
 
     let entry = AuditLogEntry::new(AuditEventType::JwtValidated, "identity-session-service")
         .tenant_id(tenant_id.clone())

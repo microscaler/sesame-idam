@@ -28,11 +28,7 @@ fn write_keyset(path: &std::path::Path, entries: &[(String, &str)]) {
         .iter()
         .map(|(pkcs8, from)| serde_json::json!({ "pkcs8_b64": pkcs8, "valid_from": from }))
         .collect();
-    std::fs::write(
-        path,
-        serde_json::json!({ "keys": keys }).to_string(),
-    )
-    .unwrap();
+    std::fs::write(path, serde_json::json!({ "keys": keys }).to_string()).unwrap();
 }
 
 fn temp_keyset_path(tag: &str) -> std::path::PathBuf {
@@ -86,8 +82,7 @@ fn signer_and_jwks_agree_on_current_key() {
     );
 
     // Signer via keyset selection (as from_configured does after env routing).
-    let keys =
-        sesame_common::jwt::load_keyset_file(path.to_str().unwrap()).expect("keyset loads");
+    let keys = sesame_common::jwt::load_keyset_file(path.to_str().unwrap()).expect("keyset loads");
     let signing = sesame_common::jwt::signing_key(&keys).expect("valid key");
 
     let km = KeyManager::from_keyset_file(path.to_str().unwrap()).unwrap();
@@ -96,7 +91,10 @@ fn signer_and_jwks_agree_on_current_key() {
         signing.kid, current.kid,
         "signer key and JWKS current key must be the same key"
     );
-    assert!(km.kid_is_active(&signing.kid), "signing kid must be in JWKS");
+    assert!(
+        km.kid_is_active(&signing.kid),
+        "signing kid must be in JWKS"
+    );
     let _ = std::fs::remove_file(&path);
 }
 

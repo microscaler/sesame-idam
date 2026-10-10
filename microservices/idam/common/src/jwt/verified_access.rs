@@ -44,9 +44,7 @@ pub fn verify_access_token(
     )
     .map_err(|_| JwtError::MissingRequiredField("access_token.payload".into()))?;
 
-    claims
-        .validate()
-        .map_err(JwtError::Validation)?;
+    claims.validate().map_err(JwtError::Validation)?;
 
     if let Some(tenant) = expected_tenant {
         claims.validate_tenant(tenant)?;
@@ -59,8 +57,7 @@ fn decode_json_segment(segment: &str) -> Result<serde_json::Value, JwtError> {
     let bytes = URL_SAFE_NO_PAD
         .decode(segment)
         .map_err(|_| JwtError::Validation(JwtValidationError::SignatureInvalid))?;
-    serde_json::from_slice(&bytes)
-        .map_err(|_| JwtError::MissingRequiredField("jwt.header".into()))
+    serde_json::from_slice(&bytes).map_err(|_| JwtError::MissingRequiredField("jwt.header".into()))
 }
 
 #[cfg(test)]

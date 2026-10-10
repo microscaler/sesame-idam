@@ -689,10 +689,7 @@ fn list_org_members_role_filter_keeps_real_emails() {
 
     assert_eq!(page.total, 1);
     assert_eq!(page.items[0].user_id, member);
-    assert_eq!(
-        page.items[0].email,
-        format!("orgtest_{member}@example.com")
-    );
+    assert_eq!(page.items[0].email, format!("orgtest_{member}@example.com"));
     assert!(!is_placeholder_member_email(&page.items[0].email));
 }
 
@@ -964,10 +961,7 @@ fn change_member_role_elevates_to_admin() {
         "admin",
     )
     .expect("elevate to admin");
-    assert_eq!(
-        membership_role(org_id, member).as_deref(),
-        Some("admin")
-    );
+    assert_eq!(membership_role(org_id, member).as_deref(), Some("admin"));
 }
 
 /// Scenario (negative): product path cannot assign Owner via role change.
@@ -1035,14 +1029,8 @@ fn transfer_owner_product_owner_succeeds() {
 
     assert_eq!(result.successor_user_id, admin);
     assert_eq!(result.former_owner_user_id, owner);
-    assert_eq!(
-        membership_role(org_id, admin).as_deref(),
-        Some("owner")
-    );
-    assert_eq!(
-        membership_role(org_id, owner).as_deref(),
-        Some("admin")
-    );
+    assert_eq!(membership_role(org_id, admin).as_deref(), Some("owner"));
+    assert_eq!(membership_role(org_id, owner).as_deref(), Some("admin"));
 }
 
 /// Scenario (negative): Admin cannot initiate product-path Owner transfer.
@@ -1112,14 +1100,8 @@ fn transfer_owner_tenant_cs_succeeds() {
     )
     .expect("cs transfer");
 
-    assert_eq!(
-        membership_role(org_id, admin).as_deref(),
-        Some("owner")
-    );
-    assert_eq!(
-        membership_role(org_id, owner).as_deref(),
-        Some("member")
-    );
+    assert_eq!(membership_role(org_id, admin).as_deref(), Some("owner"));
+    assert_eq!(membership_role(org_id, owner).as_deref(), Some("member"));
 }
 
 /// Scenario (negative): successor must already be an active member.

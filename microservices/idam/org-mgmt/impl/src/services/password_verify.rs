@@ -33,7 +33,10 @@ pub fn lookup_password_hash<E: LifeExecutor>(
         "SELECT password_hash FROM sesame_idam.users WHERE id = $1 AND tenant_id = $2",
         &values,
     ) {
-        Ok(row) => row.try_get::<usize, String>(0).ok().filter(|h| !h.is_empty()),
+        Ok(row) => row
+            .try_get::<usize, String>(0)
+            .ok()
+            .filter(|h| !h.is_empty()),
         Err(error) => {
             tracing::warn!(%error, %user_id, tenant_id = %tenant_id, "password_hash lookup failed");
             None

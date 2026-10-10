@@ -123,7 +123,11 @@ fn mailpit_available() -> Option<String> {
 }
 
 fn unique_email(prefix: &str) -> String {
-    format!("e2e_{}_{}@example.com", prefix, uuid::Uuid::new_v4().simple())
+    format!(
+        "e2e_{}_{}@example.com",
+        prefix,
+        uuid::Uuid::new_v4().simple()
+    )
 }
 
 fn register(email: &str) {
@@ -262,13 +266,9 @@ fn extract_magic_token(body: &str) -> Option<String> {
     let url = body
         .split_whitespace()
         .find(|w| w.starts_with("http") && w.contains("token="))?;
-    url.split("token=").nth(1).map(|t| {
-        t.split('&')
-            .next()
-            .unwrap_or(t)
-            .trim()
-            .to_string()
-    })
+    url.split("token=")
+        .nth(1)
+        .map(|t| t.split('&').next().unwrap_or(t).trim().to_string())
 }
 
 fn decode_jwt_payload(token: &str) -> serde_json::Value {

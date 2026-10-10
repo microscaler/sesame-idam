@@ -8,8 +8,7 @@ fn repo_root() -> PathBuf {
 
 fn read_repo_file(rel: &str) -> String {
     let path = repo_root().join(rel);
-    std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
+    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
 }
 
 const ORG_MGMT_SAML_PATHS: &[&str] = &[
@@ -21,10 +20,7 @@ const ORG_MGMT_SAML_PATHS: &[&str] = &[
     "/organizations/{org_id}/sso/saml/metadata",
 ];
 
-const LOGIN_SAML_PATHS: &[&str] = &[
-    "/auth/saml/login",
-    "/auth/saml/callback",
-];
+const LOGIN_SAML_PATHS: &[&str] = &["/auth/saml/login", "/auth/saml/callback"];
 
 /// Stale `/sso/saml/*` without org segment must not reappear (routing/codegen drift).
 const FORBIDDEN_ORG_MGMT_PATHS: &[&str] = &[
