@@ -248,6 +248,11 @@ the hand-written parts are the RLS policies and the backfill). Redis keys (ident
   Octopilot pipeline (docker artifact).
 - **identity-login-service**: public routes for section 4 on the deployment's public host; its SP key mounted from the
   secret backend (as the signing keyset); Redis as today.
+- **Reachability**: the section 4 browser routes need only be reachable by the users' browsers. In SP-initiated SAML
+  (HTTP-Redirect out, HTTP-POST back) the IdP never connects to Sesame; the browser carries both messages. A private
+  deployment (a VPN-only staging environment, say) therefore works, provided its host name has a real certificate
+  (DNS-01 issuance needs no inbound access) and it does not need IdP-initiated login from outside the private network,
+  SP metadata fetched by the IdP from a URL (upload the file instead), SCIM pushes or back-channel logout.
 - **org-mgmt**: egress to HTTPS metadata URLs (allow-listed per deployment where the platform supports it).
 - **Configuration**: `SESAME_SAML_VERIFIER_URL`, `SESAME_SAML_SP_KEY_FILE`, `SESAME_SAML_MAX_CLOCK_SKEW_SECS` (default
   120), `SESAME_SAML_ENABLED` (off by default); public URLs and the claim namespace as for every login
