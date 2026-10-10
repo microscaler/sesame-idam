@@ -27,7 +27,7 @@ Sesame's services are pure Rust (ring, rustls), built by the Octopilot Rust buil
 | Option | State |
 | --- | --- |
 | **samael** with `xmlsec` | SAML 2.0 SP/IdP library; signature verification through **libxmlsec1** (the reference XML-DSig implementation, with libxml2 and OpenSSL), with the IdP certificate set as the verification key, every `Signature` verified, an algorithm allow-list, and a reduction to only the verified content (default mode) against wrapping. Needs C libraries at build (libclang for bindgen, `-dev` packages) and run time. 0.0.22, July 2026. |
-| **xml-sec** | Pure Rust XML-DSig and XML-Enc (C14N, exclusive C14N, RSA, ECDSA), a well-designed verification API (caller-trusted keys, expected signed targets, coverage proofs, fail-closed policy, two-parser differential mode). Seven months old, one author, agent-driven development, and it states it is not yet for production. Audited below. |
+| **xml-sec** | Pure Rust XML-DSig and XML-Enc (C14N, exclusive C14N, RSA, ECDSA), a well-designed verification API (caller-trusted keys, expected signed targets, coverage proofs, fail-closed policy, two-parser differential mode). Seven months old, one author, agent-driven development, and it states it is not yet for production (design section 14). |
 | Our own XML-DSig | Rejected outright. |
 
 ## Decision
@@ -76,23 +76,14 @@ SP-initiated login uses the HTTP-Redirect binding, where the signature covers th
 signs it with ring (RSA-SHA256) using the deployment's SP key from the secret backend (as ADR-006). No XML is signed by
 Sesame.
 
-### 6. xml-sec: a fork we control, in shadow, towards consensus
+### 6. xml-sec is a side project, not on this path
 
-xml-sec (audit in the design, section 14) answers the right questions, and a pure-Rust verifier would remove the C code.
-It is not trusted yet; we make it earn trust instead of waiting:
-
-1. **Fork**: `microscaler/xml-sec`, consumed by exact git revision; every bump reviewed (diff of the modules in scope)
-   and run against our corpus. Fixes and features we need (a minimal "SAML verify" feature profile, SAML fixtures,
-   signature-wrapping tests) are contributed upstream first; the fork carries them only until upstream releases them.
-2. **Shadow**: the verifier runs xml-sec beside libxmlsec1 on every response (expected target: the assertion; trusted
-   key: the pinned certificate). Only libxmlsec1 decides; xml-sec's verdict and the identity of what it verified are
-   recorded, and any disagreement raises an alert and becomes a (sanitised) corpus case. Two independent
-   implementations, in two languages with two parsers, cross-check every real response.
-3. **Consensus**: when the promotion criteria hold (design section 14.4), a response is accepted only if **both**
-   verifiers accept it and agree on the verified assertion. An attacker must then defeat both.
-4. **Pure Rust**: libxmlsec1 is retired only after xml-sec is declared production-ready upstream, our audit of the
-   modules in scope is complete, and consensus has run without unexplained disagreement for a sustained period.
-   Retiring it is a new ADR.
+libxmlsec1 is the verifier, with no shadow or consensus stage gating delivery. xml-sec (audit in the design, section 14)
+asks the right questions, and a pure-Rust verifier would remove the C code, but bringing it to production readiness is
+work we cannot put in front of SAML. It is a separate, later effort: help its author get it production ready (fixtures,
+an audit of the modules a SAML verifier uses, differential fuzzing against libxmlsec1, a minimal feature profile) and
+possibly give it a production user. Adopting it, in shadow, in consensus or as a replacement, is a new ADR; the
+verifier's API does not change if its internals do.
 
 ## Consequences
 
@@ -102,14 +93,12 @@ It is not trusted yet; we make it earn trust instead of waiting:
   serialisation of the verified subtree, after the pre-checks of section 3, and with the assertion ID cross-checked; the
   negative corpus includes parser-differential cases.
 - Upgrading samael is deliberate work, not a routine Dependabot merge.
-- xml-sec runs in shadow from the start, through a fork we control; promotion to consensus and later to sole verifier is
-  gated on evidence, not on time. Changing the verifier's internals never changes its API.
-- We maintain a fork and contribute upstream: review time on every bump, and a share of xml-sec's hardening work.
+- xml-sec is not adopted now; working on it is a separate side project (section 6), and adopting it a new ADR.
 
 ## Alternatives rejected
 
-- **xml-sec (pure Rust) as the verifier of record now**: not production ready by its own statement, and unaudited.
-  Adopted in shadow instead (section 6).
+- **xml-sec (pure Rust)**, as verifier, in shadow or in consensus: not production ready by its own statement and
+  unaudited; making it so would delay SAML. A side project instead (section 6).
 - **samael linked into identity-login-service**: C parsing of hostile input in the process holding signing keys and
   database credentials; a run image with C libraries for the whole suite.
 - **An external SAML broker** (a second IdP such as Keycloak or Dex in front of Sesame): another identity system to

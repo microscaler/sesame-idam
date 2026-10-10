@@ -19,7 +19,7 @@ and needs no SAML code.
 | --- | --- |
 | `saml_connections` table (org-mgmt) | `org_id`, `issuer`, `metadata_url`, `sso_url`, `signing_cert` |
 | org-mgmt SAML operations (allow, enable, disable, link, metadata, delete) | stubs that audit and echo; paths not organisation-scoped (`/sso/saml/…`) |
-| `sesame-idam-client` | calls `GET /auth/saml/login` and `POST /auth/saml/callback`; marked pre-contract (the login OpenAPI does not publish them) |
+| `sesame-idam-client` | `saml_login_start`, `saml_callback`, `saml_domain_discovery` aligned with section 4 (tenant from `client_id`, code bound to client and redirect URI); pre-contract, with a pending contract test that gates once identity-login publishes the operations |
 | Contract tests (`pact-mock-server/tests/saml_track_a_contract.rs`) | describe the target paths; ignored, run in the advisory CI job, and become gating when this lands |
 | SAML parsing or verification | none |
 | Social login (Google, Microsoft) | complete; the model SAML follows (state in Redis, shared `issue_login_response`) |
@@ -42,8 +42,7 @@ and needs no SAML code.
 - **identity-login-service** owns the sign-in flow: starts it (AuthnRequest), receives the IdP's POST at the assertion
   consumer service (ACS), asks the verifier, links the identity, completes the login.
 - **saml-verifier** (new, ADR-014) owns XML: verifies responses and parses IdP metadata. Internal only, stateless,
-  holds nothing worth stealing, reaches nothing. libxmlsec1 (through samael) decides; xml-sec (pure Rust, our fork) runs
-  beside it in shadow, then in consensus (section 14).
+  holds nothing worth stealing, reaches nothing. libxmlsec1 (through samael) verifies.
 - **org-mgmt** owns connections: who may configure SAML, the IdP metadata, enabling and disabling.
 
 identity-login-service and org-mgmt stay pure Rust; only the verifier links C libraries.
@@ -94,7 +93,7 @@ sequenceDiagram
 | `saml_acs` | `POST /auth/saml/acs/{connection_id}` | public | `application/x-www-form-urlencoded`: `SAMLResponse`, `RelayState` |
 | `saml_callback` | `POST /auth/saml/callback` | public (RP back end) | code exchange; client authentication as for the token endpoint |
 | `saml_sp_metadata` | `GET /auth/saml/sp/{connection_id}/metadata` | public | SP metadata XML (built with quick-xml; no signing) |
-| `saml_domain_discovery` | `POST /auth/saml/discover` | public, rate-limited | `{email}` → `{org_id}` or nothing |
+| `saml_domain_discovery` | `POST /auth/saml/discover` | public, rate-limited | `{email, client_id}` → `{org_id}` or nothing; tenant from the client |
 
 One SP entity per connection: entity ID `https://<public host>/idam/v1/auth/saml/sp/{connection_id}`, ACS
 `https://<public host>/idam/v1/auth/saml/acs/{connection_id}`. Each organisation's IdP application is then independent,
@@ -238,10 +237,8 @@ the hand-written parts are the RLS policies and the backfill). Redis keys (ident
   contract.
 - **Live acceptance** (pp): one test organisation per IdP; sign in to a relying party through each; disable, refresh,
   certificate rollover and replay exercised.
-- **Upgrades**: every samael, libxmlsec1, libxml2 or xml-sec bump runs the whole corpus (ADR-014 §4).
-- **Differential fuzzing**: a fuzz target feeds the same mutated responses (from the corpus) to libxmlsec1 and xml-sec and
-  fails on any difference in verdict or in the verified assertion; it runs continuously, not only as a CI smoke test.
-- **Both verifiers** run the full corpus; a case where they disagree is a finding before it is a test.
+- **Upgrades**: every samael, libxmlsec1 or libxml2 bump runs the whole corpus (ADR-014 §4).
+- **Fuzzing**: a fuzz target feeds mutated corpus responses to the verifier and fails on any accept the rules forbid.
 
 ## 10. Deployment
 
@@ -272,7 +269,6 @@ Sesame shows these per connection, with the SP metadata URL for IdPs that import
 ## 12. Order of work
 
 1. **Verifier**: crate, Dockerfile, `/verify` and `/metadata/parse`, the corpus (section 9). Gate: corpus green.
-   In parallel: fork xml-sec, audit the modules in scope (section 14.4), wire it in shadow.
 2. **org-mgmt**: schema migration, organisation-scoped connection API (pending contract tests pass), metadata via the
    verifier, lifecycle (section 7), test sign-in.
 3. **identity-login**: `saml_login` (signed AuthnRequest), ACS, `saml_callback`, SP metadata, discovery; replay; linking
@@ -286,9 +282,11 @@ IdP-initiated login (unsolicited responses: its own replay and destination rules
 (SP decryption key in the verifier would give it a secret: design first), signed metadata verification, SCIM
 provisioning alongside SAML, more IdPs (they need only set-up rows in section 11 if they follow the profile).
 
-## 14. xml-sec: audit and path to a pure-Rust verifier
+## 14. xml-sec: audit (side project, not on the delivery path)
 
-Reviewed 2026-10-10 at xml-sec 0.1.21 (`structured-world/xml-sec`).
+Reviewed 2026-10-10 at xml-sec 0.1.21 (`structured-world/xml-sec`). Decision (ADR-014 §6): libxmlsec1 is the verifier;
+helping xml-sec to production readiness is a later side project, and adopting it would be a new ADR. The audit is kept
+as the starting point for that work.
 
 ### 14.1 What it is
 
@@ -319,32 +317,23 @@ Reviewed 2026-10-10 at xml-sec 0.1.21 (`structured-world/xml-sec`).
 | Minimal build | the `xmldsig` feature also compiles DSA, DES, MD5, SHA-1, PKCS#12 code paths (policy-disabled) | **gap**: a SAML-verify feature profile, contributed |
 | Independent review | none known; single author, agent-written | **gap**: our audit of the modules in scope |
 | Continuous fuzzing | smoke only | **gap**: differential fuzzing against libxmlsec1 (section 9) |
-| API stability | changes between minors (migration notes per release) | managed by the fork's pinning; contribute a stable subset |
+| API stability | changes between minors (migration notes per release) | a gap for any production user |
 
-Conclusion: the design is right for our problem; the evidence is not there yet. It is worth investing in, and the shadow
-deployment is how the evidence is produced.
+Conclusion: the design is right for our problem; the evidence is not there yet. Worth investing in as a side project;
+not something SAML delivery can wait for.
 
 ### 14.3 Risks
 
-- **Unreviewed security code at high velocity.** Mitigated by pinning, reviewed bumps, our corpus and differential
-  fuzzing, and by never letting it decide alone until section 14.4 holds.
+- **Unreviewed security code at high velocity**: the main reason it is not adopted now.
 - **RustCrypto `rsa`**: its known timing weakness (RUSTSEC-2023-0071, Marvin) concerns private-key operations; a SAML SP
   verifies with public keys only. The SP's own signing (AuthnRequests) is not done with it (ring, ADR-014 §5).
-- **Single maintainer**: the fork keeps us independent of the upstream's pace or continuity.
+- **Single maintainer**: any future adoption would need a fork we control.
 
-### 14.4 Plan and promotion criteria
+### 14.4 If and when we take it up
 
-1. **Fork** `microscaler/xml-sec`; the verifier depends on an exact revision. Contributions upstream first: the SAML
-   verify feature profile, SAML fixtures from the three IdPs (re-signed with test keys), the wrapping and
-   parser-differential corpus, and fixes found by the audit or fuzzing.
-2. **Audit** of the modules in scope: XML input and both parser backends, document indexing and ID resolution,
-   XMLDSig parse, verify, URI dereferencing and the enveloped and exclusive-C14N transforms, C14N serialisation, the
-   caller-trusted key path and the policy compiler. Findings are fixed upstream (or in the fork until released).
-3. **Shadow** (from the first deployment): xml-sec verifies every response beside libxmlsec1; disagreements alert and
-   are kept as cases.
-4. **Consensus** (accept only if both accept and agree) when: the audit is closed; the corpus is green on both;
-   differential fuzzing has run continuously for at least a month without an unexplained divergence; at least three
-   months of shadow across all three IdPs without an unexplained disagreement; the API subset we use has not broken across
-   two upstream releases.
-5. **Sole verifier** (libxmlsec1 retired): upstream declares production readiness, consensus has held for a sustained
-   period, and a new ADR records it.
+A side project, separate from delivering SAML: contribute what a SAML verifier needs upstream (fixtures from the three
+IdPs re-signed with test keys, the wrapping and parser-differential corpus, a minimal SAML-verify feature profile,
+continuous differential fuzzing against libxmlsec1), audit the modules in scope (XML input and both parser backends,
+ID resolution, XMLDSig parse, verify, URI dereferencing, the enveloped and exclusive-C14N transforms, C14N
+serialisation, the caller-trusted key path, the policy compiler), and offer Sesame as a production user once upstream
+is ready. Shadow, consensus or replacement in Sesame would each be a new ADR with its own evidence.
