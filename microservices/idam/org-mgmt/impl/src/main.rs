@@ -23,6 +23,9 @@ mod security;
     clippy::uninlined_format_args
 )]
 mod models;
+// The binary compiles its own copy of the services; parts only the lib target (tests, migrator) or controllers
+// through the lib use are dead here.
+#[allow(dead_code)]
 mod services;
 
 /// Consumer + org-admin controllers wired for the binary and BDD tests.
@@ -32,16 +35,23 @@ mod controllers {
     pub mod add_user_to_org;
     pub mod challenge_org_owner_transfer;
     pub mod change_user_role_in_org;
+    pub mod create_org_domain;
     pub mod create_organization;
     pub mod cs_transfer_org_owner;
+    pub mod delete_org_domain;
     pub mod fetch_org;
     pub mod fetch_users_in_org;
     pub mod invite_user_to_org;
     pub mod list_my_memberships;
+    pub mod list_org_domains;
+    pub mod org_domain_http;
     pub mod preview_invitation;
     pub mod remove_user_from_org;
+    pub mod revoke_org_domain;
     pub mod revoke_pending_invite;
     pub mod transfer_org_owner;
+    pub mod update_org_domain;
+    pub mod verify_org_domain;
 }
 // Generated registry code may contain unused typed imports when every
 // discovered controller is untyped, and closures preserve its stable template.

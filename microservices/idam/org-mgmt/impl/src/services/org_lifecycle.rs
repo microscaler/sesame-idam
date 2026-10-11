@@ -548,6 +548,21 @@ fn membership_for_user<E: LifeExecutor>(
         .map_err(|e| OrgLifecycleError::Db(e.to_string()))
 }
 
+/// The caller's active role in an organisation of the tenant (lower-case), `None` when not an active member.
+///
+/// # Errors
+///
+/// [`OrgLifecycleError::NotFound`] when the organisation is not in the tenant; database errors.
+pub fn member_role<E: LifeExecutor>(
+    exec: &E,
+    tenant_id: &str,
+    org_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<String>, OrgLifecycleError> {
+    ensure_org_tenant(exec, org_id, tenant_id)?;
+    Ok(membership_for_user(exec, org_id, user_id)?.map(|m| m.role.to_ascii_lowercase()))
+}
+
 fn require_org_member<E: LifeExecutor>(
     exec: &E,
     tenant_id: &str,

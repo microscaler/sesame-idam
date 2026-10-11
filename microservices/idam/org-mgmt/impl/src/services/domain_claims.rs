@@ -164,9 +164,38 @@ pub fn create_claim<E: LifeExecutor>(
     created_by: Option<Uuid>,
     now: DateTime<Utc>,
 ) -> Result<StoredClaim, ClaimError> {
+    create_claim_with_id(
+        exec,
+        Uuid::new_v4(),
+        tenant_id,
+        org_id,
+        domain,
+        scope,
+        created_by,
+        now,
+    )
+}
+
+/// [`create_claim`] with the claim id chosen by the caller: the id is part of the record's MAC input, so the API
+/// derives the record before it stores anything.
+///
+/// # Errors
+///
+/// [`ClaimError::Db`] on a database failure.
+#[allow(clippy::too_many_arguments)]
+pub fn create_claim_with_id<E: LifeExecutor>(
+    exec: &E,
+    id: Uuid,
+    tenant_id: &str,
+    org_id: Uuid,
+    domain: Domain,
+    scope: Scope,
+    created_by: Option<Uuid>,
+    now: DateTime<Utc>,
+) -> Result<StoredClaim, ClaimError> {
     let (claim, event) = Claim::new(domain, scope, now);
     let stored = StoredClaim {
-        id: Uuid::new_v4(),
+        id,
         org_id,
         tenant_id: tenant_id.to_string(),
         claim,
@@ -262,6 +291,29 @@ pub fn record_verdict(
         }
         other => other,
     }
+}
+
+/// The tenant's claims on exactly this domain that are not final (PENDING, VERIFIED, GRACE), any organisation. Runs in
+/// the caller's tenant transaction.
+///
+/// # Errors
+///
+/// A database or malformed-row error.
+pub fn open_claims_on<E: LifeExecutor>(
+    exec: &E,
+    domain: &Domain,
+) -> Result<Vec<StoredClaim>, ClaimError> {
+    DomainEntity::find()
+        .filter(DomainColumn::Domain.eq(domain.as_str().to_string()))
+        .filter(DomainColumn::State.is_in(vec![
+            ClaimState::Pending.as_str().to_string(),
+            ClaimState::Verified.as_str().to_string(),
+            ClaimState::Grace.as_str().to_string(),
+        ]))
+        .all(exec)?
+        .into_iter()
+        .map(StoredClaim::try_from)
+        .collect()
 }
 
 /// The candidate claim names for an address domain: the domain itself and every parent (`eu.bigbank.com` →

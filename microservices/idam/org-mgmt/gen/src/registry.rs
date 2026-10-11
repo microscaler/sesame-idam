@@ -138,8 +138,32 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
-        "update_org_domains",
-        crate::controllers::update_org_domains::UpdateOrgDomainsController,
+        "list_org_domains",
+        crate::controllers::list_org_domains::ListOrgDomainsController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "create_org_domain",
+        crate::controllers::create_org_domain::CreateOrgDomainController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "delete_org_domain",
+        crate::controllers::delete_org_domain::DeleteOrgDomainController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "update_org_domain",
+        crate::controllers::update_org_domain::UpdateOrgDomainController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "verify_org_domain",
+        crate::controllers::verify_org_domain::VerifyOrgDomainController,
         20480,
     );
 
@@ -308,6 +332,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     dispatcher.register_typed_with_stack_size(
         "set_saml_idp_metadata",
         crate::controllers::set_saml_idp_metadata::SetSamlIdpMetadataController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "revoke_org_domain",
+        crate::controllers::revoke_org_domain::RevokeOrgDomainController,
         20480,
     );
 
@@ -492,9 +522,41 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
-            "update_org_domains" => {
+            "list_org_domains" => {
                 let tx = spawn_typed_with_stack_size_and_name(
-                    crate::controllers::update_org_domains::UpdateOrgDomainsController,
+                    crate::controllers::list_org_domains::ListOrgDomainsController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "create_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::create_org_domain::CreateOrgDomainController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "delete_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::delete_org_domain::DeleteOrgDomainController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "update_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::update_org_domain::UpdateOrgDomainController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "verify_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::verify_org_domain::VerifyOrgDomainController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );
@@ -719,6 +781,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "set_saml_idp_metadata" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::set_saml_idp_metadata::SetSamlIdpMetadataController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "revoke_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::revoke_org_domain::RevokeOrgDomainController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

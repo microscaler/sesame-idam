@@ -3,6 +3,7 @@
 pub mod common;
 
 pub mod bdd {
+    pub mod domain_api;
     pub mod domain_claims;
     pub mod jwt_validation;
     pub mod org_lifecycle;

@@ -47,6 +47,54 @@ pub unsafe fn register_impl(dispatcher: &mut Dispatcher, routes: &[RouteMeta]) {
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "create_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::create_org_domain::CreateOrgDomainController,
+                    32768,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "delete_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::delete_org_domain::DeleteOrgDomainController,
+                    32768,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "list_org_domains" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::list_org_domains::ListOrgDomainsController,
+                    32768,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "revoke_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::revoke_org_domain::RevokeOrgDomainController,
+                    32768,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "update_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::update_org_domain::UpdateOrgDomainController,
+                    32768,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "verify_org_domain" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::verify_org_domain::VerifyOrgDomainController,
+                    65536,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "create_organization" => {
                 if let Ok(tx) = brrtrouter::dispatcher::spawn_untyped_with_stack_size_and_name(
                     |req| crate::controllers::create_organization::handle(req),

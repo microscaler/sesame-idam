@@ -33,6 +33,8 @@ tags:
   description: Webhook subscription management for real-time event notifications
 - name: AccountSecurity
   description: User-level security actions including API key invalidation
+- name: Domains
+  description: Organisation domain claims proven by DNS TXT (DESIGN-org-domain-verification.md)
 - name: SCIM
   description: SCIM 2.0 user provisioning for enterprise SSO
 security:
@@ -1148,61 +1150,324 @@ paths:
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete organization, not direct frontend'
   /organizations/{org_id}/domains:
-    put:
+    parameters:
+    - name: org_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
       tags:
-      - Organizations
-      summary: Update organisation domain settings
-      description: 'Configures domain-based auto-join, restrictions, and extra domains
-        for the organisation.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
-      operationId: update_org_domains
-      parameters:
-      - *id003
-      - name: org_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+      - Domains
+      summary: List the organisation's domain claims
+      description: |
+        Every claim of the organisation, newest first, with its state (PENDING, VERIFIED, GRACE, REVOKED, EXPIRED,
+        CONFLICT) and verification facts. A PENDING claim carries the TXT record to publish. Any member of the
+        organisation may list; the organisation and tenant come from the path and the validated token only
+        (DESIGN-org-domain-verification.md §6).
+      operationId: list_org_domains
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: The organisation's claims
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgDomainList'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id001
+        '404':
+          description: Organisation not found in the caller's tenant, or the caller is not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: admin-console
+      x-brrtrouter-impl: true
+    post:
+      tags:
+      - Domains
+      summary: Claim a domain for the organisation
+      description: |
+        Starts a PENDING claim and returns the TXT record that proves control: publish it at `record.name` and call
+        `verify_org_domain`, or wait for the periodic check. Organisation admins (owner, admin) only. A domain that
+        cannot be claimed (a public suffix, a consumer mail provider, the deployment's own domains) and a domain that
+        another organisation of the tenant holds get the same answer, `domain_unavailable`. No request sets a claim's
+        state.
+      operationId: create_org_domain
+      security:
+      - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OrgDomainsRequest'
+              $ref: '#/components/schemas/CreateOrgDomainRequest'
       responses:
-        '200':
-          description: Domains updated
+        '201':
+          description: Claim created (PENDING) with the record to publish
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgDomain'
         '400':
-          description: Invalid request
+          description: '`invalid_domain`: not a domain name; `invalid_request`: unknown scope'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Bad request (validation error)
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: invalid_request
-                error_description: Not found
         '401':
           description: "Unauthorized \u2014 invalid, expired, or missing credentials"
           content: *id001
-        '500':
-          description: Internal server error
-          content: *id002
+        '403':
+          description: Organisation admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Organisation not found in the caller's tenant, or the caller is not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`claim_exists`: the organisation already has an open claim for this domain'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: '`domain_unavailable`: the domain cannot be claimed by this organisation'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: '`keyring_unavailable`: the verification key cannot be used; nothing was created'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       x-consumer: admin-console
-      x-consumer-note: 'Admin console only: Update org domain settings, not direct
-        frontend'
+      x-brrtrouter-impl: true
+  /organizations/{org_id}/domains/{domain_id}:
+    parameters:
+    - name: org_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: domain_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    patch:
+      tags:
+      - Domains
+      summary: Turn domain-based auto-join on or off
+      description: Organisation admins only; only a VERIFIED claim can auto-join (`not_verified` otherwise).
+      operationId: update_org_domain
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrgDomainRequest'
+      responses:
+        '200':
+          description: Claim updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgDomain'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id001
+        '403':
+          description: Organisation admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No such claim in this organisation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`not_verified`: the claim is not VERIFIED'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: admin-console
+      x-brrtrouter-impl: true
+    delete:
+      tags:
+      - Domains
+      summary: Withdraw a domain claim
+      description: Organisation admins only. The claim becomes REVOKED at once; claiming the domain again starts a new claim
+        with a new record.
+      operationId: delete_org_domain
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: Claim withdrawn (or already final)
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id001
+        '403':
+          description: Organisation admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No such claim in this organisation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: admin-console
+      x-brrtrouter-impl: true
+  /organizations/{org_id}/domains/{domain_id}/verify:
+    parameters:
+    - name: org_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: domain_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags:
+      - Domains
+      summary: Check a domain claim's TXT record now
+      description: |
+        Looks the challenge record up through `dns-probe` and applies the quorum rule. At most one check per claim per
+        minute (`rate_limited`, with `Retry-After`). If another organisation of the tenant verified the domain first,
+        the claim becomes CONFLICT and the answer is `domain_unavailable`. A verification key or DNS service failure
+        answers 503 and leaves the claim unchanged. Organisation admins only.
+      operationId: verify_org_domain
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Check done; the claim as it now stands and the verdict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgDomainCheck'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id001
+        '403':
+          description: Organisation admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No such claim in this organisation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`claim_final`: the claim is REVOKED, EXPIRED or CONFLICT; `domain_unavailable`: another organisation holds the domain'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: '`rate_limited`: checked less than a minute ago'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: '`keyring_unavailable` or `dns_unavailable`: could not check; the claim is unchanged'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: admin-console
+      x-brrtrouter-impl: true
+  /tenants/current/org-domains/{domain_id}/revoke:
+    parameters:
+    - name: domain_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags:
+      - Domains
+      summary: Revoke an organisation's domain claim (tenant admin)
+      description: |
+        Tenant administrators of the token's tenant revoke any organisation's claim in that tenant; the claim becomes
+        REVOKED at once. The tenant comes from the validated token only; a claim of another tenant is not found.
+      operationId: revoke_org_domain
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeOrgDomainRequest'
+      responses:
+        '200':
+          description: Claim revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgDomain'
+        '400':
+          description: Unknown reason
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id001
+        '403':
+          description: Tenant administrator role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No such claim in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`claim_final`: the claim is already REVOKED, EXPIRED or CONFLICT'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: admin-console
       x-brrtrouter-impl: true
   /organizations/{org_id}/invitations:
     post:
@@ -3465,20 +3730,154 @@ components:
         mapping_name:
           type: string
           description: Plan-based role mapping name to subscribe to
-    OrgDomainsRequest:
+    CreateOrgDomainRequest:
       type: object
+      additionalProperties: false
+      required:
+      - domain
       properties:
-        primary_domain:
+        domain:
           type: string
-          description: Primary organisation domain
-        auto_join_domain:
+          maxLength: 300
+          description: The domain, as typed (normalised to a lower-case IDNA A-label)
+        scope:
+          type: string
+          enum:
+          - exact
+          - subdomains
+          default: exact
+          description: '`exact`: addresses at the domain only; `subdomains`: also at its subdomains'
+    UpdateOrgDomainRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - auto_join
+      properties:
+        auto_join:
           type: boolean
-          description: Enable domain-based auto-join
-        extra_domains:
+    RevokeOrgDomainRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          enum:
+          - policy
+          - dispute
+          - security
+          - other
+          description: Fixed reason code, recorded in the claim's history
+    OrgDomainRecord:
+      type: object
+      required:
+      - name
+      - type
+      - value
+      properties:
+        name:
+          type: string
+          description: '`_sesame-challenge.<domain>`'
+        type:
+          type: string
+          enum:
+          - TXT
+        value:
+          type: string
+          description: '`sesame-domain-verify=v1;t=<token>`'
+    OrgDomain:
+      type: object
+      required:
+      - id
+      - org_id
+      - domain
+      - scope
+      - state
+      - dnssec
+      - auto_join
+      - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        domain:
+          type: string
+        scope:
+          type: string
+          enum:
+          - exact
+          - subdomains
+        state:
+          type: string
+          enum:
+          - PENDING
+          - VERIFIED
+          - GRACE
+          - REVOKED
+          - EXPIRED
+          - CONFLICT
+        dnssec:
+          type: boolean
+        auto_join:
+          type: boolean
+        pending_until:
+          type: string
+          format: date-time
+          nullable: true
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_checked_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        grace_until:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        record:
+          description: The record to publish (PENDING claims, when the verification key is available)
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/OrgDomainRecord'
+    OrgDomainList:
+      type: object
+      required:
+      - items
+      properties:
+        items:
           type: array
           items:
-            type: string
-          description: Additional domains for auto-join
+            $ref: '#/components/schemas/OrgDomain'
+    OrgDomainCheck:
+      type: object
+      required:
+      - claim
+      - verdict
+      properties:
+        claim:
+          $ref: '#/components/schemas/OrgDomain'
+        verdict:
+          type: string
+          enum:
+          - match
+          - no_match
+          - disagree
+          - unavailable
+          - dnssec_failure
+          description: The quorum verdict of this check
     SamlLinkRequest:
       type: object
       required:

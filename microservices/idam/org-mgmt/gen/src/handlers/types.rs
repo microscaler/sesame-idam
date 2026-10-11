@@ -172,6 +172,51 @@ pub struct CreateApplicationResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CreateOrgDomainRequest {
+    pub domain: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CreateOrgDomainResponse {
+    pub auto_join: bool,
+
+    pub created_at: String,
+
+    pub dnssec: bool,
+
+    pub domain: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grace_until: Option<String>,
+
+    pub id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_checked_at: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_verified_at: Option<String>,
+
+    pub org_id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_until: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record: Option<serde_json::Value>,
+
+    pub scope: String,
+
+    pub state: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CreateOrgRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -345,6 +390,23 @@ pub struct CsTransferOrgOwnerResponse {
     pub org_id: String,
 
     pub successor_user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeleteOrgDomainResponse {
+    pub error: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_description: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -669,6 +731,11 @@ pub struct ListMyMembershipsResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ListOrgDomainsResponse {
+    pub items: Vec<OrgDomain>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MigrateOrgIsolatedResponse {
     pub error: String,
 
@@ -762,15 +829,62 @@ pub struct Org {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct OrgDomainsRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auto_join_domain: Option<bool>,
+pub struct OrgDomain {
+    pub auto_join: bool,
+
+    pub created_at: String,
+
+    pub dnssec: bool,
+
+    pub domain: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub extra_domains: Option<Vec<String>>,
+    pub grace_until: Option<String>,
+
+    pub id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub primary_domain: Option<String>,
+    pub last_checked_at: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_verified_at: Option<String>,
+
+    pub org_id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_until: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record: Option<serde_json::Value>,
+
+    pub scope: String,
+
+    pub state: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OrgDomainCheck {
+    pub claim: OrgDomain,
+
+    pub verdict: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OrgDomainList {
+    pub items: Vec<OrgDomain>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OrgDomainRecord {
+    pub name: String,
+
+    #[serde(rename = "type")]
+    pub r#type: String,
+
+    pub value: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -891,6 +1005,48 @@ pub struct RemoveUserFromOrgResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct RevokeInviteRequest {
     pub invite_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RevokeOrgDomainRequest {
+    pub reason: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RevokeOrgDomainResponse {
+    pub auto_join: bool,
+
+    pub created_at: String,
+
+    pub dnssec: bool,
+
+    pub domain: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grace_until: Option<String>,
+
+    pub id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_checked_at: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_verified_at: Option<String>,
+
+    pub org_id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_until: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record: Option<serde_json::Value>,
+
+    pub scope: String,
+
+    pub state: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1342,32 +1498,45 @@ pub struct TransferOrgOwnerResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct UpdateOrgDomainsRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auto_join_domain: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub extra_domains: Option<Vec<String>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub primary_domain: Option<String>,
+pub struct UpdateOrgDomainRequest {
+    pub auto_join: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct UpdateOrgDomainsResponse {
-    pub error: String,
+pub struct UpdateOrgDomainResponse {
+    pub auto_join: bool,
+
+    pub created_at: String,
+
+    pub dnssec: bool,
+
+    pub domain: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
+    pub grace_until: Option<String>,
+
+    pub id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
+    pub last_checked_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
+    pub last_verified_at: Option<String>,
+
+    pub org_id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
+    pub pending_until: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record: Option<serde_json::Value>,
+
+    pub scope: String,
+
+    pub state: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1462,6 +1631,13 @@ pub struct UsersInOrgResponse {
     pub page_size: i32,
 
     pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct VerifyOrgDomainResponse {
+    pub claim: OrgDomain,
+
+    pub verdict: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

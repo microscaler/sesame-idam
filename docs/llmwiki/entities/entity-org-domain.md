@@ -27,15 +27,15 @@ Stores verified email domains for an organization. Domains are used to identify 
 ## Key Design Decisions
 
 1. **Domain as plain string, not email.** The `domain` column stores a bare domain name (e.g., "acme.com"), not a full email address. This avoids the need to parse emails and allows reuse of the same domain across different orgs.
-2. **Explicit verified flag.** Domain verification is a two-step process: add the domain, then prove ownership (via DNS TXT record). The `verified` boolean tracks whether verification has completed.
-3. **No auto-join logic in the model.** While the OpenAPI spec includes domain-based features (auto-join, domain restrict), the impl model has no `auto_join` or `restrict` columns — these are currently conceptual and not implemented in the database.
+2. **State, not a flag.** A claim moves PENDING → VERIFIED / GRACE / REVOKED / EXPIRED / CONFLICT only through `sesame_common::domain_verify::lifecycle` (DNS TXT proof via `dns-probe`, time, or an admin withdrawing it); the old writable `verified` flag was dropped (story 17.3). History in `org_domain_events` (append-only).
+3. **Auto-join.** `auto_join` can be set only on a VERIFIED claim (`update_org_domain`) and is cleared when the claim is revoked.
 4. **Cascade delete on org deletion.** When an organization is deleted, all associated domain records are automatically removed.
 
 ## Code Anchors
 
 - `microservices/idam/org-mgmt/impl/src/models/org_domain.rs` — Lifeguard entity definition
-- `microservices/idam/org-mgmt/impl/src/controllers/update_org_domains.rs` — Update org domain settings
+- `microservices/idam/org-mgmt/impl/src/services/domain_api.rs` — the organisation domain API (story 17.4); controllers `*_org_domain*.rs`
 
 ## Gaps / Drift
 
-> None — this entity was just created and verified against the impl model on 2026-05-17.
+> Updated for stories 17.3 and 17.4 (2026-10-11).

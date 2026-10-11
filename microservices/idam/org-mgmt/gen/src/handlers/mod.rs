@@ -45,7 +45,15 @@ pub mod update_org;
 
 pub mod delete_org;
 
-pub mod update_org_domains;
+pub mod list_org_domains;
+
+pub mod create_org_domain;
+
+pub mod delete_org_domain;
+
+pub mod update_org_domain;
+
+pub mod verify_org_domain;
 
 pub mod invite_user_to_org;
 
@@ -102,5 +110,7 @@ pub mod enable_saml;
 pub mod create_saml_link;
 
 pub mod set_saml_idp_metadata;
+
+pub mod revoke_org_domain;
 
 pub mod list_my_memberships;

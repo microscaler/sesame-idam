@@ -10,47 +10,63 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "auto_join_domain")]
-    pub auto_join_domain: Option<bool>,
+    #[serde(rename = "reason")]
+    pub reason: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "extra_domains")]
-    pub extra_domains: Option<Vec<String>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "primary_domain")]
-    pub primary_domain: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "X-Tenant-ID")]
-    pub x_tenant_id: Option<String>,
-
-    #[serde(rename = "org_id")]
-    pub org_id: String,
+    #[serde(rename = "domain_id")]
+    pub domain_id: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(rename = "error")]
-    pub error: String,
+    #[serde(rename = "auto_join")]
+    pub auto_join: bool,
+
+    #[serde(rename = "created_at")]
+    pub created_at: String,
+
+    #[serde(rename = "dnssec")]
+    pub dnssec: bool,
+
+    #[serde(rename = "domain")]
+    pub domain: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "error_description")]
-    pub error_description: Option<String>,
+    #[serde(rename = "grace_until")]
+    pub grace_until: Option<String>,
+
+    #[serde(rename = "id")]
+    pub id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "hint")]
-    pub hint: Option<String>,
+    #[serde(rename = "last_checked_at")]
+    pub last_checked_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "message")]
-    pub message: Option<String>,
+    #[serde(rename = "last_verified_at")]
+    pub last_verified_at: Option<String>,
+
+    #[serde(rename = "org_id")]
+    pub org_id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "retry_after")]
-    pub retry_after: Option<i32>,
+    #[serde(rename = "pending_until")]
+    pub pending_until: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "record")]
+    pub record: Option<serde_json::Value>,
+
+    #[serde(rename = "scope")]
+    pub scope: String,
+
+    #[serde(rename = "state")]
+    pub state: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "verified_at")]
+    pub verified_at: Option<String>,
 }
 
 impl TryFrom<HandlerRequest> for Request {
@@ -61,24 +77,9 @@ impl TryFrom<HandlerRequest> for Request {
 
         let mut data_map = Map::new();
 
-        if let Some(v) = req.get_header("x-tenant-id") {
+        if let Some(v) = req.get_path_param("domain_id") {
             data_map.insert(
-                "X-Tenant-ID".to_string(),
-                brrtrouter::server::request::decode_param_value(
-                    v,
-                    Some(&serde_json::json!({"type":"string"})),
-                    None,
-                    None,
-                ),
-            );
-        } else {
-
-            // optional parameter
-        }
-
-        if let Some(v) = req.get_path_param("org_id") {
-            data_map.insert(
-                "org_id".to_string(),
+                "domain_id".to_string(),
                 brrtrouter::server::request::decode_param_value(
                     v,
                     Some(&serde_json::json!({"format":"uuid","type":"string"})),
@@ -87,7 +88,7 @@ impl TryFrom<HandlerRequest> for Request {
                 ),
             );
         } else {
-            return Err(anyhow::anyhow!("Missing required parameter 'org_id'"));
+            return Err(anyhow::anyhow!("Missing required parameter 'domain_id'"));
         }
 
         if let Some(body) = req.body {
@@ -109,5 +110,5 @@ impl TryFrom<HandlerRequest> for Request {
 
 #[allow(dead_code)]
 pub fn handler(req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
-    crate::controllers::update_org_domains::handle(req)
+    crate::controllers::revoke_org_domain::handle(req)
 }
