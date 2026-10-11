@@ -17,9 +17,12 @@ use crate::http::{fetch_get, fetch_post, HttpFetchOptions};
 /// Environment variable listing the providers: `label=https://…/dns-query`, comma-separated.
 pub const PROVIDERS_ENV: &str = "SESAME_DNS_PROBE_PROVIDERS";
 /// Default providers, addressed by IP so `dns-probe` needs no cluster DNS and its egress policy is a list of
-/// addresses (the providers' certificates carry these IPs).
+/// addresses (the providers' certificates carry these IPs). Quad9 is not among them: its `DoH` endpoint requires
+/// HTTP/2 (RFC 8484 §5.2) and Sesame's outbound client speaks HTTP/1.1 (Quad9 answers 505).
 pub const DEFAULT_PROVIDERS: &str =
-    "cloudflare=https://1.1.1.1/dns-query,quad9=https://9.9.9.9/dns-query";
+    "cloudflare=https://1.1.1.1/dns-query,google=https://8.8.8.8/dns-query";
+/// Stack for each provider's coroutine: rustls needs far more than a handler's default stack.
+const LOOKUP_STACK: usize = 256 * 1024;
 /// Per-provider timeout.
 pub const PROVIDER_TIMEOUT: Duration = Duration::from_secs(5);
 /// Largest `DoH` response read.
@@ -137,13 +140,20 @@ pub fn query_all(providers: &[Provider], name: &str, timeout: Duration) -> Vec<P
         .map(|p| {
             let name = name.to_string();
             // SAFETY: the coroutine owns its data and touches no thread-local state.
-            unsafe { may::coroutine::spawn(move || query_provider(&p, &name, timeout)) }
+            unsafe {
+                may::coroutine::Builder::new()
+                    .stack_size(LOOKUP_STACK)
+                    .spawn(move || query_provider(&p, &name, timeout))
+            }
         })
         .collect();
     handles
         .into_iter()
         .zip(providers)
-        .map(|(h, p)| h.join().unwrap_or_else(|_| failed(p, "internal")))
+        .map(|(h, p)| match h {
+            Ok(h) => h.join().unwrap_or_else(|_| failed(p, "internal")),
+            Err(_) => failed(p, "internal"),
+        })
         .collect()
 }
 

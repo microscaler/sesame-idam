@@ -78,7 +78,7 @@ holds nothing, and decide the verdict in the caller, failing closed on any disag
   set by one provider and not another; keyring errors stay errors). No new DNS crate: the decoder covers TXT, CNAME,
   SOA, RRSIG presence and OPT only.
 - Done (2026-10-11): `domain_verify::doh` (RFC 8484 GET with `Accept: application/dns-message`, providers from
-  `SESAME_DNS_PROBE_PROVIDERS` as `label=https://…/dns-query`, default Cloudflare and Quad9 by IP URL, at least two
+  `SESAME_DNS_PROBE_PROVIDERS` as `label=https://…/dns-query`, default Cloudflare (`https://1.1.1.1/dns-query`) and Google (`https://8.8.8.8/dns-query`) by IP URL (Quad9 requires HTTP/2 for DoH and answers 505 to Sesame's HTTP/1.1 client, so it is not a default), at least two
   distinct operators or start-up fails; every provider asked in parallel, 5 s each; only `_sesame-challenge` names of
   claimable domains accepted) and `DnsProbeClient` for org-mgmt and the job (failures are "could not check").
 - Done (2026-10-11): the `dns-probe` service, a standard suite member: `openapi/idam/dns-probe/openapi.yaml`
@@ -87,4 +87,6 @@ holds nothing, and decide the verdict in the caller, failing closed on any disag
 - Tests: fake DoH servers (answers, malformed bodies, HTTP errors, unreachable, parallel order); a live test against
   the default providers, ignored by default. Smoke: 422 for a name that is not a challenge name, 200 with every
   provider's outcome, start-up refused with one operator.
-- Remaining: chart values and NetworkPolicy (17.17); run the live test where egress is allowed.
+- Live (ms02, 2026-10-11): Cloudflare and Google over IP URLs answer (NOERROR, AD set, signed, SOA negative TTL);
+  provider lookups run in coroutines with a 256 KiB stack (rustls overflows a handler-sized stack).
+- Remaining: chart values and NetworkPolicy (17.17).

@@ -139,7 +139,9 @@ internal service, **`dns-probe`**, not by the components that hold the enrolment
    for this any more.
 4. **Network**: ingress only from org-mgmt and the re-verification job; egress only to the configured providers'
    published DoH addresses on 443 (fixed IPs: `1.1.1.1`/`1.0.0.1`, `8.8.8.8`/`8.8.4.4`, `9.9.9.9`/`149.112.112.112`
-   and their IPv6 equivalents), so the policy is a short list of address blocks, not a hostname allow-list. No cluster
+   and their IPv6 equivalents), so the policy is a short list of address blocks, not a hostname allow-list.
+   Quad9's DoH endpoint requires HTTP/2 and Sesame's outbound client speaks HTTP/1.1, so the default pair is
+   Cloudflare and Google until the client gains HTTP/2. No cluster
    DNS needed: providers are addressed by IP with TLS names pinned in configuration.
 5. **It talks only to trusted, fixed endpoints over TLS.** It deliberately does not fetch anything a user supplies
    (IdP metadata URLs stay with org-mgmt, DESIGN-saml-sp.md §7, §10): a process whose answers decide domain ownership
