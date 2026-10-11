@@ -989,6 +989,43 @@ pub struct PlatformTenantOauthUpsertResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantOidcClientCreateRequest {
+    pub application_id: String,
+
+    pub audiences: Vec<String>,
+
+    pub client_type: String,
+
+    pub grants: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_logout_redirect_uris: Option<Vec<String>>,
+
+    pub redirect_uris: Vec<String>,
+
+    pub response_types: Vec<String>,
+
+    pub scopes: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_endpoint_auth_method: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantOidcClientCreateResponse {
+    pub client: OidcClientResponse,
+
+    pub client_secret: serde_json::Value,
+
+    pub secret_id: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantOidcClientListResponse {
+    pub items: Vec<OidcClientResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PlatformTenantSmsGetResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_sid: Option<String>,

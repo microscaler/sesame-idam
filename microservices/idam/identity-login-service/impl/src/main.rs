@@ -303,6 +303,22 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "platform_tenant_oidc_client_list" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::platform_tenant_oidc_client_list::PlatformTenantOidcClientListController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "platform_tenant_oidc_client_create" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::platform_tenant_oidc_client_create::PlatformTenantOidcClientCreateController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "platform_tenant_get" => {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::platform_tenant_get::PlatformTenantGetController,

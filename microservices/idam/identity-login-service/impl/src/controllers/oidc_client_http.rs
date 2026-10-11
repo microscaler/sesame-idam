@@ -4,6 +4,7 @@ use sesame_common::audit::{AuditEventType, AuditLogEntry};
 use crate::audit::EMITTER;
 use crate::services::oidc_client_admin::{ClientAdminError, ClientView};
 use crate::services::tenant_admin::TenantAdmin;
+use crate::services::tenant_service::{TenantService, STATUS_DEPROVISIONED};
 
 #[must_use]
 pub fn client_json(client: &ClientView) -> serde_json::Value {
@@ -59,6 +60,46 @@ pub fn emit_lifecycle_audit(action: &str, admin: &TenantAdmin, client_id: &str, 
             "client_id": client_id,
             "outcome": outcome,
             "authority_class": "tenant",
+        }))
+        .build();
+    if let Ok(entry) = entry {
+        EMITTER.emit(entry);
+    }
+}
+
+/// The tenant a platform operator acts on: it must exist and not be deprovisioned. Unknown and deprovisioned look
+/// the same (`tenant_not_found`), as on the other `/platform/tenants/{slug}` routes.
+///
+/// # Errors
+///
+/// The 404 or 500 response to return.
+pub fn platform_tenant_gate(slug: &str) -> Result<String, HttpJson<serde_json::Value>> {
+    let slug = slug.trim();
+    match TenantService::find_by_slug(slug, sesame_idam_database::db()) {
+        Ok(Some(tenant)) if tenant.status != STATUS_DEPROVISIONED => Ok(tenant.slug),
+        Ok(_) => Err(HttpJson::new(
+            404,
+            serde_json::json!({ "error": "tenant_not_found", "error_description": "tenant_not_found" }),
+        )),
+        Err(error) => {
+            tracing::error!(%error, "platform tenant lookup failed");
+            Err(HttpJson::new(
+                500,
+                serde_json::json!({ "error": "internal_error", "error_description": "An unexpected error occurred" }),
+            ))
+        }
+    }
+}
+
+/// Audit an operator's client lifecycle action: the tenant acted on, and the platform authority rather than a user.
+pub fn emit_platform_lifecycle_audit(action: &str, tenant: &str, client_id: &str, outcome: &str) {
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "identity-login-service")
+        .tenant_id(tenant.to_string())
+        .metadata(serde_json::json!({
+            "action": action,
+            "client_id": client_id,
+            "outcome": outcome,
+            "authority_class": "platform",
         }))
         .build();
     if let Ok(entry) = entry {

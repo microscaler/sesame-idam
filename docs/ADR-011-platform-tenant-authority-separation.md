@@ -129,6 +129,10 @@ oracle, and it leaks the platform's customer list.
   so the behaviour has a single definition.
 - A tenant-admin role model and its grant path are new work; until an invite
   flow exists, the first admin is seeded at provisioning.
+- A platform-provisioned tenant has no administrator to register its first
+  relying parties, so the client registry has its operator variant:
+  `GET`/`POST /platform/tenants/{slug}/oidc/clients` (same service layer, writes
+  in the tenant's RLS context, audited with `authority_class: platform`).
 - Existing `/platform/tenants/{slug}/sms` and `/oauth` consumers keep working;
   the tenant console moves to the tenant-scoped paths.
 

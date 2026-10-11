@@ -192,6 +192,18 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "platform_tenant_oidc_client_list",
+        crate::controllers::platform_tenant_oidc_client_list::PlatformTenantOidcClientListController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "platform_tenant_oidc_client_create",
+        crate::controllers::platform_tenant_oidc_client_create::PlatformTenantOidcClientCreateController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "platform_tenant_sms_get",
         crate::controllers::platform_tenant_sms_get::PlatformTenantSmsGetController,
         20480,
@@ -523,6 +535,22 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "platform_tenant_oauth_rotate" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::platform_tenant_oauth_rotate::PlatformTenantOauthRotateController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "platform_tenant_oidc_client_list" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::platform_tenant_oidc_client_list::PlatformTenantOidcClientListController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "platform_tenant_oidc_client_create" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::platform_tenant_oidc_client_create::PlatformTenantOidcClientCreateController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

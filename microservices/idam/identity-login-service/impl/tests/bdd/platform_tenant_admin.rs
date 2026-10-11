@@ -12,7 +12,8 @@ use http::Method;
 
 use sesame_idam_identity_login_service::controllers::{
     auth_login, auth_register, platform_tenant_create, platform_tenant_get,
-    platform_tenant_oauth_rotate, platform_tenant_oauth_upsert, platform_tenant_status_patch,
+    platform_tenant_oauth_rotate, platform_tenant_oauth_upsert, platform_tenant_oidc_client_create,
+    platform_tenant_oidc_client_list, platform_tenant_status_patch,
 };
 use sesame_idam_identity_login_service_gen::handlers::auth_login::Request as LoginRequest;
 use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as RegisterRequest;
@@ -20,6 +21,8 @@ use sesame_idam_identity_login_service_gen::handlers::platform_tenant_create::Re
 use sesame_idam_identity_login_service_gen::handlers::platform_tenant_get::Request as GetRequest;
 use sesame_idam_identity_login_service_gen::handlers::platform_tenant_oauth_rotate::Request as RotateRequest;
 use sesame_idam_identity_login_service_gen::handlers::platform_tenant_oauth_upsert::Request as OauthUpsertRequest;
+use sesame_idam_identity_login_service_gen::handlers::platform_tenant_oidc_client_create::Request as ClientCreateRequest;
+use sesame_idam_identity_login_service_gen::handlers::platform_tenant_oidc_client_list::Request as ClientListRequest;
 use sesame_idam_identity_login_service_gen::handlers::platform_tenant_status_patch::Request as StatusPatchRequest;
 
 static INIT: Once = Once::new();
@@ -156,6 +159,15 @@ fn register_request(
     email: &str,
     password: &str,
 ) -> TypedHandlerRequest<RegisterRequest> {
+    register_request_for(FIXTURE_WEB_CLIENT, tenant, email, password)
+}
+
+fn register_request_for(
+    client_id: &str,
+    tenant: &str,
+    email: &str,
+    password: &str,
+) -> TypedHandlerRequest<RegisterRequest> {
     TypedHandlerRequest {
         method: Method::POST,
         path: "/auth/register".to_string(),
@@ -163,7 +175,7 @@ fn register_request(
         path_params: HashMap::new(),
         query_params: HashMap::new(),
         data: RegisterRequest {
-            client_id: FIXTURE_WEB_CLIENT.to_string(),
+            client_id: client_id.to_string(),
             email: email.to_string(),
             first_name: None,
             last_name: None,
@@ -197,6 +209,148 @@ fn login_request(
         },
         jwt_claims: None,
     }
+}
+
+fn client_create_request(
+    slug: &str,
+    client_type: &str,
+) -> TypedHandlerRequest<ClientCreateRequest> {
+    TypedHandlerRequest {
+        method: Method::POST,
+        path: format!("/platform/tenants/{slug}/oidc/clients"),
+        handler_name: "platform_tenant_oidc_client_create".to_string(),
+        path_params: HashMap::from([("slug".to_string(), slug.to_string())]),
+        query_params: HashMap::new(),
+        data: ClientCreateRequest {
+            slug: slug.to_string(),
+            application_id: "web".to_string(),
+            client_type: client_type.to_string(),
+            token_endpoint_auth_method: None,
+            redirect_uris: vec!["https://app.example/auth/callback".to_string()],
+            post_logout_redirect_uris: None,
+            grants: vec![
+                "authorization_code".to_string(),
+                "refresh_token".to_string(),
+            ],
+            response_types: vec!["code".to_string()],
+            scopes: vec!["openid".to_string(), "profile".to_string()],
+            audiences: vec!["sesame-idam".to_string()],
+        },
+        jwt_claims: None,
+    }
+}
+
+fn client_list_request(slug: &str) -> TypedHandlerRequest<ClientListRequest> {
+    TypedHandlerRequest {
+        method: Method::GET,
+        path: format!("/platform/tenants/{slug}/oidc/clients"),
+        handler_name: "platform_tenant_oidc_client_list".to_string(),
+        path_params: HashMap::from([("slug".to_string(), slug.to_string())]),
+        query_params: HashMap::new(),
+        data: ClientListRequest {
+            slug: slug.to_string(),
+        },
+        jwt_claims: None,
+    }
+}
+
+/// Scenario: the operator mints a tenant and registers its first relying party (ADR-011 §2.4); a user registers and
+/// signs in through that client, and the client is the tenant's alone.
+#[test]
+fn platform_mint_client_register_login() {
+    if !db_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let slug = unique_slug("bdd-rp");
+    let other = unique_slug("bdd-rp-other");
+    for s in [&slug, &other] {
+        let create = platform_tenant_create::handle(create_request(s, "BDD RP Tenant"));
+        assert_eq!(create.status, 201, "create failed: {:?}", create.body);
+    }
+
+    let created =
+        platform_tenant_oidc_client_create::handle(client_create_request(&slug, "public"));
+    assert_eq!(
+        created.status, 201,
+        "client create failed: {:?}",
+        created.body
+    );
+    let client_id = created.body["client"]["client_id"]
+        .as_str()
+        .expect("client_id")
+        .to_string();
+    assert_eq!(created.body["client"]["tenant_id"], slug.as_str());
+    assert!(
+        created.body["client_secret"].is_null(),
+        "public clients have no secret"
+    );
+
+    let listed = platform_tenant_oidc_client_list::handle(client_list_request(&slug));
+    assert_eq!(listed.status, 200);
+    let ids: Vec<&str> = listed
+        .body
+        .as_array()
+        .expect("array")
+        .iter()
+        .filter_map(|c| c["client_id"].as_str())
+        .collect();
+    assert_eq!(ids, vec![client_id.as_str()]);
+    let others = platform_tenant_oidc_client_list::handle(client_list_request(&other));
+    assert_eq!(others.status, 200);
+    assert!(
+        others.body.as_array().expect("array").is_empty(),
+        "another tenant's clients are invisible"
+    );
+
+    let email = format!("rp_{}@example.com", uuid::Uuid::new_v4());
+    let password = "SecureP@ss123!";
+    let reg = auth_register::handle(register_request_for(&client_id, &slug, &email, password));
+    assert_eq!(reg.status, 201, "register failed: {:?}", reg.body);
+    let login = auth_login::handle(login_request(&client_id, &slug, &email, password));
+    assert_eq!(login.status, 200, "login failed: {:?}", login.body);
+    assert!(login.body["access_token"].is_string());
+
+    // the client is bound to its tenant: presenting another tenant fails closed
+    let cross = auth_login::handle(login_request(&client_id, &other, &email, password));
+    assert_eq!(cross.status, 401);
+    assert_eq!(cross.body["error"], "invalid_client");
+}
+
+/// Scenario: the operator surface refuses an unknown tenant and an invalid policy, exactly as the tenant surface would.
+#[test]
+fn platform_client_create_rejections() {
+    if !db_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+
+    let unknown = platform_tenant_oidc_client_create::handle(client_create_request(
+        &unique_slug("bdd-none"),
+        "public",
+    ));
+    assert_eq!(unknown.status, 404);
+    assert_eq!(unknown.body["error"], "tenant_not_found");
+
+    let slug = unique_slug("bdd-rp-bad");
+    assert_eq!(
+        platform_tenant_create::handle(create_request(&slug, "Bad Policy")).status,
+        201
+    );
+    let mut bad = client_create_request(&slug, "public");
+    bad.data.scopes = vec!["profile".to_string()];
+    let refused = platform_tenant_oidc_client_create::handle(bad);
+    assert_eq!(refused.status, 400, "{:?}", refused.body);
+    assert_eq!(refused.body["error"], "invalid_client_metadata");
+
+    let confidential =
+        platform_tenant_oidc_client_create::handle(client_create_request(&slug, "confidential"));
+    assert_eq!(confidential.status, 201, "{:?}", confidential.body);
+    assert!(
+        confidential.body["client_secret"].is_string(),
+        "the secret is returned once"
+    );
 }
 
 /// Scenario: platform mint → register succeeds (east-west provisioning path).

@@ -1901,6 +1901,90 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
+  /platform/tenants/{slug}/oidc/clients:
+    parameters:
+    - name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z][a-z0-9-]{2,63}$'
+    get:
+      tags:
+      - PlatformAdmin
+      summary: List a tenant's OIDC relying-party clients (operator)
+      description: |
+        The operator variant of `GET /tenant/oidc/clients` (ADR-011 §2.4): same
+        service layer, same redacted view, scoped to the tenant in the path.
+      operationId: platform_tenant_oidc_client_list
+      security:
+      - PlatformServiceAuth: []
+      responses:
+        '200':
+          description: Registered clients, with all credentials redacted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcClientListResponse'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found or deprovisioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
+    post:
+      tags:
+      - PlatformAdmin
+      summary: Register an OIDC relying-party client for a tenant (operator)
+      description: |
+        The operator variant of `POST /tenant/oidc/clients` (ADR-011 §2.4). A
+        platform-provisioned tenant has no administrator yet, so its first
+        relying parties are registered by the operator who minted it. Behaviour
+        is the tenant surface's (one service layer); the audit record names the
+        platform authority instead of a tenant administrator. The client id is
+        assigned by Sesame, and a confidential client's secret is returned once.
+      operationId: platform_tenant_oidc_client_create
+      security:
+      - PlatformServiceAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcClientCreateRequest'
+      responses:
+        '201':
+          description: Client registered; a confidential secret is returned once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcClientCreateResponse'
+        '400':
+          description: Invalid client policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid platform admin key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found or deprovisioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
   /platform/tenants/{slug}/sms/{environment}:
     get:
       tags:
