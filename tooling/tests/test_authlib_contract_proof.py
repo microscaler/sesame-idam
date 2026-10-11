@@ -13,7 +13,7 @@ def test_discovery_fixtures_present():
 def test_principal_proof_without_authlib_import_path():
     # Mapping/schema proof does not require Authlib; CLI entry does.
     principal = prove_principal_from_accepted_claims()
-    assert principal["profile_version"] == "1.0.0"
+    assert principal["profile_version"] == "2.0.0"
     assert principal["organization_id"] is None
 
 

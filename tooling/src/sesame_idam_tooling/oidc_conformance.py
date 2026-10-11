@@ -64,12 +64,16 @@ def validate_corpus(root: Path | None = None) -> list[str]:
     except (OSError, json.JSONDecodeError) as exc:
         return [f"failed to load corpus: {exc}"]
 
-    if manifest.get("provider_profile") != "1.0.0":
+    if manifest.get("provider_profile") != "2.0.0":
         problems.append(
-            f"provider_profile must be 1.0.0, got {manifest.get('provider_profile')!r}"
+            f"provider_profile must be 2.0.0, got {manifest.get('provider_profile')!r}"
         )
     if manifest.get("algorithm") != "EdDSA":
         problems.append(f"algorithm must be EdDSA, got {manifest.get('algorithm')!r}")
+    if manifest.get("id_token_algorithm") != "RS256":
+        problems.append(
+            f"id_token_algorithm must be RS256, got {manifest.get('id_token_algorithm')!r}"
+        )
     if not manifest.get("security_profile"):
         problems.append("security_profile pointer missing")
 

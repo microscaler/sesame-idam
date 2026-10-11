@@ -22,8 +22,8 @@ info:
     service contracts used by dogfood onboarding (Series A P4).
   contact:
     name: Platform / Security
-  x-provider-profile: "1.0.0"
-  x-fixture-version: "1.1.0"
+  x-provider-profile: "2.0.0"
+  x-fixture-version: "1.2.0"
 
 servers:
   - url: https://api.sesameidentity.dev.local/idam/v1

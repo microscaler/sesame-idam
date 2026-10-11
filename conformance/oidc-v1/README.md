@@ -1,6 +1,6 @@
 # OIDC conformance package v1
 
-Language-neutral fixtures for Sesame provider profile `1.0.0`.
+Language-neutral fixtures for Sesame provider profile `2.0.0`.
 
 ## Versions
 

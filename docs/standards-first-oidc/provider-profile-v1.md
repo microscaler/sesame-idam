@@ -1,7 +1,7 @@
 # Sesame OIDC Provider Profile v1
 
 Status: normative  
-Profile version: `1.0.0`
+Profile version: `2.0.0`
 
 This document is the **canonical consumer entrypoint** for the Sesame portable
 contract. Integration docs that disagree with this profile are stale; prefer

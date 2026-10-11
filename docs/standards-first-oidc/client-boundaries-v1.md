@@ -1,7 +1,7 @@
 # Client product boundaries v1
 
 Status: normative  
-Profile version: `1.0.0`  
+Profile version: `2.0.0`  
 Related: [client-ecosystem-selection-v1.md](./client-ecosystem-selection-v1.md)
 
 Sesame publishes three thin client surfaces. Semantic authority remains the

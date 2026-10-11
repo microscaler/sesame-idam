@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use super::types::AccessClaims;
 
 /// Profile version embedded in [`verified-principal-v1.schema.json`].
-pub const VERIFIED_PRINCIPAL_PROFILE_VERSION: &str = "1.0.0";
+pub const VERIFIED_PRINCIPAL_PROFILE_VERSION: &str = "2.0.0";
 
 /// Map validated [`AccessClaims`] into verified-principal v1 JSON.
 ///
@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn maps_pre_org_principal_with_null_organization() {
         let principal = map_access_claims_to_verified_principal(&sample_claims(false));
-        assert_eq!(principal["profile_version"], "1.0.0");
+        assert_eq!(principal["profile_version"], "2.0.0");
         assert_eq!(principal["subject"], "11111111-1111-1111-1111-111111111111");
         assert_eq!(principal["session_id"], "sid-vp-1");
         assert_eq!(principal["application_id"], "acme-web");

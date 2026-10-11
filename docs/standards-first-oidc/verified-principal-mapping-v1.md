@@ -1,7 +1,7 @@
 # Verified principal mapping v1
 
 Status: normative  
-Profile version: `1.0.0`  
+Profile version: `2.0.0`  
 Schema: [verified-principal-v1.schema.json](./verified-principal-v1.schema.json)
 
 Adapters produce a verified principal **only after** cryptographic validation of
@@ -12,7 +12,7 @@ decoded-but-unverified JWT JSON.
 
 | JWT claim path | Principal field | Rule |
 |---|---|---|
-| *(constant)* | `profile_version` | Always `"1.0.0"` for this schema |
+| *(constant)* | `profile_version` | The provider profile, `"2.0.0"` (the mapping itself is unchanged since 1.0.0) |
 | `tenant_id` | `tenant_id` | Must equal `sx.tenant` |
 | `sub` | `subject` | Must equal `user_id` |
 | `client_id` | `client_id` | Registered OAuth client |

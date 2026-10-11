@@ -1,7 +1,7 @@
 # Sesame OIDC Security Profile v1
 
 Status: **normative freeze** (Epic 14.1)  
-`provider_profile`: `1.0.0` (must match [`conformance/oidc-v1/manifest.json`](../../conformance/oidc-v1/manifest.json))  
+`provider_profile`: `2.0.0` (must match [`conformance/oidc-v1/manifest.json`](../../conformance/oidc-v1/manifest.json))  
 Companion docs: [`provider-profile-v1.md`](./provider-profile-v1.md), [`security-conformance-v1.md`](./security-conformance-v1.md)
 
 This document freezes the security choices consumers and conformance runners
@@ -17,11 +17,17 @@ may rely on. Changing a locked rule is a major `provider_profile` bump.
 | Redirect URIs | Exact match against registered URIs (no prefix) |
 | Grants | `authorization_code`, `refresh_token` |
 | Access token | EdDSA, `typ=at+jwt` (RFC 9068) |
-| ID token | EdDSA; RP validates `aud`, `nonce`, `iat`, `azp` where required. **Pending 2.0.0 (ADR-015):** RS256, as OpenID Connect Core §15.1 requires; implemented behind `SESAME_ID_TOKEN_KEYS`, not enabled in any deployment until the 2.0.0 lockstep |
+| ID token | RS256 (OpenID Connect Core §15.1; ADR-015), key in an HSM in deployments; RP validates `aud`, `nonce`, `iat`, `azp` where required |
 | Refresh | Rotated, client-bound; Redis/server state authoritative; replay fails closed |
-| Algorithms | EdDSA allow-list only; `alg=none` and unknown algs fail closed |
+| Algorithms | EdDSA for access and refresh tokens, RS256 for ID tokens; each JWKS key carries its `alg` and verifiers use the key's, never the header's alone; `alg=none` and unknown algs fail closed |
 | Tenant | Registered client binds tenant before login; validated token binds after; `X-Tenant-ID` never overrides |
 | Metadata | Advertises only completed behavior |
+
+## Changes
+
+- **2.0.0** (2026-10-11): ID tokens are RS256 instead of EdDSA (ADR-015); the JWKS publishes RSA keys next to the
+  Ed25519 ones. Access tokens, refresh tokens and claims are unchanged. Migration:
+  [`profile-2.0.0-migration.md`](./profile-2.0.0-migration.md).
 
 ## Locked access-token validation
 

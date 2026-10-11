@@ -26,7 +26,7 @@ and negative security tests agree.
 | 14.7 | Framework compatibility matrix | **In progress** | First slice documented (Auth.js, Authlib, Spring RS) |
 | 14.8 | Security observability and redaction | **Done** | Manifest `redacted_fields` + `sesame_common` redaction helpers/tests |
 | 14.9 | Release conformance gate | **Done** | CI job `oidc-conformance-gate` + fixture checksum tooling |
-| 14.10 | RS256 ID tokens (ADR-015) | **In progress** | Implemented, off by default: `SESAME_ID_TOKEN_KEYS` (Cloud KMS HSM or PEM), RSA keys in JWKS, honest discovery; remaining: `provider_profile` 2.0.0 lockstep before a deployment enables it |
+| 14.10 | RS256 ID tokens (ADR-015) | **Done** | `SESAME_ID_TOKEN_KEYS` (Cloud KMS HSM or PEM), RSA keys in JWKS, honest discovery; `provider_profile` 2.0.0 / fixtures 1.2.0 in lockstep with sesame-idam-client ([migration note](../../standards-first-oidc/profile-2.0.0-migration.md)) |
 
 ## Scope
 

@@ -1,7 +1,7 @@
 # Compatibility and deprecation policy v1
 
 Status: normative  
-Profile version: `1.0.0`
+Profile version: `2.0.0`
 
 ## Version identifiers
 

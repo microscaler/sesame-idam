@@ -63,7 +63,7 @@ Discovery's `id_token_signing_alg_values_supported` lists `RS256` when an RS256 
 only for a deployment without one (development fallback). The ID-token algorithm is a locked rule of the security
 profile, so this is `provider_profile` 2.0.0, done in lockstep (`compatibility-v1.md`: profile documents, fixture
 `VERSION` and `CHECKSUM`, the tenant-consumer OpenAPI, `sesame-idam-client`'s supported version) before any deployment
-sets `SESAME_ID_TOKEN_KEYS`. Until then RS256 ID tokens are implemented but off by default.
+sets `SESAME_ID_TOKEN_KEYS`. Done 2026-10-11: [`profile-2.0.0-migration.md`](standards-first-oidc/profile-2.0.0-migration.md).
 
 ### 5. HSM-backed access tokens are not adopted now
 

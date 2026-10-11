@@ -8,7 +8,7 @@ from typing import Any
 
 from sesame_idam_tooling.oidc_conformance import repo_root_from
 
-PROFILE_VERSION = "1.0.0"
+PROFILE_VERSION = "2.0.0"
 SX_NS = "https://sesame-idam.dev/claims"
 
 
