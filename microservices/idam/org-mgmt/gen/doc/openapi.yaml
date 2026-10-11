@@ -1361,7 +1361,7 @@ paths:
       summary: Check a domain claim's TXT record now
       description: |
         Looks the challenge record up through `dns-probe` and applies the quorum rule. At most one check per claim per
-        minute (`rate_limited`, with `Retry-After`). If another organisation of the tenant verified the domain first,
+        minute (`rate_limited`, with the seconds to wait in `retry_after`). If another organisation of the tenant verified the domain first,
         the claim becomes CONFLICT and the answer is `domain_unavailable`. A verification key or DNS service failure
         answers 503 and leaves the claim unchanged. Organisation admins only.
       operationId: verify_org_domain
