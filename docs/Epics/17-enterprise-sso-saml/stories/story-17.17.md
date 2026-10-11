@@ -17,7 +17,7 @@ Everything the epic adds runs in a deployment (pp first) with least privilege.
 - Chart values for `dns-probe` (same hardening) and its NetworkPolicy (ingress from org-mgmt and the re-verification job only; egress only to the configured DoH providers' addresses on 443).
 - The re-verification CronJob (17.5) with its own database login.
 - `K_enroll`: an HMAC-SHA256 key in Cloud KMS at HSM protection level (created by the platform, automatic rotation off); `roles/cloudkms.signer` on that key only for the org-mgmt and re-verification job workload identities; egress for both to the metadata server and Cloud KMS; `SESAME_DOMAIN_VERIFY_KEYRING` names key and versions.
-- Secrets: the SP key, generated in the secret backend, mounted only where used.
+- SP key: an RSA-3072 key in Cloud KMS at HSM protection level (`RSA_SIGN_PKCS1_3072_SHA256`); `roles/cloudkms.signer` on it for identity-login-service only; the SP certificate as configuration (ADR-015).
 - Egress: org-mgmt to public addresses on 443 only (IdP metadata), excluding private, loopback, link-local, CGNAT and cluster ranges; the job none beyond `dns-probe` and the database; identity-login unchanged.
 - Configuration: `SESAME_SAML_VERIFIER_URL`, `SESAME_SAML_SP_KEY_FILE`, `SESAME_SAML_ENABLED`, `SESAME_DNS_PROBE_URL`; DoH providers in `dns-probe`'s own configuration.
 

@@ -23,6 +23,7 @@ pub mod cors;
 pub mod domain_verify;
 pub mod dpop;
 pub mod fallback_cache;
+pub mod gcp_kms;
 pub mod http;
 pub mod jwks_cache;
 pub mod jwt;

@@ -494,6 +494,10 @@ fn main() -> io::Result<()> {
     // Initialize the JWT signer eagerly so a malformed signing key fails at
     // startup rather than on the first login.
     let _ = &*services::token_issuer::SIGNER;
+    // ADR-015: a malformed ID-token key configuration fails here; KMS keys are fetched now and retried on use.
+    if let Err(error) = sesame_common::jwt::ID_TOKEN_KEYS.get() {
+        tracing::warn!(%error, "ID token keys not loaded at start-up; will retry on first use");
+    }
 
     // Port selection: PORT env var (K8s) > default 8080
     let port = std::env::var("PORT")

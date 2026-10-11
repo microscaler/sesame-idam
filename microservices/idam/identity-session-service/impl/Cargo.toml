@@ -66,6 +66,9 @@ thiserror = { workspace = true }
 [build-dependencies]
 lifeguard-migrate = { workspace = true }
 [dev-dependencies]
+# Test-only RSA key generation for RS256 ID token tests (ADR-015).
+rsa = { version = "0.9", features = ["pem"] }
+rand = "0.8"
 rstest = "0.21"
 rstest-bdd = "0.5.0"
 rstest-bdd-macros = "0.5.0"

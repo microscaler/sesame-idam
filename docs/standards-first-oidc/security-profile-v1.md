@@ -17,7 +17,7 @@ may rely on. Changing a locked rule is a major `provider_profile` bump.
 | Redirect URIs | Exact match against registered URIs (no prefix) |
 | Grants | `authorization_code`, `refresh_token` |
 | Access token | EdDSA, `typ=at+jwt` (RFC 9068) |
-| ID token | EdDSA; RP validates `aud`, `nonce`, `iat`, `azp` where required |
+| ID token | EdDSA; RP validates `aud`, `nonce`, `iat`, `azp` where required. **Pending 2.0.0 (ADR-015):** RS256, as OpenID Connect Core §15.1 requires; implemented behind `SESAME_ID_TOKEN_KEYS`, not enabled in any deployment until the 2.0.0 lockstep |
 | Refresh | Rotated, client-bound; Redis/server state authoritative; replay fails closed |
 | Algorithms | EdDSA allow-list only; `alg=none` and unknown algs fail closed |
 | Tenant | Registered client binds tenant before login; validated token binds after; `X-Tenant-ID` never overrides |

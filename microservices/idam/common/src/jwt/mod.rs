@@ -20,6 +20,7 @@
 pub mod builders;
 pub mod helpers;
 pub mod keyset;
+pub mod rs256;
 pub mod signer;
 pub mod types;
 pub mod verified_access;
@@ -43,6 +44,10 @@ pub use helpers::{
 pub use keyset::{
     configured_keyset_file, load_keyset_file, parse_keyset, rfc7638_okp_thumbprint, signing_key,
     KeysetError, LoadedKey, SigningKeyset, KEYSET_FILE_ENV, KEY_SOURCE_ENV,
+};
+pub use rs256::{
+    IdTokenKeys, IdTokenKeysConfig, LazyIdTokenKeys, Rs256Error, RsaPublicJwk, ID_TOKEN_KEYS,
+    ID_TOKEN_KEYS_ENV,
 };
 pub use signer::{Ed25519Signer, SignerError, SIGNING_KEY_ENV, SIGNING_KID_ENV};
 pub use types::{

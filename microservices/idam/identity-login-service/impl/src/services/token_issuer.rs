@@ -229,7 +229,9 @@ pub fn issue_tokens_for_client(
     })
 }
 
-/// Issue an OpenID Connect ID token for an authorization-code login.
+/// Issue an `OpenID` Connect ID token for an authorization-code login: RS256 with the deployment's ID-token key
+/// (ADR-015; Cloud KMS HSM in deployments), or `EdDSA` with the access-token signer when no ID-token key is
+/// configured (development).
 pub fn issue_id_token(
     user_id: &str,
     client_id: &str,
@@ -248,7 +250,15 @@ pub fn issue_id_token(
         "auth_time": auth_time,
         "nonce": nonce,
     });
-    SIGNER
-        .sign_payload(&payload.to_string())
-        .map_err(|error| IssueError::Signing(error.to_string()))
+    match sesame_common::jwt::ID_TOKEN_KEYS
+        .get()
+        .map_err(|error| IssueError::Signing(error.to_string()))?
+    {
+        Some(keys) => keys
+            .sign_jwt(&payload)
+            .map_err(|error| IssueError::Signing(error.to_string())),
+        None => SIGNER
+            .sign_payload(&payload.to_string())
+            .map_err(|error| IssueError::Signing(error.to_string())),
+    }
 }

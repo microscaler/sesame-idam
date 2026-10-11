@@ -1439,17 +1439,21 @@ components:
             '
           items:
             type: object
+            description: 'One signing key. Ed25519 keys (kty OKP, alg EdDSA) carry crv and x and sign access and
+              refresh tokens; RSA keys (kty RSA, alg RS256) carry n and e and sign ID tokens (ADR-015). Verifiers
+              select by kid and use the key''s own alg.'
             required:
             - kty
             - kid
             - use
             - alg
-            - crv
-            - x
             properties:
               kty:
                 type: string
-                description: Key type (OKP = Octet Pair for Ed25519)
+                enum:
+                - OKP
+                - RSA
+                description: Key type (OKP for Ed25519, RSA for RS256)
               kid:
                 type: string
                 description: "Key ID — unique identifier for this key (used by JWT `kid` header)"
@@ -1458,13 +1462,22 @@ components:
                 description: Intended use of the public key (sig = signature)
               alg:
                 type: string
-                description: Intended algorithm for using the key (EdDSA for Ed25519)
+                enum:
+                - EdDSA
+                - RS256
+                description: Algorithm the key is used with (EdDSA for OKP, RS256 for RSA)
               crv:
                 type: string
-                description: Curve name (Ed25519)
+                description: Curve name (Ed25519); OKP keys only
               x:
                 type: string
-                description: The public key value (base64url-encoded 32-byte Ed25519 public key)
+                description: The public key value (base64url-encoded 32-byte Ed25519 public key); OKP keys only
+              n:
+                type: string
+                description: RSA modulus, base64url; RSA keys only
+              e:
+                type: string
+                description: RSA public exponent, base64url; RSA keys only
             example:
               kty: OKP
               kid: key-2026-05-18-12

@@ -73,8 +73,9 @@ and negative corpus (design section 9); security advisories for all three are wa
 ### 5. AuthnRequests are signed without XML signing
 
 SP-initiated login uses the HTTP-Redirect binding, where the signature covers the query string, not XML: identity-login
-signs it with ring (RSA-SHA256) using the deployment's SP key from the secret backend (as ADR-006). No XML is signed by
-Sesame.
+signs it (RSA-SHA256) with the deployment's SP key, which lives in Cloud KMS at HSM protection level
+(`RSA_SIGN_PKCS1_3072_SHA256`, ADR-015) and signs through `asymmetricSign`; a local key file serves development. No XML
+is signed by Sesame.
 
 ### 6. xml-sec is a side project, not on this path
 

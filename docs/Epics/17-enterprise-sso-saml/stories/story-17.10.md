@@ -13,7 +13,7 @@ Start SP-initiated sign-in: validate the request, record the pending state, and 
 
 ## Scope
 
-- SP key (RSA 3072) and certificate per deployment from the secret backend; generate-if-absent is the platform's job (17.17).
+- SP key (RSA-3072) in Cloud KMS at HSM protection level (ADR-015), signing through `asymmetricSign` with the shared `sesame_common::gcp_kms` client (a PKCS#8 file in development); the SP certificate (self-signed, public) generated once through KMS by `sesame_keygen saml-sp-cert` and stored as configuration; the KMS key itself is the platform's job (17.17).
 - `GET /auth/saml/login?org_id&client_id&redirect_uri`: client registered, redirect URI registered for it (Epic 11), connection enabled; state in Redis `saml_state:<relay>` (request ID, tenant, org, connection, client, redirect_uri), 10 min, one use.
 - AuthnRequest XML (ID, IssueInstant, Destination, AssertionConsumerServiceURL, Issuer = SP entity ID, NameIDPolicy), DEFLATE, base64, HTTP-Redirect query signed RSA-SHA256 with ring (SigAlg, Signature over the exact query bytes).
 
@@ -30,6 +30,7 @@ Start SP-initiated sign-in: validate the request, record the pending state, and 
 - [ ] An unregistered redirect URI, unknown client, or a connection that is not enabled is refused before any redirect.
 - [ ] The redirect signature verifies with the SP certificate (test with an independent implementation, e.g. xmlsec1's or samael's verification of redirect bindings).
 - [ ] State is stored once and expires after 10 minutes.
+- [ ] With the KMS key unreachable, sign-in start answers 503 and stores no state.
 
 ## Tests
 

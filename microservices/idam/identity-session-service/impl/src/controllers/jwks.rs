@@ -1,5 +1,6 @@
 /// Implementation for handler 'jwks'
-/// Serves Ed25519 public keys in JWKS format (RFC 7517).
+/// Serves Ed25519 public keys (access and refresh tokens) and RSA public keys (ID tokens, ADR-015) in JWKS format
+/// (RFC 7517).
 /// Cache-Control and security headers are injected by `JwksHeadersMiddleware`
 /// in `impl/src/middleware/jwks_headers.rs`.
 use brrtrouter::typed::TypedHandlerRequest;
@@ -23,13 +24,20 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     let _guard = span.enter();
 
     let doc = KEY_MANAGER.read().unwrap().jwks_document();
-    let keys_count = doc.keys.len();
 
-    let keys: Vec<serde_json::Value> = doc
+    let mut keys: Vec<serde_json::Value> = doc
         .keys
         .into_iter()
         .map(|jwk| serde_json::to_value(&jwk).unwrap())
         .collect();
+    match sesame_common::jwt::ID_TOKEN_KEYS.get() {
+        Ok(Some(id_token_keys)) => keys.extend(id_token_keys.jwks()),
+        Ok(None) => {}
+        Err(error) => {
+            tracing::warn!(%error, "ID token keys unavailable; JWKS served without them");
+        }
+    }
+    let keys_count = keys.len();
 
     let resp = Response { keys };
 

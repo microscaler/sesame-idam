@@ -32,7 +32,7 @@ and needs no SAML code.
                 ▼                                           │ saml-verifier (internal) │
  identity-login-service (public routes) ── POST /verify ──► │ samael + libxmlsec1      │
    state, replay cache: Redis                               │ stateless, no secrets,   │
-   SP key: secret backend (signs AuthnRequest, ring)        │ no DB, no Redis, no      │
+   SP key: Cloud KMS HSM (signs AuthnRequest, ADR-015)      │ no DB, no Redis, no      │
    connections, identities: Postgres (RLS)                  │ egress                   │
                 ▲                                           └──────────────────────────┘
  org-mgmt (admin API) ── POST /metadata/parse ──────────────────────▲
@@ -250,8 +250,10 @@ the hand-written parts are the RLS policies and the backfill). Redis keys (ident
   from identity-login-service and org-mgmt, egress none (not even DNS); non-root, read-only root file system, no service
   account token, CPU and memory limits, request body limit at the HTTP layer. Image built from its Dockerfile in the
   Octopilot pipeline (docker artifact).
-- **identity-login-service**: public routes for section 4 on the deployment's public host; its SP key mounted from the
-  secret backend (as the signing keyset); Redis as today.
+- **identity-login-service**: public routes for section 4 on the deployment's public host; its SP key in Cloud KMS at
+  HSM protection level (RSA-3072, `asymmetricSign` with `roles/cloudkms.signer` on that key only; ADR-015), its
+  certificate (public) generated once through KMS by `sesame_keygen saml-sp-cert` and stored as configuration; Redis as
+  today.
 - **Reachability**: the section 4 browser routes need only be reachable by the users' browsers. In SP-initiated SAML
   (HTTP-Redirect out, HTTP-POST back) the IdP never connects to Sesame; the browser carries both messages. A private
   deployment (a VPN-only staging environment, say) therefore works, provided its host name has a real certificate
@@ -262,7 +264,8 @@ the hand-written parts are the RLS policies and the backfill). Redis keys (ident
   section 7. DNS lookups for domain verification go through `dns-probe` (ADR-007 amendment of 2026-10-11).
 - **dns-probe**: as `saml-verifier` in shape (stateless, no secrets, non-root, read-only), but with egress only to the
   configured DoH providers' addresses on 443 and ingress only from org-mgmt and the re-verification job.
-- **Configuration**: `SESAME_SAML_VERIFIER_URL`, `SESAME_SAML_SP_KEY_FILE`, `SESAME_SAML_MAX_CLOCK_SKEW_SECS` (default
+- **Configuration**: `SESAME_SAML_VERIFIER_URL`, `SESAME_SAML_SP_KEY` (a KMS key version, or a key file in development),
+  `SESAME_SAML_SP_CERT_FILE`, `SESAME_SAML_MAX_CLOCK_SKEW_SECS` (default
   120), `SESAME_SAML_ENABLED` (off by default); public URLs and the claim namespace as for every login
   (DESIGN-octopilot-build-and-release §3.7).
 

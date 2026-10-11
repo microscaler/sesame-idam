@@ -112,6 +112,16 @@ fn exchange_code(request: &Request, binding: &ClientBinding) -> HttpJson<serde_j
         );
     }
 
+    // The ID token first: if its signer (Cloud KMS) is unavailable, fail before a refresh token is stored.
+    let id_token = match issue_id_token(&code.user_id, &code.client_id, &code.nonce, code.auth_time)
+    {
+        Ok(token) => token,
+        Err(error) => {
+            tracing::error!(%error, "OIDC ID token issuance failed");
+            return oauth_error(503, "temporarily_unavailable", "Token issuance unavailable");
+        }
+    };
+
     let scope = code.scopes.join(" ");
     let tokens = match issue_tokens_for_client(
         &code.user_id,
@@ -127,14 +137,6 @@ fn exchange_code(request: &Request, binding: &ClientBinding) -> HttpJson<serde_j
         Ok(tokens) => tokens,
         Err(error) => {
             tracing::error!(%error, "OIDC token issuance failed");
-            return oauth_error(503, "temporarily_unavailable", "Token issuance unavailable");
-        }
-    };
-    let id_token = match issue_id_token(&code.user_id, &code.client_id, &code.nonce, code.auth_time)
-    {
-        Ok(token) => token,
-        Err(error) => {
-            tracing::error!(%error, "OIDC ID token issuance failed");
             return oauth_error(503, "temporarily_unavailable", "Token issuance unavailable");
         }
     };

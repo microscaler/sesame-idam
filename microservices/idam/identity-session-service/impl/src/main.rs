@@ -96,6 +96,11 @@ fn main() -> io::Result<()> {
         });
     }
 
+    // ADR-015: load ID-token public keys now (KMS getPublicKey); retried on use if KMS is unreachable.
+    if let Err(error) = sesame_common::jwt::ID_TOKEN_KEYS.get() {
+        tracing::warn!(%error, "ID token keys not loaded at start-up; will retry on first use");
+    }
+
     // Load OpenAPI spec
     let spec_path = if args.spec.is_relative() {
         let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

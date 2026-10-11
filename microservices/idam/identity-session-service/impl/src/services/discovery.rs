@@ -55,7 +55,13 @@ pub fn openid_configuration() -> OpenIdDiscovery {
         response_modes_supported: vec!["query".into()],
         grant_types_supported: vec!["authorization_code".into(), "refresh_token".into()],
         subject_types_supported: vec!["public".into()],
-        id_token_signing_alg_values_supported: vec!["EdDSA".into()],
+        // ADR-015: RS256 when the deployment has ID-token keys; EdDSA only for the development fallback.
+        id_token_signing_alg_values_supported: if sesame_common::jwt::ID_TOKEN_KEYS.is_configured()
+        {
+            vec!["RS256".into()]
+        } else {
+            vec!["EdDSA".into()]
+        },
         userinfo_signing_alg_values_supported: vec![],
         userinfo_encryption_alg_values_supported: vec![],
         userinfo_encryption_enc_values_supported: vec![],
