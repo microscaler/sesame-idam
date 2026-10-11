@@ -158,8 +158,8 @@ pub fn problems(req: Requirements, env: &dyn Fn(&str) -> Option<String>) -> Vec<
         let keyset = set(crate::jwt::KEY_SOURCE_ENV)
             .is_some_and(|s| s.trim().eq_ignore_ascii_case("file"))
             && set(crate::jwt::KEYSET_FILE_ENV).is_some();
-        let pair =
-            set(crate::jwt::SIGNING_KEY_ENV).is_some() && set(crate::jwt::SIGNING_KID_ENV).is_some();
+        let pair = set(crate::jwt::SIGNING_KEY_ENV).is_some()
+            && set(crate::jwt::SIGNING_KID_ENV).is_some();
         if !keyset && !pair {
             out.push(format!(
                 "no signing key: set {}=file and {}",
@@ -190,7 +190,11 @@ pub fn check_startup(service: &str, req: Requirements) -> Result<(), String> {
     }
     if dev_mode() {
         for problem in &found {
-            tracing::warn!(service, problem, "{DEV_MODE_ENV}=1: development fallback in use");
+            tracing::warn!(
+                service,
+                problem,
+                "{DEV_MODE_ENV}=1: development fallback in use"
+            );
         }
         return Ok(());
     }
@@ -241,10 +245,16 @@ mod tests {
             (AUTH_PUBLIC_URL_ENV, "https://auth.acme.io"),
             (API_PUBLIC_URL_ENV, "https://api.acme.io"),
             ("KEY_SOURCE", "file"),
-            ("SESAME_SIGNING_KEYSET_FILE", "/etc/sesame/keys/signing-keyset.json"),
+            (
+                "SESAME_SIGNING_KEYSET_FILE",
+                "/etc/sesame/keys/signing-keyset.json",
+            ),
             ("SESAME_ID_TOKEN_KEYS", "/etc/sesame/id-token/keys.json"),
         ];
-        assert_eq!(problems(Requirements::ISSUER, &env(&good)), Vec::<String>::new());
+        assert_eq!(
+            problems(Requirements::ISSUER, &env(&good)),
+            Vec::<String>::new()
+        );
     }
 
     #[test]

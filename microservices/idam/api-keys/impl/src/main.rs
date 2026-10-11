@@ -17,7 +17,6 @@ static GLOBAL: Jemalloc = Jemalloc;
 use sesame_common::config::load_config;
 use sesame_idam_api_keys::{controllers, security::init_security};
 
-
 use brrtrouter::dispatcher::Dispatcher;
 use brrtrouter::middleware::MetricsMiddleware;
 use brrtrouter::router::Router;
@@ -50,7 +49,10 @@ fn main() -> io::Result<()> {
 
     let args = Args::parse();
     // Deployment settings (issuer, public URLs, signing keys) or no start; SESAME_DEV_MODE=1 in development.
-    sesame_common::deployment::require_or_exit("api-keys", sesame_common::deployment::Requirements::VALIDATOR);
+    sesame_common::deployment::require_or_exit(
+        "api-keys",
+        sesame_common::deployment::Requirements::VALIDATOR,
+    );
     // Configure coroutine stack size
     let config = RuntimeConfig::from_env();
     may::config().set_stack_size(config.stack_size);

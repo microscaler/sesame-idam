@@ -61,7 +61,10 @@ fn main() -> io::Result<()> {
 
     let args = Args::parse();
     // Deployment settings (issuer, public URLs, signing keys) or no start; SESAME_DEV_MODE=1 in development.
-    sesame_common::deployment::require_or_exit("identity-login-service", sesame_common::deployment::Requirements::ISSUER);
+    sesame_common::deployment::require_or_exit(
+        "identity-login-service",
+        sesame_common::deployment::Requirements::ISSUER,
+    );
     // Configure coroutine stack size
     let config = RuntimeConfig::from_env();
     may::config().set_stack_size(config.stack_size);

@@ -6,7 +6,9 @@
 //! answer "allowed" and an unimplemented listing would return invented records. Services register this layer first
 //! and their impl controllers on top (BRRTRouter ADR 0001 register-and-overwrite, with an honest base layer).
 
-use brrtrouter::dispatcher::{spawn_untyped_with_stack_size_and_name, Dispatcher, HandlerRequest, HandlerResponse};
+use brrtrouter::dispatcher::{
+    spawn_untyped_with_stack_size_and_name, Dispatcher, HandlerRequest, HandlerResponse,
+};
 use brrtrouter::spec::RouteMeta;
 
 /// Body of every `501` answer.
