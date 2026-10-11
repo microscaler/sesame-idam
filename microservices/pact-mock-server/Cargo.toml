@@ -60,6 +60,7 @@ rustls = { version = "0.23", features = ["ring"], default-features = false }
 
 [dev-dependencies]
 axum-test = "18.0"
+serde_yaml = { workspace = true }
 
 [lints.rust]
 ambiguous_negative_literals = "warn"

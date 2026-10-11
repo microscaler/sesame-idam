@@ -1355,6 +1355,8 @@ components:
           - rate_limited
           - invalid_token
           - not_found
+          - internal_error
+          - validation_error
           description: Machine-readable error code
         error_description:
           type: string

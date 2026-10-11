@@ -2576,6 +2576,8 @@ components:
           - application_not_found
           - role_not_found
           - attribute_too_large
+          - internal_error
+          - security_state_unavailable
           description: Machine-readable error code
         error_description:
           type: string

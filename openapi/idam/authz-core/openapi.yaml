@@ -890,8 +890,6 @@ paths:
       parameters:
       - *id006
       x-consumer: backend-service
-      x-consumer-note: 'Backend-only: Get effective permissions for principal, used
-        by authz middleware'
       x-brrtrouter-impl: true
   /authz/principals/roles:
     post:
