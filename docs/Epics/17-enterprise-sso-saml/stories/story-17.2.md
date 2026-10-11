@@ -1,7 +1,7 @@
 # Story 17.2 — `dns-probe` service and quorum verdict
 
 > **Epic:** [17 Enterprise SSO](../README.md) · **Track:** A. Domains · **Depends on:** 17.1 · **Size:** M  
-> **Status:** Ready
+> **Status:** In progress
 
 ## Goal
 
@@ -67,3 +67,17 @@ holds nothing, and decide the verdict in the caller, failing closed on any disag
 
 - Acceptance criteria met with tests in CI; rustfmt and clippy clean; OpenAPI and docs updated where touched;
   security-relevant behaviour covered by a negative test; evidence noted in the epic README.
+
+## Implementation notes
+
+- Done (2026-10-11): `sesame_common::domain_verify::dns` (TXT query with EDNS(0) and DO, ID 0 for DoH GET;
+  defensive response decoding: bounded compression pointers, label and name lengths, CNAME chain up to 8 with loop
+  detection, TXT strings joined per record, AD bit, RRSIG presence, SOA negative TTL, Extended DNS Error codes) and
+  `domain_verify::quorum` (`ProviderAnswer` is the wire shape `dns-probe` returns; the verdict needs two distinct
+  providers, every one answered and matching; DNSSEC failure from a validating SERVFAIL with a DNSSEC EDE, or AD
+  set by one provider and not another; keyring errors stay errors). No new DNS crate: the decoder covers TXT, CNAME,
+  SOA, RRSIG presence and OPT only.
+- Remaining: the `dns-probe` service (HTTP API, DoH GET to the configured providers by IP URL, e.g.
+  `https://1.1.1.1/dns-query`, so no cluster DNS is needed and the egress policy is a list of addresses), the
+  `DnsProbeClient` for org-mgmt and the job, mock DoH pair tests, live test (ignored by default).
+

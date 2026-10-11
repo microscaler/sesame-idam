@@ -18,18 +18,22 @@
 //! token = base64url, no padding (43 characters)
 //! ```
 //!
-//! Network resolution (DNS-over-HTTPS quorum) is story 17.2; claim state and lifecycle are story 17.3.
+//! [`dns`] encodes and decodes the challenge lookup for `dns-probe`; [`quorum`] decides the verdict from its
+//! answers (story 17.2). Claim state and lifecycle are story 17.3.
 
+pub mod dns;
 mod eligibility;
 mod gcp_kms;
 mod keyring;
 mod normalize;
+mod quorum;
 mod token;
 
 pub use eligibility::{check_eligible, EligibilityPolicy, DEFAULT_CONSUMER_PROVIDERS};
 pub use gcp_kms::{GcpKmsConfig, GcpKmsKeyring};
 pub use keyring::{EnrollKeyring, KeyringConfig, KeyringError, LocalKeyring, MAC_LEN};
 pub use normalize::{normalize_domain, Domain};
+pub use quorum::{quorum, ProviderAnswer, ProviderOutcome, Verdict, QUORUM};
 pub use token::{
     challenge_name, derive_token, expected_record, parse_record, verify_record, ClaimSubject,
     Scope, TxtRecord, CHALLENGE_LABEL, ORG_DOMAIN_PURPOSE, RECORD_PREFIX, TENANT_ISSUER_PURPOSE,

@@ -70,6 +70,8 @@ argon2.workspace = true
 [features]
 default = []
 full = ["metrics"]
+# DNS response builders for other crates' tests (dns-probe).
+test-util = []
 metrics = []
 
 [[example]]
