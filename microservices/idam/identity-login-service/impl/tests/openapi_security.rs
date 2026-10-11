@@ -167,3 +167,55 @@ fn login_spec_error_response_includes_oauth_error_codes() {
         );
     }
 }
+
+/// Responses are validated against the spec at runtime, so a handler answering an error code that `ErrorResponse`
+/// does not list fails with a 500 instead (seen in pp: `slug_taken`). Every `"error": "<code>"` literal in the
+/// handlers must be in the enum.
+#[test]
+fn every_error_code_a_handler_answers_is_in_the_spec() {
+    let spec_path = repo_root().join("openapi/idam/identity-login-service/openapi.yaml");
+    let doc: serde_yaml::Value =
+        serde_yaml::from_str(&std::fs::read_to_string(&spec_path).expect("read spec"))
+            .expect("parse spec");
+    let listed: Vec<String> = doc["components"]["schemas"]["ErrorResponse"]["properties"]["error"]
+        ["enum"]
+        .as_sequence()
+        .expect("ErrorResponse.error.enum")
+        .iter()
+        .filter_map(|v| v.as_str().map(str::to_string))
+        .collect();
+
+    let src = repo_root().join("microservices/idam/identity-login-service/impl/src");
+    let mut missing = Vec::new();
+    let mut stack = vec![src];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir).expect("read src dir").flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("read source");
+            for (i, _) in text.match_indices("\"error\": \"") {
+                let rest = &text[i + "\"error\": \"".len()..];
+                let code: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_lowercase() || *c == '_')
+                    .collect();
+                if !code.is_empty()
+                    && rest[code.len()..].starts_with('"')
+                    && !listed.contains(&code)
+                {
+                    missing.push(format!("{code} ({})", path.display()));
+                }
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "error codes missing from ErrorResponse: {missing:?}"
+    );
+}

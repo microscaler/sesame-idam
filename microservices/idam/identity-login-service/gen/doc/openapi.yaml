@@ -2696,7 +2696,28 @@ components:
           - validation_error
           - internal_error
           - unauthorized
-          description: Machine-readable error code
+          - email_in_use
+          - forbidden
+          - slug_taken
+          - invalid_slug
+          - reserved_slug
+          - invalid_provisioning_mode
+          - tenant_unknown
+          - tenant_not_active
+          - tenant_not_found
+          - tenant_deprovisioned
+          - invalid_status_transition
+          - oauth_config_not_found
+          - envelope_custody_forbidden
+          - platform_auth_unconfigured
+          - not_a_support_agent
+          - not_in_target_org
+          - cross_tenant_impersonation_not_allowed
+          - impersonation_chain_not_allowed
+          - max_concurrent_impersonations_reached
+          description: |
+            Machine-readable error code. Every code a handler can answer is listed: responses are validated against
+            this schema, so an unlisted code turns into a 500 (tests/openapi_security.rs keeps the list complete).
         error_description:
           type: string
           description: Human-readable error message
