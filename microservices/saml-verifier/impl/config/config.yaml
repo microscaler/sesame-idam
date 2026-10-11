@@ -1,0 +1,13 @@
+# saml-verifier: internal only (NetworkPolicy admits identity-login-service and org-mgmt). No security schemes:
+# the service holds nothing and decides nothing without the caller's pinned certificates (ADR-014 §2).
+http:
+  keep_alive: true
+  timeout_secs: 5
+  max_requests: 5000
+cors:
+  origins: []
+  allowed_headers:
+    - "Content-Type"
+  allowed_methods:
+    - "POST"
+  allow_credentials: false

@@ -12,6 +12,7 @@
 //!
 //! Every refusal is a fixed [`Refusal`] code; nothing from the input is echoed or logged.
 
+pub mod metadata;
 pub mod precheck;
 pub mod verify;
 
@@ -89,6 +90,9 @@ pub enum Refusal {
     /// The verified assertion is not the document's assertion.
     #[error("assertion_id_mismatch")]
     AssertionIdMismatch,
+    /// Not usable IdP metadata (no single IdP, no HTTPS HTTP-Redirect sign-on service, unparsable).
+    #[error("metadata")]
+    Metadata,
     /// A request field is missing or invalid.
     #[error("bad_request")]
     BadRequest,

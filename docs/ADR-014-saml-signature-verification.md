@@ -86,6 +86,18 @@ an audit of the modules a SAML verifier uses, differential fuzzing against libxm
 possibly give it a production user. Adopting it, in shadow, in consensus or as a replacement, is a new ADR; the
 verifier's API does not change if its internals do.
 
+### 4a. Amendment (2026-10-11): standard service, own workspace, own image
+
+`saml-verifier` has the standard Sesame service shape (OpenAPI `openapi/idam/saml-verifier/openapi.yaml`, BRRTRouter
+gen and impl crates, `RunAppBuilder`, health and metrics, the shared chart) but lives in a Cargo workspace of its own,
+`microservices/saml-verifier` (`core`, `gen`, `impl`), excluded from the suite workspace and built by
+`docker/saml-verifier/Dockerfile`, which runs the tests in its build stage. Linking samael's `xmlsec` feature into a
+suite binary would have put libxmlsec1, libxml2 and libclang into the buildpack builder, the suite's run image and the
+CI runner. Keeping the C code behind `core` and in one image also makes it removable: a pure-Rust verifier (xml-sec,
+§6) replaces `core` and the Dockerfile, not the service or its contract. Base images are pinned by digest; Debian
+packages come from that release and are recorded in the image (`/app/packages.txt`) instead of exact apt pins, which
+Debian security updates would remove from the mirrors.
+
 ## Consequences
 
 - Seven services; the new one is small, has a narrow internal API and no state. (Domain verification later adds an

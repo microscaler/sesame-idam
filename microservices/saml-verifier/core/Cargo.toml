@@ -1,0 +1,23 @@
+[package]
+name = "sesame-saml-verifier"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Sesame SAML verification core: samael and libxmlsec1 with Sesame's pre- and post-checks (ADR-014)"
+license = "MIT"
+
+[lib]
+name = "sesame_saml_verifier"
+path = "src/lib.rs"
+
+[dependencies]
+# Pinned exactly: every bump re-runs the whole corpus (ADR-014 §4).
+samael = { version = "=0.0.22", default-features = false, features = ["xmlsec"] }
+openssl = "0.10"
+quick-xml = "0.41"
+base64 = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = "2"
+

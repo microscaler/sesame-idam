@@ -1,0 +1,25 @@
+[package]
+name = "sesame_saml_verifier"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "saml-verifier"
+path = "src/main.rs"
+
+[features]
+default = []
+jemalloc = ["tikv-jemallocator"]
+
+[dependencies]
+sesame_saml_verifier_gen = { path = "../gen" }
+sesame-saml-verifier = { workspace = true }
+brrtrouter = { workspace = true }
+brrtrouter_macros = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tikv-jemallocator = { workspace = true, optional = true }
+clap = { workspace = true }
+may = { workspace = true }
+tracing = { workspace = true }

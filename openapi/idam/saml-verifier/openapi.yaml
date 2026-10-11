@@ -1,0 +1,215 @@
+openapi: 3.1.0
+info:
+  title: SAML Verifier
+  version: 1.0.0
+  description: 'Isolated SAML verification (ADR-014, Epic 17 story 17.6).
+
+    Verifies SAML responses and parses IdP metadata with samael and libxmlsec1, in a process that holds no secrets,
+    no database or Redis access and no egress. Internal only: the NetworkPolicy admits identity-login-service and
+    org-mgmt and nothing else. Every refusal is a fixed reason code; nothing from the input is echoed.
+
+    '
+  contact:
+    name: Platform / Security
+servers:
+- url: http://saml-verifier:8080/saml-verifier/v1
+  description: In-cluster (sesame-idam namespace, ClusterIP :8080)
+tags:
+- name: Verification
+  description: SAML response verification and IdP metadata parsing
+security: []
+paths:
+  /verify:
+    post:
+      tags:
+      - Verification
+      summary: Verify a SAML response for one connection
+      operationId: verify_response
+      x-public-reason: "Internal only: reachable solely from identity-login-service by NetworkPolicy; holds no secrets and decides nothing without the caller's pinned certificates"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequest'
+      responses:
+        '200':
+          description: Verified and normalised assertion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedAssertion'
+        '400':
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refusal'
+        '422':
+          description: Refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refusal'
+  /metadata/parse:
+    post:
+      tags:
+      - Verification
+      summary: Parse IdP metadata
+      operationId: parse_metadata
+      x-public-reason: "Internal only: reachable solely from org-mgmt by NetworkPolicy; parses metadata org-mgmt fetched or an admin uploaded"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseMetadataRequest'
+      responses:
+        '200':
+          description: Parsed IdP metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdpMetadata'
+        '400':
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refusal'
+        '422':
+          description: Refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refusal'
+components:
+  schemas:
+    VerifyRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - saml_response
+      - idp_entity_id
+      - idp_certificates
+      - sp_entity_id
+      - acs_url
+      - expected_request_id
+      properties:
+        saml_response:
+          type: string
+          maxLength: 400000
+          description: The SAMLResponse form value as posted to the ACS (base64)
+        idp_entity_id:
+          type: string
+          maxLength: 1024
+        idp_certificates:
+          type: array
+          minItems: 1
+          maxItems: 8
+          description: The connection's pinned IdP signing certificates, base64 DER
+          items:
+            type: string
+            maxLength: 16384
+        sp_entity_id:
+          type: string
+          maxLength: 1024
+        acs_url:
+          type: string
+          maxLength: 2048
+        expected_request_id:
+          type: string
+          maxLength: 256
+        max_clock_skew_secs:
+          type: integer
+          minimum: 0
+          maximum: 300
+    VerifiedAssertion:
+      type: object
+      required:
+      - assertion_id
+      - issuer
+      - name_id
+      - attributes
+      - not_on_or_after
+      properties:
+        assertion_id:
+          type: string
+        issuer:
+          type: string
+        name_id:
+          type: string
+        name_id_format:
+          type: string
+          nullable: true
+        attributes:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        authn_instant:
+          type: string
+          format: date-time
+          nullable: true
+        session_index:
+          type: string
+          nullable: true
+        session_not_on_or_after:
+          type: string
+          format: date-time
+          nullable: true
+        not_on_or_after:
+          type: string
+          format: date-time
+    ParseMetadataRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - metadata
+      properties:
+        metadata:
+          type: string
+          maxLength: 1048576
+          description: IdP metadata XML (EntityDescriptor)
+    IdpMetadata:
+      type: object
+      required:
+      - entity_id
+      - sso_redirect_url
+      - signing_certs
+      - name_id_formats
+      properties:
+        entity_id:
+          type: string
+        sso_redirect_url:
+          type: string
+          description: SingleSignOnService location for the HTTP-Redirect binding
+        signing_certs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SigningCert'
+        name_id_formats:
+          type: array
+          items:
+            type: string
+    SigningCert:
+      type: object
+      required:
+      - der
+      - not_after
+      properties:
+        der:
+          type: string
+          description: Certificate, base64 DER
+        not_after:
+          type: string
+          format: date-time
+    Refusal:
+      type: object
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          description: Fixed reason code (for example signature, audience, doctype)
