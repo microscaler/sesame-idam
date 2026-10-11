@@ -98,12 +98,12 @@ jobs:
           exit $rc
 
   # Tests marked #[ignore = "pending: ..."] describe work not done yet. They run here so they stay visible, but never
-  # block a release. A pending test that starts passing should lose its #[ignore].
+  # block a release or turn the run red: the test step may fail, the job stays green and reports the failures as a
+  # warning and in the job summary. A pending test that starts passing should lose its #[ignore].
   pending:
     name: Pending tests (advisory)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    continue-on-error: true
     permissions:
       contents: read
     steps:
@@ -113,5 +113,18 @@ jobs:
         with:
           tool: cargo-nextest
       - name: Ignored tests
+        id: ignored
+        continue-on-error: true
         working-directory: microservices
         run: cargo nextest run --workspace --all-targets --run-ignored only --no-fail-fast
+      - name: Report pending tests
+        if: always()
+        env:
+          OUTCOME: ${{ steps.ignored.outcome }}
+        run: |
+          if [ "$OUTCOME" = "success" ]; then
+            echo "All pending tests pass: remove their #[ignore] so they gate." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=Pending tests (advisory)::Some pending tests fail (expected for work not done yet); see the Ignored tests step."
+            echo "Pending tests: some fail, as expected for work not yet done. Advisory only; see the Ignored tests step." >> "$GITHUB_STEP_SUMMARY"
+          fi
