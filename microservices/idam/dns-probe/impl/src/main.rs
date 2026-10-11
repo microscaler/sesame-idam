@@ -8,7 +8,6 @@ mod impl_registry;
 
 use brrtrouter::server::{RunAppArgs, RunAppBuilder};
 use clap::Parser;
-use sesame_idam_dns_probe_gen::registry as gen_registry;
 use std::io;
 use std::path::PathBuf;
 
@@ -56,7 +55,9 @@ fn main() -> io::Result<()> {
             service_name: "dns-probe".into(),
         })
         .register(|dispatcher, routes| unsafe {
-            gen_registry::register_from_spec(dispatcher, routes);
+            // Base layer answers 501 (never gen example data); impl controllers replace it.
+            sesame_common::not_implemented::register_not_implemented(dispatcher, routes)
+                .expect("spawn the not-implemented handler");
             impl_registry::register_impl(dispatcher, routes);
         })
         .run()

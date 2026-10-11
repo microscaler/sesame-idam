@@ -17,7 +17,6 @@ static GLOBAL: Jemalloc = Jemalloc;
 mod authz_span_middleware;
 use sesame_idam_authz_core::security::init_security;
 
-use sesame_idam_authz_core_gen::registry;
 use std::path::{Path, PathBuf};
 
 use brrtrouter::dispatcher::Dispatcher;
@@ -106,9 +105,10 @@ fn main() -> std::io::Result<()> {
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
     // Register & Overwrite pattern (BRRTRouter ADR 0001): register all gen
-    // stubs first, then overwrite implemented routes with impl controllers.
+    // 501 handlers first, then overwrite implemented routes with impl controllers.
     unsafe {
-        registry::register_from_spec(&mut dispatcher, &routes);
+        // Base layer: every operation answers 501 until an impl controller replaces it (never gen example data).
+        sesame_common::not_implemented::register_not_implemented(&mut dispatcher, &routes)?;
         for route in &routes {
             if route.handler_name.as_ref() == "principal_effective" {
                 let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(

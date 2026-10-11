@@ -58,7 +58,6 @@ use brrtrouter::server::AppService;
 use brrtrouter::server::HttpServer;
 use brrtrouter::spec::{RouteMeta, SecurityScheme};
 use clap::Parser;
-use sesame_idam_org_mgmt_gen::registry as gen_registry;
 use std::collections::HashMap;
 
 use security::init_security;
@@ -136,7 +135,8 @@ fn main() -> std::io::Result<()> {
 
     // Register generated handlers, then override with impl controllers.
     unsafe {
-        gen_registry::register_from_spec(&mut dispatcher, &routes);
+        // Base layer: every operation answers 501 until an impl controller replaces it (never gen example data).
+        sesame_common::not_implemented::register_not_implemented(&mut dispatcher, &routes)?;
         impl_registry::register_impl(&mut dispatcher, &routes);
     }
 

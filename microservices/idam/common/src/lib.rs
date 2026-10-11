@@ -29,6 +29,7 @@ pub mod http;
 pub mod jwks_cache;
 pub mod jwt;
 pub mod middleware;
+pub mod not_implemented;
 pub mod observability;
 pub mod oidc_client;
 pub mod smtp;

@@ -2,7 +2,6 @@
 // This file is generated as a starting point.
 // You can modify this file freely - it will NOT be auto-regenerated.
 
-use sesame_idam_identity_login_service_gen::registry;
 // All application modules live in the lib crate (see lib.rs) so BDD tests
 // and the migrator can reuse them.
 use sesame_idam_identity_login_service::{controllers, jwt, security, services};
@@ -107,9 +106,10 @@ fn main() -> io::Result<()> {
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
     // Register & Overwrite pattern (BRRTRouter ADR 0001): register all gen
-    // stubs first, then overwrite implemented routes with impl controllers.
+    // 501 handlers first, then overwrite implemented routes with impl controllers.
     unsafe {
-        registry::register_from_spec(&mut dispatcher, &routes);
+        // Base layer: every operation answers 501 until an impl controller replaces it (never gen example data).
+        sesame_common::not_implemented::register_not_implemented(&mut dispatcher, &routes)?;
         for route in &routes {
             match route.handler_name.as_ref() {
                 "auth_login" => {
@@ -416,7 +416,7 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
-                _ => {} // gen stubs serve everything else for now
+                _ => {} // everything else answers 501
             }
         }
     }

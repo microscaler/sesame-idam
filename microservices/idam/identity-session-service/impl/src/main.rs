@@ -11,7 +11,6 @@
 /// - `audit` — global audit event emitter
 use brrtrouter::typed::spawn_typed_with_stack_size_and_name;
 use sesame_common::config::load_config;
-use sesame_idam_identity_session_service_gen::registry;
 // All application modules live in the lib crate (see lib.rs) so the bin,
 // tests, and migrator share one compilation of them.
 use sesame_idam_identity_session_service::{controllers, middleware, security};
@@ -148,10 +147,11 @@ fn main() -> io::Result<()> {
     let memory = std::sync::Arc::new(brrtrouter::middleware::MemoryMiddleware::new());
     brrtrouter::middleware::memory::start_memory_monitor(memory.clone());
 
-    // F5 audit pattern: register_from_spec establishes all gen stubs first,
-    // then we override specific routes with impl controllers.
+    // Every route answers 501 first; impl controllers then override the
+    // implemented ones.
     unsafe {
-        registry::register_from_spec(&mut dispatcher, &routes);
+        // Base layer: every operation answers 501 until an impl controller replaces it (never gen example data).
+        sesame_common::not_implemented::register_not_implemented(&mut dispatcher, &routes)?;
         for route in &routes {
             match route.handler_name.as_ref() {
                 "jwks" => {
