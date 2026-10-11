@@ -14,9 +14,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     };
     let exec = sesame_idam_database::db();
     match OidcClientAdmin::list(&admin.tenant, exec) {
-        Ok(clients) => HttpJson::ok(serde_json::Value::Array(
-            clients.iter().map(client_json).collect(),
-        )),
+        Ok(clients) => HttpJson::ok(serde_json::json!({
+            "items": clients.iter().map(client_json).collect::<Vec<_>>(),
+        })),
         Err(error) => admin_error(error),
     }
 }

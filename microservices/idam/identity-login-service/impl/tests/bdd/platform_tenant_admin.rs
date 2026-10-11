@@ -1,7 +1,7 @@
 //! Platform tenant admin BDD: mint → register → login; suspend blocks auth;
 //! OAuth rotate bumps `config_version` on GET.
 
-use crate::common::FIXTURE_WEB_CLIENT;
+use crate::common::{assert_response_matches_spec, FIXTURE_WEB_CLIENT};
 use std::collections::HashMap;
 use std::net::TcpStream;
 use std::sync::Once;
@@ -265,7 +265,12 @@ fn platform_mint_client_register_login() {
 
     let slug = unique_slug("bdd-rp");
     let other = unique_slug("bdd-rp-other");
-    for s in [&slug, &other] {
+    let first = platform_tenant_create::handle(create_request(&slug, "BDD RP Tenant"));
+    assert_response_matches_spec("platform_tenant_create", 201, &first.body);
+    let again = platform_tenant_create::handle(create_request(&slug, "BDD RP Tenant"));
+    assert_eq!(again.status, 409);
+    assert_response_matches_spec("platform_tenant_create", 409, &again.body);
+    for s in [&other] {
         let create = platform_tenant_create::handle(create_request(s, "BDD RP Tenant"));
         assert_eq!(create.status, 201, "create failed: {:?}", create.body);
     }
@@ -277,6 +282,7 @@ fn platform_mint_client_register_login() {
         "client create failed: {:?}",
         created.body
     );
+    assert_response_matches_spec("platform_tenant_oidc_client_create", 201, &created.body);
     let client_id = created.body["client"]["client_id"]
         .as_str()
         .expect("client_id")
@@ -289,10 +295,10 @@ fn platform_mint_client_register_login() {
 
     let listed = platform_tenant_oidc_client_list::handle(client_list_request(&slug));
     assert_eq!(listed.status, 200);
-    let ids: Vec<&str> = listed
-        .body
+    assert_response_matches_spec("platform_tenant_oidc_client_list", 200, &listed.body);
+    let ids: Vec<&str> = listed.body["items"]
         .as_array()
-        .expect("array")
+        .expect("items")
         .iter()
         .filter_map(|c| c["client_id"].as_str())
         .collect();
@@ -300,7 +306,7 @@ fn platform_mint_client_register_login() {
     let others = platform_tenant_oidc_client_list::handle(client_list_request(&other));
     assert_eq!(others.status, 200);
     assert!(
-        others.body.as_array().expect("array").is_empty(),
+        others.body["items"].as_array().expect("items").is_empty(),
         "another tenant's clients are invisible"
     );
 
@@ -332,6 +338,7 @@ fn platform_client_create_rejections() {
     ));
     assert_eq!(unknown.status, 404);
     assert_eq!(unknown.body["error"], "tenant_not_found");
+    assert_response_matches_spec("platform_tenant_oidc_client_create", 404, &unknown.body);
 
     let slug = unique_slug("bdd-rp-bad");
     assert_eq!(
@@ -343,6 +350,7 @@ fn platform_client_create_rejections() {
     let refused = platform_tenant_oidc_client_create::handle(bad);
     assert_eq!(refused.status, 400, "{:?}", refused.body);
     assert_eq!(refused.body["error"], "invalid_client_metadata");
+    assert_response_matches_spec("platform_tenant_oidc_client_create", 400, &refused.body);
 
     let confidential =
         platform_tenant_oidc_client_create::handle(client_create_request(&slug, "confidential"));

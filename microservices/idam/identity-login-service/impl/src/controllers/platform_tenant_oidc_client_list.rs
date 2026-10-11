@@ -22,9 +22,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     .map_err(|error| ClientAdminError::Db(error.to_string()))
     .and_then(|result| result);
     match listed {
-        Ok(clients) => HttpJson::ok(serde_json::Value::Array(
-            clients.iter().map(client_json).collect(),
-        )),
+        Ok(clients) => HttpJson::ok(serde_json::json!({
+            "items": clients.iter().map(client_json).collect::<Vec<_>>(),
+        })),
         Err(error) => admin_error(error),
     }
 }

@@ -230,3 +230,37 @@ pub fn ensure_public_login_client(tenant: &str) -> String {
     })
     .unwrap_or_else(|e| panic!("ensure_public_login_client({tenant}): {e}"))
 }
+
+/// Fail unless `body` is what the spec allows `handler` to answer with `status`: the server validates every JSON
+/// response against the spec and turns a mismatch into a 500, so handler tests check the same thing.
+///
+/// # Panics
+///
+/// When the spec cannot be loaded, the handler or status is not in it, or the body does not match.
+pub fn assert_response_matches_spec(handler: &str, status: u16, body: &serde_json::Value) {
+    use std::sync::OnceLock;
+    static ROUTES: OnceLock<Vec<brrtrouter::spec::RouteMeta>> = OnceLock::new();
+    let routes = ROUTES.get_or_init(|| {
+        let spec = concat!(env!("CARGO_MANIFEST_DIR"), "/../gen/doc/openapi.yaml");
+        brrtrouter::spec::load_spec(spec).expect("load spec").0
+    });
+    let route = routes
+        .iter()
+        .find(|r| r.handler_name.as_ref() == handler)
+        .unwrap_or_else(|| panic!("{handler} not in the spec"));
+    let schema = route
+        .responses
+        .get(&status)
+        .and_then(|m| m.get("application/json"))
+        .and_then(|r| r.schema.as_ref())
+        .unwrap_or_else(|| panic!("{handler} has no JSON response {status} in the spec"));
+    let cache = brrtrouter::validator_cache::ValidatorCache::new(false);
+    let validator = cache
+        .get_or_compile(handler, "response", Some(status), schema)
+        .expect("compile schema");
+    let errors: Vec<String> = validator.iter_errors(body).map(|e| e.to_string()).collect();
+    assert!(
+        errors.is_empty(),
+        "{handler} {status} does not match the spec: {errors:?}\nbody: {body}"
+    );
+}
