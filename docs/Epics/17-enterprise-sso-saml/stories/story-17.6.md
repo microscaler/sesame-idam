@@ -1,7 +1,7 @@
 # Story 17.6 — `saml-verifier` service
 
 > **Epic:** [17 Enterprise SSO](../README.md) · **Track:** B. Verifier · **Depends on:** — · **Size:** L  
-> **Status:** Ready
+> **Status:** In progress
 
 ## Goal
 
@@ -43,3 +43,23 @@ A stateless internal service that verifies SAML responses and parses IdP metadat
 
 - Acceptance criteria met with tests in CI; rustfmt and clippy clean; OpenAPI and docs updated where touched;
   security-relevant behaviour covered by a negative test; evidence noted in the epic README.
+
+## Implementation notes
+
+- `microservices/saml-verifier/`: a Cargo workspace of its own (excluded from the suite workspace), so libxmlsec1,
+  libxml2 and OpenSSL never reach the suite or the Rust buildpack; samael pinned `=0.0.22`.
+- Done (2026-10-11): the verification core. `precheck` (one namespace-aware quick-xml pass: no DOCTYPE, comments,
+  processing instructions, CDATA, encrypted content; root a single `samlp:Response`; exactly one element named
+  `Assertion`, in any namespace; at most two signatures, no `ds:Object`/`Manifest`/`RetrievalMethod`, transforms and
+  canonicalisation from an allow-list; depth limit) and `verify` (strict base64, 256 KiB limit, pinned certificates
+  required, samael with an algorithm allow-list and IdP-initiated off, then post-checks: assertion ID equals the
+  document's, status Success, destination, audience required, `AuthnStatement`, non-empty `NameID`).
+- Tests sign responses at run time with a throwaway IdP key and certificate (OpenSSL), so no private key is committed:
+  a valid response, pinned and rotated certificates, tampering, comment injection, a second assertion, each binding
+  (audience, recipient, `InResponseTo`, status, `AuthnStatement`, expiry, `NameID`), SHA-1 refused, DOCTYPE/XXE, bad
+  base64, size.
+- HTTP layer: a small synchronous server (tiny_http) rather than a generated BRRTRouter service: two internal
+  endpoints, no auth, no database, and a crate outside the suite workspace; the OpenAPI document describes the contract.
+- Remaining: HTTP server and OpenAPI, `/metadata/parse`, Dockerfile and skaffold artifact (tests run in the image
+  build), Tilt resource.
+

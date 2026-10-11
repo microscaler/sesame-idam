@@ -1,0 +1,33 @@
+[package]
+name = "sesame-saml-verifier"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Sesame saml-verifier: isolated SAML response verification with samael and libxmlsec1 (ADR-014)"
+license = "MIT"
+
+# A workspace of its own: libxmlsec1, libxml2 and OpenSSL (C) stay out of the suite workspace and the Rust
+# buildpack. Built and tested by docker/saml-verifier/Dockerfile (ADR-014 §4).
+[workspace]
+
+[lib]
+name = "sesame_saml_verifier"
+path = "src/lib.rs"
+
+[[bin]]
+name = "saml-verifier"
+path = "src/main.rs"
+
+[dependencies]
+# Pinned exactly: every bump re-runs the whole corpus (ADR-014 §4).
+samael = { version = "=0.0.22", default-features = false, features = ["xmlsec"] }
+quick-xml = "0.41"
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tiny_http = "0.12"
+
+[dev-dependencies]
+openssl = "0.10"

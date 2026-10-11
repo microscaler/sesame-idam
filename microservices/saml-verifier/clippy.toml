@@ -1,0 +1,3 @@
+# SAML vocabulary is not code.
+doc-valid-idents = ["IdP", "IdPs", "NameID", "AuthnRequest", "AuthnStatement", "XPath", "InResponseTo", "SignedInfo", "libxmlsec1", ".."]
+msrv = "1.89"

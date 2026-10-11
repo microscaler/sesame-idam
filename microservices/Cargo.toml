@@ -24,6 +24,9 @@ members = [
     "idam/org-mgmt/impl",
 ]
 resolver = "2"
+# saml-verifier is a workspace of its own: its C dependencies (libxmlsec1, libxml2) stay out of this workspace
+# and the Rust buildpack (ADR-014 §4).
+exclude = ["saml-verifier"]
 
 [workspace.package]
 version = "0.1.0"
