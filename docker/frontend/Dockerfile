@@ -29,6 +29,7 @@ FROM nginx:1.27-alpine AS runtime
 ARG APP
 COPY --from=build /build/${APP}/dist /usr/share/nginx/html
 COPY docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/frontend/idam-proxy.inc /etc/nginx/conf.d/idam-proxy.inc
 
 # Non-root (chart runs with the platform's default context).
 RUN touch /var/run/nginx.pid \

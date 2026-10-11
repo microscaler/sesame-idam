@@ -336,6 +336,31 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                // Tenant self-service SMS sender (ADR-011): the tenant comes from the bearer token.
+                "tenant_sms_get" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_sms_get::TenantSmsGetController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "tenant_sms_upsert" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_sms_upsert::TenantSmsUpsertController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                "tenant_sms_revoke" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::tenant_sms_revoke::TenantSmsRevokeController,
+                        16384,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "platform_tenant_sms_get" => {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::platform_tenant_sms_get::PlatformTenantSmsGetController,

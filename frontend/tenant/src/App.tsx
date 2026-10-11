@@ -66,7 +66,9 @@ export function App() {
         <p class="mb-6 text-theme-sm text-gray-500">
           Who sends your SMS, and what it is allowed to cost.
         </p>
-        <SmsSettings tenant={tenantId} environment={environment} />
+        <Show when={session()} fallback={<p class="text-theme-sm text-gray-500">Sign in to manage SMS.</p>}>
+          <SmsSettings accessToken={session()!.accessToken} tenant={tenantId} environment={environment} />
+        </Show>
       </Show>
 
       <Show when={route() !== 'sms'}>

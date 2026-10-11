@@ -17,10 +17,10 @@ import { ApiError, smsApi, type SmsConfig, type SmsConfigInput } from './api';
  * Sesame holds nothing to lose. Handing us a raw token is the fallback, and
  * the server will refuse it unless the tenant is on the dogfood allow-list.
  */
-export function SmsSettings(props: { tenant: string; environment: string }) {
+export function SmsSettings(props: { accessToken: string; tenant: string; environment: string }) {
   const [config, { refetch }] = createResource(
-    () => [props.tenant, props.environment] as const,
-    ([t, e]) => smsApi.get(t, e),
+    () => [props.accessToken, props.environment] as const,
+    ([token, e]) => smsApi.get(token, e),
   );
 
   const [custody, setCustody] = createSignal<'connect' | 'envelope'>('connect');
@@ -56,7 +56,7 @@ export function SmsSettings(props: { tenant: string; environment: string }) {
       if (campaignRef().trim()) body.campaign_ref = campaignRef().trim();
       if (ceiling().trim()) body.daily_spend_ceiling_cents = Number(ceiling().trim());
 
-      await smsApi.save(props.tenant, props.environment, body);
+      await smsApi.save(props.accessToken, props.environment, body);
       // Clear the secret from memory the moment it has been sent.
       setAuthToken('');
       setNotice('Saved. Sending stays disabled until the credential validates.');
@@ -73,7 +73,7 @@ export function SmsSettings(props: { tenant: string; environment: string }) {
     setNotice('');
     setBusy(true);
     try {
-      await smsApi.revoke(props.tenant, props.environment);
+      await smsApi.revoke(props.accessToken, props.environment);
       setNotice('Revoked. SMS sending has stopped; flows fall back to email.');
       void refetch();
     } catch (err) {

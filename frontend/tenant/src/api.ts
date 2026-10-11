@@ -55,11 +55,19 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T | null> {
+/**
+ * The tenant's own endpoints (`/tenant/sms/{environment}`, ADR-011): the tenant is taken from the bearer token, so
+ * the console never names a tenant and cannot point at another one. The operator endpoints under `/platform` need
+ * the platform key and are not reachable from a browser.
+ */
+async function request<T>(accessToken: string, path: string, init?: RequestInit): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
-    credentials: 'include',
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${accessToken}`,
+      ...(init?.headers ?? {}),
+    },
   });
   if (res.status === 404) return null;
   if (!res.ok) {
@@ -69,15 +77,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T | null> {
   return (await res.json()) as T;
 }
 
-const path = (tenant: string, env: string) =>
-  `/platform/tenants/${encodeURIComponent(tenant)}/sms/${encodeURIComponent(env)}`;
+const path = (env: string) => `/tenant/sms/${encodeURIComponent(env)}`;
 
 export const smsApi = {
-  get: (tenant: string, env: string) => request<SmsConfig>(path(tenant, env)),
+  get: (token: string, env: string) => request<SmsConfig>(token, path(env)),
 
-  save: (tenant: string, env: string, body: SmsConfigInput) =>
-    request<SmsConfig>(path(tenant, env), { method: 'PUT', body: JSON.stringify(body) }),
+  save: (token: string, env: string, body: SmsConfigInput) =>
+    request<SmsConfig>(token, path(env), { method: 'PUT', body: JSON.stringify(body) }),
 
-  revoke: (tenant: string, env: string) =>
-    request<SmsConfig>(path(tenant, env), { method: 'DELETE' }),
+  revoke: (token: string, env: string) =>
+    request<SmsConfig>(token, path(env), { method: 'DELETE' }),
 };
