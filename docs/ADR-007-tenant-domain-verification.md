@@ -149,3 +149,34 @@ internal service, **`dns-probe`**, not by the components that hold the enrolment
 Rejected: resolution as a library inside org-mgmt and the job (internet egress in the two components that hold
 `K_enroll` and database credentials); resolution inside `saml-verifier` (its isolation depends on having no egress at
 all).
+
+## Amendment (2026-10-11): a token per claim, and `K_enroll` in an HSM
+
+1. **The claim's id is part of the MAC input**, for organisation and tenant-issuer claims alike:
+
+   ```
+   organisation:  HMAC-SHA256(K_epoch, tenant_id 0 org_id 0 claim_id 0 fqdn 0 scope 0 "sesame-org-domain" 0 "v1")
+   tenant issuer: HMAC-SHA256(K_epoch, tenant_id 0 claim_id 0 fqdn 0 "sesame-domain-verify" 0 "v1")
+   ```
+
+   `claim_id` is the claim's row id. Every new claim, even by the same organisation for the same domain, gets a new
+   token, as with the per-claim random values most providers issue. A revoked claim therefore cannot be restored by
+   re-claiming while the old record is still in the zone: it takes a deliberate new DNS change. Still stateless: the
+   id is not secret and is already stored with the claim.
+2. **`K_enroll` lives in an HSM from day one.** Tokens are computed through a keyring interface:
+   - **Cloud KMS** (GCP deployments, pp and production): an HMAC-SHA256 key at protection level `HSM`, used through
+     `macSign`; the key is never exportable. Each epoch is a key version (automatic rotation off; rotation is a new
+     version named in configuration, with the previous one accepted during the overlap). The workloads (org-mgmt and the
+     re-verification job) authenticate as themselves through Workload Identity and hold only
+     `cloudkms.cryptoKeyVersions.useToSign` on this one key (`roles/cloudkms.signer`). Every response is checked:
+     request and response CRC32C, the answering key version, 32-byte length, and protection level `HSM`.
+   - **A key file** for development and tests (and deployments without an HSM-backed service). OpenBao Transit (HMAC,
+     non-exportable) is the planned keyring for non-GCP deployments when one needs it.
+3. **A keyring failure is never a missing record.** If KMS cannot be reached or an answer fails its checks, the
+   verification result is "could not check": a PENDING claim stays PENDING, and a VERIFIED claim does not move to
+   GRACE because of a KMS outage.
+4. Cost: about $1 per month per HSM key version (two during an overlap) and $0.03 per 10,000 operations: one per epoch
+   per check (October 2026 list prices).
+
+The custody wording of the decision above (`K_enroll` born in the secret backend and mounted) is superseded for GCP
+deployments: the key is born in Cloud KMS and never leaves it.

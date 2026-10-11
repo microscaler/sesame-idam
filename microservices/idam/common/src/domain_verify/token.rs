@@ -1,7 +1,4 @@
-//! Challenge tokens, TXT records and the enrolment key.
-
-use std::fmt;
-use std::path::Path;
+//! Challenge tokens and TXT records.
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
@@ -9,9 +6,8 @@ use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use uuid::Uuid;
 
+use super::keyring::{EnrollKeyring, KeyringError, MAC_LEN};
 use super::{Domain, DomainError};
-
-type HmacSha256 = Hmac<Sha256>;
 
 /// Leaf label of the challenge name: `_sesame-challenge.<domain>`.
 pub const CHALLENGE_LABEL: &str = "_sesame-challenge";
@@ -26,13 +22,8 @@ pub const TENANT_ISSUER_PURPOSE: &str = "sesame-domain-verify";
 
 /// HMAC-SHA256 output in base64url without padding.
 const TOKEN_LEN: usize = 43;
-const TOKEN_BYTES: usize = 32;
-/// Minimum enrolment key length (256 bits).
-const MIN_KEY_BYTES: usize = 32;
 /// Longest tenant identifier (`tenants.id` is `VARCHAR(64)`).
 const MAX_TENANT_ID: usize = 64;
-/// Largest key file accepted.
-const MAX_KEY_FILE: u64 = 16 * 1024;
 
 /// What an organisation domain claim covers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -73,7 +64,10 @@ impl Scope {
     }
 }
 
-/// Who a claim is for. Built only through the validating constructors.
+/// Who a claim is for, and which claim. Built only through the validating constructors.
+///
+/// `claim_id` is the claim's own row id: every new claim, even for the same organisation and domain, gets a new
+/// token, so re-claiming after a revocation needs a deliberate new DNS change.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ClaimSubject {
     /// An organisation's email domain.
@@ -82,6 +76,8 @@ pub enum ClaimSubject {
         tenant_id: String,
         /// Organisation identifier.
         org_id: Uuid,
+        /// The claim's id.
+        claim_id: Uuid,
         /// Exact domain or domain and subdomains.
         scope: Scope,
     },
@@ -89,6 +85,8 @@ pub enum ClaimSubject {
     TenantIssuer {
         /// Tenant identifier.
         tenant_id: String,
+        /// The enrolment's id.
+        claim_id: Uuid,
     },
 }
 
@@ -111,10 +109,16 @@ impl ClaimSubject {
     /// # Errors
     ///
     /// [`DomainError::InvalidSubject`] for an empty, over-long or NUL-containing tenant id.
-    pub fn organisation(tenant_id: &str, org_id: Uuid, scope: Scope) -> Result<Self, DomainError> {
+    pub fn organisation(
+        tenant_id: &str,
+        org_id: Uuid,
+        claim_id: Uuid,
+        scope: Scope,
+    ) -> Result<Self, DomainError> {
         Ok(Self::Organisation {
             tenant_id: check_tenant_id(tenant_id)?,
             org_id,
+            claim_id,
             scope,
         })
     }
@@ -124,36 +128,48 @@ impl ClaimSubject {
     /// # Errors
     ///
     /// [`DomainError::InvalidSubject`] for an empty, over-long or NUL-containing tenant id.
-    pub fn tenant_issuer(tenant_id: &str) -> Result<Self, DomainError> {
+    pub fn tenant_issuer(tenant_id: &str, claim_id: Uuid) -> Result<Self, DomainError> {
         Ok(Self::TenantIssuer {
             tenant_id: check_tenant_id(tenant_id)?,
+            claim_id,
         })
     }
 
-    /// The PRF input: fields separated by 0x00, ending with the purpose and version.
-    fn prf_input(&self, domain: &Domain) -> Vec<u8> {
-        let org;
-        let fields: Vec<&str> = match self {
+    /// The MAC input: fields separated by 0x00, ending with the purpose and version.
+    ///
+    /// ```text
+    /// organisation:  tenant_id 0 org_id 0 claim_id 0 fqdn 0 scope 0 "sesame-org-domain" 0 "v1"
+    /// tenant issuer: tenant_id 0 claim_id 0 fqdn 0 "sesame-domain-verify" 0 "v1"
+    /// ```
+    ///
+    /// Identifiers are lower-case hyphenated UUIDs. No field can contain 0x00 (tenant ids are checked, the
+    /// others are UUIDs, A-labels and constants), so the encoding is unambiguous.
+    #[must_use]
+    pub fn mac_input(&self, domain: &Domain) -> Vec<u8> {
+        let fields: Vec<String> = match self {
             Self::Organisation {
                 tenant_id,
                 org_id,
+                claim_id,
                 scope,
-            } => {
-                org = org_id.hyphenated().to_string();
-                vec![
-                    tenant_id.as_str(),
-                    org.as_str(),
-                    domain.as_str(),
-                    scope.as_str(),
-                    ORG_DOMAIN_PURPOSE,
-                    TOKEN_VERSION,
-                ]
-            }
-            Self::TenantIssuer { tenant_id } => vec![
-                tenant_id.as_str(),
-                domain.as_str(),
-                TENANT_ISSUER_PURPOSE,
-                TOKEN_VERSION,
+            } => vec![
+                tenant_id.clone(),
+                org_id.hyphenated().to_string(),
+                claim_id.hyphenated().to_string(),
+                domain.as_str().to_string(),
+                scope.as_str().to_string(),
+                ORG_DOMAIN_PURPOSE.to_string(),
+                TOKEN_VERSION.to_string(),
+            ],
+            Self::TenantIssuer {
+                tenant_id,
+                claim_id,
+            } => vec![
+                tenant_id.clone(),
+                claim_id.hyphenated().to_string(),
+                domain.as_str().to_string(),
+                TENANT_ISSUER_PURPOSE.to_string(),
+                TOKEN_VERSION.to_string(),
             ],
         };
         fields.join("\0").into_bytes()
@@ -166,20 +182,21 @@ pub fn challenge_name(domain: &Domain) -> String {
     format!("{CHALLENGE_LABEL}.{domain}")
 }
 
-fn mac(key: &[u8], subject: &ClaimSubject, domain: &Domain) -> HmacSha256 {
-    // HMAC accepts keys of any length; `new_from_slice` cannot fail for it.
-    #[allow(clippy::expect_used)]
-    let mut mac = HmacSha256::new_from_slice(key).expect("HMAC takes any key length");
-    mac.update(&subject.prf_input(domain));
-    mac
-}
-
-/// The token for `subject` and `domain` under `key` (43 characters of base64url).
+/// The token for `subject` and `domain` under a raw key (43 characters of base64url).
 ///
-/// Exposed for test vectors and for components that hold their own key; services use [`EnrollKey`].
+/// For test vectors and tools only; services derive tokens through an [`EnrollKeyring`] so the key can stay
+/// in an HSM.
+///
+/// # Panics
+///
+/// Never: HMAC accepts keys of any length.
 #[must_use]
 pub fn derive_token(key: &[u8], subject: &ClaimSubject, domain: &Domain) -> String {
-    URL_SAFE_NO_PAD.encode(mac(key, subject, domain).finalize().into_bytes())
+    // HMAC accepts keys of any length; `new_from_slice` cannot fail for it.
+    #[allow(clippy::expect_used)]
+    let mut mac = Hmac::<Sha256>::new_from_slice(key).expect("HMAC takes any key length");
+    mac.update(&subject.mac_input(domain));
+    URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes())
 }
 
 /// The token inside a Sesame TXT string, or `None` when the string is not a well-formed `v1` record.
@@ -213,211 +230,87 @@ pub struct TxtRecord {
     pub epoch: u32,
 }
 
-struct EpochKey {
-    epoch: u32,
-    key: Vec<u8>,
-}
-
-/// The enrolment key `K_enroll`: the current epoch and, during rotation, the previous one.
+/// The record to publish for `subject` and `domain`, under the keyring's current epoch.
 ///
-/// Born in the secret backend and mounted as a file (ADR-006); never in git. The file is JSON:
+/// # Errors
 ///
-/// ```json
-/// {"current": {"epoch": 2, "key": "<base64url, at least 32 bytes>"},
-///  "previous": {"epoch": 1, "key": "<base64url>"}}
-/// ```
-///
-/// `previous` is optional. To rotate: generate a new key as `current` with the next epoch and move the old
-/// current to `previous`; records under the previous epoch keep verifying until it is dropped.
-/// `Debug` never shows key material, and load errors never quote the file.
-pub struct EnrollKey {
-    current: EpochKey,
-    previous: Option<EpochKey>,
-}
-
-impl fmt::Debug for EnrollKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("EnrollKey")
-            .field("current_epoch", &self.current.epoch)
-            .field("previous_epoch", &self.previous.as_ref().map(|k| k.epoch))
-            .field("keys", &"<redacted>")
-            .finish()
-    }
-}
-
-/// Why an enrolment key could not be loaded. Never contains key material or file contents.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum EnrollKeyError {
-    /// The file could not be read (the I/O error kind only).
-    #[error("enrolment key file unreadable: {0}")]
-    Unreadable(String),
-    /// The file is not the expected JSON shape.
-    #[error("enrolment key file malformed: {0}")]
-    Malformed(&'static str),
-    /// A key shorter than 256 bits.
-    #[error("enrolment key shorter than 32 bytes")]
-    TooShort,
-    /// `current` and `previous` must have different epochs, and the same key must not serve two epochs.
-    #[error("enrolment key epochs must differ")]
-    EpochClash,
-}
-
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct EpochKeyFile {
-    epoch: u32,
-    key: String,
-}
-
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct EnrollKeyFile {
-    current: EpochKeyFile,
-    previous: Option<EpochKeyFile>,
-}
-
-fn decode_key(file: &EpochKeyFile) -> Result<EpochKey, EnrollKeyError> {
-    let key = URL_SAFE_NO_PAD
-        .decode(file.key.trim_end_matches('='))
-        .map_err(|_| EnrollKeyError::Malformed("key is not base64url"))?;
-    if key.len() < MIN_KEY_BYTES {
-        return Err(EnrollKeyError::TooShort);
-    }
-    Ok(EpochKey {
-        epoch: file.epoch,
-        key,
+/// [`KeyringError`] when the key cannot be used (for example the KMS is unreachable).
+pub fn expected_record(
+    keyring: &dyn EnrollKeyring,
+    subject: &ClaimSubject,
+    domain: &Domain,
+) -> Result<TxtRecord, KeyringError> {
+    let epoch = keyring.current_epoch();
+    let tag = keyring.mac(epoch, &subject.mac_input(domain))?;
+    Ok(TxtRecord {
+        name: challenge_name(domain),
+        value: format!(
+            "{RECORD_PREFIX}{TOKEN_VERSION};t={}",
+            URL_SAFE_NO_PAD.encode(tag)
+        ),
+        epoch,
     })
 }
 
-impl EnrollKey {
-    /// Build from raw keys (tests and tools).
-    ///
-    /// # Errors
-    ///
-    /// [`EnrollKeyError::TooShort`] or [`EnrollKeyError::EpochClash`].
-    pub fn new(
-        current: (u32, Vec<u8>),
-        previous: Option<(u32, Vec<u8>)>,
-    ) -> Result<Self, EnrollKeyError> {
-        let make = |(epoch, key): (u32, Vec<u8>)| {
-            if key.len() < MIN_KEY_BYTES {
-                Err(EnrollKeyError::TooShort)
-            } else {
-                Ok(EpochKey { epoch, key })
-            }
+/// Constant-time equality of two MACs.
+fn tags_equal(a: &[u8; MAC_LEN], b: &[u8]) -> bool {
+    if b.len() != MAC_LEN {
+        return false;
+    }
+    let diff = a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y));
+    std::hint::black_box(diff) == 0
+}
+
+/// Check the TXT values found at the challenge name. `Ok(Some(epoch))` names the epoch whose key matched;
+/// `Ok(None)` means no value matched.
+///
+/// Each value is one TXT record (its character-strings concatenated). Non-Sesame and other-version strings are
+/// skipped. The expected tag is computed once per accepted epoch (current first) and every presented token is
+/// compared with every expected tag in constant time, with no early exit.
+///
+/// # Errors
+///
+/// [`KeyringError`] when the key cannot be used. Callers must treat that as "could not check", never as
+/// "record missing": a KMS outage must not move verified domains into grace.
+pub fn verify_record<I, S>(
+    keyring: &dyn EnrollKeyring,
+    subject: &ClaimSubject,
+    domain: &Domain,
+    txt_values: I,
+) -> Result<Option<u32>, KeyringError>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let message = subject.mac_input(domain);
+    let mut expected = Vec::new();
+    for epoch in keyring.accepted_epochs() {
+        expected.push((epoch, keyring.mac(epoch, &message)?));
+    }
+    let mut matched = None;
+    for value in txt_values {
+        let Some(token) = parse_record(value.as_ref()) else {
+            continue;
         };
-        let current = make(current)?;
-        let previous = previous.map(make).transpose()?;
-        Self::checked(current, previous)
-    }
-
-    fn checked(current: EpochKey, previous: Option<EpochKey>) -> Result<Self, EnrollKeyError> {
-        if let Some(prev) = &previous {
-            if prev.epoch == current.epoch || prev.key == current.key {
-                return Err(EnrollKeyError::EpochClash);
+        let Ok(presented) = URL_SAFE_NO_PAD.decode(token) else {
+            continue;
+        };
+        for (epoch, tag) in &expected {
+            if tags_equal(tag, &presented) && matched.is_none() {
+                matched = Some(*epoch);
             }
         }
-        Ok(Self { current, previous })
     }
-
-    /// Parse the JSON key file contents.
-    ///
-    /// # Errors
-    ///
-    /// See [`EnrollKeyError`]; messages never quote the input.
-    pub fn from_json(bytes: &[u8]) -> Result<Self, EnrollKeyError> {
-        let file: EnrollKeyFile = serde_json::from_slice(bytes)
-            .map_err(|_| EnrollKeyError::Malformed("expected {current:{epoch,key}, previous?}"))?;
-        let current = decode_key(&file.current)?;
-        let previous = file.previous.as_ref().map(decode_key).transpose()?;
-        Self::checked(current, previous)
-    }
-
-    /// Read and parse the key file (a mounted secret).
-    ///
-    /// # Errors
-    ///
-    /// See [`EnrollKeyError`].
-    pub fn from_file(path: &Path) -> Result<Self, EnrollKeyError> {
-        let meta = std::fs::metadata(path)
-            .map_err(|e| EnrollKeyError::Unreadable(e.kind().to_string()))?;
-        if meta.len() > MAX_KEY_FILE {
-            return Err(EnrollKeyError::Malformed("file too large"));
-        }
-        let bytes =
-            std::fs::read(path).map_err(|e| EnrollKeyError::Unreadable(e.kind().to_string()))?;
-        Self::from_json(&bytes)
-    }
-
-    /// Epoch new records are issued under.
-    #[must_use]
-    pub fn current_epoch(&self) -> u32 {
-        self.current.epoch
-    }
-
-    /// The record to publish for `subject` and `domain`, under the current epoch.
-    #[must_use]
-    pub fn expected_record(&self, subject: &ClaimSubject, domain: &Domain) -> TxtRecord {
-        TxtRecord {
-            name: challenge_name(domain),
-            value: format!(
-                "{RECORD_PREFIX}{TOKEN_VERSION};t={}",
-                derive_token(&self.current.key, subject, domain)
-            ),
-            epoch: self.current.epoch,
-        }
-    }
-
-    /// Check the TXT values found at the challenge name. Returns the epoch whose key matched, or `None`.
-    ///
-    /// Each value is one TXT record (its character-strings concatenated). Non-Sesame and other-version
-    /// strings are skipped. Comparison is constant-time (`hmac::Mac::verify_slice`) against the current and,
-    /// if loaded, the previous epoch key.
-    pub fn verify<I, S>(
-        &self,
-        subject: &ClaimSubject,
-        domain: &Domain,
-        txt_values: I,
-    ) -> Option<u32>
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-    {
-        let keys: Vec<&EpochKey> = std::iter::once(&self.current)
-            .chain(self.previous.as_ref())
-            .collect();
-        let mut matched = None;
-        for value in txt_values {
-            let Some(token) = parse_record(value.as_ref()) else {
-                continue;
-            };
-            let Ok(presented) = URL_SAFE_NO_PAD.decode(token) else {
-                continue;
-            };
-            if presented.len() != TOKEN_BYTES {
-                continue;
-            }
-            for key in &keys {
-                // Every candidate is checked (no early exit), so timing does not reveal which matched.
-                if mac(&key.key, subject, domain)
-                    .verify_slice(&presented)
-                    .is_ok()
-                    && matched.is_none()
-                {
-                    matched = Some(key.epoch);
-                }
-            }
-        }
-        matched
-    }
+    Ok(matched)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain_verify::normalize_domain;
+    use crate::domain_verify::{normalize_domain, LocalKeyring};
 
     const ORG: Uuid = Uuid::from_u128(0xb200_0002_0002_4000_8000_0000_0000_0002);
+    const CLAIM: Uuid = Uuid::from_u128(0x0193_a4b2_7c1e_7d3a_9f00_1234_5678_90ab);
 
     fn key(byte: u8) -> Vec<u8> {
         vec![byte; 32]
@@ -428,13 +321,21 @@ mod tests {
     }
 
     fn org(scope: Scope) -> ClaimSubject {
-        ClaimSubject::organisation("acme", ORG, scope).expect("valid")
+        ClaimSubject::organisation("acme", ORG, CLAIM, scope).expect("valid")
+    }
+
+    fn ring(current: (u32, u8), previous: Option<(u32, u8)>) -> LocalKeyring {
+        LocalKeyring::new(
+            (current.0, key(current.1)),
+            previous.map(|(e, b)| (e, key(b))),
+        )
+        .expect("key")
     }
 
     #[test]
     fn record_shape() {
-        let k = EnrollKey::new((7, key(1)), None).expect("key");
-        let rec = k.expected_record(&org(Scope::Exact), &domain("BigBank.com"));
+        let k = ring((7, 1), None);
+        let rec = expected_record(&k, &org(Scope::Exact), &domain("BigBank.com")).expect("mac");
         assert_eq!(rec.name, "_sesame-challenge.bigbank.com");
         assert!(rec.value.starts_with("sesame-domain-verify=v1;t="));
         assert_eq!(rec.value.len(), RECORD_PREFIX.len() + 5 + TOKEN_LEN);
@@ -443,41 +344,54 @@ mod tests {
     }
 
     #[test]
+    fn keyring_and_raw_key_agree() {
+        let k = ring((1, 9), None);
+        let d = domain("bigbank.com");
+        let s = org(Scope::Exact);
+        let rec = expected_record(&k, &s, &d).expect("mac");
+        assert_eq!(
+            parse_record(&rec.value),
+            Some(derive_token(&key(9), &s, &d).as_str())
+        );
+    }
+
+    #[test]
     fn verify_accepts_current_and_previous_only() {
         let d = domain("bigbank.com");
         let s = org(Scope::Exact);
-        let old = EnrollKey::new((1, key(1)), None).expect("key");
-        let rotated = EnrollKey::new((2, key(2)), Some((1, key(1)))).expect("key");
-        let retired = EnrollKey::new((3, key(3)), Some((2, key(2)))).expect("key");
-        let published = old.expected_record(&s, &d).value;
-        assert_eq!(rotated.verify(&s, &d, [&published]), Some(1));
-        assert_eq!(retired.verify(&s, &d, [&published]), None);
-        let fresh = rotated.expected_record(&s, &d).value;
-        assert_eq!(rotated.verify(&s, &d, [&fresh]), Some(2));
+        let old = ring((1, 1), None);
+        let rotated = ring((2, 2), Some((1, 1)));
+        let retired = ring((3, 3), Some((2, 2)));
+        let published = expected_record(&old, &s, &d).expect("mac").value;
+        assert_eq!(verify_record(&rotated, &s, &d, [&published]), Ok(Some(1)));
+        assert_eq!(verify_record(&retired, &s, &d, [&published]), Ok(None));
+        let fresh = expected_record(&rotated, &s, &d).expect("mac").value;
+        assert_eq!(verify_record(&rotated, &s, &d, [&fresh]), Ok(Some(2)));
     }
 
     #[test]
     fn verify_finds_its_record_among_others() {
         let d = domain("bigbank.com");
         let s = org(Scope::Exact);
-        let k = EnrollKey::new((1, key(9)), None).expect("key");
-        let other = ClaimSubject::organisation("other-tenant", ORG, Scope::Exact).expect("valid");
+        let k = ring((1, 9), None);
+        let other =
+            ClaimSubject::organisation("other-tenant", ORG, CLAIM, Scope::Exact).expect("valid");
         let values = vec![
             "v=spf1 -all".to_string(),
-            k.expected_record(&other, &d).value,
+            expected_record(&k, &other, &d).expect("mac").value,
             "sesame-domain-verify=v2;t=whatever".to_string(),
-            k.expected_record(&s, &d).value,
+            expected_record(&k, &s, &d).expect("mac").value,
         ];
-        assert_eq!(k.verify(&s, &d, &values), Some(1));
-        assert_eq!(k.verify(&s, &d, &values[..3]), None);
+        assert_eq!(verify_record(&k, &s, &d, &values), Ok(Some(1)));
+        assert_eq!(verify_record(&k, &s, &d, &values[..3]), Ok(None));
     }
 
     #[test]
     fn malformed_records_never_match() {
         let d = domain("bigbank.com");
         let s = org(Scope::Exact);
-        let k = EnrollKey::new((1, key(5)), None).expect("key");
-        let good = k.expected_record(&s, &d).value;
+        let k = ring((1, 5), None);
+        let good = expected_record(&k, &s, &d).expect("mac").value;
         let token = parse_record(&good).expect("well formed").to_string();
         for bad in [
             format!(" {good}"),
@@ -493,33 +407,62 @@ mod tests {
             format!("sesame-domain-verify=v1;t={}", &token[..42]),
             token.clone(),
         ] {
-            assert_eq!(k.verify(&s, &d, [&bad]), None, "{bad:?}");
+            assert_eq!(verify_record(&k, &s, &d, [&bad]), Ok(None), "{bad:?}");
         }
     }
 
     #[test]
-    fn binding_to_subject_domain_and_scope() {
-        let k = EnrollKey::new((1, key(4)), None).expect("key");
+    fn binding_to_subject_claim_domain_and_scope() {
+        let k = ring((1, 4), None);
         let d = domain("bigbank.com");
-        let published = k.expected_record(&org(Scope::Exact), &d).value;
-        assert_eq!(k.verify(&org(Scope::Subdomains), &d, [&published]), None);
+        let published = expected_record(&k, &org(Scope::Exact), &d)
+            .expect("mac")
+            .value;
+        let check = |s: &ClaimSubject, dom: &Domain| verify_record(&k, s, dom, [&published]);
+        assert_eq!(check(&org(Scope::Subdomains), &d), Ok(None));
         assert_eq!(
-            k.verify(&org(Scope::Exact), &domain("eu.bigbank.com"), [&published]),
-            None
+            check(&org(Scope::Exact), &domain("eu.bigbank.com")),
+            Ok(None)
         );
-        let issuer = ClaimSubject::tenant_issuer("acme").expect("valid");
-        assert_eq!(k.verify(&issuer, &d, [&published]), None);
-        let other_org =
-            ClaimSubject::organisation("acme", Uuid::from_u128(1), Scope::Exact).expect("valid");
-        assert_eq!(k.verify(&other_org, &d, [&published]), None);
+        let issuer = ClaimSubject::tenant_issuer("acme", CLAIM).expect("valid");
+        assert_eq!(check(&issuer, &d), Ok(None));
+        let other_org = ClaimSubject::organisation("acme", Uuid::from_u128(1), CLAIM, Scope::Exact)
+            .expect("valid");
+        assert_eq!(check(&other_org, &d), Ok(None));
+        let reclaimed = ClaimSubject::organisation("acme", ORG, Uuid::from_u128(2), Scope::Exact)
+            .expect("valid");
+        assert_eq!(
+            check(&reclaimed, &d),
+            Ok(None),
+            "a new claim needs a new record"
+        );
+    }
+
+    #[test]
+    fn keyring_failure_is_an_error_not_a_miss() {
+        struct Down;
+        impl EnrollKeyring for Down {
+            fn current_epoch(&self) -> u32 {
+                1
+            }
+            fn accepted_epochs(&self) -> Vec<u32> {
+                vec![1]
+            }
+            fn mac(&self, _: u32, _: &[u8]) -> Result<[u8; MAC_LEN], KeyringError> {
+                Err(KeyringError::Unavailable("kms down".to_string()))
+            }
+        }
+        let d = domain("bigbank.com");
+        assert!(verify_record(&Down, &org(Scope::Exact), &d, ["x"]).is_err());
+        assert!(expected_record(&Down, &org(Scope::Exact), &d).is_err());
     }
 
     #[test]
     fn subjects_validate_tenant_id() {
-        assert!(ClaimSubject::tenant_issuer("").is_err());
-        assert!(ClaimSubject::tenant_issuer("a\0b").is_err());
-        assert!(ClaimSubject::tenant_issuer(&"t".repeat(65)).is_err());
-        assert!(ClaimSubject::tenant_issuer(&"t".repeat(64)).is_ok());
+        assert!(ClaimSubject::tenant_issuer("", CLAIM).is_err());
+        assert!(ClaimSubject::tenant_issuer("a\0b", CLAIM).is_err());
+        assert!(ClaimSubject::tenant_issuer(&"t".repeat(65), CLAIM).is_err());
+        assert!(ClaimSubject::tenant_issuer(&"t".repeat(64), CLAIM).is_ok());
     }
 
     #[test]
@@ -531,42 +474,5 @@ mod tests {
         assert!(!Scope::Subdomains.covers(&claimed, &domain("notbigbank.com")));
         assert_eq!(Scope::parse("subdomains"), Some(Scope::Subdomains));
         assert_eq!(Scope::parse("Exact"), None);
-    }
-
-    #[test]
-    fn key_file_parsing_and_redaction() {
-        let k1 = URL_SAFE_NO_PAD.encode([0x11u8; 32]);
-        let k2 = URL_SAFE_NO_PAD.encode([0x22u8; 32]);
-        let json = format!(
-            r#"{{"current":{{"epoch":2,"key":"{k2}"}},"previous":{{"epoch":1,"key":"{k1}"}}}}"#
-        );
-        let k = EnrollKey::from_json(json.as_bytes()).expect("parses");
-        assert_eq!(k.current_epoch(), 2);
-        let debug = format!("{k:?}");
-        assert!(!debug.contains(&k1) && !debug.contains(&k2), "{debug}");
-        assert!(debug.contains("redacted"));
-
-        let short = URL_SAFE_NO_PAD.encode([0x33u8; 16]);
-        let json = format!(r#"{{"current":{{"epoch":1,"key":"{short}"}}}}"#);
-        assert_eq!(
-            EnrollKey::from_json(json.as_bytes()).err(),
-            Some(EnrollKeyError::TooShort)
-        );
-
-        let clash = format!(
-            r#"{{"current":{{"epoch":1,"key":"{k1}"}},"previous":{{"epoch":1,"key":"{k2}"}}}}"#
-        );
-        assert_eq!(
-            EnrollKey::from_json(clash.as_bytes()).err(),
-            Some(EnrollKeyError::EpochClash)
-        );
-
-        // Errors never quote the input, even when it holds key material.
-        let leaky = format!(r#"{{"current":{{"epoch":"x","key":"{k1}"}}}}"#);
-        let err = EnrollKey::from_json(leaky.as_bytes()).expect_err("malformed");
-        assert!(!err.to_string().contains(&k1));
-        let unknown = format!(r#"{{"current":{{"epoch":1,"key":"{k1}","note":"{k2}"}}}}"#);
-        let err = EnrollKey::from_json(unknown.as_bytes()).expect_err("unknown field");
-        assert!(!err.to_string().contains(&k2));
     }
 }

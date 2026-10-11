@@ -11,120 +11,156 @@
       "kind": "organisation",
       "tenant_id": "acme",
       "org_id": "b2000002-0002-4000-8000-000000000002",
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000001",
       "scope": "exact",
       "input": "bigbank.com",
       "domain": "bigbank.com",
       "record_name": "_sesame-challenge.bigbank.com",
-      "record_value": "sesame-domain-verify=v1;t=3ZkGjwmQMhSqbyHIUv0K5NPdzOClr_dso78OGVj8V7M",
-      "token": "3ZkGjwmQMhSqbyHIUv0K5NPdzOClr_dso78OGVj8V7M"
+      "record_value": "sesame-domain-verify=v1;t=rvIzpIQIkns0gbDYJReOsMJExv7mgteLzBLYZiM6laY",
+      "token": "rvIzpIQIkns0gbDYJReOsMJExv7mgteLzBLYZiM6laY"
     },
     {
       "key_id": "k32_00_1f",
       "kind": "organisation",
       "tenant_id": "acme",
       "org_id": "b2000002-0002-4000-8000-000000000002",
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000001",
       "scope": "subdomains",
       "input": "bigbank.com",
       "domain": "bigbank.com",
       "record_name": "_sesame-challenge.bigbank.com",
-      "record_value": "sesame-domain-verify=v1;t=uGDP8yGoKiuA0uK0EnlrAW_trY296ZrRIrnV-sNQsPo",
-      "token": "uGDP8yGoKiuA0uK0EnlrAW_trY296ZrRIrnV-sNQsPo"
+      "record_value": "sesame-domain-verify=v1;t=rHxPi9WYTt5I-mkQebTtaGgd4DS8b181ne1clbrjTWI",
+      "token": "rHxPi9WYTt5I-mkQebTtaGgd4DS8b181ne1clbrjTWI"
+    },
+    {
+      "key_id": "k32_00_1f",
+      "kind": "organisation",
+      "tenant_id": "acme",
+      "org_id": "b2000002-0002-4000-8000-000000000002",
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000002",
+      "scope": "exact",
+      "input": "bigbank.com",
+      "domain": "bigbank.com",
+      "record_name": "_sesame-challenge.bigbank.com",
+      "record_value": "sesame-domain-verify=v1;t=ud1IXebVcasHTtFsZg6GpHaiTUmExrqaw8-NxnyAIKI",
+      "token": "ud1IXebVcasHTtFsZg6GpHaiTUmExrqaw8-NxnyAIKI"
     },
     {
       "key_id": "k32_00_1f",
       "kind": "organisation",
       "tenant_id": "acme",
       "org_id": "b2000002-0002-4000-8000-000000000003",
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000001",
       "scope": "exact",
       "input": "bigbank.com",
       "domain": "bigbank.com",
       "record_name": "_sesame-challenge.bigbank.com",
-      "record_value": "sesame-domain-verify=v1;t=GRD60fHpG0qCibmtgyQ2jlDn7UvMcgB75_-AEQX5VTg",
-      "token": "GRD60fHpG0qCibmtgyQ2jlDn7UvMcgB75_-AEQX5VTg"
+      "record_value": "sesame-domain-verify=v1;t=TTVxmgRFkvuMvP9NaTd32lBJ9cqHnHLPu6fFsQC33Sk",
+      "token": "TTVxmgRFkvuMvP9NaTd32lBJ9cqHnHLPu6fFsQC33Sk"
     },
     {
       "key_id": "k32_00_1f",
       "kind": "organisation",
       "tenant_id": "globex",
       "org_id": "b2000002-0002-4000-8000-000000000002",
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000001",
       "scope": "exact",
       "input": "bigbank.com",
       "domain": "bigbank.com",
       "record_name": "_sesame-challenge.bigbank.com",
-      "record_value": "sesame-domain-verify=v1;t=IxMjbWjPsKS483t_1_PAV1VUhPvXVG_mixlQuIwg-rU",
-      "token": "IxMjbWjPsKS483t_1_PAV1VUhPvXVG_mixlQuIwg-rU"
+      "record_value": "sesame-domain-verify=v1;t=g6pl9eB66IXcjIA6mKUj9tJSDpqihwJAt7n18dvEPTA",
+      "token": "g6pl9eB66IXcjIA6mKUj9tJSDpqihwJAt7n18dvEPTA"
     },
     {
       "key_id": "k32_aa",
       "kind": "organisation",
       "tenant_id": "acme",
       "org_id": "b2000002-0002-4000-8000-000000000002",
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000001",
       "scope": "exact",
       "input": "bigbank.com",
       "domain": "bigbank.com",
       "record_name": "_sesame-challenge.bigbank.com",
-      "record_value": "sesame-domain-verify=v1;t=FnrMsPP2KALXv1Z1K5Gh6Nu9LStNmso2t_-MWnfo-tg",
-      "token": "FnrMsPP2KALXv1Z1K5Gh6Nu9LStNmso2t_-MWnfo-tg"
+      "record_value": "sesame-domain-verify=v1;t=rdqF_J3-TCiIFMKN5xvbfoXlWYTxUfsJWNr2Zckyiak",
+      "token": "rdqF_J3-TCiIFMKN5xvbfoXlWYTxUfsJWNr2Zckyiak"
     },
     {
       "key_id": "k32_aa",
       "kind": "organisation",
       "tenant_id": "acme",
       "org_id": "b2000002-0002-4000-8000-000000000002",
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000001",
       "scope": "exact",
       "input": "EU.BigBank.co.uk.",
       "domain": "eu.bigbank.co.uk",
       "record_name": "_sesame-challenge.eu.bigbank.co.uk",
-      "record_value": "sesame-domain-verify=v1;t=mXSihoW_J4-f6VNt7fbz2AlzMmGjS7RBkPh_hICXZ_Y",
-      "token": "mXSihoW_J4-f6VNt7fbz2AlzMmGjS7RBkPh_hICXZ_Y"
+      "record_value": "sesame-domain-verify=v1;t=gflaMh61YrS2tzwnFMIpkhHjE96vOLolfHCY_P7JEog",
+      "token": "gflaMh61YrS2tzwnFMIpkhHjE96vOLolfHCY_P7JEog"
     },
     {
       "key_id": "k48_ascii",
       "kind": "organisation",
       "tenant_id": "pricewhisperer",
       "org_id": "0193a4b2-7c1e-7d3a-9f00-1234567890ab",
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000002",
       "scope": "subdomains",
       "input": "BüCher.de",
       "domain": "xn--bcher-kva.de",
       "record_name": "_sesame-challenge.xn--bcher-kva.de",
-      "record_value": "sesame-domain-verify=v1;t=4VAhZlyHUb4d2HV8u9lTco_SAYO7gomQSxHAwLzMxJA",
-      "token": "4VAhZlyHUb4d2HV8u9lTco_SAYO7gomQSxHAwLzMxJA"
+      "record_value": "sesame-domain-verify=v1;t=lPX85DpVN3SBFYFSzqnEd5BvtnmRt4inEVg6cv2FOvA",
+      "token": "lPX85DpVN3SBFYFSzqnEd5BvtnmRt4inEVg6cv2FOvA"
     },
     {
       "key_id": "k32_00_1f",
       "kind": "tenant_issuer",
       "tenant_id": "acme",
       "org_id": null,
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000001",
       "scope": null,
       "input": "idam.acme.com",
       "domain": "idam.acme.com",
       "record_name": "_sesame-challenge.idam.acme.com",
-      "record_value": "sesame-domain-verify=v1;t=STFVMaNOeKPQOVXkYKYUh0E1UN2W3DZHm3UDeOJ7BOQ",
-      "token": "STFVMaNOeKPQOVXkYKYUh0E1UN2W3DZHm3UDeOJ7BOQ"
+      "record_value": "sesame-domain-verify=v1;t=IxC5JZ46A7jlJtFyXT2JAccVA-tGtSJWFIoPubqGtP4",
+      "token": "IxC5JZ46A7jlJtFyXT2JAccVA-tGtSJWFIoPubqGtP4"
     },
     {
       "key_id": "k32_00_1f",
       "kind": "tenant_issuer",
       "tenant_id": "acme",
       "org_id": null,
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000001",
       "scope": null,
       "input": "acme.com",
       "domain": "acme.com",
       "record_name": "_sesame-challenge.acme.com",
-      "record_value": "sesame-domain-verify=v1;t=H2GWmOa8oCP4KsYkWf6G1KCINPLLcTGH2bbDZAoKRsc",
-      "token": "H2GWmOa8oCP4KsYkWf6G1KCINPLLcTGH2bbDZAoKRsc"
+      "record_value": "sesame-domain-verify=v1;t=wt01oAe3Rg87l7Y8tNZmaRvjlzRdG_EaxGaGjyE2ImI",
+      "token": "wt01oAe3Rg87l7Y8tNZmaRvjlzRdG_EaxGaGjyE2ImI"
+    },
+    {
+      "key_id": "k32_00_1f",
+      "kind": "tenant_issuer",
+      "tenant_id": "acme",
+      "org_id": null,
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000002",
+      "scope": null,
+      "input": "acme.com",
+      "domain": "acme.com",
+      "record_name": "_sesame-challenge.acme.com",
+      "record_value": "sesame-domain-verify=v1;t=bQ6mLXGVqNcW5xVRKRJVZs1RjvdUBFbVs7fiV6Wr6Ic",
+      "token": "bQ6mLXGVqNcW5xVRKRJVZs1RjvdUBFbVs7fiV6Wr6Ic"
     },
     {
       "key_id": "k48_ascii",
       "kind": "tenant_issuer",
       "tenant_id": "loadlinker",
       "org_id": null,
+      "claim_id": "0193a4b2-7c1e-7d3a-9f00-000000000001",
       "scope": null,
       "input": "Idam.LoadLinker.com.",
       "domain": "idam.loadlinker.com",
       "record_name": "_sesame-challenge.idam.loadlinker.com",
-      "record_value": "sesame-domain-verify=v1;t=pR6ylSEMfagdaKhMyQoY_3FRrdtcAumaK9wgGIboOOs",
-      "token": "pR6ylSEMfagdaKhMyQoY_3FRrdtcAumaK9wgGIboOOs"
+      "record_value": "sesame-domain-verify=v1;t=XPjE1s2Nxm4otjuH8b3k4SYEbCmVTBfuwrC8wueMgdE",
+      "token": "XPjE1s2Nxm4otjuH8b3k4SYEbCmVTBfuwrC8wueMgdE"
     }
   ]
 }

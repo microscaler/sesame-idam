@@ -24,7 +24,7 @@ Let an organisation admin claim a domain, see the TXT record to publish, verify 
 
 ## Design notes
 
-- `K_enroll` mounted from the secret backend; the response shows the record name and value; nothing in any response reveals another organisation's claim.
+- Tokens through the configured keyring (Cloud KMS HSM in deployments; 17.1), the claim's id in the MAC input; a keyring failure answers 503 and leaves the claim unchanged; the response shows the record name and value; nothing in any response reveals another organisation's claim.
 
 ## Acceptance criteria
 

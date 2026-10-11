@@ -60,8 +60,10 @@ Trust is anchored twice and heartbeated once:
 purpose = "sesame-domain-verify"
 version = "v1"
 token   = base64url( HMAC-SHA256( K_enroll_epochN,
-              tenant_id || 0x00 || fqdn || 0x00 || purpose || 0x00 || version ) )
+              tenant_id || 0x00 || claim_id || 0x00 || fqdn || 0x00 || purpose || 0x00 || version ) )
 ```
+
+`claim_id` is the enrolment's id: each enrolment gets a new token (ADR-007 amendment of 2026-10-11).
 
 - HMAC-SHA256 per RFC 2104; output is 32 bytes → 43 base64url chars.
 - Field separator `0x00` prevents ambiguous concatenation
@@ -82,6 +84,9 @@ token   = base64url( HMAC-SHA256( K_enroll_epochN,
 | Rotatable | `epoch` in key derivation; both current and previous epoch MUST be accepted during rotation overlap |
 
 ### 2.3 `K_enroll` custody
+
+On GCP deployments `K_enroll` is a non-exportable HMAC key in Cloud KMS at HSM protection level, used through
+`macSign` (ADR-007 amendment of 2026-10-11); the text below applies to deployments using a key file.
 
 `K_enroll` is born in the secret backend and delivered per ADR-006 (OpenBao /
 GCP SM → external-secrets → mounted Secret). It MUST NOT appear in git, even

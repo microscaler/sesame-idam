@@ -21,32 +21,40 @@ def token(key: bytes, fields: list[str]) -> str:
     return base64.urlsafe_b64encode(mac).rstrip(b"=").decode("ascii")
 
 
+ORG_A = "b2000002-0002-4000-8000-000000000002"
+ORG_B = "b2000002-0002-4000-8000-000000000003"
+C1 = "0193a4b2-7c1e-7d3a-9f00-000000000001"
+C2 = "0193a4b2-7c1e-7d3a-9f00-000000000002"
+
 CASES = [
-    # (key, kind, tenant, org, input, normalised, scope)
-    ("k32_00_1f", "organisation", "acme", "b2000002-0002-4000-8000-000000000002", "bigbank.com", "bigbank.com", "exact"),
-    ("k32_00_1f", "organisation", "acme", "b2000002-0002-4000-8000-000000000002", "bigbank.com", "bigbank.com", "subdomains"),
-    ("k32_00_1f", "organisation", "acme", "b2000002-0002-4000-8000-000000000003", "bigbank.com", "bigbank.com", "exact"),
-    ("k32_00_1f", "organisation", "globex", "b2000002-0002-4000-8000-000000000002", "bigbank.com", "bigbank.com", "exact"),
-    ("k32_aa", "organisation", "acme", "b2000002-0002-4000-8000-000000000002", "bigbank.com", "bigbank.com", "exact"),
-    ("k32_aa", "organisation", "acme", "b2000002-0002-4000-8000-000000000002", "EU.BigBank.co.uk.", "eu.bigbank.co.uk", "exact"),
-    ("k48_ascii", "organisation", "pricewhisperer", "0193a4b2-7c1e-7d3a-9f00-1234567890ab", "BüCher.de", "xn--bcher-kva.de", "subdomains"),
-    ("k32_00_1f", "tenant_issuer", "acme", None, "idam.acme.com", "idam.acme.com", None),
-    ("k32_00_1f", "tenant_issuer", "acme", None, "acme.com", "acme.com", None),
-    ("k48_ascii", "tenant_issuer", "loadlinker", None, "Idam.LoadLinker.com.", "idam.loadlinker.com", None),
+    # (key, kind, tenant, org, claim, input, normalised, scope)
+    ("k32_00_1f", "organisation", "acme", ORG_A, C1, "bigbank.com", "bigbank.com", "exact"),
+    ("k32_00_1f", "organisation", "acme", ORG_A, C1, "bigbank.com", "bigbank.com", "subdomains"),
+    ("k32_00_1f", "organisation", "acme", ORG_A, C2, "bigbank.com", "bigbank.com", "exact"),
+    ("k32_00_1f", "organisation", "acme", ORG_B, C1, "bigbank.com", "bigbank.com", "exact"),
+    ("k32_00_1f", "organisation", "globex", ORG_A, C1, "bigbank.com", "bigbank.com", "exact"),
+    ("k32_aa", "organisation", "acme", ORG_A, C1, "bigbank.com", "bigbank.com", "exact"),
+    ("k32_aa", "organisation", "acme", ORG_A, C1, "EU.BigBank.co.uk.", "eu.bigbank.co.uk", "exact"),
+    ("k48_ascii", "organisation", "pricewhisperer", "0193a4b2-7c1e-7d3a-9f00-1234567890ab", C2, "BüCher.de", "xn--bcher-kva.de", "subdomains"),
+    ("k32_00_1f", "tenant_issuer", "acme", None, C1, "idam.acme.com", "idam.acme.com", None),
+    ("k32_00_1f", "tenant_issuer", "acme", None, C1, "acme.com", "acme.com", None),
+    ("k32_00_1f", "tenant_issuer", "acme", None, C2, "acme.com", "acme.com", None),
+    ("k48_ascii", "tenant_issuer", "loadlinker", None, C1, "Idam.LoadLinker.com.", "idam.loadlinker.com", None),
 ]
 
 vectors = []
-for key_id, kind, tenant, org, raw, fqdn, scope in CASES:
+for key_id, kind, tenant, org, claim, raw, fqdn, scope in CASES:
     if kind == "organisation":
-        fields = [tenant, org, fqdn, scope, "sesame-org-domain", "v1"]
+        fields = [tenant, org, claim, fqdn, scope, "sesame-org-domain", "v1"]
     else:
-        fields = [tenant, fqdn, "sesame-domain-verify", "v1"]
+        fields = [tenant, claim, fqdn, "sesame-domain-verify", "v1"]
     t = token(KEYS[key_id], fields)
     vectors.append({
         "key_id": key_id,
         "kind": kind,
         "tenant_id": tenant,
         "org_id": org,
+        "claim_id": claim,
         "scope": scope,
         "input": raw,
         "domain": fqdn,

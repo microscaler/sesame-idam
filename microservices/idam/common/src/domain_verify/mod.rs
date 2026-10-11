@@ -1,32 +1,38 @@
 //! Domain claim primitives (Epic 17, story 17.1).
 //!
-//! Everything that decides whether a DNS TXT record proves control of a domain, without any I/O:
+//! Everything that decides whether a DNS TXT record proves control of a domain (no DNS I/O here):
 //!
 //! - [`normalize_domain`]: user input to a canonical [`Domain`] (lower-case IDNA A-label, no trailing dot).
 //! - [`check_eligible`]: public suffixes, unlisted top-level domains, consumer mail providers and the
 //!   deployment's own domains can never be claimed.
-//! - [`ClaimSubject`], [`challenge_name`], [`EnrollKey`]: the record an owner publishes,
+//! - [`ClaimSubject`], [`challenge_name`], [`expected_record`], [`verify_record`]: the record an owner publishes,
 //!   `_sesame-challenge.<domain> TXT "sesame-domain-verify=v1;t=<token>"`, and its constant-time check.
+//! - [`EnrollKeyring`]: where `K_enroll` lives. [`GcpKmsKeyring`] keeps it in Cloud KMS at HSM protection level
+//!   (production); [`LocalKeyring`] reads a key file (development and tests).
 //!
 //! Token construction (`DESIGN-org-domain-verification.md` §3, `DESIGN-tenant-domain-verification.md` §2):
 //!
 //! ```text
-//! organisation: HMAC-SHA256(K_epoch, tenant_id 0x00 org_id 0x00 fqdn 0x00 scope 0x00 "sesame-org-domain" 0x00 "v1")
-//! tenant issuer: HMAC-SHA256(K_epoch, tenant_id 0x00 fqdn 0x00 "sesame-domain-verify" 0x00 "v1")
+//! organisation:  HMAC-SHA256(K_epoch, tenant_id 0 org_id 0 claim_id 0 fqdn 0 scope 0 "sesame-org-domain" 0 "v1")
+//! tenant issuer: HMAC-SHA256(K_epoch, tenant_id 0 claim_id 0 fqdn 0 "sesame-domain-verify" 0 "v1")
 //! token = base64url, no padding (43 characters)
 //! ```
 //!
 //! Network resolution (DNS-over-HTTPS quorum) is story 17.2; claim state and lifecycle are story 17.3.
 
 mod eligibility;
+mod gcp_kms;
+mod keyring;
 mod normalize;
 mod token;
 
 pub use eligibility::{check_eligible, EligibilityPolicy, DEFAULT_CONSUMER_PROVIDERS};
+pub use gcp_kms::{GcpKmsConfig, GcpKmsKeyring};
+pub use keyring::{EnrollKeyring, KeyringConfig, KeyringError, LocalKeyring, MAC_LEN};
 pub use normalize::{normalize_domain, Domain};
 pub use token::{
-    challenge_name, derive_token, parse_record, ClaimSubject, EnrollKey, EnrollKeyError, Scope,
-    TxtRecord, CHALLENGE_LABEL, ORG_DOMAIN_PURPOSE, RECORD_PREFIX, TENANT_ISSUER_PURPOSE,
+    challenge_name, derive_token, expected_record, parse_record, verify_record, ClaimSubject,
+    Scope, TxtRecord, CHALLENGE_LABEL, ORG_DOMAIN_PURPOSE, RECORD_PREFIX, TENANT_ISSUER_PURPOSE,
     TOKEN_VERSION,
 };
 

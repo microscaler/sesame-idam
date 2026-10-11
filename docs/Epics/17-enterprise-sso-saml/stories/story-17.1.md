@@ -52,16 +52,21 @@ One library function set that every domain-verification path uses: turn user inp
 
 ## Implementation notes
 
-- Code: `microservices/idam/common/src/domain_verify/` (`normalize.rs`, `eligibility.rs`, `token.rs`), exported as
-  `sesame_common::domain_verify`.
+- Code: `microservices/idam/common/src/domain_verify/` (`normalize.rs`, `eligibility.rs`, `token.rs`, `keyring.rs`,
+  `gcp_kms.rs`), exported as `sesame_common::domain_verify`.
+- Amended 2026-10-11 (ADR-007): the claim's id is part of the MAC input, so every claim gets its own token; tokens are
+  computed through an `EnrollKeyring`: `GcpKmsKeyring` (Cloud KMS `macSign`, HSM protection level required by default,
+  Workload Identity token from the metadata server, request and response CRC32C, key version and length checked) or
+  `LocalKeyring` (key file). `KeyringConfig` selects one from `SESAME_DOMAIN_VERIFY_KEYRING`. Keyring failures are
+  errors (`could not check`), never a non-match.
 - Dependencies: `idna` 1.1 (same version `url` already pulls in) and `psl` pinned to `=2.1.241`; bumping `psl` is how
   the Public Suffix List is refreshed, once per release.
 - A top-level domain absent from the Public Suffix List (`.internal`, `.local`, `.example`) is refused with its own
   code, `unknown_suffix`: nothing outside the public DNS can be proven.
-- Constant-time comparison uses `hmac::Mac::verify_slice` (hmac 0.12, sha2 0.10, already dependencies) rather than
-  ring; every acceptable epoch key is checked with no early exit.
-- `K_enroll` file format (a mounted secret): `{"current": {"epoch": N, "key": "<base64url, 32+ bytes>"},
-  "previous": {...}}`, `previous` optional. Load errors never quote the file; `Debug` shows epochs only.
+- The expected tag is computed once per accepted epoch (one KMS call each) and compared with every presented token in
+  constant time, with no early exit.
+- `LocalKeyring` file format: `{"current": {"epoch": N, "key": "<base64url, 32+ bytes>"}, "previous": {...}}`,
+  `previous` optional. Load errors never quote the file; `Debug` never shows keys or access tokens.
 - `Scope::covers` and `Domain::is_same_or_under` are provided for the consumers (discovery, linking, 17.12).
 - Vectors: `tests/fixtures/domain_verify_vectors.json`, produced by `gen_domain_verify_vectors.py`, an independent
   Python implementation (hmac and hashlib); the Rust tests reproduce every token byte for byte.

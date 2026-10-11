@@ -4,8 +4,8 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use proptest::prelude::*;
 use sesame_common::domain_verify::{
-    challenge_name, check_eligible, derive_token, normalize_domain, ClaimSubject, Domain,
-    EligibilityPolicy, EnrollKey, Scope,
+    challenge_name, check_eligible, derive_token, expected_record, normalize_domain, verify_record,
+    ClaimSubject, Domain, EligibilityPolicy, LocalKeyring, Scope,
 };
 use uuid::Uuid;
 
@@ -15,16 +15,20 @@ fn vectors() -> serde_json::Value {
     serde_json::from_str(VECTORS).expect("vectors parse")
 }
 
+const CLAIM: Uuid = Uuid::from_u128(0x0193_a4b2_7c1e_7d3a_9f00_0000_0000_0001);
+
 fn subject(v: &serde_json::Value) -> ClaimSubject {
     let tenant = v["tenant_id"].as_str().expect("tenant");
+    let claim = Uuid::parse_str(v["claim_id"].as_str().expect("claim")).expect("uuid");
     match v["kind"].as_str().expect("kind") {
         "organisation" => ClaimSubject::organisation(
             tenant,
             Uuid::parse_str(v["org_id"].as_str().expect("org")).expect("uuid"),
+            claim,
             Scope::parse(v["scope"].as_str().expect("scope")).expect("scope"),
         )
         .expect("subject"),
-        "tenant_issuer" => ClaimSubject::tenant_issuer(tenant).expect("subject"),
+        "tenant_issuer" => ClaimSubject::tenant_issuer(tenant, claim).expect("subject"),
         other => panic!("unknown kind {other}"),
     }
 }
@@ -56,10 +60,13 @@ fn published_vectors_reproduce_byte_for_byte() {
             v["record_name"].as_str().expect("name")
         );
 
-        let enroll = EnrollKey::new((4, key), None).expect("key");
-        let record = enroll.expected_record(&s, &domain);
+        let ring = LocalKeyring::new((4, key), None).expect("key");
+        let record = expected_record(&ring, &s, &domain).expect("mac");
         assert_eq!(record.value, v["record_value"].as_str().expect("value"));
-        assert_eq!(enroll.verify(&s, &domain, [&record.value]), Some(4));
+        assert_eq!(
+            verify_record(&ring, &s, &domain, [&record.value]),
+            Ok(Some(4))
+        );
     }
 }
 
@@ -114,38 +121,46 @@ fn scope_strategy() -> impl Strategy<Value = Scope> {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
 
-    /// Changing any one of tenant, organisation, scope, domain, purpose or epoch key changes the token.
+    /// Changing any one of tenant, organisation, claim, scope, domain, purpose or epoch key changes the token.
     #[test]
     fn token_binds_every_field(
         tenant in "[a-z][a-z0-9-]{0,20}",
         tenant2 in "[a-z][a-z0-9-]{0,20}",
         org in any::<u128>(),
         org2 in any::<u128>(),
+        claim in any::<u128>(),
+        claim2 in any::<u128>(),
         scope in scope_strategy(),
         d1 in domain_strategy(),
         d2 in domain_strategy(),
         k1 in proptest::array::uniform32(any::<u8>()),
         k2 in proptest::array::uniform32(any::<u8>()),
     ) {
-        let base = ClaimSubject::organisation(&tenant, Uuid::from_u128(org), scope).expect("subject");
+        let c = Uuid::from_u128(claim);
+        let base = ClaimSubject::organisation(&tenant, Uuid::from_u128(org), c, scope).expect("subject");
         let t = derive_token(&k1, &base, &d1);
         prop_assert_eq!(t.len(), 43);
 
         if tenant2 != tenant {
-            let s = ClaimSubject::organisation(&tenant2, Uuid::from_u128(org), scope).expect("subject");
+            let s = ClaimSubject::organisation(&tenant2, Uuid::from_u128(org), c, scope).expect("subject");
             prop_assert_ne!(&derive_token(&k1, &s, &d1), &t);
         }
         if org2 != org {
-            let s = ClaimSubject::organisation(&tenant, Uuid::from_u128(org2), scope).expect("subject");
+            let s = ClaimSubject::organisation(&tenant, Uuid::from_u128(org2), c, scope).expect("subject");
+            prop_assert_ne!(&derive_token(&k1, &s, &d1), &t);
+        }
+        if claim2 != claim {
+            let s = ClaimSubject::organisation(&tenant, Uuid::from_u128(org), Uuid::from_u128(claim2), scope)
+                .expect("subject");
             prop_assert_ne!(&derive_token(&k1, &s, &d1), &t);
         }
         let other_scope = if scope == Scope::Exact { Scope::Subdomains } else { Scope::Exact };
-        let s = ClaimSubject::organisation(&tenant, Uuid::from_u128(org), other_scope).expect("subject");
+        let s = ClaimSubject::organisation(&tenant, Uuid::from_u128(org), c, other_scope).expect("subject");
         prop_assert_ne!(&derive_token(&k1, &s, &d1), &t);
         if d2 != d1 {
             prop_assert_ne!(&derive_token(&k1, &base, &d2), &t);
         }
-        let issuer = ClaimSubject::tenant_issuer(&tenant).expect("subject");
+        let issuer = ClaimSubject::tenant_issuer(&tenant, c).expect("subject");
         prop_assert_ne!(&derive_token(&k1, &issuer, &d1), &t);
         if k2 != k1 {
             prop_assert_ne!(&derive_token(&k2, &base, &d1), &t);
@@ -160,15 +175,15 @@ proptest! {
         d2 in domain_strategy(),
         scope in scope_strategy(),
     ) {
-        let key = EnrollKey::new((1, vec![7u8; 32]), None).expect("key");
-        let s = ClaimSubject::organisation("acme", Uuid::from_u128(org), scope).expect("subject");
-        let record = key.expected_record(&s, &d1);
-        prop_assert_eq!(key.verify(&s, &d1, [&record.value]), Some(1));
+        let key = LocalKeyring::new((1, vec![7u8; 32]), None).expect("key");
+        let s = ClaimSubject::organisation("acme", Uuid::from_u128(org), CLAIM, scope).expect("subject");
+        let record = expected_record(&key, &s, &d1).expect("mac");
+        prop_assert_eq!(verify_record(&key, &s, &d1, [&record.value]), Ok(Some(1)));
         if d2 != d1 {
-            prop_assert_eq!(key.verify(&s, &d2, [&record.value]), None);
+            prop_assert_eq!(verify_record(&key, &s, &d2, [&record.value]), Ok(None));
         }
-        let issuer = ClaimSubject::tenant_issuer("acme").expect("subject");
-        prop_assert_eq!(key.verify(&issuer, &d1, [&record.value]), None);
+        let issuer = ClaimSubject::tenant_issuer("acme", CLAIM).expect("subject");
+        prop_assert_eq!(verify_record(&key, &issuer, &d1, [&record.value]), Ok(None));
     }
 
     /// Normalisation is idempotent and never panics on arbitrary input.
@@ -183,9 +198,9 @@ proptest! {
     /// Arbitrary TXT strings never verify.
     #[test]
     fn arbitrary_txt_never_verifies(values in proptest::collection::vec("\\PC{0,120}", 0..6)) {
-        let key = EnrollKey::new((1, vec![3u8; 32]), None).expect("key");
-        let s = ClaimSubject::tenant_issuer("acme").expect("subject");
+        let key = LocalKeyring::new((1, vec![3u8; 32]), None).expect("key");
+        let s = ClaimSubject::tenant_issuer("acme", CLAIM).expect("subject");
         let d = normalize_domain("acme.com").expect("valid");
-        prop_assert_eq!(key.verify(&s, &d, &values), None);
+        prop_assert_eq!(verify_record(&key, &s, &d, &values), Ok(None));
     }
 }

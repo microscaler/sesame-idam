@@ -41,13 +41,16 @@ A claim is (`tenant_id`, `org_id`, `domain`, `scope`):
 ```
 purpose = "sesame-org-domain"
 token   = base64url( HMAC-SHA256( K_enroll_epochN,
-              tenant_id || 0x00 || org_id || 0x00 || fqdn || 0x00 || scope || 0x00 || purpose || 0x00 || "v1" ) )
+              tenant_id || 0x00 || org_id || 0x00 || claim_id || 0x00 || fqdn || 0x00 || scope || 0x00 || purpose
+              || 0x00 || "v1" ) )
 
 _sesame-challenge.<domain>   TXT   "sesame-domain-verify=v1;t=<token>"
 ```
 
 - Same key, epochs, record name and value form as tenant issuer verification; `org_id`, `scope` and `purpose` in the
-  PRF input bind the record to this organisation, this scope and this kind of claim. A record for another
+  PRF input bind the record to this organisation, this scope and this kind of claim; `claim_id` (the claim's row id)
+  makes every claim's token new, so a revoked claim is restored only by publishing a new record (ADR-007 amendment
+  of 2026-10-11). A record for another
   organisation, another scope, or an issuer claim never matches.
 - Several `sesame-domain-verify` strings may sit at the same name (organisations of other tenants, an issuer claim);
   verification looks for its own token among them.
@@ -129,8 +132,11 @@ state: only the verifier does. The organisation comes from the path and the vali
   time (`concurrencyPolicy: Forbid`).
 - **Egress**: only `dns-probe`, to the chosen DoH providers' fixed addresses on 443 (two of Cloudflare, Google,
   Quad9, from configuration). org-mgmt and the job reach `dns-probe` inside the namespace, not the internet, for this.
-- **Secret**: `K_enroll` from the secret backend (ADR-006 chain), never in git; mounted into org-mgmt and the
-  re-verification job only, never into `dns-probe`.
+- **Key**: `K_enroll` is an HMAC key in Cloud KMS at HSM protection level (ADR-007 amendment of 2026-10-11), used by
+  org-mgmt and the re-verification job through `macSign` with their own workload identity; it never leaves the HSM and
+  is never mounted anywhere. `dns-probe` has no access. The keyring is chosen by `SESAME_DOMAIN_VERIFY_KEYRING` (a small
+  JSON file: `gcp-kms` with key name and versions, or `file` for development). A KMS failure is "could not check",
+  never "record missing".
 
 ## 8. Data
 
@@ -177,7 +183,8 @@ the job cannot diverge.
 | A record copied from another organisation or tenant | PRF binds tenant, organisation, scope and purpose |
 | A subdomain taken over (dangling CNAME) | `exact` by default; `subdomains` is an explicit claim |
 | A tenant or org admin marking a domain verified | no API sets state |
-| `K_enroll` leaked | tokens become predictable, but the record must still be published in the zone (ADR-007) |
+| `K_enroll` leaked | it is non-exportable in an HSM; even if it leaked, tokens become predictable but the record must still be published in the zone (ADR-007) |
+| A revoked claim restored by re-claiming while the old record remains | the new claim has a new id and so a new token; restoring needs a new DNS change |
 | Learning which organisations hold a domain | generic `domain_unavailable`; discovery answers the same for unknown domains |
 
 ## 10. Testing

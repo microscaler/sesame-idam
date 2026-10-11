@@ -119,4 +119,4 @@ Recorded per story as it lands.
 
 | Story | Evidence |
 |---|---|
-| 17.1 | `sesame_common::domain_verify`; 21 unit tests and 7 integration tests (`tests/domain_verify.rs`: published vectors reproduced byte for byte against an independent Python implementation, 4 proptest properties over field binding, record binding, idempotent normalisation and arbitrary TXT input); clippy pedantic and rustfmt clean on the new code. |
+| 17.1 | `sesame_common::domain_verify`; amended 2026-10-11 with per-claim tokens and the Cloud KMS HSM keyring (fake KMS and metadata server tests for round trip, integrity refusals, outages); 29 unit tests and 7 integration tests (`tests/domain_verify.rs`: published vectors reproduced byte for byte against an independent Python implementation, 4 proptest properties over field binding, record binding, idempotent normalisation and arbitrary TXT input); clippy pedantic and rustfmt clean on the new code. |
