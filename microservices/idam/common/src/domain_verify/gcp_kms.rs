@@ -23,7 +23,9 @@ const DEFAULT_ENDPOINT: &str = "https://cloudkms.googleapis.com";
 const DEFAULT_TOKEN_URL: &str =
     "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
 /// Refresh the access token this long before it expires.
-const TOKEN_MARGIN: Duration = Duration::from_mins(1);
+// `from_secs`, not `from_mins`: the Octopilot Rust buildpack builds with Rust 1.89 (see clippy.toml `msrv`).
+#[allow(clippy::duration_suboptimal_units)]
+const TOKEN_MARGIN: Duration = Duration::from_secs(60);
 const MAX_RESPONSE: usize = 16 * 1024;
 
 fn default_endpoint() -> String {

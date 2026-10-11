@@ -15,3 +15,8 @@ missing-docs-in-crate-items = false
 too-many-arguments-threshold = 8
 too-many-lines-threshold = 200
 single-char-binding-names-threshold = 4
+
+# --- Minimum supported Rust version ---
+# Release images are built by the Octopilot Rust buildpack, which installs Rust 1.89.0; library code must compile
+# there even though CI tests run on current stable. Clippy's incompatible_msrv lint flags newer std APIs.
+msrv = "1.89"
