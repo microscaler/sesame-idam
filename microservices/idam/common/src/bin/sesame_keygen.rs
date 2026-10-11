@@ -29,8 +29,11 @@ use sesame_common::jwt::{rfc7638_okp_thumbprint, Ed25519Signer};
 ///   DELETED and the command errors — regenerate rather than risk plaintext
 ///   key material in git.
 ///
+/// - `--json`: only the keyset JSON (`{"keys":[{"pkcs8_b64","valid_from"}]}`) on stdout, to pipe into a secret
+///   store (`scripts/sesame-secrets.sh` in the platform repository).
+///
 /// Step 2 (ADR-006) moves generation into the secret backend entirely.
-fn keyset_main(n: usize, out: Option<&str>, encrypt: bool) {
+fn keyset_main(n: usize, out: Option<&str>, encrypt: bool, json: bool) {
     let now = chrono::Utc::now();
     let mut entries = Vec::new();
     let mut kids = Vec::new();
@@ -48,6 +51,20 @@ fn keyset_main(n: usize, out: Option<&str>, encrypt: bool) {
     }
     let keyset = serde_json::json!({ "keys": entries });
     let keyset_json = serde_json::to_string_pretty(&keyset).expect("keyset serialization failed");
+
+    if json {
+        // The keyset alone on stdout, for a secret store (scripts pipe it straight in; nothing touches disk).
+        println!(
+            "{}",
+            serde_json::to_string(&keyset).expect("keyset serialization failed")
+        );
+        eprintln!(
+            "generated {} key(s), kids (RFC 7638): {}",
+            n.max(1),
+            kids.join(", ")
+        );
+        return;
+    }
 
     let manifest = format!(
         "\
@@ -125,6 +142,7 @@ fn main() {
         let mut n: usize = 1;
         let mut out: Option<String> = None;
         let mut encrypt = false;
+        let mut json = false;
         let mut iter = args.iter().skip(2);
         while let Some(arg) = iter.next() {
             match arg.as_str() {
@@ -136,17 +154,22 @@ fn main() {
                     }
                 },
                 "--sops" => encrypt = true,
+                "--json" => json = true,
                 v => match v.parse::<usize>() {
                     Ok(parsed) => n = parsed,
                     Err(_) => {
                         eprintln!("error: unrecognised argument {v}");
-                        eprintln!("usage: sesame_keygen keyset [n] [--out PATH] [--sops]");
+                        eprintln!("usage: sesame_keygen keyset [n] [--out PATH] [--sops] | keyset [n] --json");
                         std::process::exit(2);
                     }
                 },
             }
         }
-        keyset_main(n, out.as_deref(), encrypt);
+        if json && (out.is_some() || encrypt) {
+            eprintln!("error: --json writes the keyset to stdout; it takes no --out or --sops");
+            std::process::exit(2);
+        }
+        keyset_main(n, out.as_deref(), encrypt, json);
         return;
     }
 

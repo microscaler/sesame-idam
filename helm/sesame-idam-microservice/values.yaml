@@ -141,6 +141,13 @@ workload:
 
 # Extra labels on the workload and its pods (e.g. the label an environment's credential rotation restarts by).
 podLabels: {}
+
+# The workload's Kubernetes service account. create: one named after the service, with these annotations (for GKE
+# Workload Identity: iam.gke.io/gcp-service-account, e.g. the identity allowed to sign with a Cloud KMS key). Off: the
+# namespace's default service account.
+serviceAccount:
+  create: false
+  annotations: {}
 podSecurityContext: {}
 securityContext: {}
 

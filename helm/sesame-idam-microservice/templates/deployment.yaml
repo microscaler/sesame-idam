@@ -53,6 +53,9 @@ spec:
       annotations:
         checksum/config: "{{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum | trunc 8 }}"
     spec:
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Values.service.name }}
+      {{- end }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
