@@ -1595,6 +1595,7 @@ paths:
       summary: Standards-compatible OAuth 2.0 token endpoint
       operationId: oauth_token
       security: []
+      x-public-reason: "RFC 6749 token endpoint: clients authenticate in the request (Basic, client_secret_post, PKCE), not with a bearer token"
       parameters:
       - name: Authorization
         in: header

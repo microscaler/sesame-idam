@@ -181,7 +181,8 @@ fn pact_file_documents_series_a_p0_p1_preauth() {
 }
 
 #[test]
-fn provider_verifies_preauth_pact_over_http() {
+#[ignore = "live: needs the running dev stack; just test-live"]
+fn live_provider_verifies_preauth_pact_over_http() {
     let Some(base) = provider_base() else {
         eprintln!(
             "SKIP pact provider verify: set SESAME_PACT_PROVIDER_BASE \

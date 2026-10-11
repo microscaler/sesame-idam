@@ -39,6 +39,7 @@ fn http_client() -> reqwest::blocking::Client {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_north_password_login_issues_tokens() {
     if !live_available() {
         eprintln!("SKIP live_north_password_login: api host unreachable");
@@ -65,6 +66,7 @@ fn live_north_password_login_issues_tokens() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_north_wrong_password_is_invalid_credentials() {
     if !live_available() {
         eprintln!("SKIP live_north_wrong_password: api host unreachable");
@@ -88,6 +90,7 @@ fn live_north_wrong_password_is_invalid_credentials() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_north_unknown_client_is_invalid_client() {
     if !live_available() {
         eprintln!("SKIP live_north_unknown_client: api host unreachable");
@@ -111,6 +114,7 @@ fn live_north_unknown_client_is_invalid_client() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_north_logout_requires_bearer() {
     if !live_available() {
         eprintln!("SKIP live_north_logout: api host unreachable");
@@ -131,6 +135,7 @@ fn live_north_logout_requires_bearer() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_north_platform_is_not_routed_on_api_edge() {
     if !live_available() {
         eprintln!("SKIP live_north_platform_airgap: api host unreachable");

@@ -215,6 +215,7 @@ fn tenant_consumer_freezes_transport_schemas() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_public_api_origin_reaches_idam_prefix() {
     if !live_available() {
         eprintln!("SKIP live tenant-consumer: api host unreachable");

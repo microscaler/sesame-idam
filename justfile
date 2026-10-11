@@ -161,6 +161,10 @@ nt-integration:
     @echo "⚠️  Note: These tests require a running database connection"
     @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features
 
+# Live tests (live_*, #[ignore]d): hit the running dev stack (api./id./auth.sesameidentity.dev.local). Never in CI.
+test-live:
+    cargo nextest run --manifest-path microservices/Cargo.toml --workspace --run-ignored only -E 'test(/::live_/)' --no-fail-fast
+
 # Run tests with standard cargo (fallback)
 test-cargo:
     @echo "🧪 Running tests with cargo..."

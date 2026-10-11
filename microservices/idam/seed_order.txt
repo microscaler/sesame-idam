@@ -1,6 +1,9 @@
 # Auto-generated FK-safe seed order. Regenerate with: cargo run -p <your-migrator>
-identity-user-mgmt-service/impl/seeds/20260706000000_hauliage_demo_users.sql
-org-mgmt/impl/seeds/20260706000002_hauliage_demo_orgs.sql
-authz-core/impl/seeds/20260706000001_hauliage_demo_roles.sql
+identity-user-mgmt-service/impl/seeds/20260706000000_acme_demo_users.sql
 identity-login-service/impl/seeds/20260714000000_platform_tenants.sql
-authz-core/impl/seeds/20260715000000_hauliage_app_role_permissions.sql
+authz-core/impl/seeds/20260715000000_acme_app_role_permissions.sql
+identity-login-service/impl/seeds/20260802220000_oidc_fixture_public_clients.sql
+identity-user-mgmt-service/impl/seeds/20260904120000_pricewhisperer_demo_users.sql
+org-mgmt/impl/seeds/20260706000002_acme_demo_orgs.sql
+authz-core/impl/seeds/20260706000001_acme_demo_roles.sql
+authz-core/impl/seeds/20260904120001_pricewhisperer_crm_roles.sql

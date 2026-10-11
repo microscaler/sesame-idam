@@ -81,6 +81,7 @@ fn urlencoding_encode(value: &str) -> String {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_discovery_is_truthful_oidc_metadata() {
     if !live_available() {
         eprintln!("SKIP live_discovery: issuer host unreachable");
@@ -116,6 +117,7 @@ fn live_discovery_is_truthful_oidc_metadata() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_jwks_publishes_verification_keys_only() {
     if !live_available() {
         eprintln!("SKIP live_jwks: issuer host unreachable");
@@ -141,6 +143,7 @@ fn live_jwks_publishes_verification_keys_only() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_authorize_valid_pkce_redirects_to_hosted_auth() {
     if !live_available() {
         eprintln!("SKIP live_authorize_valid: issuer host unreachable");
@@ -183,6 +186,7 @@ fn live_authorize_valid_pkce_redirects_to_hosted_auth() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_authorize_unknown_client_returns_invalid_client() {
     if !live_available() {
         eprintln!("SKIP live_authorize_unknown: issuer host unreachable");
@@ -202,6 +206,7 @@ fn live_authorize_unknown_client_returns_invalid_client() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_authorize_redirect_prefix_is_rejected() {
     if !live_available() {
         eprintln!("SKIP live_authorize_redirect_prefix: issuer host unreachable");
@@ -234,6 +239,7 @@ fn live_authorize_redirect_prefix_is_rejected() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_token_without_client_auth_fails_closed() {
     if !live_available() {
         eprintln!("SKIP live_token_without_client_auth: issuer host unreachable");
@@ -267,6 +273,7 @@ fn live_token_without_client_auth_fails_closed() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_userinfo_without_bearer_is_unauthorized() {
     if !live_available() {
         eprintln!("SKIP live_userinfo_without_bearer: issuer host unreachable");
@@ -281,6 +288,7 @@ fn live_userinfo_without_bearer_is_unauthorized() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_discovery_advertised_endpoints_are_reachable() {
     if !live_available() {
         eprintln!("SKIP live_discovery_advertised_endpoints: issuer host unreachable");
@@ -350,6 +358,7 @@ const DEMO_PASSWORD: &str = "SecureP@ss123!";
 
 /// Live interactive path without the SPA: authorize → login → complete → token → userinfo.
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_interactive_pkce_round_trip() {
     if !live_available() {
         eprintln!("SKIP live_interactive_pkce: issuer host unreachable");

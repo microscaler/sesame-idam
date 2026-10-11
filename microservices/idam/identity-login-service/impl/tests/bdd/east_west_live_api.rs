@@ -67,6 +67,7 @@ fn http_client() -> reqwest::blocking::Client {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_ew_password_login_issues_tokens() {
     if !ew_available() {
         eprintln!(
@@ -94,6 +95,7 @@ fn live_ew_password_login_issues_tokens() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_ew_platform_get_requires_platform_key() {
     if !ew_available() {
         eprintln!("SKIP live_ew_platform_auth: {} unreachable", ew_base());
@@ -139,6 +141,7 @@ fn live_ew_platform_get_requires_platform_key() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_ew_token_unsupported_grant_fails_closed() {
     if !ew_available() {
         eprintln!("SKIP live_ew_token_grant: {} unreachable", ew_base());
@@ -163,6 +166,7 @@ fn live_ew_token_unsupported_grant_fails_closed() {
 }
 
 #[test]
+#[ignore = "live: needs the running dev stack; just test-live"]
 fn live_ew_client_credentials_without_secret_fails_closed() {
     if !ew_available() {
         eprintln!("SKIP live_ew_cc: {} unreachable", ew_base());
