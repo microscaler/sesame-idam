@@ -16,14 +16,14 @@ use crate::models::refresh_token::{RefreshToken, REFRESH_TOKEN_TTL};
 const DEFAULT_ACCESS_TTL_SECS: i64 = 300;
 
 /// Process-wide signer — same key-source configuration as login-service
-/// (shared keyset file when `KEY_SOURCE=file`, else env pair, else dev key).
+/// (shared keyset file when `KEY_SOURCE=file`, else env pair, else a development-only key).
 pub static SIGNER: LazyLock<Ed25519Signer> = LazyLock::new(|| {
     Ed25519Signer::from_configured()
         .expect("Failed to initialize JWT signer — invalid signing key material")
 });
 
 fn issuer() -> String {
-    std::env::var("SESAME_JWT_ISSUER").unwrap_or_else(|_| "https://idam.example.com".to_string())
+    sesame_common::deployment::issuer()
 }
 
 fn access_ttl_secs() -> i64 {

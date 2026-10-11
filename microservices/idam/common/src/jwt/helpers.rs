@@ -168,8 +168,8 @@ pub fn verify_entitlements_hash(
 // Issuer / audience expectations (Gate A6: config, not code)
 // ===========================================================================
 
-/// Compiled-in DEFAULT issuer allow-list. Overridden per environment via
-/// `JWT_ALLOWED_ISSUERS` (comma-separated) — see [`allowed_issuers`].
+/// Development and test issuer allow-list, used only when neither `JWT_ALLOWED_ISSUERS` nor
+/// `SESAME_JWT_ISSUER` is set — see [`allowed_issuers`].
 pub const ALLOWED_ISSUERS: &[&str] = &[
     "https://sesame-idam.example.com",
     "https://idam.example.com",
@@ -205,10 +205,16 @@ fn env_list(name: &str, defaults: &[&str]) -> Vec<String> {
 }
 
 /// Effective issuer allow-list: `JWT_ALLOWED_ISSUERS` env (comma-separated)
-/// when set, else [`ALLOWED_ISSUERS`]. Read once per process.
+/// when set, else the deployment's own issuer (`SESAME_JWT_ISSUER`), else
+/// (development and tests only) [`ALLOWED_ISSUERS`]. Read once per process.
 pub fn allowed_issuers() -> &'static [String] {
     static ISSUERS: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
-    ISSUERS.get_or_init(|| env_list("JWT_ALLOWED_ISSUERS", ALLOWED_ISSUERS))
+    ISSUERS.get_or_init(|| match std::env::var(crate::deployment::ISSUER_ENV) {
+        Ok(own) if !own.trim().is_empty() && std::env::var("JWT_ALLOWED_ISSUERS").is_err() => {
+            vec![own.trim().trim_end_matches('/').to_string()]
+        }
+        _ => env_list("JWT_ALLOWED_ISSUERS", ALLOWED_ISSUERS),
+    })
 }
 
 /// Default key of the namespaced authorization claims (`sx`) in an access token.

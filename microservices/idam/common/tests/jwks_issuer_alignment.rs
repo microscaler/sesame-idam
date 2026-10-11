@@ -1,4 +1,5 @@
-//! Gate A6 drift guard: Helm BearerAuth.iss must match chart SESAME_JWT_ISSUER.
+//! Gate A6 drift guard: Helm BearerAuth.iss must match the development SESAME_JWT_ISSUER, and the chart itself
+//! must not default the issuer.
 //!
 //! Login mints tokens with `SESAME_JWT_ISSUER`; BRRTRouter validates Bearer
 //! tokens against `security.jwks.BearerAuth.iss`. These two must agree or every
@@ -25,14 +26,30 @@ fn yaml_string_value(doc: &serde_yaml::Value, path: &[&str]) -> Option<String> {
 #[test]
 fn chart_sesame_jwt_issuer_matches_service_bearer_iss() {
     let root = repo_root();
-    let values: serde_yaml::Value = serde_yaml::from_str(
-        &fs::read_to_string(root.join("helm/sesame-idam-microservice/values.yaml"))
-            .expect("read chart values.yaml"),
-    )
-    .expect("parse chart values.yaml");
+    let read = |rel: &str| -> serde_yaml::Value {
+        serde_yaml::from_str(
+            &fs::read_to_string(root.join(rel)).unwrap_or_else(|e| panic!("read {rel}: {e}")),
+        )
+        .unwrap_or_else(|e| panic!("parse {rel}: {e}"))
+    };
 
-    let issuer = yaml_string_value(&values, &["env", "SESAME_JWT_ISSUER"])
-        .expect("env.SESAME_JWT_ISSUER must be set in chart values.yaml");
+    // The chart has no issuer and no development mode of its own: a deployment names its issuer.
+    let chart = read("helm/sesame-idam-microservice/values.yaml");
+    assert_eq!(
+        yaml_string_value(&chart, &["env", "SESAME_JWT_ISSUER"]).as_deref(),
+        Some(""),
+        "chart values.yaml must not default the issuer"
+    );
+    assert_eq!(
+        chart.get("devMode").and_then(serde_yaml::Value::as_bool),
+        Some(false),
+        "chart values.yaml must default devMode to false"
+    );
+
+    // Development (Tilt) sets the issuer in values/_dev.yaml.
+    let dev = read("helm/sesame-idam-microservice/values/_dev.yaml");
+    let issuer = yaml_string_value(&dev, &["env", "SESAME_JWT_ISSUER"])
+        .expect("env.SESAME_JWT_ISSUER must be set in values/_dev.yaml");
 
     let service_files = [
         "identity-login-service.yaml",
@@ -58,7 +75,7 @@ fn chart_sesame_jwt_issuer_matches_service_bearer_iss() {
 
         assert_eq!(
             iss, issuer,
-            "{name}: BearerAuth.iss ({iss}) must equal chart SESAME_JWT_ISSUER ({issuer})"
+            "{name}: BearerAuth.iss ({iss}) must equal the development SESAME_JWT_ISSUER ({issuer})"
         );
     }
 
@@ -74,6 +91,11 @@ fn chart_sesame_jwt_issuer_matches_service_bearer_iss() {
     .expect("flux common BearerAuth.iss");
     assert_eq!(
         common_iss, issuer,
-        "flux common BearerAuth.iss must equal chart SESAME_JWT_ISSUER"
+        "flux common BearerAuth.iss must equal the development SESAME_JWT_ISSUER"
+    );
+    assert_eq!(
+        yaml_string_value(&common, &["env", "SESAME_JWT_ISSUER"]).as_deref(),
+        Some(issuer.as_str()),
+        "flux common env.SESAME_JWT_ISSUER must equal its BearerAuth.iss"
     );
 }

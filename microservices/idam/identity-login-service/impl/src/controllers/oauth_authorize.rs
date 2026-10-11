@@ -68,8 +68,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> OauthAuthorizeOutcome {
 
     match store_authorization_session(&session) {
         Ok(request_id) => {
-            let hosted_auth = std::env::var("OIDC_HOSTED_AUTH_URL")
-                .unwrap_or_else(|_| "https://auth.sesameidentity.dev.local/authorize".to_string());
+            let hosted_auth = sesame_common::deployment::hosted_auth_url();
             match url::Url::parse(&hosted_auth) {
                 Ok(mut url) => {
                     // Hosted auth needs tenant + client_id to call /auth/login, then

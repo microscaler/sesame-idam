@@ -20,6 +20,7 @@
 // Existing modules
 pub mod config;
 pub mod cors;
+pub mod deployment;
 pub mod domain_verify;
 pub mod dpop;
 pub mod fallback_cache;

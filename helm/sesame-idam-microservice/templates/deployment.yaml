@@ -17,6 +17,20 @@ spec:
   {{- if and (eq .Values.service.name "identity-session-service") (gt (int .Values.deployment.replicas) 1) (not (and .Values.signingKeyset .Values.signingKeyset.enabled)) }}
   {{- fail "identity-session-service with replicas > 1 requires signingKeyset.enabled=true (ADR-006 shared keyset). With in-memory keys, multi-replica serves disagreeing JWKS." }}
   {{- end }}
+  {{- /* Outside development nothing falls back: the deployment names its issuer and URLs and mounts its keys. */}}
+  {{- $issuing := has .Values.service.name (list "identity-login-service" "identity-session-service") }}
+  {{- /* The placeholder name is a bare render (the pipeline's chart check), not a release. */}}
+  {{- if and (not .Values.devMode) (ne .Values.service.name "sesame-idam-microservice") }}
+  {{- $_ := required "env.SESAME_JWT_ISSUER is required (https, the deployment's own issuer); devMode only in development" .Values.env.SESAME_JWT_ISSUER }}
+  {{- if $issuing }}
+  {{- $_ := required "env.SESAME_AUTH_PUBLIC_URL is required" .Values.env.SESAME_AUTH_PUBLIC_URL }}
+  {{- $_ := required "env.SESAME_API_PUBLIC_URL is required" .Values.env.SESAME_API_PUBLIC_URL }}
+  {{- if not (and .Values.signingKeyset .Values.signingKeyset.enabled) }}
+  {{- fail (printf "%s signs or publishes tokens: signingKeyset.enabled=true is required outside devMode (ADR-006)" .Values.service.name) }}
+  {{- end }}
+  {{- $_ := required "idTokenKeys.configMap is required outside devMode (ADR-015, RS256 ID tokens)" .Values.idTokenKeys.configMap }}
+  {{- end }}
+  {{- end }}
   replicas: {{ .Values.deployment.replicas }}
   selector:
     matchLabels:
@@ -111,9 +125,11 @@ spec:
             - name: AUTHZ_CORE_URL
               value: {{ .Values.app.config.authzCoreUrl | quote }}
             {{- end }}
-            # ── Shared JWT signing key (K8s Secret; login signs, session
-            #    publishes the public half in JWKS). Optional: without it,
-            #    each service falls back to an ephemeral dev key.
+            {{- if .Values.devMode }}
+            - name: SESAME_DEV_MODE
+              value: "1"
+            # ── Legacy single signing key pair (development only; deployments use the keyset below). Optional:
+            #    without it, development falls back to an ephemeral key.
             - name: SESAME_JWT_SIGNING_KEY_PKCS8_B64
               valueFrom:
                 secretKeyRef:
@@ -126,6 +142,12 @@ spec:
                   name: sesame-idam-jwt-signing
                   key: kid
                   optional: true
+            {{- end }}
+            {{- if .Values.idTokenKeys.configMap }}
+            # ── ADR-015 ID-token keys (RS256): configuration naming the HSM key versions.
+            - name: SESAME_ID_TOKEN_KEYS
+              value: "/etc/sesame/id-token/{{ .Values.idTokenKeys.key }}"
+            {{- end }}
             {{- if and .Values.signingKeyset .Values.signingKeyset.enabled }}
             # ── ADR-006 step 1: shared signing KEYSET (SOPS-delivered Secret).
             #    All replicas load the same keys with deterministic RFC 7638
@@ -247,6 +269,11 @@ spec:
               mountPath: /etc/sesame/keys
               readOnly: true
             {{- end }}
+            {{- if .Values.idTokenKeys.configMap }}
+            - name: id-token-keys
+              mountPath: /etc/sesame/id-token
+              readOnly: true
+            {{- end }}
             - name: logs
               mountPath: /app/logs
             - name: data
@@ -261,6 +288,14 @@ spec:
         - name: signing-keyset
           secret:
             secretName: {{ (default "sesame-idam-signing-keyset" .Values.signingKeyset.secretName) }}
+        {{- end }}
+        {{- if .Values.idTokenKeys.configMap }}
+        - name: id-token-keys
+          configMap:
+            name: {{ .Values.idTokenKeys.configMap | quote }}
+            items:
+              - key: {{ .Values.idTokenKeys.key | quote }}
+                path: {{ .Values.idTokenKeys.key | quote }}
         {{- end }}
         - name: logs
           emptyDir: {}

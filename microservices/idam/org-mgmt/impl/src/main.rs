@@ -105,6 +105,8 @@ fn main() -> std::io::Result<()> {
     }
 
     let args = Args::parse();
+    // Deployment settings (issuer, public URLs, signing keys) or no start; SESAME_DEV_MODE=1 in development.
+    sesame_common::deployment::require_or_exit("org-mgmt", sesame_common::deployment::Requirements::VALIDATOR);
 
     // Configure coroutine stack size from environment.
     let runtime_config = RuntimeConfig::from_env();

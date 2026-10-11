@@ -761,8 +761,7 @@ fn build_access_token(
     payload.insert("sub".into(), serde_json::json!(subject.sub));
     payload.insert(
         "iss".into(),
-        serde_json::json!(std::env::var("SESAME_JWT_ISSUER")
-            .unwrap_or_else(|_| "https://idam.example.com".to_string())),
+        serde_json::json!(sesame_common::deployment::issuer()),
     );
     payload.insert("iat".into(), serde_json::json!(now));
     payload.insert("exp".into(), serde_json::json!(now + (ttl as i64)));
@@ -851,8 +850,7 @@ fn build_refresh_token(
 ) -> Result<String, ErrorResponse> {
     let payload = serde_json::json!({
         "sub": subject.sub,
-        "iss": std::env::var("SESAME_JWT_ISSUER")
-            .unwrap_or_else(|_| "https://idam.example.com".to_string()),
+        "iss": sesame_common::deployment::issuer(),
         "iat": now,
         "exp": now + (30 * 24 * 3600), // 30 days
         "jti": jti,
@@ -1122,8 +1120,7 @@ fn handle_client_credentials(req: &Request) -> Result<Response, ErrorResponse> {
     let now = chrono::Utc::now().timestamp();
     let jti = uuid::Uuid::new_v4().to_string();
     let payload = serde_json::json!({
-        "iss": std::env::var("SESAME_JWT_ISSUER")
-            .unwrap_or_else(|_| "https://idam.example.com".to_string()),
+        "iss": sesame_common::deployment::issuer(),
         "sub": format!("client:{}", key.id),
         "client_id": key.name,
         "tenant_id": key.tenant_id,

@@ -493,7 +493,16 @@ impl KeyManager {
                 tracing::info!(kid = %key.kid, "KeyManager bootstrapped from shared signing key env");
                 key
             }
-            None => JwtSigningKey::generate(None)?,
+            None if sesame_common::jwt::ephemeral_key_allowed() => {
+                tracing::warn!("no shared signing key configured: ephemeral development key");
+                JwtSigningKey::generate(None)?
+            }
+            None => {
+                return Err(KeyError::InvalidKey(
+                    "no signing key configured (shared keyset or key pair); an ephemeral key needs SESAME_DEV_MODE=1"
+                        .to_string(),
+                ))
+            }
         };
         Ok(Self {
             current_key: Some(current_key),

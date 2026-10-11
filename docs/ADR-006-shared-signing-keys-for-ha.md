@@ -93,6 +93,12 @@ verifies while the new one phases in.
 today's zero-dependency in-memory behavior; shared-k8s and production set
 `file` with the mounted keyset. One branch in `KeyManager::bootstrap`.
 
+**Amendment (2026-10-11): the ephemeral key is development only.** A release build signs with a key it generated
+itself only when `SESAME_DEV_MODE=1` (`sesame_common::jwt::ephemeral_key_allowed`), and identity-login-service and
+identity-session-service refuse to start without the keyset (`sesame_common::deployment::check_startup`). The chart
+sets `SESAME_DEV_MODE` only with `devMode: true` (`values/_dev.yaml`, the dev profile); outside it the chart fails to
+render for these two services unless `signingKeyset.enabled=true`.
+
 ## Consequences
 
 - (+) Safe horizontal scaling of identity-session-service.

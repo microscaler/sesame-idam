@@ -459,6 +459,7 @@ echo "Published $DEV_REF for Flux image discovery"
         )
 
         helm_values = [
+            'helm/sesame-idam-microservice/values/_dev.yaml',
             'helm/sesame-idam-microservice/values/%s.yaml' % name,
             'helm/sesame-idam-microservice/values/_http-kubernetes.yaml',
             'helm/sesame-idam-microservice/values/_database-kubernetes.yaml',

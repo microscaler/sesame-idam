@@ -43,6 +43,14 @@ pub struct Ed25519Signer {
     pkcs8_bytes: Vec<u8>,
 }
 
+/// Whether a process may sign with a key it generated itself: in development (`SESAME_DEV_MODE=1`) and in debug
+/// builds (unit and BDD tests). Release images without development mode refuse, so a deployment that lost its
+/// keyset fails at start-up instead of issuing tokens nobody can verify.
+#[must_use]
+pub fn ephemeral_key_allowed() -> bool {
+    crate::deployment::dev_mode() || cfg!(debug_assertions)
+}
+
 impl Ed25519Signer {
     /// Build a signer from explicit PKCS#8 bytes and a key id.
     ///
@@ -94,6 +102,13 @@ impl Ed25519Signer {
             tracing::info!(kid = %signer.kid, "JWT signer loaded from environment");
             return Ok(signer);
         }
+        if !ephemeral_key_allowed() {
+            return Err(SignerError::InvalidKey(format!(
+                "no signing key configured ({SIGNING_KEY_ENV}/{SIGNING_KID_ENV} or the shared keyset); \
+                 an ephemeral key needs {}=1",
+                crate::deployment::DEV_MODE_ENV
+            )));
+        }
         tracing::warn!(
             "{SIGNING_KEY_ENV}/{SIGNING_KID_ENV} not set — generating ephemeral dev signing key. \
              Consumers validating against the session-service JWKS will reject these tokens."
@@ -109,7 +124,7 @@ impl Ed25519Signer {
     ///    same key and the same kid.
     /// 2. Env pair (`SESAME_JWT_SIGNING_KEY_PKCS8_B64` + kid) — the legacy
     ///    single shared key.
-    /// 3. Ephemeral generated key (single-process dev).
+    /// 3. Ephemeral generated key: development only (see [`ephemeral_key_allowed`]).
     ///
     /// The signer is intentionally STATIC per process: after a keyset
     /// rotation the old key keeps verifying through the overlap window, so

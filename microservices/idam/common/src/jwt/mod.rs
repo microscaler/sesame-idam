@@ -49,7 +49,9 @@ pub use rs256::{
     IdTokenKeys, IdTokenKeysConfig, LazyIdTokenKeys, Rs256Error, RsaPublicJwk, ID_TOKEN_KEYS,
     ID_TOKEN_KEYS_ENV,
 };
-pub use signer::{Ed25519Signer, SignerError, SIGNING_KEY_ENV, SIGNING_KID_ENV};
+pub use signer::{
+    ephemeral_key_allowed, Ed25519Signer, SignerError, SIGNING_KEY_ENV, SIGNING_KID_ENV,
+};
 pub use types::{
     AccessClaims, ActorClaim, EntitlementsSnapshot, JwtError, JwtValidationError, SesameAuthzClaims,
 };

@@ -25,7 +25,7 @@ app:
         # BRRTRouter registers JWKS providers by that key; camelCase twins hide drift.
         BearerAuth:
           jwks_url: http://identity-session-service.sesame-idam.svc.cluster.local:8080/idam/v1/.well-known/jwks.json
-          # Must match env.SESAME_JWT_ISSUER (chart values.yaml). Helm
+          # Must match env.SESAME_JWT_ISSUER (below). Helm
           # configmap template also forces this at render time.
           iss: https://id.sesameidentity.dev.local
           aud: sesame-idam
@@ -55,7 +55,14 @@ app:
     observability:
       otlp_endpoint: "http://otel-collector.observability.svc.cluster.local:4317"
 
+# Development cluster: SESAME_DEV_MODE=1 (development fallbacks allowed). A shared environment sets devMode false and
+# supplies the signing keyset and ID-token keys, or the chart refuses to render.
+devMode: true
+
 env:
+  SESAME_JWT_ISSUER: https://id.sesameidentity.dev.local
+  SESAME_AUTH_PUBLIC_URL: https://auth.sesameidentity.dev.local
+  SESAME_API_PUBLIC_URL: https://api.sesameidentity.dev.local
   RUST_LOG: debug
   RUST_BACKTRACE: "1"
   BRRTR_LOG_FORMAT: json

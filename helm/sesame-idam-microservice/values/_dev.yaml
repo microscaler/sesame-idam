@@ -1,0 +1,8 @@
+# Development only (Tilt). Shared environments never use this file: they set their own issuer and URLs, mount the
+# signing keyset and the ID-token key configuration, and leave devMode false (the chart then requires all of them).
+devMode: true
+
+env:
+  SESAME_JWT_ISSUER: "https://id.sesameidentity.dev.local"
+  SESAME_AUTH_PUBLIC_URL: "https://auth.sesameidentity.dev.local"
+  SESAME_API_PUBLIC_URL: "https://api.sesameidentity.dev.local"

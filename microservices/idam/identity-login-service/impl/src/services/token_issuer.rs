@@ -15,8 +15,7 @@ use uuid::Uuid;
 use crate::jwt::ttl::TtlConfig;
 use crate::models::refresh_token::{RefreshToken, REFRESH_TOKEN_TTL};
 
-/// Process-wide signer. Loads the shared key from env; falls back to an
-/// ephemeral dev key (with a warning) when unconfigured.
+/// Process-wide signer: the shared keyset, else the key pair from env; an ephemeral key only in development.
 pub static SIGNER: LazyLock<Ed25519Signer> = LazyLock::new(|| {
     Ed25519Signer::from_configured()
         .expect("Failed to initialize JWT signer — invalid signing key material")
@@ -26,7 +25,7 @@ pub static SIGNER: LazyLock<Ed25519Signer> = LazyLock::new(|| {
 /// allowed-issuer list (`JWT_ALLOWED_ISSUERS` / defaults) or tokens are
 /// rejected everywhere.
 fn issuer() -> String {
-    std::env::var("SESAME_JWT_ISSUER").unwrap_or_else(|_| "https://idam.example.com".to_string())
+    sesame_common::deployment::issuer()
 }
 
 /// Audiences minted into issued tokens (Gate A6). `JWT_ISSUE_AUDIENCES`

@@ -1,18 +1,15 @@
 //! OIDC discovery document construction.
 
 fn issuer_url() -> String {
-    std::env::var("SESAME_JWT_ISSUER")
-        .unwrap_or_else(|_| "https://id.sesameidentity.dev.local".into())
+    sesame_common::deployment::issuer()
 }
 
 fn auth_base_url() -> String {
-    std::env::var("SESAME_AUTH_PUBLIC_URL")
-        .unwrap_or_else(|_| "https://auth.sesameidentity.dev.local".into())
+    sesame_common::deployment::auth_public_url()
 }
 
 fn api_base_url() -> String {
-    std::env::var("SESAME_API_PUBLIC_URL")
-        .unwrap_or_else(|_| "https://api.sesameidentity.dev.local".into())
+    sesame_common::deployment::api_public_url()
 }
 
 /// Build the `OpenID` Connect discovery document per our `OpenAPI` example.
