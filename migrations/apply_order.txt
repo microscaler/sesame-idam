@@ -47,3 +47,6 @@ identity-login-service/20260724223319_tenant_sms_config.sql
 identity-login-service/20260802031355_relying_party_clients.sql
 identity-login-service/20260802090000_oidc_client_registry_policy.sql
 identity-login-service/20260802190000_oidc_preauth_client_lookup.sql
+org-mgmt/20261011120000_org_domains.sql
+org-mgmt/20261011120001_org_domain_events.sql
+rls/20261011120002_org_domain_claims_rls.sql

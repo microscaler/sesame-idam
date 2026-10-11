@@ -1,6 +1,6 @@
 # Epic 17: Enterprise SSO — SAML and verified organisation domains
 
-> **Status:** In progress (17.1 done 2026-10-10)
+> **Status:** In progress (17.1 done 2026-10-10, 17.2 service done, 17.3 done 2026-10-11)
 > **Program:** Enterprise identity
 > **Decisions:** [ADR-014](../../ADR-014-saml-signature-verification.md) (samael and libxmlsec1, isolated verifier),
 > [ADR-007](../../ADR-007-tenant-domain-verification.md) as amended 2026-10-10 (organisation domains) and 2026-10-11
@@ -51,7 +51,7 @@ admin configures all of it without help from the platform.
 |---|---|---|---|---|
 | [17.1](stories/story-17.1.md) | Domain claim primitives: normalisation, eligibility, tokens | A. Domains | — | M ✅ |
 | [17.2](stories/story-17.2.md) | `dns-probe` service and quorum verdict | A. Domains | 17.1 | M |
-| [17.3](stories/story-17.3.md) | Domain claim schema and lifecycle | A. Domains | 17.1 | M |
+| [17.3](stories/story-17.3.md) | Domain claim schema and lifecycle | A. Domains | 17.1 | M ✅ |
 | [17.4](stories/story-17.4.md) | Organisation domain API | A. Domains | 17.2, 17.3 | M |
 | [17.5](stories/story-17.5.md) | Daily re-verification job and notifications | A. Domains | 17.4 | M |
 | [17.6](stories/story-17.6.md) | `saml-verifier` service | B. Verifier | — | L |

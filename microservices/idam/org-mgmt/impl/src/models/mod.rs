@@ -7,6 +7,7 @@ pub mod entity_registry {
 pub mod application;
 pub mod org;
 pub mod org_domain;
+pub mod org_domain_event;
 pub mod org_invite;
 pub mod org_membership;
 pub mod permission;

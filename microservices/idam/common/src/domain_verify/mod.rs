@@ -19,13 +19,14 @@
 //! ```
 //!
 //! [`dns`] encodes and decodes the challenge lookup for `dns-probe`; [`quorum`] decides the verdict from its
-//! answers (story 17.2). Claim state and lifecycle are story 17.3.
+//! answers (story 17.2). [`lifecycle`] decides every state change of a claim (story 17.3).
 
 pub mod dns;
 pub mod doh;
 mod eligibility;
 mod gcp_kms;
 mod keyring;
+pub mod lifecycle;
 mod normalize;
 mod quorum;
 mod token;
@@ -33,6 +34,10 @@ mod token;
 pub use eligibility::{check_eligible, EligibilityPolicy, DEFAULT_CONSUMER_PROVIDERS};
 pub use gcp_kms::{GcpKmsConfig, GcpKmsKeyring};
 pub use keyring::{EnrollKeyring, KeyringConfig, KeyringError, LocalKeyring, MAC_LEN};
+pub use lifecycle::{
+    apply as apply_claim_event, Claim, ClaimEvent, ClaimState, LifecycleError, LifecycleEvent,
+    Withdrawer,
+};
 pub use normalize::{normalize_domain, Domain};
 pub use quorum::{quorum, ProviderAnswer, ProviderOutcome, Verdict, QUORUM};
 pub use token::{

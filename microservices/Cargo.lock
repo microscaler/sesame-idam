@@ -5920,6 +5920,7 @@ dependencies = [
  "sesame_idam_identity_session_service",
  "sesame_idam_org_mgmt_gen",
  "sha2 0.10.9",
+ "thiserror 1.0.69",
  "tikv-jemallocator",
  "tracing",
  "uuid",

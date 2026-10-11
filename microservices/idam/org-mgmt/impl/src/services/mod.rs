@@ -1,3 +1,4 @@
+pub mod domain_claims;
 pub mod org_lifecycle;
 pub mod owner_transfer_otp;
 pub mod password_verify;

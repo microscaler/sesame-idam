@@ -26,6 +26,7 @@ sesame_common = { workspace = true }
 lifeguard = { workspace = true }
 lifeguard-derive = { workspace = true }
 chrono = { workspace = true }
+thiserror = { workspace = true }
 uuid = { workspace = true }
 rust_decimal = { workspace = true }
 
