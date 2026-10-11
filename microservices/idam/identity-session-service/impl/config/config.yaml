@@ -5,10 +5,7 @@
 # serves /.well-known/jwks.json and does not validate inbound Bearer JWTs, so
 # it deliberately has no security.jwks (iss/aud) section. Every consumer
 # service sets its own service-specific aud.
-security:
-  api_keys:
-    ApiKeyHeader:
-      key: "test123"
+security: {}
 
 # JWT token TTL configuration (Story 3.3)
 # All access tokens use 5-minute (300s) TTL after F-010 alignment.

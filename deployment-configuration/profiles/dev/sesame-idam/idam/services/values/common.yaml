@@ -19,9 +19,7 @@ app:
     # Rendered by helm templates/configmap.yaml as /app/config/config.yaml
     # (same toYaml pattern as rerp-microservice).
     security:
-      api_keys:
-        ApiKeyHeader:
-          key: ""
+      # No static API keys: an ApiKeyHeader scheme without a key rejects every request (sesame_common::api_key).
       jwks:
         # Must match OpenAPI components.securitySchemes name exactly (BearerAuth).
         # BRRTRouter registers JWKS providers by that key; camelCase twins hide drift.

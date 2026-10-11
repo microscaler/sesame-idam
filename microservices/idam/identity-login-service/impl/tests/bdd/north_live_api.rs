@@ -139,7 +139,10 @@ fn live_north_platform_is_not_routed_on_api_edge() {
     let client = http_client();
     let resp = client
         .get(format!("{API_BASE}/platform/tenants/{FIXTURE_TENANT}"))
-        .header("X-Platform-Admin-Key", "dev-platform-admin")
+        .header(
+            "X-Platform-Admin-Key",
+            "not-a-real-platform-key-0000000000000",
+        )
         .send()
         .expect("platform probe");
     // Edge must not expose /platform/* (404/405/no-route). Never 200 with tenant body.

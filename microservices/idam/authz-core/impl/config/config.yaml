@@ -11,9 +11,6 @@ security:
       aud: "authz-core"
       leeway_secs: 60
       cache_ttl_secs: 300
-  api_keys:
-    ApiKeyHeader:
-      key: "test123"
 http:
   keep_alive: true
   timeout_secs: 5

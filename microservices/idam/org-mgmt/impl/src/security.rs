@@ -9,29 +9,12 @@ use brrtrouter::security::{JwksBearerProvider, JwtAlgorithm, SecurityProvider, S
 use brrtrouter::server::AppService;
 use brrtrouter::spec::SecurityScheme;
 
+use sesame_common::api_key::register_api_key_scheme;
 use sesame_common::{config::AppConfig, SesameTokenStatusChecker};
 
 use sesame_idam_org_mgmt::tenant_cs_auth::{self, TENANT_CS_HEADER};
 
 /// Static API key provider (dev / M2M).
-struct StaticApiKeyProvider {
-    key: String,
-}
-
-impl SecurityProvider for StaticApiKeyProvider {
-    fn validate(&self, scheme: &SecurityScheme, _scopes: &[String], req: &SecurityRequest) -> bool {
-        match scheme {
-            SecurityScheme::ApiKey { name, location, .. } => match location.as_str() {
-                "header" => req.get_header(name).is_some_and(|v| v == self.key),
-                "query" => req.get_query(name).is_some_and(|v| v == self.key),
-                "cookie" => req.get_cookie(name).is_some_and(|v| v == self.key),
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-}
-
 /// Tenant-bound CS key: `X-Tenant-CS-Key` must match `SESAME_TENANT_CS_KEYS[X-Tenant-ID]`.
 struct TenantCsKeyProvider {
     keys: HashMap<String, String>,
@@ -99,32 +82,12 @@ pub fn init_security(
                 }
             }
             SecurityScheme::ApiKey { .. } => {
-                if let Some(cfgs) = sec_cfg.and_then(|s| s.api_keys.as_ref()) {
-                    if let Some(cfg) = cfgs.get(&scheme_name) {
-                        if let Some(key) = cfg.key.clone() {
-                            println!(
-                                "[auth] register StaticApiKeyProvider scheme={} key_len={}",
-                                scheme_name,
-                                key.len()
-                            );
-                            service.register_security_provider(
-                                &scheme_name,
-                                Arc::new(StaticApiKeyProvider { key }),
-                            );
-                            continue;
-                        }
-                    }
-                }
-                let fallback = std::env::var("BRRTR_API_KEY").unwrap_or_else(|_| "test123".into());
-                println!(
-                    "[auth] register StaticApiKeyProvider scheme={} from=fallback key_len={}",
-                    scheme_name,
-                    fallback.len()
-                );
-                service.register_security_provider(
-                    &scheme_name,
-                    Arc::new(StaticApiKeyProvider { key: fallback }),
-                );
+                // Keys only from config or the environment, never a built-in fallback.
+                let configured = sec_cfg
+                    .and_then(|s| s.api_keys.as_ref())
+                    .and_then(|cfgs| cfgs.get(&scheme_name))
+                    .and_then(|cfg| cfg.key.clone());
+                register_api_key_scheme(service, &scheme_name, configured.as_deref())?;
             }
             SecurityScheme::Http {
                 scheme: http_scheme,

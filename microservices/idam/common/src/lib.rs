@@ -33,6 +33,7 @@ pub mod oidc_client;
 pub mod smtp;
 
 // Consolidated sibling crate modules
+pub mod api_key;
 pub mod audit;
 pub mod entitlement_cache;
 pub mod jwt_common_path;

@@ -16,7 +16,12 @@ use crate::common::{FIXTURE_TENANT, FIXTURE_WEB_CLIENT};
 
 const DEMO_EMAIL: &str = "owner@acme.example";
 const DEMO_PASSWORD: &str = "SecureP@ss123!";
-const PLATFORM_KEY: &str = "dev-platform-admin";
+/// The deployment's platform operator key, from the environment only (no development default exists).
+fn platform_key() -> Option<String> {
+    std::env::var("SESAME_PLATFORM_ADMIN_KEY")
+        .ok()
+        .filter(|k| !k.trim().is_empty())
+}
 
 fn ew_base() -> String {
     std::env::var("SESAME_EW_LOGIN_BASE")
@@ -117,9 +122,13 @@ fn live_ew_platform_get_requires_platform_key() {
 
     // Valid key reaches the handler (auth layer passed). Response-schema drift
     // may still yield 500 — assert we are past 401/403.
+    let Some(key) = platform_key() else {
+        eprintln!("SKIP valid platform key check: SESAME_PLATFORM_ADMIN_KEY unset");
+        return;
+    };
     let ok = client
         .get(&url)
-        .header("X-Platform-Admin-Key", PLATFORM_KEY)
+        .header("X-Platform-Admin-Key", key)
         .send()
         .expect("platform valid key");
     assert!(

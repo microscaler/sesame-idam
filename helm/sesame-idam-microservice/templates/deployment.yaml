@@ -136,6 +136,14 @@ spec:
             - name: SESAME_SIGNING_KEYSET_FILE
               value: "/etc/sesame/keys/signing-keyset.json"
             {{- end }}
+            {{- if .Values.platformAdminKey.secretName }}
+            # ── Platform operator key (PlatformServiceAuth): from a Secret only, never a default.
+            - name: SESAME_PLATFORM_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.platformAdminKey.secretName | quote }}
+                  key: {{ .Values.platformAdminKey.key | quote }}
+            {{- end }}
             # ── PLATFORM Twilio (ADR-009 Tier 0) ──
             # Platform-billed purposes ONLY (tenant onboarding, environment
             # registration, tenant-owner recovery, operator MFA). Tenant

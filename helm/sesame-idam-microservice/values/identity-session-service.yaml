@@ -37,9 +37,6 @@ app:
           # Gate A6: the session service consumes JWTs on its ADMIN routes
           # (jwks revoke) — its own audience, minted into issued tokens.
           aud: "identity-session"
-      api_keys:
-        ApiKeyHeader:
-          key: "test123"
     http:
       keep_alive: true
       timeout_secs: 5

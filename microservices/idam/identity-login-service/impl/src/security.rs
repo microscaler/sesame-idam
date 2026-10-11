@@ -5,39 +5,19 @@
 /// do not fail with "Security provider not found" on protected routes.
 use std::sync::Arc;
 
-use brrtrouter::security::{JwksBearerProvider, JwtAlgorithm, SecurityProvider, SecurityRequest};
+use brrtrouter::security::{JwksBearerProvider, JwtAlgorithm};
 use brrtrouter::server::AppService;
 use brrtrouter::spec::SecurityScheme;
 
+use sesame_common::api_key::register_api_key_scheme;
 use sesame_common::{config::AppConfig, SesameTokenStatusChecker};
-
-/// Static API key provider (dev / M2M).
-struct StaticApiKeyProvider {
-    key: String,
-}
-
-impl SecurityProvider for StaticApiKeyProvider {
-    fn validate(&self, scheme: &SecurityScheme, _scopes: &[String], req: &SecurityRequest) -> bool {
-        match scheme {
-            SecurityScheme::ApiKey { name, location, .. } => match location.as_str() {
-                "header" => req.get_header(name).is_some_and(|v| v == self.key),
-                "query" => req.get_query(name).is_some_and(|v| v == self.key),
-                "cookie" => req.get_cookie(name).is_some_and(|v| v == self.key),
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-}
 
 /// Initialize security providers from the application configuration.
 ///
 /// # Errors
 ///
-/// Returns an error string if provider registration fails (currently always
-/// succeeds — missing config entries skip registration).
-// Result kept for a uniform init interface across services (some fail).
-#[allow(clippy::unnecessary_wraps)]
+/// Returns an error string when an API key is empty, short or a development value, or the token-status checker
+/// cannot be built.
 pub fn init_security(
     service: &mut AppService,
     app_config: &AppConfig,
@@ -48,48 +28,12 @@ pub fn init_security(
     for (scheme_name, scheme) in schemes {
         match scheme {
             SecurityScheme::ApiKey { .. } => {
-                if let Some(cfgs) = sec_cfg.and_then(|s| s.api_keys.as_ref()) {
-                    if let Some(cfg) = cfgs.get(&scheme_name) {
-                        if let Some(key) = cfg.key.clone() {
-                            println!(
-                                "[auth] register StaticApiKeyProvider scheme={} key_len={}",
-                                scheme_name,
-                                key.len()
-                            );
-                            service.register_security_provider(
-                                &scheme_name,
-                                Arc::new(StaticApiKeyProvider { key }),
-                            );
-                            continue;
-                        }
-                    }
-                }
-                let fallback = std::env::var("BRRTR_API_KEY").unwrap_or_else(|_| "test123".into());
-                if scheme_name == "PlatformServiceAuth" {
-                    let key = std::env::var("SESAME_PLATFORM_ADMIN_KEY")
-                        .ok()
-                        .filter(|s| !s.trim().is_empty())
-                        .unwrap_or_else(|| "dev-platform-admin".to_string());
-                    println!(
-                        "[auth] register StaticApiKeyProvider scheme={} from=SESAME_PLATFORM_ADMIN_KEY key_len={}",
-                        scheme_name,
-                        key.len()
-                    );
-                    service.register_security_provider(
-                        &scheme_name,
-                        Arc::new(StaticApiKeyProvider { key }),
-                    );
-                    continue;
-                }
-                println!(
-                    "[auth] register StaticApiKeyProvider scheme={} from=fallback key_len={}",
-                    scheme_name,
-                    fallback.len()
-                );
-                service.register_security_provider(
-                    &scheme_name,
-                    Arc::new(StaticApiKeyProvider { key: fallback }),
-                );
+                // ADR-015 hardening: keys only from config or the environment, never a built-in fallback.
+                let configured = sec_cfg
+                    .and_then(|s| s.api_keys.as_ref())
+                    .and_then(|cfgs| cfgs.get(&scheme_name))
+                    .and_then(|cfg| cfg.key.clone());
+                register_api_key_scheme(service, &scheme_name, configured.as_deref())?;
             }
             SecurityScheme::Http { scheme, .. } if scheme.eq_ignore_ascii_case("bearer") => {
                 if let Some(jwks_map) = sec_cfg.and_then(|s| s.jwks.as_ref()) {

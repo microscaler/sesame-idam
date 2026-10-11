@@ -11,9 +11,6 @@ security:
       aud: "identity-user-mgmt"
       leeway_secs: 60
       cache_ttl_secs: 300
-  api_keys:
-    ApiKeyHeader:
-      key: "test123"
 
 # JWT token TTL configuration (Story 3.3)
 # All access tokens use 5-minute (300s) TTL after F-010 alignment.

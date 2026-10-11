@@ -123,6 +123,12 @@ database:
   # password values are not used. Empty: dev (sesame-idam-db-credentials, then the dev password).
   secretName: ""
 
+# Platform operator key (identity-login-service, PlatformServiceAuth on /platform/*). Empty: no key, so every
+# platform request is rejected. The key is at least 32 characters and never in values or git.
+platformAdminKey:
+  secretName: ""
+  key: key
+
 redis:
   # Secret key holding the full REDIS_URL (with password and database). Empty: redis://<host>:<port> from
   # app.config.redis.
