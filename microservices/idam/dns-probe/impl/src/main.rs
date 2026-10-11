@@ -28,8 +28,6 @@ struct Args {
     doc_dir: PathBuf,
     #[arg(long, default_value_t = false)]
     hot_reload: bool,
-    #[arg(long)]
-    test_api_key: Option<String>,
     #[arg(long, default_value = "./config/config.yaml")]
     config: PathBuf,
 }
@@ -49,7 +47,8 @@ fn main() -> io::Result<()> {
             doc_dir: args.doc_dir,
             static_dir: args.static_dir,
             hot_reload: args.hot_reload,
-            test_api_key: args.test_api_key,
+            // No API-key scheme in this spec; never a fallback key.
+            test_api_key: None,
             manifest_dir,
             default_port: 8080,
             service_name: "dns-probe".into(),

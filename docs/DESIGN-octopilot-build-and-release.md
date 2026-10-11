@@ -84,8 +84,8 @@ as secrets; pull requests from forks get no OIDC token and so cannot push or pro
 `seed_order.txt` mixes data every environment needs (platform tenants) with dev and demo data (hauliage demo users,
 roles and organisations). A release must not seed demo users into a real environment. `seed_order.txt` is generated
 (FK-safe order), so the classification lives beside it: `seed_environments.txt` lists the seeds every environment gets;
-everything else is dev-only. The migration image applies the listed seeds, and all of `seed_order.txt` only when
-`SESAME_SEEDS=dev`.
+everything else is dev-only. The migration image contains and applies only the listed seeds; demo seeds never enter it
+(dev applies them with `scripts/setup-db.sh`).
 
 ### 3.5 Secrets
 

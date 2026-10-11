@@ -3,6 +3,18 @@
 devMode: true
 
 env:
+  RUST_LOG: "debug"
+  # Transactional mail → cluster Mailpit.
+  SMTP_HOST: "mailpit.data.svc.cluster.local"
+  SMTP_PORT: "1025"
+  MAIL_FROM: "no-reply@sesame-idam.dev"
+  INVITE_MAGIC_LINK_BASE: "https://loadlinker.dev.microscaler.local/onboarding"
   SESAME_JWT_ISSUER: "https://id.sesameidentity.dev.local"
   SESAME_AUTH_PUBLIC_URL: "https://auth.sesameidentity.dev.local"
   SESAME_API_PUBLIC_URL: "https://api.sesameidentity.dev.local"
+
+app:
+  config:
+    # SMS recorded to a Redis outbox: nothing is spent.
+    sms:
+      provider: "mock"

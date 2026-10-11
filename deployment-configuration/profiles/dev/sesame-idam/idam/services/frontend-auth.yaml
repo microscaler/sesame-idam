@@ -35,6 +35,10 @@ spec:
         namespace: flux-system
       interval: 1m
   values:
+    # Development settings served as /config.json.
+    runtimeConfig:
+      defaultTenant: hauliage
+      defaultClientId: hauliage-web
     service:
       name: sesame-auth
     image:

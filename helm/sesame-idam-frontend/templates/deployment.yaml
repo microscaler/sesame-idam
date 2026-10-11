@@ -17,6 +17,10 @@ spec:
       labels:
         app: {{ .Values.service.name }}
         app.kubernetes.io/part-of: sesame-idam
+      {{- if .Values.runtimeConfig }}
+      annotations:
+        checksum/runtime-config: {{ .Values.runtimeConfig | toJson | sha256sum | trunc 8 | quote }}
+      {{- end }}
     spec:
       containers:
         - name: {{ .Values.service.name }}
@@ -36,3 +40,13 @@ spec:
             periodSeconds: 5
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+          {{- if .Values.runtimeConfig }}
+          volumeMounts:
+            - name: runtime-config
+              mountPath: /etc/sesame-frontend
+              readOnly: true
+      volumes:
+        - name: runtime-config
+          configMap:
+            name: {{ .Values.service.name }}-runtime-config
+          {{- end }}

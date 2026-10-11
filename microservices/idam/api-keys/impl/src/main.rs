@@ -36,10 +36,6 @@ struct Args {
     static_dir: Option<PathBuf>,
     #[arg(long, default_value = "./doc")]
     doc_dir: PathBuf,
-    #[arg(long, default_value_t = false)]
-    hot_reload: bool,
-    #[arg(long)]
-    test_api_key: Option<String>,
     #[arg(long, default_value = "./config/config.yaml")]
     config: PathBuf,
 }

@@ -1,5 +1,5 @@
 import { createSignal, onMount, Show } from 'solid-js';
-import { Button, Card, ConsoleShell, StatusPill, bootstrapSession, createConsoleClient } from '@sesame/shared';
+import { Button, Card, ConsoleShell, StatusPill, bootstrapSession, createConsoleClient, missingSettings, runtimeConfig } from '@sesame/shared';
 import type { Session } from '@sesame/idam-client';
 import { SmsSettings } from './SmsSettings';
 
@@ -15,7 +15,8 @@ import { SmsSettings } from './SmsSettings';
  * audiences. Auth also runs through the hosted surface via
  * @sesame/idam-client.
  */
-export function App() {
+function Console() {
+  const config = runtimeConfig();
   // Hash routing keeps the console a single static bundle — no server-side
   // route config to keep in step with the nav.
   const [route, setRoute] = createSignal(window.location.hash.replace('#', ''));
@@ -32,12 +33,12 @@ export function App() {
       { label: 'SMS & spend', href: '#sms' },
     ].map((item) => ({ ...item, current: item.href.replace('#', '') === route() }));
 
-  const tenantId = import.meta.env.VITE_TENANT_ID ?? 'hauliage';
-  const environment = import.meta.env.VITE_ENVIRONMENT ?? 'dev';
+  const tenantId = config.tenantId ?? '';
+  const environment = config.environment ?? '';
 
   // Dogfood: same hosted surface + same SDK a tenant's own app would use.
   const client = createConsoleClient({
-    authBaseUrl: import.meta.env.VITE_AUTH_BASE_URL ?? 'https://sesame-auth.dev.microscaler.local',
+    authBaseUrl: config.authBaseUrl ?? '',
     tenantId,
   });
   const [session, setSession] = createSignal<Session | null>(null);
@@ -120,4 +121,19 @@ export function App() {
       </Show>
     </ConsoleShell>
   );
+}
+
+/** The console, or the settings this deployment has not provided (`/config.json`). */
+export function App() {
+  const missing = missingSettings(runtimeConfig(), ['authBaseUrl', 'tenantId', 'environment']);
+  if (missing.length > 0) {
+    return (
+      <main class="flex min-h-screen items-center justify-center px-4">
+        <p class="max-w-md text-theme-sm text-gray-600 dark:text-gray-300">
+          This console is not configured: {missing.join(', ')} missing from /config.json.
+        </p>
+      </main>
+    );
+  }
+  return <Console />;
 }

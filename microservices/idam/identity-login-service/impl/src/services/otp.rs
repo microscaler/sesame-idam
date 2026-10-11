@@ -10,14 +10,23 @@
 //! - `OTP_TTL_SECS` (300)            code lifetime
 //! - `OTP_MAX_ATTEMPTS` (5)          verify attempts per issued code
 //! - `MAGIC_LINK_TTL_SECS` (600)     link lifetime
-//! - `MAGIC_LINK_BASE_URL` (`http://localhost:8080/auth/verify-magic`)
+//! - `MAGIC_LINK_BASE_URL` (`<SESAME_AUTH_PUBLIC_URL>/verify-magic`)
 //!   base URL embedded in the emailed link (`?tenant=…&token=…`)
+//! - `PASSWORD_RESET_BASE_URL` (`<SESAME_AUTH_PUBLIC_URL>/reset-password`)
 
 use anyhow::{Context, Result};
 use base64::Engine;
 use rand::Rng;
 use redis::Commands;
 use sha2::{Digest, Sha256};
+
+/// A link base: `name` when set, else the hosted sign-in page `page` on the deployment's auth URL.
+fn link_base(name: &str, page: &str) -> String {
+    match std::env::var(name) {
+        Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
+        _ => format!("{}/{page}", sesame_common::deployment::auth_public_url()),
+    }
+}
 
 fn env_u64(name: &str, default: u64) -> u64 {
     std::env::var(name)
@@ -169,8 +178,7 @@ pub fn create_magic_link(tenant: &str, user_id: &str) -> Result<String> {
     conn.set_ex::<_, _, ()>(magic_key(tenant, &sha256_hex(&token)), user_id, ttl)
         .context("magiclink: store")?;
 
-    let base = std::env::var("MAGIC_LINK_BASE_URL")
-        .unwrap_or_else(|_| "http://localhost:8080/auth/verify-magic".to_string());
+    let base = link_base("MAGIC_LINK_BASE_URL", "verify-magic");
     Ok(format!("{base}?tenant={tenant}&token={token}"))
 }
 
@@ -204,8 +212,7 @@ pub fn create_password_reset(tenant: &str, user_id: &str) -> Result<String> {
 /// Build the clickable reset URL delivered to the user.
 #[must_use]
 pub fn password_reset_url(tenant: &str, token: &str) -> String {
-    let base = std::env::var("PASSWORD_RESET_BASE_URL")
-        .unwrap_or_else(|_| "http://localhost:8080/reset-password".to_string());
+    let base = link_base("PASSWORD_RESET_BASE_URL", "reset-password");
     format!("{base}?tenant={tenant}&token={token}")
 }
 

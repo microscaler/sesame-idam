@@ -9,7 +9,7 @@
 //! a resolved `SmsSender` from `resolve_sms_sender(tenant, environment,
 //! purpose)` rather than env credentials once that lands.
 //!
-//! Provider selection via `SMS_PROVIDER` (default `mock`):
+//! Provider selection via `SMS_PROVIDER` (default `mock` in development, `disabled` elsewhere):
 //! - `twilio` — Twilio Messages API (real, globally available). Env:
 //!   `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and a sender —
 //!   `TWILIO_MESSAGING_SERVICE_SID` (preferred) or `TWILIO_FROM_NUMBER`.
@@ -103,9 +103,14 @@ pub fn purpose_allowed(purpose: SmsPurpose) -> bool {
         .any(|p| p.eq_ignore_ascii_case(purpose.as_str()))
 }
 
-/// Which provider `SMS_PROVIDER` selects.
+/// Which provider `SMS_PROVIDER` selects. Unset: `mock` in development (`SESAME_DEV_MODE=1`), else `disabled`, so a
+/// deployment never silently records codes to an outbox nobody reads.
 fn provider() -> String {
-    std::env::var("SMS_PROVIDER").unwrap_or_else(|_| "mock".to_string())
+    match std::env::var("SMS_PROVIDER") {
+        Ok(v) if !v.trim().is_empty() => v.trim().to_ascii_lowercase(),
+        _ if sesame_common::deployment::dev_mode() => "mock".to_string(),
+        _ => "disabled".to_string(),
+    }
 }
 
 /// Error returned when a purpose is refused by the cost policy — distinct so
@@ -128,8 +133,9 @@ pub fn send_sms(to: &str, body: &str, purpose: SmsPurpose) -> Result<()> {
     }
     match provider().as_str() {
         "twilio" => send_twilio(to, body),
-        "mock" | "" => send_mock(to, body),
-        other => bail!("unknown SMS_PROVIDER '{other}' (expected twilio|mock)"),
+        "mock" => send_mock(to, body),
+        "disabled" => bail!("SMS is disabled (SMS_PROVIDER unset or disabled)"),
+        other => bail!("unknown SMS_PROVIDER '{other}' (expected twilio|mock|disabled)"),
     }
 }
 

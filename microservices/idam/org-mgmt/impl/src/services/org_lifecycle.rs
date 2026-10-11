@@ -268,7 +268,17 @@ pub fn invite_by_email<E: LifeExecutor>(
         .map(|o| o.name)
         .unwrap_or_else(|| "your workspace".to_string());
 
-    let link = crate::services::invite_magic_link_url(&token);
+    let Some(link) = crate::services::invite_magic_link_url(&token) else {
+        tracing::error!(
+            org_id = %org_uuid,
+            invite_id = %invite_id,
+            "org invite persisted but INVITE_MAGIC_LINK_BASE is not set: no email sent"
+        );
+        return Ok(InviteCreated {
+            invite_id,
+            invite_token: token,
+        });
+    };
     let subject = format!("You're invited to join {org_name}");
     let body = format!(
         "You've been invited to join {org_name} as {role}.\n\n\

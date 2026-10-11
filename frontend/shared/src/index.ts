@@ -17,3 +17,5 @@ export { applyTenantTheme } from './theme';
 export type { TenantTheme } from './theme';
 export { createConsoleClient, bootstrapSession } from './session';
 export type { ConsoleAuthConfig } from './session';
+export { loadRuntimeConfig, runtimeConfig, missingSettings } from './runtime-config';
+export type { RuntimeConfig } from './runtime-config';

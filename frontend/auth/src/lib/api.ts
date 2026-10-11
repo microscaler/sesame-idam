@@ -8,7 +8,6 @@
  */
 
 const BASE = import.meta.env.VITE_IDAM_BASE_URL ?? '/idam/v1';
-const DEFAULT_CLIENT_ID = import.meta.env.VITE_DEFAULT_CLIENT_ID ?? 'hauliage-web';
 
 export interface TokenResponse {
   access_token: string;
@@ -67,7 +66,7 @@ export const login = (
   tenantId: string,
   email: string,
   password: string,
-  clientId: string = DEFAULT_CLIENT_ID,
+  clientId: string,
 ) =>
   post<TokenResponse>('/auth/login', tenantId, {
     email,

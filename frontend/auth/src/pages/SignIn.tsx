@@ -8,7 +8,7 @@ type Step = 'identify' | 'password' | 'otp-sent' | 'link-sent';
 export interface SignInProps {
   tenantId: string;
   /** OIDC / login client_id (required by auth_login client registry). */
-  clientId?: string;
+  clientId: string;
   tenantName?: string;
   onAuthenticated: (tokens: TokenResponse) => void;
 }
@@ -111,7 +111,7 @@ export function SignIn(props: SignInProps) {
                 props.tenantId,
                 email(),
                 password(),
-                props.clientId ?? 'hauliage-web',
+                props.clientId,
               );
               props.onAuthenticated(tokens);
             });

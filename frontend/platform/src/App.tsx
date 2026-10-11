@@ -1,5 +1,5 @@
 import { createSignal, onMount, Show } from 'solid-js';
-import { Button, Card, ConsoleShell, StatusPill, bootstrapSession, createConsoleClient } from '@sesame/shared';
+import { Button, Card, ConsoleShell, StatusPill, bootstrapSession, createConsoleClient, missingSettings, runtimeConfig } from '@sesame/shared';
 import type { Session } from '@sesame/idam-client';
 
 /**
@@ -14,7 +14,8 @@ import type { Session } from '@sesame/idam-client';
  * Auth: this console signs in THROUGH the hosted auth surface via
  * @sesame/idam-client — dogfooding the exact path external tenants use.
  */
-export function App() {
+function Console() {
+  const config = runtimeConfig();
   const nav = [
     { label: 'Overview', href: '#', current: true },
     { label: 'Tenants', href: '#tenants' },
@@ -27,8 +28,8 @@ export function App() {
   // Dogfood: this console signs in through the hosted auth surface with the
   // very SDK external tenants use.
   const client = createConsoleClient({
-    authBaseUrl: import.meta.env.VITE_AUTH_BASE_URL ?? 'https://sesame-auth.dev.microscaler.local',
-    tenantId: import.meta.env.VITE_TENANT_ID ?? 'platform',
+    authBaseUrl: config.authBaseUrl ?? '',
+    tenantId: config.tenantId ?? '',
   });
   const [session, setSession] = createSignal<Session | null>(null);
   onMount(async () => setSession(await bootstrapSession(client)));
@@ -94,4 +95,19 @@ export function App() {
       </div>
     </ConsoleShell>
   );
+}
+
+/** The console, or the settings this deployment has not provided (`/config.json`). */
+export function App() {
+  const missing = missingSettings(runtimeConfig(), ['authBaseUrl', 'tenantId']);
+  if (missing.length > 0) {
+    return (
+      <main class="flex min-h-screen items-center justify-center px-4">
+        <p class="max-w-md text-theme-sm text-gray-600 dark:text-gray-300">
+          This console is not configured: {missing.join(', ')} missing from /config.json.
+        </p>
+      </main>
+    );
+  }
+  return <Console />;
 }

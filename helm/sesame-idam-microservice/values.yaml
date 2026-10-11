@@ -29,7 +29,9 @@ app:
       timeout_secs: 5
       max_requests: 50000
     database:
-      host: "postgres.data.svc.cluster.local"
+      # The deployment's database host. Empty: the service refuses to start (development sets it in
+      # values/_database-kubernetes.yaml or the dev profile).
+      host: ""
       port: 5432
       name: "sesame_idam"
       user: "sesame_idam"
@@ -37,17 +39,17 @@ app:
       password: ""
       max_connections: 2
     redis:
-      # Shared platform Redis (namespace data, shared-k8s-cluster)
-      host: "redis.data.svc.cluster.local"
+      # Development: the shared platform Redis (values/_database-kubernetes.yaml). Deployments use redis.urlSecret.
+      host: ""
       port: 6379
       db: 0
       max_connections: 4
     observability:
       otlp_endpoint: ""
-    # SMS (ADR-009). `mock` records to a Redis outbox — nothing is spent.
-    # Set provider=twilio once the platform credentials Secret is populated.
+    # SMS (ADR-009). Empty: disabled (no SMS is sent). `twilio` once the platform credentials Secret is populated;
+    # `mock` (records to a Redis outbox) is for development only.
     sms:
-      provider: "mock"
+      provider: ""
       allowedPurposes: "registration,password_reset,tenant_registration,environment_registration,tenant_owner_recovery,platform_operator"
       platformDailyCeilingCents: 1000
       # Comma-separated tenant slugs allowed to store credentials with Sesame
@@ -77,7 +79,7 @@ healthCheck:
     failureThreshold: 2
 
 env:
-  RUST_LOG: "debug"
+  RUST_LOG: "info"
   RUST_BACKTRACE: "1"
   BRRTR_LOG_FORMAT: "json"
   BRRTR_STACK_SIZE: "0x8000"
@@ -86,11 +88,15 @@ env:
   SESAME_JWT_ISSUER: ""
   SESAME_AUTH_PUBLIC_URL: ""
   SESAME_API_PUBLIC_URL: ""
-  # Transactional mail (OTP, magic links, org invites) → cluster Mailpit
-  SMTP_HOST: "mailpit.data.svc.cluster.local"
-  SMTP_PORT: "1025"
-  MAIL_FROM: "no-reply@sesame-idam.dev"
-  INVITE_MAGIC_LINK_BASE: "https://loadlinker.dev.microscaler.local/onboarding"
+  # Transactional mail (OTP, magic links, org invites). Empty: no mail is sent (development: values/_dev.yaml).
+  SMTP_HOST: ""
+  SMTP_PORT: ""
+  MAIL_FROM: ""
+  # Product onboarding page invite links point at. Empty: invites are stored but not emailed.
+  INVITE_MAGIC_LINK_BASE: ""
+  # Optional overrides; default <SESAME_AUTH_PUBLIC_URL>/verify-magic and /reset-password.
+  MAGIC_LINK_BASE_URL: ""
+  PASSWORD_RESET_BASE_URL: ""
 
 serviceType: ClusterIP
 

@@ -25,3 +25,8 @@ route:
     sectionNameHttps:
       - sesameidentity-https
       - https
+# Development settings served as /config.json.
+runtimeConfig:
+  authBaseUrl: https://auth.sesameidentity.dev.local
+  tenantId: hauliage
+  environment: dev

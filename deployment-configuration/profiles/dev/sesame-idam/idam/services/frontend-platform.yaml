@@ -29,6 +29,10 @@ spec:
         namespace: flux-system
       interval: 1m
   values:
+    # Development settings served as /config.json.
+    runtimeConfig:
+      authBaseUrl: https://auth.sesameidentity.dev.local
+      tenantId: platform
     service:
       name: sesame-portal
     image:

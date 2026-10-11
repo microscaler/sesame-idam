@@ -51,11 +51,7 @@ struct Args {
     #[arg(long, default_value = "./doc")]
     doc_dir: PathBuf,
     /// Enable hot-reload of the `OpenAPI` spec.
-    #[arg(long, default_value_t = false)]
-    hot_reload: bool,
     /// Test API key (for development).
-    #[arg(long)]
-    test_api_key: Option<String>,
     /// Path to the application configuration file.
     #[arg(long, default_value = "./config/config.yaml")]
     config: PathBuf,

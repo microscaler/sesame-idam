@@ -4,7 +4,7 @@
 #
 #   DATABASE_URL_DIRECT  the migration login, straight to the primary (not a transaction pooler: DDL, session settings)
 #   SESAME_SCHEMA        schema (default sesame_idam)
-#   SESAME_SEEDS         env (default): the seeds of seed_environments.txt; dev: every seed of seed_order.txt
+#   (seeds)              the seeds of seed_environments.txt; demo seeds are not in the image (dev: setup-db.sh)
 #   SESAME_RELEASE       recorded in the ledger (the chart sets the image tag)
 #
 # The login acts as the environment's owner group, so everything created here is owned by that group and every
@@ -19,10 +19,12 @@ set -euo pipefail
 
 : "${DATABASE_URL_DIRECT:?DATABASE_URL_DIRECT is required}"
 SCHEMA="${SESAME_SCHEMA:-sesame_idam}"
-SEEDS="${SESAME_SEEDS:-env}"
 WAIT_SECONDS="${SESAME_MIGRATE_WAIT_SECONDS:-300}"
 RELEASE="${SESAME_RELEASE:-unknown}"
-case "$SEEDS" in env|dev) ;; *) echo "SESAME_SEEDS must be env or dev, not $SEEDS" >&2; exit 2 ;; esac
+if [ -n "${SESAME_SEEDS:-}" ] && [ "${SESAME_SEEDS}" != env ]; then
+  echo "SESAME_SEEDS=${SESAME_SEEDS}: this image applies only the seeds every environment gets; demo seeds are dev only (scripts/setup-db.sh)" >&2
+  exit 2
+fi
 [[ "$SCHEMA" =~ ^[a-z_][a-z0-9_]*$ ]] || { echo "SESAME_SCHEMA must be a plain identifier" >&2; exit 2; }
 
 cd /sesame
@@ -38,7 +40,7 @@ done
 ROLE=$(psql_db -c 'select current_user')
 DB=$(psql_db -c 'select current_database()')
 [[ "$ROLE" =~ ^[a-z_][a-z0-9_]*$ ]] || { echo "unexpected role name" >&2; exit 1; }
-echo "applying the schema to database $DB as $ROLE (session user $(psql_db -c 'select session_user')), release $RELEASE, seeds $SEEDS"
+echo "applying the schema to database $DB as $ROLE (session user $(psql_db -c 'select session_user')), release $RELEASE"
 
 psql_db <<SQL
 CREATE SCHEMA IF NOT EXISTS ${SCHEMA};
@@ -71,7 +73,7 @@ SQL
 
 listed() {
   # $1 list file, $2 prefix, $3 strict|lenient: every non-comment line, in order. strict: a missing file fails the
-  # run; lenient (dev seeds, as setup-db.sh): warned and skipped.
+  # run; lenient: warned and skipped.
   local rel
   while IFS= read -r rel || [ -n "$rel" ]; do
     [[ -z "$rel" || "$rel" =~ ^# ]] && continue
@@ -89,13 +91,8 @@ echo "migrations (migrations/apply_order.txt):"
 list=$(listed migrations/apply_order.txt migrations strict)
 for f in $list; do apply "$f"; done
 
-if [ "$SEEDS" = dev ]; then
-  echo "seeds, dev (microservices/idam/seed_order.txt):"
-  list=$(listed microservices/idam/seed_order.txt microservices/idam lenient)
-else
-  echo "seeds, every environment (microservices/idam/seed_environments.txt):"
-  list=$(listed microservices/idam/seed_environments.txt microservices/idam strict)
-fi
+echo "seeds, every environment (microservices/idam/seed_environments.txt):"
+list=$(listed microservices/idam/seed_environments.txt microservices/idam strict)
 for f in $list; do apply "$f"; done
 
 echo "schema applied: $(psql_db -c "select count(*) from ${SCHEMA}.sesame_schema_applied where release = '${RELEASE//\'/}'") file(s), release $RELEASE"

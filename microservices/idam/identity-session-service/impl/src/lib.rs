@@ -9,7 +9,6 @@
 mod audit;
 pub mod auth_context;
 pub mod controllers;
-pub mod jwks_client;
 pub mod jwt;
 pub mod key_manager;
 pub mod middleware;

@@ -1,12 +1,12 @@
 //! Minimal SMTP submission client for transactional mail (OTP, magic links, invites).
 //!
 //! Hand-rolled over `std::net::TcpStream` for the may coroutine runtime (short,
-//! time-boxed blocking). Defaults target in-cluster Mailpit (`data` namespace).
+//! time-boxed blocking).
 //!
 //! Env:
-//! - `SMTP_HOST` (`mailpit.data.svc.cluster.local`)
+//! - `SMTP_HOST`, `MAIL_FROM`: required; in development (`SESAME_DEV_MODE=1`) they default to the in-cluster
+//!   Mailpit (`mailpit.data.svc.cluster.local`) and `no-reply@sesame-idam.dev`. Unset elsewhere, a send fails.
 //! - `SMTP_PORT` (`1025`)
-//! - `MAIL_FROM` (`no-reply@sesame-idam.dev`)
 //! - `SMTP_TIMEOUT_MS` (`5000`)
 
 use std::io::{BufRead, BufReader, Write};
@@ -15,8 +15,16 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 
-fn smtp_host() -> String {
-    std::env::var("SMTP_HOST").unwrap_or_else(|_| "mailpit.data.svc.cluster.local".to_string())
+fn required(name: &str, dev_default: &str) -> Result<String> {
+    match std::env::var(name) {
+        Ok(v) if !v.trim().is_empty() => Ok(v.trim().to_string()),
+        _ if crate::deployment::dev_mode() => Ok(dev_default.to_string()),
+        _ => bail!("{name} is not set: no mail is sent"),
+    }
+}
+
+fn smtp_host() -> Result<String> {
+    required("SMTP_HOST", "mailpit.data.svc.cluster.local")
 }
 
 fn smtp_port() -> u16 {
@@ -26,8 +34,8 @@ fn smtp_port() -> u16 {
         .unwrap_or(1025)
 }
 
-fn mail_from() -> String {
-    std::env::var("MAIL_FROM").unwrap_or_else(|_| "no-reply@sesame-idam.dev".to_string())
+fn mail_from() -> Result<String> {
+    required("MAIL_FROM", "no-reply@sesame-idam.dev")
 }
 
 fn timeout() -> Duration {
@@ -77,7 +85,8 @@ fn command(
 ///
 /// Returns an error on connection failure, timeout, or unexpected SMTP reply.
 pub fn send_email(to: &str, subject: &str, body: &str) -> Result<()> {
-    let addr = format!("{}:{}", smtp_host(), smtp_port());
+    let from = mail_from()?;
+    let addr = format!("{}:{}", smtp_host()?, smtp_port());
     let mut stream = {
         use std::net::ToSocketAddrs;
         let sock = addr
@@ -97,14 +106,14 @@ pub fn send_email(to: &str, subject: &str, body: &str) -> Result<()> {
     command(
         &mut stream,
         &mut reader,
-        &format!("MAIL FROM:<{}>", mail_from()),
+        &format!("MAIL FROM:<{from}>"),
         250,
     )?;
     command(&mut stream, &mut reader, &format!("RCPT TO:<{to}>"), 250)?;
     command(&mut stream, &mut reader, "DATA", 354)?;
 
     let mut message = String::new();
-    message.push_str(&format!("From: Sesame <{}>\r\n", mail_from()));
+    message.push_str(&format!("From: Sesame <{from}>\r\n"));
     message.push_str(&format!("To: <{to}>\r\n"));
     message.push_str(&format!("Subject: {subject}\r\n"));
     message.push_str("MIME-Version: 1.0\r\n");

@@ -30,6 +30,14 @@ spec:
   {{- end }}
   {{- $_ := required "idTokenKeys.configMap is required outside devMode (ADR-015, RS256 ID tokens)" .Values.idTokenKeys.configMap }}
   {{- end }}
+  {{- $_ := required "app.config.database.host is required outside devMode" .Values.app.config.database.host }}
+  {{- $_ := required "database.secretName is required outside devMode (the service's own login)" .Values.database.secretName }}
+  {{- if not (or .Values.redis.urlSecret.name .Values.app.config.redis.host) }}
+  {{- fail "redis.urlSecret.name is required outside devMode" }}
+  {{- end }}
+  {{- if eq (.Values.app.config.sms.provider | default "") "mock" }}
+  {{- fail "app.config.sms.provider=mock is development only" }}
+  {{- end }}
   {{- end }}
   replicas: {{ .Values.deployment.replicas }}
   selector:
@@ -105,9 +113,11 @@ spec:
                   name: sesame-idam-db-credentials
                   key: password
                   optional: true
-            # Dev fallback when the Secret is absent (local Kind only).
+            {{- if .Values.devMode }}
+            # Development fallback when the Secret is absent (local clusters only).
             - name: SESAME_IDAM_DB_PASSWORD
               value: {{ .Values.app.config.database.password | quote }}
+            {{- end }}
             {{- end }}
             # ── Redis (refresh tokens, denylist, version store) ──
             {{- if .Values.redis.urlSecret.name }}
@@ -170,9 +180,9 @@ spec:
             # Platform-billed purposes ONLY (tenant onboarding, environment
             # registration, tenant-owner recovery, operator MFA). Tenant
             # end-user SMS resolves to the tenant's own account — never these.
-            # Optional: absent → SMS_PROVIDER stays mock and nothing is spent.
+            # Unset provider: disabled, nothing is sent or spent (mock only in development).
             - name: SMS_PROVIDER
-              value: {{ .Values.app.config.sms.provider | default "mock" | quote }}
+              value: {{ .Values.app.config.sms.provider | default "disabled" | quote }}
             - name: SMS_ALLOWED_PURPOSES
               value: {{ .Values.app.config.sms.allowedPurposes | default "registration,password_reset,tenant_registration,environment_registration,tenant_owner_recovery,platform_operator" | quote }}
             - name: SMS_PLATFORM_DAILY_CEILING_CENTS
@@ -217,6 +227,13 @@ spec:
             # this is a dogfood escape hatch, not a product feature.
             - name: SMS_ENVELOPE_CUSTODY_TENANTS
               value: {{ .Values.app.config.sms.envelopeCustodyTenants | default "" | quote }}
+            # ── Mail and link settings: passed only when set (empty: no mail, derived links). ──
+            {{- range $name := list "SMTP_HOST" "SMTP_PORT" "MAIL_FROM" "INVITE_MAGIC_LINK_BASE" "MAGIC_LINK_BASE_URL" "PASSWORD_RESET_BASE_URL" }}
+            {{- with (get $.Values.env $name) }}
+            - name: {{ $name }}
+              value: {{ . | quote }}
+            {{- end }}
+            {{- end }}
             {{- if .Values.app.config.observability.otlp_endpoint }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ .Values.app.config.observability.otlp_endpoint | quote }}

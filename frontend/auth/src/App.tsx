@@ -1,5 +1,5 @@
 import { createSignal, onMount, Show } from 'solid-js';
-import { applyTenantTheme } from '@sesame/shared';
+import { applyTenantTheme, runtimeConfig } from '@sesame/shared';
 import { SignIn } from './pages/SignIn';
 import { ResetPassword } from './pages/ResetPassword';
 import { completeOidcAuthorize, mintSessionCode, verifyMagicLink } from './lib/api';
@@ -20,10 +20,9 @@ import type { TokenResponse } from './lib/api';
 export function App() {
   const params = new URLSearchParams(window.location.search);
   const requestId = params.get('request_id') ?? '';
-  const tenantId =
-    params.get('tenant') ?? import.meta.env.VITE_DEFAULT_TENANT ?? 'hauliage';
-  const clientId =
-    params.get('client_id') ?? import.meta.env.VITE_DEFAULT_CLIENT_ID ?? 'hauliage-web';
+  // The request names its tenant and client; a deployment may set defaults in /config.json. Never a built-in one.
+  const tenantId = params.get('tenant') ?? runtimeConfig().defaultTenant ?? '';
+  const clientId = params.get('client_id') ?? runtimeConfig().defaultClientId ?? '';
   const redirectUri = params.get('redirect_uri') ?? '';
   const state = params.get('state') ?? '';
   const magicToken = params.get('token');
@@ -32,9 +31,17 @@ export function App() {
   const isOidc = requestId.length > 0;
 
   const [status, setStatus] = createSignal<'ready' | 'verifying' | 'error'>(
-    path.includes('verify-magic') && magicToken ? 'verifying' : 'ready',
+    !tenantId || (!isReset && !clientId)
+      ? 'error'
+      : path.includes('verify-magic') && magicToken
+        ? 'verifying'
+        : 'ready',
   );
-  const [error, setError] = createSignal('');
+  const [error, setError] = createSignal(
+    !tenantId || (!isReset && !clientId)
+      ? 'This sign-in link is incomplete: it does not name the application. Start again from the application.'
+      : '',
+  );
 
   onMount(async () => {
     applyTenantTheme({ displayName: tenantId });

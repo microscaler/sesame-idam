@@ -15,6 +15,11 @@ deployment:
   replicas: 1
   namespace: sesame-idam
 
+# Deployment settings the app reads at start-up as /config.json (frontend/shared/src/runtime-config.ts). Empty: no
+# file, and a console shows which settings are missing instead of guessing a tenant. Keys: authBaseUrl, tenantId,
+# environment (consoles); defaultTenant, defaultClientId (hosted sign-in, optional).
+runtimeConfig: {}
+
 # Gateway API exposure (the cluster's shared edge Gateway).
 route:
   enabled: true

@@ -1,0 +1,13 @@
+{{- if .Values.runtimeConfig }}
+# Served by the image's nginx as /config.json (docker/frontend/nginx.conf).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.service.name }}-runtime-config
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+    app: {{ .Values.service.name }}
+    app.kubernetes.io/part-of: sesame-idam
+data:
+  config.json: {{ .Values.runtimeConfig | toJson | quote }}
+{{- end }}
