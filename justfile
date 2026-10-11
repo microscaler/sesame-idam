@@ -30,6 +30,8 @@ spec_identity_user_mgmt := "openapi/idam/identity-user-mgmt-service/openapi.yaml
 spec_authz_core         := "openapi/idam/authz-core/openapi.yaml"
 spec_api_keys           := "openapi/idam/api-keys/openapi.yaml"
 spec_org_mgmt           := "openapi/idam/org-mgmt/openapi.yaml"
+spec_dns_probe          := "openapi/idam/dns-probe/openapi.yaml"
+spec_saml_verifier      := "openapi/idam/saml-verifier/openapi.yaml"
 
 # Output dirs for brrtrouter-gen (gen crates live under each microservice)
 out_identity_login      := "microservices/idam/identity-login-service/gen"
@@ -38,6 +40,8 @@ out_identity_user_mgmt  := "microservices/idam/identity-user-mgmt-service/gen"
 out_authz_core          := "microservices/idam/authz-core/gen"
 out_api_keys            := "microservices/idam/api-keys/gen"
 out_org_mgmt            := "microservices/idam/org-mgmt/gen"
+out_dns_probe           := "microservices/idam/dns-probe/gen"
+out_saml_verifier       := "microservices/saml-verifier/gen"
 # Default recipe to display help
 default:
   @just --list --unsorted
@@ -521,7 +525,37 @@ lint-common:
 # =============================================================================
 
 # Regenerate all 6 services from OpenAPI
-gen: gen-identity-login gen-identity-session gen-identity-user-mgmt gen-authz-core gen-api-keys gen-org-mgmt
+gen: gen-identity-login gen-identity-session gen-identity-user-mgmt gen-authz-core gen-api-keys gen-org-mgmt gen-dns-probe gen-saml-verifier
+
+# Regenerate dns-probe (DoH lookups for domain verification) gen crate
+gen-dns-probe:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR or clone BRRTRouter as a sibling."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_dns_probe}}" \
+    --output "$(cd - >/dev/null && pwd)/{{out_dns_probe}}" \
+    --package-name sesame_idam_dns_probe_gen \
+    --force
+  echo "✅ Generated {{out_dns_probe}}"
+
+# Regenerate saml-verifier gen crate (its own workspace, ADR-014 §4a)
+gen-saml-verifier:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if [ ! -d "{{brrtrouter_dir}}" ]; then
+    echo "❌ BRRTRouter not found at {{brrtrouter_dir}}. Set BRRTRouter_DIR or clone BRRTRouter as a sibling."
+    exit 1
+  fi
+  cd "{{brrtrouter_dir}}" && cargo run --bin brrtrouter-gen -- generate \
+    --spec "$(cd - >/dev/null && pwd)/{{spec_saml_verifier}}" \
+    --output "$(cd - >/dev/null && pwd)/{{out_saml_verifier}}" \
+    --package-name sesame_saml_verifier_gen \
+    --force
+  echo "✅ Generated {{out_saml_verifier}}"
 
 # Regenerate identity-login-service (login, register, social, OTP) gen crate
 gen-identity-login:

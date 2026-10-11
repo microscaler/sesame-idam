@@ -6,3 +6,4 @@ sesame_idam_identity_user_mgmt_service ghcr.io/microscaler/sesame-idam-identity-
 sesame_idam_api_keys ghcr.io/microscaler/sesame-idam-api-keys
 sesame_idam_authz_core ghcr.io/microscaler/sesame-idam-authz-core
 sesame_idam_org_mgmt ghcr.io/microscaler/sesame-idam-org-mgmt
+sesame_idam_dns_probe ghcr.io/microscaler/sesame-idam-dns-probe

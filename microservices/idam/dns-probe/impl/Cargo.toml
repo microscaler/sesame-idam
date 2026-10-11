@@ -1,0 +1,25 @@
+[package]
+name = "sesame_idam_dns_probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "sesame_idam_dns_probe"
+path = "src/main.rs"
+
+[features]
+default = []
+jemalloc = ["tikv-jemallocator"]
+
+[dependencies]
+sesame_common = { workspace = true }
+sesame_idam_dns_probe_gen = { path = "../gen" }
+brrtrouter = { workspace = true }
+brrtrouter_macros = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tikv-jemallocator = { workspace = true, optional = true }
+clap = { workspace = true }
+may = { workspace = true }
+tracing = "0.1"

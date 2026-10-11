@@ -1,0 +1,14 @@
+# dns-probe: internal only (NetworkPolicy admits org-mgmt and the re-verification job; egress only to the DoH
+# providers). No security schemes: it holds nothing and answers only _sesame-challenge names (ADR-007 amendment
+# of 2026-10-11). Providers: SESAME_DNS_PROBE_PROVIDERS (label=https://…/dns-query, comma-separated).
+http:
+  keep_alive: true
+  timeout_secs: 15
+  max_requests: 5000
+cors:
+  origins: []
+  allowed_headers:
+    - "Content-Type"
+  allowed_methods:
+    - "POST"
+  allow_credentials: false

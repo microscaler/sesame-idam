@@ -22,6 +22,7 @@
 //! answers (story 17.2). Claim state and lifecycle are story 17.3.
 
 pub mod dns;
+pub mod doh;
 mod eligibility;
 mod gcp_kms;
 mod keyring;

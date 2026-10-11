@@ -1,0 +1,126 @@
+openapi: 3.1.0
+info:
+  title: DNS Probe
+  version: 1.0.0
+  description: 'DNS-over-HTTPS lookups for domain verification (ADR-007 amendment of 2026-10-11, Epic 17 story 17.2).
+
+    Asks each configured DoH provider (two or more operators) for the TXT records at a `_sesame-challenge` name and
+    reports every answer as it came. Holds no secrets, no database or Redis access; never decides: the caller applies
+    the token and quorum rules. Internal only: the NetworkPolicy admits org-mgmt and the domain re-verification job,
+    and its only egress is the providers'' addresses on 443.
+
+    '
+  contact:
+    name: Platform / Security
+servers:
+- url: http://dns-probe:8080/dns-probe/v1
+  description: In-cluster (sesame-idam namespace, ClusterIP :8080)
+tags:
+- name: Lookup
+  description: Challenge record lookups
+security: []
+paths:
+  /lookup:
+    post:
+      tags:
+      - Lookup
+      summary: Look up the TXT records at a challenge name through every configured provider
+      operationId: lookup_challenge
+      x-public-reason: "Internal only: reachable solely from org-mgmt and the re-verification job by NetworkPolicy; answers only _sesame-challenge names of claimable domains and holds no secrets"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LookupRequest'
+      responses:
+        '200':
+          description: Every provider's answer, in configuration order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LookupResponse'
+        '400':
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refusal'
+        '422':
+          description: Not a challenge name of a claimable domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refusal'
+components:
+  schemas:
+    LookupRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          maxLength: 300
+          description: '`_sesame-challenge.<domain>`'
+    LookupResponse:
+      type: object
+      required:
+      - name
+      - answers
+      properties:
+        name:
+          type: string
+          description: The normalised name that was looked up
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProviderAnswer'
+    ProviderAnswer:
+      type: object
+      required:
+      - provider
+      - status
+      properties:
+        provider:
+          type: string
+          description: Operator label (cloudflare, google, quad9)
+        status:
+          type: string
+          enum:
+          - answered
+          - failed
+        error:
+          type: string
+          description: 'When failed: unreachable, http, malformed, bad_name or internal'
+        rcode:
+          type: integer
+        ad:
+          type: boolean
+        signed:
+          type: boolean
+        records:
+          type: array
+          items:
+            type: string
+        cname_chain:
+          type: array
+          items:
+            type: string
+        ttl:
+          type: integer
+          nullable: true
+        negative_ttl:
+          type: integer
+          nullable: true
+        ede:
+          type: integer
+          nullable: true
+    Refusal:
+      type: object
+      required:
+      - reason
+      properties:
+        reason:
+          type: string

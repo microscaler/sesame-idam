@@ -17,11 +17,17 @@ build:
         env:
           - BP_RUST_BRRTROUTER=1
           - BP_RUST_WORKSPACE_DIR=microservices
-          - BP_RUST_PACKAGES=sesame_idam_identity_login_service,sesame_idam_identity_session_service,sesame_idam_identity_user_mgmt_service,sesame_idam_api_keys,sesame_idam_authz_core,sesame_idam_org_mgmt
+          - BP_RUST_PACKAGES=sesame_idam_identity_login_service,sesame_idam_identity_session_service,sesame_idam_identity_user_mgmt_service,sesame_idam_api_keys,sesame_idam_authz_core,sesame_idam_org_mgmt,sesame_idam_dns_probe
           # The buildpack ships only bin/ unless told otherwise. Each service is started with its OpenAPI spec, docs
           # and static site under /workspace/microservices/idam/<service>/gen (chart workload.args) and its config
           # mounted at /app/config: keep gen/doc and gen/static_site, and impl/config as the defaults.
-          - BP_RUST_KEEP=microservices/idam/identity-login-service/gen/doc,microservices/idam/identity-login-service/gen/static_site,microservices/idam/identity-login-service/impl/config,microservices/idam/identity-session-service/gen/doc,microservices/idam/identity-session-service/gen/static_site,microservices/idam/identity-session-service/impl/config,microservices/idam/identity-user-mgmt-service/gen/doc,microservices/idam/identity-user-mgmt-service/gen/static_site,microservices/idam/identity-user-mgmt-service/impl/config,microservices/idam/api-keys/gen/doc,microservices/idam/api-keys/gen/static_site,microservices/idam/api-keys/impl/config,microservices/idam/authz-core/gen/doc,microservices/idam/authz-core/gen/static_site,microservices/idam/authz-core/impl/config,microservices/idam/org-mgmt/gen/doc,microservices/idam/org-mgmt/gen/static_site,microservices/idam/org-mgmt/impl/config
+          - BP_RUST_KEEP=microservices/idam/identity-login-service/gen/doc,microservices/idam/identity-login-service/gen/static_site,microservices/idam/identity-login-service/impl/config,microservices/idam/identity-session-service/gen/doc,microservices/idam/identity-session-service/gen/static_site,microservices/idam/identity-session-service/impl/config,microservices/idam/identity-user-mgmt-service/gen/doc,microservices/idam/identity-user-mgmt-service/gen/static_site,microservices/idam/identity-user-mgmt-service/impl/config,microservices/idam/api-keys/gen/doc,microservices/idam/api-keys/gen/static_site,microservices/idam/api-keys/impl/config,microservices/idam/authz-core/gen/doc,microservices/idam/authz-core/gen/static_site,microservices/idam/authz-core/impl/config,microservices/idam/org-mgmt/gen/doc,microservices/idam/org-mgmt/gen/static_site,microservices/idam/org-mgmt/impl/config,microservices/idam/dns-probe/gen/doc,microservices/idam/dns-probe/gen/static_site,microservices/idam/dns-probe/impl/config
+    # saml-verifier: its own workspace and image, the only one with C XML libraries (ADR-014 §4a). The Dockerfile
+    # runs its tests in the build stage.
+    - image: ghcr.io/microscaler/sesame-idam-saml-verifier
+      context: .
+      docker:
+        dockerfile: docker/saml-verifier/Dockerfile
     # The schema (migrations, RLS contract, seeds) as the migration Job of every release.
     - image: ghcr.io/microscaler/sesame-idam-migrations
       context: .

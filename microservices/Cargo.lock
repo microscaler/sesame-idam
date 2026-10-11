@@ -5643,6 +5643,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "sesame_idam_dns_probe"
+version = "0.1.0"
+dependencies = [
+ "brrtrouter",
+ "brrtrouter_macros",
+ "clap",
+ "may",
+ "serde",
+ "serde_json",
+ "sesame-common",
+ "sesame_idam_dns_probe_gen",
+ "tikv-jemallocator",
+ "tracing",
+]
+
+[[package]]
+name = "sesame_idam_dns_probe_gen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arc-swap",
+ "brrtrouter",
+ "brrtrouter_macros",
+ "clap",
+ "config",
+ "http 0.2.12",
+ "http 1.4.2",
+ "may",
+ "may_minihttp",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tikv-jemallocator",
+]
+
+[[package]]
 name = "sesame_idam_identity_login_service"
 version = "0.1.0"
 dependencies = [

@@ -22,6 +22,9 @@ members = [
     "idam/authz-core/impl",
     "idam/org-mgmt/gen",
     "idam/org-mgmt/impl",
+    # Domain verification lookups (Epic 17, story 17.2)
+    "idam/dns-probe/gen",
+    "idam/dns-probe/impl",
 ]
 resolver = "2"
 # saml-verifier is a workspace of its own: its C dependencies (libxmlsec1, libxml2) stay out of this workspace

@@ -1,7 +1,7 @@
 # Story 17.2 — `dns-probe` service and quorum verdict
 
 > **Epic:** [17 Enterprise SSO](../README.md) · **Track:** A. Domains · **Depends on:** 17.1 · **Size:** M  
-> **Status:** In progress
+> **Status:** Done (service); deployment in 17.17
 
 ## Goal
 
@@ -77,7 +77,14 @@ holds nothing, and decide the verdict in the caller, failing closed on any disag
   providers, every one answered and matching; DNSSEC failure from a validating SERVFAIL with a DNSSEC EDE, or AD
   set by one provider and not another; keyring errors stay errors). No new DNS crate: the decoder covers TXT, CNAME,
   SOA, RRSIG presence and OPT only.
-- Remaining: the `dns-probe` service (HTTP API, DoH GET to the configured providers by IP URL, e.g.
-  `https://1.1.1.1/dns-query`, so no cluster DNS is needed and the egress policy is a list of addresses), the
-  `DnsProbeClient` for org-mgmt and the job, mock DoH pair tests, live test (ignored by default).
-
+- Done (2026-10-11): `domain_verify::doh` (RFC 8484 GET with `Accept: application/dns-message`, providers from
+  `SESAME_DNS_PROBE_PROVIDERS` as `label=https://…/dns-query`, default Cloudflare and Quad9 by IP URL, at least two
+  distinct operators or start-up fails; every provider asked in parallel, 5 s each; only `_sesame-challenge` names of
+  claimable domains accepted) and `DnsProbeClient` for org-mgmt and the job (failures are "could not check").
+- Done (2026-10-11): the `dns-probe` service, a standard suite member: `openapi/idam/dns-probe/openapi.yaml`
+  (`POST /lookup`), gen and impl crates under `microservices/idam/dns-probe`, `RunAppBuilder`, no security schemes,
+  in the suite image (`BP_RUST_PACKAGES`, `suite-images.txt`), `just gen-dns-probe`.
+- Tests: fake DoH servers (answers, malformed bodies, HTTP errors, unreachable, parallel order); a live test against
+  the default providers, ignored by default. Smoke: 422 for a name that is not a challenge name, 200 with every
+  provider's outcome, start-up refused with one operator.
+- Remaining: chart values and NetworkPolicy (17.17); run the live test where egress is allowed.
