@@ -13,7 +13,7 @@ Re-check every VERIFIED and GRACE claim daily and every PENDING claim with backo
 
 ## Scope
 
-- Binary `sesame_domain_reverify` in the suite: selects due claims (jittered daily, PENDING with backoff, never faster than the record TTL), resolves (17.2), applies transitions (17.3), exits.
+- Binary `sesame_domain_reverify` in the suite: selects due claims (jittered daily, PENDING with backoff, never faster than the record TTL), resolves through `dns-probe` and decides with `domain_verify::quorum` (17.2), applies transitions (17.3), exits.
 - Chart support for `workload.kind: cronjob` (schedule, concurrencyPolicy Forbid, no Service), used for this job.
 - Notifications on VERIFIED, GRACE, REVOKED, EXPIRED: email to the organisation's admins (and tenant admins on REVOKED) through the existing mail path; audit events always.
 - Metrics: claims by state, checks, failures by verdict.

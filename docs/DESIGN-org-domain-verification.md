@@ -59,6 +59,18 @@ As the shared design §4: two independent DNS-over-HTTPS resolvers on different 
 DNSSEC must validate where the zone is signed (recorded either way); constant-time comparison; CNAME at the challenge
 name followed (delegated verification); negative caching respected (60 s floor, backoff to 1 h while PENDING).
 
+The lookups are made by **`dns-probe`** (ADR-007 amendment of 2026-10-11), an internal service with no secrets that
+returns each provider's raw answer. The caller applies the quorum and token rules itself:
+
+```
+caller (org-mgmt or job)                      dns-probe                       DoH providers
+  POST /lookup {name, type: TXT} ───────────►  query A and B in parallel ──►  1.1.1.1, 9.9.9.9 (configured)
+  ◄── {answers: [{provider, rcode, ad,         ◄──────────────────────────────
+         records: [..], cname_chain, ttl}]}
+  verdict = domain_verify::quorum(key, subject, domain, answers)
+            Match{epoch, dnssec} only if every provider's records contain our token
+```
+
 ## 5. Lifecycle
 
 ```mermaid
@@ -107,15 +119,18 @@ state: only the verifier does. The organisation comes from the path and the vali
 ## 7. Where the work runs
 
 - **`sesame-common::domain_verify`** (library): normalisation and eligibility (IDNA, Public Suffix List, provider
-  list), token derivation for both purposes, the DoH quorum client (rustls, DNS wire format, AD bit), comparison. Used
-  by org-mgmt now and by the tenant issuer registry (ADR-004) when it is built: one implementation, two subjects.
+  list), token derivation for both purposes, comparison, and the quorum verdict over `dns-probe` answers. Used by
+  org-mgmt now and by the tenant issuer registry (ADR-004) when it is built: one implementation, two subjects.
+- **`dns-probe`** (service): the DoH client (RFC 8484 over rustls, DNS wire format, DO and AD bits, CNAME following)
+  and nothing else; no secrets, no database or Redis.
 - **org-mgmt**: the API; first verification inline (`verify_org_domain`) or by polling while PENDING.
 - **Re-verification**: `sesame_domain_reverify`, a binary of the suite run as a CronJob (hourly; each run checks the
   claims due, daily per claim, jittered, never faster than the record's TTL), with its own database login; one run at a
   time (`concurrencyPolicy: Forbid`).
-- **Egress**: HTTPS to the chosen DoH providers only (two of Cloudflare, Google, Quad9, from configuration).
+- **Egress**: only `dns-probe`, to the chosen DoH providers' fixed addresses on 443 (two of Cloudflare, Google,
+  Quad9, from configuration). org-mgmt and the job reach `dns-probe` inside the namespace, not the internet, for this.
 - **Secret**: `K_enroll` from the secret backend (ADR-006 chain), never in git; mounted into org-mgmt and the
-  re-verification job only.
+  re-verification job only, never into `dns-probe`.
 
 ## 8. Data
 
@@ -158,6 +173,7 @@ the job cannot diverge.
 | Claiming `gmail.com` or a public suffix | ineligible (§2) |
 | A lapsed domain re-registered by someone else | daily re-check: GRACE within a day, nothing new bound, REVOKED after 72 h |
 | One poisoned or coerced resolver | quorum of two providers; DNSSEC where signed |
+| `dns-probe` compromised or buggy | it holds nothing; it is reachable only from org-mgmt and the job and reaches only the two providers over TLS; it never talks to a server a user chose, so outside input reaching it is the providers' answers alone |
 | A record copied from another organisation or tenant | PRF binds tenant, organisation, scope and purpose |
 | A subdomain taken over (dangling CNAME) | `exact` by default; `subdomains` is an explicit claim |
 | A tenant or org admin marking a domain verified | no API sets state |

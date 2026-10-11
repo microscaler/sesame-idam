@@ -3,7 +3,8 @@
 > **Status:** In progress (17.1 done 2026-10-10)
 > **Program:** Enterprise identity
 > **Decisions:** [ADR-014](../../ADR-014-saml-signature-verification.md) (samael and libxmlsec1, isolated verifier),
-> [ADR-007](../../ADR-007-tenant-domain-verification.md) as amended 2026-10-10 (organisation domains)
+> [ADR-007](../../ADR-007-tenant-domain-verification.md) as amended 2026-10-10 (organisation domains) and 2026-10-11
+> (`dns-probe`)
 > **Designs:** [DESIGN-saml-sp.md](../../DESIGN-saml-sp.md), [DESIGN-org-domain-verification.md](../../DESIGN-org-domain-verification.md)
 > **Dependencies:** Epic 10 (tenancy), Epic 11 (client registry), Epic 12 (authorization server), ADR-005 (RLS),
 > ADR-006 (secrets born in the backend)
@@ -27,7 +28,8 @@ admin configures all of it without help from the platform.
 
 ## Scope
 
-- Organisation domain claims proven by DNS TXT, with daily re-verification, grace and revocation.
+- Organisation domain claims proven by DNS TXT, with daily re-verification, grace and revocation; DNS lookups made by
+  `dns-probe`, an isolated service whose only egress is two fixed DNS-over-HTTPS providers.
 - `saml-verifier`: an isolated, stateless service verifying responses with samael and libxmlsec1, with Sesame's own
   pre- and post-checks and a positive and negative corpus.
 - Organisation-scoped SAML connection management, IdP metadata parsing, refresh and certificate rollover.
@@ -48,7 +50,7 @@ admin configures all of it without help from the platform.
 | Story | Title | Track | Depends on | Size |
 |---|---|---|---|---|
 | [17.1](stories/story-17.1.md) | Domain claim primitives: normalisation, eligibility, tokens | A. Domains | — | M ✅ |
-| [17.2](stories/story-17.2.md) | DNS-over-HTTPS quorum resolver | A. Domains | 17.1 | M |
+| [17.2](stories/story-17.2.md) | `dns-probe` service and quorum verdict | A. Domains | 17.1 | M |
 | [17.3](stories/story-17.3.md) | Domain claim schema and lifecycle | A. Domains | 17.1 | M |
 | [17.4](stories/story-17.4.md) | Organisation domain API | A. Domains | 17.2, 17.3 | M |
 | [17.5](stories/story-17.5.md) | Daily re-verification job and notifications | A. Domains | 17.4 | M |
@@ -63,7 +65,7 @@ admin configures all of it without help from the platform.
 | [17.14](stories/story-17.14.md) | Test sign-in and connection enablement | D. Sign-in | 17.13 | S |
 | [17.15](stories/story-17.15.md) | Hosted "Sign in with SSO" and console administration | E. Surfaces | 17.4, 17.14 | L |
 | [17.16](stories/story-17.16.md) | `sesame-idam-client` contract | E. Surfaces | 17.13 | S |
-| [17.17](stories/story-17.17.md) | Deployment: verifier, job, secrets, policies | F. Delivery | 17.5, 17.6 | M |
+| [17.17](stories/story-17.17.md) | Deployment: verifier, probe, job, secrets, policies | F. Delivery | 17.5, 17.6 | M |
 | [17.18](stories/story-17.18.md) | Live acceptance and security evidence | F. Delivery | all | L |
 
 Tracks A and B have no dependency on each other and can proceed in parallel.
@@ -87,7 +89,7 @@ E                              17.4 + 17.14 ─► 17.15;  17.13 ─► 17.16
 - **Trust in email**: first-time linking and provisioning only through a domain in state VERIFIED; grace binds nothing
   new; existing links bind to (connection, NameID), not to DNS.
 - **Domains**: DNS TXT at `_sesame-challenge.<domain>`, token bound to tenant, organisation, scope and purpose; DoH
-  quorum of two providers; daily re-check, 72 h grace; public suffixes and consumer mail providers never claimable;
+  quorum of two providers, queried by `dns-probe` (no secrets; the caller decides); daily re-check, 72 h grace; public suffixes and consumer mail providers never claimable;
   one holder per tenant.
 - **Reachability**: browser routes need only browser reachability; a private (VPN-only) deployment is supported.
 
@@ -101,6 +103,8 @@ E                              17.4 + 17.14 ─► 17.15;  17.13 ─► 17.16
       differentials) and accepts the positive corpus from all three IdPs.
 - [ ] `saml-verifier` runs with no secrets, no database or Redis access and no egress; only identity-login and
       org-mgmt can reach it.
+- [ ] `dns-probe` runs with no secrets, no database or Redis access and egress only to its two DoH providers; only
+      org-mgmt and the re-verification job can reach it; org-mgmt's metadata fetches cannot reach private addresses.
 - [ ] A user is linked or provisioned only through a VERIFIED domain of the connection's organisation, never across
       tenants.
 - [ ] Replayed responses, unsolicited responses and responses for another connection are refused.

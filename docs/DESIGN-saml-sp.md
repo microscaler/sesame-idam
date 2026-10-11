@@ -173,7 +173,10 @@ none ──allow (tenant admin)──► allowed ──metadata──► configu
 ```
 
 - **allowed**: the tenant permits the organisation to use SAML.
-- **metadata** (XML or HTTPS URL): org-mgmt fetches a URL (HTTPS only, ≤ 1 MiB, no redirects to other hosts, 10 s), has
+- **metadata** (XML or HTTPS URL): org-mgmt fetches a URL (HTTPS only, port 443, ≤ 1 MiB, no redirects to other hosts,
+  10 s; the host's addresses are resolved first and any non-public address, loopback, private, link-local including the
+  cloud metadata server, CGNAT or the cluster's ranges, is refused, and the connection goes to the vetted address so DNS
+  rebinding cannot redirect it), has
   the verifier parse it, and stores entity ID, SSO URL (HTTP-Redirect), signing certificates (all of them, for rollover)
   and the raw XML. The SP metadata and the values the IdP admin needs (entity ID, ACS URL, NameID, attributes) are shown
   back (section 11).
@@ -254,7 +257,11 @@ the hand-written parts are the RLS policies and the backfill). Redis keys (ident
   deployment (a VPN-only staging environment, say) therefore works, provided its host name has a real certificate
   (DNS-01 issuance needs no inbound access) and it does not need IdP-initiated login from outside the private network,
   SP metadata fetched by the IdP from a URL (upload the file instead), SCIM pushes or back-channel logout.
-- **org-mgmt**: egress to HTTPS metadata URLs (allow-listed per deployment where the platform supports it).
+- **org-mgmt**: egress to HTTPS (443) on public addresses only, for IdP metadata URLs: the NetworkPolicy excludes
+  private, loopback, link-local (cloud metadata server), CGNAT and cluster ranges, backing the address checks of
+  section 7. DNS lookups for domain verification go through `dns-probe` (ADR-007 amendment of 2026-10-11).
+- **dns-probe**: as `saml-verifier` in shape (stateless, no secrets, non-root, read-only), but with egress only to the
+  configured DoH providers' addresses on 443 and ingress only from org-mgmt and the re-verification job.
 - **Configuration**: `SESAME_SAML_VERIFIER_URL`, `SESAME_SAML_SP_KEY_FILE`, `SESAME_SAML_MAX_CLOCK_SKEW_SECS` (default
   120), `SESAME_SAML_ENABLED` (off by default); public URLs and the claim namespace as for every login
   (DESIGN-octopilot-build-and-release §3.7).

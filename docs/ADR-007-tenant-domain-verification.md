@@ -123,3 +123,29 @@ Decisions for this subject (full design: `docs/DESIGN-org-domain-verification.md
    (no first-time linking, no provisioning, no auto-join); on revocation, discovery and auto-join stop for it.
    Existing SAML identities, which are bound to the connection and NameID rather than to DNS, keep working; the
    organisation's admins are alerted at every transition.
+
+## Amendment (2026-10-11): DNS resolution runs in its own service, `dns-probe`
+
+Every DNS-over-HTTPS lookup for domain verification (organisation and, later, tenant issuer) is made by a small
+internal service, **`dns-probe`**, not by the components that hold the enrolment key and database credentials.
+
+1. **What it does**: given a name and record type (TXT at `_sesame-challenge.<domain>`), it queries the configured
+   DoH providers (two of Cloudflare, Google, Quad9; distinct operators) and returns what each answered: response code,
+   TXT strings joined per record, CNAME chain followed, AD bit, TTL and negative-cache TTL. Nothing else.
+2. **What it does not do**: it holds no secret, no database or Redis access, and never sees `K_enroll` or a token.
+   Matching the token and the quorum verdict (both providers must return the record; DNSSEC must validate where the
+   zone is signed) stay in the caller, in `sesame_common::domain_verify`, as pure functions over the probe's answers.
+3. **Who calls it**: org-mgmt (first verification) and the re-verification job. Neither of them needs internet egress
+   for this any more.
+4. **Network**: ingress only from org-mgmt and the re-verification job; egress only to the configured providers'
+   published DoH addresses on 443 (fixed IPs: `1.1.1.1`/`1.0.0.1`, `8.8.8.8`/`8.8.4.4`, `9.9.9.9`/`149.112.112.112`
+   and their IPv6 equivalents), so the policy is a short list of address blocks, not a hostname allow-list. No cluster
+   DNS needed: providers are addressed by IP with TLS names pinned in configuration.
+5. **It talks only to trusted, fixed endpoints over TLS.** It deliberately does not fetch anything a user supplies
+   (IdP metadata URLs stay with org-mgmt, DESIGN-saml-sp.md §7, §10): a process whose answers decide domain ownership
+   must not also talk to attacker-chosen servers.
+6. **Cost**: one more stateless Deployment (one small replica in pp, two in production), next to `saml-verifier`.
+
+Rejected: resolution as a library inside org-mgmt and the job (internet egress in the two components that hold
+`K_enroll` and database credentials); resolution inside `saml-verifier` (its isolation depends on having no egress at
+all).

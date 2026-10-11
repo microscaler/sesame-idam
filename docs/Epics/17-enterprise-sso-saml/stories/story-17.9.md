@@ -13,7 +13,7 @@ Accept IdP metadata as XML or an HTTPS URL, parse it through the verifier, keep 
 
 ## Scope
 
-- `set_saml_idp_metadata`: XML (≤ 1 MiB) or URL (HTTPS only, 10 s, no redirect to another host, ≤ 1 MiB) fetched by org-mgmt; parsed by `/metadata/parse`; stored.
+- `set_saml_idp_metadata`: XML (≤ 1 MiB) or URL (HTTPS only, port 443, 10 s, no redirect to another host, ≤ 1 MiB) fetched by org-mgmt, refusing any host that resolves to a non-public address (loopback, private, link-local including the cloud metadata server, CGNAT, cluster ranges) and connecting to the vetted address (no DNS rebinding); parsed by `/metadata/parse`; stored.
 - Daily refresh for URL connections (in the 17.5 job or its own schedule): add new certificates, drop removed ones after 7 days' overlap; entity ID or SSO host changes are not applied automatically (audited, admin confirms).
 - Alerts to org admins for certificates expiring within 30 days and for unconfirmed changes.
 - Response shows the values the IdP admin needs (SP entity ID, ACS URL, NameID guidance, attribute names).
@@ -31,6 +31,7 @@ Accept IdP metadata as XML or an HTTPS URL, parse it through the verifier, keep 
 - [ ] Metadata from each of the three IdPs (fixtures) yields entity ID, SSO URL and certificates.
 - [ ] A refresh that adds a certificate keeps the old one for 7 days; one that changes the entity ID changes nothing until confirmed.
 - [ ] Non-HTTPS URLs, redirects to other hosts and oversize documents are refused.
+- [ ] URLs whose host resolves to `127.0.0.1`, `10.0.0.0/8`, `169.254.169.254`, `100.64.0.0/10` or an IPv6 equivalent are refused, including when the name changes its answer between check and connect.
 
 ## Tests
 

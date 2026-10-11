@@ -87,7 +87,9 @@ verifier's API does not change if its internals do.
 
 ## Consequences
 
-- Seven services; the new one is small, has a narrow internal API and no state.
+- Seven services; the new one is small, has a narrow internal API and no state. (Domain verification later adds an
+  eighth, `dns-probe`, the mirror image: egress to two fixed DNS-over-HTTPS providers and nothing else; ADR-007
+  amendment of 2026-10-11.)
 - C code (libxml2, libxmlsec1, OpenSSL) enters Sesame, confined to one process with no secrets and no network reach.
 - Two XML parsers still meet (libxml2 verifies, samael deserialises with quick-xml), but only over libxml2's own
   serialisation of the verified subtree, after the pre-checks of section 3, and with the assertion ID cross-checked; the

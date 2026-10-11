@@ -31,12 +31,12 @@ Let an organisation admin claim a domain, see the TXT record to publish, verify 
 - [ ] No request body or path can set a claim's state.
 - [ ] A member who is not an org admin cannot create, verify, update or delete; a user of another tenant gets 404.
 - [ ] Creating `gmail.com` or a public suffix returns `domain_unavailable`; the same response as a domain held by another organisation.
-- [ ] Publishing the shown record and calling verify moves the claim to VERIFIED (mock resolver in tests); a record for another organisation does not.
+- [ ] Publishing the shown record and calling verify moves the claim to VERIFIED (mock `dns-probe` in tests); a record for another organisation does not.
 - [ ] `update_org_domains` is gone from the spec and the code; the contract test for org-mgmt domain operations passes.
 
 ## Tests
 
-- Handler unit tests with a mock resolver; BDD for authorisation and isolation; OpenAPI lint.
+- Handler unit tests with a mock `dns-probe`; BDD for authorisation and isolation; OpenAPI lint.
 
 ## Definition of done
 
