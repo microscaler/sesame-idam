@@ -228,12 +228,12 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
         },
         jwt_claims: Some(claims),
     });
-    let OauthAuthorizeCompleteOutcome::Redirect(rp) = complete else {
-        panic!("authorize/complete should redirect to RP with code");
+    let OauthAuthorizeCompleteOutcome::Complete { redirect: rp } = complete else {
+        panic!("authorize/complete should answer the RP redirect with code");
     };
-    assert!(rp.location.starts_with(FIXTURE_REDIRECT));
-    let code = query_param(&rp.location, "code").expect("code");
-    assert_eq!(query_param(&rp.location, "state").as_deref(), Some(state));
+    assert!(rp.starts_with(FIXTURE_REDIRECT));
+    let code = query_param(&rp, "code").expect("code");
+    assert_eq!(query_param(&rp, "state").as_deref(), Some(state));
 
     // 4) Token exchange (public client + PKCE)
     let token = oauth_token::handle(TypedHandlerRequest {

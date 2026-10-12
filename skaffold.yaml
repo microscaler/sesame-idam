@@ -1,6 +1,7 @@
 # Release shape, read by Octopilot's detect-contexts (Tilt does not read this file).
 # The Rust suite is one buildpack build; op publishes one image per line of suite-images.txt from it. The schema and
-# the charts are their own artifacts. Frontends and the API edge join with the public entry.
+# the charts are their own artifacts. The hosted sign-in surface (auth) is released; the other frontends and the
+# API edge join with the public entry.
 # docs/DESIGN-octopilot-build-and-release.md.
 apiVersion: skaffold/v4beta7
 kind: Config
@@ -33,6 +34,14 @@ build:
       context: .
       docker:
         dockerfile: docker/migrations/Dockerfile
+    # The hosted sign-in surface (ADR-010, ADR-014): every relying party signs users in here. One Dockerfile builds
+    # every frontend app; APP selects it. The other apps (platform, tenant, brochure) join with the public entry.
+    - image: ghcr.io/microscaler/sesame-idam-frontend-auth
+      context: .
+      docker:
+        dockerfile: docker/frontend/Dockerfile
+        buildArgs:
+          APP: auth
     # Charts (helm buildpack). detect-contexts finds every Chart.yaml; each needs its own artifact.
     - image: ghcr.io/microscaler/sesame-idam-microservice-chart
       context: helm/sesame-idam-microservice

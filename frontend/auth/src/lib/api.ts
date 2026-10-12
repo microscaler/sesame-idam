@@ -128,10 +128,10 @@ export const mintSessionCode = (
 
 /**
  * Complete an OIDC authorization request after the user authenticates.
- * Returns the RP redirect Location (`redirect_uri?code=&state=`).
+ * Returns the RP redirect (`redirect_uri?code=&state=`) for the page to navigate to.
  *
- * Uses same-origin `/oauth/authorize/complete` on the auth host (edge rewrite
- * to login-service), not the `/idam/v1` API base.
+ * The endpoint answers `200 {redirect}`, not a 302: a browser never exposes a redirect's Location to fetch().
+ * Same-origin `/oauth/authorize/complete` on the auth host (edge rewrite to login-service), not the `/idam/v1` base.
  */
 export async function completeOidcAuthorize(
   tenantId: string,
@@ -147,16 +147,11 @@ export async function completeOidcAuthorize(
     },
     body: JSON.stringify({ request_id: requestId }),
     credentials: 'include',
-    redirect: 'manual',
   });
-  if (res.status >= 300 && res.status < 400) {
-    const location = res.headers.get('Location') ?? '';
-    if (!location) {
-      throw new AuthError('invalid_request', 'Authorization complete returned no redirect');
-    }
-    return { redirect: location };
-  }
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (res.ok && typeof json.redirect === 'string' && json.redirect) {
+    return { redirect: json.redirect };
+  }
   throw new AuthError(
     String(json.error ?? 'request_failed'),
     String(json.error_description ?? 'Authorization complete failed'),

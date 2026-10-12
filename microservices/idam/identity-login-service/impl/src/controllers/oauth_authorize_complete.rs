@@ -1,5 +1,5 @@
 use brrtrouter::dispatcher::HandlerResponse;
-use brrtrouter::typed::{HandlerResponseOutput, HttpJson, HttpRedirect, TypedHandlerRequest};
+use brrtrouter::typed::{HandlerResponseOutput, HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::oauth_authorize_complete::Request;
 
@@ -8,15 +8,19 @@ use crate::services::oidc_authorization::{
     consume_authorization_session, mint_authorization_code, AuthorizationCode,
 };
 
+/// The relying party redirect is answered as JSON (`200 {"redirect": ...}`), not as a 302: the hosted surface calls
+/// this with fetch() and a browser never exposes a redirect's Location to fetch(). The page navigates itself.
 pub enum OauthAuthorizeCompleteOutcome {
-    Redirect(HttpRedirect),
+    Complete { redirect: String },
     Error(HttpJson<serde_json::Value>),
 }
 
 impl HandlerResponseOutput for OauthAuthorizeCompleteOutcome {
     fn into_handler_response(self) -> Result<HandlerResponse, serde_json::Error> {
         match self {
-            Self::Redirect(redirect) => redirect.into_handler_response(),
+            Self::Complete { redirect } => {
+                HttpJson::new(200, serde_json::json!({ "redirect": redirect })).into_handler_response()
+            }
             Self::Error(error) => error.into_handler_response(),
         }
     }
@@ -83,7 +87,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> OauthAuthorizeCompleteOutcom
         .query_pairs_mut()
         .append_pair("code", &code)
         .append_pair("state", &session.state);
-    OauthAuthorizeCompleteOutcome::Redirect(HttpRedirect::found(redirect.to_string()))
+    OauthAuthorizeCompleteOutcome::Complete {
+        redirect: redirect.to_string(),
+    }
 }
 
 fn oauth_error(status: u16, error: &str, error_description: &str) -> HttpJson<serde_json::Value> {

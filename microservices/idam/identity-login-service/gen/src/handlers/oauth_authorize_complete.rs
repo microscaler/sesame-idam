@@ -17,20 +17,8 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
-    #[serde(rename = "error")]
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "error_description")]
-    pub error_description: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "hint")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "retry_after")]
-    pub retry_after: Option<i32>,
+    #[serde(rename = "redirect")]
+    pub redirect: String,
 }
 
 impl TryFrom<HandlerRequest> for Request {

@@ -585,16 +585,7 @@ pub struct OauthAuthorizeCompleteRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OauthAuthorizeCompleteResponse {
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
+    pub redirect: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

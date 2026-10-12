@@ -418,16 +418,10 @@ fn live_interactive_pkce_round_trip() {
         .json(&serde_json::json!({ "request_id": request_id }))
         .send()
         .expect("complete");
-    assert_eq!(
-        complete.status(),
-        302,
-        "complete: {}",
-        complete.text().unwrap_or_default()
-    );
-    let rp = complete
-        .headers()
-        .get("location")
-        .and_then(|v| v.to_str().ok())
+    assert_eq!(complete.status(), 200, "complete status");
+    let complete_body: serde_json::Value = complete.json().expect("complete body");
+    let rp = complete_body["redirect"]
+        .as_str()
         .unwrap_or_default()
         .to_string();
     assert!(rp.starts_with(PUBLIC_REDIRECT), "rp redirect {rp}");

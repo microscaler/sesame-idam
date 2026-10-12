@@ -1573,8 +1573,15 @@ paths:
             schema:
               $ref: '#/components/schemas/OidcAuthorizationCompleteRequest'
       responses:
-        '302':
-          description: Redirect to the validated client URI with code and state
+        # 200 with the redirect, not a 302: the hosted surface calls this with fetch() (it needs the Authorization
+        # header), and a browser never exposes a redirect's Location to fetch() (redirect: manual gives an opaque
+        # response). The page navigates to `redirect` itself.
+        '200':
+          description: The relying party's redirect URI with code and state; the hosted surface navigates to it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcAuthorizationCompleteResponse'
         '400':
           description: Invalid, expired, replayed, or tenant-mismatched authorization session
           content:
@@ -3640,6 +3647,16 @@ components:
           type: string
           format: date-time
           nullable: true
+    OidcAuthorizationCompleteResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - redirect
+      properties:
+        redirect:
+          type: string
+          format: uri
+          description: The registered redirect URI with `code` and `state` appended
     OidcAuthorizationCompleteRequest:
       type: object
       additionalProperties: false
