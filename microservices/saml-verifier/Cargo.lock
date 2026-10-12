@@ -278,7 +278,7 @@ dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -340,7 +340,7 @@ checksum = "dc0b364ead1874514c8c2855ab558056ebfeb775653e7ae45ff72f28f8f3166c"
 [[package]]
 name = "brrtrouter"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198#19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=837ee96be20e323626ca201dd1ce8e3af63fe3b0#837ee96be20e323626ca201dd1ce8e3af63fe3b0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -394,7 +394,7 @@ dependencies = [
 [[package]]
 name = "brrtrouter_macros"
 version = "0.1.0"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198#19b5d0f3b36a18ed2a0d8a0ecf4bcad4f7895198"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=837ee96be20e323626ca201dd1ce8e3af63fe3b0#837ee96be20e323626ca201dd1ce8e3af63fe3b0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1717,15 +1717,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2023,7 +2014,10 @@ version = "0.1.1"
 source = "git+https://github.com/microscaler/may_tracing.git?tag=v0.1.1#121de43e6e5e96d45f3339a238150804070a4be8"
 dependencies = [
  "may",
+ "opentelemetry",
+ "opentelemetry_sdk",
  "tracing",
+ "tracing-opentelemetry",
 ]
 
 [[package]]
@@ -2712,7 +2706,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
