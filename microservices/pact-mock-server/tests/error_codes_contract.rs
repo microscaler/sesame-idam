@@ -22,7 +22,8 @@ const SERVICES: &[&str] = &[
 fn listed_codes(service: &str) -> Vec<String> {
     let path = repo_root().join(format!("openapi/idam/{service}/openapi.yaml"));
     let doc: serde_yaml::Value =
-        serde_yaml::from_str(&std::fs::read_to_string(&path).expect("read spec")).expect("parse spec");
+        serde_yaml::from_str(&std::fs::read_to_string(&path).expect("read spec"))
+            .expect("parse spec");
     doc["components"]["schemas"]["ErrorResponse"]["properties"]["error"]["enum"]
         .as_sequence()
         .unwrap_or_else(|| panic!("{service}: ErrorResponse.error has no enum"))
@@ -71,5 +72,8 @@ fn every_error_code_a_handler_answers_is_in_its_spec() {
     }
     missing.sort();
     missing.dedup();
-    assert!(missing.is_empty(), "error codes missing from ErrorResponse: {missing:#?}");
+    assert!(
+        missing.is_empty(),
+        "error codes missing from ErrorResponse: {missing:#?}"
+    );
 }

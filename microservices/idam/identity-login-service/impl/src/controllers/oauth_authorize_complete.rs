@@ -19,7 +19,8 @@ impl HandlerResponseOutput for OauthAuthorizeCompleteOutcome {
     fn into_handler_response(self) -> Result<HandlerResponse, serde_json::Error> {
         match self {
             Self::Complete { redirect } => {
-                HttpJson::new(200, serde_json::json!({ "redirect": redirect })).into_handler_response()
+                HttpJson::new(200, serde_json::json!({ "redirect": redirect }))
+                    .into_handler_response()
             }
             Self::Error(error) => error.into_handler_response(),
         }
