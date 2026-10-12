@@ -2,7 +2,7 @@ import { createSignal, onMount, Show } from 'solid-js';
 import { applyTenantTheme, runtimeConfig } from '@sesame/shared';
 import { SignIn } from './pages/SignIn';
 import { ResetPassword } from './pages/ResetPassword';
-import { completeOidcAuthorize, mintSessionCode, verifyMagicLink } from './lib/api';
+import { AuthError, completeOidcAuthorize, mintSessionCode, verifyMagicLink } from './lib/api';
 import type { TokenResponse } from './lib/api';
 
 /**
@@ -17,6 +17,21 @@ import type { TokenResponse } from './lib/api';
  * 302 to the registered RP redirect with `code` + `state`.
  * ADR-010 path: mint session code and return to `redirect_uri`.
  */
+/**
+ * What a failed handoff means for the user. An OIDC sign-in request lives for five minutes and is used once, so a page
+ * left open (or reloaded after a sign-in) can only be restarted from the application.
+ */
+function handoffFailure(e: unknown): string {
+  const code = e instanceof AuthError ? e.code : '';
+  if (code === 'invalid_request') {
+    return 'Signed in, but this sign-in request has expired or was already used. Go back to the application and sign in again.';
+  }
+  if (code === 'temporarily_unavailable') {
+    return 'Signed in, but the sign-in service is briefly unavailable. Go back to the application and try again in a moment.';
+  }
+  return 'Signed in, but the handoff to the application failed.';
+}
+
 export function App() {
   const params = new URLSearchParams(window.location.search);
   const requestId = params.get('request_id') ?? '';
@@ -87,8 +102,8 @@ export function App() {
       url.searchParams.set('code', code);
       if (state) url.searchParams.set('state', state);
       window.location.assign(url.toString());
-    } catch {
-      setError('Signed in, but the handoff to the application failed.');
+    } catch (e) {
+      setError(handoffFailure(e));
       setStatus('error');
     }
   };

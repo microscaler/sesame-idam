@@ -5,7 +5,7 @@ use sesame_idam_identity_login_service_gen::handlers::oauth_authorize_complete::
 
 use crate::auth_context::authenticated_principal;
 use crate::services::oidc_authorization::{
-    consume_authorization_session, mint_authorization_code, AuthorizationCode,
+    mint_authorization_code, take_authorization_session, AuthorizationCode, LookupError,
 };
 
 /// The relying party redirect is answered as JSON (`200 {"redirect": ...}`), not as a 302: the hosted surface calls
@@ -33,12 +33,23 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> OauthAuthorizeCompleteOutcom
         Ok(principal) => principal,
         Err(error) => return OauthAuthorizeCompleteOutcome::Error(error),
     };
-    let Some(session) = consume_authorization_session(req.data.request_id.trim()) else {
-        return OauthAuthorizeCompleteOutcome::Error(oauth_error(
-            400,
-            "invalid_request",
-            "Authorization session is invalid, expired, or already used",
-        ));
+    let session = match take_authorization_session(req.data.request_id.trim()) {
+        Ok(session) => session,
+        Err(LookupError::Unavailable(error)) => {
+            tracing::error!(%error, "authorization session store unavailable");
+            return OauthAuthorizeCompleteOutcome::Error(oauth_error(
+                503,
+                "temporarily_unavailable",
+                "Authorization service is temporarily unavailable",
+            ));
+        }
+        Err(_) => {
+            return OauthAuthorizeCompleteOutcome::Error(oauth_error(
+                400,
+                "invalid_request",
+                "Authorization session is invalid, expired, or already used",
+            ));
+        }
     };
     if session.tenant_id != tenant_id {
         return OauthAuthorizeCompleteOutcome::Error(oauth_error(
