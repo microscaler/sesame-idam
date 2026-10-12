@@ -182,63 +182,178 @@ fn hashed_key(prefix: &str, value: &str) -> String {
     format!("{prefix}:{}", hex::encode(Sha256::digest(value.as_bytes())))
 }
 
+/// Why an authorization session or code could not be used.
+#[derive(Debug)]
+pub enum LookupError {
+    /// Never stored, expired, or already used: both are one-time values, deleted on first use.
+    Absent,
+    /// The code exists but is bound to another client, redirect URI or PKCE verifier. It is burned.
+    BindingMismatch,
+    /// The store could not be reached or answered with an error: the value may well still be valid.
+    Unavailable(anyhow::Error),
+}
+
+impl LookupError {
+    /// Short reason for spans and logs.
+    #[must_use]
+    pub fn reason(&self) -> &'static str {
+        match self {
+            Self::Absent => "absent_expired_or_used",
+            Self::BindingMismatch => "binding_mismatch",
+            Self::Unavailable(_) => "store_unavailable",
+        }
+    }
+}
+
+/// One Redis command as a span under the request: the operation, which kind of key (never the key, which is a
+/// bearer secret's hash) and how it ended (`stored`, `hit`, `miss` or `error`).
+fn redis_span(operation: &'static str, key_kind: &'static str) -> tracing::Span {
+    tracing::info_span!(
+        "redis.command",
+        otel.name = %format!("redis {operation}"),
+        "db.system.name" = "redis",
+        "db.operation.name" = operation,
+        "sesame.key_kind" = key_kind,
+        "sesame.outcome" = tracing::field::Empty,
+        "error.type" = tracing::field::Empty,
+        otel.status_description = tracing::field::Empty,
+    )
+}
+
+fn redis_set_ex(key_kind: &'static str, key: &str, payload: String, ttl_secs: u64) -> Result<()> {
+    let span = redis_span("SETEX", key_kind);
+    span.in_scope(|| {
+        let result = redis_connection().and_then(|mut connection| {
+            connection
+                .set_ex::<_, _, ()>(key, payload, ttl_secs)
+                .with_context(|| format!("store {key_kind}"))
+        });
+        match &result {
+            Ok(()) => {
+                span.record("sesame.outcome", "stored");
+            }
+            Err(error) => {
+                span.record("sesame.outcome", "error");
+                span.record("error.type", "redis");
+                span.record("otel.status_description", error.to_string().as_str());
+                tracing::error!(key_kind, error = %error, "Redis SETEX failed");
+            }
+        }
+        result
+    })
+}
+
+/// GETDEL: the value, once. `Ok(None)` when absent (never stored, expired or already taken).
+fn redis_getdel(key_kind: &'static str, key: &str) -> Result<Option<String>> {
+    let span = redis_span("GETDEL", key_kind);
+    span.in_scope(|| {
+        let result = redis_connection().and_then(|mut connection| {
+            redis::cmd("GETDEL")
+                .arg(key)
+                .query::<Option<String>>(&mut connection)
+                .with_context(|| format!("take {key_kind}"))
+        });
+        match &result {
+            Ok(value) => {
+                span.record(
+                    "sesame.outcome",
+                    if value.is_some() { "hit" } else { "miss" },
+                );
+            }
+            Err(error) => {
+                span.record("sesame.outcome", "error");
+                span.record("error.type", "redis");
+                span.record("otel.status_description", error.to_string().as_str());
+                tracing::error!(key_kind, error = %error, "Redis GETDEL failed");
+            }
+        }
+        result
+    })
+}
+
 pub fn store_authorization_session(session: &AuthorizationSession) -> Result<String> {
     let request_id = opaque_value();
     let payload = serde_json::to_string(session).context("serialize authorization session")?;
-    let mut connection = redis_connection()?;
-    connection
-        .set_ex::<_, _, ()>(
-            hashed_key("oidc:authorization-request", &request_id),
-            payload,
-            AUTHORIZATION_SESSION_TTL_SECS,
-        )
-        .context("store authorization session")?;
+    redis_set_ex(
+        "authorization_session",
+        &hashed_key("oidc:authorization-request", &request_id),
+        payload,
+        AUTHORIZATION_SESSION_TTL_SECS,
+    )?;
     Ok(request_id)
 }
 
+/// Take (and delete) the authorization session for `request_id`.
+///
+/// # Errors
+/// [`LookupError::Absent`] when it expired ([`AUTHORIZATION_SESSION_TTL_SECS`]) or was already used;
+/// [`LookupError::Unavailable`] when the store failed.
+pub fn take_authorization_session(request_id: &str) -> Result<AuthorizationSession, LookupError> {
+    let payload = redis_getdel(
+        "authorization_session",
+        &hashed_key("oidc:authorization-request", request_id),
+    )
+    .map_err(LookupError::Unavailable)?
+    .ok_or(LookupError::Absent)?;
+    serde_json::from_str(&payload).map_err(|error| {
+        LookupError::Unavailable(anyhow::anyhow!("corrupt authorization session: {error}"))
+    })
+}
+
+/// [`take_authorization_session`] without the reason.
 pub fn consume_authorization_session(request_id: &str) -> Option<AuthorizationSession> {
-    let mut connection = redis_connection().ok()?;
-    let payload: Option<String> = redis::cmd("GETDEL")
-        .arg(hashed_key("oidc:authorization-request", request_id))
-        .query(&mut connection)
-        .ok()?;
-    serde_json::from_str(&payload?).ok()
+    take_authorization_session(request_id).ok()
 }
 
 pub fn mint_authorization_code(code: &AuthorizationCode) -> Result<String> {
     let value = opaque_value();
     let payload = serde_json::to_string(code).context("serialize authorization code")?;
-    let mut connection = redis_connection()?;
-    connection
-        .set_ex::<_, _, ()>(
-            hashed_key("oidc:authorization-code", &value),
-            payload,
-            AUTHORIZATION_CODE_TTL_SECS,
-        )
-        .context("store authorization code")?;
+    redis_set_ex(
+        "authorization_code",
+        &hashed_key("oidc:authorization-code", &value),
+        payload,
+        AUTHORIZATION_CODE_TTL_SECS,
+    )?;
     Ok(value)
 }
 
+/// Redeem (and burn) an authorization code for the client, redirect URI and PKCE verifier it was issued to.
+///
+/// # Errors
+/// [`LookupError::Absent`], [`LookupError::BindingMismatch`] or [`LookupError::Unavailable`].
+pub fn redeem_code(
+    code: &str,
+    client_id: &str,
+    redirect_uri: &str,
+    code_verifier: &str,
+) -> Result<AuthorizationCode, LookupError> {
+    let payload = redis_getdel(
+        "authorization_code",
+        &hashed_key("oidc:authorization-code", code),
+    )
+    .map_err(LookupError::Unavailable)?
+    .ok_or(LookupError::Absent)?;
+    let payload: AuthorizationCode = serde_json::from_str(&payload).map_err(|error| {
+        LookupError::Unavailable(anyhow::anyhow!("corrupt authorization code: {error}"))
+    })?;
+    if payload.client_id != client_id
+        || !sesame_common::oidc_client::redirect_uri_matches(&payload.redirect_uri, redirect_uri)
+        || !verify_pkce_s256(code_verifier, &payload.code_challenge)
+    {
+        tracing::warn!("OIDC authorization code binding mismatch; code burned");
+        return Err(LookupError::BindingMismatch);
+    }
+    Ok(payload)
+}
+
+/// [`redeem_code`] without the reason.
 pub fn redeem_authorization_code(
     code: &str,
     client_id: &str,
     redirect_uri: &str,
     code_verifier: &str,
 ) -> Option<AuthorizationCode> {
-    let mut connection = redis_connection().ok()?;
-    let payload: Option<String> = redis::cmd("GETDEL")
-        .arg(hashed_key("oidc:authorization-code", code))
-        .query(&mut connection)
-        .ok()?;
-    let payload: AuthorizationCode = serde_json::from_str(&payload?).ok()?;
-    if payload.client_id != client_id
-        || !sesame_common::oidc_client::redirect_uri_matches(&payload.redirect_uri, redirect_uri)
-        || !verify_pkce_s256(code_verifier, &payload.code_challenge)
-    {
-        tracing::warn!("OIDC authorization code binding mismatch; code burned");
-        return None;
-    }
-    Some(payload)
+    redeem_code(code, client_id, redirect_uri, code_verifier).ok()
 }
 
 #[cfg(test)]

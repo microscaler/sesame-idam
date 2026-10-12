@@ -10,7 +10,7 @@ use sesame_idam_identity_session_service::services::token_rotation::{
 };
 
 use crate::services::client_registry::{ClientBinding, ClientRegistry};
-use crate::services::oidc_authorization::redeem_authorization_code;
+use crate::services::oidc_authorization::{redeem_code, LookupError};
 use crate::services::token_issuer::{issue_id_token, issue_tokens_for_client};
 
 #[handler(OauthTokenController)]
@@ -100,9 +100,30 @@ fn exchange_code(request: &Request, binding: &ClientBinding) -> HttpJson<serde_j
     let Some(verifier) = request.code_verifier.as_deref() else {
         return oauth_error(400, "invalid_request", "code_verifier is required");
     };
-    let Some(code) = redeem_authorization_code(code, &binding.client_id, redirect_uri, verifier)
-    else {
-        return oauth_error(400, "invalid_grant", "Authorization code is invalid");
+    let code = match redeem_code(code, &binding.client_id, redirect_uri, verifier) {
+        Ok(code) => code,
+        Err(LookupError::Unavailable(error)) => {
+            tracing::error!(%error, "authorization code store unavailable");
+            return oauth_error(
+                503,
+                "temporarily_unavailable",
+                "Authorization service is temporarily unavailable",
+            );
+        }
+        Err(LookupError::BindingMismatch) => {
+            return oauth_error(
+                400,
+                "invalid_grant",
+                "Authorization code was issued to another client, redirect URI or verifier",
+            );
+        }
+        Err(LookupError::Absent) => {
+            return oauth_error(
+                400,
+                "invalid_grant",
+                "Authorization code is invalid, expired, or already used",
+            );
+        }
     };
     if code.tenant_id != binding.tenant_id || code.application_id != binding.application_id {
         return oauth_error(
