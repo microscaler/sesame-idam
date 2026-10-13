@@ -1,0 +1,17 @@
+{{- if and (eq .Values.workload.kind "service") (gt (int .Values.deployment.replicas) 1) .Values.podDisruptionBudget.enabled }}
+# Voluntary disruptions (node drains, Autopilot upgrades) never take the
+# service below minAvailable. Only rendered with replicas > 1: with a single
+# replica a minAvailable 1 budget would block every node drain.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+    app: {{ .Values.service.name }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: {{ .Values.service.name }}
+{{- end }}

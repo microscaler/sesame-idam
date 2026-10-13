@@ -144,6 +144,7 @@ workload:
   #   --static-dir .../gen/static_site --config /app/config/config.yaml
   args: []
   envFrom: []              # extra envFrom sources
+  strategy: ""             # "" = RollingUpdate (surge-first, see rollout); Recreate for single-instance workloads
 
 # Extra labels on the workload and its pods (e.g. the label an environment's credential rotation restarts by).
 podLabels: {}
@@ -183,3 +184,22 @@ helmTest:
 job:
   backoffLimit: 0
   activeDeadlineSeconds: 900
+
+# Availability. A single replica (pp) still rolls surge-first with a preStop
+# drain; the PodDisruptionBudget and topology spread render only when
+# deployment.replicas > 1 (production).
+rollout:
+  maxSurge: 1
+  maxUnavailable: 0
+  preStopSleepSeconds: 5          # 0 disables the preStop hook
+  terminationGracePeriodSeconds: 30
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+topologySpread:
+  enabled: true
+  maxSkew: 1
+  whenUnsatisfiable: ScheduleAnyway
+  topologyKeys:
+    - topology.kubernetes.io/zone
+    - kubernetes.io/hostname
