@@ -1992,6 +1992,63 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
+  /platform/tenants/{slug}/oidc/clients/{client_id}:
+    parameters:
+    - name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z][a-z0-9-]{2,63}$'
+    - name: client_id
+      in: path
+      required: true
+      schema:
+        type: string
+    patch:
+      tags:
+      - PlatformAdmin
+      summary: Update policy or lifecycle state for a tenant's OIDC client (operator)
+      description: |
+        The operator variant of `PATCH /tenant/oidc/clients/{client_id}` (ADR-011 §2.4): same service layer and
+        validation, scoped to the tenant in the path. Lets the operator who registered a platform-provisioned
+        tenant's first relying parties correct their policy (redirect URIs, scopes, audiences) before the tenant
+        has an administrator of its own. Client type and authority class are immutable.
+      operationId: platform_tenant_oidc_client_update
+      security:
+      - PlatformServiceAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcClientUpdateRequest'
+      responses:
+        '200':
+          description: Updated client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcClientResponse'
+        '400':
+          description: Invalid client policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid platform credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant or client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-brrtrouter-impl: true
   /platform/tenants/{slug}/sms/{environment}:
     get:
       tags:

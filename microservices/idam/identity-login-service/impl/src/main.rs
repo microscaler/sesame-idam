@@ -319,6 +319,14 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "platform_tenant_oidc_client_update" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::platform_tenant_oidc_client_update::PlatformTenantOidcClientUpdateController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "platform_tenant_get" => {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::platform_tenant_get::PlatformTenantGetController,
