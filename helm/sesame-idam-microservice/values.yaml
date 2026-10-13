@@ -123,6 +123,12 @@ prometheus:
   port: 9090
   path: "/metrics"
 
+# Google Cloud Managed Service for Prometheus (templates/podmonitoring.yaml): scrape prometheus.path on the http port.
+# On in GKE environments (Application Monitoring golden signals); off where the PodMonitoring CRD is absent.
+podMonitoring:
+  enabled: false
+  interval: 30s
+
 # ---------------------------------------------------------------------------
 # Release shape (Octopilot). Defaults keep the dev (Tilt) behaviour.
 # ---------------------------------------------------------------------------
