@@ -40,6 +40,20 @@ spec:
   {{- end }}
   {{- end }}
   replicas: {{ .Values.deployment.replicas }}
+  strategy:
+    {{- if eq (.Values.workload.strategy | default "RollingUpdate") "Recreate" }}
+    # Recreate for single-instance pollers - two concurrent cursors on the
+    # same feed would double-ingest.
+    type: Recreate
+    {{- else }}
+    # Surge first: the new pod must be Ready before an old one is removed, so a
+    # rollout never drops below the running replica count (with 1 replica:
+    # bring the new pod up, then retire the old one).
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.rollout.maxSurge }}
+      maxUnavailable: {{ .Values.rollout.maxUnavailable }}
+    {{- end }}
   selector:
     matchLabels:
       app: {{ .Values.service.name }}
@@ -59,6 +73,23 @@ spec:
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # preStop sleep + SIGTERM drain must fit inside this.
+      terminationGracePeriodSeconds: {{ .Values.rollout.terminationGracePeriodSeconds }}
+      {{- if and (gt (int .Values.deployment.replicas) 1) .Values.topologySpread.enabled }}
+      # Spread replicas across zones and nodes so one node or zone loss never
+      # takes every pod. ScheduleAnyway: prefer, never block scheduling.
+      topologySpreadConstraints:
+        {{- range .Values.topologySpread.topologyKeys }}
+        - maxSkew: {{ $.Values.topologySpread.maxSkew }}
+          topologyKey: {{ . }}
+          whenUnsatisfiable: {{ $.Values.topologySpread.whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              app: {{ $.Values.service.name }}
+          matchLabelKeys:
+            - pod-template-hash
+        {{- end }}
       {{- end }}
       containers:
         - name: {{ .Values.service.name }}
@@ -273,6 +304,15 @@ spec:
             periodSeconds: {{ .Values.healthCheck.readiness.periodSeconds }}
             timeoutSeconds: {{ .Values.healthCheck.readiness.timeoutSeconds }}
             failureThreshold: {{ .Values.healthCheck.readiness.failureThreshold }}
+          {{- if gt (int .Values.rollout.preStopSleepSeconds) 0 }}
+          # Endpoint removal reaches kube-proxy and the load balancer
+          # asynchronously: keep serving for a few seconds after termination
+          # starts so in-flight and late-routed requests are not refused.
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ .Values.rollout.preStopSleepSeconds }}
+          {{- end }}
           resources:
             requests:
               memory: {{ .Values.resources.requests.memory }}
