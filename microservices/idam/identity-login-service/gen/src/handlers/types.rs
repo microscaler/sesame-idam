@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthForgotPasswordRequest {
+    pub client_id: String,
+
     pub email: String,
 }
 
@@ -157,6 +159,8 @@ pub struct AuthRegisterResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthResetPasswordRequest {
+    pub client_id: String,
+
     pub new_password: String,
 
     pub token: String,
@@ -377,6 +381,8 @@ pub struct ErrorResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ForgotPasswordRequest {
+    pub client_id: String,
+
     pub email: String,
 }
 
@@ -674,6 +680,11 @@ pub struct OauthUserinfoResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OidcAuthorizationCompleteRequest {
     pub request_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcAuthorizationCompleteResponse {
+    pub redirect: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1017,6 +1028,63 @@ pub struct PlatformTenantOidcClientListResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantOidcClientUpdateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audiences: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grants: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_logout_redirect_uris: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_uris: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_types: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scopes: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantOidcClientUpdateResponse {
+    pub application_id: String,
+
+    pub audiences: Vec<String>,
+
+    pub client_id: String,
+
+    pub client_type: String,
+
+    pub created_at: String,
+
+    pub grants: Vec<String>,
+
+    pub pkce_s256_required: bool,
+
+    pub post_logout_redirect_uris: Vec<String>,
+
+    pub redirect_uris: Vec<String>,
+
+    pub response_types: Vec<String>,
+
+    pub scopes: Vec<String>,
+
+    pub status: String,
+
+    pub tenant_id: String,
+
+    pub token_endpoint_auth_method: String,
+
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PlatformTenantSmsGetResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_sid: Option<String>,
@@ -1197,6 +1265,8 @@ pub struct RegisterRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ResetPasswordRequest {
+    pub client_id: String,
+
     pub new_password: String,
 
     pub token: String,

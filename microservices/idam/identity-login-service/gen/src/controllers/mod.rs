@@ -65,6 +65,8 @@ pub mod platform_tenant_oidc_client_list;
 
 pub mod platform_tenant_oidc_client_create;
 
+pub mod platform_tenant_oidc_client_update;
+
 pub mod platform_tenant_sms_get;
 
 pub mod platform_tenant_sms_upsert;
