@@ -6,6 +6,7 @@
 //! Env:
 //! - `SMTP_HOST`, `MAIL_FROM`: required; in development (`SESAME_DEV_MODE=1`) they default to the in-cluster
 //!   Mailpit (`mailpit.data.svc.cluster.local`) and `no-reply@sesame-idam.dev`. Unset elsewhere, a send fails.
+//! - `MAIL_FROM_NAME`: the From display name (`Sesame`)
 //! - `SMTP_PORT` (`1025`)
 //! - `SMTP_TIMEOUT_MS` (`5000`)
 
@@ -36,6 +37,19 @@ fn smtp_port() -> u16 {
 
 fn mail_from() -> Result<String> {
     required("MAIL_FROM", "no-reply@sesame-idam.dev")
+}
+
+/// `MAIL_FROM_NAME`, the display name on the From header (Sesame when unset). Printable ASCII only, quoted: a
+/// name can neither break the header nor need RFC 2047 encoding.
+fn from_header(addr: &str) -> String {
+    let name: String = std::env::var("MAIL_FROM_NAME")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .unwrap_or_else(|| "Sesame".into())
+        .chars()
+        .filter(|c| (' '..='~').contains(c) && !matches!(c, '"' | '\\' | '<' | '>'))
+        .collect();
+    format!("\"{}\" <{addr}>", name.trim())
 }
 
 fn timeout() -> Duration {
@@ -113,7 +127,7 @@ pub fn send_email(to: &str, subject: &str, body: &str) -> Result<()> {
     command(&mut stream, &mut reader, "DATA", 354)?;
 
     let mut message = String::new();
-    message.push_str(&format!("From: Sesame <{from}>\r\n"));
+    message.push_str(&format!("From: {}\r\n", from_header(&from)));
     message.push_str(&format!("To: <{to}>\r\n"));
     message.push_str(&format!("Subject: {subject}\r\n"));
     message.push_str("MIME-Version: 1.0\r\n");

@@ -92,6 +92,8 @@ env:
   SMTP_HOST: ""
   SMTP_PORT: ""
   MAIL_FROM: ""
+  # From display name (empty: "Sesame"); the product's name for its sign-in mail.
+  MAIL_FROM_NAME: ""
   # Product onboarding page invite links point at. Empty: invites are stored but not emailed.
   INVITE_MAGIC_LINK_BASE: ""
   # Optional overrides; default <SESAME_AUTH_PUBLIC_URL>/verify-magic and /reset-password.
