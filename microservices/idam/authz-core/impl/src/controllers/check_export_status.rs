@@ -14,7 +14,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         serde_json::json!(&req.data.export_id),
     );
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "export_status_checked")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("export_status_checked")
         .tenant_id(&req.data.x_tenant_id)
         .metadata(serde_json::Value::Object(metadata))
         .build();

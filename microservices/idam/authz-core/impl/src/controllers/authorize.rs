@@ -18,7 +18,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     metadata.insert("action".to_string(), serde_json::json!(req.data.action));
     metadata.insert("resource".to_string(), serde_json::json!(req.data.resource));
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authorization_check")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("authorization_check")
         .tenant_id(req.data.tenant_id.as_deref().unwrap_or_default())
         .user_id(&req.data.user_id)
         .metadata(serde_json::Value::Object(metadata))

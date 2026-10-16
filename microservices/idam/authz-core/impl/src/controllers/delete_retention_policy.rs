@@ -11,7 +11,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let mut metadata = serde_json::Map::new();
     metadata.insert("policy_id".to_string(), serde_json::json!(&req.data.id));
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "retention_policy_deleted")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("retention_policy_deleted")
         .tenant_id(&req.data.x_tenant_id)
         .metadata(serde_json::Value::Object(metadata))
         .build();

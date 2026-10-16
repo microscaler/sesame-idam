@@ -25,7 +25,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         serde_json::json!(req.data.retention_days),
     );
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "retention_policy_created")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("retention_policy_created")
         .tenant_id(&req.data.x_tenant_id)
         .metadata(serde_json::Value::Object(metadata))
         .build();

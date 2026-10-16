@@ -19,7 +19,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         serde_json::json!(!req.data.value.is_empty()),
     );
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "attribute_updated")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("attribute_updated")
         .tenant_id(&req.data.tenant_id)
         .user_id(&req.data.user_id)
         .metadata(serde_json::Value::Object(metadata))

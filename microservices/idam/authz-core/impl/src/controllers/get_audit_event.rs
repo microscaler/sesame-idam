@@ -11,7 +11,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let mut metadata = serde_json::Map::new();
     metadata.insert("event_id".to_string(), serde_json::json!(&req.data.id));
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "audit_event_retrieved")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("audit_event_retrieved")
         .tenant_id(&req.data.x_tenant_id)
         .metadata(serde_json::Value::Object(metadata))
         .build();

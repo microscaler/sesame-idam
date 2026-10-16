@@ -120,7 +120,7 @@ pub fn issue_rotated_tokens(
     let claims = AccessClaimsBuilder::new()
         .iss(issuer())
         .sub(&token.sub)
-        .aud(vec!["sesame-idam".to_string()])
+        .aud(sesame_common::deployment::issue_audiences())
         .client_id(&token.client_id)
         .scope(scope.clone())
         .exp(now + access_ttl)

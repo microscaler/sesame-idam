@@ -49,7 +49,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         metadata.insert("include_inherited".to_string(), serde_json::json!(include));
     }
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "effective_permissions")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("effective_permissions")
         .tenant_id(&req.data.tenant_id)
         .user_id(&req.data.user_id)
         .metadata(serde_json::Value::Object(metadata))

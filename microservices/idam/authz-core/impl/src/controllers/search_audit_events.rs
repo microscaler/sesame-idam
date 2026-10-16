@@ -22,7 +22,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         );
     }
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "audit_events_searched")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("audit_events_searched")
         .tenant_id(&req.data.tenant_id)
         .metadata(serde_json::Value::Object(metadata))
         .build();

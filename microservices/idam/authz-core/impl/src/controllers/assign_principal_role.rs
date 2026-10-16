@@ -27,7 +27,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     );
     metadata.insert("role".to_string(), serde_json::json!(&req.data.role));
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "role_assigned")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("role_assigned")
         .tenant_id(&req.data.tenant_id)
         .user_id(&req.data.user_id)
         .metadata(serde_json::Value::Object(metadata))

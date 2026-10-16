@@ -61,6 +61,47 @@ pub fn issuer() -> String {
     env_or(ISSUER_ENV, DEV_ISSUER)
 }
 
+/// Audiences minted into every access token Sesame issues (Gate A6), at login and at refresh alike:
+/// [`ISSUE_AUDIENCES_ENV`] (comma-separated), else [`DEFAULT_ISSUE_AUDIENCES`] — the platform audience plus every
+/// consumer service, so a browser token is accepted by each service's own `aud` check. Login and refresh must agree:
+/// a refreshed token narrower than the login one is refused by the services and signs the user out.
+#[must_use]
+pub fn issue_audiences() -> Vec<String> {
+    parse_audiences(std::env::var(ISSUE_AUDIENCES_ENV).ok().as_deref())
+}
+
+/// Environment variable naming the audiences minted into access tokens.
+pub const ISSUE_AUDIENCES_ENV: &str = "JWT_ISSUE_AUDIENCES";
+
+/// Audiences used when [`ISSUE_AUDIENCES_ENV`] is unset or empty.
+pub const DEFAULT_ISSUE_AUDIENCES: [&str; 7] = [
+    "sesame-idam",
+    "identity-login",
+    "identity-session",
+    "authz-core",
+    "org-mgmt",
+    "identity-user-mgmt",
+    "api-keys",
+];
+
+fn parse_audiences(raw: Option<&str>) -> Vec<String> {
+    let listed: Vec<String> = raw
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect();
+    if listed.is_empty() {
+        DEFAULT_ISSUE_AUDIENCES
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect()
+    } else {
+        listed
+    }
+}
+
 /// Public base URL of the sign-in surface: [`AUTH_PUBLIC_URL_ENV`], else [`DEV_AUTH_PUBLIC_URL`].
 #[must_use]
 pub fn auth_public_url() -> String {
@@ -303,5 +344,24 @@ mod tests {
         assert!(!dev_mode_from(Some("0")));
         assert!(!dev_mode_from(Some("")));
         assert!(!dev_mode_from(None));
+    }
+}
+
+#[cfg(test)]
+mod issue_audience_tests {
+    use super::{parse_audiences, DEFAULT_ISSUE_AUDIENCES};
+
+    #[test]
+    fn unset_or_blank_means_every_service() {
+        for raw in [None, Some(""), Some(" , ")] {
+            let aud = parse_audiences(raw);
+            assert_eq!(aud.len(), DEFAULT_ISSUE_AUDIENCES.len());
+            assert!(aud.iter().any(|a| a == "identity-session"));
+        }
+    }
+
+    #[test]
+    fn configured_list_is_trimmed() {
+        assert_eq!(parse_audiences(Some(" a, b ,,c")), vec!["a", "b", "c"]);
     }
 }

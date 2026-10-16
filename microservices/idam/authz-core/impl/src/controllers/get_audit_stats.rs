@@ -8,7 +8,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     use crate::audit::EMITTER;
     use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
-    let entry = AuditLogEntry::new(AuditEventType::Delegation, "audit_stats_requested")
+    let entry = AuditLogEntry::new(AuditEventType::Delegation, "authz-core")
+        .decision_source("audit_stats_requested")
         .tenant_id(&req.data.x_tenant_id)
         .build();
 

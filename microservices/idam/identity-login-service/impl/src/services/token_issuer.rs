@@ -28,28 +28,10 @@ fn issuer() -> String {
     sesame_common::deployment::issuer()
 }
 
-/// Audiences minted into issued tokens (Gate A6). `JWT_ISSUE_AUDIENCES`
-/// (comma-separated) per environment; the default enumerates the platform
-/// audience plus every consumer service, so a browser-login token is valid
-/// at each service's own `aud` check while narrower tokens (e.g. a future
-/// M2M grant setting a single service audience) are rejected elsewhere.
+/// Audiences minted into issued tokens (Gate A6); shared with refresh, see
+/// [`sesame_common::deployment::issue_audiences`].
 fn issue_audiences() -> Vec<String> {
-    match std::env::var("JWT_ISSUE_AUDIENCES") {
-        Ok(v) if !v.trim().is_empty() => v
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect(),
-        _ => vec![
-            "sesame-idam".to_string(),
-            "identity-login".to_string(),
-            "identity-session".to_string(),
-            "authz-core".to_string(),
-            "org-mgmt".to_string(),
-            "identity-user-mgmt".to_string(),
-            "api-keys".to_string(),
-        ],
-    }
+    sesame_common::deployment::issue_audiences()
 }
 
 /// Tokens issued for a successful login/register.
