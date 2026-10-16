@@ -193,6 +193,15 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                // Agent sign-in (sesame_common::agents): ES256 assertion check, one-time jti, EdDSA token.
+                "mcp_token" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::mcp_token::McpTokenController,
+                        65536,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "openid_configuration" => {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::openid_configuration::OpenidConfigurationController,
