@@ -48,6 +48,7 @@ pub const MAX_AGENT_TTL_SECS: i64 = 900;
 
 /// A P-256 public key in JWK form.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct EcPublicJwk {
     pub kty: String,
     pub crv: String,
@@ -57,8 +58,9 @@ pub struct EcPublicJwk {
     pub kid: Option<String>,
 }
 
-/// One registered agent.
+/// One registered agent. Unknown keys are refused, so a misspelt restriction cannot be silently ignored.
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Agent {
     /// Agent id (UUID): the `sub` of its tokens and the `agent_id` it presents.
     pub id: String,
@@ -96,6 +98,7 @@ impl Agent {
 
 /// The registry file's contents.
 #[derive(Debug, Clone, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct AgentRegistry {
     #[serde(default)]
     pub agents: Vec<Agent>,
@@ -137,20 +140,28 @@ impl AgentRegistry {
     ///
     /// [`AgentError::Registry`] when the document is malformed or an entry is unusable.
     pub fn parse(yaml: &str) -> Result<Self, AgentError> {
-        let reg: Self =
+        let mut reg: Self =
             serde_yaml::from_str(yaml).map_err(|e| AgentError::Registry(e.to_string()))?;
         let mut seen = std::collections::HashSet::new();
-        for a in &reg.agents {
-            if uuid::Uuid::parse_str(&a.id).is_err() {
+        for a in &mut reg.agents {
+            // One spelling everywhere (lower-case, hyphenated): the token's `sub`, lookups, audit and federation.
+            let Ok(id) = uuid::Uuid::parse_str(&a.id) else {
                 return Err(AgentError::Registry(format!(
                     "agent {}: id is not a UUID",
                     a.name
                 )));
-            }
-            if !seen.insert(a.id.to_ascii_lowercase()) {
+            };
+            a.id = id.hyphenated().to_string();
+            if !seen.insert(a.id.clone()) {
                 return Err(AgentError::Registry(format!(
                     "agent id {} listed twice",
                     a.id
+                )));
+            }
+            if let Some(aud) = a.audiences.iter().find(|aud| is_forbidden_audience(aud)) {
+                return Err(AgentError::Registry(format!(
+                    "agent {}: audience {aud} is accepted by Sesame's own services; agents may not hold it",
+                    a.name
                 )));
             }
             if a.public_jwk.kty != "EC" || a.public_jwk.crv != "P-256" {
@@ -169,11 +180,22 @@ impl AgentRegistry {
         Ok(reg)
     }
 
-    /// The agent with this id (case-insensitive UUID match).
+    /// The agent with this id (any UUID spelling; ids are stored canonical).
     #[must_use]
     pub fn find(&self, id: &str) -> Option<&Agent> {
-        self.agents.iter().find(|a| a.id.eq_ignore_ascii_case(id))
+        let id = uuid::Uuid::parse_str(id).ok()?.hyphenated().to_string();
+        self.agents.iter().find(|a| a.id == id)
     }
+}
+
+/// Audiences an agent may never be given: every audience a Sesame service accepts (`JWT_EXPECTED_AUDIENCES`, else
+/// its defaults) and Sesame's platform audience. With one of them an agent token would reach Sesame's own APIs.
+#[must_use]
+pub fn is_forbidden_audience(aud: &str) -> bool {
+    aud == "sesame-idam"
+        || crate::jwt::helpers::expected_audiences()
+            .iter()
+            .any(|e| e == aud)
 }
 
 /// The registry from [`AGENTS_FILE_ENV`], re-read when the file changes (a `ConfigMap` update needs no restart).
@@ -436,5 +458,29 @@ mod tests {
             &doc(ID, "P-256", "x")[8..]
         ))
         .is_err());
+        // Sesame's own audiences are refused.
+        assert!(AgentRegistry::parse(&doc(ID, "P-256", "sesame-idam")).is_err());
+        assert!(AgentRegistry::parse(&doc(ID, "P-256", "identity-session")).is_err());
+        // Unknown keys are refused rather than ignored.
+        assert!(AgentRegistry::parse(
+            &doc(ID, "P-256", "x").replace("scope: r", "scope: r\n    scopes: [admin]")
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn ids_are_canonical_and_every_spelling_finds_the_agent() {
+        let upper = ID.to_uppercase();
+        let doc = format!(
+            "agents:\n  - id: '{{{upper}}}'\n    name: a\n    tenant: t\n    sponsor: s\n    audiences: [x]\n    scope: r\n    public_jwk: {{kty: EC, crv: P-256, x: AA, y: AA}}\n"
+        );
+        let reg = AgentRegistry::parse(&doc).unwrap();
+        assert_eq!(reg.agents[0].id, ID);
+        assert!(reg.find(&upper).is_some());
+        assert!(reg.find(&format!("urn:uuid:{ID}")).is_some());
+        assert!(reg.find("not-a-uuid").is_none());
+        // Two spellings of one id are one id.
+        let twice = format!("{doc}{}", doc[8..].replace(&format!("{{{upper}}}"), ID));
+        assert!(AgentRegistry::parse(&twice).is_err());
     }
 }

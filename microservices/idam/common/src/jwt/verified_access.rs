@@ -202,4 +202,19 @@ mod tests {
             JwtError::Validation(JwtValidationError::InvalidAudience)
         ));
     }
+
+    #[test]
+    fn rejects_agent_tokens_even_with_a_sesame_audience() {
+        // ADR-016: an agent token is refused by every Sesame verification path (token exchange, session handoff),
+        // not only because its audience is normally foreign.
+        let signer = signer();
+        let mut c = claims("https://idam.example.com", "sesame-idam", "acme", 300);
+        c.user_type = "agent".into();
+        let token = signer.sign_access_claims(&c).expect("sign");
+        let err = verify_access_token(&signer, &token, None).unwrap_err();
+        assert!(matches!(
+            err,
+            JwtError::Validation(JwtValidationError::AgentNotAccepted)
+        ));
+    }
 }

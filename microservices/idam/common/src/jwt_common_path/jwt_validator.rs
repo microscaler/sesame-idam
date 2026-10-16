@@ -232,6 +232,9 @@ pub fn parse_claims(token: &str) -> Result<AccessClaims, AuthError> {
             crate::JwtValidationError::EntitlementsHashMismatch => {
                 AuthError::JwtInvalid("Entitlements hash mismatch".into())
             }
+            crate::JwtValidationError::AgentNotAccepted => {
+                AuthError::JwtInvalid("Agent tokens are not accepted here".into())
+            }
         });
     }
 

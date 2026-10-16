@@ -6,7 +6,12 @@
 //! one-time `jti`). The token issued carries only the agent's own audiences, roles and scope, `user_type = "agent"`,
 //! and lives a few minutes; there is no refresh token — the agent signs a new assertion instead.
 //!
-//! Disabling the agent in the registry stops new tokens at once; bumping its subject version revokes live ones.
+//! Kill switches: disabling the agent in the registry stops new tokens (the ConfigMap reaches the pod within a minute
+//! or two); live tokens end within the agent's ttl (default 5 minutes). Bumping the agent's subject version revokes
+//! live tokens only at consumers that run Sesame's token-status check.
+//!
+//! Hardening: the agent id must be a UUID and the assertion at most [`MAX_CREDENTIAL_BYTES`]; audit records the
+//! canonical id, never the caller's spelling.
 
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
@@ -20,13 +25,26 @@ use uuid::Uuid;
 use crate::audit::EMITTER;
 use crate::services::token_issuer::SIGNER;
 
+/// Largest client assertion accepted. A real one is about 400 bytes.
+pub const MAX_CREDENTIAL_BYTES: usize = 4096;
+
 #[handler(McpTokenController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
+    // Malformed input is refused before any lookup, crypto, Redis or audit write.
+    let (Ok(agent_uuid), true) = (
+        Uuid::parse_str(&req.data.agent_id),
+        req.data.credential.len() <= MAX_CREDENTIAL_BYTES && req.data.x_tenant_id.len() <= 64,
+    ) else {
+        return HttpJson::new(
+            401,
+            error_body("invalid_client", "Agent authentication failed"),
+        );
+    };
+    let agent_id = agent_uuid.hyphenated().to_string();
     let tenant = req.data.x_tenant_id.clone();
-    let agent_id = req.data.agent_id.clone();
     match issue(&agent_id, &tenant, &req.data.credential) {
         Ok((agent, body)) => {
-            audit(&tenant, &agent_id, "allowed", &agent.name, None);
+            audit(&tenant, &agent.id, "allowed", &agent.name, None);
             tracing::info!(agent = %agent.name, sponsor = %agent.sponsor, "agent token issued");
             HttpJson::ok(body)
         }

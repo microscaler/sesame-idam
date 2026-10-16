@@ -279,6 +279,10 @@ pub enum JwtValidationError {
     InvalidTyp,
     /// Header `alg` is not on the EdDSA allow-list (includes `none`).
     InvalidAlgorithm,
+    /// An agent principal's token (`user_type = "agent"`, ADR-016). Agent tokens are minted for named consumers
+    /// outside Sesame; no Sesame verification path (token exchange, session handoff, service middleware) accepts
+    /// them, whatever audiences are configured.
+    AgentNotAccepted,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -334,6 +338,9 @@ impl AccessClaims {
         }
         if self.tenant_id.is_empty() {
             return Err(JwtValidationError::MissingTenant);
+        }
+        if self.user_type == "agent" {
+            return Err(JwtValidationError::AgentNotAccepted);
         }
         if self.sx.tenant.is_empty() {
             return Err(JwtValidationError::MissingAuthzClaims);

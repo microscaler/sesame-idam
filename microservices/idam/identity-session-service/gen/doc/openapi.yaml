@@ -830,10 +830,17 @@ paths:
       tags:
       - MCP
       summary: Issue MCP auth token
-      description: 'Authenticate an MCP agent and issue a token for tool access.
+      description: 'Authenticate an agent principal (ADR-016) and issue a short-lived access token.
 
 
-        Requires `X-Tenant-ID` header for tenant resolution.'
+        Agents are declared in the GitOps agent registry (`SESAME_AGENTS_FILE`), never through this API. The credential
+        is an ES256 client assertion signed by the agent''s registered key: `iss` = `sub` = the agent id, `aud` = this
+        issuer, lifetime at most 300 seconds, a one-time `jti`. The token carries only the agent''s registry audiences,
+        roles and scope, `user_type` `agent`, and no refresh token. Sesame''s own services and token exchange refuse
+        agent tokens.
+
+
+        Requires `X-Tenant-ID` header for tenant resolution; it must equal the agent''s tenant.'
       operationId: mcp_token
       x-public-reason: "token issuance; the grant in the body IS the credential"
       security: []
@@ -868,6 +875,12 @@ paths:
               example:
                 error: invalid_request
                 error_description: Unauthorized (invalid or missing token)
+        '503':
+          description: Agent registry or replay store unavailable (fails closed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
           content: *id003
@@ -1634,10 +1647,11 @@ components:
         agent_id:
           type: string
           format: uuid
-          description: MCP agent identifier
+          description: Agent id (UUID) from the agent registry
         credential:
           type: string
-          description: Agent credential/secret
+          maxLength: 4096
+          description: ES256 client assertion (compact JWT) signed by the agent's registered key
     McpTokenResponse:
       type: object
       required:
