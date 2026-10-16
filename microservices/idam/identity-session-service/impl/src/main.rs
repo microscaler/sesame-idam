@@ -263,9 +263,11 @@ fn main() -> io::Result<()> {
     // the HTTP layer and the Postgres layer.
     service.set_extra_prometheus(Some(std::sync::Arc::new(|| {
         format!(
-            "{}\n{}",
+            "{}\n{}\n{}",
             lifeguard::metrics::prometheus_scrape_text(),
-            sesame_common::token_status_prometheus_scrape_text()
+            sesame_common::observability::prometheus_scrape_text(),
+            sesame_idam_identity_session_service::key_manager::signing_keys_prometheus_scrape_text(
+            )
         )
     })));
 

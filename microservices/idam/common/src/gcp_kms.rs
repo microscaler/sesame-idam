@@ -185,6 +185,19 @@ pub struct KmsPublicKey {
     pub algorithm: String,
 }
 
+/// The KMS operation a request URL names, as a metric label.
+fn kms_op(url: &str) -> &'static str {
+    if url.ends_with(":asymmetricSign") {
+        "asymmetric_sign"
+    } else if url.ends_with(":macSign") {
+        "mac_sign"
+    } else if url.ends_with("/publicKey") {
+        "public_key"
+    } else {
+        "other"
+    }
+}
+
 fn crc_matches(data: &[u8], expected: Option<&str>) -> bool {
     expected
         .and_then(|c| c.parse::<u64>().ok())
@@ -253,6 +266,31 @@ impl KmsClient {
     }
 
     fn call(&self, url: &str, body: Option<&serde_json::Value>) -> Result<Vec<u8>, KmsError> {
+        let op = kms_op(url);
+        let started = Instant::now();
+        let result = self.call_inner(url, body);
+        crate::observability::metrics::KMS_DURATION
+            .with_label_values(&[op])
+            .observe(started.elapsed().as_secs_f64());
+        let outcome = match &result {
+            Ok(_) => "ok",
+            Err(KmsError::Unavailable(_)) => "unavailable",
+            Err(KmsError::Integrity(_)) => "integrity",
+            Err(_) => "error",
+        };
+        crate::observability::metrics::KMS_REQUESTS
+            .with_label_values(&[op, outcome])
+            .inc();
+        if let Err(error) = &result {
+            crate::observability::metrics::DEPENDENCY_ERRORS
+                .with_label_values(&["kms", op])
+                .inc();
+            tracing::warn!(op, outcome, error = %error, "sesame_kms_error");
+        }
+        result
+    }
+
+    fn call_inner(&self, url: &str, body: Option<&serde_json::Value>) -> Result<Vec<u8>, KmsError> {
         let token = self.access_token()?;
         let mut headers = vec![("Authorization".to_string(), format!("Bearer {token}"))];
         let result = if let Some(body) = body {

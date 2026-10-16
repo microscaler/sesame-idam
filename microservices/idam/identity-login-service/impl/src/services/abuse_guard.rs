@@ -107,6 +107,9 @@ pub fn login_locked(tenant: &str, identifier: &str) -> Option<u64> {
     let mut conn = match connection() {
         Ok(c) => c,
         Err(e) => {
+            sesame_common::observability::metrics::DEPENDENCY_ERRORS
+                .with_label_values(&["redis", "abuse_guard"])
+                .inc();
             tracing::warn!(error = %e, "abuse_guard: redis unavailable — lockout check skipped");
             return None;
         }
@@ -133,6 +136,9 @@ pub fn record_login_failure(tenant: &str, identifier: &str) -> FailureOutcome {
     let mut conn = match connection() {
         Ok(c) => c,
         Err(e) => {
+            sesame_common::observability::metrics::DEPENDENCY_ERRORS
+                .with_label_values(&["redis", "abuse_guard"])
+                .inc();
             tracing::warn!(error = %e, "abuse_guard: redis unavailable — failure not counted");
             return FailureOutcome::Counted { failures: 0 };
         }
@@ -239,6 +245,9 @@ pub fn gate_otp_send(tenant: &str, channel: Channel, recipient: &str) -> SendDec
         Err(e) => {
             // Fail open for email (bounded harm), fail CLOSED for SMS —
             // an unmetered SMS path is exactly the toll-fraud scenario.
+            sesame_common::observability::metrics::DEPENDENCY_ERRORS
+                .with_label_values(&["redis", "abuse_guard"])
+                .inc();
             tracing::warn!(error = %e, "abuse_guard: redis unavailable for otp send gate");
             return match channel {
                 Channel::Email => SendDecision::Allow,

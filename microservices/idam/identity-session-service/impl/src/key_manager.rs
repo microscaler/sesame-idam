@@ -1137,6 +1137,42 @@ impl fmt::Display for KeyManager {
 // ─── Shared KeyManager instance ──────────────────────────────────────────────
 
 /// Global key manager shared across all handlers in this service.
+/// Signing-key series for `/metrics`: one `sesame_signing_key_age_seconds` per key the session service holds
+/// (state `active` or `next`) and the number of keys the JWKS document publishes (current plus any in grace).
+/// A JWKS with no key, or an active key older than the rotation interval, is what the alerts look for.
+#[must_use]
+pub fn signing_keys_prometheus_scrape_text() -> String {
+    use std::fmt::Write as _;
+    let Ok(manager) = KEY_MANAGER.read() else {
+        return String::new();
+    };
+    let health = manager.health();
+    let published = manager.jwks_document().keys.len();
+    let mut text = String::from(
+        "# HELP sesame_signing_key_age_seconds Age of each access-token signing key held by the session service.\n\
+         # TYPE sesame_signing_key_age_seconds gauge\n",
+    );
+    for key in &health.keys {
+        let state = if key.state == "next" {
+            "next"
+        } else if key.kid == health.current_kid {
+            "active"
+        } else {
+            "grace"
+        };
+        let _ = writeln!(
+            text,
+            "sesame_signing_key_age_seconds{{state=\"{state}\",alg=\"{}\"}} {}",
+            key.alg, key.age_seconds
+        );
+    }
+    let _ = write!(
+        text,
+        "# HELP sesame_jwks_published_keys Keys the JWKS document publishes.\n# TYPE sesame_jwks_published_keys gauge\nsesame_jwks_published_keys {published}\n"
+    );
+    text
+}
+
 pub static KEY_MANAGER: std::sync::LazyLock<std::sync::RwLock<KeyManager>> =
     std::sync::LazyLock::new(|| {
         std::sync::RwLock::new(

@@ -100,22 +100,24 @@ impl AuditQueue {
 
     /// Drain and return all HIGH priority entries.
     pub fn drain_high(&self) -> Vec<AuditLogEntry> {
-        let mut entries = Vec::new();
-        for entry in self.high.iter() {
-            entries.push(entry.value().clone());
-        }
-        self.high.clear();
-        entries
+        // Remove key by key, in sequence order: an entry inserted while draining stays for the next drain
+        // instead of being cleared unseen.
+        let mut keys: Vec<u64> = self.high.iter().map(|e| *e.key()).collect();
+        keys.sort_unstable();
+        keys.into_iter()
+            .filter_map(|k| self.high.remove(&k).map(|(_, v)| v))
+            .collect()
     }
 
     /// Drain and return all LOW priority entries.
     pub fn drain_low(&self) -> Vec<AuditLogEntry> {
-        let mut entries = Vec::new();
-        for entry in self.low.iter() {
-            entries.push(entry.value().clone());
-        }
-        self.low.clear();
-        entries
+        // Remove key by key, in sequence order: an entry inserted while draining stays for the next drain
+        // instead of being cleared unseen.
+        let mut keys: Vec<u64> = self.low.iter().map(|e| *e.key()).collect();
+        keys.sort_unstable();
+        keys.into_iter()
+            .filter_map(|k| self.low.remove(&k).map(|(_, v)| v))
+            .collect()
     }
 
     /// Signal shutdown — no more entries will be accepted.

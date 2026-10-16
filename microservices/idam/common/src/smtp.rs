@@ -99,6 +99,66 @@ fn command(
 ///
 /// Returns an error on connection failure, timeout, or unexpected SMTP reply.
 pub fn send_email(to: &str, subject: &str, body: &str) -> Result<()> {
+    let started = std::time::Instant::now();
+    let result = send_email_inner(to, subject, body);
+    crate::observability::metrics::MAIL_DURATION.observe(started.elapsed().as_secs_f64());
+    let outcome = match &result {
+        Ok(()) => "sent",
+        Err(e) => classify_failure(e),
+    };
+    let kind = mail_kind(subject);
+    crate::observability::metrics::MAIL_SENDS
+        .with_label_values(&[kind, outcome])
+        .inc();
+    // The recipient's domain only: enough to see a provider refusing, never the address.
+    let domain = to.rsplit_once('@').map_or("", |(_, d)| d);
+    match &result {
+        Ok(()) => tracing::info!(kind, outcome, to_domain = domain, "sesame_mail"),
+        Err(error) => {
+            crate::observability::metrics::DEPENDENCY_ERRORS
+                .with_label_values(&["smtp", "mail"])
+                .inc();
+            tracing::warn!(kind, outcome, to_domain = domain, error = %format!("{error:#}"), "sesame_mail");
+        }
+    }
+    result
+}
+
+/// The kind of message, from its subject line, as a metric label (the subject itself is never logged).
+fn mail_kind(subject: &str) -> &'static str {
+    let s = subject.to_ascii_lowercase();
+    if s.contains("password") {
+        "password_reset"
+    } else if s.contains("verification code") || s.contains("code") {
+        "otp"
+    } else if s.contains("sign-in link") || s.contains("magic") {
+        "magic_link"
+    } else if s.contains("ownership") {
+        "owner_transfer"
+    } else if s.contains("invit") {
+        "invite"
+    } else {
+        "other"
+    }
+}
+
+/// `refused` when the relay answered with an SMTP error (a 4xx/5xx reply: Gmail's 451 arrives this way),
+/// `unreachable` when it could not be reached at all, otherwise `error`.
+fn classify_failure(error: &anyhow::Error) -> &'static str {
+    let text = format!("{error:#}");
+    if text.contains("SMTP: expected") {
+        "refused"
+    } else if text.contains("SMTP: connect")
+        || text.contains("SMTP: resolving")
+        || text.contains("SMTP: no address")
+    {
+        "unreachable"
+    } else {
+        "error"
+    }
+}
+
+fn send_email_inner(to: &str, subject: &str, body: &str) -> Result<()> {
     let from = mail_from()?;
     let addr = format!("{}:{}", smtp_host()?, smtp_port());
     let mut stream = {

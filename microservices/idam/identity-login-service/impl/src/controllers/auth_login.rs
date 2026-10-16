@@ -104,6 +104,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         &binding.portal,
     )
     .unwrap_or_else(|e| {
+        sesame_common::observability::metrics::DEPENDENCY_ERRORS
+            .with_label_values(&["authz-core", "login_enrichment"])
+            .inc();
         tracing::warn!(error = %e, "auth_login: authz-core enrichment failed — issuing token without roles");
         crate::services::authz_client::EffectiveAuthz {
             roles: vec![],

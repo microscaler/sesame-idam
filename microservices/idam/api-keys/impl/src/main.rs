@@ -168,7 +168,7 @@ fn main() -> io::Result<()> {
         format!(
             "{}\n{}",
             lifeguard::metrics::prometheus_scrape_text(),
-            sesame_common::token_status_prometheus_scrape_text()
+            sesame_common::observability::prometheus_scrape_text()
         )
     })));
 

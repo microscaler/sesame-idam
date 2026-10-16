@@ -314,13 +314,22 @@ impl AuditEmitter {
             }
         }
 
-        // Record metric
+        // Record metrics: the legacy per-event counter and Sesame's exported series.
         AuditMetrics::increment_total(&entry.event);
+        let metrics = crate::observability::metrics::SECURITY_EVENTS.with_label_values(&[
+            crate::observability::label(&entry.service),
+            crate::observability::label(&entry.event),
+            crate::observability::label(&entry.decision_source),
+            crate::observability::label(&entry.result),
+            crate::observability::label(entry.reason.as_deref().unwrap_or("")),
+        ]);
+        metrics.inc();
 
-        // Enqueue to priority queue
+        // Enqueue, then write the queue to the log straight away. Nothing else ever drained it: before this,
+        // entries reached the log only at shutdown, and once a queue held 10 000 entries every later event
+        // (sign-in failures, lockouts, revocations) was dropped without a trace.
         let _ = self.queue.enqueue(entry);
-
-        // Signal the flush task if there's new work
+        self.flush();
     }
 
     /// Flush all pending entries synchronously.
@@ -333,18 +342,14 @@ impl AuditEmitter {
         let high_entries = self.queue.drain_high();
         count += high_entries.len();
         for entry in high_entries {
-            if let Ok(json) = entry.to_log_json() {
-                tracing::error!(log = json, "audit_security_event");
-            }
+            write_entry(&entry, "audit_security_event");
         }
 
         // Drain LOW priority
         let low_entries = self.queue.drain_low();
         count += low_entries.len();
         for entry in low_entries {
-            if let Ok(json) = entry.to_log_json() {
-                tracing::info!(log = json, "audit_event");
-            }
+            write_entry(&entry, "audit_event");
         }
 
         count
@@ -372,5 +377,60 @@ impl Clone for AuditEmitter {
             hmac_key: self.hmac_key.clone(),
             // shutdown: removed — Notify was dead code (never awaited),
         }
+    }
+}
+
+/// Write one audit entry to the log at its own level, with the fields a log-based metric or a Logs Explorer query
+/// filters on as top-level fields and the full signed entry as `log`.
+fn write_entry(entry: &AuditLogEntry, message: &'static str) {
+    let Ok(json) = entry.to_log_json() else {
+        return;
+    };
+    let event = entry.event.as_str();
+    let source = entry.decision_source.as_str();
+    let result = entry.result.as_str();
+    let reason = entry.reason.as_deref().unwrap_or("");
+    let tenant = entry.tenant_id.as_deref().unwrap_or("");
+    match entry.level {
+        AuditLevel::Error => tracing::error!(
+            audit = true,
+            event,
+            source,
+            result,
+            reason,
+            tenant,
+            log = json,
+            "{message}"
+        ),
+        AuditLevel::Warn => tracing::warn!(
+            audit = true,
+            event,
+            source,
+            result,
+            reason,
+            tenant,
+            log = json,
+            "{message}"
+        ),
+        AuditLevel::Info => tracing::info!(
+            audit = true,
+            event,
+            source,
+            result,
+            reason,
+            tenant,
+            log = json,
+            "{message}"
+        ),
+        AuditLevel::Debug => tracing::debug!(
+            audit = true,
+            event,
+            source,
+            result,
+            reason,
+            tenant,
+            log = json,
+            "{message}"
+        ),
     }
 }
