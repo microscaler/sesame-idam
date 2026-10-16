@@ -18,6 +18,7 @@
 //! calling authz-core, by evaluating policy locally from JWT claims.
 
 // Existing modules
+pub mod agents;
 pub mod config;
 pub mod cors;
 pub mod deployment;

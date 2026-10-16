@@ -120,6 +120,12 @@ idTokenKeys:
   configMap: ""
   key: id-token-keys.json
 
+# Agent registry (sesame_common::agents): non-human principals that sign in with a key. A ConfigMap delivered by
+# GitOps; only identity-session-service (which issues agent tokens) needs it. Empty: no agents.
+agents:
+  configMap: ""
+  key: agents.yaml
+
 prometheus:
   enabled: true
   port: 9090

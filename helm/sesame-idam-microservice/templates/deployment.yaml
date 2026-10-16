@@ -192,6 +192,11 @@ spec:
             - name: SESAME_ID_TOKEN_KEYS
               value: "/etc/sesame/id-token/{{ .Values.idTokenKeys.key }}"
             {{- end }}
+            {{- if and .Values.agents .Values.agents.configMap }}
+            # ── Agent registry (key-authenticated, non-human principals).
+            - name: SESAME_AGENTS_FILE
+              value: "/etc/sesame/agents/{{ .Values.agents.key }}"
+            {{- end }}
             {{- if and .Values.signingKeyset .Values.signingKeyset.enabled }}
             # ── ADR-006 step 1: shared signing KEYSET (SOPS-delivered Secret).
             #    All replicas load the same keys with deterministic RFC 7638
@@ -334,6 +339,11 @@ spec:
               mountPath: /etc/sesame/id-token
               readOnly: true
             {{- end }}
+            {{- if and .Values.agents .Values.agents.configMap }}
+            - name: agents
+              mountPath: /etc/sesame/agents
+              readOnly: true
+            {{- end }}
             - name: logs
               mountPath: /app/logs
             - name: data
@@ -356,6 +366,15 @@ spec:
             items:
               - key: {{ .Values.idTokenKeys.key | quote }}
                 path: {{ .Values.idTokenKeys.key | quote }}
+        {{- end }}
+        {{- if and .Values.agents .Values.agents.configMap }}
+        # No subPath: a ConfigMap update reaches the running pod, and the registry is re-read on change.
+        - name: agents
+          configMap:
+            name: {{ .Values.agents.configMap | quote }}
+            items:
+              - key: {{ .Values.agents.key | quote }}
+                path: {{ .Values.agents.key | quote }}
         {{- end }}
         - name: logs
           emptyDir: {}

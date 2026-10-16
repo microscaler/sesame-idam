@@ -29,6 +29,20 @@ fn get_redis_connection() -> Result<redis::Connection> {
     Ok(client.get_connection()?)
 }
 
+/// Record `key` for `ttl_secs` if it is not already present: `Ok(true)` the first time, `Ok(false)` after.
+/// Used for one-time values (an agent's assertion `jti`). An error means the store is down: callers fail closed.
+pub fn claim_once(key: &str, ttl_secs: u64) -> Result<bool> {
+    let mut conn = get_redis_connection()?;
+    let set: Option<String> = redis::cmd("SET")
+        .arg(key)
+        .arg(1)
+        .arg("NX")
+        .arg("EX")
+        .arg(ttl_secs.max(1))
+        .query(&mut conn)?;
+    Ok(set.is_some())
+}
+
 // ---------------------------------------------------------------------------
 // Refresh token CRUD operations
 // ---------------------------------------------------------------------------
