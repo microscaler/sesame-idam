@@ -390,6 +390,15 @@ paths:
                   send_welcome_email: true
             example: *id002
       responses:
+        '403':
+          description: Not a tenant administrator of this tenant, or the tenant named is not the caller's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: forbidden
+                error_description: Tenant administrator role required for this operation
         '201':
           description: User created
           content:
@@ -720,6 +729,15 @@ paths:
           nullable: true
         description: Filter by signup method
       responses:
+        '403':
+          description: Not a tenant administrator of this tenant, or the tenant named is not the caller's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: forbidden
+                error_description: Tenant administrator role required for this operation
         '200':
           description: Users found
           content:
@@ -910,6 +928,15 @@ paths:
           type: string
           format: uuid
       responses:
+        '403':
+          description: Not a tenant administrator of this tenant, or the tenant named is not the caller's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: forbidden
+                error_description: Tenant administrator role required for this operation
         '400':
           description: "Bad request \u2014 validation error"
           content:
@@ -1124,6 +1151,15 @@ paths:
           type: string
           format: uuid
       responses:
+        '403':
+          description: Not a tenant administrator of this tenant, or the tenant named is not the caller's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: forbidden
+                error_description: Tenant administrator role required for this operation
         '400':
           description: "Bad request \u2014 validation error"
           content:
@@ -2578,6 +2614,8 @@ components:
           - attribute_too_large
           - internal_error
           - security_state_unavailable
+          - unauthorized
+          - forbidden
           description: Machine-readable error code
         error_description:
           type: string

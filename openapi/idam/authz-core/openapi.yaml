@@ -958,6 +958,15 @@ paths:
                   role: crm.editor
             example: *id007
       responses:
+        '403':
+          description: Not a tenant administrator of this tenant, or the tenant named is not the caller's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: forbidden
+                error_description: Tenant administrator role required for this operation
         '204':
           description: Assigned
         '400':
@@ -1001,6 +1010,15 @@ paths:
             schema:
               $ref: '#/components/schemas/RevokePrincipalRoleRequest'
       responses:
+        '403':
+          description: Not a tenant administrator of this tenant, or the tenant named is not the caller's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: forbidden
+                error_description: Tenant administrator role required for this operation
         '400':
           description: "Bad request \u2014 validation error"
           content:
@@ -1110,6 +1128,9 @@ components:
           - role_not_found
           - attribute_too_large
           - stale_auth_token
+          - internal_error
+          - unauthorized
+          - forbidden
           description: Machine-readable error code
         error_description:
           type: string

@@ -77,3 +77,15 @@ fn every_error_code_a_handler_answers_is_in_its_spec() {
         "error codes missing from ErrorResponse: {missing:#?}"
     );
 }
+
+/// The services that guard their admin operations with `sesame_common::tenant_admin` answer its codes too (401
+/// `unauthorized`, 403 `forbidden`); the scan above sees only each service's own sources, so they are listed here.
+#[test]
+fn the_tenant_admin_guards_codes_are_in_its_users_specs() {
+    for service in ["authz-core", "identity-user-mgmt-service", "identity-login-service"] {
+        let listed = listed_codes(service);
+        for code in ["unauthorized", "forbidden"] {
+            assert!(listed.iter().any(|c| c == code), "{service}: ErrorResponse lacks {code}");
+        }
+    }
+}
