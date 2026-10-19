@@ -8,8 +8,16 @@ use crate::controllers::user_status::set_user_status;
 
 #[handler(EnableUserController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
+    // A tenant administrator of their own tenant only (sesame_common::tenant_admin, ADR-011).
+    let admin = match sesame_common::tenant_admin::tenant_admin(&req.jwt_claims) {
+        Ok(a) => a,
+        Err(r) => return r,
+    };
+    if let Err(r) = admin.require_same_tenant(Some(&req.data.x_tenant_id)) {
+        return r;
+    }
     set_user_status(
-        &req.data.x_tenant_id,
+        &admin.tenant,
         &req.data.user_id,
         crate::services::user_admin_service::STATUS_ACTIVE,
         "admin_enable_user",

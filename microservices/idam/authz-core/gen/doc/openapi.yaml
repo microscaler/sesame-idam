@@ -892,18 +892,57 @@ paths:
       x-consumer: backend-service
       x-brrtrouter-impl: true
   /authz/principals/roles:
+    get:
+      tags:
+      - Principal
+      summary: List role assignments in the caller's tenant
+      description: Every role assignment in the caller's own tenant (the token's), or one user's with user_id. The
+        caller must be a tenant administrator (as for assign).
+      operationId: list_principal_roles
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Only this user's assignments
+      responses:
+        '200':
+          description: The assignments, by user then role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrincipalRoleAssignments'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content: *id004
+        '403':
+          description: Not a tenant administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content: *id005
+      x-consumer: backend-service
+      x-consumer-note: 'Backend-only: the tenant admin console''s BFF, never from browser'
+      x-brrtrouter-impl: true
     post:
       tags:
       - Principal
       summary: Assign role to principal
-      description: 'Assigns a role to a principal (sub) within an application, organisation,
-        and tenant scope.
-
-        SaaS customers assign roles within their own org; platform admins assign globally.
-
-
-
-        Requires `X-Tenant-ID` header for tenant resolution.'
+      description: 'Assigns a role to a user of the caller''s own tenant (idempotent: assigning a role the user
+        already holds changes nothing). The caller must be a tenant administrator of that tenant (tenant_admin, owner,
+        or a role in SESAME_TENANT_ADMIN_ROLES); the tenant is the token''s, and an X-Tenant-ID or tenant_id naming
+        another tenant is refused with 403. Takes effect at the user''s next sign-in or token refresh.'
       operationId: assign_principal_role
       requestBody:
         required: true
@@ -915,9 +954,8 @@ paths:
               default: &id007
                 summary: Example for assign_principal_role
                 value:
-                  principal_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
-                  role_id: 550e8400-e29b-41d4-a716-446655440010
-                  tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+                  user_id: 31c41c16-c281-44ae-9602-8a047e3bf33d
+                  role: crm.editor
             example: *id007
       responses:
         '204':
@@ -991,7 +1029,7 @@ paths:
           content: *id005
       parameters:
       - *id006
-      description: Requires `X-Tenant-ID` header for tenant resolution.
+      description: Revokes a role from a user of the caller's own tenant (idempotent). Same caller rule as assign.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Revoke role from principal, never from browser'
 components:
@@ -1103,23 +1141,24 @@ components:
           description: Machine-readable reason for the auth error (e.g., stale_authz_snapshot)
     AssignPrincipalRoleRequest:
       type: object
+      description: A role for a user of the caller's own tenant. Assignments are tenant-wide (a token carries every
+        role its user holds in its tenant); org_id narrows one to an organisation.
       required:
       - user_id
       - role
-      - app_id
-      - tenant_id
       properties:
         user_id:
           type: string
           format: uuid
-          description: Principal's user ID (the `sub` claim)
+          description: Principal's user ID (the `sub` claim); a user of the caller's tenant
         role:
           type: string
-          description: Role identifier (e.g., "admin", "editor", "viewer")
+          minLength: 1
+          maxLength: 64
+          description: Role name, lowercase letters, digits, '.', '_' and '-' (e.g. "tenant_admin", "crm.editor")
         app_id:
           type: string
-          format: uuid
-          description: Application ID that defines this role
+          description: Accepted for compatibility and ignored (assignments are not scoped to an application)
         org_id:
           type:
           - string
@@ -1128,21 +1167,18 @@ components:
           description: Organisation scope (for multi-tenant orgs)
         tenant_id:
           type: string
-          format: uuid
-          nullable: false
-          description: Tenant scope (for multi-tenant orgs)
+          description: Optional; when present it must be the caller's own tenant (the token's), else 403
         expires_at:
           type:
           - string
           - 'null'
           format: date-time
-          description: Optional role expiration time
+          description: Not supported yet (no expiring assignments); a value is refused with 400
     RevokePrincipalRoleRequest:
       type: object
       required:
       - user_id
       - role
-      - app_id
       properties:
         user_id:
           type: string
@@ -1150,11 +1186,39 @@ components:
           description: Principal's user ID
         role:
           type: string
-          description: Role to revoke
+          description: Role to revoke (every assignment of it to the user in the caller's tenant)
         app_id:
           type: string
+          description: Accepted for compatibility and ignored
+    PrincipalRoleAssignment:
+      type: object
+      required:
+      - user_id
+      - role
+      - created_at
+      properties:
+        user_id:
+          type: string
           format: uuid
-          description: Application ID
+        role:
+          type: string
+        org_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+    PrincipalRoleAssignments:
+      type: object
+      required:
+      - assignments
+      properties:
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrincipalRoleAssignment'
     SetPrincipalAttributeRequest:
       type: object
       required:

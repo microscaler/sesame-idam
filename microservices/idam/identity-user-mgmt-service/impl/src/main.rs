@@ -136,6 +136,14 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "query_users" => {
+                    let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                        controllers::query_users::QueryUsersController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 _ => {} // everything else answers 501
             }
         }

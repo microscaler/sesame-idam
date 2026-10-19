@@ -3,3 +3,4 @@
 //! from `sesame_idam_database::db()` at the controller edge.
 
 pub mod principal_service;
+pub mod role_admin;

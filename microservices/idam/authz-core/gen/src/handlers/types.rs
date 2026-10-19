@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AssignPrincipalRoleRequest {
-    pub app_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<serde_json::Value>,
@@ -16,7 +17,8 @@ pub struct AssignPrincipalRoleRequest {
 
     pub role: String,
 
-    pub tenant_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
 
     pub user_id: String,
 }
@@ -486,6 +488,11 @@ pub struct GetAuditStatsResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ListPrincipalRolesResponse {
+    pub assignments: Vec<PrincipalRoleAssignment>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ListRetentionPoliciesResponse {
     pub items: Vec<AuditRetentionPolicy>,
 }
@@ -539,8 +546,26 @@ pub struct PrincipalEffectiveResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PrincipalRoleAssignment {
+    pub created_at: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<serde_json::Value>,
+
+    pub role: String,
+
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PrincipalRoleAssignments {
+    pub assignments: Vec<PrincipalRoleAssignment>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct RevokePrincipalRoleRequest {
-    pub app_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_id: Option<String>,
 
     pub role: String,
 

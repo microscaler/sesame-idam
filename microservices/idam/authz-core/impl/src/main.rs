@@ -109,14 +109,33 @@ fn main() -> std::io::Result<()> {
         // Base layer: every operation answers 501 until an impl controller replaces it (never gen example data).
         sesame_common::not_implemented::register_not_implemented(&mut dispatcher, &routes)?;
         for route in &routes {
-            if route.handler_name.as_ref() == "principal_effective" {
-                let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
-                    sesame_idam_authz_core::controllers::principal_effective::PrincipalEffectiveController,
+            use sesame_idam_authz_core::controllers as c;
+            let name = route.handler_name.as_ref();
+            let tx = match name {
+                "principal_effective" => brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                    c::principal_effective::PrincipalEffectiveController,
                     20480,
-                    Some(route.handler_name.as_ref()),
-                );
-                dispatcher.add_route(route.clone(), tx);
-            }
+                    Some(name),
+                ),
+                // Role administration (tenant administrators, their own tenant): the Team consoles.
+                "assign_principal_role" => brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                    c::assign_principal_role::AssignPrincipalRoleController,
+                    20480,
+                    Some(name),
+                ),
+                "revoke_principal_role" => brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                    c::revoke_principal_role::RevokePrincipalRoleController,
+                    20480,
+                    Some(name),
+                ),
+                "list_principal_roles" => brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                    c::list_principal_roles::ListPrincipalRolesController,
+                    20480,
+                    Some(name),
+                ),
+                _ => continue,
+            };
+            dispatcher.add_route(route.clone(), tx);
         }
     }
 

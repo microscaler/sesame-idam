@@ -1,4 +1,4 @@
-//! `POST /admin/users` — admin user creation, idempotent by email.
+//! `POST /admin/users` — admin user creation, idempotent by email. The caller is a tenant administrator of the tenant.
 //!
 //! Returns 201 on creation, 200 with the existing user when the email is
 //! already registered on the tenant. Admin-created users have no password
@@ -14,7 +14,15 @@ use sesame_common::audit::{AuditEventType, AuditLogEntry};
 
 #[handler(CreateUserController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let tenant_id = req.data.x_tenant_id.clone();
+    // A tenant administrator of their own tenant only (sesame_common::tenant_admin, ADR-011).
+    let admin = match sesame_common::tenant_admin::tenant_admin(&req.jwt_claims) {
+        Ok(a) => a,
+        Err(r) => return r,
+    };
+    if let Err(r) = admin.require_same_tenant(Some(&req.data.x_tenant_id)) {
+        return r;
+    }
+    let tenant_id = admin.tenant.clone();
     let email = req.data.email.trim().to_lowercase();
 
     if email.is_empty() || !email.contains('@') {

@@ -29,91 +29,12 @@
 use brrtrouter::typed::HttpJson;
 use serde_json::Value;
 
-/// Role that permits administering one's own tenant. Granted inside the tenant;
-/// means nothing outside it and confers no platform capability.
-pub const ROLE_TENANT_ADMIN: &str = "tenant_admin";
-
-/// The tenant owner can always administer it. Requiring them to grant
-/// themselves a second role would be a trap rather than a control.
-pub const ROLE_OWNER: &str = "owner";
-
-/// An authenticated tenant administrator, scoped to exactly one tenant.
-///
-/// There is deliberately no constructor that takes a tenant: the only way to
-/// obtain one is [`tenant_admin_principal`], which reads the tenant from a
-/// verified token.
-#[derive(Debug, Clone)]
-pub struct TenantAdmin {
-    /// Subject of the verified token.
-    pub user_id: uuid::Uuid,
-    /// The one tenant this principal may act on. Taken from the token.
-    pub tenant: String,
-}
-
-fn unauthorized(message: &str) -> HttpJson<Value> {
-    HttpJson::new(
-        401,
-        serde_json::json!({ "error": "unauthorized", "error_description": message }),
-    )
-}
-
-fn forbidden(message: &str) -> HttpJson<Value> {
-    HttpJson::new(
-        403,
-        serde_json::json!({ "error": "forbidden", "error_description": message }),
-    )
-}
-
-/// Collect role names from the claim shapes tokens actually use.
-///
-/// Roles live under the namespaced `sx` authz claim; older/flatter tokens carry
-/// a top-level `roles`. Both are read so a token shape change cannot silently
-/// downgrade an admin to a nobody — or, worse, be mistaken for a role grant.
-fn roles_of(claims: &Value) -> Vec<String> {
-    let mut out = Vec::new();
-    for source in [
-        claims.get("sx").and_then(|sx| sx.get("roles")),
-        claims.get("roles"),
-    ] {
-        if let Some(list) = source.and_then(Value::as_array) {
-            out.extend(
-                list.iter()
-                    .filter_map(Value::as_str)
-                    .map(str::trim)
-                    .filter(|r| !r.is_empty())
-                    .map(str::to_ascii_lowercase),
-            );
-        }
-    }
-    out
-}
-
-/// The tenant this token is bound to, from the claims only.
-///
-/// `sx.tenant` is the hard-segment isolation boundary; `tenant_id` is the
-/// flatter equivalent. They must agree when both are present — a token carrying
-/// two different tenants is malformed or forged, and picking one would be
-/// choosing which attacker to believe.
-fn tenant_of(claims: &Value) -> Option<String> {
-    let sx = claims
-        .get("sx")
-        .and_then(|sx| sx.get("tenant"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|s| !s.is_empty());
-    let flat = claims
-        .get("tenant_id")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|s| !s.is_empty());
-
-    match (sx, flat) {
-        (Some(a), Some(b)) if a != b => None,
-        (Some(a), _) => Some(a.to_string()),
-        (None, Some(b)) => Some(b.to_string()),
-        (None, None) => None,
-    }
-}
+// One implementation for every Sesame service (sesame_common::tenant_admin): roles and the tenant are read from the
+// deployment's claims namespace (SESAME_CLAIMS_NAMESPACE) as well as `sx` and the flat claims. This module used to read
+// `sx` only, which no issued token carries: the namespaced block is where Sesame puts them, so every real tenant
+// administrator was refused here (19 Oct 2026). A deployment may name more administrator roles in
+// SESAME_TENANT_ADMIN_ROLES.
+pub use sesame_common::tenant_admin::{TenantAdmin, ROLE_OWNER, ROLE_TENANT_ADMIN};
 
 /// Authenticate a tenant administrator from verified JWT claims.
 ///
@@ -123,39 +44,9 @@ fn tenant_of(claims: &Value) -> Option<String> {
 /// - 403 when the token is valid but carries no tenant-admin role.
 ///
 /// The distinction is deliberate: 401 means "prove who you are", 403 means "you
-/// are known and this is not yours". Collapsing them would tell an attacker
-/// less, but would also tell a legitimate admin nothing about why their console
-/// is empty.
+/// are known and this is not yours".
 pub fn tenant_admin_principal(jwt_claims: &Option<Value>) -> Result<TenantAdmin, HttpJson<Value>> {
-    let Some(claims) = jwt_claims else {
-        return Err(unauthorized("Bearer token required"));
-    };
-
-    // A platform admin key cannot get here: this path is bearer-only, and the
-    // key never produces JWT claims. That is the ADR-011 airgap — the two
-    // credentials are not supersets of one another in either direction.
-    let Some(sub) = claims.get("sub").and_then(Value::as_str) else {
-        return Err(unauthorized("Token missing sub claim"));
-    };
-    let Ok(user_id) = sub.parse::<uuid::Uuid>() else {
-        return Err(unauthorized("Invalid token subject"));
-    };
-
-    let Some(tenant) = tenant_of(claims) else {
-        return Err(unauthorized("Token missing or inconsistent tenant claim"));
-    };
-
-    let roles = roles_of(claims);
-    let is_admin = roles
-        .iter()
-        .any(|r| r == ROLE_TENANT_ADMIN || r == ROLE_OWNER);
-    if !is_admin {
-        return Err(forbidden(
-            "Tenant administrator role required for this operation",
-        ));
-    }
-
-    Ok(TenantAdmin { user_id, tenant })
+    sesame_common::tenant_admin::tenant_admin(jwt_claims)
 }
 
 #[cfg(test)]

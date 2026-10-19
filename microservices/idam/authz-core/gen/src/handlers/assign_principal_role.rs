@@ -3,15 +3,16 @@
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
 use brrtrouter::dispatcher::HandlerRequest;
-use brrtrouter::typed::HttpJson;
+use brrtrouter::typed::HttpNoContent;
 use brrtrouter::typed::TypedHandlerRequest;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "app_id")]
-    pub app_id: String,
+    pub app_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "expires_at")]
@@ -24,8 +25,9 @@ pub struct Request {
     #[serde(rename = "role")]
     pub role: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "tenant_id")]
-    pub tenant_id: String,
+    pub tenant_id: Option<String>,
 
     #[serde(rename = "user_id")]
     pub user_id: String,
@@ -85,6 +87,6 @@ impl TryFrom<HandlerRequest> for Request {
 }
 
 #[allow(dead_code)]
-pub fn handler(req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
+pub fn handler(req: TypedHandlerRequest<Request>) -> HttpNoContent {
     crate::controllers::assign_principal_role::handle(req)
 }

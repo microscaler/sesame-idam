@@ -96,6 +96,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "list_principal_roles",
+        crate::controllers::list_principal_roles::ListPrincipalRolesController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "assign_principal_role",
         crate::controllers::assign_principal_role::AssignPrincipalRoleController,
         20480,
@@ -221,6 +227,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "principal_effective" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::principal_effective::PrincipalEffectiveController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "list_principal_roles" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::list_principal_roles::ListPrincipalRolesController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

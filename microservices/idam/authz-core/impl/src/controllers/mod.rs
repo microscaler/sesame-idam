@@ -7,8 +7,10 @@ pub mod check_export_status;
 pub mod export_audit_events;
 pub mod get_audit_event;
 pub mod get_audit_stats;
+pub mod list_principal_roles;
 pub mod principal_effective;
 pub mod revoke_principal_role;
+pub mod role_admin_common;
 pub mod set_principal_attribute;
 pub mod update_retention_policy;
 

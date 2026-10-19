@@ -22,6 +22,60 @@ pub struct CreateOutcome {
     pub created: bool,
 }
 
+/// The admin query's filters (GET /admin/users/query).
+#[derive(Debug, Default, Clone)]
+pub struct UserQuery {
+    /// Case-insensitive substring of the email; `*` matches anything.
+    pub email_pattern: Option<String>,
+    pub email_confirmed: Option<bool>,
+    /// true: active users only.
+    pub enabled: Option<bool>,
+    /// true: disabled users only.
+    pub disabled: Option<bool>,
+    pub created_after: Option<chrono::DateTime<Utc>>,
+    pub created_before: Option<chrono::DateTime<Utc>>,
+}
+
+impl UserQuery {
+    /// Does `u` pass every filter given?
+    pub fn matches(&self, u: &UserModel) -> bool {
+        let active = u.status == STATUS_ACTIVE;
+        let pattern_ok = self.email_pattern.as_deref().map_or(true, |p| {
+            let email = u.email.to_ascii_lowercase();
+            let mut rest = email.as_str();
+            let parts: Vec<String> = p
+                .to_ascii_lowercase()
+                .split('*')
+                .map(str::to_string)
+                .collect();
+            if parts.len() == 1 {
+                return email.contains(&parts[0]);
+            }
+            for (i, part) in parts.iter().enumerate() {
+                if part.is_empty() {
+                    continue;
+                }
+                if i == 0 && !rest.starts_with(part.as_str()) {
+                    return false;
+                }
+                match rest.find(part.as_str()) {
+                    Some(at) => rest = &rest[at + part.len()..],
+                    None => return false,
+                }
+            }
+            parts
+                .last()
+                .map_or(true, |l| l.is_empty() || email.ends_with(l.as_str()))
+        });
+        pattern_ok
+            && self.email_confirmed.map_or(true, |c| u.email_verified == c)
+            && self.enabled.map_or(true, |e| !e || active)
+            && self.disabled.map_or(true, |d| !d || !active)
+            && self.created_after.map_or(true, |t| u.created_at >= t)
+            && self.created_before.map_or(true, |t| u.created_at < t)
+    }
+}
+
 pub struct UserAdminService;
 
 impl UserAdminService {
@@ -106,6 +160,33 @@ impl UserAdminService {
         })
     }
 
+    /// One page of a tenant's users that pass `q`, by email, and how many pass in all.
+    ///
+    /// Filters and pages in memory over the tenant's rows: fine for the staff consoles' tenants (thousands of users);
+    /// a tenant of millions wants this pushed into SQL.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LifeError`] on query failure.
+    pub fn query<E: LifeExecutor>(
+        tenant_id: &str,
+        q: &UserQuery,
+        page: usize,
+        limit: usize,
+        exec: &E,
+    ) -> Result<(Vec<UserModel>, usize), LifeError> {
+        let mut rows: Vec<UserModel> = Entity::find()
+            .filter(Column::TenantId.eq(tenant_id.to_string()))
+            .all(exec)?
+            .into_iter()
+            .filter(|u| q.matches(u))
+            .collect();
+        rows.sort_by(|a, b| a.email.cmp(&b.email));
+        let total = rows.len();
+        let start = page.saturating_sub(1).saturating_mul(limit);
+        Ok((rows.into_iter().skip(start).take(limit).collect(), total))
+    }
+
     /// Set a user's status (enable/disable). Returns the updated user, or
     /// `None` when the user does not exist on this tenant.
     ///
@@ -162,4 +243,67 @@ pub fn user_response_json(user: &UserModel) -> serde_json::Value {
         "picture_url": null,
         "properties": {},
     })
+}
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+
+    fn user(email: &str, status: &str, verified: bool, day: u32) -> UserModel {
+        let t = chrono::TimeZone::with_ymd_and_hms(&Utc, 2026, 10, day, 12, 0, 0).unwrap();
+        UserModel {
+            id: Uuid::new_v4(),
+            email: email.into(),
+            password_hash: String::new(),
+            tenant_id: "acme".into(),
+            status: status.into(),
+            email_verified: verified,
+            phone: None,
+            phone_verified: false,
+            created_at: t,
+            updated_at: t,
+        }
+    }
+
+    #[test]
+    fn email_patterns_are_substrings_or_wildcards_case_blind() {
+        let u = user("Ann@PriceWhisperer.ai", STATUS_ACTIVE, true, 1);
+        let q = |p: &str| UserQuery {
+            email_pattern: Some(p.into()),
+            ..Default::default()
+        };
+        assert!(q("pricewhisperer").matches(&u));
+        assert!(q("ann@*").matches(&u));
+        assert!(q("*@pricewhisperer.ai").matches(&u));
+        assert!(q("a*whisperer*ai").matches(&u));
+        assert!(!q("bob").matches(&u));
+        assert!(!q("*@example.com").matches(&u));
+    }
+
+    #[test]
+    fn status_confirmation_and_dates_filter() {
+        let on = user("a@x.io", STATUS_ACTIVE, true, 5);
+        let off = user("b@x.io", STATUS_DISABLED, false, 10);
+        let enabled = UserQuery {
+            enabled: Some(true),
+            ..Default::default()
+        };
+        assert!(enabled.matches(&on) && !enabled.matches(&off));
+        let disabled = UserQuery {
+            disabled: Some(true),
+            ..Default::default()
+        };
+        assert!(!disabled.matches(&on) && disabled.matches(&off));
+        let confirmed = UserQuery {
+            email_confirmed: Some(false),
+            ..Default::default()
+        };
+        assert!(!confirmed.matches(&on) && confirmed.matches(&off));
+        let after = UserQuery {
+            created_after: Some(off.created_at),
+            ..Default::default()
+        };
+        assert!(!after.matches(&on) && after.matches(&off));
+        assert!(UserQuery::default().matches(&on));
+    }
 }

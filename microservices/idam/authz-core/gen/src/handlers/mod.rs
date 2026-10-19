@@ -31,6 +31,8 @@ pub mod set_principal_attribute;
 
 pub mod principal_effective;
 
+pub mod list_principal_roles;
+
 pub mod assign_principal_role;
 
 pub mod revoke_principal_role;
