@@ -79,7 +79,12 @@ fn typed<T>(handler_name: &str, data: T) -> TypedHandlerRequest<T> {
         path_params: std::collections::HashMap::new(),
         query_params: std::collections::HashMap::new(),
         data,
-        jwt_claims: None,
+        // A tenant administrator of the test tenant: the admin endpoints require one (sesame_common::tenant_admin).
+        jwt_claims: Some(serde_json::json!({
+            "sub": "99999999-9999-4999-8999-999999999999",
+            "tenant_id": TEST_TENANT,
+            "roles": ["tenant_admin"],
+        })),
     }
 }
 

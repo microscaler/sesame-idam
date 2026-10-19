@@ -95,8 +95,8 @@ fn make_role_request(user_id: impl Into<String>, role: &str) -> TypedHandlerRequ
         query_params: std::collections::HashMap::new(),
         data: RoleReq {
             user_id: user_id.into(),
-            tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
-            app_id: "33333333-8a2d-4c41-8b4b-ae43ce79a494".to_string(),
+            tenant_id: None,
+            app_id: None,
             role: role.to_string(),
             expires_at: None,
             org_id: None,
@@ -115,12 +115,21 @@ fn make_revoke_request(user_id: impl Into<String>, role: &str) -> TypedHandlerRe
         query_params: std::collections::HashMap::new(),
         data: RevokeReq {
             user_id: user_id.into(),
-            app_id: "33333333-8a2d-4c41-8b4b-ae43ce79a494".to_string(),
+            app_id: None,
             role: role.to_string(),
             x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
         },
         jwt_claims: None,
     }
+}
+
+/// Verified claims of a user of tenant `tenant` holding `roles` (flat shape; the guard also reads the namespaced one).
+fn claims(tenant: &str, roles: &[&str]) -> Option<serde_json::Value> {
+    Some(serde_json::json!({
+        "sub": "11111111-1111-4111-8111-111111111111",
+        "tenant_id": tenant,
+        "roles": roles,
+    }))
 }
 
 // ─── Authorize Scenarios ─────────────────────────────────────────────────────
@@ -194,36 +203,55 @@ fn set_attribute_returns_success() {
 
 // ─── Assign Role Scenarios ───────────────────────────────────────────────────
 
-/// Scenario: Assign a role to a principal.
+/// Scenario: Role administration needs a tenant administrator of the caller's own tenant.
 ///
-/// Given: valid request with required fields.
-/// When: we call the `assign_principal_role` handler.
-/// Then: the response has an error field.
+/// Given: no token, an ordinary user's token, or an administrator naming another tenant.
+/// When: we call the assign and revoke handlers.
+/// Then: 401, 403 and 403; nothing reaches the database.
 #[rstest]
-fn assign_role_returns_success() {
-    let typed_req = make_role_request("test-user-1", "editor");
-    let response = role_handle(typed_req);
-    let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("error").is_some(),
-        "response should have 'error' field"
+fn assign_and_revoke_require_a_tenant_administrator() {
+    let tenant = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+
+    assert_eq!(
+        role_handle(make_role_request("test-user-1", "editor")).status,
+        401
+    );
+    assert_eq!(
+        revoke_handle(make_revoke_request("test-user-1", "editor")).status,
+        401
+    );
+
+    let mut req = make_role_request("test-user-1", "editor");
+    req.jwt_claims = claims(tenant, &["member"]);
+    assert_eq!(role_handle(req).status, 403);
+    let mut req = make_revoke_request("test-user-1", "editor");
+    req.jwt_claims = claims(tenant, &["member"]);
+    assert_eq!(revoke_handle(req).status, 403);
+
+    let mut req = make_role_request("test-user-1", "editor");
+    req.jwt_claims = claims("another-tenant", &["tenant_admin"]);
+    assert_eq!(
+        role_handle(req).status,
+        403,
+        "X-Tenant-ID names another tenant"
+    );
+    let mut req = make_revoke_request("test-user-1", "editor");
+    req.jwt_claims = claims("another-tenant", &["owner"]);
+    assert_eq!(
+        revoke_handle(req).status,
+        403,
+        "X-Tenant-ID names another tenant"
     );
 }
 
-// ─── Revoke Role Scenarios ───────────────────────────────────────────────────
-
-/// Scenario: Revoke a role from a principal.
-///
-/// Given: valid request with required fields.
-/// When: we call the `revoke_principal_role` handler.
-/// Then: the response has an error field.
+/// Scenario: A malformed request from an administrator is refused before the database.
 #[rstest]
-fn revoke_role_returns_success() {
-    let typed_req = make_revoke_request("test-user-1", "editor");
-    let response = revoke_handle(typed_req);
-    let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("error").is_some(),
-        "response should have 'error' field"
-    );
+fn assign_refuses_bad_ids_and_role_names() {
+    let tenant = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+    let mut req = make_role_request("not-a-uuid", "editor");
+    req.jwt_claims = claims(tenant, &["tenant_admin"]);
+    assert_eq!(role_handle(req).status, 400);
+    let mut req = make_role_request("1189c444-8a2d-4c41-8b4b-ae43ce79a492", "Not A Role");
+    req.jwt_claims = claims(tenant, &["tenant_admin"]);
+    assert_eq!(role_handle(req).status, 400);
 }
