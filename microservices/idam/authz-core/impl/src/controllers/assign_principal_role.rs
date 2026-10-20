@@ -48,8 +48,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<Value> {
         },
         None => None,
     };
-    let exec = sesame_idam_database::db();
-    match RoleAdmin::assign(exec, &a.tenant, user_id, &role, org_id) {
+    // sesame_idam.users is under forced RLS (tenant_id = sesame.tenant_id): the user check inside assign reads nothing
+    // without the tenant set on the session, and every grant came back "No such user in this tenant".
+    match sesame_idam_database::with_pre_auth_tenant(&a.tenant, |exec| {
+        RoleAdmin::assign(exec, &a.tenant, user_id, &role, org_id)
+    }) {
         Ok(Assigned::Created) => {
             record_change(
                 &a,
