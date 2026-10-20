@@ -5641,6 +5641,7 @@ name = "sesame_idam_database"
 version = "0.1.0"
 dependencies = [
  "lifeguard",
+ "sea-query",
  "serde_json",
  "tracing",
  "uuid",
