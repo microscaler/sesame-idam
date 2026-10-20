@@ -64,13 +64,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<Value> {
     let (users, total) = if none_match {
         (Vec::new(), 0)
     } else {
-        match UserAdminService::query(
-            &admin.tenant,
-            &q,
-            page as usize,
-            limit as usize,
-            sesame_idam_database::db(),
-        ) {
+        // sesame_idam.users is under forced RLS (tenant_id = sesame.tenant_id): read inside the tenant's scope, or
+        // Postgres shows no rows at all (the Team page listed nobody, 20 Oct 2026).
+        match sesame_idam_database::with_pre_auth_tenant(&admin.tenant, |exec| {
+            UserAdminService::query(&admin.tenant, &q, page as usize, limit as usize, exec)
+        }) {
             Ok(r) => r,
             Err(e) => {
                 tracing::error!(error = %e, "query_users: query failed");

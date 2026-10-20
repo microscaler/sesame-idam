@@ -43,8 +43,10 @@ pub fn set_user_status(
         }
     };
 
-    let exec = sesame_idam_database::db();
-    let updated = match UserAdminService::set_status(tenant_id, user_uuid, status, exec) {
+    // forced RLS on sesame_idam.users: read and update inside the tenant's scope
+    let updated = match sesame_idam_database::with_pre_auth_tenant(tenant_id, |exec| {
+        UserAdminService::set_status(tenant_id, user_uuid, status, exec)
+    }) {
         Ok(updated) => updated,
         Err(e) => {
             tracing::error!(error = %e, "set_user_status: update failed");

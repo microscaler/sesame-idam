@@ -11,8 +11,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let tenant_id = req.data.x_tenant_id.clone();
     let email = req.data.email.trim().to_lowercase();
 
-    let exec = sesame_idam_database::db();
-    match UserAdminService::find_by_email(&tenant_id, &email, exec) {
+    // forced RLS on sesame_idam.users: read inside the tenant's scope
+    match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+        UserAdminService::find_by_email(&tenant_id, &email, exec)
+    }) {
         Ok(Some(user)) => HttpJson::ok(user_response_json(&user)),
         Ok(None) => HttpJson::new(
             404,

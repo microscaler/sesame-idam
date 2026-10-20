@@ -35,13 +35,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         );
     }
 
-    let exec = sesame_idam_database::db();
-    let outcome = match UserAdminService::create_idempotent(
-        &tenant_id,
-        &email,
-        req.data.email_confirmed.unwrap_or(false),
-        exec,
-    ) {
+    // forced RLS on sesame_idam.users: the lookup and the insert run inside the tenant's scope
+    let outcome = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+        UserAdminService::create_idempotent(
+            &tenant_id,
+            &email,
+            req.data.email_confirmed.unwrap_or(false),
+            exec,
+        )
+    }) {
         Ok(outcome) => outcome,
         Err(e) => {
             tracing::error!(error = %e, "create_user: insert failed");
