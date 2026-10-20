@@ -123,8 +123,11 @@ fn parse_roles_from_value(value: &serde_json::Value) -> Result<Vec<String>, Stri
         return Err(format!("EffectiveResponse missing roles array: {}", value));
     };
 
+    // A role held for one organisation (`org_id`) is not a tenant-wide role, and a token's role list is tenant-wide:
+    // leave it out rather than let "owner of org X" read as "owner" (an administrator of the whole tenant).
     Ok(roles
         .iter()
+        .filter(|r| r.get("org_id").map_or(true, serde_json::Value::is_null))
         .filter_map(|r| {
             r.get("role")
                 .and_then(|v| v.as_str())
@@ -148,6 +151,20 @@ fn parse_permissions_from_value(value: &serde_json::Value) -> Result<Vec<String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn org_scoped_roles_stay_out_of_the_token() {
+        let v = serde_json::json!({ "roles": [
+            { "role": "crm.editor" },
+            { "role": "owner", "org_id": "7d2b8f0e-3c41-4a4e-9a51-0c1b3f9d6e21" },
+            { "role": "viewer", "org_id": null },
+            "plain"
+        ]});
+        assert_eq!(
+            parse_roles_from_value(&v).unwrap(),
+            vec!["crm.editor", "viewer", "plain"]
+        );
+    }
 
     #[test]
     fn parse_roles_from_role_objects() {

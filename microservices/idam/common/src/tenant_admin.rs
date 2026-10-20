@@ -29,6 +29,8 @@ pub const ROLE_OWNER: &str = "owner";
 pub struct TenantAdmin {
     pub user_id: uuid::Uuid,
     pub tenant: String,
+    /// Every role the token carries, lowercased (what [`crate::role_policy`] compares a grant against).
+    pub roles: Vec<String>,
 }
 
 pub fn unauthorized(message: &str) -> HttpJson<Value> {
@@ -103,7 +105,7 @@ pub fn admin_roles(extra: Option<&str>) -> Vec<String> {
 }
 
 /// The deployment's administrator roles (read once).
-fn configured_admin_roles() -> &'static [String] {
+pub fn configured_admin_roles() -> &'static [String] {
     static ROLES: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
     ROLES.get_or_init(|| admin_roles(std::env::var("SESAME_TENANT_ADMIN_ROLES").ok().as_deref()))
 }
@@ -129,15 +131,17 @@ pub fn tenant_admin_with(
     let Some(tenant) = tenant_of(claims, namespace) else {
         return Err(unauthorized("Token missing or inconsistent tenant claim"));
     };
-    if !roles_of(claims, namespace)
-        .iter()
-        .any(|r| admin.contains(r))
-    {
+    let roles = roles_of(claims, namespace);
+    if !roles.iter().any(|r| admin.contains(r)) {
         return Err(forbidden(
             "Tenant administrator role required for this operation",
         ));
     }
-    Ok(TenantAdmin { user_id, tenant })
+    Ok(TenantAdmin {
+        user_id,
+        tenant,
+        roles,
+    })
 }
 
 /// Authenticate a tenant administrator from verified claims (the deployment's namespace and admin roles).
@@ -239,6 +243,7 @@ mod tests {
         let a = TenantAdmin {
             user_id: uuid::Uuid::nil(),
             tenant: "acme".into(),
+            roles: vec!["tenant_admin".into()],
         };
         assert!(a.require_same_tenant(Some("acme")).is_ok());
         assert!(a.require_same_tenant(None).is_ok());

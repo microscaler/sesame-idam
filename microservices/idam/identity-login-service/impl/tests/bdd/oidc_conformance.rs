@@ -290,6 +290,22 @@ fn conformance_code_replay_and_cross_client() {
     );
 }
 
+/// An active user `id` of `tenant`, created if missing (inside the tenant's RLS session).
+fn ensure_active_user(tenant: &str, id: &str) {
+    use lifeguard::LifeExecutor;
+    let uuid: uuid::Uuid = id.parse().expect("uuid");
+    sesame_idam_database::with_pre_auth_tenant(tenant, |exec| {
+        exec.execute_values(
+            "INSERT INTO sesame_idam.users \
+             (id, email, password_hash, tenant_id, status, email_verified, phone, phone_verified, created_at, updated_at) \
+             VALUES ($1, $2, 'x', $3, 'active', true, NULL, false, now(), now()) \
+             ON CONFLICT (id) DO UPDATE SET status = 'active'",
+            &sea_query::Values(vec![uuid.into(), format!("conformance-{id}@example.com").into(), tenant.into()]),
+        )
+    })
+    .expect("conformance user");
+}
+
 fn redis_available() -> bool {
     let url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
     redis::Client::open(url.as_str())
@@ -451,6 +467,10 @@ fn conformance_refresh_rotation_replay_and_cross_client() {
         eprintln!("SKIP conformance refresh: Postgres/fixture client missing");
         return;
     }
+
+    // A refresh is only honoured for an active user of the tenant (identity-session-service token_rotation): the
+    // subject the tokens are issued to must exist.
+    ensure_active_user("acme", "00000000-0000-4000-8000-000000000099");
 
     let client_a = cases["refresh"]["rotation"]["client_id"].as_str().unwrap();
     let client_b = cases["refresh"]["cross_client"]["mutate"]["client_id"]

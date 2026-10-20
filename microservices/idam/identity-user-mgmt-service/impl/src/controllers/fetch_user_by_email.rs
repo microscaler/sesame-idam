@@ -8,7 +8,17 @@ use crate::services::user_admin_service::{user_response_json, UserAdminService};
 
 #[handler(FetchUserByEmailController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let tenant_id = req.data.x_tenant_id.clone();
+    // A tenant administrator of their own tenant only (sesame_common::tenant_admin, ADR-011), like every other
+    // /admin/users endpoint. It used to take the tenant from X-Tenant-ID with no check at all, so any valid token
+    // could look up any tenant's user by e-mail (20 Oct 2026).
+    let admin = match sesame_common::tenant_admin::tenant_admin(&req.jwt_claims) {
+        Ok(a) => a,
+        Err(r) => return r,
+    };
+    if let Err(r) = admin.require_same_tenant(Some(&req.data.x_tenant_id)) {
+        return r;
+    }
+    let tenant_id = admin.tenant.clone();
     let email = req.data.email.trim().to_lowercase();
 
     // forced RLS on sesame_idam.users: read inside the tenant's scope

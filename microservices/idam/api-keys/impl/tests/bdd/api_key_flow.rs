@@ -30,6 +30,11 @@ fn db_available() -> bool {
         .and_then(|sa| TcpStream::connect_timeout(&sa, Duration::from_millis(500)).ok())
         .is_some();
     if !reachable {
+        // scripts/test-db.sh sets this: there, a missing database is a failure, never a silent skip
+        assert!(
+            std::env::var_os("SESAME_TEST_DB_REQUIRED").is_none(),
+            "SESAME_TEST_DB_REQUIRED is set but Postgres is not reachable"
+        );
         return false;
     }
 
@@ -70,10 +75,12 @@ fn raw_client() -> may_postgres::Client {
 fn insert_user(client: &may_postgres::Client, user_id: Uuid, tenant: &str) {
     let email = format!("bddtest_apikey_{user_id}@example.com");
     client
+        // users is under forced RLS: the row is written inside its tenant's session, as the services do
         .batch_execute(&format!(
-            "INSERT INTO sesame_idam.users \
+            "BEGIN; SELECT public.rls_set_pre_auth_tenant('{tenant}'); \
+             INSERT INTO sesame_idam.users \
              (id, email, password_hash, tenant_id, status, email_verified, phone, phone_verified, created_at, updated_at) \
-             VALUES ('{user_id}', '{email}', 'x', '{tenant}', 'active', true, NULL, false, NOW(), NOW());"
+             VALUES ('{user_id}', '{email}', 'x', '{tenant}', 'active', true, NULL, false, NOW(), NOW()); COMMIT;"
         ))
         .expect("insert user");
 }
@@ -82,7 +89,8 @@ fn cleanup_user(client: &may_postgres::Client, user_id: Uuid) {
     // api_keys rows cascade from the user delete.
     client
         .batch_execute(&format!(
-            "DELETE FROM sesame_idam.users WHERE id = '{user_id}';"
+            "BEGIN; SELECT public.rls_set_pre_auth_tenant(tenant_id) FROM sesame_idam.api_keys WHERE user_id = '{user_id}' LIMIT 1; \
+             DELETE FROM sesame_idam.users WHERE id = '{user_id}'; COMMIT;"
         ))
         .expect("cleanup");
 }

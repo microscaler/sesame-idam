@@ -43,6 +43,11 @@ fn db_available() -> bool {
         .and_then(|sa| TcpStream::connect_timeout(&sa, Duration::from_millis(500)).ok())
         .is_some();
     if !reachable {
+        // scripts/test-db.sh sets this: there, a missing database is a failure, never a silent skip
+        assert!(
+            std::env::var_os("SESAME_TEST_DB_REQUIRED").is_none(),
+            "SESAME_TEST_DB_REQUIRED is set but Postgres is not reachable"
+        );
         return false;
     }
 

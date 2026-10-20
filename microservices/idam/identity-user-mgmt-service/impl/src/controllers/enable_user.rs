@@ -16,6 +16,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     if let Err(r) = admin.require_same_tenant(Some(&req.data.x_tenant_id)) {
         return r;
     }
+    if let Ok(target) = req.data.user_id.trim().parse::<uuid::Uuid>() {
+        if let Err(r) = crate::controllers::user_status::may_change_status_of(&admin, target) {
+            return r;
+        }
+    }
     set_user_status(
         &admin.tenant,
         &req.data.user_id,

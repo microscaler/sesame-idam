@@ -35,6 +35,11 @@ fn db_available() -> bool {
         .and_then(|sa| TcpStream::connect_timeout(&sa, Duration::from_millis(500)).ok())
         .is_some();
     if !reachable {
+        // scripts/test-db.sh sets this: there, a missing database is a failure, never a silent skip
+        assert!(
+            std::env::var_os("SESAME_TEST_DB_REQUIRED").is_none(),
+            "SESAME_TEST_DB_REQUIRED is set but Postgres is not reachable"
+        );
         return false;
     }
 
@@ -198,7 +203,34 @@ fn fetch_by_email_is_tenant_scoped() {
             x_tenant_id: "some-other-tenant".to_string(),
         },
     ));
-    assert_eq!(resp.status, 404, "users must not resolve across tenants");
+    assert_eq!(
+        resp.status, 403,
+        "an administrator naming another tenant is refused, not answered"
+    );
+
+    // Not an administrator, or no token at all: refused before any lookup.
+    let mut not_admin = typed(
+        "fetch_user_by_email",
+        FetchRequest {
+            email: email.clone(),
+            x_tenant_id: TEST_TENANT.to_string(),
+        },
+    );
+    not_admin.jwt_claims = Some(serde_json::json!({
+        "sub": "99999999-9999-4999-8999-999999999999",
+        "tenant_id": TEST_TENANT,
+        "roles": ["member"],
+    }));
+    assert_eq!(fetch_user_by_email::handle(not_admin).status, 403);
+    let mut anonymous = typed(
+        "fetch_user_by_email",
+        FetchRequest {
+            email: email.clone(),
+            x_tenant_id: TEST_TENANT.to_string(),
+        },
+    );
+    anonymous.jwt_claims = None;
+    assert_eq!(fetch_user_by_email::handle(anonymous).status, 401);
 
     cleanup_email(&client, &email);
 }
@@ -235,4 +267,60 @@ fn disable_unknown_and_invalid_ids() {
 fn create_invalid_email_rejected() {
     let resp = create_user::handle(create_request("not-an-email"));
     assert_eq!(resp.status, 400);
+}
+
+/// Scenario: a tenant_admin cannot disable (or re-enable) an owner; an owner can.
+///
+/// Status changes follow the role policy (sesame_common::role_policy): you change the status only of someone whose
+/// administrator roles you could grant yourself.
+#[test]
+fn status_changes_stop_at_roles_above_the_caller() {
+    if !db_available() {
+        println!("SKIP: Postgres not available");
+        return;
+    }
+    let client = raw_client();
+    let email = format!("bddtest_owner_{}@example.com", Uuid::new_v4());
+    let resp = create_user::handle(create_request(&email));
+    assert_eq!(resp.status, 201, "create: {}", resp.body);
+    let user_id = resp.body["user_id"].as_str().expect("user_id").to_string();
+    client
+        .batch_execute(&format!(
+            "INSERT INTO sesame_idam.role_assignments \
+             (id, principal_id, role_name, resource_type, resource_id, tenant_id, created_at, updated_at) \
+             VALUES ('{}', '{user_id}', 'owner', 'tenant', NULL, '{TEST_TENANT}', now(), now());",
+            Uuid::new_v4()
+        ))
+        .expect("owner role");
+
+    let disable = |roles: &[&str]| {
+        let mut req = typed(
+            "disable_user",
+            DisableRequest {
+                user_id: user_id.clone(),
+                x_tenant_id: TEST_TENANT.to_string(),
+            },
+        );
+        req.jwt_claims = Some(serde_json::json!({
+            "sub": "99999999-9999-4999-8999-999999999999",
+            "tenant_id": TEST_TENANT,
+            "roles": roles,
+        }));
+        disable_user::handle(req)
+    };
+    let resp = disable(&["tenant_admin"]);
+    assert_eq!(
+        resp.status, 403,
+        "a tenant_admin does not disable an owner: {}",
+        resp.body
+    );
+    let resp = disable(&["owner"]);
+    assert_eq!(resp.status, 200, "an owner may: {}", resp.body);
+
+    client
+        .batch_execute(&format!(
+            "DELETE FROM sesame_idam.role_assignments WHERE principal_id = '{user_id}';"
+        ))
+        .expect("cleanup roles");
+    cleanup_email(&client, &email);
 }

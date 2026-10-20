@@ -49,6 +49,66 @@ impl RoleAdmin {
         .is_ok()
     }
 
+    /// Is `org_id` an organisation of `tenant`? (organizations has no RLS: the tenant is filtered here.)
+    pub fn org_in_tenant<E: LifeExecutor>(exec: &E, tenant: &str, org_id: Uuid) -> bool {
+        exec.query_one_values(
+            "SELECT 1 FROM sesame_idam.organizations WHERE id = $1 AND tenant_id = $2",
+            &sea_query::Values(vec![org_id.into(), tenant.into()]),
+        )
+        .is_ok()
+    }
+
+    /// Serialise administrator changes in `tenant` for the rest of the transaction (two admins revoking each other at
+    /// the same moment must not both see the other as "still there").
+    ///
+    /// # Errors
+    /// [`LifeError`] when the lock cannot be taken.
+    pub fn lock_admins<E: LifeExecutor>(exec: &E, tenant: &str) -> Result<(), LifeError> {
+        exec.query_one_values(
+            "SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS locked",
+            &sea_query::Values(vec![format!("sesame-admins:{tenant}").into()]),
+        )
+        .map(|_| ())
+    }
+
+    /// How many active users of `tenant` hold a tenant-wide administrator role, not counting the assignment
+    /// (`user_id`, `role`) about to be removed. Needs the tenant's RLS session (it reads users).
+    ///
+    /// # Errors
+    /// [`LifeError`] on a failed query.
+    pub fn admins_remaining<E: LifeExecutor>(
+        exec: &E,
+        tenant: &str,
+        admin_roles: &[String],
+        user_id: Uuid,
+        role: &str,
+    ) -> Result<i64, LifeError> {
+        if admin_roles.is_empty() {
+            return Ok(0);
+        }
+        let mut values: Vec<sea_query::Value> = vec![
+            tenant.into(),
+            user_id.into(),
+            role.to_ascii_lowercase().into(),
+        ];
+        let mut marks = Vec::new();
+        for r in admin_roles {
+            values.push(r.to_ascii_lowercase().into());
+            marks.push(format!("${}", values.len()));
+        }
+        let sql = format!(
+            "SELECT count(DISTINCT ra.principal_id)::bigint FROM sesame_idam.role_assignments ra \
+             JOIN sesame_idam.users u ON u.id = ra.principal_id AND u.tenant_id = ra.tenant_id \
+             WHERE ra.tenant_id = $1 AND ra.resource_id IS NULL AND u.status = 'active' \
+             AND lower(ra.role_name) IN ({}) \
+             AND NOT (ra.principal_id = $2 AND lower(ra.role_name) = $3)",
+            marks.join(", ")
+        );
+        let row = exec.query_one_values(&sql, &sea_query::Values(values))?;
+        row.try_get::<usize, i64>(0)
+            .map_err(|e| LifeError::Other(e.to_string()))
+    }
+
     /// Every assignment in `tenant`, or one user's.
     ///
     /// # Errors
@@ -111,10 +171,14 @@ impl RoleAdmin {
             .set_tenant_id(tenant.to_string())
             .set_created_at(now)
             .set_updated_at(now);
-        record
-            .insert(exec)
-            .map_err(|e| LifeError::Other(e.to_string()))?;
-        Ok(Assigned::Created)
+        match record.insert(exec) {
+            Ok(_) => Ok(Assigned::Created),
+            // role_assignments_one_per_scope: a concurrent grant of the same role won the race
+            Err(e) if e.to_string().contains("role_assignments_one_per_scope") => {
+                Ok(Assigned::AlreadyHeld)
+            }
+            Err(e) => Err(LifeError::Other(e.to_string())),
+        }
     }
 
     /// Remove every assignment of `role` to `user_id` in `tenant`; the number removed.

@@ -10,6 +10,54 @@ use sesame_common::{
     VersionStore,
 };
 
+/// The administrator roles `user_id` holds tenant-wide (role_assignments has no RLS: the tenant is filtered here).
+fn admin_roles_of(tenant_id: &str, user_id: Uuid) -> Result<Vec<String>, String> {
+    use lifeguard::LifeExecutor;
+    let policy = sesame_common::role_policy::RolePolicy::configured();
+    let mut held = Vec::new();
+    for role in &policy.admin {
+        // count(*) always returns a row, so a database failure is an error rather than "not held"
+        let row = sesame_idam_database::db()
+            .query_one_values(
+                "SELECT count(*)::bigint FROM sesame_idam.role_assignments \
+                 WHERE tenant_id = $1 AND principal_id = $2 AND resource_id IS NULL AND lower(role_name) = $3",
+                &sea_query::Values(vec![tenant_id.into(), user_id.into(), role.clone().into()]),
+            )
+            .map_err(|e| e.to_string())?;
+        if row.try_get::<usize, i64>(0).map_err(|e| e.to_string())? > 0 {
+            held.push(role.clone());
+        }
+    }
+    Ok(held)
+}
+
+/// May `admin` change the status of `user_id`? Only if they could grant every administrator role the user holds
+/// (sesame_common::role_policy): a tenant_admin does not disable, or re-enable, an owner.
+///
+/// # Errors
+/// The 403 (or 500) to return.
+pub fn may_change_status_of(
+    admin: &sesame_common::tenant_admin::TenantAdmin,
+    user_id: Uuid,
+) -> Result<(), HttpJson<serde_json::Value>> {
+    let held = admin_roles_of(&admin.tenant, user_id).map_err(|e| {
+        tracing::error!(error = %e, "set_user_status: role lookup failed");
+        HttpJson::new(
+            500,
+            serde_json::json!({ "error": "internal_error", "error_description": "An unexpected error occurred" }),
+        )
+    })?;
+    let policy = sesame_common::role_policy::RolePolicy::configured();
+    for role in held {
+        if policy.may_change(&admin.roles, &role).is_err() {
+            return Err(sesame_common::tenant_admin::forbidden(
+                "That user holds an administrator role you do not hold: only someone who holds it (or owner) may change their status",
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Set the status of a user and return the admin user response.
 pub fn set_user_status(
     tenant_id: &str,

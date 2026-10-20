@@ -83,8 +83,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         }
     };
 
+    // Permissions come from tenant-wide roles only: a token has no place for an organisation's scope, so a role held
+    // for one organisation must not turn into tenant-wide permissions (the issuers skip org-scoped roles likewise).
     let role_names: Vec<String> = roles
         .iter()
+        .filter(|r| r.get("org_id").is_none())
         .filter_map(|r| r.get("role").and_then(|v| v.as_str()).map(str::to_string))
         .collect();
 

@@ -1045,9 +1045,20 @@ paths:
         '500':
           description: Internal server error
           content: *id005
+        '503':
+          description: The role was removed but the user's current tokens could not be made stale; they keep the role until
+            they expire. Retrying makes them stale.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: security_state_unavailable
+                error_description: The role was removed, but the user's current sign-in could not be cut short.
       parameters:
       - *id006
-      description: Revokes a role from a user of the caller's own tenant (idempotent). Same caller rule as assign.
+      description: Revokes a role from a user of the caller's own tenant (idempotent). Same caller rule and role policy as
+        assign; refuses to remove the tenant's last administrator (403). The user's tokens are made stale at once.
       x-consumer: backend-service
       x-consumer-note: 'Backend-only: Revoke role from principal, never from browser'
 components:
@@ -1131,6 +1142,7 @@ components:
           - internal_error
           - unauthorized
           - forbidden
+          - security_state_unavailable
           description: Machine-readable error code
         error_description:
           type: string

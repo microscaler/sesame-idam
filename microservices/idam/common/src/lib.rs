@@ -33,6 +33,7 @@ pub mod middleware;
 pub mod not_implemented;
 pub mod observability;
 pub mod oidc_client;
+pub mod role_policy;
 pub mod smtp;
 pub mod tenant_admin;
 

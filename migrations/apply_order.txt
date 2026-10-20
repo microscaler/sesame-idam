@@ -50,3 +50,4 @@ identity-login-service/20260802190000_oidc_preauth_client_lookup.sql
 org-mgmt/20261011120000_org_domains.sql
 org-mgmt/20261011120001_org_domain_events.sql
 rls/20261011120002_org_domain_claims_rls.sql
+authz-core/20261020120000_role_assignments_one_per_scope.sql

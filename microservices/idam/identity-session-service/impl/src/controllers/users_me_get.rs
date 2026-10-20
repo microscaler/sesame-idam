@@ -64,6 +64,17 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     }
 
     let (user, profile) = match load_profile(&tenant_id, user_id) {
+        // A disabled account's access token is refused here too (the token status check already refuses it once the
+        // disable bumped the subject version; this holds even if that bump was missed).
+        Ok(ProfileLoad::Found(user, _)) if user.status != "active" => {
+            return HttpJson::new(
+                401,
+                serde_json::json!({
+                    "error": "invalid_request",
+                    "error_description": "Unauthorized (invalid or missing token)",
+                }),
+            );
+        }
         Ok(ProfileLoad::Found(user, profile)) => (user, profile),
         Ok(ProfileLoad::NotFound) => {
             return HttpJson::new(

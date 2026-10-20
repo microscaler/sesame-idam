@@ -93,6 +93,45 @@ impl From<anyhow::Error> for RotationError {
 }
 
 // ---------------------------------------------------------------------------
+// Account state (refresh is refused for an account that is no longer active)
+// ---------------------------------------------------------------------------
+
+/// Whether the refresh token's subject may still be issued tokens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccountState {
+    Active,
+    /// Disabled, deleted, or not a user of this tenant.
+    Inactive,
+    /// The database could not say.
+    Unknown,
+}
+
+/// `users.status` is `active` for a usable account; anything else (or no row) is not.
+#[must_use]
+pub fn account_state_of(status: Option<&str>) -> AccountState {
+    match status {
+        Some(s) if s == "active" => AccountState::Active,
+        _ => AccountState::Inactive,
+    }
+}
+
+fn account_state(tenant_id: &str, sub: &str) -> AccountState {
+    let Ok(user_id) = sub.parse::<Uuid>() else {
+        return AccountState::Inactive;
+    };
+    match crate::tenant_db::load_profile(tenant_id, user_id) {
+        Ok(crate::tenant_db::ProfileLoad::Found(user, _)) => {
+            account_state_of(Some(user.status.as_str()))
+        }
+        Ok(crate::tenant_db::ProfileLoad::NotFound) => AccountState::Inactive,
+        Err(e) => {
+            tracing::error!(error = %e, "refresh: account state lookup failed");
+            AccountState::Unknown
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Core rotation logic
 // ---------------------------------------------------------------------------
 
@@ -218,6 +257,28 @@ fn rotate_refresh_token_bound(
             reused_jti: jti,
             family_id: family_id.to_string(),
         };
+    }
+
+    // Step 2b: the account must still be active. A refresh token outlives an access token by days; without this a
+    // disabled (or deleted) user rotated their way to fresh access tokens indefinitely, roles and all. The family is
+    // revoked so the session ends here. A database failure refuses the refresh (503) rather than issue blind.
+    match account_state(tenant_id, &token.sub) {
+        AccountState::Active => {}
+        AccountState::Inactive => {
+            TOKEN_REFRESH_TOTAL
+                .with_label_values(&["failure", "account_inactive"])
+                .inc();
+            if let Err(e) = redis::delete_family_tokens(family_id) {
+                tracing::error!(
+                    event = "family_revocation_failed",
+                    family_id = family_id,
+                    error = e.to_string(),
+                    "Failed to revoke the token family of an inactive account"
+                );
+            }
+            return RotationOutcome::InvalidToken;
+        }
+        AccountState::Unknown => return RotationOutcome::RedisUnavailable,
     }
 
     // Step 3: Normal rotation — delete old token
@@ -407,4 +468,23 @@ pub fn check_token_reuse(jti: &str, family_id: &str) -> Result<bool> {
     // Also check family revocation sentinel
     let is_revoked = redis::is_family_revoked(family_id)?;
     Ok(is_revoked)
+}
+
+#[cfg(test)]
+mod account_state_tests {
+    use super::{account_state_of, AccountState};
+
+    #[test]
+    fn only_an_active_account_may_refresh() {
+        assert_eq!(account_state_of(Some("active")), AccountState::Active);
+        for s in [
+            Some("disabled"),
+            Some("deleted"),
+            Some("Active"),
+            Some(""),
+            None,
+        ] {
+            assert_eq!(account_state_of(s), AccountState::Inactive, "{s:?}");
+        }
+    }
 }

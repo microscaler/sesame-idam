@@ -44,6 +44,22 @@ pub fn parse_uuid(raw: &str, what: &str) -> Result<uuid::Uuid, HttpJson<Value>> 
         .map_err(|_| bad_request(&format!("{what} is not a UUID")))
 }
 
+/// 403 with the role policy's reason (sesame_common::role_policy).
+pub fn refused(r: &sesame_common::role_policy::Refusal) -> HttpJson<Value> {
+    sesame_common::tenant_admin::forbidden(r.message())
+}
+
+/// Make every token the user holds stale (Sesame's token status check refuses a token older than its subject's
+/// version), so a role change applies to the next request rather than the next refresh.
+///
+/// # Errors
+/// The version store could not be reached.
+pub fn invalidate_tokens(user_id: uuid::Uuid) -> Result<u64, String> {
+    sesame_common::VersionStore::from_env()
+        .and_then(|store| store.increment_subject(&user_id.to_string()))
+        .map_err(|e| e.to_string())
+}
+
 /// Audit (Delegation) and the tenant's version bump, for an assignment that changed.
 pub fn record_change(
     admin: &TenantAdmin,

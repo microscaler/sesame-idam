@@ -6,7 +6,7 @@ use std::net::TcpStream;
 use std::sync::Once;
 use std::time::Duration;
 
-use lifeguard::{execute_statement, query_value, SessionContext};
+use lifeguard::{query_value, LifeExecutor, SessionContext};
 use sesame_idam_database::db;
 use uuid::Uuid;
 
@@ -22,6 +22,11 @@ fn db_available() -> bool {
         .and_then(|sa| TcpStream::connect_timeout(&sa, Duration::from_millis(500)).ok())
         .is_some();
     if !reachable {
+        // scripts/test-db.sh sets this: there, a missing database is a failure, never a silent skip
+        assert!(
+            std::env::var_os("SESAME_TEST_DB_REQUIRED").is_none(),
+            "SESAME_TEST_DB_REQUIRED is set but Postgres is not reachable"
+        );
         return false;
     }
 
@@ -65,23 +70,37 @@ fn session_context(tenant: &str, subject: Uuid, org: Uuid) -> SessionContext {
 }
 
 fn insert_user(
-    exec: &impl lifeguard::LifeExecutor,
+    exec: &impl LifeExecutor,
     id: Uuid,
     tenant: &str,
     email: &str,
 ) -> Result<(), lifeguard::LifeError> {
-    execute_statement(
-        exec,
+    exec.execute_values(
         "INSERT INTO sesame_idam.users \
          (id, email, password_hash, tenant_id, status, email_verified, phone_verified, created_at, updated_at) \
          VALUES ($1, $2, 'rls-test-hash', $3, 'active', true, false, NOW(), NOW())",
-        &[&id, &email, &tenant],
+        &sea_query::Values(vec![id.into(), email.into(), tenant.into()]),
     )
     .map(|_| ())
 }
 
-fn delete_user(exec: &impl lifeguard::LifeExecutor, id: Uuid) -> Result<(), lifeguard::LifeError> {
-    execute_statement(exec, "DELETE FROM sesame_idam.users WHERE id = $1", &[&id]).map(|_| ())
+fn delete_user(exec: &impl LifeExecutor, id: Uuid) -> Result<(), lifeguard::LifeError> {
+    exec.execute_values(
+        "DELETE FROM sesame_idam.users WHERE id = $1",
+        &sea_query::Values(vec![id.into()]),
+    )
+    .map(|_| ())
+}
+
+/// One bigint from a count query, in whatever session `exec` carries.
+fn count(
+    exec: &impl LifeExecutor,
+    sql: &str,
+    values: Vec<sea_query::Value>,
+) -> Result<i64, lifeguard::LifeError> {
+    exec.query_one_values(sql, &sea_query::Values(values))?
+        .try_get::<usize, i64>(0)
+        .map_err(|e| lifeguard::LifeError::Other(e.to_string()))
 }
 
 #[test]
@@ -120,12 +139,20 @@ fn users_rls_unqualified_select_is_tenant_scoped() {
 
     let alpha_count = pool
         .with_session_transaction(&alpha_ctx, |exec| {
-            query_value::<i64, _>(exec, "SELECT COUNT(*)::bigint FROM sesame_idam.users", &[])
+            count(
+                exec,
+                "SELECT COUNT(*)::bigint FROM sesame_idam.users",
+                vec![],
+            )
         })
         .expect("alpha count");
     let beta_count = pool
         .with_session_transaction(&beta_ctx, |exec| {
-            query_value::<i64, _>(exec, "SELECT COUNT(*)::bigint FROM sesame_idam.users", &[])
+            count(
+                exec,
+                "SELECT COUNT(*)::bigint FROM sesame_idam.users",
+                vec![],
+            )
         })
         .expect("beta count");
 
@@ -140,10 +167,10 @@ fn users_rls_unqualified_select_is_tenant_scoped() {
 
     // Proof: each tenant's unqualified COUNT must not include the other tenant's row.
     pool.with_session_transaction(&alpha_ctx, |exec| {
-        let visible_beta: i64 = query_value(
+        let visible_beta = count(
             exec,
             "SELECT COUNT(*)::bigint FROM sesame_idam.users WHERE tenant_id = $1",
-            &[&tenant_beta],
+            vec![tenant_beta.clone().into()],
         )?;
         assert_eq!(
             visible_beta, 0,
@@ -154,10 +181,10 @@ fn users_rls_unqualified_select_is_tenant_scoped() {
     .expect("alpha isolation check");
 
     pool.with_session_transaction(&beta_ctx, |exec| {
-        let visible_alpha: i64 = query_value(
+        let visible_alpha = count(
             exec,
             "SELECT COUNT(*)::bigint FROM sesame_idam.users WHERE tenant_id = $1",
-            &[&tenant_alpha],
+            vec![tenant_alpha.clone().into()],
         )?;
         assert_eq!(
             visible_alpha, 0,

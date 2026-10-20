@@ -144,6 +144,19 @@ impl VersionStore {
         Ok(version.and_then(|v| v.parse().ok()).unwrap_or(0))
     }
 
+    /// The current version for a subject, 0 if none was ever set; unlike [`Self::get_subject_version`], a Redis error
+    /// is an error (callers deciding whether a token is still good must not read a failure as "version 0").
+    ///
+    /// # Errors
+    /// The connection or the read failed.
+    pub fn current_subject_version(&self, subject: &str) -> Result<u64> {
+        let key = subject_key(subject);
+        let mut conn = self.get_conn()?;
+        use redis::Commands;
+        let version: Option<String> = conn.get(&key)?;
+        Ok(version.and_then(|v| v.parse().ok()).unwrap_or(0))
+    }
+
     /// Get the current version for a tenant. Returns 0 if not found.
     pub fn get_tenant_version(&self, tenant_id: &str) -> Result<u64> {
         let key = tenant_key(tenant_id);

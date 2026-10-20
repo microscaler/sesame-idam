@@ -10,9 +10,10 @@ use sesame_common::token_versioning::BumpReason;
 use sesame_idam_authz_core_gen::handlers::assign_principal_role::Request;
 
 use super::role_admin_common::{
-    admin, bad_request, internal, not_found, parse_uuid, record_change,
+    admin, bad_request, internal, invalidate_tokens, not_found, parse_uuid, record_change, refused,
 };
 use crate::services::role_admin::{valid_role, Assigned, RoleAdmin};
+use sesame_common::role_policy::RolePolicy;
 
 #[handler(AssignPrincipalRoleController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<Value> {
@@ -38,6 +39,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<Value> {
         Some(Value::String(s)) => Some(s.trim().to_string()),
         Some(other) => Some(other.to_string()),
     };
+    let policy = RolePolicy::configured();
+    if let Err(r) = policy.may_change(&a.roles, &role) {
+        return refused(&r);
+    }
     if given(&d.expires_at).is_some() {
         return bad_request("expiring role assignments are not supported yet");
     }
@@ -48,12 +53,28 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<Value> {
         },
         None => None,
     };
+    if let Some(org) = org_id {
+        // A token has no place for an organisation's scope, so an administrator role "for one organisation" would act
+        // tenant-wide: administrator roles are tenant-wide only.
+        if policy.is_admin_role(&role) {
+            return bad_request(
+                "administrator roles are tenant-wide; they cannot be given for one organisation",
+            );
+        }
+        if !RoleAdmin::org_in_tenant(sesame_idam_database::db(), &a.tenant, org) {
+            return not_found("No such organisation in this tenant");
+        }
+    }
     // sesame_idam.users is under forced RLS (tenant_id = sesame.tenant_id): the user check inside assign reads nothing
     // without the tenant set on the session, and every grant came back "No such user in this tenant".
     match sesame_idam_database::with_pre_auth_tenant(&a.tenant, |exec| {
         RoleAdmin::assign(exec, &a.tenant, user_id, &role, org_id)
     }) {
         Ok(Assigned::Created) => {
+            // The grant stands either way; without the bump it reaches the user's token at their next refresh.
+            if let Err(e) = invalidate_tokens(user_id) {
+                tracing::warn!(error = %e, %user_id, "assign_principal_role: token version bump failed");
+            }
             record_change(
                 &a,
                 user_id,
