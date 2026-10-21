@@ -1,0 +1,25 @@
+# How this project names itself to brrtrouter-tooling (BRRTRouter tooling/src/brrtrouter_tooling/workspace/profile.py).
+# Every value here reproduces the names the repo already uses; the tooling derives nothing from a checkout's folder name.
+
+[project]
+name = "sesame-idam"
+cli = "sesame-idam"
+
+[naming]
+package_prefix = "sesame_idam"
+crate_pattern = "{prefix}_{service}"          # sesame_idam_api_keys, sesame_idam_api_keys_gen
+binary_pattern = "{prefix}_{module}"          # [[bin]] sesame_idam_api_keys
+image_prefix = "sesame-idam"
+image_pattern = "{prefix}-{service}"          # sesame-idam-api-keys
+base_image = "sesame-idam-base"
+zip_prefix = "sesame-idam-binaries-"
+
+[layout]
+openapi_dir = "openapi"
+workspace_dir = "microservices"
+helm_values = "helm/sesame-idam-microservice/values"
+default_suite = "idam"
+
+[dev]
+kind_cluster = "sesame-idam"
+tilt_port = 10351

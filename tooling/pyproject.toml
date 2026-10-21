@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     # Path from sesame-idam/tooling → microscaler/BRRTRouter/tooling
-    "brrtrouter-tooling @ git+https://github.com/microscaler/BRRTRouter.git@59773c94bcc321a544adadb211415713ffe734f2#subdirectory=tooling",
+    "brrtrouter-tooling @ git+https://github.com/microscaler/BRRTRouter.git@8c60d36026dcb79ee044e023aef74c792c2a1fc5#subdirectory=tooling",
     "PyYAML>=6.0",
 ]
 
