@@ -3,8 +3,8 @@
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
 use brrtrouter::dispatcher::HandlerRequest;
-use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
+use brrtrouter::typed::{HandlerResponseOutput, HttpJson};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
@@ -95,6 +95,27 @@ pub struct Response {
     pub username: String,
 }
 
+/// OpenAPI multi-status success envelope (Epic 13.9).
+pub enum ApiResponse {
+    /// HTTP 200
+    Ok(Response),
+
+    /// HTTP 201
+    Created(Response),
+}
+
+impl HandlerResponseOutput for ApiResponse {
+    fn into_handler_response(
+        self,
+    ) -> Result<brrtrouter::dispatcher::HandlerResponse, serde_json::Error> {
+        match self {
+            Self::Ok(body) => HttpJson::new(200, body).into_handler_response(),
+
+            Self::Created(body) => HttpJson::new(201, body).into_handler_response(),
+        }
+    }
+}
+
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;
 
@@ -135,6 +156,6 @@ impl TryFrom<HandlerRequest> for Request {
 }
 
 #[allow(dead_code)]
-pub fn handler(req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
+pub fn handler(req: TypedHandlerRequest<Request>) -> ApiResponse {
     crate::controllers::create_user::handle(req)
 }
