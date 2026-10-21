@@ -45,10 +45,16 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
 
     HttpJson::ok(Response {
         by_type: Some(
-            serde_json::json!({"authentication":85,"session_management":22,"user_management":20}),
+            serde_json::from_str::<serde_json::Value>(
+                r#"{"authentication":85,"session_management":22,"user_management":20}"#,
+            )
+            .unwrap_or(serde_json::Value::Null),
         ),
         time_range: Some(
-            serde_json::json!({"end":"2026-05-11T23:59:59Z","start":"2026-05-01T00:00:00Z"}),
+            serde_json::from_str::<serde_json::Value>(
+                r#"{"end":"2026-05-11T23:59:59Z","start":"2026-05-01T00:00:00Z"}"#,
+            )
+            .unwrap_or(serde_json::Value::Null),
         ),
         total_count: Some(127),
         user_id: Some("6ba7b810-9dad-11d1-80b4-00c04fd430c9".to_string()),

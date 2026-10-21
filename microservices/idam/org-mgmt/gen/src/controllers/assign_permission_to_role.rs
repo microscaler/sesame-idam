@@ -1,35 +1,11 @@
 // User-owned controller for handler 'assign_permission_to_role'.
 
-use crate::handlers::assign_permission_to_role::{Request, Response};
-use brrtrouter::typed::HttpJson;
+use crate::handlers::assign_permission_to_role::Request;
+use brrtrouter::typed::HttpNoContent;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(AssignPermissionToRoleController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
-    // Example response:
-    // {
-    //   "error": "invalid_request",
-    //   "error_description": "Bad request (validation error)"
-    // }
-    match serde_json::from_str::<Response>(
-        r###"{
-  "error": "invalid_request",
-  "error_description": "Bad request (validation error)"
-}"###,
-    ) {
-        Ok(parsed) => return HttpJson::ok(parsed),
-        Err(e) => {
-            eprintln!("Failed to parse mock example JSON into Response: {}", e);
-            // Fallback to empty default structs below
-        }
-    }
-
-    HttpJson::ok(Response {
-        error: "invalid_request".to_string(),
-        error_description: Some("Bad request (validation error)".to_string()),
-        hint: Some("example".to_string()),
-        message: Some("example".to_string()),
-        retry_after: Some(42),
-    })
+pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpNoContent {
+    HttpNoContent
 }

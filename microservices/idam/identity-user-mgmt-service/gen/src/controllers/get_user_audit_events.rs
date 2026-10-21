@@ -74,13 +74,6 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     }
 
     HttpJson::ok(Response {
-        events: Some(vec![
-            serde_json::json!({"actor":"user","event_action":"login_success","event_type":"authentication","id":"550e8400-e29b-41d4-a716-446655440000","ip_address":"203.0.113.42","severity":"info","timestamp":"2026-05-11T14:30:00Z","user_id":"6ba7b810-9dad-11d1-80b4-00c04fd430c9"}),
-            serde_json::json!({"actor":"user","event_action":"mfa_enrolled","event_type":"user_management","id":"550e8400-e29b-41d4-a716-446655440001","ip_address":"203.0.113.42","severity":"info","timestamp":"2026-05-11T14:25:00Z","user_id":"6ba7b810-9dad-11d1-80b4-00c04fd430c9"}),
-        ]),
-        has_more: Some(false),
-        page: Some(1),
-        page_size: Some(50),
-        total: Some(25),
+        events: Some(vec![serde_json::from_str::<serde_json::Value>(r#"{"actor":"user","event_action":"login_success","event_type":"authentication","id":"550e8400-e29b-41d4-a716-446655440000","ip_address":"203.0.113.42","severity":"info","timestamp":"2026-05-11T14:30:00Z","user_id":"6ba7b810-9dad-11d1-80b4-00c04fd430c9"}"#).unwrap_or(serde_json::Value::Null), serde_json::from_str::<serde_json::Value>(r#"{"actor":"user","event_action":"mfa_enrolled","event_type":"user_management","id":"550e8400-e29b-41d4-a716-446655440001","ip_address":"203.0.113.42","severity":"info","timestamp":"2026-05-11T14:25:00Z","user_id":"6ba7b810-9dad-11d1-80b4-00c04fd430c9"}"#).unwrap_or(serde_json::Value::Null)]),has_more: Some(false),page: Some(1),page_size: Some(50),total: Some(25),
     })
 }

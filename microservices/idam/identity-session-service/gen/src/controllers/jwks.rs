@@ -42,8 +42,6 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     }
 
     HttpJson::ok(Response {
-        keys: vec![
-            serde_json::json!({"alg":"EdDSA","crv":"Ed25519","kid":"key-2026-05-18-12","kty":"OKP","use":"sig","x":"pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM"}),
-        ],
+        keys: vec![serde_json::from_str::<serde_json::Value>(r#"{"alg":"EdDSA","crv":"Ed25519","kid":"key-2026-05-18-12","kty":"OKP","use":"sig","x":"pQUXMeHl6rK8cMDDGMhJvVfXw8SdJQ3lqRz5wLqNjKM"}"#).unwrap_or(serde_json::Value::Null)],
     })
 }

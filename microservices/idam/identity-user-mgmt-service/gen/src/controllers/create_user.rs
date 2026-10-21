@@ -1,13 +1,12 @@
 // User-owned controller for handler 'create_user'.
 
-use crate::handlers::create_user::{Request, Response};
-use brrtrouter::typed::HttpJson;
+use crate::handlers::create_user::{ApiResponse, Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(CreateUserController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
-    HttpJson::ok(Response {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> ApiResponse {
+    ApiResponse::Ok(Response {
         email: "example".to_string(),
         email_confirmed: Some(true),
         enabled: true,

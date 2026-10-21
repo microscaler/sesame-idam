@@ -10,15 +10,15 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    #[serde(rename = "client_id")]
-    pub client_id: String,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "X-Tenant-ID")]
     pub x_tenant_id: Option<String>,
 
     #[serde(rename = "provider")]
     pub provider: String,
+
+    #[serde(rename = "client_id")]
+    pub client_id: String,
 
     #[serde(rename = "redirect_uri")]
     pub redirect_uri: String,
