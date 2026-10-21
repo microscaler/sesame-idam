@@ -153,11 +153,12 @@ impl TokenStatusLookup for RedisTokenStatusLookup {
             .shard(jti)
             .lock()
             .map_err(|_| "token-status Redis connection lock poisoned".to_string())?;
-        if guard.is_none() {
+        let pooled = guard.is_some();
+        if !pooled {
             *guard = Some(self.connect()?);
         }
 
-        let result = Self::query(
+        let mut result = Self::query(
             guard
                 .as_mut()
                 .ok_or_else(|| "token-status Redis connection unavailable".to_string())?,
@@ -165,6 +166,23 @@ impl TokenStatusLookup for RedisTokenStatusLookup {
             subject,
             tenant_id,
         );
+        // A pooled connection can be dead without anyone knowing (Redis restarted, an idle connection dropped by the
+        // network): reconnect once and ask again before failing closed. Without this, every shard's first request
+        // after a Redis restart failed closed; a login's token hashed to a stale shard got a 403 from
+        // /oauth/authorize/complete (BRRTRouter retried the check, the retry reconnected and passed, and a failure that
+        // passes on retry reads as "insufficient scope") until every shard had been hit once (21 Oct 2026).
+        if result.is_err() && pooled {
+            *guard = None;
+            *guard = Some(self.connect()?);
+            result = Self::query(
+                guard
+                    .as_mut()
+                    .ok_or_else(|| "token-status Redis connection unavailable".to_string())?,
+                jti,
+                subject,
+                tenant_id,
+            );
+        }
         if result.is_err() {
             // Drop the failed connection so the next request can reconnect.
             *guard = None;
