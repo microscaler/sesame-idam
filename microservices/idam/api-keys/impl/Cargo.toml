@@ -13,7 +13,8 @@ name = "sesame_idam_api_keys"
 path = "src/lib.rs"
 
 [features]
-default = []
+# jemalloc by default (23 Oct 2026): less fragmentation than glibc malloc with many threads, and heap profiles in pp.
+default = ["jemalloc"]
 # jemalloc is opt-in (--features jemalloc). On armv7-unknown-linux-musleabihf and other musl
 # targets, tikv-jemallocator can pull in compiler-rt symbols (e.g. __ffsdi2) that are not
 # provided by musl, causing link errors. Use default = [] and enable jemalloc only for
