@@ -14,8 +14,8 @@ edition = "2021"
 
 # Same pins as microservices/Cargo.toml for everything the suite also uses.
 [workspace.dependencies]
-brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "b08921ac68ec715d53c8997aea6b3c8c47fd38bc", default-features = false }
-brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "b08921ac68ec715d53c8997aea6b3c8c47fd38bc" }
+brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "7066f6cdee80e83da773567bf95e2e4d1341a417", default-features = false }
+brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "7066f6cdee80e83da773567bf95e2e4d1341a417" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"

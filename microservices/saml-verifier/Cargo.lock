@@ -385,7 +385,7 @@ checksum = "dc0b364ead1874514c8c2855ab558056ebfeb775653e7ae45ff72f28f8f3166c"
 [[package]]
 name = "brrtrouter"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=b08921ac68ec715d53c8997aea6b3c8c47fd38bc#b08921ac68ec715d53c8997aea6b3c8c47fd38bc"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=7066f6cdee80e83da773567bf95e2e4d1341a417#7066f6cdee80e83da773567bf95e2e4d1341a417"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -439,7 +439,7 @@ dependencies = [
 [[package]]
 name = "brrtrouter_macros"
 version = "0.1.0"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=b08921ac68ec715d53c8997aea6b3c8c47fd38bc#b08921ac68ec715d53c8997aea6b3c8c47fd38bc"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=7066f6cdee80e83da773567bf95e2e4d1341a417#7066f6cdee80e83da773567bf95e2e4d1341a417"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2257,12 +2257,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "memo-map"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5449c8c750f1a07ea702bbd212bd999fceece9b3d1508b17023b3e174583124b"
-
-[[package]]
 name = "memoffset"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2290,7 +2284,7 @@ checksum = "c2a86d3146ed3995b5913c414f6664344b9617457320782e64f0bb44afd49d74"
 [[package]]
 name = "microscaler-observability"
 version = "0.1.0"
-source = "git+https://github.com/microscaler/microscaler-observability.git?rev=369b08c5427b9e092709860c10eba15e40e8eaac#369b08c5427b9e092709860c10eba15e40e8eaac"
+source = "git+https://github.com/microscaler/microscaler-observability.git?rev=a85325133368df4801eaab2b46a0b19df6277f06#a85325133368df4801eaab2b46a0b19df6277f06"
 dependencies = [
  "base64 0.22.1",
  "flate2",
@@ -2319,11 +2313,10 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "minijinja"
-version = "2.24.0"
+version = "3.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86886cf6dbf4e614b19c9a1eec9775f021869d7eadde0fc73921a81b90c9b4c9"
+checksum = "90086695417a271bc96e6cb50618555614ca48fa3bb0d9aa96e3468b0f84431e"
 dependencies = [
- "memo-map",
  "serde",
 ]
 
