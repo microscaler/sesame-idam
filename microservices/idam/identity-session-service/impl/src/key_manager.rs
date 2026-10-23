@@ -284,8 +284,9 @@ impl JwtSigningKey {
     /// Returns [`KeyError::GenerationFailed`] if RNG fails,
     /// [`KeyError::InvalidKey`] if the key pair is invalid.
     pub fn generate(kid: Option<String>) -> Result<Self, KeyError> {
-        let span = tracing::span!(tracing::Level::INFO, "key.generate");
-        let _guard = span.enter();
+        let _span = tracing::span!(tracing::Level::INFO, "key.generate");
+        // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+        // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
         let sys = SystemRandom::new();
 
         // Generate a valid Ed25519 PKCS#8 key pair using ring's keygen
@@ -720,8 +721,9 @@ impl KeyManager {
     ///
     /// Panics if `self.current_key` is `None` (should never happen after construction).
     pub fn generate_new_key(&mut self) -> Result<JwtSigningKey, KeyError> {
-        let span = tracing::span!(tracing::Level::INFO, "key.generate");
-        let _guard = span.enter();
+        let _span = tracing::span!(tracing::Level::INFO, "key.generate");
+        // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+        // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
         let key = JwtSigningKey::generate(None)?;
         tracing::info!("new key generated: kid={}", key.kid);
         self.validate_key_params(&key.kid)?;
@@ -789,7 +791,8 @@ impl KeyManager {
             from_kid = self.current_key.as_ref().map_or("none", |k| k.kid.as_str()),
             to_kid = tracing::field::Empty
         );
-        let _guard = span.enter();
+        // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+        // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
 
         self.kid_counter += 1;
         let counter_kid = format!(
@@ -829,7 +832,8 @@ impl KeyManager {
             "key.rotate.activate",
             new_kid = tracing::field::Empty
         );
-        let _guard = span.enter();
+        // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+        // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
 
         let mut next = self.next_key.take().ok_or(KeyError::NoKeyToPromote)?;
         let new_kid = next.kid.clone();
@@ -965,7 +969,8 @@ impl KeyManager {
             kid = kid,
             reason = tracing::field::Empty
         );
-        let _guard = span.enter();
+        // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+        // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
 
         // Check current_key.
         if let Some(ref mut key) = self.current_key {
@@ -1073,7 +1078,8 @@ impl KeyManager {
             "key.health",
             key_count = tracing::field::Empty
         );
-        let _guard = span.enter();
+        // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+        // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
 
         let mut keys = Vec::new();
 

@@ -14,13 +14,14 @@ use brrtrouter::typed::TypedHandlerRequest;
 #[handler(CreateApplicationController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // Span: application.created
-    let span = tracing::span!(
+    let _span = tracing::span!(
         tracing::Level::INFO,
         "application.created",
         tenant_id = tracing::field::Empty,
         result = tracing::field::Empty
     );
-    let _guard = span.enter();
+    // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+    // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
     // TODO: Implement your business logic here
     // 
     // Example: Access request data

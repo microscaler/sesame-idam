@@ -84,6 +84,13 @@ jobs:
           for b in bad:
               print(f"::error::{b} is outside this repository; pin a git revision")
           sys.exit(1 if bad else 0)
+      - name: No span entered across a may yield (may_tracing ADR-0001)
+        # A span entered on one may worker thread and exited on another (the coroutine yielded on I/O in between)
+        # leaks its OpenTelemetry context on the first thread: identity-login-service grew to ~720 MB that way
+        # (PriceWhisperer docs/incidents/2026-10-23_otel_context_leak_PLAN.md). `// no-yield:` marks an allowed site.
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/microscaler/may_tracing/v0.1.1/scripts/check-span-discipline.sh -o /tmp/span-discipline.sh
+          sh /tmp/span-discipline.sh --fix-hint microservices
       - name: Every unauthenticated operation says why (x-public-reason)
         run: python3 scripts/lint-public-endpoints.py
       - name: Migration lists name files that exist

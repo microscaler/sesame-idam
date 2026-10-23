@@ -20,7 +20,8 @@ use crate::key_manager::KEY_MANAGER;
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     let kid = req.data.kid.clone();
     let span = tracing::span!(tracing::Level::INFO, "key.revoke.admin", kid = &kid);
-    let _guard = span.enter();
+    // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+    // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
 
     let result = match KEY_MANAGER.write() {
         Ok(mut guard) => guard.revoke_key(&kid).map_err(|e| {

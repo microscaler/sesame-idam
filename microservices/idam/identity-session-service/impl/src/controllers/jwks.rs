@@ -21,7 +21,8 @@ use crate::key_manager::KEY_MANAGER;
 #[handler(JwksController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> Response {
     let span = tracing::span!(tracing::Level::INFO, "jwks.document");
-    let _guard = span.enter();
+    // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+    // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
 
     let doc = KEY_MANAGER.read().unwrap().jwks_document();
 

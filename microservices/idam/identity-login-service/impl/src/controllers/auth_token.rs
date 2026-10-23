@@ -886,7 +886,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         grant_type = req.data.grant_type.as_str(),
         user_id = tracing::field::Empty,
     );
-    let _guard = span.enter();
+    // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+    // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
 
     let tenant_id = req.data.x_tenant_id.clone().unwrap_or_default();
     let emit_audit = |success: bool, reason: &str| {

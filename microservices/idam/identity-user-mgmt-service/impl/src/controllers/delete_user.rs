@@ -6,13 +6,14 @@ use brrtrouter::typed::TypedHandlerRequest;
 #[handler(DeleteUserController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // Span: user.deleted
-    let span = tracing::span!(
+    let _span = tracing::span!(
         tracing::Level::INFO,
         "user.deleted",
         tenant_id = tracing::field::Empty,
         result = tracing::field::Empty
     );
-    let _guard = span.enter();
+    // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+    // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
     use crate::audit::EMITTER;
     use sesame_common::audit::{AuditEvent, AuditEventType, AuditActor, AuditSeverity};
     use uuid::Uuid;

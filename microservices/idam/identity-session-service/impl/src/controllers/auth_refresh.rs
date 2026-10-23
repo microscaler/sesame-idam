@@ -21,7 +21,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         tenant_id = tracing::field::Empty,
         result = tracing::field::Empty
     );
-    let _guard = span.enter();
+    // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+    // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
 
     let refresh_token = req.data.refresh_token.clone();
     let tenant_id = req.data.x_tenant_id.clone();

@@ -6,13 +6,14 @@ use sesame_idam_api_keys_gen::handlers::delete_api_key::{Request, Response};
 #[handler(DeleteApiKeyController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // Span: api_key.deleted
-    let span = tracing::span!(
+    let _span = tracing::span!(
         tracing::Level::INFO,
         "api_key.deleted",
         tenant_id = tracing::field::Empty,
         result = tracing::field::Empty
     );
-    let _guard = span.enter();
+    // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
+    // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
     use crate::audit::EMITTER;
     use sesame_common::audit::{AuditEventType, AuditLevel, AuditLogEntry};
     use uuid::Uuid;

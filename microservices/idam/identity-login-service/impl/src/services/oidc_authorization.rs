@@ -222,7 +222,8 @@ fn redis_span(operation: &'static str, key_kind: &'static str) -> tracing::Span 
 
 fn redis_set_ex(key_kind: &'static str, key: &str, payload: String, ttl_secs: u64) -> Result<()> {
     let span = redis_span("SETEX", key_kind);
-    span.in_scope(|| {
+    // Not `in_scope` (may_tracing ADR-0001): the Redis call yields, and the coroutine may resume elsewhere.
+    {
         let result = redis_connection().and_then(|mut connection| {
             connection
                 .set_ex::<_, _, ()>(key, payload, ttl_secs)
@@ -240,13 +241,14 @@ fn redis_set_ex(key_kind: &'static str, key: &str, payload: String, ttl_secs: u6
             }
         }
         result
-    })
+    }
 }
 
 /// GETDEL: the value, once. `Ok(None)` when absent (never stored, expired or already taken).
 fn redis_getdel(key_kind: &'static str, key: &str) -> Result<Option<String>> {
     let span = redis_span("GETDEL", key_kind);
-    span.in_scope(|| {
+    // Not `in_scope` (may_tracing ADR-0001): the Redis call yields, and the coroutine may resume elsewhere.
+    {
         let result = redis_connection().and_then(|mut connection| {
             redis::cmd("GETDEL")
                 .arg(key)
@@ -268,7 +270,7 @@ fn redis_getdel(key_kind: &'static str, key: &str) -> Result<Option<String>> {
             }
         }
         result
-    })
+    }
 }
 
 pub fn store_authorization_session(session: &AuthorizationSession) -> Result<String> {
