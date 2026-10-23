@@ -609,7 +609,7 @@ dependencies = [
 [[package]]
 name = "brrtrouter"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=7066f6cdee80e83da773567bf95e2e4d1341a417#7066f6cdee80e83da773567bf95e2e4d1341a417"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=7607f3a4bfe59ae6adab4e3e39e1a2432e94f4e4#7607f3a4bfe59ae6adab4e3e39e1a2432e94f4e4"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -663,7 +663,7 @@ dependencies = [
 [[package]]
 name = "brrtrouter_macros"
 version = "0.1.0"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=7066f6cdee80e83da773567bf95e2e4d1341a417#7066f6cdee80e83da773567bf95e2e4d1341a417"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=7607f3a4bfe59ae6adab4e3e39e1a2432e94f4e4#7607f3a4bfe59ae6adab4e3e39e1a2432e94f4e4"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -3642,7 +3642,7 @@ checksum = "c2a86d3146ed3995b5913c414f6664344b9617457320782e64f0bb44afd49d74"
 [[package]]
 name = "microscaler-observability"
 version = "0.1.0"
-source = "git+https://github.com/microscaler/microscaler-observability.git?rev=a85325133368df4801eaab2b46a0b19df6277f06#a85325133368df4801eaab2b46a0b19df6277f06"
+source = "git+https://github.com/microscaler/microscaler-observability.git?rev=1e79c71d2f1f0563fae1da92dfec270e836be43e#1e79c71d2f1f0563fae1da92dfec270e836be43e"
 dependencies = [
  "base64 0.22.1",
  "flate2",
@@ -4609,7 +4609,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22505a5c94da8e3b7c2996394d1c933236c4d743e81a410bcca4e6989fc066a4"
 dependencies = [
  "bytes",
- "heck 0.4.1",
+ "heck 0.5.0",
  "itertools 0.12.1",
  "log",
  "multimap",
