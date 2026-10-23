@@ -10,7 +10,7 @@ ARG RUNTIME_IMAGE=docker.io/library/debian:bookworm-slim@sha256:7c7b2c966bc9ee8c
 
 FROM ${RUST_IMAGE} AS build
 RUN apt-get update \
- && apt-get install -y --no-install-recommends pkg-config clang libclang-dev libxmlsec1-dev libxml2-dev libssl-dev \
+ && apt-get install -y --no-install-recommends make pkg-config clang libclang-dev libxmlsec1-dev libxml2-dev libssl-dev \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY microservices/saml-verifier /src
