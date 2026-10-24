@@ -7,6 +7,9 @@
 # apps depend on frontend/shared + frontend/client-sdk via workspace links).
 FROM node:22-alpine AS build
 ARG APP
+# VARIANT=debug (pp) ships source maps, so browser errors and profiles map back to the source; VARIANT=release (prod)
+# ships none. skaffold.yaml builds both as <image>-debug and <image>-release.
+ARG VARIANT=release
 WORKDIR /build
 
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
@@ -22,7 +25,7 @@ COPY frontend/brochure/package.json ./brochure/
 RUN pnpm install --no-frozen-lockfile
 
 COPY frontend/ ./
-RUN pnpm --filter "@sesame/${APP}" build
+RUN if [ "$VARIANT" = debug ]; then pnpm --filter "@sesame/${APP}" build --sourcemap; else pnpm --filter "@sesame/${APP}" build; fi
 
 # ── runtime: nginx serving the SPA ──────────────────────────────────────────
 FROM nginx:1.27-alpine AS runtime
