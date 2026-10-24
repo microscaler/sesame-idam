@@ -75,6 +75,9 @@ fn main() -> io::Result<()> {
     let runtime_config = RuntimeConfig::from_env();
     may::config().set_stack_size(runtime_config.stack_size);
     may::config().set_workers(runtime_config.may_workers);
+    // Pooled coroutines `may` keeps (BRRTR_COROUTINE_POOL_CAPACITY, default 100). Unset, `may` pre-allocates its
+    // default 1,000 at the first spawn, each with a BRRTR_STACK_SIZE stack and whatever pages it last touched.
+    may::config().set_pool_capacity(runtime_config.coroutine_pool_capacity);
 
     // Load OpenAPI spec and extract routes.
     let spec_path = resolve_spec_path(&args.spec);

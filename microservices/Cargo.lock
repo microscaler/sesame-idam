@@ -609,7 +609,7 @@ dependencies = [
 [[package]]
 name = "brrtrouter"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=c0f0000057e6b4d32da6adce03e2ce7864726a20#c0f0000057e6b4d32da6adce03e2ce7864726a20"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=d7e5dfea0e758997c0fa59f1a2046716aff8544c#d7e5dfea0e758997c0fa59f1a2046716aff8544c"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -664,7 +664,7 @@ dependencies = [
 [[package]]
 name = "brrtrouter_macros"
 version = "0.1.0"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=c0f0000057e6b4d32da6adce03e2ce7864726a20#c0f0000057e6b4d32da6adce03e2ce7864726a20"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=d7e5dfea0e758997c0fa59f1a2046716aff8544c#d7e5dfea0e758997c0fa59f1a2046716aff8544c"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -3643,8 +3643,9 @@ checksum = "c2a86d3146ed3995b5913c414f6664344b9617457320782e64f0bb44afd49d74"
 [[package]]
 name = "microscaler-observability"
 version = "0.1.0"
-source = "git+https://github.com/microscaler/microscaler-observability.git?rev=1e79c71d2f1f0563fae1da92dfec270e836be43e#1e79c71d2f1f0563fae1da92dfec270e836be43e"
+source = "git+https://github.com/microscaler/microscaler-observability.git?rev=2b7e35c7a64e5a70e035d1b4fc6527bd1ea2751f#2b7e35c7a64e5a70e035d1b4fc6527bd1ea2751f"
 dependencies = [
+ "backtrace",
  "base64 0.22.1",
  "flate2",
  "jemalloc_pprof",
@@ -4411,8 +4412,7 @@ checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 [[package]]
 name = "pprof"
 version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38a01da47675efa7673b032bf8efd8214f1917d89685e07e395ab125ea42b187"
+source = "git+https://github.com/microscaler/pprof-rs.git?rev=ccc6819e45e2440eba00d3be572a1cb81b52ec5b#ccc6819e45e2440eba00d3be572a1cb81b52ec5b"
 dependencies = [
  "aligned-vec",
  "backtrace",
@@ -4610,7 +4610,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22505a5c94da8e3b7c2996394d1c933236c4d743e81a410bcca4e6989fc066a4"
 dependencies = [
  "bytes",
- "heck 0.4.1",
+ "heck 0.5.0",
  "itertools 0.12.1",
  "log",
  "multimap",

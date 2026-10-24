@@ -71,6 +71,9 @@ fn main() -> io::Result<()> {
     let config = RuntimeConfig::from_env();
     may::config().set_stack_size(config.stack_size);
     may::config().set_workers(config.may_workers);
+    // Pooled coroutines `may` keeps (BRRTR_COROUTINE_POOL_CAPACITY, default 100). Unset, `may` pre-allocates its
+    // default 1,000 at the first spawn, each with a BRRTR_STACK_SIZE stack and whatever pages it last touched.
+    may::config().set_pool_capacity(config.coroutine_pool_capacity);
 
     // ADR-006 file mode: keep the shared keyset fresh. kubelet refreshes the
     // mounted Secret (~1 min); this loop swaps keys in without a restart —
