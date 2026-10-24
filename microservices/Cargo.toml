@@ -42,8 +42,8 @@ edition = "2021"
 sesame_common = { package = "sesame-common", path = "idam/common" }
 # All shared libs are now modules within common, so individual workspace deps are removed
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
-brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "62f502af76961a9e3e179f23efe99eb444199b04", default-features = false }
-brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "62f502af76961a9e3e179f23efe99eb444199b04" }
+brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "1ac12a7c518a479434a416b7ddaf89555f258ea2", default-features = false }
+brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "1ac12a7c518a479434a416b7ddaf89555f258ea2" }
 
 # Standard dependencies
 serde = { version = "1.0", features = ["derive"] }
