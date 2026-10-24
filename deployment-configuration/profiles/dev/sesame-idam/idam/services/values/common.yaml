@@ -73,7 +73,7 @@ env:
   RUST_LOG: debug
   RUST_BACKTRACE: "1"
   BRRTR_LOG_FORMAT: json
-  BRRTR_STACK_SIZE: "0x40000"
+  BRRTR_STACK_SIZE: "2MiB" # bytes; was 0x40000, read as may words until BRRTRouter 25 Oct 2026
 
 resources:
   requests:
