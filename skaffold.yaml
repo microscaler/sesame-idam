@@ -12,9 +12,9 @@ build:
     - image: ghcr.io/microscaler/sesame-idam-suite
       context: .
       buildpacks:
-        # Bundles octopilot/rust (one cargo invocation for the suite). rust-builder-d7ae714 or later: earlier builders
+        # Bundles octopilot/rust (one cargo invocation for the suite). rust-builder-ebe9917 or later: earlier builders
         # tried Paketo python before Rust and built a repository with .py tooling as a Python app.
-        builder: ghcr.io/octopilot/builder-jammy-base:rust-builder-d7ae714
+        builder: ghcr.io/octopilot/builder-jammy-base:rust-builder-ebe9917
         env:
           - BP_RUST_BRRTROUTER=1
           # Every binary twice from one compile: <bin>-debug (release-optimised, full debug info; pp) and <bin>-release (no
