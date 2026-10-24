@@ -82,6 +82,8 @@ env:
   RUST_LOG: "info"
   RUST_BACKTRACE: "1"
   BRRTR_LOG_FORMAT: "json"
+  # may's own coroutines (the HTTP connection coroutines: routing, validation, dispatch), in may words. Since
+  # BRRTRouter 24 Oct 2026 it no longer sizes handlers: those come from x-brrtrouter-stack-size in the spec.
   BRRTR_STACK_SIZE: "0x8000"
   # The deployment's issuer and public URLs (https, its own domain). No defaults: outside devMode the chart and the
   # services refuse to start without them (sesame_common::deployment). Development sets them in values/_dev.yaml.
