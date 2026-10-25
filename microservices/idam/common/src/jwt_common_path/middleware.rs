@@ -258,13 +258,13 @@ mod tests {
     use crate::SesameAuthzClaimsBuilder as SAZCB;
     use crate::{AccessClaims, RoutePolicy};
 
-    fn create_reply_tx() -> may::sync::mpsc::Sender<brrtrouter::dispatcher::HandlerResponse> {
+    fn create_reply_tx() -> may::sync::mpsc::Sender<Box<brrtrouter::dispatcher::HandlerResponse>> {
         let (_tx, _rx) = may::sync::mpsc::channel();
         _tx
     }
 
     lazy_static::lazy_static! {
-        static ref REPLY_TX: std::sync::Arc<may::sync::mpsc::Sender<brrtrouter::dispatcher::HandlerResponse>> = {
+        static ref REPLY_TX: std::sync::Arc<may::sync::mpsc::Sender<Box<brrtrouter::dispatcher::HandlerResponse>>> = {
             std::sync::Arc::new(create_reply_tx())
         };
     }
