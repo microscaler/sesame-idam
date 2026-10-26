@@ -3,7 +3,6 @@
 //! policy among the user's active memberships applies — one person, one way in. No policy: optional (the tenant
 //! default; retail users are not affected).
 
-use lifeguard::may_postgres::types::ToSql;
 use lifeguard::{LifeError, LifeExecutor};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -66,11 +65,11 @@ impl Requirement {
 pub fn required_for(tenant_id: &str, user_id: Uuid) -> Result<Requirement, LifeError> {
     let (t, u) = (tenant_id.to_string(), user_id.to_string());
     sesame_idam_database::with_pre_auth_tenant(tenant_id, |exec| {
-        let rows = (exec as &dyn LifeExecutor).query_all(
+        let rows = (exec as &dyn LifeExecutor).query_all_values(
             "SELECT p.require_method FROM sesame_idam.org_auth_policies p \
              JOIN sesame_idam.org_memberships m ON m.org_id = p.org_id \
-             WHERE p.tenant_id = $1 AND m.user_id = $2::uuid AND m.status = 'active'",
-            &[&t as &dyn ToSql, &u],
+             WHERE p.tenant_id = $1 AND m.user_id = $2::text::uuid AND m.status = 'active'",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into()]),
         )?;
         let mut strictest = Requirement::None;
         for row in &rows {

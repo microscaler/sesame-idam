@@ -3,7 +3,6 @@
 //! service enforces it at sign-in (a member without the required method enrols before any token is issued). Members
 //! may read it; owners and admins set it.
 
-use lifeguard::may_postgres::types::ToSql;
 use lifeguard::{LifeError, LifeExecutor};
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -75,10 +74,10 @@ fn role<E: LifeExecutor>(
 
 fn read<E: LifeExecutor>(exec: &E, tenant: &str, org: Uuid) -> Result<Value, PolicyError> {
     let (t, o) = (tenant.to_string(), org.to_string());
-    let rows = exec.query_all(
+    let rows = exec.query_all_values(
         "SELECT require_method, extract(epoch from updated_at)::bigint FROM sesame_idam.org_auth_policies \
-         WHERE tenant_id = $1 AND org_id = $2::uuid",
-        &[&t as &dyn ToSql, &o],
+         WHERE tenant_id = $1 AND org_id = $2::text::uuid",
+        &sea_query::Values(vec![t.clone().into(), o.clone().into()]),
     )?;
     let (require, updated_at) = match rows.first() {
         Some(row) => (
@@ -123,13 +122,13 @@ pub fn set(tenant: &str, org: Uuid, caller: Uuid, require: &str) -> Result<Value
                 return Err(PolicyError::Forbidden);
             }
             let (t, o, r, c) = (tenant.to_string(), org.to_string(), require.clone(), caller.to_string());
-            exec.execute(
+            exec.execute_values(
                 "INSERT INTO sesame_idam.org_auth_policies (org_id, tenant_id, require_method, updated_by, updated_at) \
-                 VALUES ($1::uuid, $2, $3, $4::uuid, now()) \
+                 VALUES ($1::text::uuid, $2, $3, $4::text::uuid, now()) \
                  ON CONFLICT (org_id) DO UPDATE SET require_method = excluded.require_method, \
                    updated_by = excluded.updated_by, updated_at = now() \
                  WHERE sesame_idam.org_auth_policies.tenant_id = excluded.tenant_id",
-                &[&o as &dyn ToSql, &t, &r, &c],
+                &sea_query::Values(vec![o.clone().into(), t.clone().into(), r.clone().into(), c.clone().into()]),
             )?;
             read(exec, tenant, org)
         });

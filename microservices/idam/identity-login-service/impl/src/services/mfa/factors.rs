@@ -6,7 +6,6 @@
 //! is only ever read or changed for the account that owns it. Values cross as text (ids, JSON) and integers (unix
 //! seconds), cast in SQL.
 
-use lifeguard::may_postgres::types::ToSql;
 use lifeguard::{LifeError, LifeExecutor};
 use uuid::Uuid;
 
@@ -97,12 +96,12 @@ fn in_tenant<T>(
 pub fn list(tenant_id: &str, user_id: Uuid) -> Result<Vec<Factor>, LifeError> {
     let (t, u) = (tenant_id.to_string(), user_id.to_string());
     in_tenant(tenant_id, |exec| {
-        exec.query_all(
+        exec.query_all_values(
             &format!(
                 "SELECT {COLUMNS} FROM sesame_idam.user_mfa_factors \
-                 WHERE tenant_id = $1 AND user_id = $2::uuid ORDER BY created_at"
+                 WHERE tenant_id = $1 AND user_id = $2::text::uuid ORDER BY created_at"
             ),
-            &[&t as &dyn ToSql, &u],
+            &sea_query::Values(vec![t.clone().into(), u.clone().into()]),
         )?
         .iter()
         .map(row_to_factor)
@@ -141,15 +140,15 @@ pub fn insert_pending_totp(
         sealed_secret.to_string(),
     );
     in_tenant(tenant_id, |exec| {
-        exec.execute(
+        exec.execute_values(
             "DELETE FROM sesame_idam.user_mfa_factors \
-             WHERE tenant_id = $1 AND user_id = $2::uuid AND kind = 'totp' AND status = 'pending'",
-            &[&t as &dyn ToSql, &u],
+             WHERE tenant_id = $1 AND user_id = $2::text::uuid AND kind = 'totp' AND status = 'pending'",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into()]),
         )?;
-        exec.execute(
+        exec.execute_values(
             "INSERT INTO sesame_idam.user_mfa_factors (id, tenant_id, user_id, kind, status, label, totp_secret_sealed) \
-             VALUES ($1::uuid, $2, $3::uuid, 'totp', 'pending', $4, $5)",
-            &[&id as &dyn ToSql, &t, &u, &l, &s],
+             VALUES ($1::text::uuid, $2, $3::text::uuid, 'totp', 'pending', $4, $5)",
+            &sea_query::Values(vec![id.clone().into(), t.clone().into(), u.clone().into(), l.clone().into(), s.clone().into()]),
         )?;
         Ok(())
     })
@@ -172,11 +171,11 @@ pub fn confirm_totp(
         factor_id.to_string(),
     );
     let result = in_tenant(tenant_id, |exec| {
-        exec.execute(
+        exec.execute_values(
             "UPDATE sesame_idam.user_mfa_factors \
              SET status = 'active', confirmed_at = now(), last_used_at = now(), totp_last_step = $4 \
-             WHERE tenant_id = $1 AND user_id = $2::uuid AND id = $3::uuid AND kind = 'totp' AND status = 'pending'",
-            &[&t as &dyn ToSql, &u, &id, &step],
+             WHERE tenant_id = $1 AND user_id = $2::text::uuid AND id = $3::text::uuid AND kind = 'totp' AND status = 'pending'",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into(), id.clone().into(), step.clone().into()]),
         )
     });
     match result {
@@ -203,11 +202,11 @@ pub fn advance_totp_step(
         factor_id.to_string(),
     );
     in_tenant(tenant_id, |exec| {
-        exec.execute(
+        exec.execute_values(
             "UPDATE sesame_idam.user_mfa_factors SET totp_last_step = $4, last_used_at = now() \
-             WHERE tenant_id = $1 AND user_id = $2::uuid AND id = $3::uuid AND status = 'active' \
+             WHERE tenant_id = $1 AND user_id = $2::text::uuid AND id = $3::text::uuid AND status = 'active' \
                AND (totp_last_step IS NULL OR totp_last_step < $4)",
-            &[&t as &dyn ToSql, &u, &id, &step],
+            &sea_query::Values(vec![t.clone().into(), u.clone().into(), id.clone().into(), step.clone().into()]),
         )
         .map(|n| n == 1)
     })
@@ -235,11 +234,11 @@ pub fn insert_passkey(
         passkey_json.to_string(),
     ];
     in_tenant(tenant_id, |exec| {
-        exec.execute(
+        exec.execute_values(
             "INSERT INTO sesame_idam.user_mfa_factors \
              (id, tenant_id, user_id, kind, status, label, credential_id, passkey, passkey_synced, confirmed_at) \
-             VALUES ($1::uuid, $2, $3::uuid, 'passkey', 'active', $4, $5, $6::jsonb, $7, now())",
-            &[&row[0] as &dyn ToSql, &row[1], &row[2], &row[3], &row[4], &row[5], &synced],
+             VALUES ($1::text::uuid, $2, $3::text::uuid, 'passkey', 'active', $4, $5, $6::text::jsonb, $7, now())",
+            &sea_query::Values(vec![row[0].clone().into(), row[1].clone().into(), row[2].clone().into(), row[3].clone().into(), row[4].clone().into(), row[5].clone().into(), synced.clone().into()]),
         )?;
         Ok(id)
     })
@@ -252,12 +251,12 @@ pub fn insert_passkey(
 pub fn find_passkey(tenant_id: &str, credential_id: &str) -> Result<Option<Factor>, LifeError> {
     let (t, c) = (tenant_id.to_string(), credential_id.to_string());
     in_tenant(tenant_id, |exec| {
-        exec.query_all(
+        exec.query_all_values(
             &format!(
                 "SELECT {COLUMNS} FROM sesame_idam.user_mfa_factors \
                  WHERE tenant_id = $1 AND credential_id = $2 AND kind = 'passkey' AND status = 'active'"
             ),
-            &[&t as &dyn ToSql, &c],
+            &sea_query::Values(vec![t.clone().into(), c.clone().into()]),
         )?
         .first()
         .map(row_to_factor)
@@ -282,11 +281,16 @@ pub fn touch_passkey(
     );
     let p = passkey_json.map(str::to_string);
     in_tenant(tenant_id, |exec| {
-        exec.execute(
+        exec.execute_values(
             "UPDATE sesame_idam.user_mfa_factors \
-             SET last_used_at = now(), passkey = COALESCE($4::jsonb, passkey) \
-             WHERE tenant_id = $1 AND user_id = $2::uuid AND id = $3::uuid",
-            &[&t as &dyn ToSql, &u, &id, &p],
+             SET last_used_at = now(), passkey = COALESCE($4::text::jsonb, passkey) \
+             WHERE tenant_id = $1 AND user_id = $2::text::uuid AND id = $3::text::uuid",
+            &sea_query::Values(vec![
+                t.clone().into(),
+                u.clone().into(),
+                id.clone().into(),
+                p.clone().into(),
+            ]),
         )?;
         Ok(())
     })
@@ -303,9 +307,9 @@ pub fn remove(tenant_id: &str, user_id: Uuid, factor_id: Uuid) -> Result<bool, L
         factor_id.to_string(),
     );
     in_tenant(tenant_id, |exec| {
-        exec.execute(
-            "DELETE FROM sesame_idam.user_mfa_factors WHERE tenant_id = $1 AND user_id = $2::uuid AND id = $3::uuid",
-            &[&t as &dyn ToSql, &u, &id],
+        exec.execute_values(
+            "DELETE FROM sesame_idam.user_mfa_factors WHERE tenant_id = $1 AND user_id = $2::text::uuid AND id = $3::text::uuid",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into(), id.clone().into()]),
         )
         .map(|n| n == 1)
     })
@@ -328,10 +332,15 @@ pub fn rename(
         label.to_string(),
     );
     in_tenant(tenant_id, |exec| {
-        exec.execute(
+        exec.execute_values(
             "UPDATE sesame_idam.user_mfa_factors SET label = $4 \
-             WHERE tenant_id = $1 AND user_id = $2::uuid AND id = $3::uuid",
-            &[&t as &dyn ToSql, &u, &id, &l],
+             WHERE tenant_id = $1 AND user_id = $2::text::uuid AND id = $3::text::uuid",
+            &sea_query::Values(vec![
+                t.clone().into(),
+                u.clone().into(),
+                id.clone().into(),
+                l.clone().into(),
+            ]),
         )
         .map(|n| n == 1)
     })
@@ -348,14 +357,14 @@ pub fn replace_recovery_codes(
 ) -> Result<(), LifeError> {
     let (t, u) = (tenant_id.to_string(), user_id.to_string());
     in_tenant(tenant_id, |exec| {
-        exec.execute(
-            "DELETE FROM sesame_idam.user_recovery_codes WHERE tenant_id = $1 AND user_id = $2::uuid",
-            &[&t as &dyn ToSql, &u],
+        exec.execute_values(
+            "DELETE FROM sesame_idam.user_recovery_codes WHERE tenant_id = $1 AND user_id = $2::text::uuid",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into()]),
         )?;
         for h in hashes {
-            exec.execute(
-                "INSERT INTO sesame_idam.user_recovery_codes (tenant_id, user_id, code_hash) VALUES ($1, $2::uuid, $3)",
-                &[&t as &dyn ToSql, &u, h],
+            exec.execute_values(
+                "INSERT INTO sesame_idam.user_recovery_codes (tenant_id, user_id, code_hash) VALUES ($1, $2::text::uuid, $3)",
+                &sea_query::Values(vec![t.clone().into(), u.clone().into(), h.clone().into()]),
             )?;
         }
         Ok(())
@@ -377,10 +386,10 @@ pub fn consume_recovery_code(
         code_hash.to_string(),
     );
     in_tenant(tenant_id, |exec| {
-        exec.execute(
+        exec.execute_values(
             "UPDATE sesame_idam.user_recovery_codes SET used_at = now() \
-             WHERE tenant_id = $1 AND user_id = $2::uuid AND code_hash = $3 AND used_at IS NULL",
-            &[&t as &dyn ToSql, &u, &h],
+             WHERE tenant_id = $1 AND user_id = $2::text::uuid AND code_hash = $3 AND used_at IS NULL",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into(), h.clone().into()]),
         )
         .map(|n| n == 1)
     })
@@ -393,10 +402,10 @@ pub fn consume_recovery_code(
 pub fn recovery_codes_left(tenant_id: &str, user_id: Uuid) -> Result<i64, LifeError> {
     let (t, u) = (tenant_id.to_string(), user_id.to_string());
     in_tenant(tenant_id, |exec| {
-        let row = exec.query_one(
+        let row = exec.query_one_values(
             "SELECT count(*) FROM sesame_idam.user_recovery_codes \
-             WHERE tenant_id = $1 AND user_id = $2::uuid AND used_at IS NULL",
-            &[&t as &dyn ToSql, &u],
+             WHERE tenant_id = $1 AND user_id = $2::text::uuid AND used_at IS NULL",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into()]),
         )?;
         row.try_get::<_, i64>(0)
             .map_err(|e| LifeError::Other(e.to_string()))
@@ -410,13 +419,13 @@ pub fn recovery_codes_left(tenant_id: &str, user_id: Uuid) -> Result<i64, LifeEr
 pub fn remove_all(tenant_id: &str, user_id: Uuid) -> Result<u64, LifeError> {
     let (t, u) = (tenant_id.to_string(), user_id.to_string());
     in_tenant(tenant_id, |exec| {
-        let n = exec.execute(
-            "DELETE FROM sesame_idam.user_mfa_factors WHERE tenant_id = $1 AND user_id = $2::uuid",
-            &[&t as &dyn ToSql, &u],
+        let n = exec.execute_values(
+            "DELETE FROM sesame_idam.user_mfa_factors WHERE tenant_id = $1 AND user_id = $2::text::uuid",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into()]),
         )?;
-        exec.execute(
-            "DELETE FROM sesame_idam.user_recovery_codes WHERE tenant_id = $1 AND user_id = $2::uuid",
-            &[&t as &dyn ToSql, &u],
+        exec.execute_values(
+            "DELETE FROM sesame_idam.user_recovery_codes WHERE tenant_id = $1 AND user_id = $2::text::uuid",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into()]),
         )?;
         Ok(n)
     })

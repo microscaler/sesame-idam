@@ -11,7 +11,6 @@
 
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
-use lifeguard::may_postgres::types::ToSql;
 use lifeguard::LifeExecutor;
 use sesame_common::audit::{AuditEventType, AuditLogEntry};
 use sesame_idam_identity_user_mgmt_service_gen::handlers::disable_user_mfa::Request;
@@ -45,13 +44,13 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         let Some(user) = UserAdminService::find_by_id(&tenant, target, exec)? else {
             return Ok(None);
         };
-        let removed = (exec as &dyn LifeExecutor).execute(
-            "DELETE FROM sesame_idam.user_mfa_factors WHERE tenant_id = $1 AND user_id = $2::uuid",
-            &[&t as &dyn ToSql, &u],
+        let removed = (exec as &dyn LifeExecutor).execute_values(
+            "DELETE FROM sesame_idam.user_mfa_factors WHERE tenant_id = $1 AND user_id = $2::text::uuid",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into()]),
         )?;
-        (exec as &dyn LifeExecutor).execute(
-            "DELETE FROM sesame_idam.user_recovery_codes WHERE tenant_id = $1 AND user_id = $2::uuid",
-            &[&t as &dyn ToSql, &u],
+        (exec as &dyn LifeExecutor).execute_values(
+            "DELETE FROM sesame_idam.user_recovery_codes WHERE tenant_id = $1 AND user_id = $2::text::uuid",
+            &sea_query::Values(vec![t.clone().into(), u.clone().into()]),
         )?;
         Ok(Some((user.email, removed)))
     });
