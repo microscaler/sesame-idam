@@ -15,6 +15,8 @@ use crate::models::relying_party_client_secret::{Column as SecretColumn, Entity 
 use crate::services::tenant_service::TenantService;
 
 pub const STATUS_ACTIVE: &str = "active";
+/// `relying_party_client_redirect_uris.kind` of the registered `initiate_login_uri` (at most one per client).
+pub const KIND_INITIATE_LOGIN: &str = "initiate_login";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientBinding {
@@ -26,6 +28,10 @@ pub struct ClientBinding {
     pub policy: ClientPolicy,
     pub redirect_uris: Vec<String>,
     pub post_logout_redirect_uris: Vec<String>,
+    /// The client's registered sign-in start (OIDC client metadata `initiate_login_uri`): where the hosted login page
+    /// sends a browser whose authorization request has expired, so the client starts a fresh one. Only this registered
+    /// value is ever used (no open redirect).
+    pub initiate_login_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,6 +127,7 @@ fn binding_from_statuses(
         },
         redirect_uris: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        initiate_login_uri: None,
     })
 }
 
@@ -203,6 +210,10 @@ impl ClientRegistry {
                     .filter(|redirect| redirect.kind == "post_logout")
                     .map(|redirect| redirect.uri.clone())
                     .collect(),
+                initiate_login_uri: redirects
+                    .iter()
+                    .find(|redirect| redirect.kind == KIND_INITIATE_LOGIN)
+                    .map(|redirect| redirect.uri.clone()),
             },
             record_id,
         ))

@@ -23,6 +23,7 @@ use crate::models::relying_party_client_redirect_uri::{
 use crate::models::relying_party_client_secret::{
     Column as SecretColumn, Entity as SecretEntity, RelyingPartyClientSecretRecord,
 };
+use crate::services::client_registry::KIND_INITIATE_LOGIN;
 
 const AUTHORITY_TENANT: &str = "tenant";
 
@@ -33,6 +34,9 @@ pub struct CreateClientInput {
     pub token_endpoint_auth_method: Option<String>,
     pub redirect_uris: Vec<String>,
     pub post_logout_redirect_uris: Vec<String>,
+    /// OIDC client metadata `initiate_login_uri`: the client's own sign-in start, where Sesame's hosted login sends a
+    /// browser whose authorization request expired.
+    pub initiate_login_uri: Option<String>,
     pub grants: Vec<String>,
     pub response_types: Vec<String>,
     pub scopes: Vec<String>,
@@ -44,6 +48,8 @@ pub struct UpdateClientInput {
     pub status: Option<String>,
     pub redirect_uris: Option<Vec<String>>,
     pub post_logout_redirect_uris: Option<Vec<String>>,
+    /// `None` keeps the registered value; an empty string removes it.
+    pub initiate_login_uri: Option<String>,
     pub grants: Option<Vec<String>>,
     pub response_types: Option<Vec<String>>,
     pub scopes: Option<Vec<String>>,
@@ -61,6 +67,7 @@ pub struct ClientView {
     pub status: String,
     pub redirect_uris: Vec<String>,
     pub post_logout_redirect_uris: Vec<String>,
+    pub initiate_login_uri: Option<String>,
     pub grants: Vec<String>,
     pub response_types: Vec<String>,
     pub scopes: Vec<String>,
@@ -113,6 +120,7 @@ struct PreparedClient {
     pkce_s256_required: bool,
     redirect_uris: Vec<String>,
     post_logout_redirect_uris: Vec<String>,
+    initiate_login_uri: Option<String>,
     policy: ClientPolicy,
 }
 
@@ -172,8 +180,21 @@ fn prepare_client(input: CreateClientInput) -> Result<PreparedClient, ClientAdmi
         pkce_s256_required,
         redirect_uris: normalize_redirects(input.redirect_uris, true)?,
         post_logout_redirect_uris: normalize_redirects(input.post_logout_redirect_uris, false)?,
+        initiate_login_uri: normalize_initiate_login_uri(input.initiate_login_uri.as_deref())?,
         policy,
     })
+}
+
+/// The registered sign-in start: absent or blank means none; otherwise the same rules as a redirect URI (absolute,
+/// `https` or loopback `http` with a port, no wildcard, fragment, credentials or encoded path tricks). Sesame only ever
+/// sends a browser to this registered value, never to one taken from a request.
+fn normalize_initiate_login_uri(raw: Option<&str>) -> Result<Option<String>, ClientAdminError> {
+    match raw.map(str::trim) {
+        None | Some("") => Ok(None),
+        Some(uri) => normalize_redirect_uri(uri).map(Some).map_err(|error| {
+            ClientAdminError::InvalidPolicy(format!("initiate_login_uri: {error}"))
+        }),
+    }
 }
 
 fn normalize_redirects(
@@ -334,6 +355,10 @@ fn build_view<E: LifeExecutor>(
         status: client.status.clone(),
         redirect_uris: redirect_values("login"),
         post_logout_redirect_uris: redirect_values("post_logout"),
+        initiate_login_uri: redirects
+            .iter()
+            .find(|redirect| redirect.kind == KIND_INITIATE_LOGIN)
+            .map(|redirect| redirect.uri.clone()),
         grants: values("grant"),
         response_types: values("response_type"),
         scopes: values("scope"),
@@ -382,6 +407,15 @@ impl OidcClientAdmin {
                         database_id,
                         "post_logout",
                         &prepared.post_logout_redirect_uris,
+                        now,
+                        exec,
+                    )
+                })
+                .and_then(|()| {
+                    insert_redirects(
+                        database_id,
+                        KIND_INITIATE_LOGIN,
+                        prepared.initiate_login_uri.as_slice(),
                         now,
                         exec,
                     )
@@ -472,6 +506,7 @@ impl OidcClientAdmin {
             post_logout_redirect_uris: input
                 .post_logout_redirect_uris
                 .unwrap_or(current.post_logout_redirect_uris),
+            initiate_login_uri: input.initiate_login_uri.or(current.initiate_login_uri),
             grants: input.grants.unwrap_or(current.grants),
             response_types: input.response_types.unwrap_or(current.response_types),
             scopes: input.scopes.unwrap_or(current.scopes),
@@ -520,6 +555,13 @@ impl OidcClientAdmin {
             client.id,
             "post_logout",
             &prepared.post_logout_redirect_uris,
+            now,
+            exec,
+        )?;
+        insert_redirects(
+            client.id,
+            KIND_INITIATE_LOGIN,
+            prepared.initiate_login_uri.as_slice(),
             now,
             exec,
         )?;
@@ -658,6 +700,7 @@ mod tests {
             token_endpoint_auth_method: None,
             redirect_uris: vec!["https://EXAMPLE.com:443/callback".to_string()],
             post_logout_redirect_uris: vec!["https://example.com/signed-out".to_string()],
+            initiate_login_uri: None,
             grants: vec![
                 "refresh_token".to_string(),
                 "authorization_code".to_string(),
@@ -698,5 +741,53 @@ mod tests {
             prepare_client(input),
             Err(ClientAdminError::InvalidPolicy(_))
         ));
+    }
+
+    #[test]
+    fn initiate_login_uri_is_optional_and_normalized() {
+        assert_eq!(
+            prepare_client(public_input())
+                .expect("valid client")
+                .initiate_login_uri,
+            None
+        );
+        let mut input = public_input();
+        input.initiate_login_uri = Some("  https://TRADER.example:443/auth/start ".to_string());
+        assert_eq!(
+            prepare_client(input)
+                .expect("valid client")
+                .initiate_login_uri,
+            Some("https://trader.example/auth/start".to_string())
+        );
+        let mut input = public_input();
+        input.initiate_login_uri = Some(String::new());
+        assert_eq!(
+            prepare_client(input)
+                .expect("blank clears")
+                .initiate_login_uri,
+            None
+        );
+    }
+
+    #[test]
+    fn unsafe_initiate_login_uri_is_rejected() {
+        for bad in [
+            "http://trader.example/auth/start",
+            "https://*.example.com/auth/start",
+            "https://trader.example/auth/start#x",
+            "https://user:pw@trader.example/auth/start",
+            "javascript:alert(1)",
+            "/auth/start",
+        ] {
+            let mut input = public_input();
+            input.initiate_login_uri = Some(bad.to_string());
+            assert!(
+                matches!(
+                    prepare_client(input),
+                    Err(ClientAdminError::InvalidPolicy(_))
+                ),
+                "{bad} must be refused"
+            );
+        }
     }
 }

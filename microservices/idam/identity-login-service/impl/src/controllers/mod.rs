@@ -25,6 +25,7 @@ pub mod magic_link_send;
 pub mod magic_link_verify;
 pub mod oauth_authorize;
 pub mod oauth_authorize_complete;
+pub mod oauth_authorize_status;
 pub mod oauth_token;
 pub mod oauth_userinfo;
 pub mod oidc_client_http;

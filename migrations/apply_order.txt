@@ -52,3 +52,4 @@ org-mgmt/20261011120001_org_domain_events.sql
 rls/20261011120002_org_domain_claims_rls.sql
 authz-core/20261020120000_role_assignments_one_per_scope.sql
 identity-session-service/20261026120000_current_user_profile.sql
+identity-login-service/20261026180000_oidc_client_initiate_login_uri.sql

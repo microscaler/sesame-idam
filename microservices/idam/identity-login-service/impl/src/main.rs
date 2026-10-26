@@ -151,6 +151,14 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                "oauth_authorize_status" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::oauth_authorize_status::OauthAuthorizeStatusController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "oauth_token" => {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::oauth_token::OauthTokenController,

@@ -20,6 +20,7 @@ use sesame_idam_identity_login_service::controllers::oauth_authorize::{
 use sesame_idam_identity_login_service::controllers::oauth_authorize_complete::{
     self, OauthAuthorizeCompleteOutcome,
 };
+use sesame_idam_identity_login_service::controllers::oauth_authorize_status;
 use sesame_idam_identity_login_service::controllers::oauth_token;
 use sesame_idam_identity_login_service::controllers::oauth_userinfo;
 use sesame_idam_identity_login_service::controllers::{auth_login, auth_register};
@@ -27,6 +28,7 @@ use sesame_idam_identity_login_service_gen::handlers::auth_login::Request as Log
 use sesame_idam_identity_login_service_gen::handlers::auth_register::Request as RegisterRequest;
 use sesame_idam_identity_login_service_gen::handlers::oauth_authorize::Request as AuthorizeRequest;
 use sesame_idam_identity_login_service_gen::handlers::oauth_authorize_complete::Request as CompleteRequest;
+use sesame_idam_identity_login_service_gen::handlers::oauth_authorize_status::Request as StatusRequest;
 use sesame_idam_identity_login_service_gen::handlers::oauth_token::Request as TokenRequest;
 use sesame_idam_identity_login_service_gen::handlers::oauth_userinfo::Request as UserinfoRequest;
 
@@ -302,4 +304,93 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
     });
     assert_eq!(userinfo.status, 200, "userinfo: {:?}", userinfo.body);
     assert_eq!(userinfo.body["sub"], user_id);
+}
+
+fn authorize_status(request_id: &str, client_id: &str) -> serde_json::Value {
+    let status = oauth_authorize_status::handle(TypedHandlerRequest {
+        method: Method::GET,
+        path: "/oauth/authorize/status".to_string(),
+        handler_name: "oauth_authorize_status".to_string(),
+        path_params: HashMap::new(),
+        query_params: HashMap::new(),
+        data: StatusRequest {
+            request_id: request_id.to_string(),
+            client_id: client_id.to_string(),
+        },
+        jwt_claims: None,
+    });
+    assert_eq!(status.status, 200, "status: {:?}", status.body);
+    status.body
+}
+
+/// The hosted page's status check: read-only (asking twice leaves the request usable), 30 minutes of life, inactive
+/// once used, and it names only the client's registered `initiate_login_uri`.
+#[test]
+fn authorize_status_is_read_only_and_names_the_registered_restart() {
+    use sesame_idam_identity_login_service::services::client_registry::ClientRegistry;
+    use sesame_idam_identity_login_service::services::oidc_authorization::take_authorization_session;
+
+    if !infra_available() {
+        eprintln!("SKIP authorize_status: Postgres/Redis unavailable");
+        return;
+    }
+    if !fixture_client_ready() {
+        eprintln!("SKIP authorize_status: seed fixture-public-client");
+        return;
+    }
+    ensure_active_tenant(FIXTURE_TENANT);
+    let registered = ClientRegistry::resolve_active(FIXTURE_CLIENT, sesame_idam_database::db())
+        .expect("fixture client")
+        .initiate_login_uri;
+
+    let (_verifier, challenge) = pkce_pair();
+    let authorize = oauth_authorize::handle(TypedHandlerRequest {
+        method: Method::GET,
+        path: "/oauth/authorize".to_string(),
+        handler_name: "oauth_authorize".to_string(),
+        path_params: HashMap::new(),
+        query_params: HashMap::new(),
+        data: AuthorizeRequest {
+            client_id: FIXTURE_CLIENT.to_string(),
+            response_type: "code".to_string(),
+            redirect_uri: FIXTURE_REDIRECT.to_string(),
+            state: "state-0123456789abcdef".to_string(),
+            scope: "openid".to_string(),
+            nonce: "nonce-0123456789abcdef".to_string(),
+            code_challenge: challenge,
+            code_challenge_method: "S256".to_string(),
+        },
+        jwt_claims: None,
+    });
+    let OauthAuthorizeOutcome::Redirect(hosted) = authorize else {
+        panic!("authorize should redirect to hosted auth");
+    };
+    let request_id = query_param(&hosted.location, "request_id").expect("request_id");
+
+    let first = authorize_status(&request_id, FIXTURE_CLIENT);
+    assert_eq!(first["active"], true);
+    let left = first["expires_in"].as_u64().expect("expires_in");
+    assert!(
+        (1700..=1800).contains(&left),
+        "a fresh request lives 30 minutes, got {left}"
+    );
+    assert_eq!(first["initiate_login_uri"].as_str(), registered.as_deref());
+
+    // Asking does not use the request up.
+    assert_eq!(
+        authorize_status(&request_id, FIXTURE_CLIENT)["active"],
+        true
+    );
+    take_authorization_session(&request_id).expect("still usable after status checks");
+
+    // Used (or expired): inactive, and still single-use.
+    let used = authorize_status(&request_id, FIXTURE_CLIENT);
+    assert_eq!(used["active"], false);
+    assert_eq!(used["expires_in"], 0);
+    assert_eq!(used["initiate_login_uri"].as_str(), registered.as_deref());
+    assert!(take_authorization_session(&request_id).is_err());
+
+    // An unknown client gets no restart target, whatever the page's URL says.
+    let unknown = authorize_status(&request_id, "no-such-client");
+    assert!(unknown["initiate_login_uri"].is_null());
 }

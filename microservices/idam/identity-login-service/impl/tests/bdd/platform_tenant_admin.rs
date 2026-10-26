@@ -233,6 +233,7 @@ fn client_create_request(
             token_endpoint_auth_method: None,
             redirect_uris: vec!["https://app.example/auth/callback".to_string()],
             post_logout_redirect_uris: None,
+            initiate_login_uri: None,
             grants: vec![
                 "authorization_code".to_string(),
                 "refresh_token".to_string(),

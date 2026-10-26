@@ -18,6 +18,7 @@ pub fn client_json(client: &ClientView) -> serde_json::Value {
         "status": client.status,
         "redirect_uris": client.redirect_uris,
         "post_logout_redirect_uris": client.post_logout_redirect_uris,
+        "initiate_login_uri": client.initiate_login_uri,
         "grants": client.grants,
         "response_types": client.response_types,
         "scopes": client.scopes,

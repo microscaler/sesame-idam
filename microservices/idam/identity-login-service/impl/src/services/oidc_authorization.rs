@@ -10,7 +10,10 @@ use sha2::{Digest, Sha256};
 
 use crate::services::client_registry::ClientBinding;
 
-const AUTHORIZATION_SESSION_TTL_SECS: u64 = 300;
+/// How long a pending authorization request (the hosted login page's `request_id`) lives: 30 minutes, so a sign-in
+/// page left open while the user fetches a password or answers a call still works. It stays single-use (taken with
+/// GETDEL on completion); the code it turns into is the short-lived, single-use secret.
+pub const AUTHORIZATION_SESSION_TTL_SECS: u64 = 1800;
 const AUTHORIZATION_CODE_TTL_SECS: u64 = 60;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -301,6 +304,49 @@ pub fn take_authorization_session(request_id: &str) -> Result<AuthorizationSessi
     })
 }
 
+/// Seconds left on a pending authorization request, without using it: `Ok(None)` when it is absent (never stored,
+/// expired or already used). Read-only (Redis `TTL`), so the hosted page can ask as often as it likes.
+///
+/// # Errors
+/// The store could not be reached.
+pub fn authorization_session_remaining(request_id: &str) -> Result<Option<u64>> {
+    let span = redis_span("TTL", "authorization_session");
+    let key = hashed_key("oidc:authorization-request", request_id);
+    let result = redis_connection().and_then(|mut connection| {
+        connection
+            .ttl::<_, i64>(&key)
+            .context("read authorization session TTL")
+    });
+    match result {
+        Ok(reply) => {
+            let remaining = remaining_from_ttl_reply(reply);
+            span.record(
+                "sesame.outcome",
+                if remaining.is_some() { "hit" } else { "miss" },
+            );
+            Ok(remaining)
+        }
+        Err(error) => {
+            span.record("sesame.outcome", "error");
+            span.record("error.type", "redis");
+            span.record("otel.status_description", error.to_string().as_str());
+            tracing::error!(error = %error, "Redis TTL failed");
+            Err(error)
+        }
+    }
+}
+
+/// Redis `TTL` reply to seconds left: `-2` is a missing key, `-1` a key without expiry (never written so; treated as
+/// a full lifetime), anything else the seconds left.
+#[must_use]
+pub fn remaining_from_ttl_reply(reply: i64) -> Option<u64> {
+    match reply {
+        -1 => Some(AUTHORIZATION_SESSION_TTL_SECS),
+        n if n > 0 => u64::try_from(n).ok(),
+        _ => None,
+    }
+}
+
 /// [`take_authorization_session`] without the reason.
 pub fn consume_authorization_session(request_id: &str) -> Option<AuthorizationSession> {
     take_authorization_session(request_id).ok()
@@ -387,6 +433,7 @@ mod tests {
             },
             redirect_uris: vec!["https://client.example/callback".to_string()],
             post_logout_redirect_uris: vec![],
+            initiate_login_uri: None,
         }
     }
 
@@ -534,6 +581,25 @@ mod tests {
         assert_eq!(
             AuthorizationError::InvalidRequest("x").oauth_code(),
             "invalid_request"
+        );
+    }
+
+    #[test]
+    fn authorization_request_outlives_a_page_left_open() {
+        // A login page left open for half an hour still completes; the code stays short-lived.
+        assert_eq!(AUTHORIZATION_SESSION_TTL_SECS, 1800);
+        assert_eq!(AUTHORIZATION_CODE_TTL_SECS, 60);
+    }
+
+    #[test]
+    fn ttl_reply_maps_to_remaining_seconds() {
+        assert_eq!(remaining_from_ttl_reply(-2), None);
+        assert_eq!(remaining_from_ttl_reply(0), None);
+        assert_eq!(remaining_from_ttl_reply(1), Some(1));
+        assert_eq!(remaining_from_ttl_reply(1799), Some(1799));
+        assert_eq!(
+            remaining_from_ttl_reply(-1),
+            Some(AUTHORIZATION_SESSION_TTL_SECS)
         );
     }
 

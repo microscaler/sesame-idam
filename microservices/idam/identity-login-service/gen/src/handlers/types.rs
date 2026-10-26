@@ -609,6 +609,16 @@ pub struct OauthAuthorizeResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OauthAuthorizeStatusResponse {
+    pub active: bool,
+
+    pub expires_in: i32,
+
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub initiate_login_uri: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OauthTokenRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_id: Option<String>,
@@ -688,6 +698,16 @@ pub struct OidcAuthorizationCompleteResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OidcAuthorizationStatusResponse {
+    pub active: bool,
+
+    pub expires_in: i32,
+
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub initiate_login_uri: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OidcClientCreateRequest {
     pub application_id: String,
 
@@ -696,6 +716,9 @@ pub struct OidcClientCreateRequest {
     pub client_type: String,
 
     pub grants: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub post_logout_redirect_uris: Option<Vec<String>>,
@@ -739,6 +762,9 @@ pub struct OidcClientResponse {
     pub created_at: String,
 
     pub grants: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
 
     pub pkce_s256_required: bool,
 
@@ -786,6 +812,9 @@ pub struct OidcClientUpdateRequest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grants: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub post_logout_redirect_uris: Option<Vec<String>>,
@@ -1003,6 +1032,9 @@ pub struct PlatformTenantOidcClientCreateRequest {
     pub grants: Vec<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub post_logout_redirect_uris: Option<Vec<String>>,
 
     pub redirect_uris: Vec<String>,
@@ -1040,6 +1072,9 @@ pub struct PlatformTenantOidcClientUpdateRequest {
     pub grants: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub post_logout_redirect_uris: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1068,6 +1103,9 @@ pub struct PlatformTenantOidcClientUpdateResponse {
     pub created_at: String,
 
     pub grants: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
 
     pub pkce_s256_required: bool,
 
@@ -1521,6 +1559,9 @@ pub struct TenantOidcClientCreateRequest {
     pub grants: Vec<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub post_logout_redirect_uris: Option<Vec<String>>,
 
     pub redirect_uris: Vec<String>,
@@ -1571,6 +1612,9 @@ pub struct TenantOidcClientGetResponse {
     pub created_at: String,
 
     pub grants: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
 
     pub pkce_s256_required: bool,
 
@@ -1639,6 +1683,9 @@ pub struct TenantOidcClientUpdateRequest {
     pub grants: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub post_logout_redirect_uris: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1667,6 +1714,9 @@ pub struct TenantOidcClientUpdateResponse {
     pub created_at: String,
 
     pub grants: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiate_login_uri: Option<String>,
 
     pub pkce_s256_required: bool,
 

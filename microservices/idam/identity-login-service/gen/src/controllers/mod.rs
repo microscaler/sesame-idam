@@ -49,6 +49,8 @@ pub mod oauth_authorize;
 
 pub mod oauth_authorize_complete;
 
+pub mod oauth_authorize_status;
+
 pub mod oauth_token;
 
 pub mod oauth_userinfo;

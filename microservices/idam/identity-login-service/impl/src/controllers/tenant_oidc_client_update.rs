@@ -17,6 +17,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         status: req.data.status.clone(),
         redirect_uris: req.data.redirect_uris.clone(),
         post_logout_redirect_uris: req.data.post_logout_redirect_uris.clone(),
+        initiate_login_uri: req.data.initiate_login_uri.clone(),
         grants: req.data.grants.clone(),
         response_types: req.data.response_types.clone(),
         scopes: req.data.scopes.clone(),

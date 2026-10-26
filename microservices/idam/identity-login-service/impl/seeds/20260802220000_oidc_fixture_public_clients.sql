@@ -51,17 +51,30 @@ INSERT INTO sesame_idam.relying_party_client_redirect_uris
     (id, relying_party_client_id, kind, uri, created_at)
 VALUES
     (
-        'a1500002-0002-4000-8000-000000000001',
+        'a1500002-0003-4000-8000-000000000001',
         'a1500002-0001-4000-8000-000000000001',
         'login',
         'https://client.example/callback',
         NOW()
     ),
     (
-        'a1500002-0002-4000-8000-000000000002',
+        'a1500002-0003-4000-8000-000000000002',
         'a1500002-0001-4000-8000-000000000002',
         'login',
         'https://client.example/callback',
+        NOW()
+    )
+ON CONFLICT (relying_party_client_id, kind, uri) DO NOTHING;
+
+-- fixture-public-client's sign-in start (OIDC initiate_login_uri): where the hosted page restarts an expired request.
+INSERT INTO sesame_idam.relying_party_client_redirect_uris
+    (id, relying_party_client_id, kind, uri, created_at)
+VALUES
+    (
+        'a1500002-0003-4000-8000-000000000003',
+        'a1500002-0001-4000-8000-000000000001',
+        'initiate_login',
+        'https://client.example/auth/start',
         NOW()
     )
 ON CONFLICT (relying_party_client_id, kind, uri) DO NOTHING;

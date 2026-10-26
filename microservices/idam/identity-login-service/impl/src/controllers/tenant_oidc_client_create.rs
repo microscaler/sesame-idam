@@ -23,6 +23,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             .post_logout_redirect_uris
             .clone()
             .unwrap_or_default(),
+        initiate_login_uri: req.data.initiate_login_uri.clone(),
         grants: req.data.grants.clone(),
         response_types: req.data.response_types.clone(),
         scopes: req.data.scopes.clone(),

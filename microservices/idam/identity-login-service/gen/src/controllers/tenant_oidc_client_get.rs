@@ -14,6 +14,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
         client_type: "example".to_string(),
         created_at: "example".to_string(),
         grants: vec![],
+        initiate_login_uri: Some("example".to_string()),
         pkce_s256_required: true,
         post_logout_redirect_uris: vec![],
         redirect_uris: vec![],

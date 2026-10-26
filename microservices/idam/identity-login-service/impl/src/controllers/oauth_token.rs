@@ -285,6 +285,7 @@ mod tests {
             },
             redirect_uris: vec![],
             post_logout_redirect_uris: vec![],
+            initiate_login_uri: None,
         }
     }
 

@@ -35,6 +35,10 @@ pub struct Response {
     #[serde(rename = "grants")]
     pub grants: Vec<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "initiate_login_uri")]
+    pub initiate_login_uri: Option<String>,
+
     #[serde(rename = "pkce_s256_required")]
     pub pkce_s256_required: bool,
 

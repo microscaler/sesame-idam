@@ -156,6 +156,12 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "oauth_authorize_status",
+        crate::controllers::oauth_authorize_status::OauthAuthorizeStatusController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "oauth_token",
         crate::controllers::oauth_token::OauthTokenController,
         20480,
@@ -494,6 +500,14 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::oauth_authorize_complete::OauthAuthorizeCompleteController,
                     16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "oauth_authorize_status" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::oauth_authorize_status::OauthAuthorizeStatusController,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

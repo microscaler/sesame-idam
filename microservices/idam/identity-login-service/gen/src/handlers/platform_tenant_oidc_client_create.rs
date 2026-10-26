@@ -24,6 +24,10 @@ pub struct Request {
     pub grants: Vec<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "initiate_login_uri")]
+    pub initiate_login_uri: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "post_logout_redirect_uris")]
     pub post_logout_redirect_uris: Option<Vec<String>>,
 

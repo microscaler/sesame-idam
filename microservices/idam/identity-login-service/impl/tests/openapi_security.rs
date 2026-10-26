@@ -117,7 +117,7 @@ fn session_spec_public_discovery_routes_have_no_security() {
 fn login_spec_oidc_authorize_and_token_are_public() {
     let routes = load_idam_routes("openapi/idam/identity-login-service/openapi.yaml");
 
-    for handler in ["oauth_authorize", "oauth_token"] {
+    for handler in ["oauth_authorize", "oauth_authorize_status", "oauth_token"] {
         assert!(
             security_for(&routes, handler).is_empty(),
             "{handler} must be public (security: []) — client_id/secret authenticate the request"

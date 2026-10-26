@@ -1,9 +1,10 @@
-import { createSignal, onMount, Show } from 'solid-js';
+import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { applyTenantTheme, runtimeConfig } from '@sesame/shared';
 import { SignIn } from './pages/SignIn';
 import { ResetPassword } from './pages/ResetPassword';
 import { AuthError, completeOidcAuthorize, mintSessionCode, verifyMagicLink } from './lib/api';
 import type { TokenResponse } from './lib/api';
+import { decide, fetchAuthorizeStatus } from './lib/oidcRequest';
 
 /**
  * Hosted auth surface shell (ADR-010 + OIDC authorize/complete).
@@ -18,8 +19,9 @@ import type { TokenResponse } from './lib/api';
  * ADR-010 path: mint session code and return to `redirect_uri`.
  */
 /**
- * What a failed handoff means for the user. An OIDC sign-in request lives for five minutes and is used once, so a page
- * left open (or reloaded after a sign-in) can only be restarted from the application.
+ * What a failed handoff means for the user. An OIDC sign-in request lives for 30 minutes and is used once. When the
+ * application registered a sign-in start (`initiate_login_uri`) the page restarts there instead (lib/oidcRequest.ts);
+ * this message is for applications that did not.
  */
 function handoffFailure(e: unknown): string {
   const code = e instanceof AuthError ? e.code : '';
@@ -58,8 +60,53 @@ export function App() {
       : '',
   );
 
+  // OIDC: never leave the user on a request that can no longer complete (lib/oidcRequest.ts). Checked on load, when the
+  // tab is shown again, and when the request is due to expire; an expired one goes straight to the application's
+  // registered sign-in start, which begins a fresh request and comes back here.
+  let leaving = false;
+  let recheckTimer: number | undefined;
+  let lastCheck = 0;
+  const restartAt = (to: string) => {
+    leaving = true;
+    window.clearTimeout(recheckTimer);
+    window.location.replace(to);
+  };
+  const checkRequest = async (force = false): Promise<void> => {
+    if (!isOidc || leaving || status() !== 'ready') return;
+    const now = Date.now();
+    if (!force && now - lastCheck < 5_000) return;
+    lastCheck = now;
+    const check = decide(await fetchAuthorizeStatus(requestId, clientId));
+    if (leaving || status() !== 'ready') return;
+    if (check.kind === 'restart') {
+      restartAt(check.to);
+    } else if (check.kind === 'expired') {
+      setError('This sign-in request has expired. Go back to the application and sign in again.');
+      setStatus('error');
+    } else if (check.kind === 'ok') {
+      window.clearTimeout(recheckTimer);
+      recheckTimer = window.setTimeout(() => void checkRequest(true), check.recheckInMs);
+    }
+  };
+  const onShown = () => {
+    if (document.visibilityState === 'visible') void checkRequest();
+  };
+
   onMount(async () => {
     applyTenantTheme({ displayName: tenantId });
+
+    if (isOidc) {
+      document.addEventListener('visibilitychange', onShown);
+      window.addEventListener('focus', onShown);
+      window.addEventListener('pageshow', onShown);
+      onCleanup(() => {
+        document.removeEventListener('visibilitychange', onShown);
+        window.removeEventListener('focus', onShown);
+        window.removeEventListener('pageshow', onShown);
+        window.clearTimeout(recheckTimer);
+      });
+      void checkRequest(true);
+    }
 
     if (status() === 'verifying' && magicToken) {
       try {
@@ -103,6 +150,15 @@ export function App() {
       if (state) url.searchParams.set('state', state);
       window.location.assign(url.toString());
     } catch (e) {
+      // The request expired or was used while the user signed in: restart at the application when it registered a
+      // sign-in start, rather than ending on a message.
+      if (isOidc && e instanceof AuthError && e.code === 'invalid_request') {
+        const check = decide(await fetchAuthorizeStatus(requestId, clientId));
+        if (check.kind === 'restart') {
+          restartAt(check.to);
+          return;
+        }
+      }
       setError(handoffFailure(e));
       setStatus('error');
     }

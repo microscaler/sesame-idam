@@ -1598,6 +1598,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-brrtrouter-impl: true
+  /oauth/authorize/status:
+    get:
+      tags:
+      - Sessions
+      summary: Whether a pending authorization request can still be completed
+      description: 'Read-only check the hosted login page makes on load and whenever its tab is shown again. It does not
+        use or extend the request (which stays single-use). When the request has expired or was used, the page sends the
+        browser to the client''s registered `initiate_login_uri` (returned here; never a value from the request) so the
+        client starts a fresh sign-in before the user types anything.'
+      operationId: oauth_authorize_status
+      x-public-reason: "pre-authentication: the hosted login page asks before the user has signed in"
+      security: []
+      parameters:
+      - name: request_id
+        in: query
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+        description: The pending authorization request the hosted login page was opened with
+      - name: client_id
+        in: query
+        required: true
+        schema:
+          type: string
+          maxLength: 128
+        description: OAuth2 client ID the hosted login page was opened for
+      responses:
+        '200':
+          description: Whether the request is still usable, and the client's registered sign-in start
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcAuthorizationStatusResponse'
+        '400':
+          description: "Bad request \u2014 validation error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The authorization request store is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-consumer-note: Hosted login page (frontend/auth) checks its request_id before and during sign-in
+      x-brrtrouter-impl: true
   /oauth/token:
     post:
       tags:
@@ -3690,6 +3739,24 @@ components:
           type: string
           format: uri
           description: The registered redirect URI with `code` and `state` appended
+    OidcAuthorizationStatusResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - active
+      - expires_in
+      - initiate_login_uri
+      properties:
+        active:
+          type: boolean
+          description: The request can still be completed (not expired, not used)
+        expires_in:
+          type: integer
+          minimum: 0
+          description: Seconds until the request expires; 0 when it is not active
+        initiate_login_uri:
+          type: [string, 'null']
+          description: The client's registered sign-in start (OIDC client metadata), or null when none is registered
     OidcAuthorizationCompleteRequest:
       type: object
       additionalProperties: false
@@ -3827,6 +3894,12 @@ components:
           items:
             type: string
             format: uri
+        initiate_login_uri:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: 'OIDC client metadata `initiate_login_uri`: the client''s own sign-in start (https), where the
+            hosted login page sends a browser whose authorization request expired'
         grants:
           type: array
           minItems: 1
@@ -3881,6 +3954,11 @@ components:
           items:
             type: string
             format: uri
+        initiate_login_uri:
+          type: string
+          maxLength: 2048
+          description: 'OIDC client metadata `initiate_login_uri` (https). Omit to keep the registered value; an empty
+            string removes it'
         grants:
           type: array
           minItems: 1
@@ -3965,6 +4043,8 @@ components:
           type: array
           items:
             type: string
+        initiate_login_uri:
+          type: [string, 'null']
         grants:
           type: array
           items:
