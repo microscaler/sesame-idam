@@ -60,10 +60,18 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> OauthAuthorizeCompleteOutcom
     }
 
     let claims = req.jwt_claims.as_ref();
-    let auth_time = claims
-        .and_then(|claims| claims.get("auth_time").or_else(|| claims.get("iat")))
-        .and_then(serde_json::Value::as_i64)
-        .unwrap_or_else(|| chrono::Utc::now().timestamp());
+    // The hosted sign-in token says how the user authenticated (ADR-008 §3); the code carries it to the relying
+    // party's tokens unchanged.
+    let authn = claims.and_then(sesame_common::authn::Authn::from_claims);
+    let auth_time = authn.as_ref().map_or_else(
+        || {
+            claims
+                .and_then(|claims| claims.get("auth_time").or_else(|| claims.get("iat")))
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or_else(|| chrono::Utc::now().timestamp())
+        },
+        |a| a.auth_time,
+    );
     let code_payload = AuthorizationCode {
         client_id: session.client_id,
         tenant_id: session.tenant_id,
@@ -74,6 +82,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> OauthAuthorizeCompleteOutcom
         nonce: session.nonce,
         code_challenge: session.code_challenge,
         auth_time,
+        authn,
         created_at: chrono::Utc::now().timestamp(),
     };
     let code = match mint_authorization_code(&code_payload) {

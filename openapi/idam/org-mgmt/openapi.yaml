@@ -1152,6 +1152,107 @@ paths:
           content: *id002
       x-consumer: admin-console
       x-consumer-note: 'Admin console only: Delete organization, not direct frontend'
+  /organizations/{org_id}/auth-policy:
+    parameters:
+    - name: org_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Organizations
+      summary: The organisation's sign-in policy
+      description: |
+        Whether members must sign in with a second factor (`mfa`: authenticator app, passkey or a recovery code) or a
+        passkey (`passkey`), or neither (`none`, the default). Any member may read it (ADR-008 §2).
+      operationId: get_org_auth_policy
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: The policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgAuthPolicy'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Organisation not found in the caller's tenant, or the caller is not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: admin-console
+      x-brrtrouter-impl: true
+    put:
+      tags:
+      - Organizations
+      summary: Set the organisation's sign-in policy
+      description: |
+        Owners and admins only. Members without the required method are made to enrol one at their next sign-in
+        (identity-login-service); members who have it must use it. The strictest policy of a user's organisations
+        applies. Audited.
+      operationId: set_org_auth_policy
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgAuthPolicyRequest'
+      responses:
+        '200':
+          description: The new policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgAuthPolicy'
+        '400':
+          description: '`invalid_request`: require is not none, mfa or passkey'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized \u2014 invalid, expired, or missing credentials"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Organisation owner or admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Organisation not found in the caller's tenant, or the caller is not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: admin-console
+      x-brrtrouter-impl: true
   /organizations/{org_id}/domains:
     parameters:
     - name: org_id
@@ -4585,6 +4686,37 @@ components:
         id: b2000001-0001-4000-8000-000000000001
         name: Transport Services
         tenant_id: hauliage
+    OrgAuthPolicy:
+      type: object
+      additionalProperties: false
+      required:
+      - org_id
+      - require
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        require:
+          type: string
+          enum:
+          - none
+          - mfa
+          - passkey
+        updated_at:
+          type: [integer, 'null']
+          description: Unix seconds of the last change; null when never set
+    OrgAuthPolicyRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - require
+      properties:
+        require:
+          type: string
+          enum:
+          - none
+          - mfa
+          - passkey
     ErrorResponse:
       type: object
       required:

@@ -652,6 +652,16 @@ pub struct GetApplicationResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct GetOrgAuthPolicyResponse {
+    pub org_id: String,
+
+    pub require: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct GetRoleResponse {
     pub application_id: String,
 
@@ -826,6 +836,21 @@ pub struct Org {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OrgAuthPolicy {
+    pub org_id: String,
+
+    pub require: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OrgAuthPolicyRequest {
+    pub require: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1399,6 +1424,21 @@ pub struct SetOidcIdpMetadataResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SetOrgAuthPolicyRequest {
+    pub require: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SetOrgAuthPolicyResponse {
+    pub org_id: String,
+
+    pub require: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

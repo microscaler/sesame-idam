@@ -43,7 +43,8 @@ paths:
       summary: Login with password
       description: 'Authenticate with email+password. Returns access token and refresh token.
 
-        If MFA is enabled on the account, returns 202 with MFA verification flow.
+        If the account has a second factor, or its organisation requires one, returns 202 with an `mfa_token` and the next
+        step (ADR-008); no token is issued until it completes.
 
         Tenant is bound via registered `client_id`. Optional legacy `X-Tenant-ID`
         must match the client tenant when present; public edges may strip it.'
@@ -98,21 +99,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '201':
-          description: Login successful
+        '202':
+          description: 'A second step is needed (ADR-008): the account has a second factor, or its organisation policy
+            requires enrolling one. No token is issued; continue with the returned mfa_token.'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MfaRequiredResponse'
-              examples:
-                default: &id003
-                  summary: Example for auth_login 201
-                  value: &id040
-                    mfa_required: true
-                    challenge_type: totp
-                    session_id: 550e8400-e29b-41d4-a716-446655440000
-                    expires_in: 300
-              example: *id003
+                $ref: '#/components/schemas/MfaChallengeResponse'
+        '503':
+          description: Sign-in temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
           content: &id006
@@ -371,6 +370,12 @@ paths:
                     id_token: null
                     scope: openid
               example: *id013
+        '202':
+          description: A second factor (or its enrolment) is needed before tokens are issued (ADR-008)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaChallengeResponse'
         '400':
           description: Invalid or expired token
           content:
@@ -1001,6 +1006,12 @@ paths:
                     id_token: null
                     scope: openid profile
               example: *id026
+        '202':
+          description: A second factor (or its enrolment) is needed before tokens are issued (ADR-008)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaChallengeResponse'
         '400':
           description: Invalid code, state mismatch, or provider error
           content:
@@ -1382,6 +1393,12 @@ paths:
                     id_token: null
                     scope: openid
               example: *id035
+        '202':
+          description: A second factor (or its enrolment) is needed before tokens are issued (ADR-008)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaChallengeResponse'
         '400':
           description: Invalid or expired code
           content:
@@ -1450,6 +1467,12 @@ paths:
                     id_token: null
                     scope: openid
               example: *id037
+        '202':
+          description: A second factor (or its enrolment) is needed before tokens are issued (ADR-008)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaChallengeResponse'
         '400':
           description: Invalid or expired code
           content:
@@ -1466,6 +1489,561 @@ paths:
       - *id033
       x-consumer: frontend
       x-consumer-note: Direct browser call to verify phone OTP
+      x-brrtrouter-impl: true
+  /auth/mfa/verify:
+    post:
+      tags:
+      - AuthFlows
+      summary: Complete a sign-in with a second factor (authenticator app code or recovery code)
+      description: 'Second step of a sign-in whose first step answered 202 with an `mfa_token` (ADR-008). Verifies a
+        TOTP code or a one-time recovery code for the account the token belongs to. 200 with tokens when the sign-in is
+        complete; 202 when policy now requires enrolling a method (for example a passkey after a recovery code). Wrong
+        codes count towards the account lockout and burn the token after five attempts.'
+      operationId: mfa_verify
+      x-public-reason: "pre-authentication: the second step of a sign-in, authorised by its mfa_token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaVerifyRequest'
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '202':
+          description: A further step is needed (enrolment required by policy)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaChallengeResponse'
+        '400':
+          description: Bad request (validation error, or a method this sign-in does not offer)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Wrong code, locked account, or an invalid or expired mfa_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Sign-in temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-consumer-note: Hosted sign-in (frontend/auth) second-factor step
+      x-brrtrouter-impl: true
+  /auth/passkeys/challenge:
+    post:
+      tags:
+      - AuthFlows
+      summary: Start a passkey sign-in (username-less, or as the second factor of a sign-in)
+      description: 'Returns WebAuthn request options for `navigator.credentials.get()` and a single-use `challenge_id`
+        (5 minutes). With `mfa_token`: the passkeys of the account being signed in (second factor). Without: a
+        username-less sign-in for the tenant of `client_id`; the options carry `mediation: conditional` for autofill.'
+      operationId: passkey_challenge
+      # WebAuthn verification (OpenSSL signature checks, CBOR) needs more than the 128KiB default.
+      x-brrtrouter-stack-size: 256KiB
+      x-public-reason: "pre-authentication: a passkey sign-in starts before the user is known"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyChallengeRequest'
+      responses:
+        '200':
+          description: WebAuthn request options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyOptionsResponse'
+        '400':
+          description: Bad request (neither client_id nor mfa_token, or the account has no passkey)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unknown client, or an invalid or expired mfa_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Passkeys unavailable in this deployment, or the store is unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-brrtrouter-impl: true
+  /auth/passkeys/verify:
+    post:
+      tags:
+      - AuthFlows
+      summary: Finish a passkey sign-in
+      description: 'Verifies the browser''s WebAuthn assertion for a `challenge_id`. A passkey verified with user
+        verification is phishing-resistant multi-factor authentication on its own (`acr`
+        `urn:sesame:acr:aal2-phishing-resistant`), so a username-less passkey sign-in completes without a password.'
+      operationId: passkey_verify
+      # WebAuthn verification (OpenSSL signature checks, CBOR) needs more than the 128KiB default.
+      x-brrtrouter-stack-size: 256KiB
+      x-public-reason: "pre-authentication: the passkey assertion is the credential"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyVerifyRequest'
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '202':
+          description: A further step is needed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaChallengeResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: The assertion did not verify, or the challenge or mfa_token is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Sign-in temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-brrtrouter-impl: true
+  /auth/mfa/manage:
+    post:
+      tags:
+      - AuthFlows
+      summary: Open a sign-in security session (manage authenticator apps, passkeys and recovery codes)
+      description: 'For a signed-in user: returns an `mfa_token` (15 minutes) for the factor-management endpoints.
+        Requires a recent sign-in (`auth_time` within 10 minutes: `login_required` otherwise) and, when the account
+        already has a second factor, a sign-in that used one (`mfa_required` otherwise), so a stolen older or weaker
+        session cannot remove factors.'
+      operationId: mfa_manage
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Management session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaManageResponse'
+        '401':
+          description: Not signed in, sign-in not recent enough, or a second factor is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-consumer-note: Hosted security page (frontend/auth /account/security)
+      x-brrtrouter-impl: true
+  /auth/mfa/factors:
+    post:
+      tags:
+      - AuthFlows
+      summary: List the account's sign-in methods
+      operationId: mfa_factors_list
+      x-public-reason: "authorised by the mfa_token of a management session (POST /auth/mfa/manage), not a bearer token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaTokenRequest'
+      responses:
+        '200':
+          description: Factors, recovery codes left and the policy that applies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaFactorsResponse'
+        '401':
+          description: Invalid or expired mfa_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-brrtrouter-impl: true
+  /auth/mfa/factors/remove:
+    post:
+      tags:
+      - AuthFlows
+      summary: Remove an authenticator app or passkey
+      description: 'Refused (409 `policy_requires_factor`) when the account''s organisation policy needs the method being
+        removed. Removing the last factor also removes the recovery codes. The account holder is emailed.'
+      operationId: mfa_factor_remove
+      x-public-reason: "authorised by the mfa_token of a management session (POST /auth/mfa/manage), not a bearer token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaFactorRef'
+      responses:
+        '200':
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaFactorsResponse'
+        '401':
+          description: Invalid or expired mfa_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No such factor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Policy requires this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-brrtrouter-impl: true
+  /auth/mfa/factors/rename:
+    post:
+      tags:
+      - AuthFlows
+      summary: Rename an authenticator app or passkey
+      operationId: mfa_factor_rename
+      x-public-reason: "authorised by the mfa_token of a management session (POST /auth/mfa/manage), not a bearer token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaFactorRenameRequest'
+      responses:
+        '200':
+          description: Renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaFactorsResponse'
+        '401':
+          description: Invalid or expired mfa_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No such factor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-brrtrouter-impl: true
+  /auth/mfa/recovery-codes:
+    post:
+      tags:
+      - AuthFlows
+      summary: Generate a new set of recovery codes (the old set stops working)
+      operationId: mfa_recovery_codes
+      x-public-reason: "authorised by the mfa_token of a management session (POST /auth/mfa/manage), not a bearer token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaTokenRequest'
+      responses:
+        '200':
+          description: The new codes, shown once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaRecoveryCodesResponse'
+        '401':
+          description: Invalid or expired mfa_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The account has no second factor to recover
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-brrtrouter-impl: true
+  /auth/mfa/totp/enroll:
+    post:
+      tags:
+      - AuthFlows
+      summary: Start enrolling an authenticator app (TOTP)
+      description: 'Returns a new secret (base32) and its `otpauth://` URI for a QR code. The enrolment is pending until
+        confirmed with a first code (`/auth/mfa/totp/confirm`). Allowed in a management session, or in a sign-in whose
+        policy requires enrolment.'
+      operationId: mfa_totp_enroll
+      x-public-reason: "authorised by an mfa_token (management session or a sign-in that must enrol), not a bearer token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaTotpEnrollRequest'
+      responses:
+        '200':
+          description: Secret to add to the authenticator app
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaTotpEnrollResponse'
+        '401':
+          description: Invalid or expired mfa_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: An authenticator app is already enrolled, or policy requires a passkey instead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: TOTP unavailable in this deployment, or temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-brrtrouter-impl: true
+  /auth/mfa/totp/confirm:
+    post:
+      tags:
+      - AuthFlows
+      summary: Confirm an authenticator app with its first code
+      description: 'Activates the pending authenticator app. The first factor of an account also returns its recovery
+        codes (shown once). In a sign-in that had to enrol, the response also carries the tokens.'
+      operationId: mfa_totp_confirm
+      x-public-reason: "authorised by an mfa_token (management session or a sign-in that must enrol), not a bearer token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaTotpConfirmRequest'
+      responses:
+        '200':
+          description: Enrolled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaEnrolledResponse'
+        '401':
+          description: Wrong code, or an invalid or expired mfa_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No pending enrolment with that id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: An authenticator app is already enrolled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-brrtrouter-impl: true
+  /auth/passkeys/register/options:
+    post:
+      tags:
+      - AuthFlows
+      summary: Start registering a passkey
+      description: 'WebAuthn creation options for `navigator.credentials.create()` (user verification required,
+        discoverable credential preferred, no attestation) and a single-use `challenge_id` (5 minutes).'
+      operationId: passkey_register_options
+      # WebAuthn verification (OpenSSL signature checks, CBOR) needs more than the 128KiB default.
+      x-brrtrouter-stack-size: 256KiB
+      x-public-reason: "authorised by an mfa_token (management session or a sign-in that must enrol), not a bearer token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaTokenRequest'
+      responses:
+        '200':
+          description: WebAuthn creation options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyOptionsResponse'
+        '401':
+          description: Invalid or expired mfa_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Passkeys unavailable in this deployment, or temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
+      x-brrtrouter-impl: true
+  /auth/passkeys/register:
+    post:
+      tags:
+      - AuthFlows
+      summary: Finish registering a passkey
+      operationId: passkey_register
+      # WebAuthn verification (OpenSSL signature checks, CBOR) needs more than the 128KiB default.
+      x-brrtrouter-stack-size: 256KiB
+      x-public-reason: "authorised by an mfa_token (management session or a sign-in that must enrol), not a bearer token"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyRegisterRequest'
+      responses:
+        '200':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaEnrolledResponse'
+        '400':
+          description: The browser's response did not verify
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired mfa_token or challenge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: This passkey is already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-consumer: frontend
       x-brrtrouter-impl: true
   /oauth/authorize:
     get:
@@ -2831,6 +3409,11 @@ components:
           - cross_tenant_impersonation_not_allowed
           - impersonation_chain_not_allowed
           - max_concurrent_impersonations_reached
+          - login_required
+          - passkey_required
+          - factor_exists
+          - policy_requires_factor
+          - mfa_unavailable
           description: |
             Machine-readable error code. Every code a handler can answer is listed: responses are validated against
             this schema, so an unlisted code turns into a 500 (tests/openapi_security.rs keeps the list complete).
@@ -2961,31 +3544,322 @@ components:
         message:
           type: string
           example: A confirmation email has been sent. Please verify your email to complete registration.
-    MfaRequiredResponse:
+    MfaChallengeResponse:
       type: object
+      additionalProperties: false
       required:
       - mfa_required
-      - challenge_type
+      - mfa_token
+      - expires_in
+      - methods
       properties:
         mfa_required:
           type: boolean
-          example: true
-        challenge_type:
+          description: Always true
+        mfa_token:
+          type: string
+          description: Opaque, single-sign-in value for the next step (/auth/mfa/verify, /auth/passkeys/*, enrolment)
+        expires_in:
+          type: integer
+          minimum: 0
+          description: Seconds until the sign-in step expires
+        methods:
+          type: array
+          description: Second factors that may be used now (empty when enrolment is required)
+          items:
+            type: string
+            enum:
+            - totp
+            - passkey
+            - recovery_code
+        enrollment_required:
+          type: [string, 'null']
+          description: 'Policy requires enrolling a method before signing in: `mfa` (authenticator app or passkey) or
+            `passkey`'
+    MfaVerifyRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - mfa_token
+      - method
+      - code
+      properties:
+        mfa_token:
+          type: string
+          minLength: 40
+          maxLength: 64
+        method:
           type: string
           enum:
           - totp
-          - sms
-          - email
-          - webauthn
-          description: Type of MFA challenge to complete
-        session_id:
+          - recovery_code
+        code:
+          type: string
+          minLength: 6
+          maxLength: 32
+    MfaTokenRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - mfa_token
+      properties:
+        mfa_token:
+          type: string
+          minLength: 40
+          maxLength: 64
+    MfaFactorRef:
+      type: object
+      additionalProperties: false
+      required:
+      - mfa_token
+      - factor_id
+      properties:
+        mfa_token:
+          type: string
+          minLength: 40
+          maxLength: 64
+        factor_id:
           type: string
           format: uuid
-          description: Session identifier for completing the MFA step
+    MfaFactorRenameRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - mfa_token
+      - factor_id
+      - label
+      properties:
+        mfa_token:
+          type: string
+          minLength: 40
+          maxLength: 64
+        factor_id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          minLength: 1
+          maxLength: 64
+    MfaManageResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - mfa_token
+      - expires_in
+      properties:
+        mfa_token:
+          type: string
         expires_in:
           type: integer
-          description: Seconds until the MFA challenge expires
-      example: *id040
+          minimum: 0
+    MfaFactor:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - kind
+      - label
+      - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - totp
+          - passkey
+        label:
+          type: string
+        created_at:
+          type: integer
+          description: Unix seconds
+        last_used_at:
+          type: [integer, 'null']
+          description: Unix seconds of the last successful use
+        synced:
+          type: [boolean, 'null']
+          description: For a passkey, whether it can be synced between devices (backup-eligible)
+    MfaFactorsResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - factors
+      - recovery_codes_left
+      - required
+      - totp_available
+      - passkeys_available
+      properties:
+        factors:
+          type: array
+          items:
+            $ref: '#/components/schemas/MfaFactor'
+        recovery_codes_left:
+          type: integer
+          minimum: 0
+        required:
+          type: string
+          enum:
+          - none
+          - mfa
+          - passkey
+          description: What the account's organisation policy requires
+        totp_available:
+          type: boolean
+        passkeys_available:
+          type: boolean
+    MfaRecoveryCodesResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - recovery_codes
+      properties:
+        recovery_codes:
+          type: array
+          items:
+            type: string
+    MfaTotpEnrollRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - mfa_token
+      properties:
+        mfa_token:
+          type: string
+          minLength: 40
+          maxLength: 64
+        label:
+          type: [string, 'null']
+          maxLength: 64
+    MfaTotpEnrollResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - factor_id
+      - secret
+      - otpauth_uri
+      - digits
+      - period
+      properties:
+        factor_id:
+          type: string
+          format: uuid
+        secret:
+          type: string
+          description: Base32 secret, for typing into an authenticator app
+        otpauth_uri:
+          type: string
+          description: Key URI for a QR code
+        digits:
+          type: integer
+        period:
+          type: integer
+    MfaTotpConfirmRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - mfa_token
+      - factor_id
+      - code
+      properties:
+        mfa_token:
+          type: string
+          minLength: 40
+          maxLength: 64
+        factor_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          minLength: 6
+          maxLength: 8
+    MfaEnrolledResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - factor
+      properties:
+        factor:
+          $ref: '#/components/schemas/MfaFactor'
+        recovery_codes:
+          type: array
+          description: The account's first recovery codes, shown once (present only when this was its first factor)
+          items:
+            type: string
+        tokens:
+          $ref: '#/components/schemas/TokenResponse'
+    PasskeyChallengeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        client_id:
+          type: [string, 'null']
+          maxLength: 128
+          description: Registered client (username-less sign-in binds the tenant through it)
+        mfa_token:
+          type: [string, 'null']
+          maxLength: 64
+          description: The sign-in this passkey is the second factor of
+    PasskeyOptionsResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - challenge_id
+      - options
+      properties:
+        challenge_id:
+          type: string
+        options:
+          type: object
+          additionalProperties: true
+          description: WebAuthn options as JSON (`publicKey`, binary members base64url-encoded; `mediation` when conditional)
+    PasskeyVerifyRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - challenge_id
+      - credential
+      properties:
+        challenge_id:
+          type: string
+          minLength: 40
+          maxLength: 64
+        credential:
+          type: object
+          additionalProperties: true
+          description: The PublicKeyCredential from navigator.credentials.get(), JSON-encoded (base64url binary members)
+        client_id:
+          type: [string, 'null']
+          maxLength: 128
+        mfa_token:
+          type: [string, 'null']
+          maxLength: 64
+        organization_id:
+          type: [string, 'null']
+          format: uuid
+    PasskeyRegisterRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - mfa_token
+      - challenge_id
+      - credential
+      properties:
+        mfa_token:
+          type: string
+          minLength: 40
+          maxLength: 64
+        challenge_id:
+          type: string
+          minLength: 40
+          maxLength: 64
+        credential:
+          type: object
+          additionalProperties: true
+          description: The PublicKeyCredential from navigator.credentials.create(), JSON-encoded (base64url binary members)
+        label:
+          type: [string, 'null']
+          maxLength: 64
     EmailOTPRequest:
       type: object
       required:

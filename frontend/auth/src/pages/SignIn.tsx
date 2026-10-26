@@ -1,7 +1,24 @@
-import { createSignal, Show } from 'solid-js';
+import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { Button, Card, Field } from '@sesame/shared';
-import { AuthError, login, sendEmailOtp, sendMagicLink, verifyEmailOtp } from '../lib/api';
-import type { TokenResponse } from '../lib/api';
+import {
+  AuthError,
+  isChallenge,
+  login,
+  passkeyChallenge,
+  passkeyVerify,
+  sendEmailOtp,
+  sendMagicLink,
+  verifyEmailOtp,
+} from '../lib/api';
+import type { MfaChallenge, SignInResult, TokenResponse } from '../lib/api';
+import { SecondStep } from '../components/SecondStep';
+import {
+  assertionJSON,
+  cancelled,
+  conditionalAvailable,
+  passkeysSupported,
+  requestOptions,
+} from '../lib/webauthn';
 
 type Step = 'identify' | 'password' | 'otp-sent' | 'link-sent';
 
@@ -11,14 +28,21 @@ export interface SignInProps {
   clientId: string;
   tenantName?: string;
   onAuthenticated: (tokens: TokenResponse) => void;
+  /** A sign-in that already needs its second step (a magic link whose account has a second factor). */
+  initialChallenge?: MfaChallenge;
+  /** Heading override (the security page asks the user to sign in again). */
+  title?: string;
 }
 
 /**
  * Hosted sign-in (ADR-010 §2.2): the canned page tenants redirect TO.
  *
  * Method-agnostic identifier-first flow: collect the identifier, then offer
- * password / email OTP / magic link. Passkeys slot in here as the preferred
- * method when ADR-008 lands.
+ * password / email OTP / magic link — or skip the identifier altogether with a
+ * passkey (ADR-008): a button, and the browser's passkey autofill on the email
+ * field where it supports conditional mediation. Any first factor may answer
+ * with a second step (202): the account has a second factor, or its
+ * organisation requires one ([`SecondStep`]).
  *
  * A3 contract: OTP and magic-link sends return a generic success whether or
  * not the account exists, so this UI advances to the "check your…" step
@@ -32,6 +56,51 @@ export function SignIn(props: SignInProps) {
   const [code, setCode] = createSignal('');
   const [error, setError] = createSignal('');
   const [busy, setBusy] = createSignal(false);
+  const [challenge, setChallenge] = createSignal<MfaChallenge | undefined>(props.initialChallenge);
+
+  /** Tokens, or the second step. */
+  const handle = (r: SignInResult) => {
+    if (isChallenge(r)) {
+      setChallenge(r);
+      return;
+    }
+    props.onAuthenticated(r);
+  };
+
+  // Passkeys: one pending navigator.credentials.get() at a time, so the autofill request is aborted before a button
+  // press starts a modal one.
+  let autofill: AbortController | undefined;
+  const stopAutofill = () => {
+    autofill?.abort();
+    autofill = undefined;
+  };
+  const passkeySignIn = async (conditional: boolean) => {
+    stopAutofill();
+    const controller = conditional ? new AbortController() : undefined;
+    if (controller) autofill = controller;
+    try {
+      const { challenge_id, options } = await passkeyChallenge(props.tenantId, { clientId: props.clientId });
+      const cred = await navigator.credentials.get(requestOptions(options, conditional, controller?.signal));
+      if (!cred) return;
+      if (!conditional) setBusy(true);
+      handle(
+        await passkeyVerify(
+          props.tenantId,
+          challenge_id,
+          assertionJSON(cred as unknown as Parameters<typeof assertionJSON>[0]),
+        ),
+      );
+    } catch (e) {
+      if (cancelled(e)) return;
+      setError(e instanceof AuthError ? e.message : 'That passkey could not be used. Try again or use your email.');
+    } finally {
+      if (!conditional) setBusy(false);
+    }
+  };
+  onMount(async () => {
+    if (!props.initialChallenge && (await conditionalAvailable())) void passkeySignIn(true);
+  });
+  onCleanup(stopAutofill);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -45,9 +114,26 @@ export function SignIn(props: SignInProps) {
     }
   };
 
-  const heading = () => (props.tenantName ? `Sign in to ${props.tenantName}` : 'Sign in');
+  const heading = () => props.title ?? (props.tenantName ? `Sign in to ${props.tenantName}` : 'Sign in');
 
   return (
+    <Show
+      when={!challenge()}
+      fallback={
+        <SecondStep
+          tenantId={props.tenantId}
+          challenge={challenge()!}
+          onAuthenticated={(t) => props.onAuthenticated(t)}
+          onStartOver={(message) => {
+            setChallenge(undefined);
+            setPassword('');
+            setCode('');
+            setStep('identify');
+            setError(message);
+          }}
+        />
+      }
+    >
     <Card title={heading()} subtitle="Use your email to continue.">
       <Show when={error()}>
         <div class="mb-4 rounded-lg bg-error-50 px-4 py-3 text-theme-sm text-error-700" role="alert">
@@ -74,6 +160,11 @@ export function SignIn(props: SignInProps) {
             Continue
           </Button>
         </form>
+        <Show when={passkeysSupported()}>
+          <Button variant="secondary" full class="mt-2" loading={busy()} onClick={() => void passkeySignIn(false)}>
+            Sign in with a passkey
+          </Button>
+        </Show>
         <div class="mt-4 flex flex-col gap-2">
           <Button
             variant="secondary"
@@ -107,13 +198,8 @@ export function SignIn(props: SignInProps) {
           onSubmit={(e) => {
             e.preventDefault();
             void run(async () => {
-              const tokens = await login(
-                props.tenantId,
-                email(),
-                password(),
-                props.clientId,
-              );
-              props.onAuthenticated(tokens);
+              stopAutofill();
+              handle(await login(props.tenantId, email(), password(), props.clientId));
             });
           }}
         >
@@ -146,8 +232,8 @@ export function SignIn(props: SignInProps) {
           onSubmit={(e) => {
             e.preventDefault();
             void run(async () => {
-              const tokens = await verifyEmailOtp(props.tenantId, email(), code());
-              props.onAuthenticated(tokens);
+              stopAutofill();
+              handle(await verifyEmailOtp(props.tenantId, email(), code()));
             });
           }}
         >
@@ -178,5 +264,6 @@ export function SignIn(props: SignInProps) {
         </Button>
       </Show>
     </Card>
+    </Show>
   );
 }

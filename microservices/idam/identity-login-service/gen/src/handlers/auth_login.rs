@@ -88,8 +88,8 @@ pub enum ApiResponse {
     /// HTTP 200
     Ok(Response),
 
-    /// HTTP 201
-    Created(Response),
+    /// HTTP 202
+    Accepted(Response),
 }
 
 impl HandlerResponseOutput for ApiResponse {
@@ -99,7 +99,7 @@ impl HandlerResponseOutput for ApiResponse {
         match self {
             Self::Ok(body) => HttpJson::new(200, body).into_handler_response(),
 
-            Self::Created(body) => HttpJson::new(201, body).into_handler_response(),
+            Self::Accepted(body) => HttpJson::new(202, body).into_handler_response(),
         }
     }
 }

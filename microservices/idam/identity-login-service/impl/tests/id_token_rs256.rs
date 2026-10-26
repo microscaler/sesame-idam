@@ -25,7 +25,8 @@ fn id_tokens_are_rs256_with_the_configured_key() {
     std::fs::write(&config_path, config.to_string()).expect("write config");
     std::env::set_var(ID_TOKEN_KEYS_ENV, &config_path);
 
-    let token = issue_id_token("user-1", "client-a", "nonce-1", 1_700_000_000).expect("issued");
+    let token =
+        issue_id_token("user-1", "client-a", "nonce-1", 1_700_000_000, None).expect("issued");
 
     let header: serde_json::Value = serde_json::from_slice(
         &URL_SAFE_NO_PAD

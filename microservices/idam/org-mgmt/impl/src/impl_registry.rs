@@ -63,10 +63,26 @@ pub unsafe fn register_impl(dispatcher: &mut Dispatcher, routes: &[RouteMeta]) {
                 );
                 dispatcher.add_route(route.clone(), tx);
             }
+            "get_org_auth_policy" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::get_org_auth_policy::GetOrgAuthPolicyController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
             "list_org_domains" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::list_org_domains::ListOrgDomainsController,
                     32768,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "set_org_auth_policy" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::set_org_auth_policy::SetOrgAuthPolicyController,
+                    20480,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

@@ -1151,3 +1151,18 @@ No runtime code changed and no build or test command was run.
   forgot/reset/social OpenAPI.
 - Publish wiring: Tilt ConfigMap + pact-manager mapping.
 - Verified against local login binary on `:18081` (2/2 provider, 6/6 consumer).
+
+## [2026-10-27] ADR-008 phase A | TOTP, passkeys, recovery codes, org policy; phase B designs
+
+- Built: MFA gate after every first factor (login, email code, magic link, SMS, social) in identity-login
+  `services/mfa`; 202 `MfaChallengeResponse` with an opaque `mfa_token`; `/auth/mfa/*` and `/auth/passkeys/*`;
+  webauthn-rs 0.5.5 (OpenSSL vendored); RFC 6238 TOTP sealed at rest; recovery codes (80-bit, SHA-256);
+  `org_auth_policies` + org-mgmt `GET/PUT /organizations/{org_id}/auth-policy`; user-mgmt `disable_user_mfa` is now
+  the support-mediated reset; `AuditEventType::AuthenticatorChanged`; hosted sign-in second step, passkey button and
+  autofill, and `/account/security` page in frontend/auth.
+- Claims: `amr`/`acr`/`auth_time` on access, refresh (carried through rotation) and ID tokens (`sesame_common::authn`).
+- Found: the user-mgmt MFA "groundwork" was unwired stubs (`TOTP_SECRET_PLACEHOLDER`, verify always true); deleted.
+- Designs for decision: DESIGN-org-sso.md (org OIDC SSO first; Task 33 prerequisite; saml-verifier BRRTRouter pin),
+  DESIGN-account-sharing-controls.md (per-seat session limits need a per-user index, `usess:*`, written at sign-in only).
+- > **Open:** enrolment race for forced enrolment (emailed code before enrolment?), dedicated `MFA_SECRET_KEK`, RFC 9470
+  step-up at `/oauth/authorize`.

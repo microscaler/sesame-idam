@@ -588,6 +588,7 @@ fn scenario_empty_sx_tenant_rejected() {
         },
         act: None,
         cnf: None,
+        authn: None,
     };
 
     // When — validate() is called

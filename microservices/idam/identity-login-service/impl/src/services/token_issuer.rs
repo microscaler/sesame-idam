@@ -8,6 +8,7 @@
 
 use std::sync::LazyLock;
 
+use sesame_common::authn::Authn;
 use sesame_common::jwt::{AccessClaimsBuilder, Ed25519Signer, SesameAuthzClaimsBuilder};
 use sesame_common::token_versioning::VersionStore;
 use uuid::Uuid;
@@ -70,6 +71,7 @@ pub enum IssueError {
 /// Redis unavailability degrades gracefully (logged): the access token is
 /// still issued, but `/auth/refresh` will reject the refresh token until
 /// Redis is back.
+#[allow(clippy::too_many_arguments)]
 pub fn issue_tokens(
     user_id: &str,
     tenant_id: &str,
@@ -78,6 +80,7 @@ pub fn issue_tokens(
     permissions: Vec<String>,
     role_for_ttl: &str,
     org_id: Option<&str>,
+    authn: Option<&Authn>,
 ) -> Result<IssuedTokens, IssueError> {
     issue_tokens_for_client(
         user_id,
@@ -89,6 +92,7 @@ pub fn issue_tokens(
         role_for_ttl,
         org_id,
         "openid profile email",
+        authn,
     )
 }
 
@@ -104,6 +108,7 @@ pub fn issue_tokens_for_client(
     role_for_ttl: &str,
     org_id: Option<&str>,
     granted_scope: &str,
+    authn: Option<&Authn>,
 ) -> Result<IssuedTokens, IssueError> {
     let ttl_config = TtlConfig::from_env();
     let now = chrono::Utc::now().timestamp();
@@ -155,6 +160,7 @@ pub fn issue_tokens_for_client(
         .user_type("customer")
         .org_id_opt(org_id.map(str::to_string))
         .sx(sx)
+        .authn(authn.cloned())
         .build()
         .map_err(|e| IssueError::Claims(e.to_string()))?;
 
@@ -174,7 +180,7 @@ pub fn issue_tokens_for_client(
     // Family id = session id: all rotations of this session share a family.
     let family_id = session_id.clone();
 
-    let refresh_payload = serde_json::json!({
+    let mut refresh_payload = serde_json::json!({
         "jti": refresh_jti,
         "sub": user_id,
         "sid": session_id,
@@ -183,6 +189,11 @@ pub fn issue_tokens_for_client(
         "exp": refresh_exp,
         "typ": "refresh",
     });
+    // Every rotation copies these into its successor (identity-session-service token_issuer), so a refreshed access
+    // token reports the original ceremony and its auth_time (ADR-008 §3).
+    if let Some(authn) = authn {
+        authn.write_into(&mut refresh_payload);
+    }
     let refresh_token = SIGNER
         .sign_payload(&refresh_payload.to_string())
         .map_err(|e| IssueError::Signing(e.to_string()))?;
@@ -224,10 +235,11 @@ pub fn issue_id_token(
     client_id: &str,
     nonce: &str,
     auth_time: i64,
+    authn: Option<&Authn>,
 ) -> Result<String, IssueError> {
     let now = chrono::Utc::now().timestamp();
     let ttl = i64::try_from(TtlConfig::from_env().normal_secs).unwrap_or(300);
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "iss": issuer(),
         "sub": user_id,
         "aud": client_id,
@@ -237,6 +249,10 @@ pub fn issue_id_token(
         "auth_time": auth_time,
         "nonce": nonce,
     });
+    // OIDC Core §2: amr and acr describe the authentication auth_time refers to.
+    if let Some(authn) = authn {
+        authn.write_into(&mut payload);
+    }
     match sesame_common::jwt::ID_TOKEN_KEYS
         .get()
         .map_err(|error| IssueError::Signing(error.to_string()))?

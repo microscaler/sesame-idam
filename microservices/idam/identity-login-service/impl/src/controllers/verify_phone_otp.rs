@@ -45,22 +45,24 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
 
     abuse_guard::record_login_success(&tenant_id, &phone);
 
-    match login_success::issue_login_response(&user_id, &tenant_id, None) {
-        Ok(body) => {
-            emit_audit(&tenant_id, Some(&user_id), true, "phone_otp");
-            HttpJson::ok(body)
-        }
-        Err(e) => {
-            tracing::error!(error = %e, "verify_phone_otp: issuance failed");
-            HttpJson::new(
-                500,
-                serde_json::json!({
-                    "error": "internal_error",
-                    "error_description": "An unexpected error occurred"
-                }),
-            )
-        }
+    // The MFA gate (ADR-008): tokens only when the account needs no second factor; otherwise 202 and the next step.
+    let response = login_success::first_factor_passed(
+        &user_id,
+        &tenant_id,
+        None,
+        sesame_common::authn::Method::Sms,
+    );
+    match response.status {
+        200 => emit_audit(&tenant_id, Some(&user_id), true, "phone_otp"),
+        202 => emit_audit(
+            &tenant_id,
+            Some(&user_id),
+            true,
+            "phone_otp_second_factor_pending",
+        ),
+        _ => {}
     }
+    response
 }
 
 /// Wrong code, expired code, unknown account, locked identity — one

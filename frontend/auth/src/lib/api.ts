@@ -18,6 +18,53 @@ export interface TokenResponse {
   token_type: string;
 }
 
+/**
+ * A sign-in that needs a further step (ADR-008, HTTP 202): a second factor (`methods`), or the enrolment of one
+ * (`enrollment_required`) when the account's organisation requires a method it does not have. No token exists yet.
+ */
+export interface MfaChallenge {
+  mfa_required: true;
+  mfa_token: string;
+  expires_in: number;
+  methods: Array<'totp' | 'passkey' | 'recovery_code'>;
+  enrollment_required?: 'mfa' | 'passkey' | null;
+}
+
+/** Every first factor answers tokens or the next step. */
+export type SignInResult = TokenResponse | MfaChallenge;
+
+export const isChallenge = (r: SignInResult): r is MfaChallenge =>
+  (r as MfaChallenge).mfa_required === true && typeof (r as MfaChallenge).mfa_token === 'string';
+
+export interface MfaFactor {
+  id: string;
+  kind: 'totp' | 'passkey';
+  label: string;
+  created_at: number;
+  last_used_at?: number | null;
+  synced?: boolean | null;
+}
+
+export interface MfaFactors {
+  factors: MfaFactor[];
+  recovery_codes_left: number;
+  required: 'none' | 'mfa' | 'passkey';
+  totp_available: boolean;
+  passkeys_available: boolean;
+}
+
+/** A factor was enrolled: the account's first recovery codes (once), and the tokens when a sign-in was waiting. */
+export interface Enrolled {
+  factor: MfaFactor;
+  recovery_codes?: string[];
+  tokens?: TokenResponse;
+}
+
+export interface PasskeyOptions {
+  challenge_id: string;
+  options: Record<string, unknown>;
+}
+
 async function post<T>(
   path: string,
   tenantId: string,
@@ -68,7 +115,7 @@ export const login = (
   password: string,
   clientId: string,
 ) =>
-  post<TokenResponse>('/auth/login', tenantId, {
+  post<SignInResult>('/auth/login', tenantId, {
     email,
     password,
     client_id: clientId,
@@ -80,7 +127,7 @@ export const sendEmailOtp = (tenantId: string, email: string) =>
 
 /** Verify an email OTP → tokens. */
 export const verifyEmailOtp = (tenantId: string, email: string, code: string) =>
-  post<TokenResponse>('/auth/verify/email-otp', tenantId, { email, code });
+  post<SignInResult>('/auth/verify/email-otp', tenantId, { email, code });
 
 /** Request an SMS OTP. NOTE: per-login SMS is disabled by default (cost policy). */
 export const sendPhoneOtp = (tenantId: string, phone: string) =>
@@ -88,7 +135,7 @@ export const sendPhoneOtp = (tenantId: string, phone: string) =>
 
 /** Verify an SMS OTP → tokens. */
 export const verifyPhoneOtp = (tenantId: string, phone: string, code: string) =>
-  post<TokenResponse>('/auth/verify/phone-otp', tenantId, { phone, code });
+  post<SignInResult>('/auth/verify/phone-otp', tenantId, { phone, code });
 
 /** Request an email magic link. Always "succeeds". */
 export const sendMagicLink = (tenantId: string, email: string) =>
@@ -96,7 +143,7 @@ export const sendMagicLink = (tenantId: string, email: string) =>
 
 /** Consume a magic-link token (the "click") → tokens. */
 export const verifyMagicLink = (tenantId: string, token: string) =>
-  post<TokenResponse>('/auth/verify-magic', tenantId, { token });
+  post<SignInResult>('/auth/verify-magic', tenantId, { token });
 
 /** Request a password-reset link. Always "succeeds" — advance the UI regardless. */
 export const forgotPassword = (tenantId: string, email: string) =>
@@ -157,3 +204,76 @@ export async function completeOidcAuthorize(
     String(json.error_description ?? 'Authorization complete failed'),
   );
 }
+
+// ── Second factors and passkeys (ADR-008) ─────────────────────────────────────────────────────────────────────────
+
+/** Second step of a sign-in: an authenticator-app code or a recovery code. */
+export const mfaVerify = (
+  tenantId: string,
+  mfaToken: string,
+  method: 'totp' | 'recovery_code',
+  code: string,
+) => post<SignInResult>('/auth/mfa/verify', tenantId, { mfa_token: mfaToken, method, code });
+
+/** Passkey request options: username-less for `clientId`, or the second factor of `mfaToken`'s sign-in. */
+export const passkeyChallenge = (tenantId: string, args: { clientId?: string; mfaToken?: string }) =>
+  post<PasskeyOptions>('/auth/passkeys/challenge', tenantId, {
+    client_id: args.clientId ?? null,
+    mfa_token: args.mfaToken ?? null,
+  });
+
+/** Finish a passkey sign-in. */
+export const passkeyVerify = (
+  tenantId: string,
+  challengeId: string,
+  credential: Record<string, unknown>,
+  mfaToken?: string,
+) =>
+  post<SignInResult>('/auth/passkeys/verify', tenantId, {
+    challenge_id: challengeId,
+    credential,
+    mfa_token: mfaToken ?? null,
+  });
+
+/** Open a security session for the signed-in user (recent sign-in required). */
+export const mfaManage = (tenantId: string, accessToken: string) =>
+  post<{ mfa_token: string; expires_in: number }>('/auth/mfa/manage', tenantId, {}, accessToken);
+
+export const mfaFactors = (tenantId: string, mfaToken: string) =>
+  post<MfaFactors>('/auth/mfa/factors', tenantId, { mfa_token: mfaToken });
+
+export const mfaRemoveFactor = (tenantId: string, mfaToken: string, factorId: string) =>
+  post<MfaFactors>('/auth/mfa/factors/remove', tenantId, { mfa_token: mfaToken, factor_id: factorId });
+
+export const mfaRenameFactor = (tenantId: string, mfaToken: string, factorId: string, label: string) =>
+  post<MfaFactors>('/auth/mfa/factors/rename', tenantId, { mfa_token: mfaToken, factor_id: factorId, label });
+
+export const mfaRecoveryCodes = (tenantId: string, mfaToken: string) =>
+  post<{ recovery_codes: string[] }>('/auth/mfa/recovery-codes', tenantId, { mfa_token: mfaToken });
+
+export const totpEnroll = (tenantId: string, mfaToken: string, label?: string) =>
+  post<{ factor_id: string; secret: string; otpauth_uri: string; digits: number; period: number }>(
+    '/auth/mfa/totp/enroll',
+    tenantId,
+    { mfa_token: mfaToken, label: label ?? null },
+  );
+
+export const totpConfirm = (tenantId: string, mfaToken: string, factorId: string, code: string) =>
+  post<Enrolled>('/auth/mfa/totp/confirm', tenantId, { mfa_token: mfaToken, factor_id: factorId, code });
+
+export const passkeyRegisterOptions = (tenantId: string, mfaToken: string) =>
+  post<PasskeyOptions>('/auth/passkeys/register/options', tenantId, { mfa_token: mfaToken });
+
+export const passkeyRegister = (
+  tenantId: string,
+  mfaToken: string,
+  challengeId: string,
+  credential: Record<string, unknown>,
+  label?: string,
+) =>
+  post<Enrolled>('/auth/passkeys/register', tenantId, {
+    mfa_token: mfaToken,
+    challenge_id: challengeId,
+    credential,
+    label: label ?? null,
+  });

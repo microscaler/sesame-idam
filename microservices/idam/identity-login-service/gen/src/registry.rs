@@ -72,6 +72,78 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "mfa_factors_list",
+        crate::controllers::mfa_factors_list::MfaFactorsListController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mfa_factor_remove",
+        crate::controllers::mfa_factor_remove::MfaFactorRemoveController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mfa_factor_rename",
+        crate::controllers::mfa_factor_rename::MfaFactorRenameController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mfa_manage",
+        crate::controllers::mfa_manage::MfaManageController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mfa_recovery_codes",
+        crate::controllers::mfa_recovery_codes::MfaRecoveryCodesController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mfa_totp_confirm",
+        crate::controllers::mfa_totp_confirm::MfaTotpConfirmController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mfa_totp_enroll",
+        crate::controllers::mfa_totp_enroll::MfaTotpEnrollController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "mfa_verify",
+        crate::controllers::mfa_verify::MfaVerifyController,
+        16384,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "passkey_challenge",
+        crate::controllers::passkey_challenge::PasskeyChallengeController,
+        262144,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "passkey_register",
+        crate::controllers::passkey_register::PasskeyRegisterController,
+        262144,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "passkey_register_options",
+        crate::controllers::passkey_register_options::PasskeyRegisterOptionsController,
+        262144,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "passkey_verify",
+        crate::controllers::passkey_verify::PasskeyVerifyController,
+        262144,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "auth_forgot_password",
         crate::controllers::auth_forgot_password::AuthForgotPasswordController,
         20480,
@@ -388,6 +460,102 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::auth_logout::AuthLogoutController,
                     20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mfa_factors_list" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mfa_factors_list::MfaFactorsListController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mfa_factor_remove" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mfa_factor_remove::MfaFactorRemoveController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mfa_factor_rename" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mfa_factor_rename::MfaFactorRenameController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mfa_manage" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mfa_manage::MfaManageController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mfa_recovery_codes" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mfa_recovery_codes::MfaRecoveryCodesController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mfa_totp_confirm" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mfa_totp_confirm::MfaTotpConfirmController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mfa_totp_enroll" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mfa_totp_enroll::MfaTotpEnrollController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "mfa_verify" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::mfa_verify::MfaVerifyController,
+                    16384,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "passkey_challenge" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::passkey_challenge::PasskeyChallengeController,
+                    262144,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "passkey_register" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::passkey_register::PasskeyRegisterController,
+                    262144,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "passkey_register_options" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::passkey_register_options::PasskeyRegisterOptionsController,
+                    262144,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "passkey_verify" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::passkey_verify::PasskeyVerifyController,
+                    262144,
                     Some(route.handler_name.as_ref()),
                 );
                 dispatcher.add_route(route.clone(), tx);

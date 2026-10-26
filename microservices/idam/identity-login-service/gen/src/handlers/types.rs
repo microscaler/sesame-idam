@@ -562,16 +562,237 @@ pub struct MagicLinkVerifyResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct MfaRequiredResponse {
-    pub challenge_type: String,
-
+pub struct MfaChallengeResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_in: Option<i32>,
+    pub enrollment_required: Option<String>,
+
+    pub expires_in: i32,
+
+    pub methods: Vec<String>,
 
     pub mfa_required: bool,
 
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaEnrolledResponse {
+    pub factor: MfaFactor,
+
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<String>,
+    pub recovery_codes: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tokens: Option<TokenResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactor {
+    pub created_at: i32,
+
+    pub id: String,
+
+    pub kind: String,
+
+    pub label: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_used_at: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub synced: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactorRef {
+    pub factor_id: String,
+
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactorRemoveRequest {
+    pub factor_id: String,
+
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactorRemoveResponse {
+    pub factors: Vec<MfaFactor>,
+
+    pub passkeys_available: bool,
+
+    pub recovery_codes_left: i32,
+
+    pub required: String,
+
+    pub totp_available: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactorRenameRequest {
+    pub factor_id: String,
+
+    pub label: String,
+
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactorRenameResponse {
+    pub factors: Vec<MfaFactor>,
+
+    pub passkeys_available: bool,
+
+    pub recovery_codes_left: i32,
+
+    pub required: String,
+
+    pub totp_available: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactorsListRequest {
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactorsListResponse {
+    pub factors: Vec<MfaFactor>,
+
+    pub passkeys_available: bool,
+
+    pub recovery_codes_left: i32,
+
+    pub required: String,
+
+    pub totp_available: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaFactorsResponse {
+    pub factors: Vec<MfaFactor>,
+
+    pub passkeys_available: bool,
+
+    pub recovery_codes_left: i32,
+
+    pub required: String,
+
+    pub totp_available: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaManageResponse {
+    pub expires_in: i32,
+
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaRecoveryCodesRequest {
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaRecoveryCodesResponse {
+    pub recovery_codes: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaTokenRequest {
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaTotpConfirmRequest {
+    pub code: String,
+
+    pub factor_id: String,
+
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaTotpConfirmResponse {
+    pub factor: MfaFactor,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery_codes: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tokens: Option<TokenResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaTotpEnrollRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaTotpEnrollResponse {
+    pub digits: i32,
+
+    pub factor_id: String,
+
+    pub otpauth_uri: String,
+
+    pub period: i32,
+
+    pub secret: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaVerifyRequest {
+    pub code: String,
+
+    pub method: String,
+
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct MfaVerifyResponse {
+    pub access_token: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
+
+    pub expires_in: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
+
+    pub refresh_token: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+
+    pub token_type: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -899,6 +1120,120 @@ pub struct OidcUserInfoResponse {
     pub preferred_username: Option<String>,
 
     pub sub: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PasskeyChallengeRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_token: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PasskeyChallengeResponse {
+    pub challenge_id: String,
+
+    pub options: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PasskeyOptionsResponse {
+    pub challenge_id: String,
+
+    pub options: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PasskeyRegisterOptionsRequest {
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PasskeyRegisterOptionsResponse {
+    pub challenge_id: String,
+
+    pub options: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PasskeyRegisterRequest {
+    pub challenge_id: String,
+
+    pub credential: serde_json::Value,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+
+    pub mfa_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PasskeyRegisterResponse {
+    pub factor: MfaFactor,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery_codes: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tokens: Option<TokenResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PasskeyVerifyRequest {
+    pub challenge_id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+
+    pub credential: serde_json::Value,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PasskeyVerifyResponse {
+    pub access_token: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
+
+    pub expires_in: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
+
+    pub refresh_token: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+
+    pub token_type: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

@@ -32,22 +32,24 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return invalid_token();
     };
 
-    match login_success::issue_login_response(&user_id, &tenant_id, None) {
-        Ok(body) => {
-            emit_audit(&tenant_id, Some(&user_id), true, "magic_link");
-            HttpJson::ok(body)
-        }
-        Err(e) => {
-            tracing::error!(error = %e, "magic_link_verify: issuance failed");
-            HttpJson::new(
-                500,
-                serde_json::json!({
-                    "error": "internal_error",
-                    "error_description": "An unexpected error occurred"
-                }),
-            )
-        }
+    // The MFA gate (ADR-008): tokens only when the account needs no second factor; otherwise 202 and the next step.
+    let response = login_success::first_factor_passed(
+        &user_id,
+        &tenant_id,
+        None,
+        sesame_common::authn::Method::Email,
+    );
+    match response.status {
+        200 => emit_audit(&tenant_id, Some(&user_id), true, "magic_link"),
+        202 => emit_audit(
+            &tenant_id,
+            Some(&user_id),
+            true,
+            "magic_link_second_factor_pending",
+        ),
+        _ => {}
     }
+    response
 }
 
 /// Unknown, expired, and already-used tokens are indistinguishable.

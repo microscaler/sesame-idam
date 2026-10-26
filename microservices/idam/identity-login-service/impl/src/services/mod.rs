@@ -9,6 +9,7 @@ pub mod client_registry;
 pub mod email;
 pub mod envelope;
 pub mod login_success;
+pub mod mfa;
 pub mod oauth;
 pub mod oidc_authorization;
 pub mod oidc_client_admin;

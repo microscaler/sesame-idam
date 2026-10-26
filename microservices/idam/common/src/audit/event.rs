@@ -25,6 +25,9 @@ pub enum AuditEventType {
     VersionBump,
     VersionMismatch,
     TokenBindingMismatch,
+    /// A sign-in method changed (second factor or passkey added or removed, recovery codes generated or used:
+    /// ADR-008 §6). Security-relevant: announced to the account holder as well.
+    AuthenticatorChanged,
 }
 
 impl AuditEventType {
@@ -41,6 +44,7 @@ impl AuditEventType {
             AuditEventType::VersionBump => "version_bump",
             AuditEventType::VersionMismatch => "version_mismatch",
             AuditEventType::TokenBindingMismatch => "token_binding_mismatch",
+            AuditEventType::AuthenticatorChanged => "authenticator_changed",
         }
     }
 
@@ -57,6 +61,7 @@ impl AuditEventType {
             AuditEventType::VersionBump => AuditLevel::Info,
             AuditEventType::VersionMismatch => AuditLevel::Warn,
             AuditEventType::TokenBindingMismatch => AuditLevel::Error,
+            AuditEventType::AuthenticatorChanged => AuditLevel::Warn,
         }
     }
 
@@ -70,6 +75,7 @@ impl AuditEventType {
                 | AuditEventType::FamilyRevoked
                 | AuditEventType::VersionMismatch
                 | AuditEventType::TokenBindingMismatch
+                | AuditEventType::AuthenticatorChanged
         )
     }
 }

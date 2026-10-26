@@ -138,6 +138,18 @@ pub unsafe fn register_all(dispatcher: &mut Dispatcher) {
     );
 
     dispatcher.register_typed_with_stack_size(
+        "get_org_auth_policy",
+        crate::controllers::get_org_auth_policy::GetOrgAuthPolicyController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
+        "set_org_auth_policy",
+        crate::controllers::set_org_auth_policy::SetOrgAuthPolicyController,
+        20480,
+    );
+
+    dispatcher.register_typed_with_stack_size(
         "list_org_domains",
         crate::controllers::list_org_domains::ListOrgDomainsController,
         20480,
@@ -517,6 +529,22 @@ pub unsafe fn register_from_spec(dispatcher: &mut Dispatcher, routes: &[RouteMet
             "delete_org" => {
                 let tx = spawn_typed_with_stack_size_and_name(
                     crate::controllers::delete_org::DeleteOrgController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "get_org_auth_policy" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::get_org_auth_policy::GetOrgAuthPolicyController,
+                    20480,
+                    Some(route.handler_name.as_ref()),
+                );
+                dispatcher.add_route(route.clone(), tx);
+            }
+            "set_org_auth_policy" => {
+                let tx = spawn_typed_with_stack_size_and_name(
+                    crate::controllers::set_org_auth_policy::SetOrgAuthPolicyController,
                     20480,
                     Some(route.handler_name.as_ref()),
                 );

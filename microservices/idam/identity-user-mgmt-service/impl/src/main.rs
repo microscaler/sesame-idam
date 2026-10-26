@@ -128,6 +128,15 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                // ADR-008 §6 support-mediated recovery: a tenant administrator resets a user's second factors.
+                "disable_user_mfa" => {
+                    let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
+                        controllers::disable_user_mfa::DisableUserMfaController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "enable_user" => {
                     let tx = brrtrouter::typed::spawn_typed_with_stack_size_and_name(
                         controllers::enable_user::EnableUserController,

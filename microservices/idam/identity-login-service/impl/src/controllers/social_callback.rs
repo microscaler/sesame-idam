@@ -124,6 +124,40 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     }
 
     let user_id_str = user.id.to_string();
+
+    // The MFA gate (ADR-008): a social sign-in is a first factor like any other. An account with a second factor (or
+    // whose organisation requires one) gets 202 and the next step instead of tokens.
+    let ceremony = {
+        use crate::services::mfa;
+        let (held, required) = match mfa::load_state(tenant_id, user.id) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::error!(error = %e, "social_callback: factor lookup failed");
+                return oauth_error(500, "internal_error");
+            }
+        };
+        let now = chrono::Utc::now().timestamp();
+        match mfa::decide(
+            &[sesame_common::authn::Method::Federated],
+            now,
+            held,
+            required,
+        ) {
+            mfa::Next::Issue(ceremony) => ceremony,
+            _ => {
+                return mfa::after_first_factor(
+                    &mfa::Subject {
+                        tenant_id: tenant_id.to_string(),
+                        user_id: user.id,
+                        email: user.email.clone(),
+                        portal: DEFAULT_PORTAL.to_string(),
+                        organization_id: None,
+                    },
+                    sesame_common::authn::Method::Federated,
+                );
+            }
+        }
+    };
     let authz = crate::services::authz_client::fetch_effective_authz(
         &user_id_str,
         tenant_id,
@@ -142,6 +176,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         authz.permissions,
         "customer",
         None,
+        Some(&ceremony),
     ) {
         Ok(t) => t,
         Err(e) => {

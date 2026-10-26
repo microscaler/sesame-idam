@@ -2,8 +2,9 @@ import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { applyTenantTheme, runtimeConfig } from '@sesame/shared';
 import { SignIn } from './pages/SignIn';
 import { ResetPassword } from './pages/ResetPassword';
-import { AuthError, completeOidcAuthorize, mintSessionCode, verifyMagicLink } from './lib/api';
-import type { TokenResponse } from './lib/api';
+import { Security } from './pages/Security';
+import { AuthError, completeOidcAuthorize, isChallenge, mintSessionCode, verifyMagicLink } from './lib/api';
+import type { MfaChallenge, TokenResponse } from './lib/api';
 import { decide, fetchAuthorizeStatus } from './lib/oidcRequest';
 
 /**
@@ -13,6 +14,7 @@ import { decide, fetchAuthorizeStatus } from './lib/oidcRequest';
  *   /authorize?request_id=&tenant=&client_id=     → OIDC hosted login
  *   /authorize?tenant=&redirect_uri=&state=       → ADR-010 session-code handoff
  *   /verify-magic?tenant=&token=&state=           → magic-link "click"
+ *   /account/security?tenant=&client_id=          → sign-in security (passkeys, authenticator app, recovery codes)
  *
  * OIDC path: after password/OTP, POST /oauth/authorize/complete and follow the
  * 302 to the registered RP redirect with `code` + `state`.
@@ -45,7 +47,10 @@ export function App() {
   const magicToken = params.get('token');
   const path = window.location.pathname;
   const isReset = path.includes('reset-password') || path.includes('forgot-password');
+  const isSecurity = path.includes('account/security');
   const isOidc = requestId.length > 0;
+  // A magic link whose account has a second factor: the sign-in continues with its second step (ADR-008).
+  const [magicChallenge, setMagicChallenge] = createSignal<MfaChallenge | undefined>();
 
   const [status, setStatus] = createSignal<'ready' | 'verifying' | 'error'>(
     !tenantId || (!isReset && !clientId)
@@ -110,8 +115,13 @@ export function App() {
 
     if (status() === 'verifying' && magicToken) {
       try {
-        const tokens = await verifyMagicLink(tenantId, magicToken);
-        void complete(tokens);
+        const result = await verifyMagicLink(tenantId, magicToken);
+        if (isChallenge(result)) {
+          setMagicChallenge(result);
+          setStatus('ready');
+          return;
+        }
+        void complete(result);
       } catch {
         setError('This sign-in link is invalid, expired, or already used.');
         setStatus('error');
@@ -172,11 +182,15 @@ export function App() {
           token={path.includes('reset-password') ? (magicToken ?? undefined) : undefined}
         />
       </Show>
-      <Show when={status() === 'ready' && !isReset}>
+      <Show when={status() === 'ready' && isSecurity}>
+        <Security tenantId={tenantId} clientId={clientId} />
+      </Show>
+      <Show when={status() === 'ready' && !isReset && !isSecurity}>
         <SignIn
           tenantId={tenantId}
           clientId={clientId}
           tenantName={tenantId}
+          initialChallenge={magicChallenge()}
           onAuthenticated={(t) => void complete(t)}
         />
       </Show>

@@ -1,6 +1,6 @@
 # ADR-008: Authentication assurance — passkey-first MFA, honest factor classification, step-up
 
-Status: PROPOSED (2026-07-22)
+Status: ACCEPTED (2026-07-22; amended and implemented 2026-10-27, see below)
 Related: ADR-004 (platform tenancy), ADR-006 (shared signing keys),
 ADR-009 (multi-tenant SMS sender identity & credential custody — who pays for
 and sends each SMS, per-owner spend ceilings),
@@ -145,3 +145,27 @@ IdP-agnostic and small.
 WebAuthn Level 2/3 (W3C), FIDO2/CTAP2, RFC 6238 (TOTP), RFC 8176 (amr),
 RFC 9068 (at+jwt), RFC 9470 (step-up challenge), OIDC Core (`acr`,
 `auth_time`), NIST SP 800-63B (AAL levels; SMS restriction).
+
+## Amendment (2026-10-27): implemented, with these specifics
+
+Implementation: [DESIGN-mfa-passkeys.md](DESIGN-mfa-passkeys.md). Where this ADR left a choice open:
+
+- **`amr` values.** RFC 8176 where it has one (`pwd`, `otp` for TOTP only, `sms`, `hwk`, `swk`, `user`, `mfa`), and
+  three Sesame values where it has none, so nothing weaker is reported as something stronger: `email` (emailed code
+  or magic link; not `otp` as §1's table first said), `rc` (recovery code), `fed` (social or federated provider).
+- **`acr` values.** `urn:sesame:acr:aal1`, `urn:sesame:acr:aal2`, `urn:sesame:acr:aal2-phishing-resistant`. Unknown
+  values read as `aal1`.
+- **Email is the password's factor category** (whoever holds the mailbox can reset the password), so password + email
+  code is `aal1`, and email code + TOTP is `aal2` because of the TOTP.
+- **`auth_time` survives refresh.** The refresh token carries `amr`/`acr`/`auth_time` and each rotation copies them, so
+  a refreshed access token never claims a fresher or stronger ceremony.
+- **§2 enforcement at issuance**: one gate (`services::mfa`) after every first factor; organisation policy
+  (`none` / `mfa` / `passkey`) lives in `org_auth_policies`, strictest membership wins. A member who must enrol is let
+  in once enrolment completes, with the claims of what that sign-in proved.
+- **§5 RP ID**: one per deployment for now (`SESAME_WEBAUTHN_RP_ID`); PriceWhisperer pp uses `pp.pricewhisperer.ai`,
+  covering the hosted sign-in and the app without Related Origin Requests.
+- **§6 recovery**: recovery codes give `aal2`, never phishing-resistant, so under a passkey policy a new passkey must be
+  enrolled before a token is issued; support-mediated reset by a tenant administrator; every event audited
+  (`authenticator_changed`) and emailed.
+- **§4 step-up (RFC 9470)** is not implemented yet: resources can read the claims; `acr_values`/`max_age` at
+  `/oauth/authorize` is the next step.

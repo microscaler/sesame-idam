@@ -153,6 +153,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         vec![],
         "customer",
         None,
+        // The account was created with a password moments ago: that is the whole ceremony.
+        Some(&sesame_common::authn::Authn::now(&[
+            sesame_common::authn::Method::Password,
+        ])),
     ) {
         Ok(tokens) => tokens,
         Err(e) => {

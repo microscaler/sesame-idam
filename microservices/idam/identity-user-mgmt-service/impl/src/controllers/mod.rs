@@ -11,6 +11,7 @@
 
 pub mod create_user;
 pub mod disable_user;
+pub mod disable_user_mfa;
 pub mod enable_user;
 pub mod fetch_user_by_email;
 pub mod query_users;

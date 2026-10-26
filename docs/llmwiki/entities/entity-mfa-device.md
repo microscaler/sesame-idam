@@ -7,6 +7,11 @@ sources: [openapi/*/openapi.yaml, microservices/*/impl/src/models/]
 
 # Entity: MFA Setup
 
+> **Superseded (2026-10-27):** sign-in factors live in `sesame_idam.user_mfa_factors` (tenant-scoped, RLS; TOTP and
+> passkeys), `user_recovery_codes` and `org_auth_policies` (migrations `identity-login-service/20261027090000_mfa_factors.sql`,
+> `org-mgmt/20261027090002_org_auth_policies.sql`, `rls/20261027090001_mfa_rls.sql`). The `mfa_setup` table below is
+> unused; its user-mgmt setup/verify stubs were deleted. See [DESIGN-mfa-passkeys.md](../../DESIGN-mfa-passkeys.md).
+
 Owned by: **identity-user-mgmt-service** AND **identity-session-service** (identical model in both)
 
 ## Description

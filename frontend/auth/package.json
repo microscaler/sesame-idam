@@ -13,7 +13,8 @@
   "dependencies": {
     "solid-js": "^1.9.0",
     "@sesame/shared": "workspace:*",
-    "@sesame/idam-client": "workspace:*"
+    "@sesame/idam-client": "workspace:*",
+    "qrcode-generator": "2.0.4"
   },
   "devDependencies": {
     "vite": "^5.4.0",

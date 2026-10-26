@@ -3,24 +3,26 @@
 //! `POST /auth/login` — password login.
 //!
 //! Verifies credentials against `sesame_idam.users` (tenant-scoped), then
-//! issues a real Ed25519-signed access token + refresh token pair
-//! (`TokenResponse`). Returns 401 `invalid_credentials` for unknown user,
+//! runs the MFA gate: a real Ed25519-signed access token + refresh token pair
+//! (`TokenResponse`, 200) when no second factor is needed, else 202 with an
+//! `mfa_token` and the next step (`/auth/mfa/verify`, a passkey, or enrolment). Returns 401 `invalid_credentials` for unknown user,
 //! wrong password, or non-active account — a single indistinguishable error
 //! to prevent user enumeration.
 
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
-use sesame_idam_identity_login_service_gen::handlers::auth_login::{Request, Response};
+use sesame_idam_identity_login_service_gen::handlers::auth_login::Request;
 
 use crate::audit::EMITTER;
 use crate::services::abuse_guard;
 use crate::services::client_registry::{ClientRegistry, ClientRegistryError};
+use crate::services::mfa::{self, Subject};
 use crate::services::password;
 use crate::services::tenant_gate::tenant_http_error;
 use crate::services::tenant_service::TenantService;
-use crate::services::token_issuer;
 use crate::services::user_service::{UserService, STATUS_ACTIVE};
 use sesame_common::audit::{AuditEventType, AuditLogEntry};
+use sesame_common::authn::Method;
 
 #[handler(AuthLoginController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
@@ -93,81 +95,30 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     }
 
     abuse_guard::record_login_success(&tenant_id, &email);
-    let user_id = user.id.to_string();
 
-    // JWT enrichment: fetch effective roles from authz-core (the single
-    // sanctioned cross-service call). Degrades to empty roles on failure —
-    // login must not hard-fail when authz-core is briefly unavailable.
-    let authz = crate::services::authz_client::fetch_effective_authz(
-        &user_id,
-        &tenant_id,
-        &binding.portal,
-    )
-    .unwrap_or_else(|e| {
-        sesame_common::observability::metrics::DEPENDENCY_ERRORS
-            .with_label_values(&["authz-core", "login_enrichment"])
-            .inc();
-        tracing::warn!(error = %e, "auth_login: authz-core enrichment failed — issuing token without roles");
-        crate::services::authz_client::EffectiveAuthz {
-            roles: vec![],
-            permissions: vec![],
-        }
-    });
-
-    let exec = sesame_idam_database::db();
-    let preferred_org = req.data.organization_id.as_deref();
-    let active_org = crate::services::org_context::resolve_active_org_id(
-        exec,
-        &user_id,
-        &tenant_id,
-        preferred_org,
+    // The MFA gate (ADR-008): an account with a second factor, or whose organisation requires one, gets 202 and the
+    // next step (no token); otherwise 200 with tokens whose amr/acr say "password".
+    let response = mfa::after_first_factor(
+        &Subject {
+            tenant_id: tenant_id.clone(),
+            user_id: user.id,
+            email: user.email.clone(),
+            portal: binding.portal.clone(),
+            organization_id: req.data.organization_id.clone(),
+        },
+        Method::Password,
     );
-    let org_id_str = active_org.map(|id| id.to_string());
-
-    let tokens = match token_issuer::issue_tokens(
-        &user_id,
-        &tenant_id,
-        &binding.portal,
-        authz.roles.clone(),
-        authz.permissions,
-        "customer",
-        org_id_str.as_deref(),
-    ) {
-        Ok(tokens) => tokens,
-        Err(e) => {
-            tracing::error!(error = %e, "auth_login: token issuance failed");
-            return internal_error();
-        }
-    };
-
-    emit_login_audit(&tenant_id, Some(user.id), true, "password");
-
-    let body = Response {
-        access_token: tokens.access_token,
-        entitlements_hash: None,
-        entitlements_ref: None,
-        expires_in: i32::try_from(tokens.expires_in).unwrap_or(300),
-        id_token: None,
-        mfa_required: Some(false),
-        permissions: None,
-        refresh_token: tokens.refresh_token,
-        refresh_token_expires_in: Some(
-            i32::try_from(tokens.refresh_expires_in).unwrap_or(i32::MAX),
+    match response.status {
+        200 => emit_login_audit(&tenant_id, Some(user.id), true, "password"),
+        202 => emit_login_audit(
+            &tenant_id,
+            Some(user.id),
+            true,
+            "password_second_factor_pending",
         ),
-        roles: Some(authz.roles.clone()),
-        scope: Some(tokens.scope),
-        token_type: "Bearer".to_string(),
-        token_version: i32::try_from(tokens.token_version).ok(),
-        user_id,
-    };
-
-    match serde_json::to_value(&body) {
-        Ok(json) => HttpJson::ok(json),
-        Err(e) => {
-            tracing::error!(error = %e, "auth_login: response serialization failed");
-            internal_error()
-        }
+        _ => {}
     }
+    response
 }
 
 fn invalid_credentials() -> HttpJson<serde_json::Value> {

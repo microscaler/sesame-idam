@@ -1,3 +1,4 @@
+pub mod auth_policy;
 pub mod domain_api;
 pub mod domain_claims;
 pub mod org_lifecycle;

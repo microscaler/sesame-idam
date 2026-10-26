@@ -1288,8 +1288,11 @@ paths:
     post:
       tags:
       - PasswordSecurity
-      summary: Disable user 2FA
-      description: 'Disables all 2FA methods for a user. Platform admin or user themselves.
+      summary: Reset a user's second factors (support-mediated recovery)
+      description: 'Removes every second factor, passkey and recovery code of a user who has lost them all (ADR-008
+        §6), so they can sign in and enrol again. Tenant administrators of the user''s tenant only, never on their own
+        account, and only over users whose administrator roles they could grant. Audited; the user is emailed.
+        Users manage their own factors through identity-login-service (/auth/mfa/*).
 
 
         Requires `X-Tenant-ID` header for tenant resolution.'
@@ -1313,7 +1316,28 @@ paths:
                 error: validation_error
                 message: Request validation failed
         '200':
-          description: 2FA disabled
+          description: Second factors removed
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - user_id
+                - factors_removed
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                  factors_removed:
+                    type: integer
+                    minimum: 0
+        '403':
+          description: Not a tenant administrator, the caller's own account, or a user holding a role the caller cannot grant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found
           content:
@@ -1348,6 +1372,8 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: setup_user_mfa_totp
+      deprecated: true
+      x-superseded-by: 'identity-login-service /auth/mfa/* (ADR-008). Not implemented here: answers 501.'
       parameters:
       - *id004
       - name: user_id
@@ -1431,6 +1457,8 @@ paths:
 
         Requires `X-Tenant-ID` header for tenant resolution.'
       operationId: verify_user_mfa
+      deprecated: true
+      x-superseded-by: 'identity-login-service /auth/mfa/* (ADR-008). Not implemented here: answers 501.'
       parameters:
       - *id004
       - name: user_id

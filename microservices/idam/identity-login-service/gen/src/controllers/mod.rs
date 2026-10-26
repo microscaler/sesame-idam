@@ -21,6 +21,30 @@ pub mod login_phone_otp;
 
 pub mod auth_logout;
 
+pub mod mfa_factors_list;
+
+pub mod mfa_factor_remove;
+
+pub mod mfa_factor_rename;
+
+pub mod mfa_manage;
+
+pub mod mfa_recovery_codes;
+
+pub mod mfa_totp_confirm;
+
+pub mod mfa_totp_enroll;
+
+pub mod mfa_verify;
+
+pub mod passkey_challenge;
+
+pub mod passkey_register;
+
+pub mod passkey_register_options;
+
+pub mod passkey_verify;
+
 pub mod auth_forgot_password;
 
 pub mod auth_reset_password;

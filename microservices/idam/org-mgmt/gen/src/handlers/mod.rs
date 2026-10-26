@@ -45,6 +45,10 @@ pub mod update_org;
 
 pub mod delete_org;
 
+pub mod get_org_auth_policy;
+
+pub mod set_org_auth_policy;
+
 pub mod list_org_domains;
 
 pub mod create_org_domain;

@@ -41,6 +41,7 @@ mod controllers {
     pub mod delete_org_domain;
     pub mod fetch_org;
     pub mod fetch_users_in_org;
+    pub mod get_org_auth_policy;
     pub mod invite_user_to_org;
     pub mod list_my_memberships;
     pub mod list_org_domains;
@@ -49,6 +50,7 @@ mod controllers {
     pub mod remove_user_from_org;
     pub mod revoke_org_domain;
     pub mod revoke_pending_invite;
+    pub mod set_org_auth_policy;
     pub mod transfer_org_owner;
     pub mod update_org_domain;
     pub mod verify_org_domain;

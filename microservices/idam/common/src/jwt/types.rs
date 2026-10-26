@@ -169,6 +169,9 @@ pub struct AccessClaims {
     pub act: Option<ActorClaim>,
     // DPoP confirmation (RFC 9449)
     pub cnf: Option<DpopConfirmation>,
+    /// How the user authenticated (ADR-008 §3): `amr`, `acr` and `auth_time`, serialized as top-level claims.
+    /// `None` only for tokens minted before these claims existed, or for non-interactive principals.
+    pub authn: Option<crate::authn::Authn>,
 }
 
 /// Wire form of [`AccessClaims`]: every claim but `sx`, plus the remaining members, among them the
@@ -196,6 +199,12 @@ struct AccessClaimsWire {
     act: Option<ActorClaim>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     cnf: Option<DpopConfirmation>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    amr: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    acr: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    auth_time: Option<i64>,
     #[serde(flatten)]
     rest: serde_json::Map<String, serde_json::Value>,
 }
@@ -223,6 +232,9 @@ impl Serialize for AccessClaims {
             org_id: self.org_id.clone(),
             act: self.act.clone(),
             cnf: self.cnf.clone(),
+            amr: self.authn.as_ref().map(|a| a.amr.clone()),
+            acr: self.authn.as_ref().map(|a| a.acr.clone()),
+            auth_time: self.authn.as_ref().map(|a| a.auth_time),
             rest,
         }
         .serialize(serializer)
@@ -239,6 +251,15 @@ impl<'de> Deserialize<'de> for AccessClaims {
             .remove(namespace)
             .ok_or_else(|| serde::de::Error::custom(format!("missing field `{namespace}`")))?;
         let sx: SesameAuthzClaims = serde_json::from_value(sx).map_err(serde::de::Error::custom)?;
+        // All three or nothing: a partial context is not one Sesame minted.
+        let authn = match (wire.amr, wire.acr, wire.auth_time) {
+            (Some(amr), Some(acr), Some(auth_time)) => Some(crate::authn::Authn {
+                amr,
+                acr,
+                auth_time,
+            }),
+            _ => None,
+        };
         Ok(AccessClaims {
             iss: wire.iss,
             sub: wire.sub,
@@ -258,6 +279,7 @@ impl<'de> Deserialize<'de> for AccessClaims {
             sx,
             act: wire.act,
             cnf: wire.cnf,
+            authn,
         })
     }
 }

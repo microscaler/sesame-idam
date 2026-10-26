@@ -269,6 +269,7 @@ fn authorization_code_redeem_is_single_use_and_binding_checked() {
         nonce: "nonce-0123456789abcdef".into(),
         code_challenge: challenge,
         auth_time: chrono::Utc::now().timestamp(),
+        authn: None,
         created_at: chrono::Utc::now().timestamp(),
     };
     let value = mint_authorization_code(&code).expect("mint code");

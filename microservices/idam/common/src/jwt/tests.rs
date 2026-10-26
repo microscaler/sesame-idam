@@ -36,6 +36,7 @@ fn test_pii_fields_not_in_token() {
         },
         act: None,
         cnf: None,
+        authn: None,
     };
 
     let json = claims.to_compact_json();
@@ -84,6 +85,7 @@ fn test_pii_values_absent_from_token_payload() {
         ),
         act: None,
         cnf: None,
+        authn: None,
     };
 
     let json = claims.to_compact_json();
@@ -221,6 +223,7 @@ fn test_large_entitlements_set_stays_under_budget() {
         },
         act: None,
         cnf: None,
+        authn: None,
     };
 
     let size = claims.json_payload_size();
@@ -292,6 +295,7 @@ fn test_access_claims_act_present_absent() {
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
+        authn: None,
     };
 
     let json_no = serde_json::to_string(&no_act).unwrap();
@@ -348,6 +352,7 @@ fn test_valid_claims_pass_validation() {
         ),
         act: None,
         cnf: None,
+        authn: None,
     };
     assert!(claims.validate().is_ok());
 }
@@ -373,6 +378,7 @@ fn test_validation_rejects_missing_ver() {
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
+        authn: None,
     };
     assert_eq!(claims.validate(), Err(JwtValidationError::MissingVersion));
 }
@@ -398,6 +404,7 @@ fn test_validation_rejects_missing_tenant_id() {
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
+        authn: None,
     };
     assert_eq!(claims.validate(), Err(JwtValidationError::MissingTenant));
 }
@@ -431,6 +438,7 @@ fn test_validation_rejects_missing_sx_tenant() {
         },
         act: None,
         cnf: None,
+        authn: None,
     };
     assert_eq!(
         claims.validate(),
@@ -459,6 +467,7 @@ fn test_validation_rejects_invalid_issuer() {
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
+        authn: None,
     };
     assert_eq!(claims.validate(), Err(JwtValidationError::InvalidIssuer));
 }
@@ -484,6 +493,7 @@ fn test_validation_rejects_invalid_audience() {
         sx: SesameAuthzClaims::new("tenant-1".to_string(), "web".to_string(), vec![], vec![]),
         act: None,
         cnf: None,
+        authn: None,
     };
     assert_eq!(claims.validate(), Err(JwtValidationError::InvalidAudience));
 }
@@ -518,6 +528,7 @@ fn test_validation_accepts_valid_risk_values() {
             },
             act: None,
             cnf: None,
+            authn: None,
         };
         assert!(
             claims.validate().is_ok(),
@@ -555,6 +566,7 @@ fn test_validation_rejects_invalid_risk() {
         },
         act: None,
         cnf: None,
+        authn: None,
     };
     assert_eq!(claims.validate(), Err(JwtValidationError::InvalidRisk));
 }
@@ -672,6 +684,7 @@ fn test_token_size_under_budget() {
         },
         act: None,
         cnf: None,
+        authn: None,
     };
 
     // The claim namespace is deployment configuration (SESAME_CLAIMS_NAMESPACE): its length is the deployment's
@@ -812,6 +825,7 @@ fn test_truncated_authz_claims_fits_budget() {
         sx: truncated,
         act: None,
         cnf: None,
+        authn: None,
     };
 
     let size = claims.json_payload_size();
@@ -901,6 +915,7 @@ fn test_build_time_token_size_within_budget() {
         },
         act: None,
         cnf: None,
+        authn: None,
     };
 
     let size = claims.json_payload_size();

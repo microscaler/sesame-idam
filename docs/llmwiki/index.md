@@ -85,7 +85,7 @@ Architectural concepts, workflows, and cross-cutting concerns.
 ||||| [topic-token-status-enforcement](./topics/topic-token-status-enforcement.md) | Central BRRTRouter denylist/version enforcement, positive-only rejection caching, fail-closed Redis policy, and P0 evidence status. |
 ||||| [topic-http-client-policy](./topics/topic-http-client-policy.md) | Single HTTP client policy — service code uses `sesame_common::http`; BRRTRouter uses the `may_minihttp` native client for plain HTTP and rustls for HTTPS.
 |||| [topic-delegation](./topics/topic-delegation.md) | RFC 8693 token exchange, act claim structure, delegation chain, actor can_delegate logic, support impersonation flow, step-up MFA, mfa_type strength (Story 6.1-6.3) |
-||||| [topic-mfa](./topics/topic-mfa.md) | sx.mfa_verified claim, step-up MFA flow, mfa_type strength table, F-006 refresh token invalidation, F-016 SMS restriction (Story 6.3) |
+||||| [topic-mfa](./topics/topic-mfa.md) | **Implemented 2026-10-27:** MFA gate, TOTP, passkeys, recovery codes, org policy, amr/acr/auth_time ([DESIGN-mfa-passkeys](../DESIGN-mfa-passkeys.md)); designs: [org SSO](../DESIGN-org-sso.md), [account sharing](../DESIGN-account-sharing-controls.md) |
 |||| [topic-observability](./topics/topic-observability.md) | OTEL span catalog for Epic 9 — key lifecycle, JWKS cache, authz request, token lifecycle spans across all 6 services. No custom Prometheus counters for JWT observability. |
 
 ## Audit

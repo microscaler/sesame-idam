@@ -112,6 +112,7 @@ pub struct AccessClaimsBuilder {
     sx: Option<SesameAuthzClaims>,
     act: Option<super::types::ActorClaim>,
     cnf: Option<crate::dpop::DpopConfirmation>,
+    authn: Option<crate::authn::Authn>,
 }
 
 impl AccessClaimsBuilder {
@@ -136,6 +137,7 @@ impl AccessClaimsBuilder {
             sx: None,
             act: None,
             cnf: None,
+            authn: None,
         }
     }
 
@@ -237,6 +239,13 @@ impl AccessClaimsBuilder {
         self
     }
 
+    /// How the user authenticated (`amr`, `acr`, `auth_time`; ADR-008 §3).
+    #[must_use]
+    pub fn authn(mut self, authn: Option<crate::authn::Authn>) -> Self {
+        self.authn = authn;
+        self
+    }
+
     pub fn build(self) -> Result<AccessClaims, JwtError> {
         let iss = self
             .iss
@@ -307,6 +316,7 @@ impl AccessClaimsBuilder {
             sx,
             act: self.act,
             cnf: self.cnf,
+            authn: self.authn,
         })
     }
 }

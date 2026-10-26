@@ -220,16 +220,9 @@ pub struct DeleteUserResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct DisableUserMfaResponse {
-    pub error: String,
+    pub factors_removed: i32,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

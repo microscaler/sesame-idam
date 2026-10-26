@@ -73,6 +73,12 @@ base64 = { workspace = true }
 rand = { workspace = true }
 hex.workspace = true
 url = "2.5.8"
+# Passkeys (ADR-008): the WebAuthn relying party. State serialisation keeps a ceremony's state in Redis between the
+# browser's two round trips (single use, 5 minutes); conditional-ui adds username-less sign-in.
+webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation", "conditional-ui"] }
+# webauthn-rs verifies signatures with OpenSSL. Vendored: built from source and linked statically, so neither the
+# build image nor the run image needs OpenSSL's development files or shared library.
+openssl = { version = "0.10", features = ["vendored"] }
 
 [build-dependencies]
 lifeguard-migrate = { workspace = true }

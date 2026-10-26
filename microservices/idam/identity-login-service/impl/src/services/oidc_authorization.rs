@@ -75,6 +75,10 @@ pub struct AuthorizationCode {
     pub nonce: String,
     pub code_challenge: String,
     pub auth_time: i64,
+    /// The hosted sign-in's authentication context (`amr`, `acr`, `auth_time`; ADR-008 §3), handed to the tokens the
+    /// code is redeemed for. Absent in codes minted before it existed (they live 60 s).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authn: Option<sesame_common::authn::Authn>,
     pub created_at: i64,
 }
 

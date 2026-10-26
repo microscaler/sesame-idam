@@ -271,6 +271,114 @@ fn main() -> io::Result<()> {
                     );
                     dispatcher.add_route(route.clone(), tx);
                 }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "mfa_verify" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::mfa_verify::MfaVerifyController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "passkey_challenge" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::passkey_challenge::PasskeyChallengeController,
+                        65536,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "passkey_verify" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::passkey_verify::PasskeyVerifyController,
+                        65536,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "mfa_manage" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::mfa_manage::MfaManageController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "mfa_factors_list" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::mfa_factors_list::MfaFactorsListController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "mfa_factor_remove" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::mfa_factor_remove::MfaFactorRemoveController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "mfa_factor_rename" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::mfa_factor_rename::MfaFactorRenameController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "mfa_recovery_codes" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::mfa_recovery_codes::MfaRecoveryCodesController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "mfa_totp_enroll" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::mfa_totp_enroll::MfaTotpEnrollController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "mfa_totp_confirm" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::mfa_totp_confirm::MfaTotpConfirmController,
+                        20480,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "passkey_register_options" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::passkey_register_options::PasskeyRegisterOptionsController,
+                        65536,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
+                // ADR-008 second factors and passkeys (services/mfa).
+                "passkey_register" => {
+                    let tx = spawn_typed_with_stack_size_and_name(
+                        controllers::passkey_register::PasskeyRegisterController,
+                        65536,
+                        Some(route.handler_name.as_ref()),
+                    );
+                    dispatcher.add_route(route.clone(), tx);
+                }
                 "set_active_organization" => {
                     let tx = spawn_typed_with_stack_size_and_name(
                         controllers::set_active_organization::SetActiveOrganizationController,

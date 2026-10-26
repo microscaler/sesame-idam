@@ -68,6 +68,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         authz.permissions,
         "customer",
         Some(org_id),
+        // Switching organisation is not a new sign-in: the new tokens report the ceremony the presented one did.
+        sesame_common::authn::Authn::from_claims(
+            req.jwt_claims.as_ref().unwrap_or(&serde_json::Value::Null),
+        )
+        .as_ref(),
     ) {
         Ok(t) => t,
         Err(e) => {

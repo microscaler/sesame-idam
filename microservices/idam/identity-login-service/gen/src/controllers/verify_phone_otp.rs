@@ -1,12 +1,11 @@
 // User-owned controller for handler 'verify_phone_otp'.
 
-use crate::handlers::verify_phone_otp::{Request, Response};
-use brrtrouter::typed::HttpJson;
+use crate::handlers::verify_phone_otp::{ApiResponse, Request, Response};
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
 #[handler(VerifyPhoneOtpController)]
-pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
+pub fn handle(_req: TypedHandlerRequest<Request>) -> ApiResponse {
     // Example response:
     // {
     //   "access_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig",
@@ -32,14 +31,14 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
 }"###,
     ) {
-        Ok(parsed) => return HttpJson::ok(parsed),
+        Ok(parsed) => return ApiResponse::Ok(parsed),
         Err(e) => {
             eprintln!("Failed to parse mock example JSON into Response: {}", e);
             // Fallback to empty default structs below
         }
     }
 
-    HttpJson::ok(Response {
+    ApiResponse::Ok(Response {
         access_token: "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig"
             .to_string(),
         entitlements_hash: Some("example".to_string()),

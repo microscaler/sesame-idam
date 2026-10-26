@@ -266,6 +266,7 @@ fn conformance_code_replay_and_cross_client() {
         nonce: "nonce-0123456789abcdef".into(),
         code_challenge: challenge,
         auth_time: chrono::Utc::now().timestamp(),
+        authn: None,
         created_at: chrono::Utc::now().timestamp(),
     };
     let value = mint_authorization_code(&code).expect("mint");
@@ -488,6 +489,7 @@ fn conformance_refresh_rotation_replay_and_cross_client() {
             "user",
             None,
             "openid",
+            None,
         )
         .expect("issue tokens");
 
@@ -527,6 +529,7 @@ fn conformance_refresh_rotation_replay_and_cross_client() {
             "user",
             None,
             "openid",
+            None,
         )
         .expect("issue2");
     let cross = handle_token("refresh_token", client_b, Some(&issued2.refresh_token));

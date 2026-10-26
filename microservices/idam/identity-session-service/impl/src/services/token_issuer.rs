@@ -63,6 +63,7 @@ pub fn issue_rotated_tokens(
     token: &RefreshToken,
     tenant_id: &str,
     token_version: u64,
+    ceremony: Option<&sesame_common::authn::Authn>,
 ) -> Result<IssuedRefreshPair, IssueError> {
     let now = chrono::Utc::now().timestamp();
     let access_ttl = access_ttl_secs();
@@ -119,6 +120,7 @@ pub fn issue_rotated_tokens(
         .user_id(&token.sub)
         .user_type("customer")
         .sx(sx)
+        .authn(ceremony.cloned())
         .build()
         .map_err(|e| IssueError::Claims(e.to_string()))?;
 
@@ -135,7 +137,7 @@ pub fn issue_rotated_tokens(
     // hauliage and PriceWhisperer was this line.
     let refresh_jti = token.jti.clone();
     let refresh_exp = token.exp;
-    let refresh_payload = serde_json::json!({
+    let mut refresh_payload = serde_json::json!({
         "jti": refresh_jti,
         "sub": token.sub,
         "sid": token.sid,
@@ -144,6 +146,11 @@ pub fn issue_rotated_tokens(
         "exp": refresh_exp,
         "typ": "refresh",
     });
+    // The sign-in's authentication context rides along unchanged (ADR-008 §3: auth_time is when the user
+    // authenticated, not when the token was refreshed).
+    if let Some(ceremony) = ceremony {
+        ceremony.write_into(&mut refresh_payload);
+    }
     let refresh_token = SIGNER
         .sign_payload(&refresh_payload.to_string())
         .map_err(|e| IssueError::Signing(e.to_string()))?;

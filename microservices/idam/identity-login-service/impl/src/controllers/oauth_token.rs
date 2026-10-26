@@ -167,8 +167,13 @@ fn exchange_code(request: &Request, binding: &ClientBinding) -> HttpJson<serde_j
     }
 
     // The ID token first: if its signer (Cloud KMS) is unavailable, fail before a refresh token is stored.
-    let id_token = match issue_id_token(&code.user_id, &code.client_id, &code.nonce, code.auth_time)
-    {
+    let id_token = match issue_id_token(
+        &code.user_id,
+        &code.client_id,
+        &code.nonce,
+        code.auth_time,
+        code.authn.as_ref(),
+    ) {
         Ok(token) => token,
         Err(error) => {
             tracing::error!(%error, "OIDC ID token issuance failed");
@@ -187,6 +192,7 @@ fn exchange_code(request: &Request, binding: &ClientBinding) -> HttpJson<serde_j
         "user",
         None,
         &scope,
+        code.authn.as_ref(),
     ) {
         Ok(tokens) => tokens,
         Err(error) => {

@@ -281,19 +281,23 @@ fn rotate_refresh_token_bound(
         token.tenant_id.clone(),
         token.scopes.clone(),
     );
-    let issued =
-        match super::token_issuer::issue_rotated_tokens(&new_token, tenant_id, token_version) {
-            Ok(issued) => issued,
-            Err(e) => {
-                tracing::error!(
-                    event = "rotation_signing_failed",
-                    error = e.to_string(),
-                    "Failed to sign rotated tokens"
-                );
-                fail("signing_error");
-                return RotationOutcome::RedisUnavailable;
-            }
-        };
+    let issued = match super::token_issuer::issue_rotated_tokens(
+        &new_token,
+        tenant_id,
+        token_version,
+        claims.authn.as_ref(),
+    ) {
+        Ok(issued) => issued,
+        Err(e) => {
+            tracing::error!(
+                event = "rotation_signing_failed",
+                error = e.to_string(),
+                "Failed to sign rotated tokens"
+            );
+            fail("signing_error");
+            return RotationOutcome::RedisUnavailable;
+        }
+    };
     let receipt = serde_json::json!({
         "access_token": issued.access_token,
         "refresh_token": issued.refresh_token,
@@ -385,6 +389,10 @@ pub struct RefreshClaims {
     pub jti: String,
     pub sub: String,
     pub family_id: String,
+    /// How the session's user authenticated (`amr`, `acr`, `auth_time`; ADR-008 §3), carried unchanged from sign-in
+    /// to every successor so a refreshed access token reports the original ceremony, never a fresher or stronger one.
+    /// `None` for refresh tokens issued before these claims existed.
+    pub authn: Option<sesame_common::authn::Authn>,
 }
 
 /// Decode `jti`, `sub` and `family_id` from a refresh token (call only after its signature verified).
@@ -409,6 +417,7 @@ pub fn decode_refresh_token_claims(token: &str) -> Option<RefreshClaims> {
         jti: s("jti")?,
         sub: s("sub")?,
         family_id: s("family_id")?,
+        authn: sesame_common::authn::Authn::from_claims(&value),
     })
 }
 

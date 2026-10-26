@@ -1,12 +1,26 @@
 ---
 title: MFA (Multi-Factor Authentication)
-status: unverified
-updated: 2026-05-16
-sources: [Epics/06-delegation-act/stories/story-6.3.md, design-doc.md, entities/entity-mfa-device.md]
+status: verified
+updated: 2026-10-27
+sources: [../DESIGN-mfa-passkeys.md, ../ADR-008-authentication-assurance-passkey-first-mfa.md, identity-login-service/impl/src/services/mfa/]
 ---
 
 # MFA (Multi-Factor Authentication)
 
+> **Current (2026-10-27):** implemented per [DESIGN-mfa-passkeys.md](../../DESIGN-mfa-passkeys.md): TOTP, passkeys
+> (webauthn-rs), recovery codes, organisation policy, truthful `amr`/`acr`/`auth_time` (`sesame_common::authn`), all in
+> identity-login-service `services/mfa`. The sections below the line are the May 2026 story-6.3 design: the
+> `sx.mfa_verified` claim and `POST /auth/verify/step-up` were never built and are superseded by `amr`/`acr` and
+> (later) RFC 9470 step-up at `/oauth/authorize`.
+>
+> Key facts: the gate is `services::mfa::{after_first_factor, next_step, decide}`; contexts are opaque `mfa_token`s in
+> Redis (`mfa:ctx:*`, 10 min; security sessions 15 min via `POST /auth/mfa/manage` with a fresh, MFA'd bearer);
+> WebAuthn ceremonies `mfa:webauthn:*` (5 min, GETDEL); tables `user_mfa_factors`, `user_recovery_codes`,
+> `org_auth_policies` (RLS on tenant_id); second-factor lockout identity `mfa:{user_id}` in `abuse_guard`; RP ID from
+> `SESAME_WEBAUTHN_RP_ID` (pp: `pp.pricewhisperer.ai`); TOTP secrets sealed under `MFA_SECRET_KEK` or
+> `SMS_CREDENTIAL_KEK` (HKDF label `totp-secret/v1`).
+
+---
 ## Overview
 
 MFA in Sesame-IDAM supports multiple verification methods (TOTP, WebAuthn, SMS) with strength-based enforcement. The `sx.mfa_verified` claim gates high-consequence actions, and step-up MFA allows users to strengthen their session after login.
