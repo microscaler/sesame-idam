@@ -3815,6 +3815,8 @@ components:
           description: WebAuthn options as JSON (`publicKey`, binary members base64url-encoded; `mediation` when conditional)
     PasskeyVerifyRequest:
       type: object
+      # `credential` is free-form, so the generator cannot size it from the schema; an assertion fits well inside 64 KiB.
+      x-brrtrouter-body-size-bytes: 65536
       additionalProperties: false
       required:
       - challenge_id
@@ -3839,6 +3841,8 @@ components:
           format: uuid
     PasskeyRegisterRequest:
       type: object
+      # `credential` is free-form, so the generator cannot size it from the schema; an attestation (packed or TPM, with its certificate chain) fits well inside 64 KiB.
+      x-brrtrouter-body-size-bytes: 65536
       additionalProperties: false
       required:
       - mfa_token
