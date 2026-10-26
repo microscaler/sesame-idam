@@ -12,10 +12,9 @@ use crate::models::refresh_token::{
     RefreshToken, FAMILY_SET_KEY_PREFIX, FAMILY_TTL, REFRESH_TOKEN_KEY_PREFIX, REFRESH_TOKEN_TTL,
 };
 
-fn get_redis_connection() -> Result<redis::Connection> {
-    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
-    let client = redis::Client::open(redis_url.as_str())?;
-    Ok(client.get_connection()?)
+/// A Redis connection from the process-wide pool (`sesame_common::redis_pool`): reused, not opened per call.
+fn get_redis_connection() -> Result<sesame_common::redis_pool::PooledConnection<'static>> {
+    Ok(sesame_common::redis_pool::pooled_connection()?)
 }
 
 /// Store refresh-token metadata (`refresh:{jti}`, 30d TTL) and register the

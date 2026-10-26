@@ -19,10 +19,9 @@ pub struct OAuthState {
     pub redirect_uri: String,
 }
 
-fn redis_conn() -> Result<redis::Connection> {
-    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
-    let client = redis::Client::open(redis_url.as_str())?;
-    Ok(client.get_connection()?)
+/// A Redis connection from the process-wide pool (`sesame_common::redis_pool`): reused, not opened per call.
+fn redis_conn() -> Result<sesame_common::redis_pool::PooledConnection<'static>> {
+    Ok(sesame_common::redis_pool::pooled_connection()?)
 }
 
 /// Persist OAuth state and return the opaque `state` token for the authorize URL.

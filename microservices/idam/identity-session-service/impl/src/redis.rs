@@ -22,11 +22,9 @@ use crate::models::refresh_token::{
 // Connection
 // ---------------------------------------------------------------------------
 
-/// Create a Redis connection. Returns error if Redis is unavailable.
-fn get_redis_connection() -> Result<redis::Connection> {
-    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
-    let client = redis::Client::open(redis_url.as_str())?;
-    Ok(client.get_connection()?)
+/// A Redis connection from the process-wide pool (`sesame_common::redis_pool`): reused, not opened per call.
+fn get_redis_connection() -> Result<sesame_common::redis_pool::PooledConnection<'static>> {
+    Ok(sesame_common::redis_pool::pooled_connection()?)
 }
 
 /// Record `key` for `ttl_secs` if it is not already present: `Ok(true)` the first time, `Ok(false)` after.

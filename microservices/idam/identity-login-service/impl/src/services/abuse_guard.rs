@@ -62,10 +62,9 @@ fn lockout_max_secs() -> u64 {
 
 // ── shared plumbing ─────────────────────────────────────────────────────────
 
-fn connection() -> anyhow::Result<redis::Connection> {
-    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
-    let client = redis::Client::open(redis_url.as_str())?;
-    Ok(client.get_connection()?)
+/// A Redis connection from the process-wide pool (`sesame_common::redis_pool`): reused, not opened per call.
+fn connection() -> anyhow::Result<sesame_common::redis_pool::PooledConnection<'static>> {
+    Ok(sesame_common::redis_pool::pooled_connection()?)
 }
 
 /// Normalise + hash an identifier so keys carry no raw PII.
@@ -370,7 +369,7 @@ pub fn charge_sms_spend(scope: &str, ceiling_cents: u64) -> bool {
 
 /// INCR with expiry (set on first increment). Returns the new count, or
 /// `None` on Redis errors (caller treats as allow — fail open).
-fn bounded_incr(conn: &mut redis::Connection, key: &str, ttl_secs: u64) -> Option<u64> {
+fn bounded_incr(conn: &mut impl redis::ConnectionLike, key: &str, ttl_secs: u64) -> Option<u64> {
     match conn.incr::<_, _, u64>(key, 1u64) {
         Ok(n) => {
             if n == 1 {

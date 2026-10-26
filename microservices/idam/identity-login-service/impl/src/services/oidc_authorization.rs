@@ -166,10 +166,9 @@ pub fn verify_pkce_s256(code_verifier: &str, expected_challenge: &str) -> bool {
     challenge == expected_challenge
 }
 
-fn redis_connection() -> Result<redis::Connection> {
-    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
-    let client = redis::Client::open(redis_url.as_str())?;
-    client.get_connection().context("connect to Redis")
+/// A Redis connection from the process-wide pool (`sesame_common::redis_pool`): reused, not opened per call.
+fn redis_connection() -> Result<sesame_common::redis_pool::PooledConnection<'static>> {
+    sesame_common::redis_pool::pooled_connection().context("connect to Redis")
 }
 
 fn opaque_value() -> String {
