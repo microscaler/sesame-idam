@@ -16,8 +16,8 @@ use sesame_common::audit::{AuditEventType, AuditLogEntry};
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
     let tenant_id = req.data.x_tenant_id.clone();
 
-    let parse_uuid = |value: Option<&serde_json::Value>| -> Result<Option<Uuid>, String> {
-        match value.and_then(|v| v.as_str()) {
+    let parse_uuid = |value: Option<&String>| -> Result<Option<Uuid>, String> {
+        match value.map(String::as_str) {
             Some(s) => s
                 .parse::<Uuid>()
                 .map(Some)
@@ -39,11 +39,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return bad_request("one of user_id or org_id is required (key scope)");
     }
 
-    let expires_in_days = req
-        .data
-        .expires_in_days
-        .as_ref()
-        .and_then(serde_json::Value::as_i64);
+    let expires_in_days = req.data.expires_in_days.map(i64::from);
     if let Some(days) = expires_in_days {
         if days <= 0 {
             return bad_request("expires_in_days must be positive");

@@ -119,6 +119,27 @@ jobs:
           fi
           exit $rc
 
+  # Every service spec through brrtrouter-gen lint at the pinned BRRTRouter rev; any error fails the run
+  # (OpenAPI 3.0 `nullable: true` in a 3.1 spec is ignored, so a null fails response validation).
+  spec-lint:
+    name: Spec lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: BRRTRouter rev
+        id: rev
+        run: echo "rev=$(grep -m1 '^brrtrouter = ' microservices/Cargo.toml | grep -o '[0-9a-f]\{40\}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/brrtrouter-gen
+          key: brrtrouter-gen-${{ steps.rev.outputs.rev }}
+      - name: brrtrouter-gen lint --fail-on-error (openapi/idam)
+        run: bash scripts/check-spec-lint.sh
+
   # Tests marked #[ignore = "pending: ..."] describe work not done yet. They run here so they stay visible, but never
   # block a release or turn the run red: the test step may fail, the job stays green and reports the failures as a
   # warning and in the job summary. A pending test that starts passing should lose its #[ignore].

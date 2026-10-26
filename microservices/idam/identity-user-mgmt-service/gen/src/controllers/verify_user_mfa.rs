@@ -30,9 +30,9 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     HttpJson::ok(Response {
         access_token: "example".to_string(),
         expires_in: 42,
-        id_token: Some(Default::default()),
-        refresh_token: Some(Default::default()),
-        scope: Some(Default::default()),
+        id_token: Some("example".to_string()),
+        refresh_token: Some("example".to_string()),
+        scope: Some("example".to_string()),
         token_type: "example".to_string(),
     })
 }

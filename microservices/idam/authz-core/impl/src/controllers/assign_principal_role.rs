@@ -33,11 +33,11 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<Value> {
     if !valid_role(&role) {
         return bad_request("role is 1-64 of lowercase letters, digits, '.', '_' and '-'");
     }
-    let given = |v: &Option<Value>| match v {
-        None | Some(Value::Null) => None,
-        Some(Value::String(s)) if s.trim().is_empty() => None,
-        Some(Value::String(s)) => Some(s.trim().to_string()),
-        Some(other) => Some(other.to_string()),
+    let given = |v: &Option<String>| {
+        v.as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
     };
     let policy = RolePolicy::configured();
     if let Err(r) = policy.may_change(&a.roles, &role) {

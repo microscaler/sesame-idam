@@ -143,8 +143,7 @@ components:
         name_id:
           type: string
         name_id_format:
-          type: string
-          nullable: true
+          type: [string, 'null']
         attributes:
           type: object
           additionalProperties:
@@ -152,16 +151,13 @@ components:
             items:
               type: string
         authn_instant:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         session_index:
-          type: string
-          nullable: true
+          type: [string, 'null']
         session_not_on_or_after:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         not_on_or_after:
           type: string
           format: date-time

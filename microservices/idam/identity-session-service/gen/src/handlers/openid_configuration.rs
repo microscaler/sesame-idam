@@ -44,7 +44,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "registration_endpoint")]
-    pub registration_endpoint: Option<serde_json::Value>,
+    pub registration_endpoint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "response_modes_supported")]

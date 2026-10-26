@@ -345,21 +345,17 @@ components:
           minLength: 8
           maxLength: 128
         first_name:
-          type: string
+          type: [string, 'null']
           maxLength: 100
-          nullable: true
         last_name:
-          type: string
+          type: [string, 'null']
           maxLength: 100
-          nullable: true
         username:
-          type: string
+          type: [string, 'null']
           minLength: 3
           maxLength: 50
-          nullable: true
         phone:
-          type: string
-          nullable: true
+          type: [string, 'null']
 
     TokenResponse:
       type: object
@@ -380,9 +376,8 @@ components:
         refresh_token_expires_in:
           type: integer
         organization_id:
-          type: string
+          type: [string, 'null']
           format: uuid
-          nullable: true
           description: |
             Present on set_active_organization responses. JWT claim remains `org_id`;
             null/omitted for pre-organization registration/login.
@@ -452,8 +447,7 @@ components:
           items:
             $ref: '#/components/schemas/MembershipSummary'
         next_cursor:
-          type: string
-          nullable: true
+          type: [string, 'null']
 
     InviteByEmailRequest:
       type: object

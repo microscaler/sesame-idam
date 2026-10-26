@@ -37,11 +37,11 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
 
     HttpJson::ok(Response {
         email: "alice@example.com".to_string(),
-        first_name: "Alice".to_string(),
-        last_name: "Smith".to_string(),
+        first_name: Some("Alice".to_string()),
+        last_name: Some("Smith".to_string()),
         org_id_to_org_info: Some(Default::default()),
-        picture_url: Some(Default::default()),
+        picture_url: Some("example".to_string()),
         user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d".to_string(),
-        username: "example".to_string(),
+        username: Some("example".to_string()),
     })
 }

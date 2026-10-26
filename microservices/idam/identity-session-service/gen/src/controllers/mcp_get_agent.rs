@@ -11,7 +11,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
         active: true,
         agent_id: "example".to_string(),
         created_at: "example".to_string(),
-        description: Some(Default::default()),
+        description: Some("example".to_string()),
         name: "example".to_string(),
         updated_at: "example".to_string(),
     })

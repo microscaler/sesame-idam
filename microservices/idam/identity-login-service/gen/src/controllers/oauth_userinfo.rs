@@ -8,12 +8,12 @@ use brrtrouter_macros::handler;
 #[handler(OauthUserinfoController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     HttpJson::ok(Response {
-        email: Some(Default::default()),
-        email_verified: Some(Default::default()),
-        family_name: Some(Default::default()),
-        given_name: Some(Default::default()),
-        name: Some(Default::default()),
-        preferred_username: Some(Default::default()),
+        email: Some("example".to_string()),
+        email_verified: Some(true),
+        family_name: Some("example".to_string()),
+        given_name: Some("example".to_string()),
+        name: Some("example".to_string()),
+        preferred_username: Some("example".to_string()),
         sub: "example".to_string(),
     })
 }

@@ -112,14 +112,11 @@ components:
           items:
             type: string
         ttl:
-          type: integer
-          nullable: true
+          type: [integer, 'null']
         negative_ttl:
-          type: integer
-          nullable: true
+          type: [integer, 'null']
         ede:
-          type: integer
-          nullable: true
+          type: [integer, 'null']
     Refusal:
       type: object
       required:

@@ -683,40 +683,34 @@ paths:
       - name: email_confirmed
         in: query
         schema:
-          type: boolean
-          nullable: true
+          type: [boolean, 'null']
         description: Filter by email confirmation status
       - name: enabled
         in: query
         schema:
-          type: boolean
-          nullable: true
+          type: [boolean, 'null']
         description: Filter by enabled status
       - name: disabled
         in: query
         schema:
-          type: boolean
-          nullable: true
+          type: [boolean, 'null']
         description: Filter by disabled status
       - name: locked
         in: query
         schema:
-          type: boolean
-          nullable: true
+          type: [boolean, 'null']
         description: Filter by locked status
       - name: created_after
         in: query
         schema:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         description: Filter by creation date (inclusive)
       - name: created_before
         in: query
         schema:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         description: Filter by creation date (inclusive)
       - name: signup_flow
         in: query
@@ -729,7 +723,6 @@ paths:
           - password
           - social
           - saml
-          nullable: true
         description: Filter by signup method
       responses:
         '403':
@@ -2047,9 +2040,8 @@ components:
           additionalProperties: true
           description: Custom key-value metadata (arbitrary JSON)
         org_id:
-          type: string
+          type: [string, 'null']
           format: uuid
-          nullable: true
           description: "For SaaS customers: required, must be their own organisation.\n\
             For platform admins: optional \u2014 if omitted, creates a platform-level\
             \ user.\nWhen present, the user is automatically added to this organisation.\n"
@@ -2075,14 +2067,11 @@ components:
           type: string
           format: email
         first_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
         last_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
         username:
-          type: string
-          nullable: true
+          type: [string, 'null']
         picture_url:
           type:
           - string
@@ -2135,8 +2124,7 @@ components:
           type: string
           description: User's current password for verification
         name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           maxLength: 50
           description: 'Optional label for the TOTP factor (e.g. "Google Authenticator",
             "Work phone").
@@ -2205,8 +2193,7 @@ components:
           maxLength: 10
           description: The MFA verification code (6-digit TOTP, 4-6 digit SMS, etc.)
         session_id:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: 'Session ID from MFA_REQUIRED login response. Required for
             step 2 of login.
 
@@ -2356,9 +2343,8 @@ components:
                   type: integer
                   format: int64
                 expires_at:
-                  type: integer
+                  type: [integer, 'null']
                   format: int64
-                  nullable: true
                 scopes:
                   type: array
                   items:
@@ -2402,14 +2388,11 @@ components:
           type: string
           format: email
         first_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
         last_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
         username:
-          type: string
-          nullable: true
+          type: [string, 'null']
         email_confirmed:
           type: boolean
         enabled:
@@ -2456,16 +2439,13 @@ components:
       type: object
       properties:
         first_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           maxLength: 100
         last_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           maxLength: 100
         username:
-          type: string
-          nullable: true
+          type: [string, 'null']
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
@@ -2492,8 +2472,7 @@ components:
           - 'null'
           additionalProperties: true
         send_welcome_email:
-          type: boolean
-          nullable: true
+          type: [boolean, 'null']
       required:
       - first_name
       - last_name
@@ -2532,18 +2511,15 @@ components:
           type: boolean
           description: Whether the email address has been verified
         first_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           maxLength: 100
           description: User's first name
         last_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           maxLength: 100
           description: User's last name
         username:
-          type: string
-          nullable: true
+          type: [string, 'null']
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$

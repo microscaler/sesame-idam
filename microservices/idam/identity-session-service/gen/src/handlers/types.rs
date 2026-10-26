@@ -238,12 +238,12 @@ pub struct DualOTPVerifyRequest {
     pub email: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email_code: Option<serde_json::Value>,
+    pub email_code: Option<String>,
 
     pub phone: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub phone_code: Option<serde_json::Value>,
+    pub phone_code: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
@@ -276,7 +276,7 @@ pub struct EmployeeResponse {
     pub org_id_to_org_info: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub picture_url: Option<serde_json::Value>,
+    pub picture_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
@@ -367,7 +367,7 @@ pub struct LoginRequest {
     pub phone_number: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tenant_id: Option<serde_json::Value>,
+    pub tenant_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -388,7 +388,7 @@ pub struct McpAgent {
     pub created_at: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<serde_json::Value>,
+    pub description: Option<String>,
 
     pub name: String,
 
@@ -426,7 +426,7 @@ pub struct McpGetAgentResponse {
     pub created_at: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<serde_json::Value>,
+    pub description: Option<String>,
 
     pub name: String,
 
@@ -462,13 +462,13 @@ pub struct McpValidateRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct McpValidateResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_id: Option<serde_json::Value>,
+    pub agent_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<serde_json::Value>,
+    pub expires_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub permissions: Option<serde_json::Value>,
+    pub permissions: Option<Vec<String>>,
 
     pub valid: bool,
 }
@@ -503,7 +503,7 @@ pub struct MfaRequiredResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MfaSetupRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<serde_json::Value>,
+    pub name: Option<String>,
 
     pub password: String,
 }
@@ -528,7 +528,7 @@ pub struct MfaVerifyRequest {
     pub code: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<serde_json::Value>,
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -559,7 +559,7 @@ pub struct MigrateUserRequest {
     pub legacy_user_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub picture_url: Option<String>,
@@ -601,37 +601,37 @@ pub struct OAuthTokenResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OauthUserinfoResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_url: Option<serde_json::Value>,
+    pub avatar_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email: Option<serde_json::Value>,
+    pub email: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_name: Option<serde_json::Value>,
+    pub first_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_name: Option<serde_json::Value>,
+    pub last_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<serde_json::Value>,
+    pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_name: Option<serde_json::Value>,
+    pub org_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub phone_number: Option<serde_json::Value>,
+    pub phone_number: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub preferred_username: Option<serde_json::Value>,
+    pub preferred_username: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<serde_json::Value>,
@@ -640,19 +640,19 @@ pub struct OauthUserinfoResponse {
     pub sub: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<serde_json::Value>,
+    pub updated_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_id: Option<serde_json::Value>,
+    pub user_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_permissions: Option<serde_json::Value>,
+    pub user_permissions: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_role: Option<serde_json::Value>,
+    pub user_role: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub username: Option<serde_json::Value>,
+    pub username: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -679,7 +679,7 @@ pub struct OpenIDConfiguration {
     pub jwks_uri: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub registration_endpoint: Option<serde_json::Value>,
+    pub registration_endpoint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_modes_supported: Option<Vec<String>>,
@@ -736,7 +736,7 @@ pub struct OpenidConfigurationResponse {
     pub jwks_uri: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub registration_endpoint: Option<serde_json::Value>,
+    pub registration_endpoint: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_modes_supported: Option<Vec<String>>,
@@ -820,12 +820,12 @@ pub struct RegisterRequest {
     pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_id: Option<serde_json::Value>,
+    pub organization_id: Option<String>,
 
     pub password: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tenant_id: Option<serde_json::Value>,
+    pub tenant_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1085,7 +1085,7 @@ pub struct User {
     pub last_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub legacy_user_id: Option<serde_json::Value>,
+    pub legacy_user_id: Option<String>,
 
     pub locked: bool,
 
@@ -1119,37 +1119,37 @@ pub struct User {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UserProfile {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_url: Option<serde_json::Value>,
+    pub avatar_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email: Option<serde_json::Value>,
+    pub email: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_name: Option<serde_json::Value>,
+    pub first_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_name: Option<serde_json::Value>,
+    pub last_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<serde_json::Value>,
+    pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_name: Option<serde_json::Value>,
+    pub org_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub phone_number: Option<serde_json::Value>,
+    pub phone_number: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub preferred_username: Option<serde_json::Value>,
+    pub preferred_username: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<serde_json::Value>,
@@ -1158,19 +1158,19 @@ pub struct UserProfile {
     pub sub: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<serde_json::Value>,
+    pub updated_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_id: Option<serde_json::Value>,
+    pub user_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_permissions: Option<serde_json::Value>,
+    pub user_permissions: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_role: Option<serde_json::Value>,
+    pub user_role: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub username: Option<serde_json::Value>,
+    pub username: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1200,7 +1200,7 @@ pub struct UserQueryItem {
     pub locked: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub signup_flow: Option<serde_json::Value>,
+    pub signup_flow: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
@@ -1230,37 +1230,37 @@ pub struct UserQueryResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UsersMeGetResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_url: Option<serde_json::Value>,
+    pub avatar_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email: Option<serde_json::Value>,
+    pub email: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_name: Option<serde_json::Value>,
+    pub first_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_name: Option<serde_json::Value>,
+    pub last_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<serde_json::Value>,
+    pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_name: Option<serde_json::Value>,
+    pub org_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub phone_number: Option<serde_json::Value>,
+    pub phone_number: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub preferred_username: Option<serde_json::Value>,
+    pub preferred_username: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<serde_json::Value>,
@@ -1269,19 +1269,19 @@ pub struct UsersMeGetResponse {
     pub sub: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<serde_json::Value>,
+    pub updated_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_id: Option<serde_json::Value>,
+    pub user_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_permissions: Option<serde_json::Value>,
+    pub user_permissions: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_role: Option<serde_json::Value>,
+    pub user_role: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub username: Option<serde_json::Value>,
+    pub username: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1305,37 +1305,37 @@ pub struct UsersMePatchRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UsersMePatchResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_url: Option<serde_json::Value>,
+    pub avatar_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email: Option<serde_json::Value>,
+    pub email: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_name: Option<serde_json::Value>,
+    pub first_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_name: Option<serde_json::Value>,
+    pub last_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<serde_json::Value>,
+    pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_name: Option<serde_json::Value>,
+    pub org_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub phone_number: Option<serde_json::Value>,
+    pub phone_number: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub preferred_username: Option<serde_json::Value>,
+    pub preferred_username: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<serde_json::Value>,
@@ -1344,17 +1344,17 @@ pub struct UsersMePatchResponse {
     pub sub: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<serde_json::Value>,
+    pub updated_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_id: Option<serde_json::Value>,
+    pub user_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_permissions: Option<serde_json::Value>,
+    pub user_permissions: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_role: Option<serde_json::Value>,
+    pub user_role: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub username: Option<serde_json::Value>,
+    pub username: Option<String>,
 }

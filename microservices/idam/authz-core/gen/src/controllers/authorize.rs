@@ -27,8 +27,8 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
 
     HttpJson::ok(Response {
         allowed: true,
-        permissions_used: Some(Default::default()),
+        permissions_used: Some(vec![]),
         reason: Some("explicit_role_assignment".to_string()),
-        roles_matched: Some(Default::default()),
+        roles_matched: Some(vec![]),
     })
 }

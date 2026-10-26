@@ -12,39 +12,39 @@ use std::convert::TryFrom;
 pub struct Request {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "domain")]
-    pub domain: Option<serde_json::Value>,
+    pub domain: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "domain_auto_join")]
-    pub domain_auto_join: Option<serde_json::Value>,
+    pub domain_auto_join: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "domain_restrict")]
-    pub domain_restrict: Option<serde_json::Value>,
+    pub domain_restrict: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "domains")]
-    pub domains: Option<serde_json::Value>,
+    pub domains: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "is_saml_configured")]
-    pub is_saml_configured: Option<serde_json::Value>,
+    pub is_saml_configured: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "isolated")]
-    pub isolated: Option<serde_json::Value>,
+    pub isolated: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "legacy_org_id")]
-    pub legacy_org_id: Option<serde_json::Value>,
+    pub legacy_org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "logo_url")]
-    pub logo_url: Option<serde_json::Value>,
+    pub logo_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "max_users")]
-    pub max_users: Option<serde_json::Value>,
+    pub max_users: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "metadata")]
@@ -56,19 +56,19 @@ pub struct Request {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "password_rotation_enabled")]
-    pub password_rotation_enabled: Option<serde_json::Value>,
+    pub password_rotation_enabled: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "password_rotation_history_size")]
-    pub password_rotation_history_size: Option<serde_json::Value>,
+    pub password_rotation_history_size: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "password_rotation_period")]
-    pub password_rotation_period: Option<serde_json::Value>,
+    pub password_rotation_period: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "slug")]
-    pub slug: Option<serde_json::Value>,
+    pub slug: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "X-Tenant-ID")]

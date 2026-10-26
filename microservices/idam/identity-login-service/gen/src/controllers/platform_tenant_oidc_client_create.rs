@@ -12,7 +12,7 @@ use crate::handlers::types::OidcClientResponse;
 pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     HttpJson::ok(Response {
         client: Default::default(),
-        client_secret: Default::default(),
-        secret_id: Default::default(),
+        client_secret: Some("example".to_string()),
+        secret_id: Some("example".to_string()),
     })
 }

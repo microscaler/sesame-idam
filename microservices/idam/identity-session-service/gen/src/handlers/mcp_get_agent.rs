@@ -28,7 +28,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "description")]
-    pub description: Option<serde_json::Value>,
+    pub description: Option<String>,
 
     #[serde(rename = "name")]
     pub name: String,

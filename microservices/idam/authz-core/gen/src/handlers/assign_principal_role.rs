@@ -16,11 +16,11 @@ pub struct Request {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "expires_at")]
-    pub expires_at: Option<serde_json::Value>,
+    pub expires_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     #[serde(rename = "role")]
     pub role: String,

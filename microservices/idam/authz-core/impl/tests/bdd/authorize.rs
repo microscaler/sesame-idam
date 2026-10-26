@@ -110,9 +110,7 @@ fn test_accept_request_with_optional_org_id() {
         resource: "accounting:invoices".to_string(),
         tenant_id: Some("6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string()),
         app_id: None,
-        org_id: Some(serde_json::Value::String(
-            "22222222-8a2d-4c41-8b4b-ae43ce79a493".to_string(),
-        )),
+        org_id: Some("22222222-8a2d-4c41-8b4b-ae43ce79a493".to_string()),
         context: None,
         x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
     };
@@ -138,9 +136,7 @@ fn test_accept_request_with_optional_app_id() {
         action: "delete".to_string(),
         resource: "accounting:invoices".to_string(),
         tenant_id: Some("6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string()),
-        app_id: Some(serde_json::Value::String(
-            "33333333-8a2d-4c41-8b4b-ae43ce79a494".to_string(),
-        )),
+        app_id: Some("33333333-8a2d-4c41-8b4b-ae43ce79a494".to_string()),
         org_id: None,
         context: None,
         x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
@@ -194,7 +190,10 @@ fn test_response_may_contain_permissions_used_array() {
     // When: we construct a response with permissions_used
     let response = Response {
         allowed: true,
-        permissions_used: Some(serde_json::json!(["read:invoices", "write:invoices"])),
+        permissions_used: Some(vec![
+            "read:invoices".to_string(),
+            "write:invoices".to_string(),
+        ]),
         reason: None,
         roles_matched: None,
     };

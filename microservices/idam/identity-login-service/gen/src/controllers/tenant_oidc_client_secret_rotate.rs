@@ -11,7 +11,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
         client_id: "example".to_string(),
         client_secret: "example".to_string(),
         created_at: "example".to_string(),
-        previous_secrets_valid_until: Some(Default::default()),
+        previous_secrets_valid_until: Some("example".to_string()),
         secret_id: "example".to_string(),
     })
 }

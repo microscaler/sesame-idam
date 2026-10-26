@@ -15,7 +15,7 @@ pub struct Request {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "app_id")]
-    pub app_id: Option<serde_json::Value>,
+    pub app_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "context")]
@@ -23,7 +23,7 @@ pub struct Request {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     #[serde(rename = "resource")]
     pub resource: String,
@@ -47,7 +47,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "permissions_used")]
-    pub permissions_used: Option<serde_json::Value>,
+    pub permissions_used: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "reason")]
@@ -55,7 +55,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "roles_matched")]
-    pub roles_matched: Option<serde_json::Value>,
+    pub roles_matched: Option<Vec<String>>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

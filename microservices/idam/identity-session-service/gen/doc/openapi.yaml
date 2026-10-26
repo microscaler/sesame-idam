@@ -709,8 +709,7 @@ paths:
                   type: string
                   description: Human-readable agent name
                 description:
-                  type: string
-                  nullable: true
+                  type: [string, 'null']
                   description: Agent description
       responses:
         '201':
@@ -1136,9 +1135,8 @@ components:
           additionalProperties: true
           description: Custom key-value metadata (arbitrary JSON)
         org_id:
-          type: string
+          type: [string, 'null']
           format: uuid
-          nullable: true
           description: "For SaaS customers: required, must be their own organisation.\n\
             For platform admins: optional \u2014 if omitted, creates a platform-level\
             \ user.\nWhen present, the user is automatically added to this organisation.\n"
@@ -1316,14 +1314,11 @@ components:
           type: string
           format: email
         first_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
         last_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
         username:
-          type: string
-          nullable: true
+          type: [string, 'null']
         picture_url:
           type:
           - string
@@ -1546,9 +1541,8 @@ components:
           description: User's password (only required when logging in with email,
             not with phone OTP)
         organization_id:
-          type: string
+          type: [string, 'null']
           format: uuid
-          nullable: true
           description: Optional organisation hint for multi-tenant orgs
         tenant_id:
           type:
@@ -1871,8 +1865,7 @@ components:
 
             '
         challenge_id:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: 'WebAuthn challenge ID from MFA_REQUIRED response (for webauthn
             factor type).
 
@@ -1991,8 +1984,7 @@ components:
           type: string
           description: JWKS endpoint for JWT verification
         userinfo_endpoint:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: OIDC userinfo endpoint
         registration_endpoint:
           type:
@@ -2326,9 +2318,8 @@ components:
                   type: integer
                   format: int64
                 expires_at:
-                  type: integer
+                  type: [integer, 'null']
                   format: int64
-                  nullable: true
                 scopes:
                   type: array
                   items:
@@ -2404,9 +2395,8 @@ components:
           format: uuid
           description: UUID of the authenticated user
         email:
-          type: string
+          type: [string, 'null']
           format: email
-          nullable: true
           description: User's email address
         email_verified:
           type: boolean
@@ -2418,12 +2408,10 @@ components:
           type: boolean
           description: Whether MFA is required for this user
         id_token:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: OpenID Connect ID token (present in OIDC flows)
         scope:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Granted OAuth scopes
     UpdateEmailRequest:
       type: object
@@ -2538,26 +2526,22 @@ components:
           type: boolean
           description: Whether the email address has been verified
         first_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           maxLength: 100
           description: User's first name
         last_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           maxLength: 100
           description: User's last name
         username:
-          type: string
-          nullable: true
+          type: [string, 'null']
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
           description: Optional human-identifiable username (alphanumeric, underscore,
             hyphen)
         picture_url:
-          type: string
-          nullable: true
+          type: [string, 'null']
           format: uri
           description: Profile picture URL (e.g. from social login)
         properties:
@@ -2610,9 +2594,8 @@ components:
           format: int64
           description: Unix epoch timestamp (seconds) when the user was created
         last_active_at:
-          type: integer
+          type: [integer, 'null']
           format: int64
-          nullable: true
           description: Unix epoch timestamp of last successful authentication
         legacy_user_id:
           type:
@@ -2624,8 +2607,7 @@ components:
 
             '
         phone_number:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Primary phone number in E.164 format (e.g. +14155551234)
         phone_verified:
           type: boolean
@@ -2797,14 +2779,11 @@ components:
           type: string
           format: email
         first_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
         last_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
         username:
-          type: string
-          nullable: true
+          type: [string, 'null']
         email_confirmed:
           type: boolean
         enabled:

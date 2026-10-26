@@ -249,9 +249,7 @@ fn test_accept_request_with_optional_org_id() {
         user_id: "1189c444-8a2d-4c41-8b4b-ae43ce79a492".to_string(),
         tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
         app_id: "33333333-8a2d-4c41-8b4b-ae43ce79a494".to_string(),
-        org_id: Some(serde_json::Value::String(
-            "22222222-8a2d-4c41-8b4b-ae43ce79a493".to_string(),
-        )),
+        org_id: Some("22222222-8a2d-4c41-8b4b-ae43ce79a493".to_string()),
         include_inherited: None,
         x_tenant_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8".to_string(),
     };

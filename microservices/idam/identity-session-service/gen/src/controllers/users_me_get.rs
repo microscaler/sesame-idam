@@ -48,29 +48,23 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     }
 
     HttpJson::ok(Response {
-        avatar_url: Some(serde_json::Value::String(
-            "https://example.com/avatars/alice.png".to_string(),
-        )),
-        email: Some(serde_json::Value::String("alice@example.com".to_string())),
+        avatar_url: Some("https://example.com/avatars/alice.png".to_string()),
+        email: Some("alice@example.com".to_string()),
         email_verified: Some(true),
-        first_name: Some(serde_json::Value::String("Alice".to_string())),
-        last_name: Some(serde_json::Value::String("Smith".to_string())),
-        name: Some(Default::default()),
-        org_id: Some(Default::default()),
-        org_name: Some(Default::default()),
-        phone_number: Some(Default::default()),
+        first_name: Some("Alice".to_string()),
+        last_name: Some("Smith".to_string()),
+        name: Some("example".to_string()),
+        org_id: Some("example".to_string()),
+        org_name: Some("example".to_string()),
+        phone_number: Some("example".to_string()),
         phone_verified: Some(false),
-        preferred_username: Some(Default::default()),
+        preferred_username: Some("example".to_string()),
         properties: Some(Default::default()),
         sub: Some("example".to_string()),
-        updated_at: Some(serde_json::Value::String(
-            "2024-01-15T10:30:00Z".to_string(),
-        )),
-        user_id: Some(serde_json::Value::String(
-            "31c41c16-c281-44ae-9602-8a047e3bf33d".to_string(),
-        )),
-        user_permissions: Some(Default::default()),
-        user_role: Some(Default::default()),
-        username: Some(serde_json::Value::String("alice".to_string())),
+        updated_at: Some("2024-01-15T10:30:00Z".to_string()),
+        user_id: Some("31c41c16-c281-44ae-9602-8a047e3bf33d".to_string()),
+        user_permissions: Some(vec![]),
+        user_role: Some("example".to_string()),
+        username: Some("alice".to_string()),
     })
 }

@@ -3275,14 +3275,12 @@ components:
           format: uri
           description: Organisation logo URL
         domain:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Primary organisation domain
         domains:
-          type: array
+          type: [array, 'null']
           items:
             type: string
-          nullable: true
           description: Additional domains for auto-join
         domain_auto_join:
           type: boolean
@@ -3363,8 +3361,7 @@ components:
       description: Partial update for organisation settings. All fields are optional.
       properties:
         name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Organisation name
         slug:
           type:
@@ -3828,33 +3825,28 @@ components:
         auto_join:
           type: boolean
         pending_until:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         verified_at:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         last_checked_at:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         last_verified_at:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         grace_until:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         created_at:
           type: string
           format: date-time
         record:
           description: The record to publish (PENDING claims, when the verification key is available)
-          nullable: true
-          allOf:
+          oneOf:
           - $ref: '#/components/schemas/OrgDomainRecord'
+          - type: 'null'
     OrgDomainList:
       type: object
       required:

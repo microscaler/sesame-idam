@@ -1340,9 +1340,8 @@ components:
                 format: uuid
                 description: Application ID
               org_id:
-                type: string
+                type: [string, 'null']
                 format: uuid
-                nullable: true
                 description: Organisation scope
               inherited:
                 type: boolean
@@ -1387,9 +1386,8 @@ components:
           format: uuid
           description: Organisation scope
         tenant_id:
-          type: string
+          type: [string, 'null']
           format: uuid
-          nullable: true
           description: Tenant scope
         context:
           type:
@@ -1406,8 +1404,7 @@ components:
           type: boolean
           description: Whether the principal is authorized for this action
         reason:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: 'Reason for denial (null when allowed).
 
             Examples: "no_matching_role", "insufficient_permissions", "resource_not_owned"

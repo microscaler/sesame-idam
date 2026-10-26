@@ -40,11 +40,11 @@ pub struct Request {
 pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "avatar_url")]
-    pub avatar_url: Option<serde_json::Value>,
+    pub avatar_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "email")]
-    pub email: Option<serde_json::Value>,
+    pub email: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "email_verified")]
@@ -52,27 +52,27 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "first_name")]
-    pub first_name: Option<serde_json::Value>,
+    pub first_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "last_name")]
-    pub last_name: Option<serde_json::Value>,
+    pub last_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "name")]
-    pub name: Option<serde_json::Value>,
+    pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_name")]
-    pub org_name: Option<serde_json::Value>,
+    pub org_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "phone_number")]
-    pub phone_number: Option<serde_json::Value>,
+    pub phone_number: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "phone_verified")]
@@ -80,7 +80,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "preferred_username")]
-    pub preferred_username: Option<serde_json::Value>,
+    pub preferred_username: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "properties")]
@@ -92,23 +92,23 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "updated_at")]
-    pub updated_at: Option<serde_json::Value>,
+    pub updated_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_id")]
-    pub user_id: Option<serde_json::Value>,
+    pub user_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_permissions")]
-    pub user_permissions: Option<serde_json::Value>,
+    pub user_permissions: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_role")]
-    pub user_role: Option<serde_json::Value>,
+    pub user_role: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "username")]
-    pub username: Option<serde_json::Value>,
+    pub username: Option<String>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

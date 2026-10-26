@@ -2818,9 +2818,8 @@ components:
           minLength: 8
           description: User's password
         organization_id:
-          type: string
+          type: [string, 'null']
           format: uuid
-          nullable: true
           description: Optional org hint for multi-tenant login
       example: *id038
     TokenResponse:
@@ -2857,12 +2856,10 @@ components:
           type: boolean
           description: Whether MFA is required for this user
         id_token:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: OpenID Connect ID token (present in OIDC flows)
         scope:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Granted OAuth scopes
         entitlements_ref:
           type: string
@@ -3054,20 +3051,18 @@ components:
           format: email
           description: Email address to verify
         email_code:
-          type: string
+          type: [string, 'null']
           minLength: 6
           maxLength: 6
-          nullable: true
           description: 6-digit email OTP code (omit if already verified)
         phone:
           type: string
           pattern: ^\\+[1-9]\\d{1,14}$
           description: Phone number to verify (E.164 format)
         phone_code:
-          type: string
+          type: [string, 'null']
           minLength: 6
           maxLength: 6
-          nullable: true
           description: 6-digit phone OTP code (omit if already verified)
         session_id:
           type: string
@@ -3138,26 +3133,22 @@ components:
           maxLength: 128
           description: User's password (minimum 8 characters)
         first_name:
-          type: string
+          type: [string, 'null']
           maxLength: 100
-          nullable: true
           description: User's first name
         last_name:
-          type: string
+          type: [string, 'null']
           maxLength: 100
-          nullable: true
           description: User's last name
         username:
-          type: string
+          type: [string, 'null']
           minLength: 3
           maxLength: 50
           pattern: ^[a-zA-Z0-9_-]+$
-          nullable: true
           description: Optional human-identifiable username
         phone:
-          type: string
+          type: [string, 'null']
           pattern: ^\\+[1-9]\\d{1,14}$
-          nullable: true
           description: Phone number in E.164 format (for dual verification flow)
       example: *id050
     TokenRequest:
@@ -3512,28 +3503,23 @@ components:
           type: boolean
           description: Whether the email has been verified
         phone_number:
-          type: string
+          type: [string, 'null']
           pattern: ^\+[1-9]\d{1,14}$
-          nullable: true
           description: Phone number in E.164 format
         phone_verified:
           type: boolean
           description: Whether the phone has been verified
         first_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: User's first name
         last_name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: User's last name
         name:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Full display name
         preferred_username:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Preferred username
     PlatformTenant:
       type: object
@@ -3630,35 +3616,28 @@ components:
             secret. `envelope`: tenant credentials sealed at rest — dogfood
             tenants only.
         connected_account_sid:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Required for `connect`. Not a secret; revocable by the tenant.
         account_sid:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Required for `envelope`. Not a secret.
         auth_token:
-          type: string
-          nullable: true
+          type: [string, 'null']
           format: password
           writeOnly: true
           description: |
             Required for `envelope`. WRITE-ONLY — sealed on receipt and never
             returned by any endpoint. Omit to keep the stored value.
         messaging_service_sid:
-          type: string
-          nullable: true
+          type: [string, 'null']
         from_number:
-          type: string
-          nullable: true
+          type: [string, 'null']
         campaign_ref:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: A2P/10DLC campaign registration reference.
         daily_spend_ceiling_cents:
-          type: integer
+          type: [integer, 'null']
           format: int32
-          nullable: true
           description: Per-day spend cap for this tenant. Omit to keep current.
     TenantSmsConfigResponse:
       type: object
@@ -3686,27 +3665,21 @@ components:
           type: boolean
           description: Whether a credential is stored — never the credential itself.
         account_sid:
-          type: string
-          nullable: true
+          type: [string, 'null']
         connected_account_sid:
-          type: string
-          nullable: true
+          type: [string, 'null']
         messaging_service_sid:
-          type: string
-          nullable: true
+          type: [string, 'null']
         from_number:
-          type: string
-          nullable: true
+          type: [string, 'null']
         campaign_ref:
-          type: string
-          nullable: true
+          type: [string, 'null']
         daily_spend_ceiling_cents:
           type: integer
           format: int32
         last_validated_at:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
     OidcAuthorizationCompleteResponse:
       type: object
       additionalProperties: false
@@ -4094,8 +4067,7 @@ components:
           type: string
           description: Env var name for client secret (K8s → pod)
         client_id_env_key:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Optional env var override for client_id
         enabled:
           type: boolean
@@ -4125,19 +4097,16 @@ components:
         secret_env_key:
           type: string
         client_id_env_key:
-          type: string
-          nullable: true
+          type: [string, 'null']
         config_version:
           type: integer
         enabled:
           type: boolean
         last_rotated_at:
-          type: string
+          type: [string, 'null']
           format: date-time
-          nullable: true
         last_rotated_by:
-          type: string
-          nullable: true
+          type: [string, 'null']
     OAuthRotateRequest:
       type: object
       required:

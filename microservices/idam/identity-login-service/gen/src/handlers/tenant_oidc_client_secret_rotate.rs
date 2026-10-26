@@ -32,7 +32,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "previous_secrets_valid_until")]
-    pub previous_secrets_valid_until: Option<serde_json::Value>,
+    pub previous_secrets_valid_until: Option<String>,
 
     #[serde(rename = "secret_id")]
     pub secret_id: String,

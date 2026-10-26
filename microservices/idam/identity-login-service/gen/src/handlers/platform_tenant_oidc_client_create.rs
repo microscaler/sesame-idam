@@ -50,11 +50,13 @@ pub struct Response {
     #[serde(rename = "client")]
     pub client: OidcClientResponse,
 
+    #[serde(deserialize_with = "Option::deserialize")]
     #[serde(rename = "client_secret")]
-    pub client_secret: serde_json::Value,
+    pub client_secret: Option<String>,
 
+    #[serde(deserialize_with = "Option::deserialize")]
     #[serde(rename = "secret_id")]
-    pub secret_id: serde_json::Value,
+    pub secret_id: Option<String>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

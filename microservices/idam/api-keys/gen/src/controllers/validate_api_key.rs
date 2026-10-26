@@ -42,17 +42,17 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     }
 
     HttpJson::ok(Response {
-        api_key_id: Some(Default::default()),
+        api_key_id: Some("example".to_string()),
         expires_at: Some(1736934600),
         is_expired: Some(true),
-        org_id: Some(Default::default()),
+        org_id: Some("example".to_string()),
         permissions: Some(vec![
             "read".to_string(),
             "write".to_string(),
             "delete".to_string(),
         ]),
-        scope_type: Some(Default::default()),
-        user_id: Some(Default::default()),
+        scope_type: Some("example".to_string()),
+        user_id: Some("example".to_string()),
         valid: true,
     })
 }

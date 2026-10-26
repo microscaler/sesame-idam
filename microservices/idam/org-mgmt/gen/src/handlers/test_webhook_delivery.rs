@@ -26,7 +26,7 @@ pub struct Request {
 pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "delivery_status")]
-    pub delivery_status: Option<serde_json::Value>,
+    pub delivery_status: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "endpoint_url")]

@@ -206,7 +206,7 @@ pub struct CreateOrgDomainResponse {
     pub pending_until: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub record: Option<serde_json::Value>,
+    pub record: Option<OrgDomainRecord>,
 
     pub scope: String,
 
@@ -231,13 +231,13 @@ pub struct CreateOrgRequest {
     pub domains: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub legacy_org_id: Option<serde_json::Value>,
+    pub legacy_org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logo_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_users: Option<serde_json::Value>,
+    pub max_users: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -352,7 +352,7 @@ pub struct CreateWebhookSubscriptionRequest {
     pub metadata: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub secret: Option<serde_json::Value>,
+    pub secret: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -548,13 +548,13 @@ pub struct FetchOrgResponse {
     pub isolated: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub legacy_org_id: Option<serde_json::Value>,
+    pub legacy_org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logo_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_users: Option<serde_json::Value>,
+    pub max_users: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -573,7 +573,7 @@ pub struct FetchOrgResponse {
     pub slug: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sso_trust_level: Option<serde_json::Value>,
+    pub sso_trust_level: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
@@ -797,13 +797,13 @@ pub struct Org {
     pub isolated: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub legacy_org_id: Option<serde_json::Value>,
+    pub legacy_org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logo_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_users: Option<serde_json::Value>,
+    pub max_users: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -822,7 +822,7 @@ pub struct Org {
     pub slug: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sso_trust_level: Option<serde_json::Value>,
+    pub sso_trust_level: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
@@ -855,7 +855,7 @@ pub struct OrgDomain {
     pub pending_until: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub record: Option<serde_json::Value>,
+    pub record: Option<OrgDomainRecord>,
 
     pub scope: String,
 
@@ -1039,7 +1039,7 @@ pub struct RevokeOrgDomainResponse {
     pub pending_until: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub record: Option<serde_json::Value>,
+    pub record: Option<OrgDomainRecord>,
 
     pub scope: String,
 
@@ -1448,7 +1448,7 @@ pub struct SubscribeRoleMappingRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct TestWebhookDeliveryResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delivery_status: Option<serde_json::Value>,
+    pub delivery_status: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint_url: Option<String>,
@@ -1529,7 +1529,7 @@ pub struct UpdateOrgDomainResponse {
     pub pending_until: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub record: Option<serde_json::Value>,
+    pub record: Option<OrgDomainRecord>,
 
     pub scope: String,
 
@@ -1542,31 +1542,31 @@ pub struct UpdateOrgDomainResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateOrgRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub domain: Option<serde_json::Value>,
+    pub domain: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub domain_auto_join: Option<serde_json::Value>,
+    pub domain_auto_join: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub domain_restrict: Option<serde_json::Value>,
+    pub domain_restrict: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub domains: Option<serde_json::Value>,
+    pub domains: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub is_saml_configured: Option<serde_json::Value>,
+    pub is_saml_configured: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub isolated: Option<serde_json::Value>,
+    pub isolated: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub legacy_org_id: Option<serde_json::Value>,
+    pub legacy_org_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub logo_url: Option<serde_json::Value>,
+    pub logo_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_users: Option<serde_json::Value>,
+    pub max_users: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -1575,16 +1575,16 @@ pub struct UpdateOrgRequest {
     pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub password_rotation_enabled: Option<serde_json::Value>,
+    pub password_rotation_enabled: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub password_rotation_history_size: Option<serde_json::Value>,
+    pub password_rotation_history_size: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub password_rotation_period: Option<serde_json::Value>,
+    pub password_rotation_period: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub slug: Option<serde_json::Value>,
+    pub slug: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1607,19 +1607,19 @@ pub struct UpdateOrgResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateWebhookSubscriptionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub enabled: Option<serde_json::Value>,
+    pub enabled: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint_url: Option<serde_json::Value>,
+    pub endpoint_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub events: Option<serde_json::Value>,
+    pub events: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub secret: Option<serde_json::Value>,
+    pub secret: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1674,10 +1674,10 @@ pub struct WebhookSubscription {
     pub failed_deliveries: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_delivery_at: Option<serde_json::Value>,
+    pub last_delivery_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_delivery_status: Option<serde_json::Value>,
+    pub last_delivery_status: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub org_id: Option<String>,
@@ -1698,7 +1698,7 @@ pub struct WebhookSubscription {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct WebhookTestResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delivery_status: Option<serde_json::Value>,
+    pub delivery_status: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint_url: Option<String>,

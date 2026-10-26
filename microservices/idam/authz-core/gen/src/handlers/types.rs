@@ -10,10 +10,10 @@ pub struct AssignPrincipalRoleRequest {
     pub app_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<serde_json::Value>,
+    pub expires_at: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     pub role: String,
 
@@ -268,13 +268,13 @@ pub struct AuthorizeRequest {
     pub action: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub app_id: Option<serde_json::Value>,
+    pub app_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     pub resource: String,
 
@@ -289,13 +289,13 @@ pub struct AuthorizeResponse {
     pub allowed: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub permissions_used: Option<serde_json::Value>,
+    pub permissions_used: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub roles_matched: Option<serde_json::Value>,
+    pub roles_matched: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -361,7 +361,7 @@ pub struct EffectiveRequest {
     pub include_inherited: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     pub tenant_id: String,
 
@@ -526,7 +526,7 @@ pub struct PrincipalEffectiveRequest {
     pub include_inherited: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     pub tenant_id: String,
 
@@ -550,7 +550,7 @@ pub struct PrincipalRoleAssignment {
     pub created_at: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     pub role: String,
 
@@ -599,7 +599,7 @@ pub struct SetPrincipalAttributeRequest {
     pub key: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org_id: Option<serde_json::Value>,
+    pub org_id: Option<String>,
 
     pub tenant_id: String,
 

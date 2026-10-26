@@ -23,11 +23,13 @@ pub struct Response {
     #[serde(rename = "email")]
     pub email: String,
 
+    #[serde(deserialize_with = "Option::deserialize")]
     #[serde(rename = "first_name")]
-    pub first_name: String,
+    pub first_name: Option<String>,
 
+    #[serde(deserialize_with = "Option::deserialize")]
     #[serde(rename = "last_name")]
-    pub last_name: String,
+    pub last_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "org_id_to_org_info")]
@@ -35,13 +37,14 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "picture_url")]
-    pub picture_url: Option<serde_json::Value>,
+    pub picture_url: Option<String>,
 
     #[serde(rename = "user_id")]
     pub user_id: String,
 
+    #[serde(deserialize_with = "Option::deserialize")]
     #[serde(rename = "username")]
-    pub username: String,
+    pub username: Option<String>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

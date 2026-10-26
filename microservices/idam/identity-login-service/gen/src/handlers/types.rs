@@ -657,22 +657,22 @@ pub struct OauthTokenResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OauthUserinfoResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email: Option<serde_json::Value>,
+    pub email: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email_verified: Option<serde_json::Value>,
+    pub email_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub family_name: Option<serde_json::Value>,
+    pub family_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub given_name: Option<serde_json::Value>,
+    pub given_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<serde_json::Value>,
+    pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub preferred_username: Option<serde_json::Value>,
+    pub preferred_username: Option<String>,
 
     pub sub: String,
 }
@@ -714,9 +714,11 @@ pub struct OidcClientCreateRequest {
 pub struct OidcClientCreateResponse {
     pub client: OidcClientResponse,
 
-    pub client_secret: serde_json::Value,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub client_secret: Option<String>,
 
-    pub secret_id: serde_json::Value,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub secret_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -766,7 +768,7 @@ pub struct OidcClientSecretResponse {
     pub created_at: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub previous_secrets_valid_until: Option<serde_json::Value>,
+    pub previous_secrets_valid_until: Option<String>,
 
     pub secret_id: String,
 }
@@ -850,22 +852,22 @@ pub struct OidcTokenResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OidcUserInfoResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email: Option<serde_json::Value>,
+    pub email: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email_verified: Option<serde_json::Value>,
+    pub email_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub family_name: Option<serde_json::Value>,
+    pub family_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub given_name: Option<serde_json::Value>,
+    pub given_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<serde_json::Value>,
+    pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub preferred_username: Option<serde_json::Value>,
+    pub preferred_username: Option<String>,
 
     pub sub: String,
 }
@@ -1017,9 +1019,11 @@ pub struct PlatformTenantOidcClientCreateRequest {
 pub struct PlatformTenantOidcClientCreateResponse {
     pub client: OidcClientResponse,
 
-    pub client_secret: serde_json::Value,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub client_secret: Option<String>,
 
-    pub secret_id: serde_json::Value,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub secret_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1533,9 +1537,11 @@ pub struct TenantOidcClientCreateRequest {
 pub struct TenantOidcClientCreateResponse {
     pub client: OidcClientResponse,
 
-    pub client_secret: serde_json::Value,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub client_secret: Option<String>,
 
-    pub secret_id: serde_json::Value,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub secret_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1619,7 +1625,7 @@ pub struct TenantOidcClientSecretRotateResponse {
     pub created_at: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub previous_secrets_valid_until: Option<serde_json::Value>,
+    pub previous_secrets_valid_until: Option<String>,
 
     pub secret_id: String,
 }

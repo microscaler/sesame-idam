@@ -50,8 +50,8 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
         expires_at: Some(1736934600),
         metadata: Some(Default::default()),
         name: "Updated Production Key".to_string(),
-        org_id: Some(Default::default()),
+        org_id: Some("example".to_string()),
         permissions: Some(vec!["read".to_string(), "write".to_string()]),
-        user_id: Some(Default::default()),
+        user_id: Some("example".to_string()),
     })
 }

@@ -16,27 +16,27 @@ pub struct Request {}
 pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "email")]
-    pub email: Option<serde_json::Value>,
+    pub email: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "email_verified")]
-    pub email_verified: Option<serde_json::Value>,
+    pub email_verified: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "family_name")]
-    pub family_name: Option<serde_json::Value>,
+    pub family_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "given_name")]
-    pub given_name: Option<serde_json::Value>,
+    pub given_name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "name")]
-    pub name: Option<serde_json::Value>,
+    pub name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "preferred_username")]
-    pub preferred_username: Option<serde_json::Value>,
+    pub preferred_username: Option<String>,
 
     #[serde(rename = "sub")]
     pub sub: String,

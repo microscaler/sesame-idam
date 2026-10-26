@@ -165,7 +165,7 @@ fn assign(
         data: AssignRequest {
             app_id: None,
             expires_at: None,
-            org_id: org.map(|o| json!(o.to_string())),
+            org_id: org.map(|o| o.to_string()),
             role: role.into(),
             tenant_id: None,
             user_id: user.to_string(),

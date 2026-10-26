@@ -139,7 +139,7 @@ impl TryFrom<HandlerRequest> for Request {
         if let Some(v) = req.get_query_param("email_confirmed") {
             // Built once, not per request: decode_param_value reads only its types.
             static SCHEMA: std::sync::LazyLock<Value> =
-                std::sync::LazyLock::new(|| serde_json::json!({"type":"boolean"}));
+                std::sync::LazyLock::new(|| serde_json::json!({"type":["boolean","null"]}));
             data_map.insert(
                 "email_confirmed".to_string(),
                 brrtrouter::server::request::decode_param_value(v, Some(&*SCHEMA), None, None),
@@ -152,7 +152,7 @@ impl TryFrom<HandlerRequest> for Request {
         if let Some(v) = req.get_query_param("enabled") {
             // Built once, not per request: decode_param_value reads only its types.
             static SCHEMA: std::sync::LazyLock<Value> =
-                std::sync::LazyLock::new(|| serde_json::json!({"type":"boolean"}));
+                std::sync::LazyLock::new(|| serde_json::json!({"type":["boolean","null"]}));
             data_map.insert(
                 "enabled".to_string(),
                 brrtrouter::server::request::decode_param_value(v, Some(&*SCHEMA), None, None),
@@ -165,7 +165,7 @@ impl TryFrom<HandlerRequest> for Request {
         if let Some(v) = req.get_query_param("disabled") {
             // Built once, not per request: decode_param_value reads only its types.
             static SCHEMA: std::sync::LazyLock<Value> =
-                std::sync::LazyLock::new(|| serde_json::json!({"type":"boolean"}));
+                std::sync::LazyLock::new(|| serde_json::json!({"type":["boolean","null"]}));
             data_map.insert(
                 "disabled".to_string(),
                 brrtrouter::server::request::decode_param_value(v, Some(&*SCHEMA), None, None),
@@ -178,7 +178,7 @@ impl TryFrom<HandlerRequest> for Request {
         if let Some(v) = req.get_query_param("locked") {
             // Built once, not per request: decode_param_value reads only its types.
             static SCHEMA: std::sync::LazyLock<Value> =
-                std::sync::LazyLock::new(|| serde_json::json!({"type":"boolean"}));
+                std::sync::LazyLock::new(|| serde_json::json!({"type":["boolean","null"]}));
             data_map.insert(
                 "locked".to_string(),
                 brrtrouter::server::request::decode_param_value(v, Some(&*SCHEMA), None, None),
@@ -191,7 +191,7 @@ impl TryFrom<HandlerRequest> for Request {
         if let Some(v) = req.get_query_param("created_after") {
             // Built once, not per request: decode_param_value reads only its types.
             static SCHEMA: std::sync::LazyLock<Value> = std::sync::LazyLock::new(
-                || serde_json::json!({"format":"date-time","type":"string"}),
+                || serde_json::json!({"format":"date-time","type":["string","null"]}),
             );
             data_map.insert(
                 "created_after".to_string(),
@@ -205,7 +205,7 @@ impl TryFrom<HandlerRequest> for Request {
         if let Some(v) = req.get_query_param("created_before") {
             // Built once, not per request: decode_param_value reads only its types.
             static SCHEMA: std::sync::LazyLock<Value> = std::sync::LazyLock::new(
-                || serde_json::json!({"format":"date-time","type":"string"}),
+                || serde_json::json!({"format":"date-time","type":["string","null"]}),
             );
             data_map.insert(
                 "created_before".to_string(),

@@ -974,9 +974,8 @@ components:
           format: int64
           description: Unix timestamp of creation
         expires_at:
-          type: integer
+          type: [integer, 'null']
           format: int64
-          nullable: true
           description: Unix timestamp of expiration (null = no expiry)
         permissions:
           type: array
@@ -1011,9 +1010,8 @@ components:
           format: int64
           description: Unix timestamp of creation
         expires_at:
-          type: integer
+          type: [integer, 'null']
           format: int64
-          nullable: true
           description: Unix timestamp of expiration (null = no expiry)
         active:
           type: boolean
@@ -1121,15 +1119,13 @@ components:
           - org
           description: Whether this key is user-scoped or org-scoped
         permissions:
-          type: array
+          type: [array, 'null']
           items:
             type: string
-          nullable: true
           description: Permission codes granted by this key
         expires_at:
-          type: integer
+          type: [integer, 'null']
           format: int64
-          nullable: true
           description: Expiration timestamp
         is_expired:
           type: boolean
@@ -1177,22 +1173,18 @@ components:
       - $ref: '#/components/schemas/ApiKey'
       properties:
         revoked_at:
-          type: integer
+          type: [integer, 'null']
           format: int64
-          nullable: true
           description: Unix timestamp when the key was revoked
         revoked_by_user_id:
-          type: string
+          type: [string, 'null']
           format: uuid
-          nullable: true
           description: User ID of the user who revoked the key
         reason:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Reason for revocation
         archived_reason:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Why the key is archived (expired, revoked, etc.)
       example: *id023
     ArchivedApiKeyListResponse:
@@ -1261,14 +1253,12 @@ components:
                   type: string
                 description: Permission codes for this key
               expires_at:
-                type: integer
+                type: [integer, 'null']
                 format: int64
-                nullable: true
                 description: Unix timestamp of expiration
               metadata:
-                type: object
+                type: [object, 'null']
                 additionalProperties: true
-                nullable: true
                 description: Custom metadata
     ImportApiKeysResponse:
       type: object
