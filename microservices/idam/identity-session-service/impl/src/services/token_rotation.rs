@@ -157,70 +157,85 @@ fn rotate_refresh_token_bound(
     expected_tenant_id: Option<&str>,
     expected_client_id: Option<&str>,
 ) -> RotationOutcome {
+    use sesame_common::refresh_session::{self as refresh_store, Advance, Policy, Presented};
+
+    let policy = Policy::from_env();
+
+    let fail = |subreason: &str| {
+        TOKEN_REFRESH_TOTAL
+            .with_label_values(&["failure", subreason])
+            .inc();
+        REFRESH_ROTATION_FAILURES_TOTAL.inc();
+    };
     if super::token_issuer::SIGNER
         .verify(refresh_token_value)
         .is_err()
     {
-        TOKEN_REFRESH_TOTAL
-            .with_label_values(&["failure", "invalid_signature"])
-            .inc();
-        REFRESH_ROTATION_FAILURES_TOTAL.inc();
+        fail("invalid_signature");
         return RotationOutcome::InvalidToken;
     }
-    let parts: Vec<&str> = refresh_token_value.split('.').collect();
-    if parts.len() != 3 {
-        TOKEN_REFRESH_TOTAL
-            .with_label_values(&["failure", "invalid_format"])
-            .inc();
-        REFRESH_ROTATION_FAILURES_TOTAL.inc();
-        return RotationOutcome::InvalidToken;
-    }
-
-    // Decode the JTI from the refresh token (payload portion)
-    let Some(jti) = decode_refresh_token_jti(refresh_token_value) else {
-        TOKEN_REFRESH_TOTAL
-            .with_label_values(&["failure", "decode_error"])
-            .inc();
-        REFRESH_ROTATION_FAILURES_TOTAL.inc();
+    // The payload is signed (verified above): jti, subject and family come from the token itself.
+    let Some(claims) = decode_refresh_token_claims(refresh_token_value) else {
+        fail("decode_error");
         return RotationOutcome::InvalidToken;
     };
+    let now = chrono::Utc::now().timestamp();
 
-    // Step 1: Look up the refresh token in Redis
-    let token = match redis::lookup_refresh_token(&jti) {
-        Ok(Some(t)) => t,
-        Ok(None) => {
-            // Rotated out moments ago? Hand back the same successor (replay
-            // grace: a reloaded tab, a racing second tab, a lost response).
-            // See redis::ROTATION_REPLAY_GRACE_SECS.
-            if let Ok(Some(receipt)) = redis::lookup_rotation_receipt(&jti) {
-                if let Some(outcome) =
-                    rotated_from_receipt(&receipt, expected_tenant_id, expected_client_id)
-                {
-                    TOKEN_REFRESH_TOTAL
-                        .with_label_values(&["success", "replayed"])
-                        .inc();
-                    tracing::info!(
-                        event = "refresh_replayed_within_grace",
-                        old_jti = jti,
-                        "Rotated-out refresh token presented again within the grace window; successor returned"
-                    );
-                    return outcome;
-                }
+    // Round trip 1: the session, any pre-change record, the grace receipt and the token version.
+    let (presented, token_version) =
+        match refresh_store::inspect(&claims.family_id, &claims.jti, &claims.sub, now) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::error!(event = "refresh_store_unavailable", error = %e);
+                fail("redis_error");
+                return RotationOutcome::RedisUnavailable;
             }
-            TOKEN_REFRESH_TOTAL
-                .with_label_values(&["failure", "not_found"])
-                .inc();
-            REFRESH_ROTATION_FAILURES_TOTAL.inc();
+        };
+    let (token, legacy, absolute_expiry) = match presented {
+        Presented::Current(session) => {
+            let abs = session.abs;
+            (session.current(), None, abs)
+        }
+        Presented::Legacy(record) => {
+            // A token issued before session records: its own expiry is the session's absolute cap.
+            if record.exp <= now {
+                fail("not_found");
+                return RotationOutcome::InvalidToken;
+            }
+            let abs = record.exp;
+            (record.clone(), Some(record), abs)
+        }
+        Presented::Replay(receipt) => {
+            // The token rotated out moments ago (a reloaded tab, a racing second tab, a lost response): the same
+            // successor again, never a second pair. See redis::ROTATION_REPLAY_GRACE_SECS.
+            if let Some(outcome) =
+                rotated_from_receipt(&receipt, expected_tenant_id, expected_client_id)
+            {
+                TOKEN_REFRESH_TOTAL
+                    .with_label_values(&["success", "replayed"])
+                    .inc();
+                tracing::info!(
+                    event = "refresh_replayed_within_grace",
+                    old_jti = claims.jti,
+                    "Rotated-out refresh token presented again within the grace window; successor returned"
+                );
+                return outcome;
+            }
+            fail("not_found");
             return RotationOutcome::InvalidToken;
         }
-        Err(_) => {
-            TOKEN_REFRESH_TOTAL
-                .with_label_values(&["failure", "redis_error"])
-                .inc();
-            REFRESH_ROTATION_FAILURES_TOTAL.inc();
-            return RotationOutcome::RedisUnavailable;
+        Presented::Superseded(session) => {
+            return reuse_detected(&session.family_id, &claims.jti);
+        }
+        Presented::Unknown => {
+            fail("not_found");
+            return RotationOutcome::InvalidToken;
         }
     };
+    if token.sub != claims.sub {
+        fail("subject_mismatch");
+        return RotationOutcome::InvalidToken;
+    }
     if expected_client_id.is_some_and(|expected| expected != token.client_id) {
         return RotationOutcome::InvalidToken;
     }
@@ -231,49 +246,19 @@ fn rotate_refresh_token_bound(
         None => return RotationOutcome::InvalidToken,
     };
 
-    // Prefer the family recorded on the stored token (set at login time).
-    let family_id = token.family_id.as_str();
-
-    // Step 2: Check if this JTI is in the denylist (reuse detection)
-    // This detects the "tear" scenario where an attacker used the token
-    // after the legitimate user rotated it
-    if token.jti == jti && redis::is_in_denylist(&jti).unwrap_or(false) {
-        TOKEN_REFRESH_TOTAL
-            .with_label_values(&["failure", "reuse_detected"])
-            .inc();
-        REFRESH_REUSE_DETECTED_TOTAL.inc();
-
-        // Revoke the entire family (F-005: cross-session notification)
-        if let Err(e) = redis::delete_family_tokens(family_id) {
-            tracing::error!(
-                event = "family_revocation_failed",
-                family_id = family_id,
-                error = e.to_string(),
-                "Failed to revoke token family after reuse detection"
-            );
-        }
-
-        return RotationOutcome::ReuseDetected {
-            reused_jti: jti,
-            family_id: family_id.to_string(),
-        };
-    }
-
-    // Step 2b: the account must still be active. A refresh token outlives an access token by days; without this a
-    // disabled (or deleted) user rotated their way to fresh access tokens indefinitely, roles and all. The family is
-    // revoked so the session ends here. A database failure refuses the refresh (503) rather than issue blind.
+    // The account must still be active. A refresh token outlives an access token by days; without this a disabled
+    // (or deleted) user rotated their way to fresh access tokens indefinitely, roles and all. The session is revoked
+    // so it ends here. A database failure refuses the refresh (503) without touching the session.
     match account_state(tenant_id, &token.sub) {
         AccountState::Active => {}
         AccountState::Inactive => {
-            TOKEN_REFRESH_TOTAL
-                .with_label_values(&["failure", "account_inactive"])
-                .inc();
-            if let Err(e) = redis::delete_family_tokens(family_id) {
+            fail("account_inactive");
+            if let Err(e) = refresh_store::revoke(&claims.family_id, &claims.jti) {
                 tracing::error!(
                     event = "family_revocation_failed",
-                    family_id = family_id,
-                    error = e.to_string(),
-                    "Failed to revoke the token family of an inactive account"
+                    family_id = claims.family_id,
+                    error = %e,
+                    "Failed to revoke the session of an inactive account"
                 );
             }
             return RotationOutcome::InvalidToken;
@@ -281,92 +266,61 @@ fn rotate_refresh_token_bound(
         AccountState::Unknown => return RotationOutcome::RedisUnavailable,
     }
 
-    // Step 3: Normal rotation — delete old token
-    if let Err(e) = redis::delete_refresh_token(&jti) {
-        tracing::warn!(
-            event = "rotation_old_token_delete_failed",
-            jti = jti,
-            error = e.to_string(),
-            "Failed to delete old refresh token during rotation"
-        );
-    }
-
-    // Step 4: Issue new refresh token (new JTI, same family)
+    // The successor: new jti, same session; it expires with the idle lifetime, capped at the session's absolute
+    // expiry. Signed before the swap, so the swap can store it as the grace receipt in the same atomic step.
     let new_jti = Uuid::new_v4().to_string();
-    let now = chrono::Utc::now().timestamp();
-    let new_exp = now + i64::from(crate::models::refresh_token::REFRESH_TOKEN_TTL);
-
+    let new_exp = policy.token_exp(now, absolute_expiry);
     let new_token = RefreshToken::new_with_tenant(
         new_jti.clone(),
         token.sub.clone(),
         token.sid.clone(),
-        family_id.to_string(),
+        claims.family_id.clone(),
         now,
         new_exp,
         token.client_id.clone(),
         token.tenant_id.clone(),
         token.scopes.clone(),
     );
-
-    // Store new refresh token in Redis and register in the family set.
-    if let Err(e) = redis::store_refresh_token(&new_token) {
-        tracing::error!(
-            event = "rotation_new_token_store_failed",
-            new_jti = new_jti,
-            error = e.to_string(),
-            "Failed to store new refresh token"
-        );
-        return RotationOutcome::RedisUnavailable;
-    }
-    if let Err(e) = redis::add_family_member(family_id, &new_jti) {
-        tracing::warn!(
-            event = "rotation_family_register_failed",
-            family_id = family_id,
-            new_jti = new_jti,
-            error = e.to_string(),
-            "Failed to register rotated refresh token in family set"
-        );
-    }
-
-    // Step 5: Add old JTI to denylist (24h TTL — prevents replay)
-    if let Err(e) = redis::add_to_denylist(&jti) {
-        tracing::warn!(
-            event = "rotation_denylist_add_failed",
-            old_jti = jti,
-            error = e.to_string(),
-            "Failed to add JTI to denylist during rotation"
-        );
-    }
-
-    // Emit metrics
-    TOKEN_REFRESH_TOTAL
-        .with_label_values(&["success", "rotated"])
-        .inc();
-
-    // Step 6: Sign new access + refresh JWTs with the shared Ed25519 key
-    match super::token_issuer::issue_rotated_tokens(&new_token, tenant_id) {
-        Ok(issued) => {
-            // Step 7: Rotation receipt for the replay grace window (best
-            // effort: without it a replay is the strict invalid_grant).
-            let receipt = serde_json::json!({
-                "access_token": issued.access_token,
-                "refresh_token": issued.refresh_token,
-                "access_expires_in": issued.access_expires_in,
-                "refresh_expires_in": issued.refresh_expires_in,
-                "user_id": issued.user_id,
-                "scope": issued.scope,
-                "tenant_id": tenant_id,
-                "client_id": token.client_id,
-                "rotated_at": now,
-            });
-            if let Err(e) = redis::store_rotation_receipt(&jti, &receipt) {
-                tracing::warn!(
-                    event = "rotation_receipt_store_failed",
-                    old_jti = jti,
+    let issued =
+        match super::token_issuer::issue_rotated_tokens(&new_token, tenant_id, token_version) {
+            Ok(issued) => issued,
+            Err(e) => {
+                tracing::error!(
+                    event = "rotation_signing_failed",
                     error = e.to_string(),
-                    "Failed to store rotation receipt; a replay within the grace window will be refused"
+                    "Failed to sign rotated tokens"
                 );
+                fail("signing_error");
+                return RotationOutcome::RedisUnavailable;
             }
+        };
+    let receipt = serde_json::json!({
+        "access_token": issued.access_token,
+        "refresh_token": issued.refresh_token,
+        "access_expires_in": issued.access_expires_in,
+        "refresh_expires_in": issued.refresh_expires_in,
+        "user_id": issued.user_id,
+        "scope": issued.scope,
+        "tenant_id": tenant_id,
+        "client_id": token.client_id,
+        "rotated_at": now,
+    });
+
+    // Round trip 2: compare-and-swap. Only one request can move the session off this jti.
+    match refresh_store::advance(
+        &claims.family_id,
+        &claims.jti,
+        &new_jti,
+        legacy.as_ref(),
+        absolute_expiry,
+        now,
+        &receipt,
+        policy,
+    ) {
+        Ok(Advance::Rotated) => {
+            TOKEN_REFRESH_TOTAL
+                .with_label_values(&["success", "rotated"])
+                .inc();
             RotationOutcome::Rotated {
                 new_access_token: issued.access_token,
                 new_refresh_token: issued.refresh_token,
@@ -376,19 +330,106 @@ fn rotate_refresh_token_bound(
                 scope: issued.scope,
             }
         }
-        Err(e) => {
-            tracing::error!(
-                event = "rotation_signing_failed",
-                error = e.to_string(),
-                "Failed to sign rotated tokens"
-            );
-            REFRESH_ROTATION_FAILURES_TOTAL.inc();
+        Ok(Advance::Replay(winner)) => {
+            // A concurrent request with the same token won the swap: hand back its successor.
             TOKEN_REFRESH_TOTAL
-                .with_label_values(&["failure", "signing_error"])
+                .with_label_values(&["success", "replayed"])
                 .inc();
+            rotated_from_receipt(&winner, expected_tenant_id, expected_client_id)
+                .unwrap_or(RotationOutcome::InvalidToken)
+        }
+        Ok(Advance::Reuse) => {
+            REFRESH_REUSE_DETECTED_TOTAL.inc();
+            fail("reuse_detected");
+            RotationOutcome::ReuseDetected {
+                reused_jti: claims.jti,
+                family_id: claims.family_id,
+            }
+        }
+        Ok(Advance::Gone) => {
+            fail("not_found");
+            RotationOutcome::InvalidToken
+        }
+        Err(e) => {
+            tracing::error!(event = "refresh_store_unavailable", error = %e);
+            fail("redis_error");
             RotationOutcome::RedisUnavailable
         }
     }
+}
+
+/// A superseded token of a live session was presented: revoke the session (OAuth refresh-token reuse detection).
+fn reuse_detected(family_id: &str, jti: &str) -> RotationOutcome {
+    TOKEN_REFRESH_TOTAL
+        .with_label_values(&["failure", "reuse_detected"])
+        .inc();
+    REFRESH_ROTATION_FAILURES_TOTAL.inc();
+    REFRESH_REUSE_DETECTED_TOTAL.inc();
+    if let Err(e) = sesame_common::refresh_session::revoke(family_id, jti) {
+        tracing::error!(
+            event = "family_revocation_failed",
+            family_id = family_id,
+            error = %e,
+            "Failed to revoke token family after reuse detection"
+        );
+    }
+    RotationOutcome::ReuseDetected {
+        reused_jti: jti.to_string(),
+        family_id: family_id.to_string(),
+    }
+}
+
+/// The signed claims a refresh token carries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RefreshClaims {
+    pub jti: String,
+    pub sub: String,
+    pub family_id: String,
+}
+
+/// Decode `jti`, `sub` and `family_id` from a refresh token (call only after its signature verified).
+#[must_use]
+pub fn decode_refresh_token_claims(token: &str) -> Option<RefreshClaims> {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_str(&base64_decode_url(parts[1])?).ok()?;
+    let s = |k: &str| {
+        value
+            .get(k)
+            .and_then(serde_json::Value::as_str)
+            .filter(|v| !v.is_empty())
+            .map(str::to_string)
+    };
+    if value.get("typ").and_then(serde_json::Value::as_str) != Some("refresh") {
+        return None;
+    }
+    Some(RefreshClaims {
+        jti: s("jti")?,
+        sub: s("sub")?,
+        family_id: s("family_id")?,
+    })
+}
+
+/// End the session of a presented refresh token (logout): verifies the signature first, so only a holder of one of
+/// the session's tokens can end it. Malformed or forged tokens are ignored (idempotent logout).
+///
+/// # Errors
+///
+/// Returns the Redis error.
+pub fn revoke_session_of(refresh_token_value: &str) -> Result<()> {
+    if super::token_issuer::SIGNER
+        .verify(refresh_token_value)
+        .is_err()
+    {
+        return Ok(());
+    }
+    let Some(claims) = decode_refresh_token_claims(refresh_token_value) else {
+        return Ok(());
+    };
+    sesame_common::refresh_session::revoke(&claims.family_id, &claims.jti)?;
+    Ok(())
 }
 
 /// A `Rotated` outcome rebuilt from a rotation receipt, or None when the
@@ -424,28 +465,6 @@ fn rotated_from_receipt(
         user_id: s("user_id").unwrap_or_default(),
         scope: s("scope").unwrap_or_default(),
     })
-}
-
-/// Decode the JTI from a refresh token string.
-///
-/// The refresh token is a JWT-like structure (header.payload.signature).
-/// The JTI is stored in the payload as the `jti` field.
-fn decode_refresh_token_jti(token: &str) -> Option<String> {
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() != 3 {
-        return None;
-    }
-
-    // Decode the payload (base64url)
-    let payload = parts[1];
-    let decoded = base64_decode_url(payload)?;
-
-    // Parse as JSON and extract `jti`
-    let value: serde_json::Value = serde_json::from_str(&decoded).ok()?;
-    value
-        .get("jti")?
-        .as_str()
-        .map(std::string::ToString::to_string)
 }
 
 /// Base64url decode a string.

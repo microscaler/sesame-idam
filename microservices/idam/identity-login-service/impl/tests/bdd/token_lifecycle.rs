@@ -319,17 +319,33 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
 
     let rotated_refresh = refresh_body["refresh_token"].as_str().unwrap().to_string();
 
-    // Old refresh token must not rotate again (denylisted after rotation)
-    let reuse = auth_refresh::handle(refresh_request(&refresh_token));
+    // The replaced token presented again within the grace window gets the SAME successor (a lost response, a
+    // second tab), never a second pair.
+    let replay = auth_refresh::handle(refresh_request(&refresh_token));
+    assert_eq!(replay.status, 200, "replay within grace: {:?}", replay.body);
     assert_eq!(
-        reuse.status, 401,
-        "pre-rotation refresh must return 401: {:?}",
-        reuse.body
+        replay.body["refresh_token"], refresh_body["refresh_token"],
+        "a replay within grace returns the same successor"
     );
+
+    // Rotate again: the first token is now two generations back. Presenting it is reuse: 401, and the whole
+    // session is revoked, so the newest token is refused as well.
+    let second = auth_refresh::handle(refresh_request(&rotated_refresh));
+    assert_eq!(second.status, 200, "second rotation: {:?}", second.body);
+    let newest = second.body["refresh_token"].as_str().unwrap().to_string();
+    let reuse = auth_refresh::handle(refresh_request(&refresh_token));
+    assert_eq!(reuse.status, 401, "reuse must return 401: {:?}", reuse.body);
     assert!(
         reuse.body["error"].as_str().is_some(),
         "401 body must include OAuth error code"
     );
+    let after_reuse = auth_refresh::handle(refresh_request(&newest));
+    assert_eq!(
+        after_reuse.status, 401,
+        "reuse revokes the session: the newest token is refused too: {:?}",
+        after_reuse.body
+    );
+    let rotated_refresh = newest;
 
     // ── Logout (revoke family in Redis) ──
     let access_payload = decode_jwt_payload(login.body["access_token"].as_str().unwrap());

@@ -132,6 +132,14 @@ impl ClientRegistry {
         client_id: &str,
         exec: &E,
     ) -> Result<ClientBinding, ClientRegistryError> {
+        Self::resolve_active_record(client_id, exec).map(|(binding, _)| binding)
+    }
+
+    /// [`Self::resolve_active`], with the client's row id (for its secrets).
+    pub fn resolve_active_record<E: LifeExecutor>(
+        client_id: &str,
+        exec: &E,
+    ) -> Result<(ClientBinding, uuid::Uuid), ClientRegistryError> {
         let client_id = client_id.trim();
         if client_id.is_empty() {
             return Err(ClientRegistryError::Unknown);
@@ -176,24 +184,28 @@ impl ClientRegistry {
             .all(exec)
             .map_err(|error| ClientRegistryError::Db(error.to_string()))?;
 
-        Ok(ClientBinding {
-            client_id: client.client_id,
-            tenant_id: client.tenant_slug,
-            portal: client.portal,
-            application_id: client.application_id,
-            authority_class: client.authority_class,
-            policy,
-            redirect_uris: redirects
-                .iter()
-                .filter(|redirect| redirect.kind == "login")
-                .map(|redirect| redirect.uri.clone())
-                .collect(),
-            post_logout_redirect_uris: redirects
-                .iter()
-                .filter(|redirect| redirect.kind == "post_logout")
-                .map(|redirect| redirect.uri.clone())
-                .collect(),
-        })
+        let record_id = client.id;
+        Ok((
+            ClientBinding {
+                client_id: client.client_id,
+                tenant_id: client.tenant_slug,
+                portal: client.portal,
+                application_id: client.application_id,
+                authority_class: client.authority_class,
+                policy,
+                redirect_uris: redirects
+                    .iter()
+                    .filter(|redirect| redirect.kind == "login")
+                    .map(|redirect| redirect.uri.clone())
+                    .collect(),
+                post_logout_redirect_uris: redirects
+                    .iter()
+                    .filter(|redirect| redirect.kind == "post_logout")
+                    .map(|redirect| redirect.uri.clone())
+                    .collect(),
+            },
+            record_id,
+        ))
     }
 
     /// Resolve tenant/application for public pre-auth north–south handlers.
@@ -220,14 +232,14 @@ impl ClientRegistry {
     }
 
     /// Authenticate a confidential client without disclosing whether its id,
-    /// status, policy, or secret caused rejection.
+    /// status, policy, or secret caused rejection: every rejection costs one argon2id verification.
     pub fn authenticate_confidential<E: LifeExecutor>(
         client_id: &str,
         presented_secret: &str,
         exec: &E,
     ) -> Result<ClientBinding, ClientRegistryError> {
-        let binding = match Self::resolve_active(client_id, exec) {
-            Ok(binding) => binding,
+        let (binding, record_id) = match Self::resolve_active_record(client_id, exec) {
+            Ok(resolved) => resolved,
             Err(error) => {
                 conceal_secret_verification_timing(presented_secret);
                 return Err(error);
@@ -237,27 +249,46 @@ impl ClientRegistry {
             conceal_secret_verification_timing(presented_secret);
             return Err(ClientRegistryError::Unknown);
         }
-
-        let client = ClientEntity::find()
-            .filter(ClientColumn::ClientId.eq(binding.client_id.clone()))
-            .find_one(exec)
-            .map_err(|error| ClientRegistryError::Db(error.to_string()))?
-            .ok_or(ClientRegistryError::Unknown)?;
-        let now = chrono::Utc::now();
-        let secrets = SecretEntity::find()
-            .filter(SecretColumn::RelyingPartyClientId.eq(client.id))
-            .all(exec)
-            .map_err(|error| ClientRegistryError::Db(error.to_string()))?;
-
-        if secrets.iter().any(|secret| {
-            secret_is_usable(&secret.status, secret.valid_from, secret.valid_until, now)
-                && verify_client_secret(presented_secret, &secret.secret_hash)
-        }) {
+        if Self::verify_secret(record_id, presented_secret, exec) {
             Ok(binding)
         } else {
-            conceal_secret_verification_timing(presented_secret);
             Err(ClientRegistryError::Unknown)
         }
+    }
+
+    /// Whether `presented_secret` matches one of the client's usable secrets. Every call costs at least one argon2id
+    /// verification: a real one per usable secret tried, or one against the dummy hash when there is none (or the
+    /// lookup failed), so a client without a usable secret answers as slowly as one with a wrong secret.
+    pub fn verify_secret<E: LifeExecutor>(
+        record_id: uuid::Uuid,
+        presented_secret: &str,
+        exec: &E,
+    ) -> bool {
+        let now = chrono::Utc::now();
+        let secrets = SecretEntity::find()
+            .filter(SecretColumn::RelyingPartyClientId.eq(record_id))
+            .all(exec)
+            .unwrap_or_default();
+        let mut verified = 0_usize;
+        let matched = secrets
+            .iter()
+            .filter(|secret| {
+                secret_is_usable(&secret.status, secret.valid_from, secret.valid_until, now)
+            })
+            .any(|secret| {
+                verified += 1;
+                verify_client_secret(presented_secret, &secret.secret_hash)
+            });
+        if verified == 0 {
+            conceal_secret_verification_timing(presented_secret);
+        }
+        matched
+    }
+
+    /// One argon2id verification against a fixed hash: the cost of checking a secret, spent on a path that
+    /// rejects without one, so "no such client" and "wrong secret" take the same time.
+    pub fn conceal_timing(presented_secret: &str) {
+        conceal_secret_verification_timing(presented_secret);
     }
 }
 

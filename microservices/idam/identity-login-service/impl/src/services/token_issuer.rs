@@ -61,8 +61,8 @@ pub enum IssueError {
 /// Issue an access + refresh token pair for a user.
 ///
 /// - `ver` comes from the Redis version store when available, else 1.
-/// - The refresh token is a signed JWT carrying `jti`/`sid`/`family_id`,
-///   with matching metadata stored under `refresh:{jti}` in Redis.
+/// - The refresh token is a signed JWT carrying `jti`/`sid`/`family_id`; its session is stored under
+///   `rfam:{family_id}` in Redis (`sesame_common::refresh_session`).
 ///
 /// # Errors
 ///
@@ -164,7 +164,13 @@ pub fn issue_tokens_for_client(
 
     // ── Refresh token ────────────────────────────────────────────────────
     let refresh_jti = Uuid::new_v4().to_string();
-    let refresh_exp = now + i64::from(REFRESH_TOKEN_TTL);
+    // The session may live up to the role's refresh lifetime (`JWT_REFRESH_TTL_DAYS`, `JWT_ADMIN_REFRESH_TTL_DAYS`) and
+    // ends sooner when it is not refreshed within the idle window; the token's own exp is the idle window.
+    let policy = sesame_common::refresh_session::Policy::from_env();
+    let absolute_expiry = now
+        + i64::try_from(ttl_config.refresh_ttl_for_role(role_for_ttl).as_secs())
+            .unwrap_or(i64::from(REFRESH_TOKEN_TTL));
+    let refresh_exp = policy.token_exp(now, absolute_expiry);
     // Family id = session id: all rotations of this session share a family.
     let family_id = session_id.clone();
 
@@ -192,7 +198,7 @@ pub fn issue_tokens_for_client(
         tenant_id: tenant_id.to_string(),
         scopes: scope.clone(),
     };
-    if let Err(e) = crate::redis::store_refresh_token(&metadata) {
+    if let Err(e) = crate::redis::store_refresh_token(&metadata, absolute_expiry) {
         tracing::warn!(
             error = %e,
             "failed to store refresh token in Redis — /auth/refresh will reject it"
@@ -203,7 +209,7 @@ pub fn issue_tokens_for_client(
         access_token,
         refresh_token,
         expires_in: access_ttl,
-        refresh_expires_in: i64::from(REFRESH_TOKEN_TTL),
+        refresh_expires_in: refresh_exp - now,
         session_id,
         token_version,
         scope,

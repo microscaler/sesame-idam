@@ -7,7 +7,6 @@
 use std::sync::LazyLock;
 
 use sesame_common::jwt::{AccessClaimsBuilder, Ed25519Signer, SesameAuthzClaimsBuilder};
-use sesame_common::token_versioning::VersionStore;
 use uuid::Uuid;
 
 use crate::models::refresh_token::{RefreshToken, REFRESH_TOKEN_TTL};
@@ -63,28 +62,15 @@ pub enum IssueError {
 pub fn issue_rotated_tokens(
     token: &RefreshToken,
     tenant_id: &str,
+    token_version: u64,
 ) -> Result<IssuedRefreshPair, IssueError> {
     let now = chrono::Utc::now().timestamp();
     let access_ttl = access_ttl_secs();
     let scope = token.scopes.clone();
     let access_jti = Uuid::new_v4().to_string();
 
-    let token_version = match VersionStore::from_url(
-        &std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
-    ) {
-        Ok(store) => store.issue_version(&token.sub).map_or_else(
-            |error| {
-                tracing::warn!(%error, "version store unavailable on refresh — using ver=1");
-                1
-            },
-            |(version, _ttl)| version,
-        ),
-        Err(e) => {
-            tracing::warn!(error = %e, "version store unavailable on refresh — using ver=1");
-            1
-        }
-    };
-
+    // `token_version`: the subject's version, read (and initialised) by the rotation's first Redis round trip with
+    // exactly VersionStore::issue_version's semantics (SET NX 1, GET, EXPIRE 360 s); it used to open a connection here.
     // Re-fetch effective roles + permissions from authz-core so a refresh
     // reflects the user's CURRENT authorization: a role granted after the
     // session was established takes effect on the next refresh, not only on a
@@ -166,7 +152,9 @@ pub fn issue_rotated_tokens(
         access_token,
         refresh_token,
         access_expires_in: i32::try_from(access_ttl).unwrap_or(i32::MAX),
-        refresh_expires_in: i32::try_from(REFRESH_TOKEN_TTL).unwrap_or(i32::MAX),
+        // The successor's own remaining lifetime: the idle lifetime, or less near the session's absolute expiry.
+        refresh_expires_in: i32::try_from((token.exp - now).clamp(0, i64::from(REFRESH_TOKEN_TTL)))
+            .unwrap_or(i32::MAX),
         user_id: token.sub.clone(),
         scope,
     })

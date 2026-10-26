@@ -45,38 +45,71 @@ fn authenticate_client<E: lifeguard::LifeExecutor>(
     exec: &E,
 ) -> Result<ClientBinding, ()> {
     let basic = request.authorization.as_deref().and_then(parse_basic);
-    let client_id = basic
-        .as_ref()
-        .map(|(id, _)| id.as_str())
-        .or(request.client_id.as_deref())
-        .ok_or(())?
-        .to_string();
-    let binding = ClientRegistry::resolve_active(&client_id, exec).map_err(|_| ())?;
+    authenticate(
+        basic
+            .as_ref()
+            .map(|(id, secret)| (id.as_str(), secret.as_str())),
+        request.client_id.as_deref(),
+        request.client_secret.as_deref(),
+        |client_id| ClientRegistry::resolve_active_record(client_id, exec).ok(),
+        |record_id, secret| ClientRegistry::verify_secret(record_id, secret, exec),
+        ClientRegistry::conceal_timing,
+    )
+}
 
-    match (
+/// Client authentication at the token endpoint, with the lookups passed in (unit-tested).
+///
+/// The client is resolved once (it used to be resolved again inside the secret check: ten queries, now five).
+/// Every rejection of a presented secret costs one argon2id verification, whatever the cause - an unknown or
+/// inactive client, a client of the wrong type or method, or a wrong secret - so the response time does not say
+/// which. (Before 26 Oct 2026 an unknown client answered without any verification: a client-id oracle.)
+fn authenticate<Id: Copy>(
+    basic: Option<(&str, &str)>,
+    client_id_param: Option<&str>,
+    client_secret_param: Option<&str>,
+    resolve: impl FnOnce(&str) -> Option<(ClientBinding, Id)>,
+    verify: impl FnOnce(Id, &str) -> bool,
+    conceal: impl Fn(&str),
+) -> Result<ClientBinding, ()> {
+    let presented = basic.map(|(_, s)| s).or(client_secret_param);
+    let reject = || {
+        if let Some(secret) = presented {
+            conceal(secret);
+        }
+        Err(())
+    };
+    let Some(client_id) = basic.map(|(id, _)| id).or(client_id_param) else {
+        return reject();
+    };
+    let Some((binding, record_id)) = resolve(client_id) else {
+        return reject();
+    };
+    let secret = match (
         &binding.policy.client_type,
         &binding.policy.token_endpoint_auth_method,
     ) {
-        (ClientType::Public, TokenEndpointAuthMethod::None)
-            if basic.is_none() && request.client_secret.is_none() =>
-        {
-            Ok(binding)
+        (ClientType::Public, TokenEndpointAuthMethod::None) if presented.is_none() => {
+            return Ok(binding);
         }
         (ClientType::Confidential, TokenEndpointAuthMethod::ClientSecretBasic) => {
-            let (_, secret) = basic.as_ref().ok_or(())?;
-            ClientRegistry::authenticate_confidential(&client_id, secret, exec).map_err(|_| ())
+            basic.map(|(_, s)| s)
         }
         (ClientType::Confidential, TokenEndpointAuthMethod::ClientSecretPost)
             if basic.is_none() =>
         {
-            ClientRegistry::authenticate_confidential(
-                &client_id,
-                request.client_secret.as_deref().ok_or(())?,
-                exec,
-            )
-            .map_err(|_| ())
+            client_secret_param
         }
-        _ => Err(()),
+        _ => None,
+    };
+    match secret {
+        Some(secret) => {
+            if verify(record_id, secret) {
+                Ok(binding)
+            } else {
+                Err(())
+            }
+        }
+        None => reject(),
     }
 }
 
@@ -225,5 +258,121 @@ mod tests {
             Some(("client".to_string(), "secret".to_string()))
         );
         assert_eq!(parse_basic("Bearer token"), None);
+    }
+
+    // ---- client authentication: one lookup, and the same cost for every rejection of a secret
+
+    use super::authenticate;
+    use crate::services::client_registry::ClientBinding;
+    use sesame_common::oidc_client::{ClientPolicy, ClientType, TokenEndpointAuthMethod};
+    use std::cell::Cell;
+
+    fn binding(client_type: ClientType, method: TokenEndpointAuthMethod) -> ClientBinding {
+        ClientBinding {
+            client_id: "web".into(),
+            tenant_id: "t".into(),
+            portal: "p".into(),
+            application_id: "a".into(),
+            authority_class: "c".into(),
+            policy: ClientPolicy {
+                client_type,
+                token_endpoint_auth_method: method,
+                pkce_s256_required: true,
+                grants: vec!["authorization_code".into()],
+                response_types: vec![],
+                scopes: vec![],
+                audiences: vec![],
+            },
+            redirect_uris: vec![],
+            post_logout_redirect_uris: vec![],
+        }
+    }
+
+    /// (result, lookups, argon2 verifications) for one attempt; `known` resolves only client "web".
+    fn attempt(
+        basic: Option<(&str, &str)>,
+        id: Option<&str>,
+        secret: Option<&str>,
+        known: Option<ClientBinding>,
+    ) -> (bool, usize, usize) {
+        let (lookups, hashes) = (Cell::new(0), Cell::new(0));
+        let result = authenticate(
+            basic,
+            id,
+            secret,
+            |client_id| {
+                lookups.set(lookups.get() + 1);
+                known
+                    .clone()
+                    .filter(|_| client_id == "web")
+                    .map(|b| (b, 7_u8))
+            },
+            |_, presented| {
+                hashes.set(hashes.get() + 1);
+                presented == "right"
+            },
+            |_| hashes.set(hashes.get() + 1),
+        );
+        (result.is_ok(), lookups.get(), hashes.get())
+    }
+
+    #[test]
+    fn a_confidential_client_with_the_right_secret_is_accepted_with_one_lookup() {
+        let c = Some(binding(
+            ClientType::Confidential,
+            TokenEndpointAuthMethod::ClientSecretBasic,
+        ));
+        assert_eq!(attempt(Some(("web", "right")), None, None, c), (true, 1, 1));
+        let c = Some(binding(
+            ClientType::Confidential,
+            TokenEndpointAuthMethod::ClientSecretPost,
+        ));
+        assert_eq!(attempt(None, Some("web"), Some("right"), c), (true, 1, 1));
+    }
+
+    #[test]
+    fn unknown_client_wrong_secret_and_inactive_client_cost_the_same() {
+        let c = Some(binding(
+            ClientType::Confidential,
+            TokenEndpointAuthMethod::ClientSecretBasic,
+        ));
+        // wrong secret: one real verification
+        assert_eq!(
+            attempt(Some(("web", "wrong")), None, None, c.clone()),
+            (false, 1, 1)
+        );
+        // unknown client id: one verification against the dummy hash
+        assert_eq!(
+            attempt(Some(("nobody", "wrong")), None, None, c.clone()),
+            (false, 1, 1)
+        );
+        // a disabled client (or one of an inactive tenant) does not resolve: same as unknown
+        assert_eq!(
+            attempt(Some(("web", "right")), None, None, None),
+            (false, 1, 1)
+        );
+        // the wrong method for the client: rejected, same cost
+        let post = Some(binding(
+            ClientType::Confidential,
+            TokenEndpointAuthMethod::ClientSecretPost,
+        ));
+        assert_eq!(
+            attempt(Some(("web", "right")), None, None, post),
+            (false, 1, 1)
+        );
+        // a secret sent for a public client: rejected, same cost
+        let public = Some(binding(ClientType::Public, TokenEndpointAuthMethod::None));
+        assert_eq!(
+            attempt(None, Some("web"), Some("x"), public.clone()),
+            (false, 1, 1)
+        );
+        // a public client without a secret: accepted, no secret work at all
+        assert_eq!(attempt(None, Some("web"), None, public), (true, 1, 0));
+    }
+
+    #[test]
+    fn no_client_id_is_rejected_without_a_lookup() {
+        assert_eq!(attempt(None, None, Some("x"), None), (false, 0, 1));
+        assert_eq!(attempt(None, None, None, None), (false, 0, 0));
     }
 }

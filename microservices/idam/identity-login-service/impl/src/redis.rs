@@ -1,39 +1,40 @@
-//! Redis helpers for seeding refresh-token state at login/register time.
+//! Redis helpers for refresh-token state at login/register and logout time.
 //!
-//! Key layout matches identity-session-service's rotation machinery
-//! (`refresh:{jti}`, `family:{family_id}`) so tokens issued here can be
-//! rotated by `POST /auth/refresh` on the session service.
+//! Sessions are identity-session-service's `rfam:{family_id}` records (`services::refresh_store`), so tokens issued
+//! here are rotated by `POST /session/refresh` there.
 
 use anyhow::Result;
-use base64::Engine;
 use redis::Commands;
 
-use crate::models::refresh_token::{
-    RefreshToken, FAMILY_SET_KEY_PREFIX, FAMILY_TTL, REFRESH_TOKEN_KEY_PREFIX, REFRESH_TOKEN_TTL,
-};
+use crate::models::refresh_token::RefreshToken;
 
 /// A Redis connection from the process-wide pool (`sesame_common::redis_pool`): reused, not opened per call.
 fn get_redis_connection() -> Result<sesame_common::redis_pool::PooledConnection<'static>> {
     Ok(sesame_common::redis_pool::pooled_connection()?)
 }
 
-/// Store refresh-token metadata (`refresh:{jti}`, 30d TTL) and register the
-/// jti in its family set (`family:{family_id}`, 24h TTL).
+/// Start the session of a freshly issued refresh token: its `rfam:{family_id}` record with this token current
+/// (`sesame_common::refresh_session`, the layout identity-session-service rotates; one atomic round trip). It lives for
+/// the idle window, renewed on every rotation, and never past `absolute_expiry`.
 ///
 /// # Errors
 ///
 /// Returns an error if Redis is unavailable or the write fails.
-pub fn store_refresh_token(token: &RefreshToken) -> Result<()> {
-    let mut conn = get_redis_connection()?;
+pub fn store_refresh_token(token: &RefreshToken, absolute_expiry: i64) -> Result<()> {
+    use sesame_common::refresh_session::{create, Policy, SessionToken};
 
-    let key = format!("{}:{}", REFRESH_TOKEN_KEY_PREFIX, token.jti);
-    let json = token.to_json()?;
-    let _: () = conn.set_ex(&key, json, u64::from(REFRESH_TOKEN_TTL))?;
-
-    let family_key = format!("{}:{}", FAMILY_SET_KEY_PREFIX, token.family_id);
-    let _: () = conn.sadd(&family_key, &token.jti)?;
-    let _: () = conn.expire(&family_key, i64::from(FAMILY_TTL))?;
-
+    let session = SessionToken {
+        jti: token.jti.clone(),
+        sub: token.sub.clone(),
+        sid: token.sid.clone(),
+        family_id: token.family_id.clone(),
+        iat: token.iat,
+        exp: token.exp,
+        client_id: token.client_id.clone(),
+        tenant_id: token.tenant_id.clone(),
+        scopes: token.scopes.clone(),
+    };
+    create(&session, absolute_expiry, token.iat, Policy::from_env())?;
     Ok(())
 }
 
@@ -58,65 +59,15 @@ pub fn deny_access_jti(jti: &str, ttl_secs: u64) -> Result<()> {
     Ok(())
 }
 
-/// Decode the `jti` claim from a signed refresh token JWT.
-fn decode_refresh_token_jti(token: &str) -> Option<String> {
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() != 3 {
-        return None;
-    }
-
-    let engine = base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    let bytes = engine.decode(parts[1]).ok()?;
-    let decoded = String::from_utf8(bytes).ok()?;
-    let value: serde_json::Value = serde_json::from_str(&decoded).ok()?;
-    value
-        .get("jti")?
-        .as_str()
-        .map(std::string::ToString::to_string)
-}
-
-/// Revoke a refresh token presented at logout.
-///
-/// Deletes the token metadata, adds the JTI to the denylist, and revokes the
-/// entire token family so outstanding siblings cannot be rotated.
+/// Revoke a refresh token presented at logout: the whole session ends (its `rfam:` record, and for tokens issued
+/// before session records, the old per-token records). The token's signature is verified first, so only a holder of
+/// one of the session's tokens can end it; a malformed or forged token is ignored (idempotent logout).
 ///
 /// # Errors
 ///
-/// Returns an error when Redis is unavailable. Missing/ malformed tokens are
-/// treated as success (idempotent logout).
+/// Returns an error when Redis is unavailable.
 pub fn revoke_refresh_token(refresh_token_value: &str) -> Result<()> {
-    let Some(jti) = decode_refresh_token_jti(refresh_token_value) else {
-        return Ok(());
-    };
-
-    let mut conn = get_redis_connection()?;
-    let key = format!("{}:{}", REFRESH_TOKEN_KEY_PREFIX, jti);
-    let stored: Option<String> = conn.get(&key)?;
-
-    let family_id = stored
-        .as_ref()
-        .and_then(|json| RefreshToken::from_json(json).ok())
-        .map(|t| t.family_id);
-
-    let _: () = conn.del(&key)?;
-
-    let denylist_key = format!("denylist:{jti}");
-    let _: () = conn.set_ex(&denylist_key, "revoked", u64::from(FAMILY_TTL))?;
-
-    if let Some(family_id) = family_id {
-        let family_key = format!("{}:{}", FAMILY_SET_KEY_PREFIX, family_id);
-        let members: Vec<String> = conn.smembers(&family_key)?;
-        for member in members {
-            if member == "__REVOKED__" {
-                continue;
-            }
-            let member_key = format!("{}:{}", REFRESH_TOKEN_KEY_PREFIX, member);
-            let _: () = conn.del(&member_key)?;
-            let member_denylist = format!("denylist:{member}");
-            let _: () = conn.set_ex(&member_denylist, "revoked", u64::from(FAMILY_TTL))?;
-        }
-        let _: () = conn.del(&family_key)?;
-    }
-
-    Ok(())
+    sesame_idam_identity_session_service::services::token_rotation::revoke_session_of(
+        refresh_token_value,
+    )
 }

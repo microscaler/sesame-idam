@@ -30,7 +30,7 @@ fn rotated_access_token_keeps_every_service_audience() {
         "pricewhisperer".into(),
         "openid".into(),
     );
-    let issued = issue_rotated_tokens(&stored, "pricewhisperer").expect("rotated tokens");
+    let issued = issue_rotated_tokens(&stored, "pricewhisperer", 1).expect("rotated tokens");
 
     let payload = issued.access_token.split('.').nth(1).expect("JWT payload");
     let claims: serde_json::Value =
