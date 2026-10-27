@@ -9,6 +9,12 @@ metadata:
     app.kubernetes.io/component: frontend
 spec:
   replicas: {{ .Values.deployment.replicas }}
+  # Surge first: a new pod is Ready before an old one goes, so a rollout never drops below the running count.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.rollout.maxSurge }}
+      maxUnavailable: {{ .Values.rollout.maxUnavailable }}
   selector:
     matchLabels:
       app: {{ .Values.service.name }}
@@ -22,6 +28,22 @@ spec:
         checksum/runtime-config: {{ .Values.runtimeConfig | toJson | sha256sum | trunc 8 | quote }}
       {{- end }}
     spec:
+      # preStop sleep + nginx's graceful stop must fit inside this.
+      terminationGracePeriodSeconds: {{ .Values.rollout.terminationGracePeriodSeconds }}
+      {{- if and (gt (int .Values.deployment.replicas) 1) .Values.topologySpread.enabled }}
+      # Spread replicas across zones and nodes so one node or zone loss never takes every pod.
+      topologySpreadConstraints:
+        {{- range .Values.topologySpread.topologyKeys }}
+        - maxSkew: {{ $.Values.topologySpread.maxSkew }}
+          topologyKey: {{ . }}
+          whenUnsatisfiable: {{ $.Values.topologySpread.whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              app: {{ $.Values.service.name }}
+          matchLabelKeys:
+            - pod-template-hash
+        {{- end }}
+      {{- end }}
       containers:
         - name: {{ .Values.service.name }}
           image: "{{ .Values.image.repository }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
@@ -38,6 +60,13 @@ spec:
             httpGet: { path: /healthz, port: http }
             initialDelaySeconds: 2
             periodSeconds: 5
+          {{- if gt (int .Values.rollout.preStopSleepSeconds) 0 }}
+          # Endpoint removal reaches the proxies asynchronously: keep serving a few seconds after termination starts.
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ .Values.rollout.preStopSleepSeconds }}
+          {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
           {{- if .Values.runtimeConfig }}
