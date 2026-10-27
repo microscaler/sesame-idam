@@ -23,7 +23,7 @@ ed25519-dalek = { version = "2", features = ["rand_core"] }
 ed25519-zebra = "4"
 p256 = { version = "0.13", features = ["ecdsa"] }
 hmac = "0.12"
-rand = "0.8"
+rand = "0.10"
 
 # Audit module deps (always available)
 async-trait = "0.1"
@@ -91,7 +91,7 @@ http = "1"
 prometheus = { workspace = true }
 smallvec = "1"
 wiremock = "0.6"
-rand = "0.8"
+rand = "0.10"
 proptest = "1"
 # Test-only RSA key generation (rs256 tests); production code never uses it.
 rsa = { version = "0.9", features = ["pem"] }
