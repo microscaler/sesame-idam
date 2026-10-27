@@ -23,7 +23,7 @@ ed25519-dalek = { version = "2", features = ["rand_core"] }
 ed25519-zebra = "4"
 p256 = { version = "0.13", features = ["ecdsa"] }
 hmac = "0.12"
-rand = "0.10"
+rand = "0.8"
 
 # Audit module deps (always available)
 async-trait = "0.1"
@@ -83,15 +83,15 @@ may = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 rstest = "0.21"
-rstest-bdd = "0.6.0"
+rstest-bdd = "0.5.0"
 rstest-bdd-macros = "0.5.0"
 tokio = { workspace = true, features = ["full", "test-util"] }
 anyhow = "1.0"
 http = "1"
 prometheus = { workspace = true }
 smallvec = "1"
-wiremock = "0.6"
-rand = "0.10"
+wiremock = "0.5"
+rand = "0.8"
 proptest = "1"
 # Test-only RSA key generation (rs256 tests); production code never uses it.
 rsa = { version = "0.9", features = ["pem"] }
