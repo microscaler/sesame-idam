@@ -128,7 +128,7 @@ impl PublisherWrapper {
 
     /// Sign an event JSON payload with HMAC-SHA256.
     fn sign_event(json: &str, secret: &[u8]) -> Result<String, String> {
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
         use sha2::Sha256;
 
         type HmacSha256 = Hmac<Sha256>;

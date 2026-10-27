@@ -137,7 +137,7 @@ pub fn compute_entitlements_hash(snapshot: &EntitlementsSnapshot) -> String {
     let mut hasher = Sha256::new();
     hasher.update(canonical.as_bytes());
     let result = hasher.finalize();
-    format!("sha256:{result:x}")
+    format!("sha256:{}", hex::encode(result))
 }
 
 /// Verify that an entitlements snapshot matches the expected hash.

@@ -140,7 +140,7 @@ impl EnrollKeyring for GcpKmsKeyring {
 mod tests {
     use super::*;
     use crate::gcp_kms::fake;
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use sha2::Sha256;
 
     const KEY: &str =

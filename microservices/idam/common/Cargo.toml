@@ -17,12 +17,12 @@ base64 = { workspace = true, features = ["alloc"] }
 hex = "0.4"
 
 # JWT / crypto (always available)
-jsonwebtoken = "9.3"
+jsonwebtoken = { workspace = true }
 ring = "0.17"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 ed25519-zebra = "4"
 p256 = { version = "0.13", features = ["ecdsa"] }
-hmac = "0.12"
+hmac = { workspace = true }
 rand = "0.8"
 
 # Audit module deps (always available)

@@ -42,8 +42,8 @@ edition = "2021"
 sesame_common = { package = "sesame-common", path = "idam/common" }
 # All shared libs are now modules within common, so individual workspace deps are removed
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
-brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "cbebc84575ce650e3c399a1de4e0e32ead87828f", default-features = false }
-brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "cbebc84575ce650e3c399a1de4e0e32ead87828f" }
+brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "9768e3583eebbdca2c7b4fc28b7a4a4963d74286", default-features = false }
+brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "9768e3583eebbdca2c7b4fc28b7a4a4963d74286" }
 
 # Standard dependencies
 serde = { version = "1.0", features = ["derive"] }
@@ -61,13 +61,13 @@ clap = { version = "4.5", features = ["derive"] }
 # 0.7 with "profiling": one jemalloc-sys across the graph with microscaler-observability's heap profiler
 # (jemalloc_pprof), and heap profiles to Cloud Profiler in pp (_RJEM_MALLOC_CONF, BRRTRouter ADR 005).
 tikv-jemallocator = { version = "0.7", features = ["profiling"] }
-jsonwebtoken = "9.3"
+jsonwebtoken = { version = "11.1", features = ["rust_crypto"] }
 ring = "0.17"
 argon2 = "0.5"
 base64 = { version = "0.22", features = ["alloc"] }
 redis = { version = "0.25", features = ["aio", "tokio-comp", "connection-manager"] }
 blake3 = "1.5"
-sha2 = "0.10"
+sha2 = "0.11"
 prometheus = "0.13"
 thiserror = "1.0"
 regex = "1.10"
@@ -77,7 +77,7 @@ rand = "0.8"
 tokio = { version = "1", features = ["full"] }
 metrics = "0.22"
 hex = "0.4"
-hmac = "0.12"
+hmac = "0.13"
 once_cell = "1.19"
 lazy_static = "1.4"
 tracing = "0.1"
@@ -88,11 +88,11 @@ ed25519-zebra = "4"
 p256 = { version = "0.13", features = ["ecdsa"] }
 
 # Database
-lifeguard = { git = "https://github.com/microscaler/lifeguard.git", rev = "75e0e5fa57e585b4345f7b0e9da49e381c5bf44f" }
-lifeguard-derive = { git = "https://github.com/microscaler/lifeguard.git", rev = "75e0e5fa57e585b4345f7b0e9da49e381c5bf44f" }
-lifeguard-migrate = { git = "https://github.com/microscaler/lifeguard.git", rev = "75e0e5fa57e585b4345f7b0e9da49e381c5bf44f" }
+lifeguard = { git = "https://github.com/microscaler/lifeguard.git", rev = "55ce94d9e3e9c2d49efa92a3d1e1a6a19ad9ed7f" }
+lifeguard-derive = { git = "https://github.com/microscaler/lifeguard.git", rev = "55ce94d9e3e9c2d49efa92a3d1e1a6a19ad9ed7f" }
+lifeguard-migrate = { git = "https://github.com/microscaler/lifeguard.git", rev = "55ce94d9e3e9c2d49efa92a3d1e1a6a19ad9ed7f" }
 # The revision lifeguard pins: lifeguard-derive generates code against this crate, so the services must share it.
-may_postgres = { git = "https://github.com/microscaler/may_postgres.git", rev = "4cff8ff730fa948b680d3c1f34d158120b205df7" }
+may_postgres = { git = "https://github.com/microscaler/may_postgres.git", rev = "cb92eff897539ebf5c1ac2b5d533b57b48342fee" }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 
@@ -103,6 +103,8 @@ sea-query = { version = "1.0.2", features = ["with-json", "with-chrono", "with-u
 
 # Patch crates.io may_minihttp → merged microscaler integration branch.
 [patch.crates-io]
+# may fork master: sub-millisecond timeouts honoured (no rounding to 0 / busy spin), recv_timeout.
+may = { git = "https://github.com/microscaler/may.git", rev = "719a78df9275ca5afc29e68d5b462b54833ef9cc" }
 # sea-query 1.0.2 emits a bounded window-frame offset with no separator
 # ("$1PRECEDING") that Postgres rejects; the fix + regression tests live on
 # the microscaler fork (still version 1.0.2; PR to SeaQL pending). Aligns

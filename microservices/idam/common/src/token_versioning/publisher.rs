@@ -11,7 +11,7 @@
 
 use super::events::{BumpReason, VersionBumpEvent};
 use anyhow::{Context, Result};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use redis::Client;
 use sha2::Sha256;
 

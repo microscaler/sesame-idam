@@ -485,7 +485,7 @@ impl VersionBumpSubscriber {
 mod tests {
     use super::super::events::BumpReason;
     use super::*;
-    use hmac::Mac;
+    use hmac::{KeyInit, Mac};
     use prometheus::Encoder;
 
     fn test_hmac_secret() -> Vec<u8> {
