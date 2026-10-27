@@ -65,7 +65,7 @@ tracing = "0.1"
 lifeguard-migrate = { workspace = true }
 [dev-dependencies]
 rstest = "0.21"
-rstest-bdd = "0.5.0"
+rstest-bdd = "0.6.0"
 rstest-bdd-macros = "0.5.0"
 
 base64 = { workspace = true }
