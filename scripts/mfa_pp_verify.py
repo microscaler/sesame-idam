@@ -6,7 +6,12 @@ recovery code; passkey registration and username-less sign-in with a software au
 attestation, user verification, backup-eligible); organisation policy (mfa -> forced enrolment; passkey -> passkey only);
 factor removal refused by policy. Prints PASS/FAIL per check; never prints tokens, secrets or codes.
 
-Usage: TEST_EMAIL_BASE='someone+{tag}@your-domain' mfa_pp_verify.py <client_id>
+Usage: TEST_EMAIL_BASE='{tag}@mail.pp.test' MAILPIT_API=https://mailpit.pp.pricewhisperer.ai/api/v1 mfa_pp_verify.py <client_id>
+   or: TEST_EMAIL_BASE='someone+{tag}@your-domain' mfa_pp_verify.py <client_id>
+
+Capture mode (MAILPIT_API set): the test users live at pp's capture domain (MAIL_CAPTURE_DOMAIN, default mail.pp.test),
+whose mail Sesame hands to Mailpit instead of the relay; the script then also reads the security notices and the
+email OTP / magic link mails back from Mailpit's API and follows them end to end.
 
 Sesame in pp sends real mail (sign-in codes, security notices) through the production relay, so every test user
 needs a deliverable address. TEST_EMAIL_BASE is a plus-addressed template with a `{tag}` placeholder, filled with a
@@ -14,7 +19,7 @@ unique tag per user (e.g. someone+mfa-verify-20261027-a@your-domain). The script
 refuses reserved, non-deliverable domains (example.com/.net/.org, .test, .invalid, .localhost, .example), which can
 only bounce.
 """
-import base64, hashlib, hmac, json, os, struct, sys, time, urllib.request, urllib.error
+import base64, hashlib, hmac, json, os, re, struct, sys, time, urllib.parse, urllib.request, urllib.error
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -42,7 +47,13 @@ def test_email(tag):
 
 if "{tag}" not in EMAIL_BASE or "@" not in EMAIL_BASE:
     sys.exit("TEST_EMAIL_BASE must be a deliverable address template containing {tag}, e.g. someone+{tag}@your-domain")
-if reserved(EMAIL_BASE.rsplit("@", 1)[1]):
+MAILPIT_API = os.environ.get("MAILPIT_API", "").rstrip("/")
+CAPTURE_DOMAIN = os.environ.get("MAIL_CAPTURE_DOMAIN", "mail.pp.test").strip().lower().rstrip(".")
+EMAIL_DOMAIN = EMAIL_BASE.rsplit("@", 1)[1].lower().rstrip(".")
+if MAILPIT_API:
+    if EMAIL_DOMAIN != CAPTURE_DOMAIN:
+        sys.exit(f"with MAILPIT_API, TEST_EMAIL_BASE must be at the capture domain {CAPTURE_DOMAIN}")
+elif reserved(EMAIL_DOMAIN):
     sys.exit("TEST_EMAIL_BASE is at a reserved, non-deliverable domain: mail to it can only bounce")
 results = []
 
@@ -69,6 +80,34 @@ def call(path, body=None, bearer=None, method="POST"):
             return e.code, json.loads(raw)
         except Exception:
             return e.code, {"raw": raw[:200].decode(errors="replace")}
+
+
+def mailpit(path):
+    with urllib.request.urlopen(MAILPIT_API + path, timeout=20) as r:
+        return json.loads(r.read())
+
+
+def mail(to, subject_has, timeout=45):
+    """The newest captured message to `to` whose subject contains `subject_has` (its full text), or None."""
+    deadline = time.time() + timeout
+    q = urllib.parse.quote(f'to:"{to}"')
+    while time.time() < deadline:
+        try:
+            for m in mailpit(f"/search?query={q}&limit=50").get("messages", []):
+                if subject_has.lower() in m.get("Subject", "").lower():
+                    return mailpit(f"/message/{m['ID']}")
+        except Exception as e:  # noqa: BLE001 (keep polling; report at the deadline)
+            last = e
+        time.sleep(3)
+    return None
+
+
+def expect_mail(name, to, subject_has):
+    if not MAILPIT_API:
+        return None
+    m = mail(to, subject_has)
+    check(f"mail captured: {name}", m is not None, f"no '{subject_has}' mail")
+    return m
 
 
 def claims(jwt):
@@ -199,6 +238,7 @@ check("TOTP confirm refuses a wrong code", s == 401 and x.get("error") == "inval
 s, x = call("/idam/v1/auth/mfa/totp/confirm", {"mfa_token": mt, "factor_id": e["factor_id"], "code": totp(e["secret"])})
 codes = x.get("recovery_codes") or []
 check("TOTP confirmed; first factor returns 10 recovery codes", s == 200 and len(codes) == 10, f"{s} {x.get('error')}")
+expect_mail("authenticator app added (user A)", email, "an authenticator app was added")
 
 s, b = login(email, pw)
 check("password sign-in now answers 202 (no token)", s == 202 and "access_token" not in b and b.get("mfa_token"),
@@ -229,6 +269,7 @@ if ok:
     c = claims(x["access_token"])
     check("recovery: amr [mfa, pwd, rc], acr aal2 (not phishing-resistant)",
           c.get("amr") == ["mfa", "pwd", "rc"] and c.get("acr") == "urn:sesame:acr:aal2", f"{c.get('amr')}")
+    expect_mail("recovery code used", email, "a recovery code was used")
 s, b = login(email, pw)
 s, x = call("/idam/v1/auth/mfa/verify", {"mfa_token": b["mfa_token"], "method": "recovery_code", "code": codes[0]})
 check("a used recovery code is refused", s == 401, f"{s}")
@@ -247,6 +288,7 @@ s, r = call("/idam/v1/auth/passkeys/register", {"mfa_token": mt, "challenge_id":
                                                 "credential": auth.create(o["options"]), "label": "Verify passkey"})
 check("passkey registered (synced)", s == 200 and r.get("factor", {}).get("kind") == "passkey"
       and r["factor"].get("synced") is True and not r.get("recovery_codes"), f"{s} {r.get('error')}")
+expect_mail("passkey added", email, "a passkey was added")
 s, o2 = call("/idam/v1/auth/passkeys/register/options", {"mfa_token": mt})
 s, r2 = call("/idam/v1/auth/passkeys/register", {"mfa_token": mt, "challenge_id": o["challenge_id"],
                                                  "credential": auth.create(o["options"])})
@@ -302,6 +344,7 @@ check("the last passkey cannot be removed under a passkey policy", s == 409 and 
 app = next(z for z in f["factors"] if z["kind"] == "totp")
 s, x = call("/idam/v1/auth/mfa/factors/remove", {"mfa_token": mt, "factor_id": app["id"]})
 check("the authenticator app can be removed", s == 200 and all(z["kind"] != "totp" for z in x["factors"]), f"{s}")
+expect_mail("sign-in method removed", email, "a sign-in method was removed")
 call(f"/idam/v1/organizations/{org['id']}/auth-policy", {"require": "none"}, bearer=passkey_access, method="PUT")
 
 # ── user B: no factor, organisation requires MFA -> forced enrolment ──────────────────────────────────────────────
@@ -322,8 +365,37 @@ if ok:
     c = claims(x["tokens"]["access_token"])
     check("the enrolment sign-in is reported truthfully (amr [pwd], aal1)", c.get("amr") == ["pwd"]
           and c.get("acr") == "urn:sesame:acr:aal1", f"{c.get('amr')}")
+    expect_mail("authenticator app added (forced enrolment, user B)", email_b, "an authenticator app was added")
 s, b = login(email_b, pw_b)
 check("next sign-in requires the new factor", s == 202 and b.get("methods") == ["totp", "recovery_code"], f"{s} {b.get('methods')}")
+
+# ── user C (capture mode only): email OTP and magic link, followed from the captured mail ─────────────────────────
+if MAILPIT_API:
+    email_c, _ = register("c")
+    s, x = call("/idam/v1/auth/login/email-otp", {"email": email_c})
+    check("email OTP requested", s in (200, 202), f"{s} {x.get('error')}")
+    m = mail(email_c, "verification code")
+    code = re.search(r"\b(\d{6})\b", (m or {}).get("Text", ""))
+    check("mail captured: email OTP code", bool(code), "no code mail")
+    if code:
+        s, x = call("/idam/v1/auth/verify/email-otp", {"email": email_c, "code": code.group(1)})
+        ok = s == 200 and "access_token" in x
+        check("email OTP from the captured mail signs in", ok, f"{s} {x.get('error')}")
+        if ok:
+            c = claims(x["access_token"])
+            check("email OTP: amr [email]", c.get("amr") == ["email"], f"{c.get('amr')}")
+    s, x = call("/idam/v1/auth/login/magic-link", {"email": email_c})
+    check("magic link requested", s in (200, 202), f"{s} {x.get('error')}")
+    m = mail(email_c, "sign-in link")
+    link = re.search(r"https://\S+[?&]token=([A-Za-z0-9_\-.~%]+)", (m or {}).get("Text", ""))
+    check("mail captured: magic link", bool(link), "no link mail")
+    if link:
+        s, x = call("/idam/v1/auth/login/magic-link/verify", {"token": urllib.parse.unquote(link.group(1))})
+        ok = s == 200 and "access_token" in x
+        check("magic link from the captured mail signs in", ok, f"{s} {x.get('error')}")
+        if ok:
+            c = claims(x["access_token"])
+            check("magic link: amr [email]", c.get("amr") == ["email"], f"{c.get('amr')}")
 
 failed = [n for n, ok in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")

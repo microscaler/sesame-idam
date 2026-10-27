@@ -267,7 +267,7 @@ spec:
             - name: SMS_ENVELOPE_CUSTODY_TENANTS
               value: {{ .Values.app.config.sms.envelopeCustodyTenants | default "" | quote }}
             # ── Mail and link settings: passed only when set (empty: no mail, derived links). ──
-            {{- range $name := list "SMTP_HOST" "SMTP_PORT" "MAIL_FROM" "MAIL_FROM_NAME" "MAIL_ALLOW_RESERVED_DOMAINS" "INVITE_MAGIC_LINK_BASE" "MAGIC_LINK_BASE_URL" "PASSWORD_RESET_BASE_URL" }}
+            {{- range $name := list "SMTP_HOST" "SMTP_PORT" "MAIL_FROM" "MAIL_FROM_NAME" "MAIL_ALLOW_RESERVED_DOMAINS" "MAIL_CAPTURE_DOMAIN" "MAIL_CAPTURE_SMTP_HOST" "MAIL_CAPTURE_SMTP_PORT" "INVITE_MAGIC_LINK_BASE" "MAGIC_LINK_BASE_URL" "PASSWORD_RESET_BASE_URL" }}
             {{- with (get $.Values.env $name) }}
             - name: {{ $name }}
               value: {{ . | quote }}

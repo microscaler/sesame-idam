@@ -99,6 +99,12 @@ env:
   # "1": mail to reserved domains (example.com, *.test, ...) is handed to the relay. Only for a capture-only sink
   # (Mailpit); empty everywhere a real relay delivers, where such mail is dropped and counted instead.
   MAIL_ALLOW_RESERVED_DOMAINS: ""
+  # Pre-production capture: mail to MAIL_CAPTURE_DOMAIN (pp: mail.pp.test) goes to a capture-only sink (Mailpit) at
+  # MAIL_CAPTURE_SMTP_HOST:MAIL_CAPTURE_SMTP_PORT instead of the relay. Empty in production: no capture, and mail to a
+  # .test domain is dropped by the reserved-domain guard.
+  MAIL_CAPTURE_DOMAIN: ""
+  MAIL_CAPTURE_SMTP_HOST: ""
+  MAIL_CAPTURE_SMTP_PORT: ""
   # Product onboarding page invite links point at. Empty: invites are stored but not emailed.
   INVITE_MAGIC_LINK_BASE: ""
   # Optional overrides; default <SESAME_AUTH_PUBLIC_URL>/verify-magic and /reset-password.

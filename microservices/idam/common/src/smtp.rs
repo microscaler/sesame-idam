@@ -15,7 +15,12 @@
 //! can only bounce, and bounces cost the sending domain its reputation. [`send_email`] logs it with the local part
 //! redacted, counts it (`sesame_mail_send_total{outcome="suppressed"}`) and returns `Ok`, so the flow that asked for
 //! the mail (registration, a sign-in code, a security notice) completes as if it had been sent.
-//! `MAIL_ALLOW_RESERVED_DOMAINS=1` turns this off, for a capture-only sink (the development Mailpit and the BDD
+//!
+//! Capture (pre-production only): with `MAIL_CAPTURE_DOMAIN` set (pp: `mail.pp.test`), mail to that domain or its
+//! subdomains is handed to a capture-only sink instead of the relay: `MAIL_CAPTURE_SMTP_HOST` / `MAIL_CAPTURE_SMTP_PORT`
+//! (Mailpit; default `SMTP_HOST` / `SMTP_PORT`). Test users live there, and their mail can be read back from the sink's
+//! API. Unset (production), the capture domain is just another reserved `.test` domain and its mail is dropped.
+//! `MAIL_ALLOW_RESERVED_DOMAINS=1` turns the reserved-domain guard off, for a capture-only sink (the development Mailpit and the BDD
 //! tests that read mail back from it); never set it where `SMTP_HOST` is a real relay.
 
 use std::io::{BufRead, BufReader, Write};
@@ -107,7 +112,8 @@ fn command(
 ///
 /// Returns an error on connection failure, timeout, or unexpected SMTP reply.
 pub fn send_email(to: &str, subject: &str, body: &str) -> Result<()> {
-    if is_reserved_recipient(to) && !reserved_domains_allowed() {
+    let captured = capture_domain().is_some_and(|domain| in_domain(to, &domain));
+    if !captured && is_reserved_recipient(to) && !reserved_domains_allowed() {
         let kind = mail_kind(subject);
         crate::observability::metrics::MAIL_SENDS
             .with_label_values(&[kind, "suppressed"])
@@ -121,9 +127,15 @@ pub fn send_email(to: &str, subject: &str, body: &str) -> Result<()> {
         return Ok(());
     }
     let started = std::time::Instant::now();
-    let result = send_email_inner(to, subject, body);
+    let result = (if captured {
+        capture_addr()
+    } else {
+        relay_addr()
+    })
+    .and_then(|addr| send_email_inner(&addr, to, subject, body));
     crate::observability::metrics::MAIL_DURATION.observe(started.elapsed().as_secs_f64());
     let outcome = match &result {
+        Ok(()) if captured => "captured",
         Ok(()) => "sent",
         Err(e) => classify_failure(e),
     };
@@ -168,6 +180,43 @@ pub fn is_reserved_recipient(to: &str) -> bool {
             .any(|r| domain == *r || domain.ends_with(&format!(".{r}")))
 }
 
+/// `MAIL_CAPTURE_DOMAIN`, normalised (lowercase, no trailing dot); `None` when unset (production: no capture).
+fn capture_domain() -> Option<String> {
+    std::env::var("MAIL_CAPTURE_DOMAIN")
+        .ok()
+        .map(|v| v.trim().trim_end_matches('.').to_ascii_lowercase())
+        .filter(|v| !v.is_empty())
+}
+
+/// Whether `to` is at `domain` or one of its subdomains (case and a trailing dot ignored).
+#[must_use]
+pub fn in_domain(to: &str, domain: &str) -> bool {
+    let Some((_, d)) = to.trim().rsplit_once('@') else {
+        return false;
+    };
+    let d = d.trim().trim_end_matches('.').to_ascii_lowercase();
+    let domain = domain.trim().trim_end_matches('.').to_ascii_lowercase();
+    !domain.is_empty() && (d == domain || d.ends_with(&format!(".{domain}")))
+}
+
+/// The relay: `SMTP_HOST:SMTP_PORT`.
+fn relay_addr() -> Result<String> {
+    Ok(format!("{}:{}", smtp_host()?, smtp_port()))
+}
+
+/// The capture sink: `MAIL_CAPTURE_SMTP_HOST:MAIL_CAPTURE_SMTP_PORT`, each defaulting to the relay's.
+fn capture_addr() -> Result<String> {
+    let host = match std::env::var("MAIL_CAPTURE_SMTP_HOST") {
+        Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
+        _ => smtp_host()?,
+    };
+    let port = std::env::var("MAIL_CAPTURE_SMTP_PORT")
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or_else(smtp_port);
+    Ok(format!("{host}:{port}"))
+}
+
 /// `MAIL_ALLOW_RESERVED_DOMAINS` is `1` or `true`: the relay is a capture-only sink (Mailpit), nothing can bounce.
 fn reserved_domains_allowed() -> bool {
     std::env::var("MAIL_ALLOW_RESERVED_DOMAINS")
@@ -185,7 +234,9 @@ pub fn redact_local_part(to: &str) -> String {
 /// The kind of message, from its subject line, as a metric label (the subject itself is never logged).
 fn mail_kind(subject: &str) -> &'static str {
     let s = subject.to_ascii_lowercase();
-    if s.contains("password") {
+    if s.starts_with("security alert") {
+        "security_notice"
+    } else if s.contains("password") {
         "password_reset"
     } else if s.contains("verification code") || s.contains("code") {
         "otp"
@@ -216,9 +267,8 @@ fn classify_failure(error: &anyhow::Error) -> &'static str {
     }
 }
 
-fn send_email_inner(to: &str, subject: &str, body: &str) -> Result<()> {
+fn send_email_inner(addr: &str, to: &str, subject: &str, body: &str) -> Result<()> {
     let from = mail_from()?;
-    let addr = format!("{}:{}", smtp_host()?, smtp_port());
     let mut stream = {
         use std::net::ToSocketAddrs;
         let sock = addr
@@ -307,6 +357,27 @@ mod tests {
         ] {
             assert!(!is_reserved_recipient(to), "{to}");
         }
+    }
+
+    #[test]
+    fn security_notices_have_their_own_kind() {
+        assert_eq!(
+            mail_kind("Security alert: a recovery code was used to sign in"),
+            "security_notice"
+        );
+        assert_eq!(mail_kind("Your verification code"), "otp");
+    }
+
+    #[test]
+    fn the_capture_domain_matches_itself_and_its_subdomains_only() {
+        assert!(in_domain("mfa+a@mail.pp.test", "mail.pp.test"));
+        assert!(in_domain("X@MAIL.PP.TEST.", "mail.pp.test."));
+        assert!(in_domain("x@run1.mail.pp.test", "mail.pp.test"));
+        assert!(!in_domain("x@pp.test", "mail.pp.test"));
+        assert!(!in_domain("x@evilmail.pp.test", "mail.pp.test"));
+        assert!(!in_domain("x@mail.pp.test.example.com", "mail.pp.test"));
+        assert!(!in_domain("x@mail.pp.test", ""));
+        assert!(!in_domain("no-domain", "mail.pp.test"));
     }
 
     #[test]
