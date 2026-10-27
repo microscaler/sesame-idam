@@ -9,15 +9,13 @@ use brrtrouter_macros::handler;
 pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
     // {
-    //   "expires_in": 900,
-    //   "magic_link_sent": true,
-    //   "message": "A magic link has been sent to your email"
+    //   "message": "If the account exists, a link has been sent",
+    //   "success": true
     // }
     match serde_json::from_str::<Response>(
         r###"{
-  "expires_in": 900,
-  "magic_link_sent": true,
-  "message": "A magic link has been sent to your email"
+  "message": "If the account exists, a link has been sent",
+  "success": true
 }"###,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
@@ -28,7 +26,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     }
 
     HttpJson::ok(Response {
-        expires_in: Some(900),
-        magic_link_sent: true,
+        message: Some("If the account exists, a link has been sent".to_string()),
+        success: true,
     })
 }

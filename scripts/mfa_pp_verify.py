@@ -369,7 +369,7 @@ if ok:
 s, b = login(email_b, pw_b)
 check("next sign-in requires the new factor", s == 202 and b.get("methods") == ["totp", "recovery_code"], f"{s} {b.get('methods')}")
 
-# ── user C (capture mode only): email OTP and magic link, followed from the captured mail ─────────────────────────
+# ── users C and D (capture mode only): email OTP and magic link, followed from the captured mail ─────────────────────────
 if MAILPIT_API:
     email_c, _ = register("c")
     s, x = call("/idam/v1/auth/login/email-otp", {"email": email_c})
@@ -384,9 +384,11 @@ if MAILPIT_API:
         if ok:
             c = claims(x["access_token"])
             check("email OTP: amr [email]", c.get("amr") == ["email"], f"{c.get('amr')}")
-    s, x = call("/idam/v1/auth/login/magic-link", {"email": email_c})
+    # A separate user: the email channel swallows a second send to the same address within 60 s (abuse_guard dedupe).
+    email_d, _ = register("d")
+    s, x = call("/idam/v1/auth/login/magic-link", {"email": email_d})
     check("magic link requested", s in (200, 202), f"{s} {x.get('error')}")
-    m = mail(email_c, "sign-in link")
+    m = mail(email_d, "sign-in link")
     link = re.search(r"https://\S+[?&]token=([A-Za-z0-9_\-.~%]+)", (m or {}).get("Text", ""))
     check("mail captured: magic link", bool(link), "no link mail")
     if link:

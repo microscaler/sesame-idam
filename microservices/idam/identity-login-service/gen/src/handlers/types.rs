@@ -498,9 +498,9 @@ pub struct MagicLinkRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MagicLinkResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_in: Option<i32>,
+    pub message: Option<String>,
 
-    pub magic_link_sent: bool,
+    pub success: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -511,9 +511,9 @@ pub struct MagicLinkSendRequest {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MagicLinkSendResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_in: Option<i32>,
+    pub message: Option<String>,
 
-    pub magic_link_sent: bool,
+    pub success: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

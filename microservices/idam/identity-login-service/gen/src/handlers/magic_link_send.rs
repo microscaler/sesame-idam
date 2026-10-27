@@ -22,11 +22,11 @@ pub struct Request {
 
 pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "expires_in")]
-    pub expires_in: Option<i32>,
+    #[serde(rename = "message")]
+    pub message: Option<String>,
 
-    #[serde(rename = "magic_link_sent")]
-    pub magic_link_sent: bool,
+    #[serde(rename = "success")]
+    pub success: bool,
 }
 
 impl TryFrom<HandlerRequest> for Request {

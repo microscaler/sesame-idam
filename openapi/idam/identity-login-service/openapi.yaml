@@ -304,9 +304,8 @@ paths:
                 default: &id011
                   summary: Example for magic_link_send 200
                   value: &id057
-                    magic_link_sent: true
-                    expires_in: 900
-                    message: A magic link has been sent to your email
+                    success: true
+                    message: If the account exists, a link has been sent
               example: *id011
         '400':
           description: Bad request
@@ -4324,17 +4323,19 @@ components:
       example: *id056
     MagicLinkResponse:
       type: object
+      description: >-
+        Generic on purpose (Gate A3): the same body whether or not the account exists or the send was suppressed, so
+        the endpoint cannot be used to probe for accounts. (The schema used to require magic_link_sent, which the
+        service never returned: every send answered 500 "Response validation failed".)
       required:
-      - magic_link_sent
+      - success
       properties:
-        magic_link_sent:
+        success:
           type: boolean
           example: true
-          description: Whether magic link was sent
-        expires_in:
-          type: integer
-          example: 900
-          description: Seconds until expiration
+        message:
+          type: string
+          example: If the account exists, a link has been sent
       example: *id057
     MagicLinkVerifyRequest:
       type: object
