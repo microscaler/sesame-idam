@@ -64,7 +64,7 @@ url = "2.5.8"
 # Domain verification (Epic 17): IDNA (same major as url) and the Public Suffix List, pinned exactly so a
 # list refresh is a deliberate bump.
 idna = "1.1.0"
-psl = "=2.1.241"
+psl = "=2.1.245"
 argon2.workspace = true
 
 [features]
