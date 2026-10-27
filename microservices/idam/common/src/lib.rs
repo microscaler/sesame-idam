@@ -34,6 +34,7 @@ pub mod middleware;
 pub mod not_implemented;
 pub mod observability;
 pub mod oidc_client;
+pub mod platform_admin;
 pub mod redis_pool;
 pub mod refresh_session;
 pub mod role_policy;

@@ -1368,6 +1368,8 @@ components:
           - not_found
           - internal_error
           - validation_error
+          - unauthorized
+          - forbidden
           description: Machine-readable error code
         error_description:
           type: string

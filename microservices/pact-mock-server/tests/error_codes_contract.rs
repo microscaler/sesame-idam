@@ -96,3 +96,18 @@ fn the_tenant_admin_guards_codes_are_in_its_users_specs() {
         }
     }
 }
+
+/// identity-session-service guards POST /admin/jwks/revoke with `sesame_common::platform_admin`, which answers the
+/// same 401 `unauthorized` / 403 `forbidden`.
+#[test]
+fn the_platform_admin_guards_codes_are_in_its_users_specs() {
+    for service in ["identity-session-service"] {
+        let listed = listed_codes(service);
+        for code in ["unauthorized", "forbidden"] {
+            assert!(
+                listed.iter().any(|c| c == code),
+                "{service}: ErrorResponse lacks {code}"
+            );
+        }
+    }
+}
