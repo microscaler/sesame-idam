@@ -69,6 +69,9 @@ env:
   SMTP_HOST: mailpit.data.svc.cluster.local
   SMTP_PORT: "1025"
   MAIL_FROM: no-reply@sesame-idam.dev
+  # Mailpit captures everything and delivers nothing: let demo/test users at reserved domains (acme.example,
+  # example.com) receive mail here. Never set where SMTP_HOST is a real relay.
+  MAIL_ALLOW_RESERVED_DOMAINS: "1"
   INVITE_MAGIC_LINK_BASE: https://loadlinker.dev.microscaler.local/onboarding
   RUST_LOG: debug
   RUST_BACKTRACE: "1"

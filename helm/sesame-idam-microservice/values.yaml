@@ -96,6 +96,9 @@ env:
   MAIL_FROM: ""
   # From display name (empty: "Sesame"); the product's name for its sign-in mail.
   MAIL_FROM_NAME: ""
+  # "1": mail to reserved domains (example.com, *.test, ...) is handed to the relay. Only for a capture-only sink
+  # (Mailpit); empty everywhere a real relay delivers, where such mail is dropped and counted instead.
+  MAIL_ALLOW_RESERVED_DOMAINS: ""
   # Product onboarding page invite links point at. Empty: invites are stored but not emailed.
   INVITE_MAGIC_LINK_BASE: ""
   # Optional overrides; default <SESAME_AUTH_PUBLIC_URL>/verify-magic and /reset-password.

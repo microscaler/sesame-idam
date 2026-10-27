@@ -111,6 +111,8 @@ fn mailpit_available() -> Option<String> {
     }
     std::env::set_var("SMTP_HOST", &smtp_host);
     std::env::set_var("SMTP_PORT", &smtp_port);
+    // The recipients are at example.com: Mailpit captures them, so the reserved-domain guard is off here.
+    std::env::set_var("MAIL_ALLOW_RESERVED_DOMAINS", "1");
     // Cluster LB paths (MetalLB) delay the SMTP banner: measured at ~10s
     // from the build host against mailpit.data (TCP connects instantly, the
     // greeting is what is slow). 15s left no headroom for the rest of the

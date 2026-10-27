@@ -90,6 +90,8 @@ fn mailpit_available() -> Option<String> {
     }
     std::env::set_var("SMTP_HOST", &smtp_host);
     std::env::set_var("SMTP_PORT", &smtp_port);
+    // The recipients are at example.com: Mailpit captures them, so the reserved-domain guard is off here.
+    std::env::set_var("MAIL_ALLOW_RESERVED_DOMAINS", "1");
     if std::env::var("SMTP_TIMEOUT_MS").is_err() {
         std::env::set_var("SMTP_TIMEOUT_MS", "30000");
     }

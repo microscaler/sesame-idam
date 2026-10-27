@@ -9,6 +9,14 @@
 //! - `MAIL_FROM_NAME`: the From display name (`Sesame`)
 //! - `SMTP_PORT` (`1025`)
 //! - `SMTP_TIMEOUT_MS` (`5000`)
+//!
+//! Mail to a reserved, non-deliverable domain (RFC 2606 / RFC 6761: `example.com`, `example.net`, `example.org` and
+//! their subdomains; the `.test`, `.invalid`, `.localhost` and `.example` TLDs) is never handed to the relay: it
+//! can only bounce, and bounces cost the sending domain its reputation. [`send_email`] logs it with the local part
+//! redacted, counts it (`sesame_mail_send_total{outcome="suppressed"}`) and returns `Ok`, so the flow that asked for
+//! the mail (registration, a sign-in code, a security notice) completes as if it had been sent.
+//! `MAIL_ALLOW_RESERVED_DOMAINS=1` turns this off, for a capture-only sink (the development Mailpit and the BDD
+//! tests that read mail back from it); never set it where `SMTP_HOST` is a real relay.
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
@@ -99,6 +107,19 @@ fn command(
 ///
 /// Returns an error on connection failure, timeout, or unexpected SMTP reply.
 pub fn send_email(to: &str, subject: &str, body: &str) -> Result<()> {
+    if is_reserved_recipient(to) && !reserved_domains_allowed() {
+        let kind = mail_kind(subject);
+        crate::observability::metrics::MAIL_SENDS
+            .with_label_values(&[kind, "suppressed"])
+            .inc();
+        tracing::warn!(
+            kind,
+            outcome = "suppressed",
+            to = %redact_local_part(to),
+            "sesame_mail: reserved, non-deliverable domain (RFC 2606/6761); not sent"
+        );
+        return Ok(());
+    }
     let started = std::time::Instant::now();
     let result = send_email_inner(to, subject, body);
     crate::observability::metrics::MAIL_DURATION.observe(started.elapsed().as_secs_f64());
@@ -122,6 +143,43 @@ pub fn send_email(to: &str, subject: &str, body: &str) -> Result<()> {
         }
     }
     result
+}
+
+/// Second-level domains reserved for documentation (RFC 2606 §3); they and all their subdomains are non-deliverable.
+const RESERVED_DOMAINS: [&str; 3] = ["example.com", "example.net", "example.org"];
+/// Top-level domains that never resolve to a mail host (RFC 2606 §2, RFC 6761 §6).
+const RESERVED_TLDS: [&str; 4] = ["test", "invalid", "localhost", "example"];
+
+/// Whether `to` is at a reserved, non-deliverable domain (a subdomain counts; case and a trailing dot are ignored).
+/// An address without a domain is not judged here: it fails at the relay as before.
+#[must_use]
+pub fn is_reserved_recipient(to: &str) -> bool {
+    let Some((_, domain)) = to.trim().trim_end_matches('>').rsplit_once('@') else {
+        return false;
+    };
+    let domain = domain.trim().trim_end_matches('.').to_ascii_lowercase();
+    if domain.is_empty() {
+        return false;
+    }
+    let tld = domain.rsplit('.').next().unwrap_or_default();
+    RESERVED_TLDS.contains(&tld)
+        || RESERVED_DOMAINS
+            .iter()
+            .any(|r| domain == *r || domain.ends_with(&format!(".{r}")))
+}
+
+/// `MAIL_ALLOW_RESERVED_DOMAINS` is `1` or `true`: the relay is a capture-only sink (Mailpit), nothing can bounce.
+fn reserved_domains_allowed() -> bool {
+    std::env::var("MAIL_ALLOW_RESERVED_DOMAINS")
+        .is_ok_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true"))
+}
+
+/// `***@domain`: the address with its local part removed, safe to log.
+#[must_use]
+pub fn redact_local_part(to: &str) -> String {
+    to.trim()
+        .rsplit_once('@')
+        .map_or_else(|| "***".to_string(), |(_, d)| format!("***@{d}"))
 }
 
 /// The kind of message, from its subject line, as a metric label (the subject itself is never logged).
@@ -204,4 +262,72 @@ fn send_email_inner(to: &str, subject: &str, body: &str) -> Result<()> {
     command(&mut stream, &mut reader, ".", 250)?;
     let _ = command(&mut stream, &mut reader, "QUIT", 221);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reserved_domains_and_their_subdomains_are_refused() {
+        for to in [
+            "a@example.com",
+            "mfa-verify-1-a@example.com",
+            "A@EXAMPLE.ORG",
+            "x@example.net.",
+            "x@mail.example.com",
+            "x@deep.sub.example.org",
+            "x@host.test",
+            "x@thing.invalid",
+            "x@localhost",
+            "x@box.localhost",
+            "x@login.sesame.example",
+            "x@EXAMPLE",
+            " x@example.com ",
+        ] {
+            assert!(is_reserved_recipient(to), "{to}");
+        }
+    }
+
+    #[test]
+    fn deliverable_and_lookalike_domains_are_sent() {
+        for to in [
+            "a@gmail.com",
+            "a@pricewhisperer.ai",
+            "a@notexample.com",
+            "a@example.com.au",
+            "a@example.co.uk",
+            "a@myexample.org",
+            "a@testing.io",
+            "a@test.com",
+            "a@invalid.net",
+            "a@example.community",
+            "no-domain",
+            "trailing@",
+        ] {
+            assert!(!is_reserved_recipient(to), "{to}");
+        }
+    }
+
+    #[test]
+    fn the_local_part_never_reaches_the_log() {
+        assert_eq!(
+            redact_local_part("alice.smith@example.com"),
+            "***@example.com"
+        );
+        assert_eq!(redact_local_part("no-domain"), "***");
+    }
+
+    #[test]
+    fn a_reserved_recipient_is_reported_sent_without_touching_the_relay() {
+        // No SMTP_HOST in the test environment: a real send would fail. Suppression answers Ok and counts it.
+        let before = crate::observability::metrics::MAIL_SENDS
+            .with_label_values(&["otp", "suppressed"])
+            .get();
+        assert!(send_email("someone@example.com", "Your verification code", "123456").is_ok());
+        let after = crate::observability::metrics::MAIL_SENDS
+            .with_label_values(&["otp", "suppressed"])
+            .get();
+        assert_eq!(after, before + 1);
+    }
 }

@@ -61,7 +61,7 @@ pub static KMS_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
 pub static MAIL_SENDS: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec!(
         "sesame_mail_send_total",
-        "Mail hand-offs to the SMTP relay by kind (otp, magic_link, password_reset, invite, owner_transfer) and outcome (sent, refused, unreachable, error)",
+        "Mail hand-offs to the SMTP relay by kind (otp, magic_link, password_reset, invite, owner_transfer) and outcome (sent, refused, unreachable, error, suppressed: a reserved non-deliverable domain, not sent)",
         &["kind", "outcome"]
     )
     .expect("sesame_mail_send_total registers once")
