@@ -90,7 +90,7 @@ anyhow = "1.0"
 http = "1"
 prometheus = { workspace = true }
 smallvec = "1"
-wiremock = "0.5"
+wiremock = "0.6"
 rand = "0.8"
 proptest = "1"
 # Test-only RSA key generation (rs256 tests); production code never uses it.
