@@ -17,7 +17,7 @@ base64 = { workspace = true, features = ["alloc"] }
 hex = "0.4"
 
 # JWT / crypto (always available)
-jsonwebtoken = "9.3"
+jsonwebtoken = "11.1"
 ring = "0.17"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 ed25519-zebra = "4"

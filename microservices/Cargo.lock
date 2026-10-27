@@ -666,7 +666,7 @@ dependencies = [
  "http 0.2.12",
  "http 1.4.2",
  "jsonschema",
- "jsonwebtoken 11.1.0",
+ "jsonwebtoken",
  "libc",
  "lru",
  "may",
@@ -3210,21 +3210,6 @@ dependencies = [
  "num-cmp",
  "num-traits",
  "serde_json",
-]
-
-[[package]]
-name = "jsonwebtoken"
-version = "9.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a87cc7a48537badeae96744432de36f4be2b4a34a05a5ef32e9dd8a1c169dde"
-dependencies = [
- "base64 0.22.1",
- "js-sys",
- "pem",
- "ring",
- "serde",
- "serde_json",
- "simple_asn1",
 ]
 
 [[package]]
@@ -6028,7 +6013,7 @@ dependencies = [
  "http 0.2.12",
  "http 1.4.2",
  "idna",
- "jsonwebtoken 9.3.1",
+ "jsonwebtoken",
  "lazy_static",
  "may",
  "metrics",
@@ -6242,7 +6227,7 @@ dependencies = [
  "config",
  "hex",
  "http 1.4.2",
- "jsonwebtoken 9.3.1",
+ "jsonwebtoken",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
@@ -6311,7 +6296,7 @@ dependencies = [
  "clap",
  "config",
  "http 1.4.2",
- "jsonwebtoken 9.3.1",
+ "jsonwebtoken",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",

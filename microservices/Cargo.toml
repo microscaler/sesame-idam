@@ -61,7 +61,7 @@ clap = { version = "4.5", features = ["derive"] }
 # 0.7 with "profiling": one jemalloc-sys across the graph with microscaler-observability's heap profiler
 # (jemalloc_pprof), and heap profiles to Cloud Profiler in pp (_RJEM_MALLOC_CONF, BRRTRouter ADR 005).
 tikv-jemallocator = { version = "0.7", features = ["profiling"] }
-jsonwebtoken = "9.3"
+jsonwebtoken = "11.1"
 ring = "0.17"
 argon2 = "0.5"
 base64 = { version = "0.22", features = ["alloc"] }
