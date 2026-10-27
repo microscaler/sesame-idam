@@ -53,8 +53,11 @@ revision.
 
 ### 3.2 Runners: public repository
 
-Sesame is public. Self-hosted runners must never run code from a public repository's pull requests, so every Sesame job
-runs on GitHub-hosted runners (`ubuntu-24.04`). Credentials are federated (OIDC → cloud workload identity), never stored
+Sesame is public. Self-hosted runners must never run code from a public repository's pull requests. ci.yml has no
+`pull_request` trigger (push to main, `v*` tags and dispatch only), so its build jobs run on the ms02 self-hosted runners
+(shared sccache, the release-notes LLM on the LAN); pull requests, forks included, run pr.yml on GitHub-hosted runners
+(`ubuntu-24.04`) with no credentials, and the repository requires approval for every outside contributor's workflow
+run. Promotion (acceptance) stays on GitHub-hosted runners. Credentials are federated (OIDC → cloud workload identity), never stored
 as secrets; pull requests from forks get no OIDC token and so cannot push or promote. The acceptance stage runs only for
 `v*` tags, which only administrators can create (tag ruleset), inside the `pp` GitHub environment.
 

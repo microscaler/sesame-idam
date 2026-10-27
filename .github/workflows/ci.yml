@@ -4,9 +4,11 @@ name: Release images
 # private integration registry. A v* tag (Trigger Release) creates the GitHub Release and promotes those exact digests
 # into the pp acceptance registry.
 #
-# Public repository: every job runs on GitHub-hosted runners, never self-hosted ones. Registry access is federated
-# (OIDC, id-token: write), so nothing is stored as a secret. This workflow has no pull_request trigger: pull requests
-# (including forks) get pr.yml, which has no credentials at all. Promotion runs only for v* tags, which only
+# Public repository. This workflow has no pull_request trigger (push to main, v* tags, dispatch: maintainers only), so
+# its build jobs run on the ms02 self-hosted runners with the shared sccache; pull requests, forks included, get pr.yml
+# on GitHub-hosted runners with no credentials, and outside contributors' workflow runs need approval (repository
+# setting). Promotion (acceptance) stays on GitHub-hosted runners. Registry access is federated (OIDC, id-token:
+# write), so nothing is stored as a secret. Promotion runs only for v* tags, which only
 # administrators can create, inside the pp environment.
 on:
   push:
@@ -45,13 +47,16 @@ jobs:
     with:
       integration: false
       # The op image from main passes Skaffold buildArgs (v1.2.0 does not). Pin the next op release once it is cut.
-      op_version: main
+      op_version: v1.2.2
       # Release notes from our own vLLM (Qwen on the Sparks), reachable from the ms02 runners; if it is down
       # the notes fall back to the commit list and the release goes ahead.
       release_notes_provider: openai
       release_notes_base_url: http://10.177.76.236/v1   # the Cylon LLM gateway (ms02); key: secret RELEASE_NOTES_API_KEY
       release_notes_model: Qwen/Qwen3.8-27B-FP8
-      runner: ubuntu-24.04
+      # ms02 ARC runners: push/tag/dispatch only (see the header). Uploads (integration images to Artifact Registry)
+      # go over the 12 Mbit/s uplink; the release-notes LLM (192.168.1.104) is only reachable from there.
+      runner: '["self-hosted", "linux", "x64", "microscaler"]'
+      sccache: true
       # Where artifacts go and which identities the run federates to are repository variables (Settings, Variables),
       # kept out of this public repository. None of them is a secret.
       integration_registry: ${{ vars.INTEGRATION_REGISTRY }}
