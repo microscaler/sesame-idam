@@ -49,7 +49,7 @@ jobs:
       # Release notes from our own vLLM (Qwen on the Sparks), reachable from the ms02 runners; if it is down
       # the notes fall back to the commit list and the release goes ahead.
       release_notes_provider: openai
-      release_notes_base_url: http://192.168.1.104:8000/v1
+      release_notes_base_url: http://10.177.76.236/v1   # the Cylon LLM gateway (ms02); key: secret RELEASE_NOTES_API_KEY
       release_notes_model: Qwen/Qwen3.8-27B-FP8
       runner: ubuntu-24.04
       # Where artifacts go and which identities the run federates to are repository variables (Settings, Variables),
@@ -63,6 +63,8 @@ jobs:
       acceptance_registry: ${{ vars.ACCEPTANCE_REGISTRY }}
       acceptance_service_account: ${{ vars.ACCEPTANCE_SERVICE_ACCOUNT }}
       acceptance_runner: ubuntu-24.04
+    secrets:
+      RELEASE_NOTES_API_KEY: ${{ secrets.RELEASE_NOTES_API_KEY }}
 
   guards:
     name: Guards
