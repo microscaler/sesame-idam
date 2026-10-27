@@ -961,7 +961,12 @@ impl KeyManager {
     ///
     /// Returns [`KeyError::KeyNotFound`] if the `kid` is not found,
     /// [`KeyError::RevocationFailed`] if a dummy key generation fails during
-    /// current-key revocation.
+    /// current-key revocation, or in ADR-006 file mode (below).
+    ///
+    /// In file mode the keys come from the shared keyset every replica mounts. A revocation here would change this
+    /// one process only: the other replicas keep publishing the key, and a restart brings it back here too. So it is
+    /// refused; a key is revoked by removing its kid from the keyset Secret, which every replica re-reads (the reload
+    /// loop, every 30 s after kubelet refreshes the mount).
     pub fn revoke_key(&mut self, kid: &str) -> Result<(), KeyError> {
         let span = tracing::span!(
             tracing::Level::INFO,
@@ -971,6 +976,19 @@ impl KeyManager {
         );
         // Not entered (may_tracing ADR-0001): a may coroutine can resume on another thread after a yield, and a span
         // entered on one thread and exited on another leaks its context there for good (2026-10-23 memory incident).
+
+        if self.is_file_mode() {
+            span.record("reason", "shared_keyset");
+            tracing::warn!(
+                kid = kid,
+                "key revocation refused: shared signing keyset (ADR-006 file mode)"
+            );
+            return Err(KeyError::RevocationFailed(
+                "the signing keys come from the shared keyset (ADR-006): remove the kid from the keyset Secret; \
+                 a revocation in one replica would leave the others publishing the key"
+                    .to_string(),
+            ));
+        }
 
         // Check current_key.
         if let Some(ref mut key) = self.current_key {

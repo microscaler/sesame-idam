@@ -171,3 +171,22 @@ fn bad_reload_keeps_previous_keys() {
     );
     let _ = std::fs::remove_file(&path);
 }
+
+/// Scenario: in file mode a revocation is refused, because it would change one replica only (the others keep
+/// publishing the key, and a restart restores it). The key stays published; revoking means editing the keyset.
+#[test]
+fn revocation_refused_in_file_mode() {
+    let path = temp_keyset_path("revoke");
+    write_keyset(&path, &[(fresh_pkcs8_b64(), "2026-01-01T00:00:00Z")]);
+    let mut km = KeyManager::from_keyset_file(path.to_str().unwrap()).unwrap();
+    let kid = km.current_key.as_ref().unwrap().kid.clone();
+
+    assert!(
+        km.revoke_key(&kid).is_err(),
+        "file mode must refuse a revocation that only one replica would apply"
+    );
+    assert!(!km.is_revoked(&kid));
+    assert!(km.current_key.is_some(), "the current key stays");
+    assert_eq!(km.jwks_document().keys.len(), 1, "the key stays published");
+    let _ = std::fs::remove_file(&path);
+}
