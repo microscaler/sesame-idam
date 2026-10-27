@@ -57,6 +57,9 @@ jobs:
       # go over the 12 Mbit/s uplink; the release-notes LLM (192.168.1.104) is only reachable from there.
       runner: '["self-hosted", "linux", "x64", "microscaler"]'
       sccache: true
+      # Image builds and pushes on GitHub-hosted runners: ~1 GB per run over ms02's ~15 Mbit/s uplink starved
+      # PriceWhisperer's releases (27 Oct). These builds run without sccache.
+      artifacts_runner: ubuntu-24.04
       # Where artifacts go and which identities the run federates to are repository variables (Settings, Variables),
       # kept out of this public repository. None of them is a secret.
       integration_registry: ${{ vars.INTEGRATION_REGISTRY }}
