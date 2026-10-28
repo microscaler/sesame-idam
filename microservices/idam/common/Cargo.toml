@@ -20,7 +20,7 @@ hex = "0.4"
 jsonwebtoken = { workspace = true }
 ring = "0.17"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
-ed25519-zebra = "4"
+ed25519-zebra = "5"
 p256 = { version = "0.13", features = ["ecdsa"] }
 hmac = { workspace = true }
 rand = "0.8"
