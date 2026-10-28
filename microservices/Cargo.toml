@@ -84,7 +84,7 @@ tracing = "0.1"
 
 # DPoP (RFC 9449) — Ed25519 and P-256 key support
 ed25519-dalek = { version = "2", features = ["rand_core"] }
-ed25519-zebra = "4"
+ed25519-zebra = "5"
 p256 = { version = "0.13", features = ["ecdsa"] }
 
 # Database
