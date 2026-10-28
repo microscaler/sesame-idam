@@ -69,7 +69,7 @@ redis = { version = "0.25", features = ["aio", "tokio-comp", "connection-manager
 blake3 = "1.5"
 sha2 = "0.11"
 prometheus = "0.13"
-thiserror = "1.0"
+thiserror = "2.0"
 regex = "1.10"
 futures = "0.3"
 dashmap = "5.5"
