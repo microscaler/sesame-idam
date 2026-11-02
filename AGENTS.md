@@ -142,7 +142,7 @@ just sync-specs-from-brrtrouter  # Copy canonical specs from BRRTRouter
 
 ### Testing (nextest)
 
-The workspace uses `cargo nextest` for test execution with configuration in `.config/nextest.toml`.
+The workspace uses `cargo nextest` for test execution with configuration in `microservices/.config/nextest.toml` (the workspace root's, the one nextest reads; there is no repository-root copy).
 
 | Command | What it does |
 |---------|-------------|

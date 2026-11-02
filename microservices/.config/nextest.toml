@@ -1,10 +1,31 @@
-# Nextest configuration for the sesame workspace.
+# Nextest configuration for the sesame workspace. The one file nextest reads: every recipe runs
+# `cargo nextest run --manifest-path microservices/Cargo.toml`, and nextest looks for `.config/nextest.toml`
+# at the workspace root (microservices/), not the repository root. Until 3 Nov 2026 a second file at the
+# repository root held the shared-Postgres serialisation and the `ci` / `db-serial` profiles, which nothing
+# but the two `--config-file` recipes ever loaded: `just nt` ran the shared-database BDD suites in
+# parallel (the flaky failures), and `just nt-workspace` failed with "profile `ci` not found".
+
+# Suites that share one Postgres (TEST_DATABASE_URL) and fixed table/tenant names race on inserts, deletes
+# and counts when nextest runs their tests as parallel processes. One at a time.
+[test-groups.shared-postgres]
+max-threads = 1
 
 # The Mailpit email round-trip tests talk to a real SMTP endpoint whose
 # LB path can delay the banner by 5-20s; run them serially so parallel
 # full-suite runs don't starve their connection/poll budgets.
 [test-groups.mailpit-e2e]
 max-threads = 1
+
+[profile.default]
+slow-timeout = { period = "60s" }
+leak-timeout = { period = "5s" }
+failure-output = "immediate-final"
+success-output = "never"
+
+[[profile.default.overrides]]
+filter = 'test(/bdd::(api_key_flow|principal_effective_db|account_first_onboarding|auth_flow|authz_enrichment|signup_validate|token_lifecycle|users_me_db|user_admin_flow|org_lifecycle)::/)'
+test-group = 'shared-postgres'
+slow-timeout = { period = "180s" }
 
 # Every suite that sends real mail belongs here — not just the first one.
 # (2026-07-25: password_reset was added and immediately flaked in parallel
@@ -13,3 +34,34 @@ max-threads = 1
 filter = "test(email_round_trip) or test(password_reset)"
 test-group = "mailpit-e2e"
 slow-timeout = { period = "60s" }
+
+# CI parity (`just nt-workspace`): the same groups, longer timeouts, JUnit output. One retry, so a real
+# flake still shows as FLAKY in the summary instead of disappearing under three silent retries.
+[profile.ci]
+retries = 1
+slow-timeout = { period = "300s" }
+leak-timeout = { period = "5s" }
+failure-output = "immediate-final"
+success-output = "never"
+junit = { path = "test-results.xml" }
+
+[[profile.ci.overrides]]
+filter = 'test(/bdd::(api_key_flow|principal_effective_db|account_first_onboarding|auth_flow|authz_enrichment|signup_validate|token_lifecycle|users_me_db|user_admin_flow|org_lifecycle)::/)'
+test-group = 'shared-postgres'
+slow-timeout = { period = "300s" }
+
+[[profile.ci.overrides]]
+filter = "test(email_round_trip) or test(password_reset)"
+test-group = "mailpit-e2e"
+slow-timeout = { period = "300s" }
+
+# Everything single-threaded (`just nt-db-suite`): DDL races and connection exhaustion on a shared Postgres
+# (e.g. `just dev-up` + TEST_DATABASE_URL). See docs/TEST_INFRASTRUCTURE.md.
+[profile.db-serial]
+retries = 2
+test-threads = 1
+slow-timeout = { period = "300s" }
+leak-timeout = { period = "5s" }
+failure-output = "immediate-final"
+success-output = "never"
+junit = { path = "test-results.xml" }

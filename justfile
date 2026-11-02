@@ -70,7 +70,7 @@ TEST_REDIS_URL := "redis://127.0.0.1:" + LIFEGUARD_REDIS_PORT
 # Testing (nextest)
 # =============================================================================
 # Plain `cargo test` does **not** match what CI / this repo calls the "workspace suite": it ignores
-# `cargo nextest`, `.config/nextest.toml` (timeouts, `db_integration_suite` mutex), and the filters below.
+# `cargo nextest`, `microservices/.config/nextest.toml` (timeouts, shared-Postgres and Mailpit test groups), and the filters below.
 #
 # Nextest quick reference:
 #   nt / nextest-test     — workspace nextest; excludes db_integration_suite binary (fast loop)
@@ -103,7 +103,7 @@ test-unit-verbose:
 
 # Workspace nextest: excludes db_integration_suite for speed (use nt-db-suite / nt-complete).
 # Note: db_integration_suite is safe in parallel with other *packages* — nextest test-group `lifeguard-shared-postgres`
-# serializes tests inside that binary only (see .config/nextest.toml).
+# serializes tests inside that binary only (see microservices/.config/nextest.toml).
 nextest-test:
     @echo "🧪 Running tests with nextest (excluding DB-heavy integration binaries)..."
     @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --fail-fast --retries 1
@@ -136,7 +136,7 @@ nt-unit:
 # DB integration suite: serial (shared Postgres safe).
 nt-db-suite:
     @echo "🧪 Running DB integration tests (serial profile)..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial --config-file .config/nextest.toml
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial
 
 alias nt-db := nt-db-suite
 # Same as `nt-db-suite` (CI step name / copy-paste alias)
@@ -145,7 +145,7 @@ alias db-integration-suite := nt-db-suite
 # Verbose output for db suite only
 nt-db-suite-verbose:
     @echo "🧪 Running DB integration tests (serial, no-capture)..."
-    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial --config-file .config/nextest.toml --no-capture
+    @DATABASE_URL={{DATABASE_URL}} TEST_DATABASE_URL={{TEST_DATABASE_URL}} TEST_REPLICA_URL={{TEST_REPLICA_URL}} TEST_REDIS_URL={{TEST_REDIS_URL}} cargo nextest run --manifest-path microservices/Cargo.toml --workspace --all-features --profile db-serial --no-capture
 
 # Typical local run: fast workspace (no cluster integration crate) + serial DB suite
 nt-complete: nextest-test nt-db-suite
