@@ -69,10 +69,15 @@ impl RedisPool {
     }
 
     fn connect(&self) -> RedisResult<redis::Connection> {
-        let conn = self.client.get_connection_with_timeout(self.timeout)?;
-        conn.set_read_timeout(Some(self.timeout))?;
-        conn.set_write_timeout(Some(self.timeout))?;
-        Ok(conn)
+        let client = self.client.clone();
+        let timeout = self.timeout;
+        // Connect (and AUTH/SELECT) off the may worker, as every round trip below.
+        crate::blocking::io(move || {
+            let conn = client.get_connection_with_timeout(timeout)?;
+            conn.set_read_timeout(Some(timeout))?;
+            conn.set_write_timeout(Some(timeout))?;
+            Ok(conn)
+        })
     }
 
     /// Borrow an open connection (an idle one, or a new one).
@@ -143,6 +148,25 @@ impl PooledConnection<'_> {
             .unwrap_or_else(|| unreachable!("a pooled connection is present until drop"))
     }
 
+    /// Run `op` on the connection on a blocking I/O thread (inline outside a coroutine), so a round trip parks the
+    /// calling coroutine instead of holding its may worker.
+    fn offload<T, F>(&mut self, op: F) -> RedisResult<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(&mut redis::Connection) -> RedisResult<T> + Send + 'static,
+    {
+        let mut conn = self
+            .conn
+            .take()
+            .unwrap_or_else(|| unreachable!("a pooled connection is present until drop"));
+        let (conn, result) = crate::blocking::io(move || {
+            let result = op(&mut conn);
+            (conn, result)
+        });
+        self.conn = Some(conn);
+        self.track(result)
+    }
+
     fn track<T>(&mut self, result: RedisResult<T>) -> RedisResult<T> {
         if result.is_err() {
             self.broken = true;
@@ -162,8 +186,8 @@ impl Deref for PooledConnection<'_> {
 
 impl ConnectionLike for PooledConnection<'_> {
     fn req_packed_command(&mut self, cmd: &[u8]) -> RedisResult<Value> {
-        let result = self.conn_mut().req_packed_command(cmd);
-        self.track(result)
+        let cmd = cmd.to_vec();
+        self.offload(move |conn| conn.req_packed_command(&cmd))
     }
 
     fn req_packed_commands(
@@ -172,13 +196,13 @@ impl ConnectionLike for PooledConnection<'_> {
         offset: usize,
         count: usize,
     ) -> RedisResult<Vec<Value>> {
-        let result = self.conn_mut().req_packed_commands(cmd, offset, count);
-        self.track(result)
+        let cmd = cmd.to_vec();
+        self.offload(move |conn| conn.req_packed_commands(&cmd, offset, count))
     }
 
     fn req_command(&mut self, cmd: &Cmd) -> RedisResult<Value> {
-        let result = self.conn_mut().req_command(cmd);
-        self.track(result)
+        let cmd = cmd.clone();
+        self.offload(move |conn| conn.req_command(&cmd))
     }
 
     fn get_db(&self) -> i64 {
@@ -245,6 +269,27 @@ mod tests {
         std::env::var("TEST_REDIS_URL")
             .or_else(|_| std::env::var("REDIS_URL"))
             .ok()
+    }
+
+    #[test]
+    fn round_trips_from_a_coroutine_go_through_the_io_threads_and_return_the_connection() {
+        let Some(url) = test_url() else {
+            return;
+        };
+        let pool: &'static RedisPool =
+            Box::leak(Box::new(RedisPool::new(&url, timeout()).unwrap()));
+        let key = format!("redis_pool_offload_{}", std::process::id());
+        let got: Option<String> = may::go!(move || {
+            let mut conn = pool.get().unwrap();
+            let _: () = conn.set_ex(&key, "v", 30).unwrap();
+            let got: Option<String> = conn.get(&key).unwrap();
+            let _: () = conn.del(&key).unwrap();
+            got
+        })
+        .join()
+        .unwrap();
+        assert_eq!(got.as_deref(), Some("v"));
+        assert_eq!(pool.idle_len(), 1);
     }
 
     #[test]

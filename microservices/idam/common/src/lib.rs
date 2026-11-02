@@ -20,6 +20,7 @@
 // Existing modules
 pub mod agents;
 pub mod authn;
+pub mod blocking;
 pub mod config;
 pub mod cors;
 pub mod deployment;

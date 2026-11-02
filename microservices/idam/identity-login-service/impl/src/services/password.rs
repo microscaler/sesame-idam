@@ -25,11 +25,15 @@ pub fn validate_password_strength(password: &str) -> Result<(), &'static str> {
 /// Returns an error string if hashing fails (should not happen with valid
 /// parameters).
 pub fn hash_password(password: &str) -> Result<String, String> {
-    let salt = SaltString::generate(&mut OsRng);
-    Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .map(|h| h.to_string())
-        .map_err(|e| format!("password hashing failed: {e}"))
+    let password = password.to_owned();
+    // argon2id on a blocking CPU thread, not the may worker (`sesame_common::blocking`).
+    sesame_common::blocking::cpu(move || {
+        let salt = SaltString::generate(&mut OsRng);
+        Argon2::default()
+            .hash_password(password.as_bytes(), &salt)
+            .map(|h| h.to_string())
+            .map_err(|e| format!("password hashing failed: {e}"))
+    })
 }
 
 /// Verify a password against a stored PHC-format hash.
@@ -38,17 +42,34 @@ pub fn hash_password(password: &str) -> Result<String, String> {
 /// hash must never allow a login.
 #[must_use]
 pub fn verify_password(password: &str, stored_hash: &str) -> bool {
-    let Ok(parsed) = PasswordHash::new(stored_hash) else {
-        return false;
-    };
-    Argon2::default()
-        .verify_password(password.as_bytes(), &parsed)
-        .is_ok()
+    let (password, stored_hash) = (password.to_owned(), stored_hash.to_owned());
+    // argon2id on a blocking CPU thread, not the may worker; the parameters are the stored hash's, unchanged.
+    sesame_common::blocking::cpu(move || {
+        let Ok(parsed) = PasswordHash::new(&stored_hash) else {
+            return false;
+        };
+        Argon2::default()
+            .verify_password(password.as_bytes(), &parsed)
+            .is_ok()
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn verification_inside_a_coroutine_runs_on_a_cpu_thread_with_the_same_answer() {
+        let hash = hash_password("SecureP@ss123!").unwrap();
+        let (ok, bad) = may::go!(move || (
+            verify_password("SecureP@ss123!", &hash),
+            verify_password("wrong-password", &hash)
+        ))
+        .join()
+        .unwrap();
+        assert!(ok);
+        assert!(!bad);
+    }
 
     #[test]
     fn hash_and_verify_round_trip() {

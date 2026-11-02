@@ -204,12 +204,16 @@ pub fn hash_client_secret(secret: &str) -> Result<String, String> {
 
 #[must_use]
 pub fn verify_client_secret(secret: &str, stored_hash: &str) -> bool {
-    let Ok(hash) = PasswordHash::new(stored_hash) else {
-        return false;
-    };
-    Argon2::default()
-        .verify_password(secret.as_bytes(), &hash)
-        .is_ok()
+    let (secret, stored_hash) = (secret.to_owned(), stored_hash.to_owned());
+    // argon2id on a blocking CPU thread, not the may worker (`crate::blocking`).
+    crate::blocking::cpu(move || {
+        let Ok(hash) = PasswordHash::new(&stored_hash) else {
+            return false;
+        };
+        Argon2::default()
+            .verify_password(secret.as_bytes(), &hash)
+            .is_ok()
+    })
 }
 
 #[cfg(test)]
