@@ -27,7 +27,25 @@ pub fn issue_session(
     preferred_org: Option<&str>,
     ceremony: &Authn,
 ) -> Result<serde_json::Value, String> {
-    let authz = crate::services::authz_client::fetch_effective_authz(user_id, tenant_id, portal)
+    use sesame_common::observability::metrics::login_phase;
+    // authz-core enrichment (an HTTP call) and the active-organisation lookup (a query) do not depend on each other:
+    // the call runs in its own coroutine while this one resolves the organisation, so a sign-in waits for the slower
+    // of the two, not their sum. Both run only after the ceremony is complete, as before.
+    let (u, t, p) = (
+        user_id.to_string(),
+        tenant_id.to_string(),
+        portal.to_string(),
+    );
+    let enrichment = may::go!(move || login_phase("authz", || {
+        crate::services::authz_client::fetch_effective_authz(&u, &t, &p)
+    }));
+    let exec = sesame_idam_database::db();
+    let active_org = login_phase("org", || {
+        crate::services::org_context::resolve_active_org_id(exec, user_id, tenant_id, preferred_org)
+    });
+    let authz = enrichment
+        .join()
+        .unwrap_or_else(|_| Err("authz enrichment coroutine panicked".to_string()))
         .unwrap_or_else(|e| {
             sesame_common::observability::metrics::DEPENDENCY_ERRORS
                 .with_label_values(&["authz-core", "login_enrichment"])
@@ -39,25 +57,20 @@ pub fn issue_session(
             }
         });
 
-    let exec = sesame_idam_database::db();
-    let active_org = crate::services::org_context::resolve_active_org_id(
-        exec,
-        user_id,
-        tenant_id,
-        preferred_org,
-    );
     let org_id_str = active_org.map(|id| id.to_string());
 
-    let tokens = token_issuer::issue_tokens(
-        user_id,
-        tenant_id,
-        portal,
-        authz.roles.clone(),
-        authz.permissions,
-        "customer",
-        org_id_str.as_deref(),
-        Some(ceremony),
-    )
+    let tokens = login_phase("sign", || {
+        token_issuer::issue_tokens(
+            user_id,
+            tenant_id,
+            portal,
+            authz.roles.clone(),
+            authz.permissions,
+            "customer",
+            org_id_str.as_deref(),
+            Some(ceremony),
+        )
+    })
     .map_err(|e| format!("token issuance failed: {e}"))?;
 
     Ok(serde_json::json!({

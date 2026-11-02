@@ -23,16 +23,15 @@ use crate::services::tenant_service::TenantService;
 use crate::services::user_service::{UserService, STATUS_ACTIVE};
 use sesame_common::audit::{AuditEventType, AuditLogEntry};
 use sesame_common::authn::Method;
+use sesame_common::observability::metrics::login_phase;
 
 #[handler(AuthLoginController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
     let email = req.data.email.clone();
     let exec = sesame_idam_database::db();
-    let binding = match ClientRegistry::resolve_pre_auth(
-        &req.data.client_id,
-        req.data.x_tenant_id.as_deref(),
-        exec,
-    ) {
+    let binding = match login_phase("client", || {
+        ClientRegistry::resolve_pre_auth(&req.data.client_id, req.data.x_tenant_id.as_deref(), exec)
+    }) {
         Ok(binding) => binding,
         Err(ClientRegistryError::Unknown | ClientRegistryError::NotActive) => {
             return invalid_client();
@@ -49,7 +48,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
     let tenant_id = binding.tenant_id;
 
     // Platform suspend / unknown tenant must fail closed before credential checks.
-    if let Err(e) = TenantService::require_active(tenant_id.trim(), exec) {
+    if let Err(e) = login_phase("tenant", || {
+        TenantService::require_active(tenant_id.trim(), exec)
+    }) {
         return tenant_http_error(&e);
     }
 
@@ -62,8 +63,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return invalid_credentials();
     }
 
-    let user = match sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
-        UserService::find_by_tenant_and_email(&tenant_id, &email, exec)
+    let user = match login_phase("user", || {
+        sesame_idam_database::with_pre_auth_tenant(&tenant_id, |exec| {
+            UserService::find_by_tenant_and_email(&tenant_id, &email, exec)
+        })
     }) {
         Ok(user) => user,
         Err(e) => {
@@ -88,7 +91,9 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return invalid_credentials();
     }
 
-    if !password::verify_password(&req.data.password, &user.password_hash) {
+    if !login_phase("password", || {
+        password::verify_password(&req.data.password, &user.password_hash)
+    }) {
         abuse_guard::record_login_failure(&tenant_id, &email);
         emit_login_audit(&tenant_id, Some(user.id), false, "wrong_password");
         return invalid_credentials();

@@ -154,7 +154,10 @@ pub fn load_state(
 /// The gate after a first factor: tokens (200) or what comes next (202).
 #[must_use]
 pub fn after_first_factor(subject: &Subject, method: Method) -> HttpJson<Value> {
-    let (held, required) = match load_state(&subject.tenant_id, subject.user_id) {
+    let state = sesame_common::observability::metrics::login_phase("mfa_state", || {
+        load_state(&subject.tenant_id, subject.user_id)
+    });
+    let (held, required) = match state {
         Ok(v) => v,
         Err(e) => {
             tracing::error!(error = %e, "mfa: could not read the account's factors or policy");

@@ -15,6 +15,7 @@
 //! | `sesame_mail_send_total` | kind, outcome | SMTP hand-offs to the mail relay |
 //! | `sesame_mail_send_duration_seconds` | — | SMTP hand-off latency |
 //! | `sesame_dependency_errors_total` | dependency, component | a dependency failed and Sesame degraded or refused |
+//! | `sesame_login_phase_seconds` | phase | where a password sign-in spends its time (client, tenant, user, password, mfa_state, authz, org, sign) |
 //!
 //! Labels are fixed, low-cardinality values. Free text (error messages, identifiers) never becomes a label:
 //! [`label`] maps anything that is not a short `snake_case` token to `other`.
@@ -56,6 +57,29 @@ pub static KMS_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     )
     .expect("sesame_kms_request_duration_seconds registers once")
 });
+
+/// Where a password sign-in (`POST /auth/login`) spends its time, by phase: the registered client, the tenant gate,
+/// the user lookup, the argon2id verification, the MFA state, authz-core enrichment, active-organisation resolution
+/// and token signing. The profile of the slowest operation in the release load test, kept as a series.
+pub static LOGIN_PHASE: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec!(
+        "sesame_login_phase_seconds",
+        "Password sign-in time by phase (client, tenant, user, password, mfa_state, authz, org, sign)",
+        &["phase"],
+        vec![0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5]
+    )
+    .expect("sesame_login_phase_seconds registers once")
+});
+
+/// Time `f` as sign-in phase `phase` (a fixed label) and return its result.
+pub fn login_phase<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
+    let started = std::time::Instant::now();
+    let out = f();
+    LOGIN_PHASE
+        .with_label_values(&[phase])
+        .observe(started.elapsed().as_secs_f64());
+    out
+}
 
 /// SMTP hand-offs to the mail relay by outcome.
 pub static MAIL_SENDS: LazyLock<IntCounterVec> = LazyLock::new(|| {
