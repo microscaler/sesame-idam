@@ -1,5 +1,3 @@
-import pytest
-
 from sesame_idam_tooling.authlib_contract_proof import (
     prove_principal_from_accepted_claims,
     validate_discovery_fixture,

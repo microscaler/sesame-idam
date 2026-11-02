@@ -35,14 +35,14 @@ def _config_block(extra: dict) -> str:
         return ""
     lines = ["      config:"]
     if "authzCoreUrl" in extra:
-        lines.append(f"        authzCoreUrl: \"{extra['authzCoreUrl']}\"")
+        lines.append(f'        authzCoreUrl: "{extra["authzCoreUrl"]}"')
     if extra.get("jwks"):
         lines.extend(
             [
                 "        security:",
                 "          jwks:",
                 "            BearerAuth:",
-                f"              jwks_url: \"{JWKS_URL}\"",
+                f'              jwks_url: "{JWKS_URL}"',
                 '              iss: "https://idam.example.com"',
                 '              aud: "sesame-idam"',
             ]

@@ -28,9 +28,7 @@ def _validate_tenant_consumer_dogfood_shapes(openapi: dict[str, Any]) -> list[st
     problems: list[str] = []
     info = openapi.get("info") or {}
     if info.get("version") != "1.1.0":
-        problems.append(
-            f"tenant-consumer info.version={info.get('version')!r} expected '1.1.0'"
-        )
+        problems.append(f"tenant-consumer info.version={info.get('version')!r} expected '1.1.0'")
 
     schemas = ((openapi.get("components") or {}).get("schemas")) or {}
     for name in (
@@ -85,9 +83,7 @@ def _validate_tenant_consumer_dogfood_shapes(openapi: dict[str, Any]) -> list[st
         .get("$ref")
     )
     if invite_ref != "#/components/schemas/InvitationCreated":
-        problems.append(
-            "POST /organizations/{org_id}/invitations 200 must ref InvitationCreated"
-        )
+        problems.append("POST /organizations/{org_id}/invitations 200 must ref InvitationCreated")
 
     return problems
 
@@ -139,9 +135,7 @@ def validate_contract_sync(root: Path | None = None) -> list[str]:
         problems.extend(_validate_tenant_consumer_dogfood_shapes(openapi_doc))
 
     schema = json.loads(
-        _read_text(
-            root / "docs" / "standards-first-oidc" / "verified-principal-v1.schema.json"
-        )
+        _read_text(root / "docs" / "standards-first-oidc" / "verified-principal-v1.schema.json")
     )
     const_version = (schema.get("properties") or {}).get("profile_version", {}).get("const")
     if const_version != manifest.get("provider_profile"):

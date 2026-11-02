@@ -10,7 +10,6 @@ import hashlib
 import json
 from pathlib import Path
 
-
 REQUIRED_MANIFEST_IDS = {
     "metadata-valid",
     "authorization-valid-public-pkce",
@@ -65,9 +64,7 @@ def validate_corpus(root: Path | None = None) -> list[str]:
         return [f"failed to load corpus: {exc}"]
 
     if manifest.get("provider_profile") != "2.0.0":
-        problems.append(
-            f"provider_profile must be 2.0.0, got {manifest.get('provider_profile')!r}"
-        )
+        problems.append(f"provider_profile must be 2.0.0, got {manifest.get('provider_profile')!r}")
     if manifest.get("algorithm") != "EdDSA":
         problems.append(f"algorithm must be EdDSA, got {manifest.get('algorithm')!r}")
     if manifest.get("id_token_algorithm") != "RS256":

@@ -1,7 +1,5 @@
 """Placeholder test so QA (pytest) passes. Add tests as tooling grows."""
 
-import pytest
-
 from sesame_idam_tooling import __version__
 
 

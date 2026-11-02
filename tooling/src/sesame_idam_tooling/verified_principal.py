@@ -62,7 +62,9 @@ def _type_ok(value: Any, declared: Any) -> bool:
     return True
 
 
-def validate_principal(principal: dict[str, Any], schema: dict[str, Any] | None = None) -> list[str]:
+def validate_principal(
+    principal: dict[str, Any], schema: dict[str, Any] | None = None
+) -> list[str]:
     """Lightweight draft-2020-12 subset validator for the verified-principal schema."""
     schema = schema or load_schema()
     problems: list[str] = []

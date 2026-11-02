@@ -25,9 +25,7 @@ def test_create_posts_tenant_payload(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(tenant_cli, "_request", fake_request)
 
-    rc = tenant_cli.run_tenant_cli(
-        ["create", "--slug", "acme", "--display-name", "Acme Corp"]
-    )
+    rc = tenant_cli.run_tenant_cli(["create", "--slug", "acme", "--display-name", "Acme Corp"])
     assert rc == 0
     assert captured == {
         "method": "POST",
@@ -56,7 +54,5 @@ def test_api_error_returns_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda *_args, **_kwargs: (409, {"error": "slug_taken"}),
     )
 
-    rc = tenant_cli.run_tenant_cli(
-        ["create", "--slug", "taken", "--display-name", "Taken"]
-    )
+    rc = tenant_cli.run_tenant_cli(["create", "--slug", "taken", "--display-name", "Taken"])
     assert rc == 1

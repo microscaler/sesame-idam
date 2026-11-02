@@ -10,7 +10,6 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Monkey-patch brrtrouter-tooling discovery layers BEFORE main() runs
 # ---------------------------------------------------------------------------
-
 import brrtrouter_tooling.workspace.discovery.suites as _h_suites
 
 _original_suites_with_bff = _h_suites.suites_with_bff
@@ -127,7 +126,7 @@ _h_suites.load_suite_services = patched_load_suite_services
 # Read actual package/binary names from Cargo.toml instead of guessing.
 # ---------------------------------------------------------------------------
 
-import brrtrouter_tooling.workspace.discovery.services as _h_services
+import brrtrouter_tooling.workspace.discovery.services as _h_services  # noqa: E402 (patched after setup)
 
 
 def _read_impl_package_name(project_root: Path, service_name: str) -> str:
@@ -233,7 +232,7 @@ _h_services.get_service_ports = patched_get_service_ports
 # Monkey-patch regenerate.py to use sesame-idam's nested paths
 # ---------------------------------------------------------------------------
 
-import brrtrouter_tooling.workspace.gen.regenerate as _regenerate
+import brrtrouter_tooling.workspace.gen.regenerate as _regenerate  # noqa: E402 (patched after setup)
 
 
 def patched_regenerate_service(
