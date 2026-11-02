@@ -216,7 +216,11 @@ fn form_urlencode(pairs: &[(String, String)]) -> String {
                     out.push(b as char);
                 }
                 b' ' => out.push('+'),
-                _ => out.push_str(&format!("%{b:02X}")),
+                _ => {
+                    use std::fmt::Write as _;
+                    // Writing to a String cannot fail.
+                    let _ = write!(out, "%{b:02X}");
+                }
             }
         }
         out

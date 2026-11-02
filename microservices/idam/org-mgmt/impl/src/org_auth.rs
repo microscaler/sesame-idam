@@ -68,6 +68,8 @@ mod tests {
 
     const USER_ID: &str = "1189c444-8a2d-4c41-8b4b-ae43ce79a492";
 
+    // Option, as the router hands the verified claims to handlers.
+    #[allow(clippy::unnecessary_wraps)]
     fn claims(tenant_id: Option<&str>) -> Option<Value> {
         Some(serde_json::json!({
             "sub": USER_ID,

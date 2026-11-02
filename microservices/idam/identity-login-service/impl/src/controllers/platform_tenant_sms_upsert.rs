@@ -5,7 +5,7 @@
 //!
 //! # Custody, and why `connect` is the default answer
 //!
-//! `connect` stores a revocable connected AccountSid and nothing else: Twilio
+//! `connect` stores a revocable connected `AccountSid` and nothing else: Twilio
 //! bills the tenant directly and Sesame never holds a secret it could leak.
 //! `envelope` accepts the tenant's own auth token — strictly better for the
 //! tenant's convenience and strictly worse for our liability — so it is

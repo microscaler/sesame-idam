@@ -84,12 +84,12 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
                     }
                 }
                 Err(e) => {
-                    tracing::error!(error = %e, tenant = %tenant_id, "password reset mint failed")
+                    tracing::error!(error = %e, tenant = %tenant_id, "password reset mint failed");
                 }
             }
         }
         _ => {
-            tracing::info!(tenant = %tenant_id, "password reset for unknown/inactive account — no send")
+            tracing::info!(tenant = %tenant_id, "password reset for unknown/inactive account — no send");
         }
     }
 

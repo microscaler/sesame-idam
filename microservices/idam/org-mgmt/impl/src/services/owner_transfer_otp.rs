@@ -93,9 +93,8 @@ pub fn verify_and_consume(tenant: &str, org_id: &str, user_id: &str, code: &str)
     if code.is_empty() {
         return false;
     }
-    let mut conn = match connection() {
-        Ok(c) => c,
-        Err(_) => return false,
+    let Ok(mut conn) = connection() else {
+        return false;
     };
 
     let ak = attempts_key(tenant, org_id, user_id);
@@ -142,8 +141,7 @@ mod tests {
         // Unique keys: lib + bin test targets may run this in parallel.
         let nonce = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
+            .map_or(0, |d| d.as_nanos());
         let tenant = format!("otp-test-tenant-{nonce}");
         let org = format!("a1000001-0001-4000-8000-{nonce:012x}");
         let user = format!("a1000001-0001-4000-8001-{nonce:012x}");

@@ -290,15 +290,17 @@ impl DomainContext {
 
         let mut policy = EligibilityPolicy::default();
         for entry in env_list(RESERVED_ENV) {
-            match policy.clone().with_reserved([entry.as_str()]) {
-                Ok(next) => policy = next,
-                Err(_) => tracing::error!("{RESERVED_ENV}: skipping an invalid entry"),
+            if let Ok(next) = policy.clone().with_reserved([entry.as_str()]) {
+                policy = next;
+            } else {
+                tracing::error!("{RESERVED_ENV}: skipping an invalid entry");
             }
         }
         for entry in env_list(EXTRA_PROVIDERS_ENV) {
-            match policy.clone().with_providers([entry.as_str()]) {
-                Ok(next) => policy = next,
-                Err(_) => tracing::error!("{EXTRA_PROVIDERS_ENV}: skipping an invalid entry"),
+            if let Ok(next) = policy.clone().with_providers([entry.as_str()]) {
+                policy = next;
+            } else {
+                tracing::error!("{EXTRA_PROVIDERS_ENV}: skipping an invalid entry");
             }
         }
 

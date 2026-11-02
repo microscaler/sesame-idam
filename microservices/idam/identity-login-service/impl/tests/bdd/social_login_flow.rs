@@ -1,6 +1,6 @@
 //! Social OAuth start-flow BDD (pre-OIDC north handlers).
 //!
-//! Covers fail-closed paths without a live IdP: unsupported provider,
+//! Covers fail-closed paths without a live `IdP`: unsupported provider,
 //! missing redirect, and tenant without OAuth config.
 
 use std::net::TcpStream;

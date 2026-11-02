@@ -78,8 +78,8 @@ pub fn parse_tenant_cs_keys_json(raw: &str) -> Result<HashMap<String, String>, T
 }
 
 /// Validate that `presented_key` is the configured secret for `tenant_id`.
-pub fn validate_tenant_cs_key(
-    keys: &HashMap<String, String>,
+pub fn validate_tenant_cs_key<S: std::hash::BuildHasher>(
+    keys: &HashMap<String, String, S>,
     tenant_id: Option<&str>,
     presented_key: Option<&str>,
 ) -> Result<(), TenantCsAuthError> {

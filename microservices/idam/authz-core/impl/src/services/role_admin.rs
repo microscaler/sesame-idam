@@ -1,10 +1,10 @@
 //! Role assignments, administered (assign, revoke, list) for one tenant: the caller's.
 //!
 //! Assignments live in `sesame_idam.role_assignments` and are tenant-wide (no application column): a token carries
-//! every role its user holds in its tenant (principal_effective, on login and on every refresh). Assigning is
+//! every role its user holds in its tenant (`principal_effective`, on login and on every refresh). Assigning is
 //! idempotent (a role the user already holds changes nothing) and revoking removes every assignment of that role to
 //! the user in the tenant. Role names are not a catalogue here; they are checked for shape only, so a product names
-//! its own roles (PriceWhisperer: platform_admin, crm.editor, ...).
+//! its own roles (`PriceWhisperer`: `platform_admin`, crm.editor, ...).
 use chrono::Utc;
 use lifeguard::active_model::ActiveModelTrait;
 use lifeguard::{ColumnTrait, LifeError, LifeExecutor, LifeModelTrait};

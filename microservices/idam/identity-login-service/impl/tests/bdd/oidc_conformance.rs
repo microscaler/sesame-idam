@@ -576,10 +576,7 @@ fn conformance_metadata_fixture_contract() {
     assert_eq!(meta["response_types_supported"][0], "code");
     assert_eq!(meta["code_challenge_methods_supported"][0], "S256");
     for grant in meta["forbidden_grants"].as_array().unwrap() {
-        assert!(matches!(
-            grant.as_str(),
-            Some("implicit") | Some("password")
-        ));
+        assert!(matches!(grant.as_str(), Some("implicit" | "password")));
     }
     assert_eq!(cases["metadata"]["issuer_mismatch"]["accept"], false);
     assert_eq!(cases["jwks"]["unknown_kid"]["accept"], false);

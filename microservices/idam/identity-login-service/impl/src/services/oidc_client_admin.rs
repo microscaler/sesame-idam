@@ -178,8 +178,8 @@ fn prepare_client(input: CreateClientInput) -> Result<PreparedClient, ClientAdmi
         client_type,
         token_endpoint_auth_method,
         pkce_s256_required,
-        redirect_uris: normalize_redirects(input.redirect_uris, true)?,
-        post_logout_redirect_uris: normalize_redirects(input.post_logout_redirect_uris, false)?,
+        redirect_uris: normalize_redirects(&input.redirect_uris, true)?,
+        post_logout_redirect_uris: normalize_redirects(&input.post_logout_redirect_uris, false)?,
         initiate_login_uri: normalize_initiate_login_uri(input.initiate_login_uri.as_deref())?,
         policy,
     })
@@ -198,7 +198,7 @@ fn normalize_initiate_login_uri(raw: Option<&str>) -> Result<Option<String>, Cli
 }
 
 fn normalize_redirects(
-    redirects: Vec<String>,
+    redirects: &[String],
     required: bool,
 ) -> Result<Vec<String>, ClientAdminError> {
     let mut normalized = redirects
@@ -219,9 +219,9 @@ fn normalize_redirects(
 }
 
 fn deduplicate(mut values: Vec<String>) -> Vec<String> {
-    values.iter_mut().for_each(|value| {
+    for value in &mut values {
         *value = value.trim().to_string();
-    });
+    }
     values.sort();
     values.dedup();
     values

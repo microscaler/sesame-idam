@@ -44,7 +44,7 @@ pub fn parse_uuid(raw: &str, what: &str) -> Result<uuid::Uuid, HttpJson<Value>> 
         .map_err(|_| bad_request(&format!("{what} is not a UUID")))
 }
 
-/// 403 with the role policy's reason (sesame_common::role_policy).
+/// 403 with the role policy's reason (`sesame_common::role_policy`).
 pub fn refused(r: &sesame_common::role_policy::Refusal) -> HttpJson<Value> {
     sesame_common::tenant_admin::forbidden(r.message())
 }

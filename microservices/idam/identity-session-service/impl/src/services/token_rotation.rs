@@ -110,7 +110,7 @@ pub enum AccountState {
 #[must_use]
 pub fn account_state_of(status: Option<&str>) -> AccountState {
     match status {
-        Some(s) if s == "active" => AccountState::Active,
+        Some("active") => AccountState::Active,
         _ => AccountState::Inactive,
     }
 }
@@ -241,9 +241,8 @@ fn rotate_refresh_token_bound(
     }
     let tenant_id = match expected_tenant_id {
         Some(expected) if token.tenant_id.is_empty() || token.tenant_id == expected => expected,
-        Some(_) => return RotationOutcome::InvalidToken,
         None if !token.tenant_id.is_empty() => token.tenant_id.as_str(),
-        None => return RotationOutcome::InvalidToken,
+        _ => return RotationOutcome::InvalidToken,
     };
 
     // The account must still be active. A refresh token outlives an access token by days; without this a disabled
@@ -451,7 +450,7 @@ fn rotated_from_receipt(
     expected_client_id: Option<&str>,
 ) -> Option<RotationOutcome> {
     let s = |k: &str| receipt.get(k).and_then(|v| v.as_str()).map(str::to_string);
-    let i = |k: &str| receipt.get(k).and_then(|v| v.as_i64());
+    let i = |k: &str| receipt.get(k).and_then(serde_json::Value::as_i64);
     let tenant = s("tenant_id").unwrap_or_default();
     let client = s("client_id").unwrap_or_default();
     if let Some(t) = expected_tenant_id {
@@ -465,7 +464,8 @@ fn rotated_from_receipt(
         }
     }
     let elapsed = (chrono::Utc::now().timestamp() - i("rotated_at").unwrap_or(0)).max(0);
-    let remaining = |k: &str| (i(k).unwrap_or(0) - elapsed).max(0) as i32;
+    let remaining =
+        |k: &str| i32::try_from((i(k).unwrap_or(0) - elapsed).max(0)).unwrap_or(i32::MAX);
     Some(RotationOutcome::Rotated {
         new_access_token: s("access_token")?,
         new_refresh_token: s("refresh_token")?,

@@ -1,8 +1,8 @@
 //! `POST /authz/principals/roles` — give a user of the caller's own tenant a role (idempotent).
 //!
-//! The caller is a tenant administrator (sesame_common::tenant_admin: tenant_admin, owner, or a role in
-//! SESAME_TENANT_ADMIN_ROLES) and acts on the token's tenant only: an X-Tenant-ID or tenant_id naming another tenant
-//! is 403. The role reaches the user's token at their next sign-in or refresh (principal_effective).
+//! The caller is a tenant administrator (`sesame_common::tenant_admin`: `tenant_admin`, owner, or a role in
+//! `SESAME_TENANT_ADMIN_ROLES`) and acts on the token's tenant only: an X-Tenant-ID or `tenant_id` naming another tenant
+//! is 403. The role reaches the user's token at their next sign-in or refresh (`principal_effective`).
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
 use serde_json::{json, Value};

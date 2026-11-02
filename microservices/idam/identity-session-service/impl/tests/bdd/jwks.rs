@@ -156,12 +156,12 @@ fn jwks_response_contains_no_private_key_material() {
 fn key_generate_produces_valid_ed25519() {
     let key =
         sesame_idam_identity_session_service::key_manager::JwtSigningKey::generate(None).unwrap();
-    assert!(!key.kid.is_empty());
+    assert_ne!(key.kid, "");
     assert_eq!(key.alg, "EdDSA");
     assert_eq!(key.public_key_jwk.kty, JwkKeyType::Okp);
     assert_eq!(key.public_key_jwk.crv.to_string(), "Ed25519");
     assert_eq!(key.public_key_jwk.use_claim, JwkUse::Sig);
-    assert!(!key.public_key_jwk.x.is_empty());
+    assert_ne!(key.public_key_jwk.x, "");
 }
 
 #[test]
@@ -470,7 +470,7 @@ fn is_revoked_true_after_revocation() {
 #[test]
 fn revoked_keys_empty_on_fresh_instance() {
     let km = make_km();
-    assert!(km.revoked_keys().is_empty());
+    assert_eq!(km.revoked_keys().len(), 0);
 }
 
 // ─── Tests: JWK Public Fields ───────────────────────────────────────────────────
@@ -479,7 +479,7 @@ fn revoked_keys_empty_on_fresh_instance() {
 fn jwk_only_serializes_to_correct_json() {
     let km = make_km();
     let keys = km.jwks_document().keys;
-    assert!(!keys.is_empty());
+    assert_ne!(keys.len(), 0);
 
     for key in &keys {
         let json = serde_json::to_value(key).unwrap();
@@ -535,5 +535,5 @@ fn health_returns_valid_response() {
         "Health must report at least one key, got {}",
         health.key_count
     );
-    assert!(!health.current_kid.is_empty());
+    assert_ne!(health.current_kid, "");
 }

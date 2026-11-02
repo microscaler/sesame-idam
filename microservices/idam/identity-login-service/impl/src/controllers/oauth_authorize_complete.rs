@@ -9,7 +9,7 @@ use crate::services::oidc_authorization::{
 };
 
 /// The relying party redirect is answered as JSON (`200 {"redirect": ...}`), not as a 302: the hosted surface calls
-/// this with fetch() and a browser never exposes a redirect's Location to fetch(). The page navigates itself.
+/// this with `fetch()` and a browser never exposes a redirect's Location to `fetch()`. The page navigates itself.
 pub enum OauthAuthorizeCompleteOutcome {
     Complete { redirect: String },
     Error(HttpJson<serde_json::Value>),

@@ -1,6 +1,6 @@
 //! `DELETE /authz/principals/roles` — take a role from a user of the caller's own tenant (idempotent).
 //!
-//! Same caller rule as assign, and the same role policy (sesame_common::role_policy): reserved roles are not touched
+//! Same caller rule as assign, and the same role policy (`sesame_common::role_policy)`: reserved roles are not touched
 //! here, and an administrator role is taken away only by someone who holds it (or owner). Every assignment of the role
 //! to the user in the tenant goes, and the user's tokens are made stale at once (subject version bump), so the role
 //! stops working on their next request, not their next refresh.

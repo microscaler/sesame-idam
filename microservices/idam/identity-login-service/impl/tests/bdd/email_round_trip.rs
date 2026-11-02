@@ -12,7 +12,8 @@
 //! Needs Postgres, Redis, and Mailpit (SMTP + API). Mailpit is addressed BY
 //! SERVICE NAME only (no IPs):
 //! - `TEST_SMTP_HOST`/`TEST_SMTP_PORT` (default mailpit.data.svc.cluster.local:1025)
-//! - `TEST_MAILPIT_API`   (default http://mailpit.data.svc.cluster.local:8025)
+//! - `TEST_MAILPIT_API`   (default <http://mailpit.data.svc.cluster.local:8025>)
+//!
 //! In-cluster that resolves natively; dev/build hosts resolve the
 //! `svc.cluster.local` zone via their resolver (or override the env for a
 //! local Mailpit). Skips gracefully when any dependency is unreachable.
@@ -100,8 +101,8 @@ fn redis_available() -> bool {
 ///
 /// Defaults target the cluster service BY NAME (no IPs anywhere): resolvable
 /// in-cluster natively, and from dev/build hosts via a resolver or hosts
-/// entry for the `svc.cluster.local` zone. Override with TEST_SMTP_HOST /
-/// TEST_SMTP_PORT / TEST_MAILPIT_API (e.g. a local Mailpit container).
+/// entry for the `svc.cluster.local` zone. Override with `TEST_SMTP_HOST` /
+/// `TEST_SMTP_PORT` / `TEST_MAILPIT_API` (e.g. a local Mailpit container).
 fn mailpit_available() -> Option<String> {
     let smtp_host = std::env::var("TEST_SMTP_HOST")
         .unwrap_or_else(|_| "mailpit.data.svc.cluster.local".to_string());
@@ -245,7 +246,7 @@ fn message_count(api: &str, recipient: &str) -> u64 {
 }
 
 /// Poll Mailpit for the newest message to `recipient`; return its full text
-/// body. Generous window: through the cluster LB (MetalLB) the SMTP banner
+/// body. Generous window: through the cluster LB (`MetalLB`) the SMTP banner
 /// alone has been observed to take >5s, so in-cluster delivery needs slack.
 fn wait_for_message_text(api: &str, recipient: &str) -> Option<String> {
     for _ in 0..60 {

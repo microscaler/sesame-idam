@@ -1,4 +1,4 @@
-//! Pre-OIDC live east–west BDD against ClusterIP login (via port-forward).
+//! Pre-OIDC live east–west BDD against `ClusterIP` login (via port-forward).
 //!
 //! Set `SESAME_EW_LOGIN_BASE` (default `http://127.0.0.1:18101`) to a
 //! port-forward of `svc/identity-login-service:8080`. Skips when unreachable.
@@ -189,10 +189,9 @@ fn live_ew_client_credentials_without_secret_fails_closed() {
     let has_access = body
         .get("access_token")
         .and_then(|v| v.as_str())
-        .map(|s| !s.is_empty())
-        .unwrap_or(false);
+        .is_some_and(|s| !s.is_empty());
     assert!(
-        (status >= 400 && status < 500) || !has_access,
+        (400..500).contains(&status) || !has_access,
         "CC without secret must not mint a token: status={status} body={body}"
     );
 }

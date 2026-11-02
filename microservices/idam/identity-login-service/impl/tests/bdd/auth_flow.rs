@@ -209,7 +209,7 @@ fn register_then_login_round_trip() {
     let user_id = body["user_id"].as_str().expect("user_id").to_string();
     assert_eq!(body["token_type"], "Bearer");
     assert!(body["expires_in"].as_i64().unwrap() > 0);
-    assert!(!body["refresh_token"].as_str().unwrap().is_empty());
+    assert_ne!(body["refresh_token"].as_str().unwrap().len(), 0);
 
     let payload = decode_jwt_payload(access_token);
     assert_eq!(payload["sub"], user_id);
@@ -446,7 +446,7 @@ fn client_tenant_header_mismatch_rejected() {
     assert_eq!(resp.body["error"], "invalid_client");
 }
 
-/// Scenario: Unknown client_id is rejected before credential checks.
+/// Scenario: Unknown `client_id` is rejected before credential checks.
 #[test]
 fn unknown_client_rejected() {
     if !db_available() {

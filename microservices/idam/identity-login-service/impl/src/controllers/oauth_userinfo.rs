@@ -1,4 +1,4 @@
-//! OpenID Connect UserInfo endpoint.
+//! `OpenID` Connect `UserInfo` endpoint.
 
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
@@ -9,9 +9,8 @@ use crate::services::user_service::UserService;
 
 #[handler(OauthUserinfoController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
-    let (user_id, tenant_id) = match authenticated_principal(&req.jwt_claims, None) {
-        Ok(principal) => principal,
-        Err(_) => return bearer_error("invalid_token", "A valid access token is required"),
+    let Ok((user_id, tenant_id)) = authenticated_principal(&req.jwt_claims, None) else {
+        return bearer_error("invalid_token", "A valid access token is required");
     };
     let scopes = req
         .jwt_claims

@@ -33,7 +33,7 @@ use sha2::{Digest, Sha256};
 pub struct CodePayload {
     pub access_token: String,
     pub refresh_token: Option<String>,
-    /// The redirect_uri this code is bound to — checked on redemption.
+    /// The `redirect_uri` this code is bound to — checked on redemption.
     pub redirect_uri: String,
     pub tenant_id: String,
 }
@@ -88,7 +88,7 @@ pub fn mint(payload: &CodePayload) -> Result<String> {
 /// presented `redirect_uri` matches the one it was minted for.
 ///
 /// The code is burned on ANY redemption attempt that finds it — including a
-/// redirect_uri mismatch — so a leaked code cannot be probed against
+/// `redirect_uri` mismatch — so a leaked code cannot be probed against
 /// candidate destinations.
 #[must_use]
 pub fn redeem(code: &str, redirect_uri: &str, tenant_id: &str) -> Option<CodePayload> {

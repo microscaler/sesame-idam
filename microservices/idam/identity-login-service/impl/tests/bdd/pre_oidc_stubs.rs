@@ -1,6 +1,6 @@
 //! Contract coverage for pre-OIDC paths that are still stubbed / unwired.
 //!
-//! Dual OTP send/verify and SMS magic-link verify are present in OpenAPI but
+//! Dual OTP send/verify and SMS magic-link verify are present in `OpenAPI` but
 //! not registered in `controllers/mod.rs`. These tests lock that inventory so
 //! we do not silently claim e2e coverage for unfinished surfaces.
 

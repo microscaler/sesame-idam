@@ -185,7 +185,7 @@ pub fn add_to_denylist(jti: &str) -> Result<()> {
 /// first with the same token, or a mobile client whose response was lost
 /// all end up holding ONLY the old token. Under strict rotation that old
 /// token is gone and the legitimate session is dead; the user is signed
-/// out for no reason (the hauliage and PriceWhisperer "random logout").
+/// out for no reason (the hauliage and `PriceWhisperer` "random logout").
 /// Within this window the successor is handed back idempotently - the
 /// same tokens the legitimate client already holds, so an attacker who
 /// replays a stolen old token gains nothing beyond what stealing the new

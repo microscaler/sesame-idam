@@ -10,7 +10,7 @@ use sesame_common::{
     VersionStore,
 };
 
-/// The administrator roles `user_id` holds tenant-wide (role_assignments has no RLS: the tenant is filtered here).
+/// The administrator roles `user_id` holds tenant-wide (`role_assignments` has no RLS: the tenant is filtered here).
 fn admin_roles_of(tenant_id: &str, user_id: Uuid) -> Result<Vec<String>, String> {
     use lifeguard::LifeExecutor;
     let policy = sesame_common::role_policy::RolePolicy::configured();
@@ -32,7 +32,7 @@ fn admin_roles_of(tenant_id: &str, user_id: Uuid) -> Result<Vec<String>, String>
 }
 
 /// May `admin` change the status of `user_id`? Only if they could grant every administrator role the user holds
-/// (sesame_common::role_policy): a tenant_admin does not disable, or re-enable, an owner.
+/// (`sesame_common::role_policy)`: a `tenant_admin` does not disable, or re-enable, an owner.
 ///
 /// # Errors
 /// The 403 (or 500) to return.

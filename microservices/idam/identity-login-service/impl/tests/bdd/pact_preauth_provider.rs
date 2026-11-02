@@ -144,7 +144,8 @@ fn verify_interaction(client: &reqwest::blocking::Client, base: &str, interactio
         .send()
         .unwrap_or_else(|e| panic!("{description}: HTTP request failed: {e}"));
 
-    let expected_status = expected["status"].as_u64().expect("response.status") as u16;
+    let expected_status = u16::try_from(expected["status"].as_u64().expect("response.status"))
+        .expect("response.status is an HTTP status");
     let status = response.status().as_u16();
     let text = response.text().unwrap_or_default();
     assert_eq!(

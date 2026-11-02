@@ -12,6 +12,8 @@ use crate::models::user_profile::UserProfileModel;
 use crate::services::profile_service::{ProfileService, ProfileUpdate};
 
 /// Result of loading a tenant-scoped user + optional profile row.
+// Returned and matched at once, never stored or moved around: boxing the rows would only add an allocation.
+#[allow(clippy::large_enum_variant)]
 pub enum ProfileLoad {
     /// User exists in the authenticated tenant.
     Found(UserModel, Option<UserProfileModel>),

@@ -265,8 +265,7 @@ pub fn invite_by_email<E: LifeExecutor>(
         .find_one(exec)
         .ok()
         .flatten()
-        .map(|o| o.name)
-        .unwrap_or_else(|| "your workspace".to_string());
+        .map_or_else(|| "your workspace".to_string(), |o| o.name);
 
     let Some(link) = crate::services::invite_magic_link_url(&token) else {
         tracing::error!(

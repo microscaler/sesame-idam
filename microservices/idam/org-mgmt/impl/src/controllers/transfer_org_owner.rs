@@ -22,14 +22,13 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             Err(response) => return response,
         };
 
-    let caller_uuid = match Uuid::parse_str(&caller_id) {
-        Ok(id) => id,
-        Err(_) => return org_auth::error_json(400, "validation_error", "Invalid user id"),
+    let Ok(caller_uuid) = Uuid::parse_str(&caller_id) else {
+        return org_auth::error_json(400, "validation_error", "Invalid user id");
     };
 
     // Dual-factor: password (knowledge) + email OTP (out-of-band). Email alone is
     // insufficient when a walk-away attacker can also open the Owner's webmail.
-    let password = req.data.password.as_deref().map(str::trim).unwrap_or("");
+    let password = req.data.password.as_deref().map_or("", str::trim);
     if password.is_empty() {
         return org_auth::error_json(
             403,
@@ -42,7 +41,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return org_auth::error_json(403, "password_invalid", "Password is incorrect");
     }
 
-    let otp = req.data.otp.as_deref().map(str::trim).unwrap_or("");
+    let otp = req.data.otp.as_deref().map_or("", str::trim);
     if otp.is_empty() {
         return org_auth::error_json(
             403,

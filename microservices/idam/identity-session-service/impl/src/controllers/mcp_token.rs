@@ -1,12 +1,12 @@
 // BRRTRouter: user-owned
 //! `POST /mcp/token` — an agent exchanges a signed client assertion for a short-lived access token.
 //!
-//! Agents come from the GitOps registry ([`sesame_common::agents`]); none is creatable through the API. The
+//! Agents come from the `GitOps` registry ([`sesame_common::agents`]); none is creatable through the API. The
 //! assertion is an ES256 JWT signed with the agent's registered key (`iss` = `sub` = agent id, `aud` = this issuer,
 //! one-time `jti`). The token issued carries only the agent's own audiences, roles and scope, `user_type = "agent"`,
 //! and lives a few minutes; there is no refresh token — the agent signs a new assertion instead.
 //!
-//! Kill switches: disabling the agent in the registry stops new tokens (the ConfigMap reaches the pod within a minute
+//! Kill switches: disabling the agent in the registry stops new tokens (the `ConfigMap` reaches the pod within a minute
 //! or two); live tokens end within the agent's ttl (default 5 minutes). Bumping the agent's subject version revokes
 //! live tokens only at consumers that run Sesame's token-status check.
 //!

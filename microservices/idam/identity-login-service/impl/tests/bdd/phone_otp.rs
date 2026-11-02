@@ -1,13 +1,13 @@
 //! Phone OTP round trip via the mock SMS outbox + the cost policy.
 //!
 //! Mirrors the email round trip but reads the code back from the Redis
-//! mock-outbox (SMS_PROVIDER=mock) — the Twilio-free e2e seam. Also asserts
+//! mock-outbox (`SMS_PROVIDER=mock`) — the Twilio-free e2e seam. Also asserts
 //! the cost policy: per-login SMS is OFF by default (no code minted, no
-//! outbox entry), and only opens when SMS_ALLOWED_PURPOSES includes login.
+//! outbox entry), and only opens when `SMS_ALLOWED_PURPOSES` includes login.
 //!
 //! Needs Postgres (users/tenant) + Redis (otp + outbox). Skips gracefully
 //! when either is unreachable. Registration seeds a user, then we set the
-//! phone directly on the row (register() only takes email/password).
+//! phone directly on the row (`register()` only takes email/password).
 
 use std::net::TcpStream;
 use std::sync::Once;
@@ -79,9 +79,9 @@ fn unique_phone() -> String {
     format!("+1999{n:09}")
 }
 
-/// Seed an active user with a phone directly (register() is email/password).
+/// Seed an active user with a phone directly (`register()` is email/password).
 fn seed_phone_user(phone: &str) -> String {
-    let exec = sesame_idam_database::db();
+    let _exec = sesame_idam_database::db();
     let email = format!("phoneuser_{}@example.com", uuid::Uuid::new_v4().simple());
     sesame_idam_database::with_pre_auth_tenant(TENANT, |exec| {
         UserService::create_user(TENANT, &email, "x", Some(phone.to_string()), exec)
@@ -121,7 +121,7 @@ fn verify_request(phone: &str, code: &str) -> brrtrouter::typed::HttpJson<serde_
     })
 }
 
-/// Cost policy: with default SMS_ALLOWED_PURPOSES (no login), a phone-OTP
+/// Cost policy: with default `SMS_ALLOWED_PURPOSES` (no login), a phone-OTP
 /// login request returns generic success but mints NOTHING and sends
 /// NOTHING — no outbox entry, and verify fails.
 #[test]
@@ -178,7 +178,7 @@ fn phone_otp_round_trip_when_login_enabled() {
         .map(|w| w.chars().filter(char::is_ascii_digit).collect::<String>())
         .find(|w| w.len() == 6)
         .expect("SMS must contain a 6-digit code")
-        .to_string();
+        .clone();
 
     // Wrong code first (skip the 1-in-a-million collision).
     if code != "000000" {

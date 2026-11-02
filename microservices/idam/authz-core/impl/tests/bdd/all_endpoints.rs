@@ -124,6 +124,8 @@ fn make_revoke_request(user_id: impl Into<String>, role: &str) -> TypedHandlerRe
 }
 
 /// Verified claims of a user of tenant `tenant` holding `roles` (flat shape; the guard also reads the namespaced one).
+// Option, as the router hands the verified claims to handlers.
+#[allow(clippy::unnecessary_wraps)]
 fn claims(tenant: &str, roles: &[&str]) -> Option<serde_json::Value> {
     Some(serde_json::json!({
         "sub": "11111111-1111-4111-8111-111111111111",

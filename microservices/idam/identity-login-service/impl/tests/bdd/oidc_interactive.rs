@@ -258,8 +258,8 @@ fn interactive_pkce_authorize_login_complete_token_userinfo() {
         jwt_claims: None,
     });
     assert_eq!(token.status, 200, "token: {:?}", token.body);
-    assert!(!token.body["access_token"].as_str().unwrap_or("").is_empty());
-    assert!(!token.body["id_token"].as_str().unwrap_or("").is_empty());
+    assert_ne!(token.body["access_token"].as_str().unwrap_or("").len(), 0);
+    assert_ne!(token.body["id_token"].as_str().unwrap_or("").len(), 0);
     assert_eq!(token.body["token_type"], "Bearer");
     let oidc_access = token.body["access_token"].as_str().unwrap().to_string();
     let oidc_claims = decode_jwt_payload(&oidc_access);

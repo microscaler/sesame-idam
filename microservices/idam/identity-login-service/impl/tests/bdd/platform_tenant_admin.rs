@@ -27,6 +27,12 @@ use sesame_idam_identity_login_service_gen::handlers::platform_tenant_status_pat
 
 static INIT: Once = Once::new();
 
+/// Whether the test Postgres answers (and, on the first call that finds it, the pool is set up).
+///
+/// # Panics
+///
+/// When `SESAME_TEST_DB_REQUIRED` is set (scripts/test-db.sh) and Postgres is not reachable: there a
+/// missing database is a failure, never a silent skip.
 pub fn db_available() -> bool {
     let host = std::env::var("TEST_DB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = std::env::var("TEST_DB_PORT").unwrap_or_else(|_| "5432".to_string());
@@ -276,7 +282,8 @@ fn platform_mint_client_register_login() {
     let again = platform_tenant_create::handle(create_request(&slug, "BDD RP Tenant"));
     assert_eq!(again.status, 409);
     assert_response_matches_spec("platform_tenant_create", 409, &again.body);
-    for s in [&other] {
+    {
+        let s = &other;
         let create = platform_tenant_create::handle(create_request(s, "BDD RP Tenant"));
         assert_eq!(create.status, 201, "create failed: {:?}", create.body);
     }

@@ -54,6 +54,8 @@ mod tests {
 
     const USER_ID: &str = "1189c444-8a2d-4c41-8b4b-ae43ce79a492";
 
+    // Option because authenticated_principal takes the router's Option<Value> claims as they come.
+    #[allow(clippy::unnecessary_wraps)]
     fn claims(tenant_id: Option<&str>) -> Option<Value> {
         Some(serde_json::json!({
             "sub": USER_ID,

@@ -86,7 +86,7 @@ pub struct ErrorResponse {
 /// Platform admins can delegate any user.
 /// Org admins can delegate users in their org.
 /// Regular users cannot delegate.
-pub fn can_delegate(actor_claims: &ActorClaim, target_user_id: &str) -> bool {
+pub fn can_delegate(actor_claims: &ActorClaim, _target_user_id: &str) -> bool {
     // HACK-305: In production, actor roles MUST be verified against authz-core,
     // not just extracted from the actor token.
 
@@ -109,7 +109,7 @@ pub fn can_delegate(actor_claims: &ActorClaim, target_user_id: &str) -> bool {
 /// Check if a support agent can impersonate a target user.
 ///
 /// This is the core authorization check for Story 6.2:
-/// 1. Agent must have support_agent role
+/// 1. Agent must have `support_agent` role
 /// 2. Agent can only impersonate users in their tenant
 /// 3. Agent must be assigned to the target user's org
 /// 4. Agent cannot impersonate themselves
@@ -169,13 +169,10 @@ pub fn can_impersonate(
 fn get_actor_org(actor: &ActorClaim) -> Option<String> {
     // The scope field may contain org assignment info
     // In production: call org-mgmt service to get agent's org assignments
-    actor.scope.split_whitespace().find_map(|s| {
-        if s.starts_with("org:") {
-            Some(s[4..].to_string())
-        } else {
-            None
-        }
-    })
+    actor
+        .scope
+        .split_whitespace()
+        .find_map(|s| s.strip_prefix("org:").map(str::to_string))
 }
 
 /// Check if an impersonation token can be used for further delegation.
@@ -190,12 +187,9 @@ pub fn is_impersonation_token(subject: &SubjectClaims) -> bool {
 ///
 /// HACK-602: On ANY route containing /admin/, /orgs/, /roles/, /permissions/,
 /// the JWT middleware MUST check for the act claim and deny regardless of classification.
-pub fn can_access_admin_routes(actor: &Option<&ActorClaim>) -> bool {
+pub fn can_access_admin_routes(actor: Option<&ActorClaim>) -> bool {
     // If there is an act claim, impersonation tokens cannot access admin routes
-    match actor {
-        Some(act) if act.portal == SUPPORT_PORTAL => false,
-        _ => true,
-    }
+    !matches!(actor, Some(act) if act.portal == SUPPORT_PORTAL)
 }
 
 /// Compute the impersonation TTL (HACK-605).
@@ -210,14 +204,14 @@ pub fn compute_impersonation_ttl() -> i32 {
 ///
 /// Returns true if the agent has reached the maximum concurrent impersonations.
 /// In production, this would query Redis: `impersonation:agent:{agent_id}`.
-pub fn has_max_concurrent_impersonations(agent_sub: &str, current_count: usize) -> bool {
+pub fn has_max_concurrent_impersonations(_agent_sub: &str, current_count: usize) -> bool {
     current_count >= MAX_CONCURRENT_IMPERSONATIONS
 }
 
-/// Strip admin/platform_admin roles from an impersonation token's scope.
+/// Strip `admin/platform_admin` roles from an impersonation token's scope.
 ///
 /// HACK-602: The impersonation token's sx.roles does NOT include admin
-/// or platform_admin — even if the impersonated user has admin rights.
+/// or `platform_admin` — even if the impersonated user has admin rights.
 pub fn strip_admin_roles(roles: &[String]) -> Vec<String> {
     roles
         .iter()
@@ -232,7 +226,10 @@ pub fn strip_admin_roles(roles: &[String]) -> Vec<String> {
 /// profile:read, orders:read, etc. Write scopes are stripped.
 pub fn build_impersonation_scope(original_scope: &str, requested_scopes: &[String]) -> String {
     let original: HashSet<&str> = original_scope.split_whitespace().collect();
-    let requested: HashSet<&str> = requested_scopes.iter().map(|s| s.as_str()).collect();
+    let requested: HashSet<&str> = requested_scopes
+        .iter()
+        .map(std::string::String::as_str)
+        .collect();
 
     // Only allow read operations
     let allowed: Vec<&str> = requested
@@ -268,10 +265,10 @@ impl ImpersonationError {
 
     pub fn error_description(&self) -> &str {
         match self {
-            Self::NotASupportAgent(msg) => msg,
-            Self::CrossTenantImpersonationNotAllowed(msg) => msg,
-            Self::NotInTargetOrg(msg) => msg,
-            Self::ImpersonationChainNotAllowed(msg) => msg,
+            Self::NotASupportAgent(msg)
+            | Self::CrossTenantImpersonationNotAllowed(msg)
+            | Self::NotInTargetOrg(msg)
+            | Self::ImpersonationChainNotAllowed(msg) => msg,
             Self::MaxConcurrentImpersonationsReached => {
                 "Maximum number of concurrent impersonations reached"
             }
@@ -282,15 +279,24 @@ impl ImpersonationError {
 // ─── Scope Helpers (Story 6.1) ───────────────────────────────────────────
 
 /// Merge scopes using RFC 8693 algorithm:
-/// result = min(subject_scope ∩ requested_scope, actor_scope)
+/// result = `min(subject_scope` ∩ `requested_scope`, `actor_scope`)
 pub fn merge_scopes(
     subject_scopes: &[String],
     requested_scopes: &[String],
     actor_scopes: &[String],
 ) -> Vec<String> {
-    let subject_set: HashSet<&str> = subject_scopes.iter().map(|s| s.as_str()).collect();
-    let requested_set: HashSet<&str> = requested_scopes.iter().map(|s| s.as_str()).collect();
-    let actor_set: HashSet<&str> = actor_scopes.iter().map(|s| s.as_str()).collect();
+    let subject_set: HashSet<&str> = subject_scopes
+        .iter()
+        .map(std::string::String::as_str)
+        .collect();
+    let requested_set: HashSet<&str> = requested_scopes
+        .iter()
+        .map(std::string::String::as_str)
+        .collect();
+    let actor_set: HashSet<&str> = actor_scopes
+        .iter()
+        .map(std::string::String::as_str)
+        .collect();
 
     // Intersection of all three
     subject_set
@@ -299,7 +305,7 @@ pub fn merge_scopes(
         .collect::<HashSet<_>>()
         .intersection(&actor_set)
         .copied()
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
         .collect()
 }
 
@@ -307,7 +313,7 @@ pub fn merge_scopes(
 pub fn parse_scopes(scope_str: &str) -> Vec<String> {
     scope_str
         .split_whitespace()
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
         .collect()
 }
 
@@ -317,7 +323,7 @@ pub fn parse_scopes(scope_str: &str) -> Vec<String> {
 ///
 /// HACK-301: MUST validate against same JWKS as issuing service.
 /// HACK-303: MUST check subject token against denylist.
-/// HACK-306: MUST check subject version against cached_ver in Redis.
+/// HACK-306: MUST check subject version against `cached_ver` in Redis.
 /// HACK-603: MUST check if subject token has act claim.
 fn parse_subject_token(token: &str) -> Result<SubjectClaims, ErrorResponse> {
     if token.is_empty() {
@@ -387,6 +393,7 @@ fn invalid_credential_token(description: &str) -> ErrorResponse {
     }
 }
 
+#[cfg(test)] // the tests' JWT helpers; the exchange itself verifies tokens with the shared validator
 /// Extract claims from a decoded JWT payload.
 fn parse_jwt_claims(payload_str: &str) -> Result<SubjectClaims, ErrorResponse> {
     // Use serde to deserialize JSON
@@ -449,7 +456,7 @@ fn parse_jwt_claims(payload_str: &str) -> Result<SubjectClaims, ErrorResponse> {
         .unwrap_or_default();
 
     // Story 5.1: Extract token version (ver) and session ID (sid)
-    let ver = value.get("ver").and_then(|v| v.as_u64());
+    let ver = value.get("ver").and_then(serde_json::Value::as_u64);
 
     let sid = value.get("sid").and_then(|v| v.as_str()).map(String::from);
 
@@ -466,6 +473,7 @@ fn parse_jwt_claims(payload_str: &str) -> Result<SubjectClaims, ErrorResponse> {
     })
 }
 
+#[cfg(test)] // the tests' JWT helpers; the exchange itself verifies tokens with the shared validator
 /// Extract actor claims from a decoded JWT payload.
 fn parse_actor_claims_from_jwt(payload_str: &str) -> Result<ActorClaim, ErrorResponse> {
     let value: serde_json::Value =
@@ -527,6 +535,7 @@ fn parse_actor_claims_from_jwt(payload_str: &str) -> Result<ActorClaim, ErrorRes
     })
 }
 
+#[cfg(test)] // the tests' JWT helpers; the exchange itself verifies tokens with the shared validator
 /// Base64url decode a string.
 fn decode_b64url(data: &str) -> Result<String, String> {
     use base64::{engine::general_purpose, Engine as _};
@@ -536,6 +545,7 @@ fn decode_b64url(data: &str) -> Result<String, String> {
     String::from_utf8(bytes).map_err(|e| e.to_string())
 }
 
+#[cfg(test)] // the tests' JWT helpers; the exchange itself verifies tokens with the shared validator
 /// Base64url encode a string.
 fn encode_b64url(data: &str) -> String {
     use base64::{engine::general_purpose, Engine as _};
@@ -546,21 +556,21 @@ fn encode_b64url(data: &str) -> String {
 
 /// Handle token exchange (RFC 8693) with support impersonation (Story 6.2).
 ///
-/// Validates subject_token and optional actor_token, checks delegation/impersonation
+/// Validates `subject_token` and optional `actor_token`, checks delegation/impersonation
 /// permissions, merges scopes, and issues a new access token with act claim.
 ///
 /// HACK-301: Subject token MUST be validated against the same JWKS key set.
-/// HACK-302: Rate limiting applied (10 req/min per actor_token.sub, 5/min without actor).
+/// HACK-302: Rate limiting applied (10 req/min per `actor_token.sub`, 5/min without actor).
 /// HACK-303: Subject token MUST be checked against denylist before processing.
 /// HACK-304: Self-delegation disabled by default.
 /// HACK-305: Actor token roles MUST be verified against authz-core.
-/// HACK-306: Subject token version MUST be checked against cached_ver in Redis.
+/// HACK-306: Subject token version MUST be checked against `cached_ver` in Redis.
 /// HACK-307: Nested delegation chain depth MUST be limited to 3 levels.
 /// HACK-310: Cross-tenant token exchange MUST be rejected.
 /// HACK-601: Support agent role verified against authz-core, not extracted from JWT.
 /// HACK-602: Admin routes reject ALL tokens with an act claim.
 /// HACK-603: Subject tokens with act claim are rejected (impersonation chain prevention).
-/// HACK-604: Delegation chain bounded to MAX_CHAIN_DEPTH=10.
+/// HACK-604: Delegation chain bounded to `MAX_CHAIN_DEPTH=10`.
 /// HACK-605: Impersonation TTL hardcoded to 300 seconds.
 /// HACK-606: Tenant verification from user database, not derived from org.
 /// HACK-609: Maximum 3 concurrent impersonations per agent.
@@ -691,7 +701,8 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs() as i64;
+        .as_secs();
+    let now = i64::try_from(now).unwrap_or(i64::MAX);
 
     let jti = Uuid::new_v4().to_string();
 
@@ -742,7 +753,9 @@ pub fn handle_token_exchange(req: &Request) -> Result<TokenExchangeResult, Error
 /// Build a new access token JWT.
 ///
 /// Story 5.1: Includes `ver` (token version) and `sid` (session ID) claims.
-/// Story 8.2: Includes `cnf.jkt` (DPoP thumbprint) when token is DPoP-bound.
+/// Story 8.2: Includes `cnf.jkt` (`DPoP` thumbprint) when token is DPoP-bound.
+// Each argument is a distinct claim of the token being minted; a struct would only rename them.
+#[allow(clippy::too_many_arguments)]
 fn build_access_token(
     subject: &SubjectClaims,
     actor: &ActorClaim,
@@ -754,8 +767,6 @@ fn build_access_token(
     session_id: &str,
     dpop_jkt: Option<&str>,
 ) -> Result<String, ErrorResponse> {
-    use uuid::Uuid;
-
     // Build JWT payload
     let mut payload = serde_json::Map::new();
     payload.insert("sub".into(), serde_json::json!(subject.sub));
@@ -764,7 +775,7 @@ fn build_access_token(
         serde_json::json!(sesame_common::deployment::issuer()),
     );
     payload.insert("iat".into(), serde_json::json!(now));
-    payload.insert("exp".into(), serde_json::json!(now + (ttl as i64)));
+    payload.insert("exp".into(), serde_json::json!(now + i64::from(ttl)));
     payload.insert("jti".into(), serde_json::json!(jti));
     payload.insert("tenant_id".into(), serde_json::json!(subject.tenant));
 
@@ -869,11 +880,11 @@ fn build_refresh_token(
 
 // ─── Main Handler ────────────────────────────────────────────────────────
 
-/// Main handler for auth_token endpoint.
+/// Main handler for `auth_token` endpoint.
 ///
 /// Supports grant types:
-/// - refresh_token: Rotate refresh token, issue new access token
-/// - client_credentials: M2M token for service accounts
+/// - `refresh_token`: Rotate refresh token, issue new access token
+/// - `client_credentials`: M2M token for service accounts
 /// - urn:ietf:params:oauth:grant-type:token-exchange: RFC 8693 token exchange
 #[handler(AuthTokenController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
@@ -978,36 +989,32 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
             return empty_denied(None);
         };
 
-        match crate::services::auth_code::redeem(code, redirect_uri, &tenant_id) {
-            Some(payload) => {
-                span.record("result", "success");
-                emit_audit(true, "authorization_code");
-                let user_id = user_id_from_token(&payload.access_token);
-                return Response {
-                    access_token: payload.access_token,
-                    token_type: "Bearer".to_string(),
-                    expires_in: 300,
-                    refresh_token: payload.refresh_token.unwrap_or_default(),
-                    refresh_token_expires_in: Some(30 * 24 * 3600),
-                    user_id,
-                    id_token: None,
-                    mfa_required: Some(false),
-                    scope: None,
-                    entitlements_hash: None,
-                    entitlements_ref: None,
-                    permissions: None,
-                    roles: None,
-                    token_version: None,
-                };
-            }
-            None => {
-                // Unknown, expired, already-used, or wrong redirect_uri/tenant
-                // — all indistinguishable to the caller.
-                span.record("result", "denied");
-                emit_audit(false, "authorization_code_invalid");
-                return empty_denied(None);
-            }
+        if let Some(payload) = crate::services::auth_code::redeem(code, redirect_uri, &tenant_id) {
+            span.record("result", "success");
+            emit_audit(true, "authorization_code");
+            let user_id = user_id_from_token(&payload.access_token);
+            return Response {
+                access_token: payload.access_token,
+                token_type: "Bearer".to_string(),
+                expires_in: 300,
+                refresh_token: payload.refresh_token.unwrap_or_default(),
+                refresh_token_expires_in: Some(30 * 24 * 3600),
+                user_id,
+                id_token: None,
+                mfa_required: Some(false),
+                scope: None,
+                entitlements_hash: None,
+                entitlements_ref: None,
+                permissions: None,
+                roles: None,
+                token_version: None,
+            };
         }
+        // Unknown, expired, already-used, or wrong redirect_uri/tenant
+        // — all indistinguishable to the caller.
+        span.record("result", "denied");
+        emit_audit(false, "authorization_code_invalid");
+        return empty_denied(None);
     }
 
     // RFC 6749 §4.4 client_credentials (PRD-OPENGROUPWARE F1): M2M tokens
@@ -1162,6 +1169,27 @@ fn handle_client_credentials(req: &Request) -> Result<Response, ErrorResponse> {
     })
 }
 
+/// Extract `sub` (falling back to `user_id`) from a compact JWT payload —
+/// used to populate the `authorization_code` response without re-minting.
+fn user_id_from_token(token: &str) -> String {
+    use base64::Engine;
+    let Some(payload) = token.split('.').nth(1) else {
+        return String::new();
+    };
+    let Ok(bytes) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(payload) else {
+        return String::new();
+    };
+    let Ok(claims) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+        return String::new();
+    };
+    claims
+        .get("sub")
+        .or_else(|| claims.get("user_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string()
+}
+
 // ─── Tests: Story 6.2 — Support Impersonation Flow ───────────────────────
 
 #[cfg(test)]
@@ -1180,7 +1208,10 @@ mod tests {
             vec!["accounts:write".to_string()]
         );
         // Nothing permitted survives.
-        assert!(granted_scope(Some("admin:god"), &perms).is_empty());
+        assert_eq!(
+            granted_scope(Some("admin:god"), &perms),
+            [] as [std::string::String; 0]
+        );
     }
 
     #[test]
@@ -1592,7 +1623,7 @@ mod tests {
         let actor = vec!["profile:read".to_string()];
 
         let merged = merge_scopes(&subject, &requested, &actor);
-        assert!(merged.is_empty());
+        assert_eq!(merged, [] as [std::string::String; 0]);
     }
 
     #[test]
@@ -1684,10 +1715,10 @@ mod tests {
             scope: "profile:read".to_string(),
             chain: None,
         });
-        assert!(!can_access_admin_routes(&act.as_ref()));
+        assert!(!can_access_admin_routes(act.as_ref()));
 
         let no_act: Option<ActorClaim> = None;
-        assert!(can_access_admin_routes(&no_act.as_ref()));
+        assert!(can_access_admin_routes(no_act.as_ref()));
     }
 
     #[test]
@@ -1917,7 +1948,7 @@ mod tests {
 
     // ── Story 3.4: can_delegate Unit Tests ─────────────────────────────
 
-    /// Given an actor with portal containing "admin", can_delegate returns true.
+    /// Given an actor with portal containing "admin", `can_delegate` returns true.
     #[test]
     fn test_can_delegate_platform_admin_returns_true() {
         let actor = ActorClaim {
@@ -1930,7 +1961,7 @@ mod tests {
         assert!(can_delegate(&actor, "any_user_id"));
     }
 
-    /// Given an actor with portal containing "org_admin", can_delegate returns true.
+    /// Given an actor with portal containing "`org_admin`", `can_delegate` returns true.
     #[test]
     fn test_can_delegate_org_admin_returns_true() {
         let actor = ActorClaim {
@@ -1943,7 +1974,7 @@ mod tests {
         assert!(can_delegate(&actor, "any_user_id"));
     }
 
-    /// Given an actor with regular user portal, can_delegate returns false.
+    /// Given an actor with regular user portal, `can_delegate` returns false.
     #[test]
     fn test_can_delegate_regular_user_returns_false() {
         let actor = ActorClaim {
@@ -1956,20 +1987,20 @@ mod tests {
         assert!(!can_delegate(&actor, "any_user_id"));
     }
 
-    /// Given an actor with empty portal, can_delegate returns false.
+    /// Given an actor with empty portal, `can_delegate` returns false.
     #[test]
     fn test_can_delegate_empty_portal_returns_false() {
         let actor = ActorClaim {
             sub: "empty_portal_user".to_string(),
             tenant: "tenant_a".to_string(),
-            portal: "".to_string(),
-            scope: "".to_string(),
+            portal: String::new(),
+            scope: String::new(),
             chain: None,
         };
         assert!(!can_delegate(&actor, "any_user_id"));
     }
 
-    /// Given an actor with portal containing neither "admin" nor "org_admin", can_delegate returns false.
+    /// Given an actor with portal containing neither "admin" nor "`org_admin`", `can_delegate` returns false.
     #[test]
     fn test_can_delegate_neither_admin_nor_org_admin_returns_false() {
         let actor = ActorClaim {
@@ -2082,7 +2113,7 @@ mod tests {
         let actor_scopes = vec!["profile:read".to_string()];
 
         let result = merge_scopes(&subject_scopes, &requested, &actor_scopes);
-        assert!(result.is_empty());
+        assert_eq!(result, [] as [std::string::String; 0]);
     }
 
     /// Given empty requested scope, the result is empty.
@@ -2093,12 +2124,12 @@ mod tests {
         let actor_scopes = vec!["profile:read".to_string(), "orders:write".to_string()];
 
         let result = merge_scopes(&subject_scopes, &requested, &actor_scopes);
-        assert!(result.is_empty());
+        assert_eq!(result, [] as [std::string::String; 0]);
     }
 
     // ── Story 3.4: Nested Act Chain Preservation ───────────────────────
 
-    /// Given an actor_token with act.sub = "user_456" and act.chain = ["support_tool"],
+    /// Given an `actor_token` whose `act.sub` is `user_456` and whose `act.chain` holds `support_tool`,
     /// the new token's act includes the full chain.
     #[test]
     fn test_nested_act_chain_preserved() {
@@ -2220,7 +2251,7 @@ mod tests {
     fn test_empty_subject_token_rejected() {
         let req = Request {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
-            subject_token: Some("".to_string()),
+            subject_token: Some(String::new()),
             actor_token: None,
             scope: None,
             subject_token_type: None,
@@ -2253,7 +2284,7 @@ mod tests {
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange".to_string(),
             subject_token: Some(subject_jwt),
             actor_token: Some(actor_jwt),
-            scope: Some("".to_string()),
+            scope: Some(String::new()),
             subject_token_type: None,
             x_tenant_id: Some("tenant_a".to_string()),
             ..base_request()
@@ -2302,25 +2333,4 @@ mod tests {
             );
         }
     }
-}
-
-/// Extract `sub` (falling back to `user_id`) from a compact JWT payload —
-/// used to populate the authorization_code response without re-minting.
-fn user_id_from_token(token: &str) -> String {
-    use base64::Engine;
-    let Some(payload) = token.split('.').nth(1) else {
-        return String::new();
-    };
-    let Ok(bytes) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(payload) else {
-        return String::new();
-    };
-    let Ok(claims) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
-        return String::new();
-    };
-    claims
-        .get("sub")
-        .or_else(|| claims.get("user_id"))
-        .and_then(|v| v.as_str())
-        .unwrap_or_default()
-        .to_string()
 }

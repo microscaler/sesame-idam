@@ -16,22 +16,26 @@ pub const FIXTURE_TENANT: &str = "acme";
 pub const FIXTURE_WEB_CLIENT: &str = "acme-web";
 
 /// Tenant for live API tests (env override for private labs).
+#[must_use]
 pub fn live_test_tenant() -> String {
     std::env::var("SESAME_LIVE_TEST_TENANT").unwrap_or_else(|_| FIXTURE_TENANT.to_string())
 }
 
 /// Client id for live API tests (env override for private labs).
+#[must_use]
 pub fn live_test_client_id() -> String {
     std::env::var("SESAME_LIVE_TEST_CLIENT_ID").unwrap_or_else(|_| FIXTURE_WEB_CLIENT.to_string())
 }
 
 /// Redirect URI for live authorize tests (env override for private labs).
+#[must_use]
 pub fn live_test_redirect() -> String {
     std::env::var("SESAME_LIVE_TEST_REDIRECT")
         .unwrap_or_else(|_| "https://app.example.com/auth/callback".to_string())
 }
 
 /// Demo user email for live login tests (env override for private labs).
+#[must_use]
 pub fn live_test_email() -> String {
     std::env::var("SESAME_LIVE_TEST_EMAIL").unwrap_or_else(|_| "owner@acme.example".to_string())
 }
@@ -172,6 +176,7 @@ fn ensure_public_login_client_named(tenant: &str, client_id: &str) -> String {
 /// # Panics
 ///
 /// Panics when the registry insert fails.
+#[must_use]
 pub fn ensure_public_login_client(tenant: &str) -> String {
     let client_id = format!("ses_bdd_{}", Uuid::new_v4().simple());
     let client_pk = Uuid::new_v4();

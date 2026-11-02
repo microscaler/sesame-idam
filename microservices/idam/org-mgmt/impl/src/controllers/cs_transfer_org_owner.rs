@@ -37,7 +37,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         return tenant_cs_auth::tenant_cs_http_error(&err);
     }
 
-    let reason = req.data.reason.as_deref().map(str::trim).unwrap_or("");
+    let reason = req.data.reason.as_deref().map_or("", str::trim);
     if reason.is_empty() {
         return org_auth::error_json(
             400,

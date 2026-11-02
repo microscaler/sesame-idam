@@ -6,7 +6,7 @@
 //! that tenant; a tenant never loses its last administrator; and a change makes the user's tokens stale.
 //!
 //! Every test uses its own tenant, so they run in parallel without seeing each other. Skips without Postgres unless
-//! SESAME_TEST_DB_REQUIRED is set (scripts/test-db.sh), where a skip is a failure.
+//! `SESAME_TEST_DB_REQUIRED` is set (scripts/test-db.sh), where a skip is a failure.
 
 use std::net::TcpStream;
 use std::sync::Once;
@@ -145,6 +145,8 @@ fn held(tenant: &str, user: Uuid) -> Vec<String> {
 }
 
 /// A verified token's claims: `roles` for `tenant`, or none at all.
+// Option, as the router hands the verified claims to handlers.
+#[allow(clippy::unnecessary_wraps)]
 fn claims(tenant: &str, sub: Uuid, roles: &[&str]) -> Option<Value> {
     Some(json!({ "sub": sub.to_string(), "tenant_id": tenant, "roles": roles }))
 }
@@ -160,8 +162,8 @@ fn assign(
         method: Method::POST,
         path: "/authz/principals/roles".into(),
         handler_name: "assign_principal_role".into(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::default(),
+        query_params: std::collections::HashMap::default(),
         data: AssignRequest {
             app_id: None,
             expires_at: None,
@@ -181,8 +183,8 @@ fn revoke(caller: Option<Value>, header_tenant: &str, user: Uuid, role: &str) ->
         method: Method::DELETE,
         path: "/authz/principals/roles".into(),
         handler_name: "revoke_principal_role".into(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::default(),
+        query_params: std::collections::HashMap::default(),
         data: RevokeRequest {
             app_id: None,
             role: role.into(),
@@ -237,8 +239,8 @@ fn an_administrator_grants_and_revokes_in_their_own_tenant() {
         method: Method::GET,
         path: "/authz/principals/roles".into(),
         handler_name: "list_principal_roles".into(),
-        path_params: Default::default(),
-        query_params: Default::default(),
+        path_params: std::collections::HashMap::default(),
+        query_params: std::collections::HashMap::default(),
         data: ListRequest {
             user_id: Some(user.to_string()),
         },
@@ -249,7 +251,7 @@ fn an_administrator_grants_and_revokes_in_their_own_tenant() {
 
     let before = version(user);
     assert_eq!(revoke(me.clone(), &t, user, "crm.editor"), 204);
-    assert!(held(&t, user).is_empty());
+    assert_eq!(held(&t, user), [] as [std::string::String; 0]);
     if std::env::var_os("REDIS_URL").is_some() {
         assert!(
             version(user) > before,
@@ -372,7 +374,7 @@ fn reserved_roles_and_roles_above_the_caller_are_refused() {
         403,
         "nor take it away"
     );
-    assert!(held(&t, user).is_empty());
+    assert_eq!(held(&t, user), [] as [std::string::String; 0]);
     assert_eq!(held(&t, admin), vec!["platform_admin"]);
 
     assert_eq!(
@@ -408,7 +410,7 @@ fn an_organisation_scope_must_be_this_tenants_and_never_for_an_admin_role() {
         assign(me.clone(), &t, user, "crm.editor", Some(theirs)),
         404
     );
-    assert!(held(&t, user).is_empty());
+    assert_eq!(held(&t, user), [] as [std::string::String; 0]);
     assert_eq!(assign(me, &t, user, "crm.editor", Some(mine)), 204);
     assert_eq!(held(&t, user), vec!["crm.editor"]);
 }

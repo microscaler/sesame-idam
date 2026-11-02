@@ -29,7 +29,7 @@ fn test_refresh_token_cannot_be_replayed_after_rotation() {
     match reused_token {
         RotationOutcome::ReuseDetected { reused_jti, .. } => {
             // Verify the reused jti is properly captured
-            assert!(!reused_jti.is_empty());
+            assert_ne!(reused_jti, "");
             // The handler would return 401 here with empty tokens
         }
         _ => panic!("Expected ReuseDetected for replay attack scenario"),

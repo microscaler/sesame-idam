@@ -18,9 +18,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             Err(response) => return response,
         };
 
-    let caller_uuid = match Uuid::parse_str(&caller_id) {
-        Ok(id) => id,
-        Err(_) => return org_auth::error_json(400, "validation_error", "Invalid user id"),
+    let Ok(caller_uuid) = Uuid::parse_str(&caller_id) else {
+        return org_auth::error_json(400, "validation_error", "Invalid user id");
     };
 
     let exec = sesame_idam_database::db();

@@ -551,9 +551,9 @@ impl KeyManager {
         km.install_keyset(&json, path)?;
         tracing::info!(
             keyset = %path,
-            current = km.current_key.as_ref().map(|k| k.kid.as_str()).unwrap_or("-"),
-            next = km.next_key.as_ref().map(|k| k.kid.as_str()).unwrap_or("-"),
-            previous = km.previous_key.as_ref().map(|k| k.kid.as_str()).unwrap_or("-"),
+            current = km.current_key.as_ref().map_or("-", |k| k.kid.as_str()),
+            next = km.next_key.as_ref().map_or("-", |k| k.kid.as_str()),
+            previous = km.previous_key.as_ref().map_or("-", |k| k.kid.as_str()),
             "KeyManager bootstrapped from shared keyset (ADR-006 file mode)"
         );
         Ok(km)
@@ -1242,12 +1242,12 @@ mod tests {
     #[test]
     fn test_key_generation() {
         let key = JwtSigningKey::generate(None).unwrap();
-        assert!(!key.kid.is_empty());
+        assert_ne!(key.kid, "");
         assert_eq!(key.alg, "EdDSA");
         assert_eq!(key.public_key_jwk.kty, JwkKeyType::Okp);
         assert_eq!(key.public_key_jwk.crv, JwkCurve::Ed25519);
         assert_eq!(key.public_key_jwk.use_claim, JwkUse::Sig);
-        assert!(!key.public_key_jwk.x.is_empty());
+        assert_ne!(key.public_key_jwk.x, "");
     }
 
     #[test]
@@ -1271,7 +1271,7 @@ mod tests {
         let km = KeyManager::new().unwrap();
         assert!(km.current_key.is_some());
         assert!(km.next_key.is_none());
-        assert!(km.revoked_keys.is_empty());
+        assert_eq!(km.revoked_keys, [] as [std::string::String; 0]);
     }
 
     #[test]

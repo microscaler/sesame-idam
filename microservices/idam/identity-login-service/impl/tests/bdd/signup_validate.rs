@@ -86,7 +86,7 @@ fn signup_validate_rejects_malformed_email() {
     }
 }
 
-/// Scenario: unknown client_id is rejected before the availability check.
+/// Scenario: unknown `client_id` is rejected before the availability check.
 #[test]
 fn signup_validate_rejects_unknown_client() {
     if !infra_available() {
@@ -116,7 +116,7 @@ fn signup_validate_allows_fresh_email() {
         "fresh email should be allowed: {:?}",
         reasons(&resp)
     );
-    assert!(reasons(&resp).is_empty());
+    assert_eq!(reasons(&resp).len(), 0);
 }
 
 /// Scenario: an already-registered email reports `email_taken`.

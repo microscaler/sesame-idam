@@ -126,7 +126,7 @@ impl TenantSmsService {
     }
 
     /// Store (or replace) envelope-custody credentials.
-
+    ///
     /// `auth_token: None` on an existing config means "keep what is stored" —
     /// the console never round-trips the secret just to edit a from number. The token is sealed
     /// before it touches the database and the config drops back to
@@ -225,7 +225,7 @@ impl TenantSmsService {
         // Envelope custody supersedes any Connect authorisation.
         record.set_connected_account_sid_null();
 
-        Self::write(record, existing.is_some(), exec)
+        Self::write(&record, existing.is_some(), exec)
     }
 
     /// Store a Twilio Connect authorization (no secret held by Sesame).
@@ -276,11 +276,11 @@ impl TenantSmsService {
         record.set_account_sid_null();
         clear_sealed(&mut record);
 
-        Self::write(record, existing.is_some(), exec)
+        Self::write(&record, existing.is_some(), exec)
     }
 
     fn write<E: LifeExecutor>(
-        mut record: TenantSmsConfigRecord,
+        record: &TenantSmsConfigRecord,
         update: bool,
         exec: &E,
     ) -> Result<(), LifeError> {

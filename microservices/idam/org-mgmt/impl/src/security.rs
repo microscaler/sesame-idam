@@ -54,31 +54,26 @@ pub fn init_security(
     for (scheme_name, scheme) in schemes {
         match &scheme {
             SecurityScheme::ApiKey { .. } if scheme_name == "TenantCsAuth" => {
-                match tenant_cs_auth::load_tenant_cs_keys_from_env() {
-                    Ok(keys) => {
-                        println!(
-                            "[auth] register TenantCsKeyProvider scheme={} tenants={}",
-                            scheme_name,
-                            keys.len()
-                        );
-                        service.register_security_provider(
-                            &scheme_name,
-                            Arc::new(TenantCsKeyProvider { keys }),
-                        );
-                    }
-                    Err(_) => {
-                        // Register a provider that always fails closed so routes exist
-                        // but return 401 until keys are configured.
-                        println!(
-                            "[auth] TenantCsAuth unconfigured — registering reject-all provider"
-                        );
-                        service.register_security_provider(
-                            &scheme_name,
-                            Arc::new(TenantCsKeyProvider {
-                                keys: HashMap::new(),
-                            }),
-                        );
-                    }
+                if let Ok(keys) = tenant_cs_auth::load_tenant_cs_keys_from_env() {
+                    println!(
+                        "[auth] register TenantCsKeyProvider scheme={} tenants={}",
+                        scheme_name,
+                        keys.len()
+                    );
+                    service.register_security_provider(
+                        &scheme_name,
+                        Arc::new(TenantCsKeyProvider { keys }),
+                    );
+                } else {
+                    // Register a provider that always fails closed so routes exist
+                    // but return 401 until keys are configured.
+                    println!("[auth] TenantCsAuth unconfigured — registering reject-all provider");
+                    service.register_security_provider(
+                        &scheme_name,
+                        Arc::new(TenantCsKeyProvider {
+                            keys: HashMap::new(),
+                        }),
+                    );
                 }
             }
             SecurityScheme::ApiKey { .. } => {

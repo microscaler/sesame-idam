@@ -19,6 +19,8 @@ pub fn context() -> &'static DomainContext {
 }
 
 /// The caller and tenant from the validated token (never a header), or the 401/400 response.
+// &Option because that is how the typed request carries the verified claims (`req.jwt_claims`).
+#[allow(clippy::ref_option)]
 pub fn caller(jwt_claims: &Option<Value>) -> Result<(Uuid, String), HttpJson<Value>> {
     let (user, tenant) = org_auth::require_caller(jwt_claims, None)?;
     let user = Uuid::parse_str(&user)

@@ -1,6 +1,6 @@
 //! ADR-006 step 1 acceptance: shared signing keyset file mode.
 //!
-//! - N KeyManagers loading the SAME keyset file agree on every key and every
+//! - N `KeyManagers` loading the SAME keyset file agree on every key and every
 //!   kid (the multi-replica JWKS-agreement property that made scaling unsafe
 //!   before).
 //! - The signer (`Ed25519Signer::from_configured` — what login/session token
@@ -35,7 +35,7 @@ fn temp_keyset_path(tag: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("keyset-{tag}-{}.json", uuid::Uuid::new_v4()))
 }
 
-/// Scenario: two "replicas" (KeyManagers) loading the same keyset serve
+/// Scenario: two "replicas" (`KeyManagers`) loading the same keyset serve
 /// byte-identical JWKS documents with deterministic kids.
 #[test]
 fn replicas_agree_on_jwks() {
@@ -68,7 +68,7 @@ fn replicas_agree_on_jwks() {
 }
 
 /// Scenario: the token issuers' signer picks the same newest key the
-/// KeyManager publishes as current — tokens sign under a kid every replica's
+/// `KeyManager` publishes as current — tokens sign under a kid every replica's
 /// JWKS carries.
 #[test]
 fn signer_and_jwks_agree_on_current_key() {
@@ -132,7 +132,7 @@ fn reload_picks_up_rotation_with_overlap() {
 }
 
 /// Scenario: a future-dated key is pre-published in JWKS but NOT used for
-/// signing until its valid_from passes.
+/// signing until its `valid_from` passes.
 #[test]
 fn future_key_prepublished_not_signing() {
     let path = temp_keyset_path("future");

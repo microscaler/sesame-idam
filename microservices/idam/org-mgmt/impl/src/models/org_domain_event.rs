@@ -22,7 +22,7 @@ pub struct OrgDomainEvent {
     #[default_value = "now()"]
     pub at: chrono::DateTime<chrono::Utc>,
 
-    /// created checked verified grace revoked expired conflict deleted auto_join
+    /// created checked verified grace revoked expired conflict deleted `auto_join`
     #[column_type = "VARCHAR(32)"]
     pub event: String,
 

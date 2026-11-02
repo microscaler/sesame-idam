@@ -218,8 +218,8 @@ pub(crate) fn assert_token_response_shape(
 ) {
     assert_eq!(body["token_type"], "Bearer");
     assert!(body["expires_in"].as_i64().unwrap_or(0) > 0);
-    assert!(!body["access_token"].as_str().unwrap_or("").is_empty());
-    assert!(!body["refresh_token"].as_str().unwrap_or("").is_empty());
+    assert_ne!(body["access_token"].as_str().unwrap_or("").len(), 0);
+    assert_ne!(body["refresh_token"].as_str().unwrap_or("").len(), 0);
     assert!(
         body["refresh_token_expires_in"].as_i64().unwrap_or(0) > 0,
         "refresh_token_expires_in must be present and positive"

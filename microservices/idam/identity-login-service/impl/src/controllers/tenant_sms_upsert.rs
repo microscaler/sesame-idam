@@ -17,8 +17,8 @@ use brrtrouter_macros::handler;
 use sesame_idam_identity_login_service_gen::handlers::tenant_sms_upsert::Request;
 
 use crate::controllers::platform_tenant_sms_upsert::{
-    apply_sms_config, envelope_custody_allowed, forbidden_envelope_custody, internal_error,
-    read_back, SmsUpsertInput,
+    apply_sms_config, envelope_custody_allowed, forbidden_envelope_custody, read_back,
+    SmsUpsertInput,
 };
 use crate::models::tenant_sms_config::CUSTODY_ENVELOPE;
 use crate::services::tenant_admin::tenant_admin_principal;

@@ -19,6 +19,8 @@ pub fn tenant_from_request(req: &HandlerRequest) -> Option<String> {
     tenant_from_validated_claims(&req.jwt_claims)
 }
 
+// &Option because that is how the typed request carries the verified claims (`req.jwt_claims`).
+#[allow(clippy::ref_option)]
 fn tenant_from_validated_claims(claims: &Option<serde_json::Value>) -> Option<String> {
     claims
         .as_ref()?

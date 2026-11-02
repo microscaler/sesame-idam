@@ -17,7 +17,7 @@
 //!
 //! Step 1 (here) sources the KEK from env — `SMS_CREDENTIAL_KEK` (base64url,
 //! 32 bytes), delivered like every other platform secret (SOPS → Secret →
-//! env). Step 2 moves wrap/unwrap into the backend itself (OpenBao transit /
+//! env). Step 2 moves wrap/unwrap into the backend itself (`OpenBao` transit /
 //! GCP KMS) so the KEK never enters process memory; the stored shape does not
 //! change.
 //!

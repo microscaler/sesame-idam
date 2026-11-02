@@ -1,6 +1,6 @@
 //! Admin user lifecycle: create (idempotent by email), fetch, enable/disable.
 //!
-//! Stateless service (BRRTRouter pattern): methods are generic over
+//! Stateless service (`BRRTRouter` pattern): methods are generic over
 //! `E: LifeExecutor`; the executor comes from `sesame_idam_database::db()`
 //! at the controller edge.
 
@@ -40,7 +40,7 @@ impl UserQuery {
     /// Does `u` pass every filter given?
     pub fn matches(&self, u: &UserModel) -> bool {
         let active = u.status == STATUS_ACTIVE;
-        let pattern_ok = self.email_pattern.as_deref().map_or(true, |p| {
+        let pattern_ok = self.email_pattern.as_deref().is_none_or(|p| {
             let email = u.email.to_ascii_lowercase();
             let mut rest = email.as_str();
             let parts: Vec<String> = p
@@ -65,14 +65,14 @@ impl UserQuery {
             }
             parts
                 .last()
-                .map_or(true, |l| l.is_empty() || email.ends_with(l.as_str()))
+                .is_none_or(|l| l.is_empty() || email.ends_with(l.as_str()))
         });
         pattern_ok
-            && self.email_confirmed.map_or(true, |c| u.email_verified == c)
-            && self.enabled.map_or(true, |e| !e || active)
-            && self.disabled.map_or(true, |d| !d || !active)
-            && self.created_after.map_or(true, |t| u.created_at >= t)
-            && self.created_before.map_or(true, |t| u.created_at < t)
+            && self.email_confirmed.is_none_or(|c| u.email_verified == c)
+            && self.enabled.is_none_or(|e| !e || active)
+            && self.disabled.is_none_or(|d| !d || !active)
+            && self.created_after.is_none_or(|t| u.created_at >= t)
+            && self.created_before.is_none_or(|t| u.created_at < t)
     }
 }
 

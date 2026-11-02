@@ -72,13 +72,13 @@ fn keyring() -> Box<dyn EnrollKeyring> {
 
 /// A context whose probe the test controls: the probe is shared through a leaked reference (tests only).
 fn context(keyring: Option<Box<dyn EnrollKeyring>>) -> (DomainContext, &'static FakeProbe) {
-    let probe: &'static FakeProbe = Box::leak(Box::default());
     struct Shared(&'static FakeProbe);
     impl DnsProbe for Shared {
         fn lookup(&self, name: &str) -> Result<Vec<ProviderAnswer>, String> {
             self.0.lookup(name)
         }
     }
+    let probe: &'static FakeProbe = Box::leak(Box::default());
     let ctx = DomainContext {
         keyring,
         probe: Box::new(Shared(probe)),
@@ -416,11 +416,12 @@ fn key_or_dns_failure_changes_nothing() {
         Err(DomainApiError::KeyringUnavailable)
     );
     let (ctx, probe) = context(Some(keyring()));
-    assert!(
+    assert_eq!(
         domain_api::list(&ctx, &tenant, org, admin).expect("list")["items"]
             .as_array()
             .expect("items")
-            .is_empty()
+            .len(),
+        0
     );
 
     let claim = id_of(

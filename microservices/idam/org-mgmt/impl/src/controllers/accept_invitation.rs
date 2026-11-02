@@ -44,17 +44,14 @@ pub fn handle(req: HandlerRequest) -> HandlerResponse {
         );
     }
 
-    let user_uuid = match uuid::Uuid::parse_str(&user_id) {
-        Ok(id) => id,
-        Err(_) => {
-            return HandlerResponse::json(
-                401,
-                serde_json::json!({
-                    "error": "unauthorized",
-                    "message": "Invalid token subject"
-                }),
-            );
-        }
+    let Ok(user_uuid) = uuid::Uuid::parse_str(&user_id) else {
+        return HandlerResponse::json(
+            401,
+            serde_json::json!({
+                "error": "unauthorized",
+                "message": "Invalid token subject"
+            }),
+        );
     };
 
     // users.email (and invite/membership writes) sit behind tenant RLS.

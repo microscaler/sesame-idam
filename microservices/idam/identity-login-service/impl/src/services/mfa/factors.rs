@@ -175,7 +175,7 @@ pub fn confirm_totp(
             "UPDATE sesame_idam.user_mfa_factors \
              SET status = 'active', confirmed_at = now(), last_used_at = now(), totp_last_step = $4 \
              WHERE tenant_id = $1 AND user_id = $2::text::uuid AND id = $3::text::uuid AND kind = 'totp' AND status = 'pending'",
-            &sea_query::Values(vec![t.clone().into(), u.clone().into(), id.clone().into(), step.clone().into()]),
+            &sea_query::Values(vec![t.clone().into(), u.clone().into(), id.clone().into(), step.into()]),
         )
     });
     match result {
@@ -206,7 +206,7 @@ pub fn advance_totp_step(
             "UPDATE sesame_idam.user_mfa_factors SET totp_last_step = $4, last_used_at = now() \
              WHERE tenant_id = $1 AND user_id = $2::text::uuid AND id = $3::text::uuid AND status = 'active' \
                AND (totp_last_step IS NULL OR totp_last_step < $4)",
-            &sea_query::Values(vec![t.clone().into(), u.clone().into(), id.clone().into(), step.clone().into()]),
+            &sea_query::Values(vec![t.clone().into(), u.clone().into(), id.clone().into(), step.into()]),
         )
         .map(|n| n == 1)
     })
@@ -238,7 +238,7 @@ pub fn insert_passkey(
             "INSERT INTO sesame_idam.user_mfa_factors \
              (id, tenant_id, user_id, kind, status, label, credential_id, passkey, passkey_synced, confirmed_at) \
              VALUES ($1::text::uuid, $2, $3::text::uuid, 'passkey', 'active', $4, $5, $6::text::jsonb, $7, now())",
-            &sea_query::Values(vec![row[0].clone().into(), row[1].clone().into(), row[2].clone().into(), row[3].clone().into(), row[4].clone().into(), row[5].clone().into(), synced.clone().into()]),
+            &sea_query::Values(vec![row[0].clone().into(), row[1].clone().into(), row[2].clone().into(), row[3].clone().into(), row[4].clone().into(), row[5].clone().into(), synced.into()]),
         )?;
         Ok(id)
     })

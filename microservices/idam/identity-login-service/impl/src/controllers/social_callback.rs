@@ -235,14 +235,10 @@ fn resolve_oauth_user<E: lifeguard::LifeExecutor>(
     provider_user_id: &str,
     profile_email: &str,
 ) -> Result<Result<UserModel, &'static str>, lifeguard::LifeError> {
-    match SocialCredentialService::find_user_by_provider(
-        tenant_id,
-        provider,
-        provider_user_id,
-        exec,
-    )? {
-        Some(user) => return Ok(Ok(user)),
-        None => {}
+    if let Some(user) =
+        SocialCredentialService::find_user_by_provider(tenant_id, provider, provider_user_id, exec)?
+    {
+        return Ok(Ok(user));
     }
 
     if UserService::find_by_tenant_and_email(tenant_id, profile_email, exec)?.is_some() {
@@ -253,7 +249,7 @@ fn resolve_oauth_user<E: lifeguard::LifeExecutor>(
     rand::thread_rng().fill_bytes(&mut random_secret);
     let secret = base64::engine::general_purpose::STANDARD.encode(random_secret);
     let placeholder_password =
-        password::hash_password(&secret).map_err(|e| lifeguard::LifeError::Other(e))?;
+        password::hash_password(&secret).map_err(lifeguard::LifeError::Other)?;
 
     let user_id =
         match UserService::create_oauth_user(tenant_id, profile_email, &placeholder_password, exec)

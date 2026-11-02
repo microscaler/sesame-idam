@@ -1,4 +1,4 @@
-//! Epic 15.3/15.4 — live contract checks for the public tenant-consumer OpenAPI.
+//! Epic 15.3/15.4 — live contract checks for the public tenant-consumer `OpenAPI`.
 //!
 //! Validates that every public operation is documented, examples avoid internal
 //! hostnames, and (when live) discovery/register surfaces are reachable on
@@ -80,7 +80,7 @@ fn tenant_consumer_documents_all_public_operations() {
         .expect("paths");
     for (method, path, operation_id) in PUBLIC_OPERATIONS {
         let actual = paths
-            .get(&Value::String((*path).into()))
+            .get(Value::String((*path).into()))
             .and_then(|item| item.get(*method))
             .and_then(|op| op.get("operationId"))
             .and_then(Value::as_str);
@@ -149,12 +149,12 @@ fn tenant_consumer_freezes_transport_schemas() {
         "InvitationPreview",
     ] {
         assert!(
-            schemas.contains_key(&Value::String(schema.into())),
+            schemas.contains_key(Value::String(schema.into())),
             "missing schema {schema}"
         );
     }
     let token = schemas
-        .get(&Value::String("TokenResponse".into()))
+        .get(Value::String("TokenResponse".into()))
         .and_then(|s| s.get("required"))
         .and_then(Value::as_sequence)
         .expect("TokenResponse.required");
@@ -172,7 +172,7 @@ fn tenant_consumer_freezes_transport_schemas() {
     }
 
     let register_required = schemas
-        .get(&Value::String("RegisterRequest".into()))
+        .get(Value::String("RegisterRequest".into()))
         .and_then(|s| s.get("required"))
         .and_then(Value::as_sequence)
         .expect("RegisterRequest.required");
@@ -190,7 +190,7 @@ fn tenant_consumer_freezes_transport_schemas() {
     );
 
     let invite = schemas
-        .get(&Value::String("InvitationCreated".into()))
+        .get(Value::String("InvitationCreated".into()))
         .and_then(|s| s.get("required"))
         .and_then(Value::as_sequence)
         .expect("InvitationCreated.required");
@@ -202,7 +202,7 @@ fn tenant_consumer_freezes_transport_schemas() {
     }
 
     let org = schemas
-        .get(&Value::String("OrganizationSummary".into()))
+        .get(Value::String("OrganizationSummary".into()))
         .and_then(|s| s.get("required"))
         .and_then(Value::as_sequence)
         .expect("OrganizationSummary.required");

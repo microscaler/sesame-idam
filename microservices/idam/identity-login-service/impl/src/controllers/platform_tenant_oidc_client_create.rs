@@ -59,7 +59,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
                 201,
                 serde_json::json!({
                     "client": client_json(&created.client),
-                    "client_secret": created.client_secret.as_ref().map(|secret| secret.expose_once()),
+                    "client_secret": created.client_secret.as_ref().map(sesame_common::oidc_client::ClientSecret::expose_once),
                     "secret_id": created.secret_id.map(|id| id.to_string()),
                 }),
             )

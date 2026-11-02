@@ -2,7 +2,7 @@
 //!
 //! # The rule
 //!
-//! In hosted SaaS mode a tenant has no association with the platform: different
+//! In hosted `SaaS` mode a tenant has no association with the platform: different
 //! company, different billing, different people. A tenant administrator is not
 //! a junior platform administrator, so they can never be expected to hold a
 //! platform credential.
@@ -54,6 +54,8 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    // Option, as the router hands the verified claims to handlers.
+    #[allow(clippy::unnecessary_wraps)]
     fn claims(tenant: &str, roles: &[&str]) -> Option<Value> {
         Some(json!({
             "sub": "11111111-1111-4111-8111-111111111111",
@@ -118,7 +120,7 @@ mod tests {
         );
     }
 
-    /// A role list is not a tenant grant: carrying "tenant_admin" says what you
+    /// A role list is not a tenant grant: carrying "`tenant_admin`" says what you
     /// may do, never which tenant you may do it to.
     #[test]
     fn role_without_a_tenant_claim_is_unauthorized() {

@@ -1,8 +1,8 @@
 //! `GET /admin/users/query` — a page of the caller's tenant's users, by email.
 //!
-//! The caller is a tenant administrator of the tenant (sesame_common::tenant_admin); `X-Tenant-ID` naming another
+//! The caller is a tenant administrator of the tenant (`sesame_common::tenant_admin`); `X-Tenant-ID` naming another
 //! tenant is 403. The users table has no names, username or lock: names are empty, the username is the email, locked
-//! is false (a `locked=true` filter matches nobody), and signup_flow is not recorded (filtering on it matches nobody).
+//! is false (a `locked=true` filter matches nobody), and `signup_flow` is not recorded (filtering on it matches nobody).
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
 use serde_json::{json, Value};
@@ -42,6 +42,8 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<Value> {
     }
     let page = d.page.unwrap_or(1).max(1);
     let limit = d.limit.unwrap_or(50).clamp(1, 200);
+    // Both are at least 1 here, so unsigned_abs is the value itself.
+    let (page_n, limit_n) = (page.unsigned_abs() as usize, limit.unsigned_abs() as usize);
     let q = UserQuery {
         email_pattern: d.email_pattern.clone().filter(|p| !p.trim().is_empty()),
         email_confirmed: d.email_confirmed,
@@ -67,7 +69,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<Value> {
         // sesame_idam.users is under forced RLS (tenant_id = sesame.tenant_id): read inside the tenant's scope, or
         // Postgres shows no rows at all (the Team page listed nobody, 20 Oct 2026).
         match sesame_idam_database::with_pre_auth_tenant(&admin.tenant, |exec| {
-            UserAdminService::query(&admin.tenant, &q, page as usize, limit as usize, exec)
+            UserAdminService::query(&admin.tenant, &q, page_n, limit_n, exec)
         }) {
             Ok(r) => r,
             Err(e) => {
@@ -96,7 +98,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<Value> {
             })
         })
         .collect();
-    let has_more = (page as usize).saturating_mul(limit as usize) < total;
+    let has_more = page_n.saturating_mul(limit_n) < total;
     HttpJson::ok(json!({
         "users": items,
         "total": total,

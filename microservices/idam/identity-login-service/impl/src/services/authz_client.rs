@@ -104,7 +104,7 @@ fn parse_effective_authz(body: &[u8]) -> Result<EffectiveAuthz, String> {
 
     Ok(EffectiveAuthz {
         roles: parse_roles_from_value(&value)?,
-        permissions: parse_permissions_from_value(&value)?,
+        permissions: parse_permissions_from_value(&value),
     })
 }
 
@@ -112,6 +112,7 @@ fn parse_effective_authz(body: &[u8]) -> Result<EffectiveAuthz, String> {
 ///
 /// Roles arrive as objects (`{"role": "OWNER", "app_id": ..., ...}`) per the
 /// spec; bare strings are tolerated for forward compatibility.
+#[cfg(test)] // the tests' entry point: the client parses the response once, with parse_roles_from_value
 fn parse_roles(body: &[u8]) -> Result<Vec<String>, String> {
     let value: serde_json::Value =
         serde_json::from_slice(body).map_err(|e| format!("parse EffectiveResponse: {e}"))?;
@@ -127,7 +128,7 @@ fn parse_roles_from_value(value: &serde_json::Value) -> Result<Vec<String>, Stri
     // leave it out rather than let "owner of org X" read as "owner" (an administrator of the whole tenant).
     Ok(roles
         .iter()
-        .filter(|r| r.get("org_id").map_or(true, serde_json::Value::is_null))
+        .filter(|r| r.get("org_id").is_none_or(serde_json::Value::is_null))
         .filter_map(|r| {
             r.get("role")
                 .and_then(|v| v.as_str())
@@ -137,15 +138,15 @@ fn parse_roles_from_value(value: &serde_json::Value) -> Result<Vec<String>, Stri
         .collect())
 }
 
-fn parse_permissions_from_value(value: &serde_json::Value) -> Result<Vec<String>, String> {
+fn parse_permissions_from_value(value: &serde_json::Value) -> Vec<String> {
     let Some(permissions) = value.get("permissions").and_then(|p| p.as_array()) else {
-        return Ok(vec![]);
+        return vec![];
     };
 
-    Ok(permissions
+    permissions
         .iter()
         .filter_map(|p| p.as_str().map(String::from))
-        .collect())
+        .collect()
 }
 
 #[cfg(test)]

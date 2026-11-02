@@ -76,7 +76,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
             }
         }
         _ => {
-            tracing::info!(tenant = %tenant_id, "phone OTP requested for unknown/inactive account — no send")
+            tracing::info!(tenant = %tenant_id, "phone OTP requested for unknown/inactive account — no send");
         }
     }
 

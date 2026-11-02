@@ -16,9 +16,8 @@ use crate::services::token_issuer::{issue_id_token, issue_tokens_for_client};
 #[handler(OauthTokenController)]
 pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> {
     let exec = sesame_idam_database::db();
-    let binding = match authenticate_client(&req.data, exec) {
-        Ok(binding) => binding,
-        Err(()) => return oauth_error(401, "invalid_client", "Client authentication failed"),
+    let Ok(binding) = authenticate_client(&req.data, exec) else {
+        return oauth_error(401, "invalid_client", "Client authentication failed");
     };
     if !binding
         .policy

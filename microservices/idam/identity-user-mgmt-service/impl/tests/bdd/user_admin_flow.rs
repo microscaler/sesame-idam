@@ -269,9 +269,9 @@ fn create_invalid_email_rejected() {
     assert_eq!(resp.status, 400);
 }
 
-/// Scenario: a tenant_admin cannot disable (or re-enable) an owner; an owner can.
+/// Scenario: a `tenant_admin` cannot disable (or re-enable) an owner; an owner can.
 ///
-/// Status changes follow the role policy (sesame_common::role_policy): you change the status only of someone whose
+/// Status changes follow the role policy (`sesame_common::role_policy)`: you change the status only of someone whose
 /// administrator roles you could grant yourself.
 #[test]
 fn status_changes_stop_at_roles_above_the_caller() {

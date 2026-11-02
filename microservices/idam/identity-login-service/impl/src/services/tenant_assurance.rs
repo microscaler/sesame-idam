@@ -16,7 +16,7 @@
 //! the level a tenant *has*, and each risky action names the level it needs.
 //! Most tenants never need the paid rung.
 //!
-//! For B2B SaaS, [`DomainVerified`] carries most of the weight: controlling
+//! For B2B `SaaS`, [`DomainVerified`] carries most of the weight: controlling
 //! `acme.com`'s DNS is a strong claim to acting for Acme, it costs nothing, and
 //! it needs no vendor relationship.
 //!
@@ -123,10 +123,10 @@ impl Capability {
     pub const fn required_assurance(self) -> AssuranceLevel {
         match self {
             Self::UseConsole => AssuranceLevel::EmailVerified,
-            Self::ConfigureSso => AssuranceLevel::DomainVerified,
-            Self::SendSms => AssuranceLevel::DomainVerified,
-            Self::StoreProviderCredentials => AssuranceLevel::DomainVerified,
-            Self::ProductionAccess => AssuranceLevel::DomainVerified,
+            Self::ConfigureSso
+            | Self::SendSms
+            | Self::StoreProviderCredentials
+            | Self::ProductionAccess => AssuranceLevel::DomainVerified,
         }
     }
 

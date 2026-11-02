@@ -19,7 +19,7 @@ use sesame_idam_authz_core_gen::handlers::principal_effective::Request;
 
 const TEST_TENANT: &str = "bdd-authz-tenant";
 const TEST_APP: &str = "33333333-8a2d-4c41-8b4b-ae43ce79a494";
-/// Acme login uses portal id `frontend` for principal_effective app scope.
+/// Acme login uses portal id `frontend` for `principal_effective` app scope.
 const ACME_PORTAL_APP: &str = "frontend";
 
 static INIT: Once = Once::new();
@@ -171,17 +171,17 @@ fn role_assignments_resolved_from_database() {
 
 /// Scenario: OWNER role resolves seeded permissions for acme portal scope.
 ///
-/// Given app_role_permissions rows for tenant `acme` and app `frontend`
+/// Given `app_role_permissions` rows for tenant `acme` and app `frontend`
 /// When POST /authz/principals/effective for an OWNER principal
 /// Then permissions include organization:read (JWT sx.permissions path).
 #[test]
 fn owner_role_resolves_seeded_permissions() {
+    const FIXTURE_TENANT: &str = "acme";
     if !db_available() {
         println!("SKIP: Postgres not available");
         return;
     }
 
-    const FIXTURE_TENANT: &str = "acme";
     let user_id =
         Uuid::parse_str("a1000001-0001-4000-8000-000000000001").expect("demo owner user id");
 
@@ -234,8 +234,8 @@ fn unknown_principal_returns_empty_roles() {
     }
 
     let response = handle(make_request(&Uuid::new_v4().to_string(), TEST_TENANT));
-    assert!(response.roles.is_empty());
-    assert!(response.permissions.is_empty());
+    assert_eq!(response.roles, [] as [serde_json::Value; 0]);
+    assert_eq!(response.permissions, [] as [std::string::String; 0]);
 }
 
 /// Scenario: Non-UUID user id is handled without touching the database.
@@ -244,6 +244,6 @@ fn non_uuid_user_id_returns_empty() {
     // Deliberately no db_available() gate: the controller must return before
     // any database access for a non-UUID principal.
     let response = handle(make_request("not-a-uuid", TEST_TENANT));
-    assert!(response.roles.is_empty());
+    assert_eq!(response.roles, [] as [serde_json::Value; 0]);
     assert_eq!(response.user_id, "not-a-uuid");
 }

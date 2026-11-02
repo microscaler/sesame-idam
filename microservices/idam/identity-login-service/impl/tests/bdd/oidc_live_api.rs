@@ -131,7 +131,7 @@ fn live_jwks_publishes_verification_keys_only() {
     assert_eq!(resp.status(), 200);
     let doc: serde_json::Value = resp.json().expect("jwks json");
     let keys = doc["keys"].as_array().expect("keys");
-    assert!(!keys.is_empty());
+    assert_ne!(keys.len(), 0);
     for key in keys {
         assert!(key.get("kid").and_then(|v| v.as_str()).is_some());
         assert!(key.get("d").is_none(), "private key material must not leak");
@@ -444,7 +444,7 @@ fn live_interactive_pkce_round_trip() {
     let token_body: serde_json::Value = token.json().unwrap_or_else(|_| serde_json::json!({}));
     assert_eq!(token_status, 200, "token: {token_body}");
     let oidc_access = token_body["access_token"].as_str().unwrap();
-    assert!(!token_body["id_token"].as_str().unwrap_or("").is_empty());
+    assert_ne!(token_body["id_token"].as_str().unwrap_or("").len(), 0);
 
     let userinfo = client
         .get(format!("{API_BASE}/oauth/userinfo"))

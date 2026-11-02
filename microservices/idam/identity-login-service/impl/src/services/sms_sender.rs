@@ -26,7 +26,7 @@
 //! - Platform: one credential set from the secret backend (SOPS → Secret →
 //!   env). Implemented here.
 //! - Tenant, PREFERRED: Twilio Connect — Twilio bills the tenant directly and
-//!   Sesame holds only a revocable connected AccountSid.
+//!   Sesame holds only a revocable connected `AccountSid`.
 //! - Tenant, FALLBACK (dogfood only): envelope-encrypted credentials in the
 //!   DB (`tenant_sms_config`), unsealed in-process at send time.
 //!

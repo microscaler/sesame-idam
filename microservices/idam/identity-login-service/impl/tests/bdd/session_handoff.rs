@@ -3,7 +3,7 @@
 //!
 //! Properties under test — each is a real attack the design defends against:
 //!  - a code is single-use (replay is worthless),
-//!  - a code is bound to its redirect_uri (a stolen code cannot be redeemed
+//!  - a code is bound to its `redirect_uri` (a stolen code cannot be redeemed
 //!    at an attacker's destination),
 //!  - a code is bound to its tenant,
 //!  - a code cannot be conjured from a token we did not issue,
@@ -224,7 +224,7 @@ fn code_is_single_use() {
         .unwrap()
         .to_string();
 
-    assert!(!redeem(&code, APP_URI, TENANT).access_token.is_empty());
+    assert_ne!(redeem(&code, APP_URI, TENANT).access_token.len(), 0);
     assert!(
         redeem(&code, APP_URI, TENANT).access_token.is_empty(),
         "replayed code must yield nothing"
@@ -284,6 +284,7 @@ fn code_is_bound_to_tenant() {
 /// Scenario: a code cannot be conjured from a token we never issued.
 #[test]
 fn cannot_mint_from_a_foreign_token() {
+    use base64::Engine;
     if !db_available() || !redis_available() {
         println!("SKIP: Postgres/Redis not available");
         return;
@@ -294,7 +295,6 @@ fn cannot_mint_from_a_foreign_token() {
     assert_eq!(resp.status, 400, "garbage token must be refused");
 
     // A well-formed JWT for a DIFFERENT tenant must also be refused.
-    use base64::Engine;
     let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .encode(br#"{"sub":"u1","tenant_id":"some-other-tenant"}"#);
     let foreign = format!("aGVhZGVy.{payload}.c2ln");
@@ -309,7 +309,8 @@ fn unknown_code_refused() {
         return;
     }
     ensure_active_tenant(TENANT);
-    assert!(redeem("no-such-code", APP_URI, TENANT)
-        .access_token
-        .is_empty());
+    assert_eq!(
+        redeem("no-such-code", APP_URI, TENANT).access_token.len(),
+        0
+    );
 }

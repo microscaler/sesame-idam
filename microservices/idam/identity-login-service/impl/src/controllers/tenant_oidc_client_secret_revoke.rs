@@ -14,13 +14,10 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> HttpJson<serde_json::Value> 
         Err(response) => return response,
     };
     let client_id = req.data.client_id.trim();
-    let secret_id = match Uuid::parse_str(&req.data.secret_id) {
-        Ok(secret_id) => secret_id,
-        Err(_) => {
-            return admin_error(ClientAdminError::InvalidPolicy(
-                "secret_id must be a UUID".to_string(),
-            ))
-        }
+    let Ok(secret_id) = Uuid::parse_str(&req.data.secret_id) else {
+        return admin_error(ClientAdminError::InvalidPolicy(
+            "secret_id must be a UUID".to_string(),
+        ));
     };
     match OidcClientAdmin::revoke_secret(
         &admin.tenant,

@@ -166,7 +166,7 @@ fn sms_requires_tenant_opt_in() {
         return;
     }
     std::env::set_var("OTP_SEND_DEDUPE_SECS", "0");
-    std::env::set_var("SMS_SPEND_SCOPE", &unique_tenant("optin-scope"));
+    std::env::set_var("SMS_SPEND_SCOPE", unique_tenant("optin-scope"));
 
     let tenant = unique_tenant("smsoptin");
     std::env::set_var("SMS_OPTED_IN_TENANTS", "some-other-tenant");
@@ -198,7 +198,7 @@ fn sms_global_spend_ceiling_enforced() {
     std::env::set_var("SMS_OPTED_IN_TENANTS", &tenant);
     std::env::set_var("SMS_DAILY_SPEND_CEILING_CENTS", "10");
     std::env::set_var("SMS_COST_CENTS", "5");
-    std::env::set_var("SMS_SPEND_SCOPE", &unique_tenant("budget-scope"));
+    std::env::set_var("SMS_SPEND_SCOPE", unique_tenant("budget-scope"));
 
     // Distinct recipients defeat per-recipient caps; the budget still holds.
     assert_eq!(

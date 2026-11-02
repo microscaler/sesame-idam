@@ -258,8 +258,6 @@ fn accept_invitation_adds_membership_and_marks_accepted() {
 /// Scenario: accepting with an email that does not match the invite is rejected.
 #[test]
 fn accept_invitation_rejects_email_mismatch() {
-    use lifeguard::{ColumnTrait, LifeModelTrait};
-    use sesame_idam_org_mgmt::models::org_invite;
     use sesame_idam_org_mgmt::services::org_lifecycle::OrgLifecycleError;
 
     if !infra_available() {
@@ -304,8 +302,6 @@ fn accept_invitation_rejects_email_mismatch() {
 /// Scenario: preview a pending invite by token → org name + valid; unknown token → `NotFound`.
 #[test]
 fn preview_invitation_reports_org_and_validity() {
-    use lifeguard::{ColumnTrait, LifeModelTrait};
-    use sesame_idam_org_mgmt::models::org_invite;
     use sesame_idam_org_mgmt::services::org_lifecycle::OrgLifecycleError;
 
     if !infra_available() {
@@ -378,9 +374,6 @@ fn invite_by_email_rejects_cross_tenant_org() {
 /// Isolation: accepting an invite under a different tenant is `NotFound` (zero bleed).
 #[test]
 fn accept_invitation_rejects_cross_tenant() {
-    use lifeguard::{ColumnTrait, LifeModelTrait};
-    use sesame_idam_org_mgmt::models::org_invite;
-
     if !infra_available() {
         println!("SKIP: Postgres not available");
         return;
@@ -517,7 +510,7 @@ fn list_org_members_returns_active_members() {
 }
 
 /// Scenario (positive): member emails resolve under tenant RLS session
-/// (`with_pre_auth_tenant` + `query_one_values` on ExclusivePrimary).
+/// (`with_pre_auth_tenant` + `query_one_values` on `ExclusivePrimary`).
 #[test]
 fn list_org_members_returns_real_emails_under_tenant_session() {
     if !infra_available() {
@@ -1135,7 +1128,7 @@ fn transfer_owner_rejects_non_member_successor() {
     assert!(matches!(err, OrgLifecycleError::SuccessorNotMember));
 }
 
-/// Scenario (negative): multiple owners require from_user_id.
+/// Scenario (negative): multiple owners require `from_user_id`.
 #[test]
 fn transfer_owner_ambiguous_without_from_user() {
     if !infra_available() {
@@ -1170,7 +1163,7 @@ fn transfer_owner_ambiguous_without_from_user() {
     assert!(matches!(err, OrgLifecycleError::AmbiguousOwner));
 }
 
-/// Scenario: invite_by_email_as_admin requires org owner/admin (JWT caller).
+/// Scenario: `invite_by_email_as_admin` requires org owner/admin (JWT caller).
 #[test]
 fn invite_by_email_as_admin_requires_org_admin() {
     if !infra_available() {
@@ -1198,7 +1191,7 @@ fn invite_by_email_as_admin_requires_org_admin() {
         "member",
     )
     .expect("owner may invite");
-    assert!(!created.invite_token.is_empty());
+    assert_ne!(created.invite_token, "");
 
     let err = org_lifecycle::invite_by_email_as_admin(
         exec,
