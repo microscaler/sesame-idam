@@ -278,6 +278,10 @@ mod tests {
         };
         let pool: &'static RedisPool =
             Box::leak(Box::new(RedisPool::new(&url, timeout()).unwrap()));
+        if pool.get().is_err() {
+            eprintln!("skipping: Redis is not reachable");
+            return;
+        }
         let key = format!("redis_pool_offload_{}", std::process::id());
         let got: Option<String> = may::go!(move || {
             let mut conn = pool.get().unwrap();
