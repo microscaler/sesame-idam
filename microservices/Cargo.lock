@@ -696,7 +696,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "signal-hook",
  "smallvec",
  "tokio",
@@ -4568,7 +4568,7 @@ dependencies = [
  "md-5",
  "memchr",
  "rand 0.10.2",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "stringprep",
 ]
 
@@ -5559,7 +5559,7 @@ version = "8.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ffa149f6aa81b58a5b3011d01a857c4ed12c7a732d2c51947a4c7c692185f0"
 dependencies = [
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "walkdir",
 ]
 
@@ -6125,7 +6125,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "smallvec",
  "thiserror 1.0.69",
  "tokio",
@@ -6169,7 +6169,7 @@ dependencies = [
  "sesame_idam_api_keys_gen",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "tikv-jemallocator",
  "tracing",
  "uuid",
@@ -6231,7 +6231,7 @@ dependencies = [
  "sesame_idam_authz_core_gen",
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "tikv-jemallocator",
  "tracing",
  "uuid",
@@ -6346,7 +6346,7 @@ dependencies = [
  "sesame_idam_identity_login_service_gen",
  "sesame_idam_identity_session_service",
  "sesame_idam_identity_session_service_gen",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "thiserror 1.0.69",
  "tikv-jemallocator",
  "tracing",
@@ -6547,7 +6547,7 @@ dependencies = [
  "sesame_idam_database",
  "sesame_idam_identity_session_service",
  "sesame_idam_org_mgmt_gen",
- "sha2 0.11.0",
+ "sha2 0.11.1",
  "thiserror 1.0.69",
  "tikv-jemallocator",
  "tracing",
@@ -6604,9 +6604,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
+checksum = "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.0",
