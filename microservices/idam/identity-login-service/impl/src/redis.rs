@@ -15,13 +15,15 @@ fn get_redis_connection() -> Result<sesame_common::redis_pool::PooledConnection<
 
 /// Start the session of a freshly issued refresh token: its `rfam:{family_id}` record with this token current
 /// (`sesame_common::refresh_session`, the layout identity-session-service rotates; one atomic round trip). It lives for
-/// the idle window, renewed on every rotation, and never past `absolute_expiry`.
+/// the idle window, renewed on every rotation, and never past `absolute_expiry`. In the same round trip, the subject's
+/// token version for the access token issued with it (initialised to 1 and kept 360 s, as `VersionStore::issue_version`);
+/// returns that version.
 ///
 /// # Errors
 ///
 /// Returns an error if Redis is unavailable or the write fails.
-pub fn store_refresh_token(token: &RefreshToken, absolute_expiry: i64) -> Result<()> {
-    use sesame_common::refresh_session::{create, Policy, SessionToken};
+pub fn store_refresh_token(token: &RefreshToken, absolute_expiry: i64) -> Result<u64> {
+    use sesame_common::refresh_session::{create_issuing_version, Policy, SessionToken};
 
     let session = SessionToken {
         jti: token.jti.clone(),
@@ -34,8 +36,12 @@ pub fn store_refresh_token(token: &RefreshToken, absolute_expiry: i64) -> Result
         tenant_id: token.tenant_id.clone(),
         scopes: token.scopes.clone(),
     };
-    create(&session, absolute_expiry, token.iat, Policy::from_env())?;
-    Ok(())
+    Ok(create_issuing_version(
+        &session,
+        absolute_expiry,
+        token.iat,
+        Policy::from_env(),
+    )?)
 }
 
 /// Add an access-token `jti` to the denylist (`denylist:{jti}`) with a TTL that

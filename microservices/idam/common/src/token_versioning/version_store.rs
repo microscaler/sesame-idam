@@ -4,8 +4,11 @@
 //! keys in the format `authz_ver:{sub}` and `authz_ver:tenant:{tenant_id}`.
 
 use anyhow::{Context, Result};
-use redis::Client;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::redis_pool::{PooledConnection, RedisPool};
 
 /// Prefix for subject-specific version keys.
 pub const SUBJECT_KEY_PREFIX: &str = "authz_ver:";
@@ -44,7 +47,7 @@ pub struct VersionStoreConfig {
 /// version numbers, with TTL management for cache expiration.
 #[derive(Clone)]
 pub struct VersionStore {
-    client: Client,
+    pool: &'static RedisPool,
     subject_ttl: u64,
     tenant_ttl: u64,
 }
@@ -52,14 +55,13 @@ pub struct VersionStore {
 impl VersionStore {
     /// Create a new version store from a config.
     pub fn new(config: &VersionStoreConfig) -> Result<Self> {
-        let client = Client::open(config.redis_url.as_str())
-            .context("failed to open Redis client for version store")?;
+        let pool = pool_for(&config.redis_url)?;
 
         let subject_ttl = config.subject_ttl_secs.max(config.min_ttl_secs);
         let tenant_ttl = config.tenant_ttl_secs.max(config.min_ttl_secs);
 
         Ok(Self {
-            client,
+            pool,
             subject_ttl,
             tenant_ttl,
         })
@@ -90,10 +92,22 @@ impl VersionStore {
     }
 
     /// Get the Redis connection (blocking).
-    fn get_conn(&self) -> Result<redis::Connection> {
-        self.client
-            .get_connection()
-            .context("failed to get Redis connection")
+    /// The process-wide store for `REDIS_URL`, built once.
+    ///
+    /// # Errors
+    ///
+    /// `REDIS_URL` is unset or not a Redis URL.
+    pub fn shared() -> Result<&'static Self> {
+        static STORE: OnceLock<VersionStore> = OnceLock::new();
+        if let Some(store) = STORE.get() {
+            return Ok(store);
+        }
+        let store = Self::from_env()?;
+        Ok(STORE.get_or_init(|| store))
+    }
+
+    fn get_conn(&self) -> Result<PooledConnection<'static>> {
+        self.pool.get().context("failed to get Redis connection")
     }
 
     /// Increment the version for a subject and return the new version.
@@ -104,15 +118,17 @@ impl VersionStore {
         let key = subject_key(subject);
         let mut conn = self.get_conn()?;
 
-        use redis::Commands;
-
-        // Use INCRBY 1 for atomic increment (delta 0 would never advance)
-        let version: u64 = conn.incr(&key, 1)?;
-
-        // Every bump must remain authoritative until all previously issued tokens have expired.
-        let _: () = conn
-            .expire(&key, self.subject_ttl as i64)
-            .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
+        // INCR (delta 0 would never advance) and, in the same round trip, the TTL: every bump must remain
+        // authoritative until all previously issued tokens have expired.
+        let (version,): (u64,) = redis::pipe()
+            .atomic()
+            .cmd("INCR")
+            .arg(&key)
+            .cmd("EXPIRE")
+            .arg(&key)
+            .arg(self.subject_ttl)
+            .ignore()
+            .query(&mut conn)?;
 
         Ok(version)
     }
@@ -122,13 +138,15 @@ impl VersionStore {
         let key = tenant_key(tenant_id);
         let mut conn = self.get_conn()?;
 
-        use redis::Commands;
-
-        let version: u64 = conn.incr(&key, 1)?;
-
-        let _: () = conn
-            .expire(&key, self.tenant_ttl as i64)
-            .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
+        let (version,): (u64,) = redis::pipe()
+            .atomic()
+            .cmd("INCR")
+            .arg(&key)
+            .cmd("EXPIRE")
+            .arg(&key)
+            .arg(self.tenant_ttl)
+            .ignore()
+            .query(&mut conn)?;
 
         Ok(version)
     }
@@ -176,13 +194,22 @@ impl VersionStore {
     pub fn issue_version(&self, subject: &str) -> Result<(u64, u64)> {
         let key = subject_key(subject);
         let mut conn = self.get_conn()?;
-        use redis::Commands;
-
-        let _: bool = conn.set_nx(&key, 1_u64)?;
-        let version: u64 = conn.get(&key)?;
-        let _: () = conn
-            .expire(&key, self.subject_ttl as i64)
-            .map_err(|e| anyhow::anyhow!("expire failed: {e}"))?;
+        // SET NX, GET, EXPIRE in one atomic round trip on a pooled connection (it was a new connection and three
+        // sequential round trips per sign-in).
+        let (version,): (u64,) = redis::pipe()
+            .atomic()
+            .cmd("SET")
+            .arg(&key)
+            .arg(1_u64)
+            .arg("NX")
+            .ignore()
+            .cmd("GET")
+            .arg(&key)
+            .cmd("EXPIRE")
+            .arg(&key)
+            .arg(self.subject_ttl)
+            .ignore()
+            .query(&mut conn)?;
         Ok((version, self.subject_ttl))
     }
 
@@ -262,12 +289,68 @@ impl VersionStore {
     }
 }
 
+/// The pool for `url`: the shared `REDIS_URL` pool when it is that URL, otherwise one pool per distinct URL for the
+/// life of the process (a store is cheap to build; its connections are not).
+fn pool_for(url: &str) -> Result<&'static RedisPool> {
+    let shared_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
+    if url == shared_url {
+        return crate::redis_pool::shared().context("failed to open Redis pool for version store");
+    }
+    static POOLS: OnceLock<Mutex<HashMap<String, &'static RedisPool>>> = OnceLock::new();
+    let mut pools = POOLS
+        .get_or_init(Mutex::default)
+        .lock()
+        .map_err(|_| anyhow::anyhow!("version store pool registry poisoned"))?;
+    if let Some(pool) = pools.get(url) {
+        return Ok(pool);
+    }
+    let pool: &'static RedisPool = Box::leak(Box::new(
+        RedisPool::new(url, crate::redis_pool::timeout())
+            .context("failed to open Redis client for version store")?,
+    ));
+    pools.insert(url.to_string(), pool);
+    Ok(pool)
+}
+
 // ─── Tests ─────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use redis::Client;
     use std::time::UNIX_EPOCH;
+
+    #[test]
+    fn a_store_is_built_on_one_pool_per_url() {
+        // No connection is made: building a store only resolves its pool.
+        let url = "redis://127.0.0.1:1/7";
+        let a = VersionStore::from_url(url).unwrap();
+        let b = VersionStore::from_url(url).unwrap();
+        assert!(std::ptr::eq(a.pool, b.pool));
+        let other = VersionStore::from_url("redis://127.0.0.1:1/8").unwrap();
+        assert!(!std::ptr::eq(a.pool, other.pool));
+    }
+
+    #[test]
+    fn issue_version_initialises_keeps_and_expires_in_one_call() {
+        if !redis_available() {
+            println!("SKIP: Redis not available");
+            return;
+        }
+        let store = VersionStore::from_url(&test_redis_url()).unwrap();
+        let user = unique_key("test_issue");
+        let key = store.subject_key(&user);
+        store.delete_key(&key).unwrap();
+
+        assert_eq!(store.issue_version(&user).unwrap(), (1, 360));
+        assert!(store.get_ttl(&key).unwrap() > 350);
+        store.increment_subject(&user).unwrap();
+        store.increment_subject(&user).unwrap();
+        // An existing version is read, not reset.
+        assert_eq!(store.issue_version(&user).unwrap().0, 3);
+
+        store.delete_key(&key).unwrap();
+    }
 
     fn test_redis_url() -> String {
         std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into())

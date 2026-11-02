@@ -10,7 +10,6 @@ use std::sync::LazyLock;
 
 use sesame_common::authn::Authn;
 use sesame_common::jwt::{AccessClaimsBuilder, Ed25519Signer, SesameAuthzClaimsBuilder};
-use sesame_common::token_versioning::VersionStore;
 use uuid::Uuid;
 
 use crate::jwt::ttl::TtlConfig;
@@ -118,23 +117,43 @@ pub fn issue_tokens_for_client(
     let session_id = Uuid::new_v4().to_string();
     let access_jti = Uuid::new_v4().to_string();
 
-    // Token version from the Redis version store (Story 5); fall back to 1.
-    let token_version = match VersionStore::from_url(
-        &std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
-    ) {
-        Ok(store) => match store.issue_version(user_id) {
-            Ok((ver, _ttl)) => ver,
-            Err(e) => {
-                tracing::warn!(error = %e, "version store unavailable — using ver=1");
-                1
-            }
-        },
+    // Refresh session and token version (Story 5), stored together below; the version falls back to 1.
+    let refresh_jti = Uuid::new_v4().to_string();
+    // The session may live up to the role's refresh lifetime (`JWT_REFRESH_TTL_DAYS`, `JWT_ADMIN_REFRESH_TTL_DAYS`) and
+    // ends sooner when it is not refreshed within the idle window; the token's own exp is the idle window.
+    let policy = sesame_common::refresh_session::Policy::from_env();
+    let absolute_expiry = now
+        + i64::try_from(ttl_config.refresh_ttl_for_role(role_for_ttl).as_secs())
+            .unwrap_or(i64::from(REFRESH_TOKEN_TTL));
+    let refresh_exp = policy.token_exp(now, absolute_expiry);
+    // Family id = session id: all rotations of this session share a family.
+    let family_id = session_id.clone();
+
+    let metadata = RefreshToken {
+        jti: refresh_jti.clone(),
+        sub: user_id.to_string(),
+        sid: session_id.clone(),
+        family_id: family_id.clone(),
+        iat: now,
+        exp: refresh_exp,
+        client_id: client_id.to_string(),
+        tenant_id: tenant_id.to_string(),
+        scopes: scope.clone(),
+    };
+    // One Redis round trip before anything is signed: the refresh session and the subject's token version (initialised
+    // and kept for the access token's lifetime; `ver` below). It used to be a new connection plus SET NX, GET and
+    // EXPIRE, then the session on a pooled connection. Should signing fail after this, the stored session belongs to a
+    // token that was never issued and simply expires.
+    let token_version = match crate::redis::store_refresh_token(&metadata, absolute_expiry) {
+        Ok(version) => version,
         Err(e) => {
-            tracing::warn!(error = %e, "version store init failed — using ver=1");
+            tracing::warn!(
+                error = %e,
+                "failed to store refresh session / token version in Redis — ver=1, /auth/refresh will reject the refresh token"
+            );
             1
         }
     };
-
     let sx = SesameAuthzClaimsBuilder::new()
         .tenant(tenant_id)
         .portal(portal)
@@ -169,17 +188,6 @@ pub fn issue_tokens_for_client(
         .map_err(|e| IssueError::Signing(e.to_string()))?;
 
     // ── Refresh token ────────────────────────────────────────────────────
-    let refresh_jti = Uuid::new_v4().to_string();
-    // The session may live up to the role's refresh lifetime (`JWT_REFRESH_TTL_DAYS`, `JWT_ADMIN_REFRESH_TTL_DAYS`) and
-    // ends sooner when it is not refreshed within the idle window; the token's own exp is the idle window.
-    let policy = sesame_common::refresh_session::Policy::from_env();
-    let absolute_expiry = now
-        + i64::try_from(ttl_config.refresh_ttl_for_role(role_for_ttl).as_secs())
-            .unwrap_or(i64::from(REFRESH_TOKEN_TTL));
-    let refresh_exp = policy.token_exp(now, absolute_expiry);
-    // Family id = session id: all rotations of this session share a family.
-    let family_id = session_id.clone();
-
     let mut refresh_payload = serde_json::json!({
         "jti": refresh_jti,
         "sub": user_id,
@@ -197,24 +205,6 @@ pub fn issue_tokens_for_client(
     let refresh_token = SIGNER
         .sign_payload(&refresh_payload.to_string())
         .map_err(|e| IssueError::Signing(e.to_string()))?;
-
-    let metadata = RefreshToken {
-        jti: refresh_jti,
-        sub: user_id.to_string(),
-        sid: session_id.clone(),
-        family_id,
-        iat: now,
-        exp: refresh_exp,
-        client_id: client_id.to_string(),
-        tenant_id: tenant_id.to_string(),
-        scopes: scope.clone(),
-    };
-    if let Err(e) = crate::redis::store_refresh_token(&metadata, absolute_expiry) {
-        tracing::warn!(
-            error = %e,
-            "failed to store refresh token in Redis — /auth/refresh will reject it"
-        );
-    }
 
     Ok(IssuedTokens {
         access_token,

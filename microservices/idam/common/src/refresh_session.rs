@@ -418,10 +418,65 @@ pub fn create(
     policy: Policy,
 ) -> RedisResult<()> {
     let mut conn = crate::redis_pool::pooled_connection()?;
+    let mut pipe = redis::pipe();
+    pipe.atomic();
+    push_create(&mut pipe, token, absolute_expiry, now, policy);
+    let _: () = pipe.query(&mut conn)?;
+    Ok(())
+}
+
+/// [`create`] and the subject's token version for the access token issued with it, in one atomic round trip: the
+/// version is initialised and kept for the access token's lifetime exactly as `VersionStore::issue_version`
+/// (`SET NX 1`, `GET`, `EXPIRE 360`), as [`inspect`] does for a rotation.
+///
+/// # Errors
+///
+/// Returns the Redis error; nothing is written then.
+pub fn create_issuing_version(
+    token: &SessionToken,
+    absolute_expiry: i64,
+    now: i64,
+    policy: Policy,
+) -> RedisResult<u64> {
+    let mut conn = crate::redis_pool::pooled_connection()?;
+    let (version,): (Option<u64>,) =
+        issuing_pipeline(token, absolute_expiry, now, policy).query(&mut conn)?;
+    Ok(version.unwrap_or(1))
+}
+
+fn issuing_pipeline(
+    token: &SessionToken,
+    absolute_expiry: i64,
+    now: i64,
+    policy: Policy,
+) -> redis::Pipeline {
+    let version_key = crate::token_versioning::subject_key(&token.sub);
+    let mut pipe = redis::pipe();
+    pipe.atomic()
+        .cmd("SET")
+        .arg(&version_key)
+        .arg(1_u64)
+        .arg("NX")
+        .ignore()
+        .cmd("GET")
+        .arg(&version_key)
+        .cmd("EXPIRE")
+        .arg(&version_key)
+        .arg(VERSION_TTL_SECS)
+        .ignore();
+    push_create(&mut pipe, token, absolute_expiry, now, policy);
+    pipe
+}
+
+fn push_create(
+    pipe: &mut redis::Pipeline,
+    token: &SessionToken,
+    absolute_expiry: i64,
+    now: i64,
+    policy: Policy,
+) {
     let key = session_key(&token.family_id);
-    let _: () = redis::pipe()
-        .atomic()
-        .cmd("DEL")
+    pipe.cmd("DEL")
         .arg(&key)
         .ignore()
         .cmd("HSET")
@@ -447,9 +502,7 @@ pub fn create(
         .cmd("EXPIRE")
         .arg(&key)
         .arg(policy.session_ttl(now, absolute_expiry).max(1))
-        .ignore()
-        .query(&mut conn)?;
-    Ok(())
+        .ignore();
 }
 
 #[cfg(test)]
@@ -490,6 +543,37 @@ mod tests {
             client_id: "c1".into(),
             tenant_id: "t1".into(),
             scopes: "openid".into(),
+        }
+    }
+
+    #[test]
+    fn issuing_is_one_atomic_round_trip_version_first() {
+        let packed = String::from_utf8_lossy(
+            &issuing_pipeline(&token("j1", "f1"), NOW + 1000, NOW, POLICY).get_packed_pipeline(),
+        )
+        .into_owned();
+        let order = [
+            "MULTI",
+            "SET",
+            "authz_ver:u1",
+            "NX",
+            "GET",
+            "EXPIRE",
+            "DEL",
+            "rfam:f1",
+            "HSET",
+            "HSET",
+            "EXPIRE",
+            "EXEC",
+        ];
+        let mut at = 0;
+        for word in order {
+            let found = packed[at..].find(&format!("\r\n{word}\r\n"));
+            assert!(
+                found.is_some(),
+                "{word} missing or out of order in {packed:?}"
+            );
+            at += found.unwrap_or_default() + 1;
         }
     }
 
@@ -573,6 +657,34 @@ mod tests {
     }
     fn succ(name: &str) -> serde_json::Value {
         serde_json::json!({ "refresh_token": name })
+    }
+
+    #[test]
+    fn create_issuing_version_stores_the_session_and_keeps_an_existing_version() {
+        if !redis_ready() {
+            return;
+        }
+        let fid = format!("t-issue-{}", uuid::Uuid::new_v4());
+        let mut t = token("j1", &fid);
+        t.sub = format!("u-{fid}");
+        let n = now();
+        let mut conn = crate::redis_pool::pooled_connection().unwrap();
+        let vkey = crate::token_versioning::subject_key(&t.sub);
+        let _: () = conn.del(&vkey).unwrap();
+
+        assert_eq!(create_issuing_version(&t, n + 3600, n, POLICY).unwrap(), 1);
+        assert!(matches!(look(&fid, "j1"), Presented::Current(_)));
+        let ttl: i64 = conn.ttl(&vkey).unwrap();
+        assert!(ttl > 350 && ttl <= VERSION_TTL_SECS);
+
+        let _: () = conn.set(&vkey, 7).unwrap();
+        let mut t2 = token("j2", &format!("{fid}-2"));
+        t2.sub.clone_from(&t.sub);
+        assert_eq!(create_issuing_version(&t2, n + 3600, n, POLICY).unwrap(), 7);
+
+        let _: () = conn
+            .del(&[vkey, session_key(&fid), session_key(&format!("{fid}-2"))])
+            .unwrap();
     }
 
     #[test]
