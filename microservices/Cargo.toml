@@ -88,9 +88,9 @@ ed25519-zebra = "4"
 p256 = { version = "0.13", features = ["ecdsa"] }
 
 # Database
-lifeguard = { git = "https://github.com/microscaler/lifeguard.git", rev = "869b2c53657659419393d0550d8742f8e9685cfa" }
-lifeguard-derive = { git = "https://github.com/microscaler/lifeguard.git", rev = "869b2c53657659419393d0550d8742f8e9685cfa" }
-lifeguard-migrate = { git = "https://github.com/microscaler/lifeguard.git", rev = "869b2c53657659419393d0550d8742f8e9685cfa" }
+lifeguard = { git = "https://github.com/microscaler/lifeguard.git", rev = "d72423ca555580300f5d3ad56c99955b08b05ed1" }
+lifeguard-derive = { git = "https://github.com/microscaler/lifeguard.git", rev = "d72423ca555580300f5d3ad56c99955b08b05ed1" }
+lifeguard-migrate = { git = "https://github.com/microscaler/lifeguard.git", rev = "d72423ca555580300f5d3ad56c99955b08b05ed1" }
 # The branch lifeguard follows: lifeguard-derive generates code against this crate, so the services must share it.
 may_postgres = { git = "https://github.com/microscaler/may_postgres.git", branch = "integration/microscaler-fork" }
 chrono = { version = "0.4", features = ["serde"] }
