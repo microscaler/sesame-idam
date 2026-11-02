@@ -1,0 +1,36 @@
+name: Pull request (saml-verifier)
+
+# saml-verifier is a Cargo workspace of its own (microservices/saml-verifier, ADR-014 §4) that pr.yml's
+# `cargo check --workspace` never sees. This builds it the way the release does: the build stage of
+# docker/saml-verifier/Dockerfile, which runs its whole test suite (signed responses with throwaway keys) and the
+# release build against the pinned Debian libxmlsec1/libxml2. Same rules as pr.yml: forks included, no secrets,
+# read-only token, GitHub-hosted runner, nothing pushed.
+on:
+  pull_request:
+    paths:
+      - "microservices/saml-verifier/**"
+      - "docker/saml-verifier/**"
+      - "openapi/idam/saml-verifier/**"
+      - ".github/workflows/pr-saml-verifier.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sesame-idam-pr-saml-verifier-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  saml-verifier:
+    name: saml-verifier build and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: rustfmt
+        working-directory: microservices/saml-verifier
+        run: cargo fmt --all -- --check
+      - name: Build stage (cargo test --workspace --locked, release build)
+        run: docker build --target build -f docker/saml-verifier/Dockerfile .
