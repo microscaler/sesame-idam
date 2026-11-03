@@ -187,6 +187,7 @@ fn rotate_refresh_token_bound(
             Ok(v) => v,
             Err(e) => {
                 tracing::error!(event = "refresh_store_unavailable", error = %e);
+                sesame_common::redis_pool::log_failure("refresh_store_unavailable: inspect", &e);
                 fail("redis_error");
                 return RotationOutcome::RedisUnavailable;
             }
@@ -355,6 +356,7 @@ fn rotate_refresh_token_bound(
         }
         Err(e) => {
             tracing::error!(event = "refresh_store_unavailable", error = %e);
+            sesame_common::redis_pool::log_failure("refresh_store_unavailable: advance", &e);
             fail("redis_error");
             RotationOutcome::RedisUnavailable
         }

@@ -151,6 +151,12 @@ pub fn issue_tokens_for_client(
                 error = %e,
                 "failed to store refresh session / token version in Redis — ver=1, /auth/refresh will reject the refresh token"
             );
+            match e.downcast_ref::<redis::RedisError>() {
+                Some(re) => {
+                    sesame_common::redis_pool::log_failure("issue_tokens: refresh session", re)
+                }
+                None => eprintln!("[redis] issue_tokens: refresh session: {e}"),
+            }
             1
         }
     };

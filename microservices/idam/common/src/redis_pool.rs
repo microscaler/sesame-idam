@@ -256,6 +256,15 @@ pub fn shared() -> RedisResult<&'static RedisPool> {
 /// # Errors
 ///
 /// Returns an error when `REDIS_URL` is invalid or Redis cannot be reached.
+/// Report a Redis failure where an operator sees it: a `warn` event and one line on stderr (`kubectl logs`), with
+/// the error's kind. Without it a refused refresh shows only as `internal_error` on its span, and the error text
+/// reaches only the OpenTelemetry log (3 Nov 2026: a Redis restart refused AUTH for ~75 s and it took the OTel log
+/// to find out).
+pub fn log_failure(context: &str, e: &redis::RedisError) {
+    tracing::warn!(event = context, kind = ?e.kind(), error = %e, "redis failure");
+    eprintln!("[redis] {context}: kind={:?} {e}", e.kind());
+}
+
 pub fn pooled_connection() -> RedisResult<PooledConnection<'static>> {
     shared()?.get()
 }
@@ -269,6 +278,16 @@ mod tests {
         std::env::var("TEST_REDIS_URL")
             .or_else(|_| std::env::var("REDIS_URL"))
             .ok()
+    }
+
+    #[test]
+    fn a_failure_is_logged_with_its_kind() {
+        let e = redis::RedisError::from((
+            redis::ErrorKind::AuthenticationFailed,
+            "Password authentication failed",
+        ));
+        assert_eq!(e.kind(), redis::ErrorKind::AuthenticationFailed);
+        log_failure("test", &e); // must not panic; writes one stderr line
     }
 
     #[test]
