@@ -59,6 +59,7 @@ pub enum IssueError {
 /// # Errors
 ///
 /// Returns [`IssueError`] when claim validation or signing fails.
+#[microscaler_timing::timed(component = "sesame.tokens", op = "rotate")]
 pub fn issue_rotated_tokens(
     token: &RefreshToken,
     tenant_id: &str,

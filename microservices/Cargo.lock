@@ -3781,6 +3781,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "microscaler-timing"
+version = "0.1.0"
+source = "git+https://github.com/microscaler/microscaler-observability.git?branch=main#feb690dc81be8d6fce920c5088ead03c483b82af"
+dependencies = [
+ "microscaler-timing-macros",
+]
+
+[[package]]
+name = "microscaler-timing-macros"
+version = "0.1.0"
+source = "git+https://github.com/microscaler/microscaler-observability.git?branch=main#feb690dc81be8d6fce920c5088ead03c483b82af"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6109,6 +6127,7 @@ dependencies = [
  "lazy_static",
  "may",
  "metrics",
+ "microscaler-timing",
  "once_cell",
  "p256",
  "prometheus 0.13.4",
@@ -6326,6 +6345,7 @@ dependencies = [
  "may",
  "may_minihttp",
  "may_postgres",
+ "microscaler-timing",
  "openssl",
  "rand 0.8.6",
  "redis 0.25.5",
@@ -6395,6 +6415,7 @@ dependencies = [
  "may",
  "may_minihttp",
  "may_postgres",
+ "microscaler-timing",
  "prometheus 0.13.4",
  "rand 0.8.6",
  "redis 0.25.5",

@@ -140,7 +140,8 @@ pub fn label(value: &str) -> &str {
     }
 }
 
-/// Everything Sesame appends to `/metrics` besides Lifeguard: token-status counters and the default registry.
+/// Everything Sesame appends to `/metrics` besides Lifeguard: token-status counters, the default registry and
+/// `op_duration_seconds` (microscaler-timing).
 #[must_use]
 pub fn prometheus_scrape_text() -> String {
     let mut text = crate::token_status::token_status_prometheus_scrape_text();
@@ -152,6 +153,8 @@ pub fn prometheus_scrape_text() -> String {
         text.push('\n');
         text.push_str(&String::from_utf8_lossy(&buf));
     }
+    // op_duration_seconds: token signing and issuing, the authz lookup, and anything else #[timed] in the service.
+    microscaler_timing::render_prometheus(&mut text);
     text
 }
 

@@ -5,6 +5,8 @@ edition.workspace = true
 description = "Shared JWT claim types, validation, builder, middleware, JWKS cache, audit logging, dynamic token-status enforcement, entitlement snapshot caching, JWT common-path authorization, and token versioning for Sesame-IDAM microservices"
 
 [dependencies]
+# op_duration_seconds{component,op,outcome}: #[timed] on token signing, issuing and the authz lookup (microscaler-timing).
+microscaler-timing = { workspace = true }
 # Core types (always available)
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }

@@ -22,6 +22,8 @@ default = ["jemalloc"]
 jemalloc = ["tikv-jemallocator"]
 
 [dependencies]
+# op_duration_seconds{component,op,outcome}: #[timed] on token signing, issuing and the authz lookup (microscaler-timing).
+microscaler-timing = { workspace = true }
 sesame_common = { workspace = true }
 # Lifeguard ORM
 lifeguard = { workspace = true }

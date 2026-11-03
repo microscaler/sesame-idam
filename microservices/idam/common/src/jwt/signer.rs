@@ -192,6 +192,7 @@ impl Ed25519Signer {
     ///
     /// Returns [`SignerError::Serialization`] if the claims fail to serialize
     /// or [`SignerError::InvalidKey`] if the key fails to load.
+    #[microscaler_timing::timed(component = "sesame.jwt", op = "sign_access")]
     pub fn sign_access_claims(&self, claims: &AccessClaims) -> Result<String, SignerError> {
         let payload =
             serde_json::to_string(claims).map_err(|e| SignerError::Serialization(e.to_string()))?;
@@ -204,6 +205,7 @@ impl Ed25519Signer {
     /// # Errors
     ///
     /// Returns [`SignerError::InvalidKey`] if the key fails to load.
+    #[microscaler_timing::timed(component = "sesame.jwt", op = "sign")]
     pub fn sign_payload(&self, payload_json: &str) -> Result<String, SignerError> {
         let header = serde_json::json!({
             "alg": "EdDSA",

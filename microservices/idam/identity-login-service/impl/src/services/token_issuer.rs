@@ -71,6 +71,7 @@ pub enum IssueError {
 /// still issued, but `/auth/refresh` will reject the refresh token until
 /// Redis is back.
 #[allow(clippy::too_many_arguments)]
+#[microscaler_timing::timed(component = "sesame.tokens", op = "issue")]
 pub fn issue_tokens(
     user_id: &str,
     tenant_id: &str,
@@ -97,6 +98,7 @@ pub fn issue_tokens(
 
 /// Issue an access and refresh pair bound to a registered OIDC client.
 #[allow(clippy::too_many_arguments)]
+#[microscaler_timing::timed(component = "sesame.tokens", op = "issue_for_client")]
 pub fn issue_tokens_for_client(
     user_id: &str,
     tenant_id: &str,
@@ -226,6 +228,7 @@ pub fn issue_tokens_for_client(
 /// Issue an `OpenID` Connect ID token for an authorization-code login: RS256 with the deployment's ID-token key
 /// (ADR-015; Cloud KMS HSM in deployments), or `EdDSA` with the access-token signer when no ID-token key is
 /// configured (development).
+#[microscaler_timing::timed(component = "sesame.tokens", op = "issue_id_token")]
 pub fn issue_id_token(
     user_id: &str,
     client_id: &str,

@@ -36,6 +36,9 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
+# op_duration_seconds{component,op,outcome} (microscaler-timing), appended to /metrics by idam/common observability. branch main,
+# as BRRTRouter and Lifeguard name it: one copy in the graph, one registry.
+microscaler-timing = { git = "https://github.com/microscaler/microscaler-observability.git", branch = "main" }
 # Microscaler crates are pinned git revisions, so a clean checkout (CI, Octopilot) builds without sibling checkouts.
 # Local co-development: the ancestor cargo config (~/Workspace/microscaler/.cargo/config.toml) patches these git
 # URLs to the sibling paths, as for PriceWhisperer and hauliage.

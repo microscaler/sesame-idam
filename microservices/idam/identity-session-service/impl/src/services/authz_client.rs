@@ -68,6 +68,7 @@ pub fn fetch_effective_roles(
 ///
 /// Returns an error string when authz-core is unreachable, times out, or
 /// returns an unparseable body.
+#[microscaler_timing::timed(component = "sesame.authz_client", op = "effective_authz")]
 pub fn fetch_effective_authz(
     user_id: &str,
     tenant_id: &str,
