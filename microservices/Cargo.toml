@@ -45,8 +45,8 @@ microscaler-timing = { git = "https://github.com/microscaler/microscaler-observa
 sesame_common = { package = "sesame-common", path = "idam/common" }
 # All shared libs are now modules within common, so individual workspace deps are removed
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
-brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "9768e3583eebbdca2c7b4fc28b7a4a4963d74286", default-features = false }
-brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "9768e3583eebbdca2c7b4fc28b7a4a4963d74286" }
+brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "645d03774886bb9ef740b2f9a656ee7bc7bad77a", default-features = false }
+brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "645d03774886bb9ef740b2f9a656ee7bc7bad77a" }
 
 # Standard dependencies
 serde = { version = "1.0", features = ["derive"] }
