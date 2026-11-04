@@ -386,7 +386,7 @@ checksum = "dc0b364ead1874514c8c2855ab558056ebfeb775653e7ae45ff72f28f8f3166c"
 [[package]]
 name = "brrtrouter"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=645d03774886bb9ef740b2f9a656ee7bc7bad77a#645d03774886bb9ef740b2f9a656ee7bc7bad77a"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=cb10df40d46c83811aa5a3016388e5b92af8df6a#cb10df40d46c83811aa5a3016388e5b92af8df6a"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -442,7 +442,7 @@ dependencies = [
 [[package]]
 name = "brrtrouter_macros"
 version = "0.1.0"
-source = "git+https://github.com/microscaler/BRRTRouter.git?rev=645d03774886bb9ef740b2f9a656ee7bc7bad77a#645d03774886bb9ef740b2f9a656ee7bc7bad77a"
+source = "git+https://github.com/microscaler/BRRTRouter.git?rev=cb10df40d46c83811aa5a3016388e5b92af8df6a#cb10df40d46c83811aa5a3016388e5b92af8df6a"
 dependencies = [
  "heck",
  "proc-macro2",
