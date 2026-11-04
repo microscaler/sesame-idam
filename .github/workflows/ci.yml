@@ -150,6 +150,49 @@ jobs:
       - name: brrtrouter-gen lint --fail-on-error (openapi/idam)
         run: bash scripts/check-spec-lint.sh
 
+  # The committed gen crates are exactly what `just gen` writes from the specs at the pinned BRRTRouter rev: a spec
+  # change without a regeneration, a generator change at a bumped rev, or a hand edit under gen/ fails the run.
+  # (Until 4 Nov 2026 nothing checked this; the gen crates had drifted from the specs since BRRTRouter ec6cb9e.)
+  gen-drift:
+    name: Generated code matches the specs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: sesame-idam
+      - name: BRRTRouter rev
+        id: rev
+        run: echo "rev=$(grep -m1 '^brrtrouter = ' sesame-idam/microservices/Cargo.toml | grep -o '[0-9a-f]\{40\}')" >> "$GITHUB_OUTPUT"
+      # `just gen` runs brrtrouter-gen from ../BRRTRouter, so check it out as the sibling, at the pinned rev.
+      - uses: actions/checkout@v5
+        with:
+          repository: microscaler/BRRTRouter
+          ref: ${{ steps.rev.outputs.rev }}
+          path: BRRTRouter
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - uses: actions/cache@v4
+        with:
+          path: BRRTRouter/target
+          key: brrtrouter-gen-target-${{ steps.rev.outputs.rev }}
+      - name: just gen
+        working-directory: sesame-idam
+        run: just gen
+      - name: No difference from the committed gen crates
+        working-directory: sesame-idam
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error title=Generated code drift::just gen changed files: fix the spec or the impl, never gen/ by hand, and commit the regenerated gen crates."
+            git status --short
+            git diff --stat
+            exit 1
+          fi
+
   # Tests marked #[ignore = "pending: ..."] describe work not done yet. They run here so they stay visible, but never
   # block a release or turn the run red: the test step may fail, the job stays green and reports the failures as a
   # warning and in the job summary. A pending test that starts passing should lose its #[ignore].
