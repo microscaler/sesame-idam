@@ -23,10 +23,5 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         EMITTER.emit(entry);
     }
 
-    Response {
-        error: "Not implemented".to_string(),
-        error_description: None,
-        hint: None,
-        retry_after: None,
-    }
+    Response {}
 }

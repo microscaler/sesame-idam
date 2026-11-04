@@ -5,6 +5,9 @@ use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
 use brrtrouter_macros::handler;
 
+#[allow(unused_imports)]
+use crate::handlers::types::ApiKey;
+
 #[handler(FetchActiveApiKeysController)]
 pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     // Example response:
@@ -79,5 +82,16 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
         }
     }
 
-    HttpJson::ok(Response {})
+    HttpJson::ok(Response {
+        current_page: Some(42),
+        filters_applied: Some(vec![]),
+        has_more: true,
+        has_more_results: Some(true),
+        keys: vec![],
+        page: 1,
+        page_size: 42,
+        sort_order: Some("example".to_string()),
+        total: 2,
+        total_keys: 42,
+    })
 }

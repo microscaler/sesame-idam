@@ -23,14 +23,6 @@ pub struct AssignPrincipalRoleRequest {
     pub user_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct AssignPrincipalRoleResponse {
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum AuditActor {
     #[default]
@@ -154,6 +146,11 @@ pub struct AuditEventFilter {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AuditEventListResponse {
+    pub events: Vec<AuditEvent>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -346,14 +343,6 @@ pub struct CreateRetentionPolicyResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct DeleteRetentionPolicyResponse {
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct EffectiveRequest {
     pub app_id: String,
 
@@ -488,6 +477,29 @@ pub struct GetAuditStatsResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ListAuditEventsResponse {
+    pub events: Vec<AuditEvent>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_by: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ListPrincipalRolesResponse {
     pub assignments: Vec<PrincipalRoleAssignment>,
 }
@@ -573,14 +585,6 @@ pub struct RevokePrincipalRoleRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct RevokePrincipalRoleResponse {
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SearchAuditEventsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filters: Option<AuditEventFilter>,
@@ -595,6 +599,29 @@ pub struct SearchAuditEventsRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct SearchAuditEventsResponse {
+    pub events: Vec<AuditEvent>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_by: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SetPrincipalAttributeRequest {
     pub key: String,
 
@@ -606,14 +633,6 @@ pub struct SetPrincipalAttributeRequest {
     pub user_id: String,
 
     pub value: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct SetPrincipalAttributeResponse {
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

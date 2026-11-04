@@ -23,5 +23,12 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         EMITTER.emit(entry);
     }
 
-    Response {}
+    // Not registered in main.rs (the route answers 501): no agent store yet.
+    Response {
+        agents: vec![],
+        has_more: false,
+        page: 1,
+        page_size: 0,
+        total: 0,
+    }
 }

@@ -23,7 +23,7 @@ fn make_request(id: &str) -> TypedHandlerRequest<Request> {
 ///
 /// Given: a valid request with policy id and X-Tenant-ID.
 /// When: the handler is invoked.
-/// Then: the response has an error field.
+/// Then: the response has no body (the operation answers 204).
 #[test]
 fn delete_retention_policy_returns_response() {
     let typed_req = make_request("policy-123");
@@ -31,24 +31,28 @@ fn delete_retention_policy_returns_response() {
     let response = handle(typed_req);
 
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("error").is_some(),
-        "response should have 'error' field"
+    assert_eq!(
+        json,
+        serde_json::json!({}),
+        "the operation answers 204: its typed response has no body"
     );
 }
 
-/// Scenario: Response "error" field is a string.
+/// Scenario: The response has no body.
 ///
 /// Given: a valid request.
 /// When: the handler is invoked.
-/// Then: response.error is a string.
+/// Then: the response has no body (the operation answers 204).
 #[test]
-fn response_error_is_string() {
+fn response_has_no_body() {
     let typed_req = make_request("policy-123");
     let response = handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(json.get("error").is_some(), "missing 'error' field");
-    assert!(json["error"].is_string(), "'error' must be a string");
+    assert_eq!(
+        json,
+        serde_json::json!({}),
+        "the operation answers 204: its typed response has no body"
+    );
 }
 
 /// Scenario: Response "`error_description`" is optional string.
@@ -84,9 +88,10 @@ fn delete_various_policy_ids() {
         let typed_req = make_request(id);
         let response = handle(typed_req);
         let json = serde_json::to_value(&response).expect("serialize");
-        assert!(
-            json.get("error").is_some(),
-            "response should have 'error' field for id={id}"
+        assert_eq!(
+            json,
+            serde_json::json!({}),
+            "the operation answers 204: its typed response has no body"
         );
     }
 }

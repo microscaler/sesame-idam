@@ -191,15 +191,16 @@ fn effective_permissions_returns_valid_response() {
 ///
 /// Given: valid request with required fields (`user_id`, `tenant_id`, key, value).
 /// When: we call the `set_principal_attribute` handler.
-/// Then: the response is returned with an error field.
+/// Then: the response is returned with no body.
 #[rstest]
 fn set_attribute_returns_success() {
     let typed_req = make_attr_request("test-user-1", "department", "engineering");
     let response = attr_handle(typed_req);
     let json = serde_json::to_value(&response).expect("serialize");
-    assert!(
-        json.get("error").is_some(),
-        "response should have 'error' field"
+    assert_eq!(
+        json,
+        serde_json::json!({}),
+        "the operation answers 204: its typed response has no body"
     );
 }
 

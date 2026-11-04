@@ -19,7 +19,22 @@ pub struct Request {
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {}
+pub struct Response {
+    #[serde(rename = "has_more")]
+    pub has_more: bool,
+
+    #[serde(rename = "page")]
+    pub page: i32,
+
+    #[serde(rename = "page_size")]
+    pub page_size: i32,
+
+    #[serde(rename = "tokens")]
+    pub tokens: Vec<serde_json::Value>,
+
+    #[serde(rename = "total")]
+    pub total: i32,
+}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;

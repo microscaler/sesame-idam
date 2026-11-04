@@ -56,6 +56,27 @@ pub struct ApiKeyCreateResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ApiKeyListResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_page: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters_applied: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_more_results: Option<bool>,
+
+    pub keys: Vec<ApiKey>,
+
+    pub page_size: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
+
+    pub total_keys: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ApiKeyUsageResponse {
     pub date: String,
 
@@ -104,6 +125,21 @@ pub struct ArchivedApiKey {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ArchivedApiKeyListResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_page: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_more_results: Option<bool>,
+
+    pub keys: Vec<ArchivedApiKey>,
+
+    pub page_size: i32,
+
+    pub total_keys: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CreateApiKeyRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_in_days: Option<i32>,
@@ -149,20 +185,6 @@ pub struct CreateApiKeyResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct DeleteApiKeyResponse {
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Error {
     pub error: String,
 }
@@ -182,6 +204,33 @@ pub struct ErrorResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct FetchActiveApiKeysResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_page: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters_applied: Option<Vec<String>>,
+
+    pub has_more: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_more_results: Option<bool>,
+
+    pub keys: Vec<ApiKey>,
+
+    pub page: i32,
+
+    pub page_size: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
+
+    pub total: i32,
+
+    pub total_keys: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct FetchApiKeyUsageResponse {
     pub date: String,
 
@@ -190,8 +239,28 @@ pub struct FetchApiKeyUsageResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct FetchArchivedApiKeyResponse {
+    pub active: bool,
+
+    pub api_key_id: String,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub archived_reason: Option<String>,
+
+    pub created_at: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+
+    pub name: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -201,6 +270,30 @@ pub struct FetchArchivedApiKeyResponse {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_by_user_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct FetchArchivedApiKeysResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_page: Option<i32>,
+
+    pub has_more: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_more_results: Option<bool>,
+
+    pub keys: Vec<ArchivedApiKey>,
+
+    pub page: i32,
+
+    pub page_size: i32,
+
+    pub total: i32,
+
+    pub total_keys: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -313,7 +406,30 @@ pub struct ValidateOrgApiKeyRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ValidateOrgApiKeyResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_expired: Option<bool>,
+
     pub is_org_scoped: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_type: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+
+    pub valid: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -323,5 +439,28 @@ pub struct ValidatePersonalApiKeyRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ValidatePersonalApiKeyResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_expired: Option<bool>,
+
     pub is_personal: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_type: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+
+    pub valid: bool,
 }

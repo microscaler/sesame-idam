@@ -2,6 +2,7 @@
 // ⚠️ DO NOT MODIFY - Changes will be overwritten on next generation
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
+use crate::handlers::types::ApiKey;
 use brrtrouter::dispatcher::HandlerRequest;
 use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
@@ -36,7 +37,41 @@ pub struct Request {
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {}
+pub struct Response {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "current_page")]
+    pub current_page: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "filters_applied")]
+    pub filters_applied: Option<Vec<String>>,
+
+    #[serde(rename = "has_more")]
+    pub has_more: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "has_more_results")]
+    pub has_more_results: Option<bool>,
+
+    #[serde(rename = "keys")]
+    pub keys: Vec<ApiKey>,
+
+    #[serde(rename = "page")]
+    pub page: i32,
+
+    #[serde(rename = "page_size")]
+    pub page_size: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "sort_order")]
+    pub sort_order: Option<String>,
+
+    #[serde(rename = "total")]
+    pub total: i32,
+
+    #[serde(rename = "total_keys")]
+    pub total_keys: i32,
+}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;

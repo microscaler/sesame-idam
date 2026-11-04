@@ -49,12 +49,7 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         EMITTER.emit(entry);
     }
 
-    Response {
-        error: String::new(),
-        error_description: None,
-        hint: None,
-        retry_after: None,
-    }
+    Response {}
 }
 
 /// HTTP boundary for logout.

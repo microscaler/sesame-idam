@@ -22,5 +22,13 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // WHERE tenant_id = $1 AND event_type LIKE $2
     // ORDER BY timestamp DESC LIMIT $3 OFFSET $4
 
-    Response {}
+    Response {
+        events: vec![],
+        filters: None,
+        limit: None,
+        offset: None,
+        sort_by: None,
+        sort_order: None,
+        total: None,
+    }
 }

@@ -396,6 +396,13 @@ pub struct McpAgent {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpAgentListResponse {
+    pub agents: Vec<McpAgent>,
+
+    pub total: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct McpCreateAgentRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -404,17 +411,19 @@ pub struct McpCreateAgentRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct McpDeleteAgentResponse {
-    pub error: String,
+pub struct McpCreateAgentResponse {
+    pub active: bool,
+
+    pub agent_id: String,
+
+    pub created_at: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
+    pub description: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
+    pub name: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -431,6 +440,19 @@ pub struct McpGetAgentResponse {
     pub name: String,
 
     pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct McpListAgentsResponse {
+    pub agents: Vec<McpAgent>,
+
+    pub has_more: bool,
+
+    pub page: i32,
+
+    pub page_size: i32,
+
+    pub total: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -940,6 +962,12 @@ pub struct TokenIssuanceRequest {
     pub scope: String,
 
     pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TokenListResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tokens: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

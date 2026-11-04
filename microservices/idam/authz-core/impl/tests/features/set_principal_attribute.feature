@@ -7,9 +7,9 @@ Feature: Set Principal Attribute (POST /authz/principals/attributes)
   Scenario: Set a string attribute on a user
     Given the authz-core service is running
     When I send a valid request to set a principal attribute
-    Then the attribute response has error field
+    Then the attribute response has no body
 
   Scenario: Attribute setting emits audit event
     Given the authz-core service is running
     When I send a valid request to set a principal attribute
-    Then the attribute response has error field
+    Then the attribute response has no body

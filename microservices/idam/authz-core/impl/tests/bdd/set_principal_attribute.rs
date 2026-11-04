@@ -60,14 +60,15 @@ fn when_set_attribute(context: &mut Arc<Mutex<AttributeTestContext>>) {
 
 // ─── Then steps ──────────────────────────────────────────────────────────────
 
-#[then("the attribute response has error field")]
-fn then_attr_has_error_field(context: &Arc<Mutex<AttributeTestContext>>) {
+#[then("the attribute response has no body")]
+fn then_attr_has_no_body(context: &Arc<Mutex<AttributeTestContext>>) {
     let ctx = context.lock().unwrap();
     let resp = ctx.last_response.as_ref().expect("No response cached");
     let json = serde_json::to_value(resp).expect("serialize");
-    assert!(
-        json.get("error").is_some(),
-        "response missing 'error' field"
+    assert_eq!(
+        json,
+        serde_json::json!({}),
+        "the operation answers 204: its typed response has no body"
     );
 }
 
@@ -79,9 +80,10 @@ fn attribute_set_returns_success(context: Arc<Mutex<AttributeTestContext>>) {
     let ctx = context.lock().unwrap();
     let resp = ctx.last_response.as_ref().expect("No response cached");
     let json = serde_json::to_value(resp).expect("serialize");
-    assert!(
-        json.get("error").is_some(),
-        "response should have 'error' field"
+    assert_eq!(
+        json,
+        serde_json::json!({}),
+        "the operation answers 204: its typed response has no body"
     );
 }
 
@@ -91,8 +93,9 @@ fn attribute_response_has_required_fields(context: Arc<Mutex<AttributeTestContex
     let ctx = context.lock().unwrap();
     let resp = ctx.last_response.as_ref().expect("No response cached");
     let json = serde_json::to_value(resp).expect("serialize");
-    assert!(
-        json.get("error").is_some(),
-        "response missing 'error' field"
+    assert_eq!(
+        json,
+        serde_json::json!({}),
+        "the operation answers 204: its typed response has no body"
     );
 }

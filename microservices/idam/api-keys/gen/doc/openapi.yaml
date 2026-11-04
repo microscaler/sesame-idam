@@ -608,12 +608,14 @@ paths:
                   summary: Example response 200 for validate_org_api_key
                   value:
                     valid: true
-                    key_id: 550e8400-e29b-41d4-a716-446655440003
-                    name: Organization API Key
+                    api_key_id: 550e8400-e29b-41d4-a716-446655440003
+                    org_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+                    scope_type: org
                     permissions:
                     - read
-                    expires_at: '2025-01-15T10:30:00Z'
-                    tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+                    expires_at: 1736934600
+                    is_expired: false
+                    is_org_scoped: true
               example: *id013
         '401':
           description: Invalid or not an organisation API key
@@ -669,13 +671,15 @@ paths:
                   summary: Example response 200 for validate_personal_api_key
                   value:
                     valid: true
-                    key_id: 550e8400-e29b-41d4-a716-446655440003
-                    name: Personal API Key
+                    api_key_id: 550e8400-e29b-41d4-a716-446655440003
+                    user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                    scope_type: user
                     permissions:
                     - read
                     - write
-                    expires_at: '2025-01-15T10:30:00Z'
-                    tenant_id: 1189c444-8a2d-4c41-8b4b-ae43ce79a492
+                    expires_at: 1736934600
+                    is_expired: false
+                    is_personal: true
               example: *id014
         '401':
           description: Invalid or not a personal API key

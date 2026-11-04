@@ -23,5 +23,15 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
         EMITTER.emit(entry);
     }
 
-    Response {}
+    // Not registered in main.rs (the route answers 501): nothing is persisted yet,
+    // so this only echoes the request in the McpAgentCreateResponse shape.
+    let now = chrono::Utc::now().to_rfc3339();
+    Response {
+        active: true,
+        agent_id: uuid::Uuid::new_v4().to_string(),
+        created_at: now.clone(),
+        description: req.data.description.clone(),
+        name: req.data.name.clone(),
+        updated_at: now,
+    }
 }

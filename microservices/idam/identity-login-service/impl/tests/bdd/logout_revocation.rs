@@ -112,8 +112,8 @@ fn logout_denylists_access_jti() {
         .unwrap();
     assert!(before.is_none(), "jti must not be denylisted before logout");
 
-    let resp = auth_logout::handle(logout_request(&jti, exp));
-    assert!(resp.error.is_empty(), "logout should succeed: {resp:?}");
+    // Logout answers 204 with no body (handle_http); the denylist below is the outcome.
+    auth_logout::handle(logout_request(&jti, exp));
 
     let after: Option<String> = redis::cmd("GET")
         .arg(format!("denylist:{jti}"))

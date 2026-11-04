@@ -36,6 +36,28 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
+    #[serde(rename = "access_token")]
+    pub access_token: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "entitlements_hash")]
+    pub entitlements_hash: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "entitlements_ref")]
+    pub entitlements_ref: Option<String>,
+
+    #[serde(rename = "expires_in")]
+    pub expires_in: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id_token")]
+    pub id_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "mfa_required")]
+    pub mfa_required: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "newly_verified_email")]
     pub newly_verified_email: Option<bool>,
@@ -43,6 +65,35 @@ pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "newly_verified_phone")]
     pub newly_verified_phone: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "permissions")]
+    pub permissions: Option<Vec<String>>,
+
+    #[serde(rename = "refresh_token")]
+    pub refresh_token: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "refresh_token_expires_in")]
+    pub refresh_token_expires_in: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "roles")]
+    pub roles: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "scope")]
+    pub scope: Option<String>,
+
+    #[serde(rename = "token_type")]
+    pub token_type: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "token_version")]
+    pub token_version: Option<i32>,
+
+    #[serde(rename = "user_id")]
+    pub user_id: String,
 }
 
 /// OpenAPI multi-status success envelope (Epic 13.9).

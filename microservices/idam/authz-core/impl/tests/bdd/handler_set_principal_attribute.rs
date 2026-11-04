@@ -1,7 +1,7 @@
 /// BDD handler-level tests for set_principal_attribute endpoint.
 ///
 /// Calls the REAL controller handler and verifies it returns the expected
-/// response shape (error, error_description).
+/// response shape (no body: the operation answers 204).
 /// Unlike the unit tests which only validate schema serialization, these
 /// exercise the actual handler code (audit event emission).
 use brrtrouter::typed::TypedHandlerRequest;
@@ -19,7 +19,7 @@ thread_local! {
 /// Scenario: Set an attribute on a principal
 ///   Given a valid set_principal_attribute request
 ///   When I send a valid request to the controller
-///   Then the response is returned with an error field
+///   Then the response is returned with no body
 
 #[given("a valid set_principal_attribute request")]
 fn given_valid_attr_request() {
@@ -50,15 +50,14 @@ fn when_attr_valid() {
     CONTEXT.with(|c| *c.lock().unwrap() = Some(json));
 }
 
-#[then("the response is returned with an error field")]
-fn then_has_error_field() {
+#[then("the response is returned with no body")]
+fn then_has_no_body() {
     CONTEXT.with(|c| {
         let json = c.lock().unwrap().as_ref().expect("no response cached");
-        assert!(json.get("error").is_some(), "missing 'error' field");
-        // Stub implementation returns error: ""
-        assert!(
-            json["error"].as_str().unwrap_or("") == "",
-            "stub returns empty error"
+        assert_eq!(
+            *json,
+            serde_json::json!({}),
+            "the operation answers 204: its typed response has no body"
         );
     });
 }
@@ -101,14 +100,18 @@ fn when_empty_value() {
 fn then_response_returned() {
     CONTEXT.with(|c| {
         let json = c.lock().unwrap().as_ref().expect("no response cached");
-        assert!(json.get("error").is_some(), "missing 'error' field");
+        assert_eq!(
+            *json,
+            serde_json::json!({}),
+            "the operation answers 204: its typed response has no body"
+        );
     });
 }
 
 /// Scenario: Set attribute with org context
 ///   Given a set_principal_attribute request with org_id
 ///   When I send the request to the controller
-///   Then the response is returned with an error field
+///   Then the response is returned with no body
 
 #[given("a set_principal_attribute request with org_id")]
 fn given_attr_with_org() {

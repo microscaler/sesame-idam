@@ -39,7 +39,22 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> ApiResponse {
     }
 
     ApiResponse::Ok(Response {
+        access_token: "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20ifQ.sig"
+            .to_string(),
+        entitlements_hash: Some("example".to_string()),
+        entitlements_ref: Some("example".to_string()),
+        expires_in: 900,
+        id_token: Some("example".to_string()),
+        mfa_required: Some(false),
         newly_verified_email: Some(true),
         newly_verified_phone: Some(true),
+        permissions: Some(vec![]),
+        refresh_token: "cmVmcmVzaC10b2tlbi1kdWFsLW90cA".to_string(),
+        refresh_token_expires_in: Some(2592000),
+        roles: Some(vec![]),
+        scope: Some("openid".to_string()),
+        token_type: "Bearer".to_string(),
+        token_version: Some(42),
+        user_id: "31c41c16-c281-44ae-9602-8a047e3bf33d".to_string(),
     })
 }

@@ -20,8 +20,39 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "api_key_id")]
+    pub api_key_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "expires_at")]
+    pub expires_at: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "is_expired")]
+    pub is_expired: Option<bool>,
+
     #[serde(rename = "is_personal")]
     pub is_personal: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "org_id")]
+    pub org_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "permissions")]
+    pub permissions: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "scope_type")]
+    pub scope_type: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "user_id")]
+    pub user_id: Option<String>,
+
+    #[serde(rename = "valid")]
+    pub valid: bool,
 }
 
 impl TryFrom<HandlerRequest> for Request {

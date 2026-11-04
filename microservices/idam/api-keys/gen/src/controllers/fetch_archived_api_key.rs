@@ -32,9 +32,18 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     }
 
     HttpJson::ok(Response {
+        active: true,
+        api_key_id: "example".to_string(),
         archived_reason: Some("example".to_string()),
+        created_at: 42,
+        expires_at: Some(42),
+        metadata: Some(Default::default()),
+        name: "Archived Key".to_string(),
+        org_id: Some("example".to_string()),
+        permissions: Some(vec![]),
         reason: Some("example".to_string()),
         revoked_at: Some(42),
         revoked_by_user_id: Some("example".to_string()),
+        user_id: Some("example".to_string()),
     })
 }

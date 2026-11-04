@@ -57,5 +57,11 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
         }
     }
 
-    HttpJson::ok(Response {})
+    HttpJson::ok(Response {
+        has_more: true,
+        page: 42,
+        page_size: 42,
+        tokens: vec![],
+        total: 42,
+    })
 }

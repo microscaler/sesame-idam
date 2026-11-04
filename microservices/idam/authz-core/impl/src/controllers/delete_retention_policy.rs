@@ -23,8 +23,5 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
 
     // TODO: DELETE FROM retention_policies WHERE id = $1 AND tenant_id = $2
 
-    Response {
-        error: String::new(),
-        error_description: None,
-    }
+    Response {}
 }

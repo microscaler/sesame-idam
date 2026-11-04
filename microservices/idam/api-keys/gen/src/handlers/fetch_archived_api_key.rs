@@ -20,9 +20,37 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 
 pub struct Response {
+    #[serde(rename = "active")]
+    pub active: bool,
+
+    #[serde(rename = "api_key_id")]
+    pub api_key_id: String,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "archived_reason")]
     pub archived_reason: Option<String>,
+
+    #[serde(rename = "created_at")]
+    pub created_at: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "expires_at")]
+    pub expires_at: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "metadata")]
+    pub metadata: Option<serde_json::Value>,
+
+    #[serde(rename = "name")]
+    pub name: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "org_id")]
+    pub org_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "permissions")]
+    pub permissions: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "reason")]
@@ -35,6 +63,10 @@ pub struct Response {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "revoked_by_user_id")]
     pub revoked_by_user_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "user_id")]
+    pub user_id: Option<String>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

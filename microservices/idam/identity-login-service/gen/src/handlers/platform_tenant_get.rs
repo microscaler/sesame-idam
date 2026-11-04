@@ -2,6 +2,7 @@
 // ⚠️ DO NOT MODIFY - Changes will be overwritten on next generation
 // ⚠️ To modify API behavior, edit the OpenAPI spec and regenerate
 // ⚠️ To implement business logic, edit the corresponding controller file
+use crate::handlers::types::TenantOAuthConfigResponse;
 use brrtrouter::dispatcher::HandlerRequest;
 use brrtrouter::typed::HttpJson;
 use brrtrouter::typed::TypedHandlerRequest;
@@ -16,7 +17,32 @@ pub struct Request {
 
 #[derive(Debug, Deserialize, Serialize)]
 
-pub struct Response {}
+pub struct Response {
+    #[serde(rename = "created_at")]
+    pub created_at: String,
+
+    #[serde(rename = "display_name")]
+    pub display_name: String,
+
+    #[serde(rename = "id")]
+    pub id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "oauth_providers")]
+    pub oauth_providers: Option<Vec<TenantOAuthConfigResponse>>,
+
+    #[serde(rename = "provisioning_mode")]
+    pub provisioning_mode: String,
+
+    #[serde(rename = "slug")]
+    pub slug: String,
+
+    #[serde(rename = "status")]
+    pub status: String,
+
+    #[serde(rename = "updated_at")]
+    pub updated_at: String,
+}
 
 impl TryFrom<HandlerRequest> for Request {
     type Error = anyhow::Error;

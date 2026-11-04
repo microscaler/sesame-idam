@@ -83,20 +83,6 @@ pub struct AuthLogoutRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct AuthLogoutResponse {
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct AuthRegisterRequest {
     pub client_id: String,
 
@@ -1308,6 +1294,32 @@ pub struct PlatformTenantCreateResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantDetail {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oauth_providers: Option<Vec<TenantOAuthConfigResponse>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PlatformTenantGetResponse {
+    pub created_at: String,
+
+    pub display_name: String,
+
+    pub id: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oauth_providers: Option<Vec<TenantOAuthConfigResponse>>,
+
+    pub provisioning_mode: String,
+
+    pub slug: String,
+
+    pub status: String,
+
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PlatformTenantOauthRotateRequest {
     pub rotated_by: String,
 }
@@ -1921,20 +1933,6 @@ pub struct TenantOidcClientCreateResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct TenantOidcClientDeleteResponse {
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct TenantOidcClientGetResponse {
     pub application_id: String,
 
@@ -1973,20 +1971,6 @@ pub struct TenantOidcClientGetResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct TenantOidcClientListResponse {
     pub items: Vec<OidcClientResponse>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct TenantOidcClientSecretRevokeResponse {
-    pub error: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error_description: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hint: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -2410,11 +2394,48 @@ pub struct VerifyDualOtpRequest {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct VerifyDualOtpResponse {
+    pub access_token: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_hash: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitlements_ref: Option<String>,
+
+    pub expires_in: i32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mfa_required: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub newly_verified_email: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub newly_verified_phone: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<String>>,
+
+    pub refresh_token: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token_expires_in: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+
+    pub token_type: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_version: Option<i32>,
+
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

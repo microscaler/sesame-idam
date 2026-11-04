@@ -39,5 +39,13 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // ORDER BY timestamp DESC
     // LIMIT $3 OFFSET $4
 
-    Response {}
+    Response {
+        events: vec![],
+        filters: None,
+        limit: None,
+        offset: None,
+        sort_by: None,
+        sort_order: None,
+        total: None,
+    }
 }

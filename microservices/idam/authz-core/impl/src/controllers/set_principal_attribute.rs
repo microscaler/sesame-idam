@@ -45,8 +45,5 @@ pub fn handle(req: TypedHandlerRequest<Request>) -> Response {
     // 2. Invalidate cached effective permissions
     // 3. Optionally notify dependent services via webhook
 
-    Response {
-        error: String::new(),
-        error_description: None,
-    }
+    Response {}
 }

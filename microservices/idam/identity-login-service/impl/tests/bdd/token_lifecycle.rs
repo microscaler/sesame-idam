@@ -362,8 +362,8 @@ fn full_token_lifecycle_register_userinfo_refresh_logout() {
         "jti": access_jti,
         "exp": access_exp,
     }));
-    let logout = auth_logout::handle(logout_req);
-    assert!(logout.error.is_empty(), "logout error: {:?}", logout.error);
+    // Logout answers 204 with no body (handle_http); the denylist checks below are the outcome.
+    auth_logout::handle(logout_req);
 
     // ── Denylisted access token rejected by token-status read side ──
     let checker = sesame_common::token_status::SesameTokenStatusChecker::from_redis_url(
