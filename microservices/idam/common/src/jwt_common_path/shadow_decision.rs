@@ -689,6 +689,7 @@ use super::auth_decision::AuthError;
     /// Assert: shadow_mode.enabled can only be set via server-side config
     #[test]
     fn security_shadow_mode_cannot_be_enabled_by_client_input() {
+        let _env = crate::test_env_lock();
         let shadow = ShadowDecision::default();
 
         // No public method allows enabling from user input
@@ -706,6 +707,7 @@ use super::auth_decision::AuthError;
     /// Assert: structured log includes JWT claims but NOT PII fields
     #[test]
     fn security_mismatch_details_do_not_leak_pii() {
+        let _env = crate::test_env_lock();
         let decision = AuthDecision::Allowed {
             reason: Some("role:admin".into()),
         };
@@ -831,6 +833,7 @@ use super::auth_decision::AuthError;
     /// Edge case: Shadow mode enabled in production
     #[test]
     fn edge_case_shadow_mode_enabled_in_production() {
+        let _env = crate::test_env_lock();
         // Set production environment
         std::env::set_var("RUST_ENV", "production");
         std::env::set_var("SHADOW_MODE_ENABLED", "true");
@@ -849,6 +852,7 @@ use super::auth_decision::AuthError;
     /// Edge case: Shadow mode disabled in production (normal)
     #[test]
     fn edge_case_shadow_mode_disabled_in_production() {
+        let _env = crate::test_env_lock();
         std::env::set_var("RUST_ENV", "production");
         std::env::set_var("SHADOW_MODE_ENABLED", "false");
 
@@ -862,6 +866,7 @@ use super::auth_decision::AuthError;
     /// Edge case: Shadow mode allowed in development
     #[test]
     fn edge_case_shadow_mode_enabled_in_development() {
+        let _env = crate::test_env_lock();
         std::env::set_var("RUST_ENV", "development");
         std::env::set_var("SHADOW_MODE_ENABLED", "true");
 

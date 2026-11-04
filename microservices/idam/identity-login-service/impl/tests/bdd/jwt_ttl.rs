@@ -11,6 +11,17 @@ use sesame_idam_identity_login_service::jwt::ttl::{
     validate_minimum_ttl, validate_refresh_exceeds_access, TtlConfig,
 };
 
+/// `TtlConfig` from the given `JWT_*` variables alone. The tests never set process environment
+/// variables: `cargo test` runs every suite in this binary as threads of one process, and the token
+/// issuer reads `TtlConfig::from_env` while other suites mint tokens.
+fn ttl_config_with(vars: &[(&str, &str)]) -> TtlConfig {
+    TtlConfig::from_vars(|name| {
+        vars.iter()
+            .find(|(key, _)| *key == name)
+            .map(|(_, value)| (*value).to_string())
+    })
+}
+
 /// Create a minimal `HandlerRequest` for testing.
 fn make_request(
     grant_type: &str,
@@ -157,20 +168,12 @@ fn test_token_61_seconds_past_expiry_rejected() {
 /// THEN the access token has exp - iat = 600 seconds
 #[test]
 fn test_env_override_normal_ttl() {
-    let prev = std::env::var("JWT_ACCESS_TTL_NORMAL").ok();
-
-    std::env::set_var("JWT_ACCESS_TTL_NORMAL", "600");
-    let config = TtlConfig::from_env();
+    let config = ttl_config_with(&[("JWT_ACCESS_TTL_NORMAL", "600")]);
     assert_eq!(
         config.ttl_for_role("customer").as_secs(),
         600,
         "JWT_ACCESS_TTL_NORMAL env var should override default"
     );
-
-    match prev {
-        Some(v) => std::env::set_var("JWT_ACCESS_TTL_NORMAL", v),
-        None => std::env::remove_var("JWT_ACCESS_TTL_NORMAL"),
-    }
 }
 
 /// Scenario: Metrics track issued TTLs for different roles.
@@ -274,10 +277,7 @@ fn test_exp_claim_set_by_server_not_request() {
 /// with exp = iat, which causes immediate expiration.
 #[test]
 fn test_zero_ttl_produces_immediately_expired_token() {
-    let prev = std::env::var("JWT_ACCESS_TTL_NORMAL").ok();
-
-    std::env::set_var("JWT_ACCESS_TTL_NORMAL", "0");
-    let config = TtlConfig::from_env();
+    let config = ttl_config_with(&[("JWT_ACCESS_TTL_NORMAL", "0")]);
     let iat: u64 = 1000;
     let exp = config.exp_for_role("customer", iat);
 
@@ -285,11 +285,6 @@ fn test_zero_ttl_produces_immediately_expired_token() {
         exp, iat,
         "Zero TTL should produce exp = iat (immediately expired)"
     );
-
-    match prev {
-        Some(v) => std::env::set_var("JWT_ACCESS_TTL_NORMAL", v),
-        None => std::env::remove_var("JWT_ACCESS_TTL_NORMAL"),
-    }
 }
 
 /// Edge case: Minimum TTL validation rejects startup with low TTL.
@@ -310,10 +305,7 @@ fn test_validate_minimum_ttl_rejects_zero() {
 /// If `JWT_ACCESS_TTL_NORMAL=3600` is set, the token is issued with 1-hour expiry.
 #[test]
 fn test_max_ttl_works() {
-    let prev = std::env::var("JWT_ACCESS_TTL_NORMAL").ok();
-
-    std::env::set_var("JWT_ACCESS_TTL_NORMAL", "3600");
-    let config = TtlConfig::from_env();
+    let config = ttl_config_with(&[("JWT_ACCESS_TTL_NORMAL", "3600")]);
 
     assert_eq!(
         config.ttl_for_role("customer").as_secs(),
@@ -324,11 +316,6 @@ fn test_max_ttl_works() {
     // Validation should pass — 3600 > 60 minimum
     validate_minimum_ttl(&config);
     validate_refresh_exceeds_access(&config);
-
-    match prev {
-        Some(v) => std::env::set_var("JWT_ACCESS_TTL_NORMAL", v),
-        None => std::env::remove_var("JWT_ACCESS_TTL_NORMAL"),
-    }
 }
 
 /// Edge case: Concurrent logins with different roles.
@@ -362,11 +349,8 @@ fn test_concurrent_logins_different_roles() {
 /// behavior in comments for operational awareness (HACK-302).
 #[test]
 fn test_refresh_ttl_configurable() {
-    let prev = std::env::var("JWT_REFRESH_TTL_DAYS").ok();
-
     // Set to 7 days for admin
-    std::env::set_var("JWT_ADMIN_REFRESH_TTL_DAYS", "7");
-    let config = TtlConfig::from_env();
+    let config = ttl_config_with(&[("JWT_ADMIN_REFRESH_TTL_DAYS", "7")]);
 
     // Admin refresh is 7 days
     assert_eq!(
@@ -381,16 +365,12 @@ fn test_refresh_ttl_configurable() {
         30 * 86400,
         "Normal refresh TTL should be 30 days (default)"
     );
-
-    match prev {
-        Some(v) => std::env::set_var("JWT_REFRESH_TTL_DAYS", v),
-        None => std::env::remove_var("JWT_REFRESH_TTL_DAYS"),
-    }
 }
 
-/// Cleanup: Environment variables must be reset between tests.
+/// Cleanup: no test leaves a TTL variable behind.
 ///
-/// Tests that modify env vars use `std::env::remove_var` in teardown.
+/// The override tests build their config with `ttl_config_with` and never set process environment
+/// variables, so the defaults read through `from_env` hold whatever order the tests run in.
 #[test]
 fn test_env_vars_reset_after_test() {
     // Verify that our tests properly clean up env vars.

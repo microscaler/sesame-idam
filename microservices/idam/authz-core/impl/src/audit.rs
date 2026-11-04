@@ -11,8 +11,10 @@ pub static EMITTER: std::sync::LazyLock<AuditEmitter> =
 /// Created during startup from config; `None` if Redis is not configured.
 ///
 /// Controllers use it like:
-/// ```
-/// use crate::audit::PUBLISHER;
+/// ```no_run
+/// use sesame_common::token_versioning::BumpReason;
+/// use sesame_idam_authz_core::audit::PUBLISHER;
+/// # let (tenant_id, new_ver) = ("tenant-a", 7_u64);
 /// if let Some(pub_) = &*PUBLISHER {
 ///     pub_.publish_tenant(&tenant_id, new_ver, BumpReason::RoleRevoked);
 /// }

@@ -61,16 +61,26 @@ impl TtlConfig {
     /// - `JWT_REFRESH_TTL_DAYS` — normal user refresh token TTL (days)
     /// - `JWT_ADMIN_REFRESH_TTL_DAYS` — admin user refresh token TTL (days)
     pub fn from_env() -> Self {
+        Self::from_vars(|name| std::env::var(name).ok())
+    }
+
+    /// Load TTL configuration from `lookup` (variable name to value) instead of the process
+    /// environment, with the same names and defaults as [`TtlConfig::from_env`]. Tests use it so
+    /// they need not set process-wide environment variables.
+    #[must_use]
+    pub fn from_vars(lookup: impl Fn(&str) -> Option<String>) -> Self {
+        let var = |name: &str, default: u64| {
+            lookup(name)
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(default)
+        };
         Self {
-            normal_secs: env_u64("JWT_ACCESS_TTL_NORMAL", DEFAULT_NORMAL_TTL),
-            elevated_secs: env_u64("JWT_ACCESS_TTL_ELEVATED", DEFAULT_ELEVATED_TTL),
-            admin_secs: env_u64("JWT_ACCESS_TTL_ADMIN", DEFAULT_ADMIN_TTL),
-            platform_secs: env_u64("JWT_ACCESS_TTL_PLATFORM", DEFAULT_PLATFORM_TTL),
-            refresh_days: env_u64("JWT_REFRESH_TTL_DAYS", DEFAULT_REFRESH_TTL_DAYS),
-            admin_refresh_days: env_u64(
-                "JWT_ADMIN_REFRESH_TTL_DAYS",
-                DEFAULT_ADMIN_REFRESH_TTL_DAYS,
-            ),
+            normal_secs: var("JWT_ACCESS_TTL_NORMAL", DEFAULT_NORMAL_TTL),
+            elevated_secs: var("JWT_ACCESS_TTL_ELEVATED", DEFAULT_ELEVATED_TTL),
+            admin_secs: var("JWT_ACCESS_TTL_ADMIN", DEFAULT_ADMIN_TTL),
+            platform_secs: var("JWT_ACCESS_TTL_PLATFORM", DEFAULT_PLATFORM_TTL),
+            refresh_days: var("JWT_REFRESH_TTL_DAYS", DEFAULT_REFRESH_TTL_DAYS),
+            admin_refresh_days: var("JWT_ADMIN_REFRESH_TTL_DAYS", DEFAULT_ADMIN_REFRESH_TTL_DAYS),
         }
     }
 

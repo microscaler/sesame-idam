@@ -66,11 +66,11 @@ impl AuthError {
     /// # Example
     ///
     /// ```
-    /// use crate::auth_error::AuthError;
+    /// use sesame_idam_authz_core::auth_error::AuthError;
     ///
-    /// // Token is current
+    /// // Token is current (arguments: cached version, then the token's version)
     /// assert!(AuthError::handle_version_mismatch(42, 42).is_ok());
-    /// assert!(AuthError::handle_version_mismatch(45, 42).is_ok());
+    /// assert!(AuthError::handle_version_mismatch(42, 45).is_ok());
     ///
     /// // Token is stale
     /// match AuthError::handle_version_mismatch(45, 42) {

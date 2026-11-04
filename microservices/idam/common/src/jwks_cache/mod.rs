@@ -22,13 +22,11 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use crate::jwks_cache::JwksCache;
+//! use sesame_common::jwks_cache::JwksCache;
 //! use std::thread;
 //! use std::time::Duration;
 //!
-//! let cache = JwksCache::builder()
-//!     .endpoint("https://idam.example.com/.well-known/jwks.json")
-//!     .build();
+//! let cache = JwksCache::builder("https://idam.example.com/.well-known/jwks.json").build();
 //!
 //! // Start background refresh (non-blocking, uses may::go!)
 //! cache.start_background_refresh();

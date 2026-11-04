@@ -24,7 +24,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use crate::entitlement_cache::{EntitlementSnapshot, Permission, EntitlementComplexity};
+//! use sesame_common::entitlement_cache::{EntitlementSnapshot, Permission, EntitlementComplexity};
 //!
 //! let perms = vec![Permission::new("read", "documents")];
 //! let snap = EntitlementSnapshot::new("user_123", "org_456", perms, EntitlementComplexity::Static);

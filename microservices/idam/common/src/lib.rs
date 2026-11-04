@@ -95,3 +95,13 @@ pub use observability::{
     assert_no_redacted_fields, redact_sensitive_object, redacted_field_names,
     DEFAULT_REDACTED_FIELDS,
 };
+
+/// Unit tests that set or read process environment variables (`RUST_ENV`, `DPoP_ENABLED`) hold this lock for their
+/// whole body: `cargo test` runs a crate's unit tests as threads of one process, so one test's `set_var` is
+/// another's input.
+#[cfg(test)]
+pub(crate) fn test_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}

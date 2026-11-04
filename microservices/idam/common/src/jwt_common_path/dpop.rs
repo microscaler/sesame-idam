@@ -612,6 +612,7 @@ mod tests {
 
     #[test]
     fn compute_jkt_is_deterministic() {
+        let _env = crate::test_env_lock();
         let (_priv, jwk) = generate_ed25519_keypair();
         let jkt1 = compute_jkt(&jwk);
         // Reconstruct the same JWK
@@ -621,6 +622,7 @@ mod tests {
 
     #[test]
     fn compute_jkt_differs_for_different_keys() {
+        let _env = crate::test_env_lock();
         let (_priv1, jwk1) = generate_ed25519_keypair();
         let (_priv2, jwk2) = generate_ed25519_keypair();
         assert_ne!(compute_jkt(&jwk1), compute_jkt(&jwk2));
@@ -630,6 +632,7 @@ mod tests {
 
     #[test]
     fn ed25519_jwk_passes_size_check() {
+        let _env = crate::test_env_lock();
         let (_priv, jwk) = generate_ed25519_keypair();
         assert!(jwk.validate_size().is_ok());
         // Ed25519 JWK should be ~70 bytes, well under 500
@@ -639,6 +642,7 @@ mod tests {
 
     #[test]
     fn oversized_jwk_rejected() {
+        let _env = crate::test_env_lock();
         let big_jwk = DpopJwk {
             kty: DpopKeyTypeId::Okp,
             crv: DpopCurve::Ed25519,
@@ -656,6 +660,7 @@ mod tests {
 
     #[test]
     fn valid_proof_claims_pass() {
+        let _env = crate::test_env_lock();
         let (_, jwk) = generate_ed25519_keypair();
         let claims = DpopProofClaims {
             typ: Some("dpop+jwt".to_string()),
@@ -671,6 +676,7 @@ mod tests {
 
     #[test]
     fn invalid_typ_rejected() {
+        let _env = crate::test_env_lock();
         let (_, jwk) = generate_ed25519_keypair();
         let claims = DpopProofClaims {
             typ: Some("jwt".to_string()),
@@ -689,6 +695,7 @@ mod tests {
 
     #[test]
     fn invalid_alg_rejected() {
+        let _env = crate::test_env_lock();
         let (_, jwk) = generate_ed25519_keypair();
         let claims = DpopProofClaims {
             typ: Some("dpop+jwt".to_string()),
@@ -933,6 +940,7 @@ mod tests {
 
     #[test]
     fn ec_keypair_generates_and_computes_jkt() {
+        let _env = crate::test_env_lock();
         let (_priv, jwk) = generate_p256_keypair();
         assert!(matches!(jwk.kty, DpopKeyTypeId::Ec));
         assert!(matches!(jwk.crv, DpopCurve::P256));
@@ -947,6 +955,7 @@ mod tests {
 
     #[test]
     fn dpop_confirmation_serializes() {
+        let _env = crate::test_env_lock();
         let cnf = DpopConfirmation {
             jkt: "test-thumbprint".to_string(),
         };
@@ -959,6 +968,7 @@ mod tests {
 
     #[test]
     fn dpop_enabled_defaults_true_in_non_dev() {
+        let _env = crate::test_env_lock();
         // When RUST_ENV is not "dev", DPoP should be enabled
         let original = std::env::var("RUST_ENV").ok();
         std::env::remove_var("RUST_ENV");
@@ -970,6 +980,7 @@ mod tests {
 
     #[test]
     fn dpop_disabled_when_dev_env_and_false() {
+        let _env = crate::test_env_lock();
         std::env::set_var("RUST_ENV", "dev");
         std::env::set_var("DPoP_ENABLED", "false");
         assert!(!is_dpop_enabled());
@@ -979,6 +990,7 @@ mod tests {
 
     #[test]
     fn dpop_enabled_when_dev_env_and_true() {
+        let _env = crate::test_env_lock();
         std::env::set_var("RUST_ENV", "development");
         std::env::set_var("DPoP_ENABLED", "true");
         assert!(is_dpop_enabled());
@@ -990,6 +1002,7 @@ mod tests {
 
     #[test]
     fn require_dpop_rejects_missing_header() {
+        let _env = crate::test_env_lock();
         std::env::set_var("RUST_ENV", "production");
         let (reply_tx, _reply_rx) = may::sync::mpsc::channel();
         let req = brrtrouter::dispatcher::HandlerRequest {
@@ -1017,6 +1030,7 @@ mod tests {
 
     #[test]
     fn require_dpop_accepts_header_present() {
+        let _env = crate::test_env_lock();
         let (reply_tx, _reply_rx) = may::sync::mpsc::channel();
         let mut headers = brrtrouter::dispatcher::HeaderVec::new();
         headers.push((std::sync::Arc::from("DPoP"), "dpop-proof-jwt".to_string()));
@@ -1041,6 +1055,7 @@ mod tests {
 
     #[test]
     fn require_dpop_skip_in_dev() {
+        let _env = crate::test_env_lock();
         std::env::set_var("RUST_ENV", "dev");
         std::env::set_var("DPoP_ENABLED", "false");
         let (reply_tx, _reply_rx) = may::sync::mpsc::channel();
@@ -1069,6 +1084,7 @@ mod tests {
 
     #[test]
     fn ed25519_key_bytes_correct_length() {
+        let _env = crate::test_env_lock();
         let (_priv, jwk) = generate_ed25519_keypair();
         let bytes = jwk.to_key_bytes().unwrap();
         // Ed25519 public key is 32 bytes
@@ -1077,6 +1093,7 @@ mod tests {
 
     #[test]
     fn ec_key_bytes_uncompressed_format() {
+        let _env = crate::test_env_lock();
         let (_priv, jwk) = generate_p256_keypair();
         let bytes = jwk.to_key_bytes().unwrap();
         // EC uncompressed point: 0x04 (1 byte) + x (32 bytes) + y (32 bytes)
@@ -1086,6 +1103,7 @@ mod tests {
 
     #[test]
     fn ec_key_missing_y_rejected() {
+        let _env = crate::test_env_lock();
         let jwk = DpopJwk {
             kty: DpopKeyTypeId::Ec,
             crv: DpopCurve::P256,
@@ -1100,6 +1118,7 @@ mod tests {
 
     #[test]
     fn jwk_with_extra_fields_validated() {
+        let _env = crate::test_env_lock();
         let jwk: DpopJwk = serde_json::from_value(serde_json::json!({
             "kty": "OKP",
             "crv": "Ed25519",
@@ -1114,6 +1133,7 @@ mod tests {
 
     #[test]
     fn empty_jti_accepted() {
+        let _env = crate::test_env_lock();
         let (_, jwk) = generate_ed25519_keypair();
         let claims = DpopProofClaims {
             typ: Some("dpop+jwt".to_string()),
