@@ -12,6 +12,13 @@
 # called sesame_idam and objects are created by postgres: see rewrite() below. Every file is idempotent and applied
 # on every run, as in dev; a ledger records what each release applied.
 #
+# Logs, one line per event so each is one Cloud Logging entry (stdout INFO, stderr ERROR): a start line (release,
+# psql version, database, host and port, never the password; the number of files, all of which run), "start" and
+# "applied <file> (<ms> ms)" per file, and on a failure one FAILED line on stderr with the file, the statement's
+# number and first line in the file, its first 200 characters and the server's error (psql's verbose report on one
+# line: SQLSTATE, message, DETAIL, HINT, LINE + caret for the position, CONTEXT), then exit 1. Server NOTICEs
+# ("already exists, skipping") are not shown: they went to stderr and showed as errors on every run.
+#
 # Roles outside the database (migrations/rls/*_rp_directory.sql: rp_directory_owner NOLOGIN BYPASSRLS,
 # rp_directory_read) are the platform's: it creates them and grants rp_directory_owner to the owner group. This
 # script never needs superuser.
@@ -40,9 +47,11 @@ done
 ROLE=$(psql_db -c 'select current_user')
 DB=$(psql_db -c 'select current_database()')
 [[ "$ROLE" =~ ^[a-z_][a-z0-9_]*$ ]] || { echo "unexpected role name" >&2; exit 1; }
-echo "applying the schema to database $DB as $ROLE (session user $(psql_db -c 'select session_user')), release $RELEASE"
+SESSION_USER=$(psql_db -c 'select session_user')
+HOSTPORT=$(psql_db -c '\echo :HOST port :PORT')   # psql's own variables: never the password
 
 psql_db <<SQL
+SET client_min_messages TO warning;
 CREATE SCHEMA IF NOT EXISTS ${SCHEMA};
 ALTER DATABASE "${DB}" SET search_path TO ${SCHEMA}, public;
 CREATE TABLE IF NOT EXISTS ${SCHEMA}.sesame_schema_applied (
@@ -60,15 +69,68 @@ rewrite() {
   perl -pe "s/(?<!search_path )\bTO\s+sesame_idam\b(?![.\w])/TO ${ROLE}/gi; s/\bFOR\s+ROLE\s+postgres\b/FOR ROLE ${ROLE}/gi" "$1"
 }
 
+now_ms() { date +%s%3N; }
+
+# Which statement psql stopped at, from the SQL it was given (stdin) and the line it reported (the line of the
+# statement's closing ;): "<number>\t<first line>\t<first 200 characters>". A statement ends at a ; outside quotes,
+# dollar quotes and comments. The input's first line is the preamble (2 statements), so the number and the line are
+# the file's own.
+LOCATE_PL=$(cat <<'PERL'
+use strict; use warnings;
+my $at = shift; local $/; my $sql = <STDIN>;
+my ($i, $n, $line, $len) = (0, 0, 1, length $sql);
+my ($start, $sline);
+while ($i < $len) {
+  my $c = substr($sql, $i, 1);
+  if ($c eq "\n") { $line++; $i++; next }
+  if ($c =~ /\s/) { $i++; next }
+  if (substr($sql, $i, 2) eq '--') { my $e = index($sql, "\n", $i); $i = $e < 0 ? $len : $e; next }
+  if (!defined $sline) { $sline = $line; $start = $i }
+  my $e;
+  if (substr($sql, $i, 2) eq '/*') { $e = index($sql, '*/', $i + 2); $e = $e < 0 ? $len : $e + 2 }
+  elsif ($c eq "'" || $c eq '"') { $e = index($sql, $c, $i + 1); $e = $e < 0 ? $len : $e + 1 }
+  elsif (substr($sql, $i, 64) =~ /^(\$[A-Za-z_]*\$)/) {
+    my $t = $1; $e = index($sql, $t, $i + length $t); $e = $e < 0 ? $len : $e + length $t;
+  }
+  if (defined $e) { $line += (substr($sql, $i, $e - $i) =~ tr/\n//); $i = $e; next }
+  if ($c eq ';') { $n++; last if $line >= $at; undef $sline; $i++; next }
+  $i++;
+}
+my $end = $i < $len ? $i + 1 : $len;
+$n++ if $i >= $len && defined $sline;
+my $stmt = defined $sline ? substr($sql, $start, $end - $start) : '';
+$stmt =~ s/\s+/ /g; $stmt =~ s/^ | $//g;
+printf "%d\t%d\t%s\n", $n - 2, ($sline // $line) - 1, length($stmt) > 200 ? substr($stmt, 0, 200) . '...' : $stmt;
+PERL
+)
+
 apply() {
-  local f="$1" sum
+  local f="$1" sum t0 err sql at where pos
   sum=$(sha256sum "$f" | cut -c1-64)
-  echo "  $f"
-  { echo "SET search_path TO ${SCHEMA}, public;"; rewrite "$f"; } | psql_db -f - >/dev/null
+  echo "  start   $f"
+  t0=$(now_ms)
+  err=$(mktemp); sql=$(mktemp)
+  { echo "SET search_path TO ${SCHEMA}, public; SET client_min_messages TO warning;"; rewrite "$f"; } > "$sql"
+  if ! psql_db -v VERBOSITY=verbose -f - < "$sql" >/dev/null 2>"$err"; then
+    # psql:<stdin>:<line>: ERROR:  <SQLSTATE>: <message>, then DETAIL / HINT / LINE + caret / CONTEXT / LOCATION.
+    at=$(sed -n 's/^psql:<stdin>:\([0-9]*\): ERROR:.*/\1/p' "$err" | head -1)
+    where=$(perl -e "$LOCATE_PL" "${at:-999999999}" < "$sql")
+    # The server's position, from psql's "LINE <n>: <text>" and the caret under it (n: line within the statement).
+    pos=$(awk '/^LINE [0-9]+: / { n = $2; sub(/:$/, "", n); getline c; print "statement line " n ", column " index(c, "^") - length("LINE " n ": "); exit }' "$err")
+    printf 'FAILED file=%s statement=%s line=%s after_ms=%s position="%s" error="%s" statement_head="%s"\n' \
+      "$f" "$(cut -f1 <<<"$where")" "$(cut -f2 <<<"$where")" "$(( $(now_ms) - t0 ))" "${pos:-none}" \
+      "$(grep -v '^ *\^ *$' "$err" | sed -e 's/^psql:<stdin>:[0-9]*: //' -e "s/\"/'/g" -e 's/  */ /g' | paste -sd'|' | sed 's/|/ | /g')" \
+      "$(cut -f3- <<<"$where" | sed "s/\"/'/g")" >&2
+    rm -f "$err" "$sql"
+    exit 1
+  fi
+  [ -s "$err" ] && cat "$err" >&2   # warnings
+  rm -f "$err" "$sql"
   psql_db -v file="$f" -v sum="$sum" -v release="$RELEASE" <<SQL >/dev/null
 INSERT INTO ${SCHEMA}.sesame_schema_applied (file, sha256, release) VALUES (:'file', :'sum', :'release')
 ON CONFLICT (file) DO UPDATE SET sha256 = excluded.sha256, release = excluded.release, applied_at = now();
 SQL
+  echo "  applied $f ($(( $(now_ms) - t0 )) ms)"
 }
 
 listed() {
@@ -86,13 +148,16 @@ listed() {
   done < "$1"
 }
 
-echo "migrations (migrations/apply_order.txt):"
 # Command substitution, not <(...): a failed listing must stop the run.
-list=$(listed migrations/apply_order.txt migrations strict)
-for f in $list; do apply "$f"; done
+migrations=$(listed migrations/apply_order.txt migrations strict)
+seeds=$(listed microservices/idam/seed_environments.txt microservices/idam strict)
+pending=$(printf '%s\n' $migrations $seeds | grep -c . || true)
+echo "sesame-migrate release=$RELEASE $(psql --version): database $DB on $HOSTPORT as $ROLE (session user $SESSION_USER), $pending file(s) pending (every file runs on every run)"
+
+echo "migrations (migrations/apply_order.txt):"
+for f in $migrations; do apply "$f"; done
 
 echo "seeds, every environment (microservices/idam/seed_environments.txt):"
-list=$(listed microservices/idam/seed_environments.txt microservices/idam strict)
-for f in $list; do apply "$f"; done
+for f in $seeds; do apply "$f"; done
 
 echo "schema applied: $(psql_db -c "select count(*) from ${SCHEMA}.sesame_schema_applied where release = '${RELEASE//\'/}'") file(s), release $RELEASE"
