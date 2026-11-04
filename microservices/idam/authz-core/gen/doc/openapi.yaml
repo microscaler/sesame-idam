@@ -533,12 +533,15 @@ paths:
                 retention_days:
                   description: Days to retain events (0 = indefinite)
                   type: integer
+                  format: int32
                 archive_after_days:
                   description: Days before archival to cold storage
                   type: integer
+                  format: int32
                 delete_after_days:
                   description: Days before permanent deletion (must be >= retention_days)
                   type: integer
+                  format: int32
               example:
                 event_type: user_management
                 retention_days: 180
@@ -616,10 +619,13 @@ paths:
               properties:
                 retention_days:
                   type: integer
+                  format: int32
                 archive_after_days:
                   type: integer
+                  format: int32
                 delete_after_days:
                   type: integer
+                  format: int32
             example:
               retention_days: 365
               archive_after_days: 90
@@ -1071,6 +1077,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         default: 1
     Limit:
@@ -1078,6 +1085,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         maximum: 100
         default: 20
@@ -1106,12 +1114,15 @@ components:
       properties:
         total:
           type: integer
+          format: int64
           description: Total number of items
         limit:
           type: integer
+          format: int32
           description: Number of items per page
         offset:
           type: integer
+          format: int32
           description: Number of items to skip
         sort_by:
           type: string
@@ -1170,7 +1181,7 @@ components:
           description: Human-readable error message explaining the auth failure
         retry_after:
           type: integer
-          format: int64
+          format: int32
           description: Seconds to wait before retrying. 0 means immediate re-authentication required, not just a refresh.
         reason:
           type: string
@@ -1621,9 +1632,11 @@ components:
         limit:
           description: 'Max results (default: 50, max: 1000)'
           type: integer
+          format: int32
         offset:
           description: Pagination offset
           type: integer
+          format: int32
     AuditEventListResponse:
       description: Paginated list of audit events
       allOf:
@@ -1674,21 +1687,25 @@ components:
         total:
           description: Total event count matching filters
           type: integer
+          format: int64
         by_type:
           description: Event count grouped by event_type
           type: object
           additionalProperties:
             type: integer
+            format: int32
         by_severity:
           description: Event count grouped by severity
           type: object
           additionalProperties:
             type: integer
+            format: int32
         by_actor:
           description: Event count grouped by actor
           type: object
           additionalProperties:
             type: integer
+            format: int32
         time_range:
           description: Time range of events
           type: object
@@ -1770,12 +1787,15 @@ components:
         retention_days:
           description: Days to retain events (0 = indefinite)
           type: integer
+          format: int32
         archive_after_days:
           description: Days before archival to cold storage
           type: integer
+          format: int32
         delete_after_days:
           description: Days before permanent deletion
           type: integer
+          format: int32
         created_at:
           description: Policy creation time
           format: date-time

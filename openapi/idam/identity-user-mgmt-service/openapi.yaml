@@ -81,9 +81,11 @@ paths:
                 limit:
                   description: 'Max results (default: 50)'
                   type: integer
+                  format: int32
                 offset:
                   description: Pagination offset
                   type: integer
+                  format: int32
               example:
                 user_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c9
                 tenant_id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
@@ -103,10 +105,13 @@ paths:
                 properties:
                   total:
                     type: integer
+                    format: int64
                   page:
                     type: integer
+                    format: int32
                   page_size:
                     type: integer
+                    format: int32
                   has_more:
                     type: boolean
                   events:
@@ -310,10 +315,12 @@ paths:
                     format: uuid
                   total_count:
                     type: integer
+                    format: int64
                   by_type:
                     type: object
                     additionalProperties:
                       type: integer
+                      format: int32
                   time_range:
                     type: object
                     properties:
@@ -666,12 +673,14 @@ paths:
         in: query
         schema:
           type: integer
+          format: int32
           minimum: 1
           default: 1
       - name: limit
         in: query
         schema:
           type: integer
+          format: int32
           minimum: 1
           maximum: 100
           default: 20
@@ -1331,6 +1340,7 @@ paths:
                     format: uuid
                   factors_removed:
                     type: integer
+                    format: int32
                     minimum: 0
         '403':
           description: Not a tenant administrator, the caller's own account, or a user holding a role the caller cannot grant
@@ -1970,6 +1980,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         default: 1
     Limit:
@@ -1977,6 +1988,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         maximum: 100
         default: 20
@@ -2316,6 +2328,7 @@ components:
           type: string
         expires_in:
           type: integer
+          format: int32
         token_type:
           type: string
         scope:
@@ -2402,6 +2415,7 @@ components:
           - Bearer
         expires_in:
           type: integer
+          format: int32
         scope:
           type:
           - string
@@ -2452,10 +2466,13 @@ components:
             $ref: '#/components/schemas/UserQueryItem'
         total:
           type: integer
+          format: int64
         page:
           type: integer
+          format: int32
         limit:
           type: integer
+          format: int32
         has_more:
           type: boolean
       required:
@@ -2632,6 +2649,7 @@ components:
           description: Additional guidance for resolving the error
         retry_after:
           type: integer
+          format: int32
           description: Retry-After seconds (only for rate_limited)
       example:
         error: invalid_request
@@ -2660,12 +2678,15 @@ components:
         total:
           description: Total number of items
           type: integer
+          format: int64
         page:
           description: Current page number
           type: integer
+          format: int32
         page_size:
           description: Items per page
           type: integer
+          format: int32
         has_more:
           description: Whether more results exist
           type: boolean

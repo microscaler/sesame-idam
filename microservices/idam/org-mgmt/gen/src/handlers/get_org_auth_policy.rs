@@ -25,7 +25,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "updated_at")]
-    pub updated_at: Option<i32>,
+    pub updated_at: Option<i64>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

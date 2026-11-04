@@ -31,11 +31,11 @@ pub struct Response {
     pub archived_reason: Option<String>,
 
     #[serde(rename = "created_at")]
-    pub created_at: i32,
+    pub created_at: i64,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "expires_at")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "metadata")]
@@ -58,7 +58,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "revoked_at")]
-    pub revoked_at: Option<i32>,
+    pub revoked_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "revoked_by_user_id")]

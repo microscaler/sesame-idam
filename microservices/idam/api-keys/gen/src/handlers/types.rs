@@ -10,10 +10,10 @@ pub struct ApiKey {
 
     pub api_key_id: String,
 
-    pub created_at: i32,
+    pub created_at: i64,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -37,10 +37,10 @@ pub struct ApiKeyCreateResponse {
     pub api_key_id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_at: Option<i32>,
+    pub created_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -73,14 +73,14 @@ pub struct ApiKeyListResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_order: Option<String>,
 
-    pub total_keys: i32,
+    pub total_keys: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ApiKeyUsageResponse {
     pub date: String,
 
-    pub total_validations: i32,
+    pub total_validations: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -89,7 +89,7 @@ pub struct ApiKeyValidationResponse {
     pub api_key_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_expired: Option<bool>,
@@ -118,7 +118,7 @@ pub struct ArchivedApiKey {
     pub reason: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub revoked_at: Option<i32>,
+    pub revoked_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_by_user_id: Option<String>,
@@ -136,7 +136,7 @@ pub struct ArchivedApiKeyListResponse {
 
     pub page_size: i32,
 
-    pub total_keys: i32,
+    pub total_keys: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -166,10 +166,10 @@ pub struct CreateApiKeyResponse {
     pub api_key_id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_at: Option<i32>,
+    pub created_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -225,16 +225,16 @@ pub struct FetchActiveApiKeysResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_order: Option<String>,
 
-    pub total: i32,
+    pub total: i64,
 
-    pub total_keys: i32,
+    pub total_keys: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct FetchApiKeyUsageResponse {
     pub date: String,
 
-    pub total_validations: i32,
+    pub total_validations: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -246,10 +246,10 @@ pub struct FetchArchivedApiKeyResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub archived_reason: Option<String>,
 
-    pub created_at: i32,
+    pub created_at: i64,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -266,7 +266,7 @@ pub struct FetchArchivedApiKeyResponse {
     pub reason: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub revoked_at: Option<i32>,
+    pub revoked_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_by_user_id: Option<String>,
@@ -291,9 +291,9 @@ pub struct FetchArchivedApiKeysResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 
-    pub total_keys: i32,
+    pub total_keys: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -323,7 +323,7 @@ pub struct PaginatedResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -348,10 +348,10 @@ pub struct UpdateApiKeyResponse {
 
     pub api_key_id: String,
 
-    pub created_at: i32,
+    pub created_at: i64,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -379,7 +379,7 @@ pub struct ValidateApiKeyResponse {
     pub api_key_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_expired: Option<bool>,
@@ -410,7 +410,7 @@ pub struct ValidateOrgApiKeyResponse {
     pub api_key_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_expired: Option<bool>,
@@ -443,7 +443,7 @@ pub struct ValidatePersonalApiKeyResponse {
     pub api_key_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_expired: Option<bool>,

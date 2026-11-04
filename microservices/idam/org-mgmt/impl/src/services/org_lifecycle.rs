@@ -529,7 +529,7 @@ pub struct OrgMemberSummary {
 #[derive(Debug)]
 pub struct PaginatedMembers {
     pub items: Vec<OrgMemberSummary>,
-    pub total: i32,
+    pub total: i64,
     pub page: i32,
     pub page_size: i32,
 }
@@ -624,7 +624,7 @@ pub fn list_org_members<E: LifeExecutor>(
         memberships.retain(|m| m.role == role);
     }
 
-    let total = i32::try_from(memberships.len()).unwrap_or(i32::MAX);
+    let total = i64::try_from(memberships.len()).unwrap_or(i64::MAX);
     let page_items: Vec<_> = memberships
         .into_iter()
         .skip(usize::try_from(offset).unwrap_or(usize::MAX))

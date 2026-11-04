@@ -1019,6 +1019,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         default: 1
     Limit:
@@ -1026,6 +1027,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         maximum: 100
         default: 20
@@ -1376,6 +1378,7 @@ components:
           description: Human-readable error message
         retry_after:
           type: integer
+          format: int32
           description: Retry-After seconds (only for rate_limited)
         hint:
           type: string
@@ -1633,6 +1636,7 @@ components:
               $ref: '#/components/schemas/McpAgent'
           total:
             type: integer
+            format: int64
             description: Total number of agents
         required:
         - agents
@@ -1666,6 +1670,7 @@ components:
           example: Bearer
         expires_in:
           type: integer
+          format: int32
           description: Token lifetime in seconds
         scope:
           type: string
@@ -1951,6 +1956,7 @@ components:
           type: string
         expires_in:
           type: integer
+          format: int32
         token_type:
           type: string
         scope:
@@ -2213,6 +2219,7 @@ components:
           description: Always "Bearer"
         expires_in:
           type: integer
+          format: int32
           description: Access token lifetime in seconds
         refresh_token:
           type: string
@@ -2300,6 +2307,7 @@ components:
           description: Token scope level
         expires_in:
           type: integer
+          format: int32
           default: 3600
           description: 'Token lifetime in seconds (default: 1 hour)'
     TokenListResponse:
@@ -2385,12 +2393,14 @@ components:
           description: Always "Bearer"
         expires_in:
           type: integer
+          format: int32
           description: 'Access token lifetime in seconds (default: 900)'
         refresh_token:
           type: string
           description: Refresh token for obtaining new access tokens
         refresh_token_expires_in:
           type: integer
+          format: int32
           description: 'Refresh token lifetime in seconds (default: 2592000 = 30 days)'
         user_id:
           type: string
@@ -2810,10 +2820,13 @@ components:
             $ref: '#/components/schemas/UserQueryItem'
         total:
           type: integer
+          format: int64
         page:
           type: integer
+          format: int32
         limit:
           type: integer
+          format: int32
         has_more:
           type: boolean
     PaginatedResponse:
@@ -2821,12 +2834,15 @@ components:
       properties:
         total:
           type: integer
+          format: int64
           description: Total number of items
         page:
           type: integer
+          format: int32
           description: Current page number (1-indexed)
         page_size:
           type: integer
+          format: int32
           description: Number of items per page
         has_more:
           type: boolean

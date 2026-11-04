@@ -59,7 +59,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "total")]
-    pub total: Option<i32>,
+    pub total: Option<i64>,
 }
 
 impl TryFrom<HandlerRequest> for Request {

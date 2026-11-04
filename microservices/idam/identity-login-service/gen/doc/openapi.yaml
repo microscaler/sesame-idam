@@ -660,6 +660,7 @@ paths:
                     description: Human-readable message for the user
                   expires_in:
                     type: integer
+                    format: int32
                     description: Token expiry time in minutes (e.g., 15)
                     example: 15
                   token_type:
@@ -3321,6 +3322,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         default: 1
     Limit:
@@ -3328,6 +3330,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         maximum: 100
         default: 20
@@ -3421,6 +3424,7 @@ components:
           description: Human-readable error message
         retry_after:
           type: integer
+          format: int32
           description: Retry-After seconds (only for rate_limited)
         hint:
           type: string
@@ -3472,12 +3476,14 @@ components:
           description: Always "Bearer"
         expires_in:
           type: integer
+          format: int32
           description: 'Access token lifetime in seconds (default: 900)'
         refresh_token:
           type: string
           description: Refresh token for obtaining new access tokens
         refresh_token_expires_in:
           type: integer
+          format: int32
           description: 'Refresh token lifetime in seconds (default: 2592000 = 30 days)'
         user_id:
           type: string
@@ -3518,7 +3524,7 @@ components:
           - billing:read
         token_version:
           type: integer
-          format: int64
+          format: int32
           description: Monotonically increasing token version (for revocation). Each token issue increments this value. Used by consumers to detect stale permissions.
           example: 42
       example: *id039
@@ -3560,6 +3566,7 @@ components:
           description: Opaque, single-sign-in value for the next step (/auth/mfa/verify, /auth/passkeys/*, enrolment)
         expires_in:
           type: integer
+          format: int32
           minimum: 0
           description: Seconds until the sign-in step expires
         methods:
@@ -3650,6 +3657,7 @@ components:
           type: string
         expires_in:
           type: integer
+          format: int32
           minimum: 0
     MfaFactor:
       type: object
@@ -3672,9 +3680,11 @@ components:
           type: string
         created_at:
           type: integer
+          format: int64
           description: Unix seconds
         last_used_at:
           type: [integer, 'null']
+          format: int64
           description: Unix seconds of the last successful use
         synced:
           type: [boolean, 'null']
@@ -3695,6 +3705,7 @@ components:
             $ref: '#/components/schemas/MfaFactor'
         recovery_codes_left:
           type: integer
+          format: int32
           minimum: 0
         required:
           type: string
@@ -3751,8 +3762,10 @@ components:
           description: Key URI for a QR code
         digits:
           type: integer
+          format: int32
         period:
           type: integer
+          format: int32
     MfaTotpConfirmRequest:
       type: object
       additionalProperties: false
@@ -4154,6 +4167,7 @@ components:
           description: Always "Bearer"
         expires_in:
           type: integer
+          format: int32
           description: 'Access token lifetime in seconds (default: 900)'
         scope:
           type: string
@@ -4269,6 +4283,7 @@ components:
           description: Always "Bearer"
         expires_in:
           type: integer
+          format: int32
           description: Access token lifetime in seconds
         refresh_token:
           type: string
@@ -4367,6 +4382,7 @@ components:
           description: Whether SMS magic link was sent
         expires_in:
           type: integer
+          format: int32
           example: 900
           description: Seconds until expiration
       example: *id060
@@ -4394,6 +4410,7 @@ components:
       properties:
         version:
           type: integer
+          format: int32
           description: Entitlements version, bumped on permission changes
         permissions:
           type: array
@@ -4631,6 +4648,7 @@ components:
           description: The request can still be completed (not expired, not used)
         expires_in:
           type: integer
+          format: int32
           minimum: 0
           description: Seconds until the request expires; 0 when it is not active
         initiate_login_uri:
@@ -4692,14 +4710,14 @@ components:
           - Bearer
         expires_in:
           type: integer
-          format: int64
+          format: int32
         id_token:
           type: string
         refresh_token:
           type: string
         refresh_token_expires_in:
           type: integer
-          format: int64
+          format: int32
         scope:
           type: string
     OidcUserInfoResponse:
@@ -4980,7 +4998,7 @@ components:
       properties:
         overlap_seconds:
           type: integer
-          format: int64
+          format: int32
           minimum: 0
           maximum: 86400
           default: 300
@@ -5059,6 +5077,7 @@ components:
           type: [string, 'null']
         config_version:
           type: integer
+          format: int32
         enabled:
           type: boolean
         last_rotated_at:
@@ -5081,3 +5100,4 @@ components:
       properties:
         config_version:
           type: integer
+          format: int32

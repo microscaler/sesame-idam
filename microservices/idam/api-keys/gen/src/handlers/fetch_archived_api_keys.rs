@@ -55,10 +55,10 @@ pub struct Response {
     pub page_size: i32,
 
     #[serde(rename = "total")]
-    pub total: i32,
+    pub total: i64,
 
     #[serde(rename = "total_keys")]
-    pub total_keys: i32,
+    pub total_keys: i64,
 }
 
 impl TryFrom<HandlerRequest> for Request {
@@ -110,7 +110,7 @@ impl TryFrom<HandlerRequest> for Request {
         if let Some(v) = req.get_query_param("page_size") {
             // Built once, not per request: decode_param_value reads only its types.
             static SCHEMA: std::sync::LazyLock<Value> = std::sync::LazyLock::new(
-                || serde_json::json!({"default":10,"maximum":100,"minimum":1,"type":"integer"}),
+                || serde_json::json!({"default":10,"format":"int32","maximum":100,"minimum":1,"type":"integer"}),
             );
             data_map.insert(
                 "page_size".to_string(),
@@ -124,7 +124,7 @@ impl TryFrom<HandlerRequest> for Request {
         if let Some(v) = req.get_query_param("page_number") {
             // Built once, not per request: decode_param_value reads only its types.
             static SCHEMA: std::sync::LazyLock<Value> = std::sync::LazyLock::new(
-                || serde_json::json!({"default":0,"minimum":0,"type":"integer"}),
+                || serde_json::json!({"default":0,"format":"int32","minimum":0,"type":"integer"}),
             );
             data_map.insert(
                 "page_number".to_string(),

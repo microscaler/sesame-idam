@@ -36,7 +36,7 @@ pub struct Response {
     pub date: String,
 
     #[serde(rename = "total_validations")]
-    pub total_validations: i32,
+    pub total_validations: i64,
 }
 
 impl TryFrom<HandlerRequest> for Request {

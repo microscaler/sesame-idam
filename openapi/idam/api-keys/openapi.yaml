@@ -149,6 +149,7 @@ paths:
         in: query
         schema:
           type: integer
+          format: int32
           minimum: 1
           maximum: 100
           default: 10
@@ -156,6 +157,7 @@ paths:
         in: query
         schema:
           type: integer
+          format: int32
           minimum: 0
           default: 0
       responses:
@@ -293,6 +295,7 @@ paths:
         in: query
         schema:
           type: integer
+          format: int32
           minimum: 1
           maximum: 100
           default: 10
@@ -300,6 +303,7 @@ paths:
         in: query
         schema:
           type: integer
+          format: int32
           minimum: 0
           default: 0
       responses:
@@ -831,6 +835,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         default: 1
     Limit:
@@ -838,6 +843,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         maximum: 100
         default: 20
@@ -906,6 +912,7 @@ components:
           type:
           - integer
           - 'null'
+          format: int32
           description: Number of days until the key expires (omit for no expiry)
           example: 90
         metadata:
@@ -926,6 +933,7 @@ components:
           type:
           - integer
           - 'null'
+          format: int32
           description: New expiration (in days from now)
         metadata:
           type:
@@ -1050,12 +1058,15 @@ components:
               $ref: '#/components/schemas/ApiKey'
           total_keys:
             type: integer
+            format: int64
             description: Total number of active API keys matching the query
           current_page:
             type: integer
+            format: int32
             description: Current page number
           page_size:
             type: integer
+            format: int32
             description: Number of items per page
           has_more_results:
             type: boolean
@@ -1167,6 +1178,7 @@ components:
           description: The date for which usage is reported
         total_validations:
           type: integer
+          format: int64
           description: Total number of API key validation calls on this date
       example: *id022
       required:
@@ -1204,12 +1216,15 @@ components:
               $ref: '#/components/schemas/ArchivedApiKey'
           total_keys:
             type: integer
+            format: int64
             description: Total number of archived API keys matching the query
           current_page:
             type: integer
+            format: int32
             description: Current page number
           page_size:
             type: integer
+            format: int32
             description: Number of items per page
           has_more_results:
             type: boolean
@@ -1269,9 +1284,11 @@ components:
       properties:
         imported_count:
           type: integer
+          format: int32
           description: Number of keys successfully imported
         failed_count:
           type: integer
+          format: int32
           description: Number of keys that failed to import
         errors:
           type: array
@@ -1280,6 +1297,7 @@ components:
             properties:
               index:
                 type: integer
+                format: int32
               error:
                 type: string
       required:
@@ -1321,6 +1339,7 @@ components:
           description: Additional guidance for resolving the error
         retry_after:
           type: integer
+          format: int32
           description: Retry-After seconds (only for rate_limited)
       example:
         error: invalid_request
@@ -1330,12 +1349,15 @@ components:
       properties:
         total:
           type: integer
+          format: int64
           description: Total number of items
         page:
           type: integer
+          format: int32
           description: Current page number (1-indexed)
         page_size:
           type: integer
+          format: int32
           description: Number of items per page
         has_more:
           type: boolean

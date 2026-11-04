@@ -574,7 +574,7 @@ pub struct MfaEnrolledResponse {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MfaFactor {
-    pub created_at: i32,
+    pub created_at: i64,
 
     pub id: String,
 
@@ -583,7 +583,7 @@ pub struct MfaFactor {
     pub label: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_used_at: Option<i32>,
+    pub last_used_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub synced: Option<bool>,
@@ -2258,7 +2258,7 @@ pub struct TokenExchangeResponse {
     pub expires_in: i32,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub iat: Option<i32>,
+    pub iat: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iss: Option<String>,

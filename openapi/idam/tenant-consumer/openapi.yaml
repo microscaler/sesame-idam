@@ -260,6 +260,7 @@ components:
       in: query
       schema:
         type: integer
+        format: int32
         minimum: 1
         maximum: 200
         default: 50
@@ -280,16 +281,20 @@ components:
     X-RateLimit-Limit:
       schema:
         type: integer
+        format: int32
     X-RateLimit-Remaining:
       schema:
         type: integer
+        format: int32
     X-RateLimit-Reset:
       schema:
         type: integer
+        format: int32
       description: Unix seconds when the window resets
     Retry-After:
       schema:
         type: integer
+        format: int32
       description: Seconds to wait before retrying
 
   responses:
@@ -367,6 +372,7 @@ components:
           type: string
         expires_in:
           type: integer
+          format: int32
         token_type:
           type: string
           const: Bearer
@@ -375,6 +381,7 @@ components:
           format: uuid
         refresh_token_expires_in:
           type: integer
+          format: int32
         organization_id:
           type: [string, 'null']
           format: uuid

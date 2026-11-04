@@ -38,11 +38,11 @@ pub struct Response {
     pub api_key_id: String,
 
     #[serde(rename = "created_at")]
-    pub created_at: i32,
+    pub created_at: i64,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "expires_at")]
-    pub expires_at: Option<i32>,
+    pub expires_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "metadata")]

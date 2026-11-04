@@ -48,7 +48,7 @@ pub struct Response {
     pub time_range: Option<serde_json::Value>,
 
     #[serde(rename = "total")]
-    pub total: i32,
+    pub total: i64,
 }
 
 impl TryFrom<HandlerRequest> for Request {

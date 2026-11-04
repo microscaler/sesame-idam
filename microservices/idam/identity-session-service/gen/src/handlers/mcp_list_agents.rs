@@ -31,7 +31,7 @@ pub struct Response {
     pub page_size: i32,
 
     #[serde(rename = "total")]
-    pub total: i32,
+    pub total: i64,
 }
 
 impl TryFrom<HandlerRequest> for Request {

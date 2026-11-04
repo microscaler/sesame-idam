@@ -399,7 +399,7 @@ pub struct McpAgent {
 pub struct McpAgentListResponse {
     pub agents: Vec<McpAgent>,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -452,7 +452,7 @@ pub struct McpListAgentsResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -498,7 +498,7 @@ pub struct McpValidateResponse {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MfaFactor {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_at: Option<i32>,
+    pub created_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub factor_type: Option<String>,
@@ -799,7 +799,7 @@ pub struct PaginatedResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1093,7 +1093,7 @@ pub struct User {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub can_create_orgs: Option<bool>,
 
-    pub created_at: i32,
+    pub created_at: i64,
 
     pub email: String,
 
@@ -1107,7 +1107,7 @@ pub struct User {
     pub has_password: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_active_at: Option<i32>,
+    pub last_active_at: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_name: Option<String>,
@@ -1249,7 +1249,7 @@ pub struct UserQueryResponse {
     pub page: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total: Option<i32>,
+    pub total: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub users: Option<Vec<UserQueryItem>>,

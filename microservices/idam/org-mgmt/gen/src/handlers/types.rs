@@ -48,7 +48,7 @@ pub struct ApplicationListResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -478,7 +478,7 @@ pub struct FetchScimGroupsResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -489,7 +489,7 @@ pub struct FetchUsersInOrgResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -503,7 +503,7 @@ pub struct FetchWebhookSubscriptionsResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subscriptions: Option<Vec<WebhookSubscription>>,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -530,7 +530,7 @@ pub struct GetOrgAuthPolicyResponse {
     pub require: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<i32>,
+    pub updated_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -543,7 +543,7 @@ pub struct GetRolePermissionsResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -613,7 +613,7 @@ pub struct ListApplicationsResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -636,7 +636,7 @@ pub struct ListPermissionsResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -649,7 +649,7 @@ pub struct ListRolesResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -735,7 +735,7 @@ pub struct OrgAuthPolicy {
     pub require: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<i32>,
+    pub updated_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -810,7 +810,7 @@ pub struct OrgListResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -868,7 +868,7 @@ pub struct PaginatedResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -879,7 +879,7 @@ pub struct PendingInvitesResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -907,7 +907,7 @@ pub struct PermissionListResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -932,7 +932,7 @@ pub struct QueryOrgsResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1012,7 +1012,7 @@ pub struct RoleListResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1122,7 +1122,7 @@ pub struct ScimGroupsResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1140,7 +1140,7 @@ pub struct ScimListUsersResponse {
     pub start_index: i32,
 
     #[serde(rename = "totalResults")]
-    pub total_results: i32,
+    pub total_results: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1242,7 +1242,7 @@ pub struct ScimUserListResponse {
     pub start_index: i32,
 
     #[serde(rename = "totalResults")]
-    pub total_results: i32,
+    pub total_results: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1293,7 +1293,7 @@ pub struct SetOrgAuthPolicyResponse {
     pub require: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<i32>,
+    pub updated_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1474,7 +1474,7 @@ pub struct UsersInOrgResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -1533,7 +1533,7 @@ pub struct WebhookSubscription {
     pub subscription_id: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_deliveries: Option<i32>,
+    pub total_deliveries: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
@@ -1545,7 +1545,7 @@ pub struct WebhookSubscriptionListResponse {
     pub subscriptions: Option<Vec<WebhookSubscription>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total: Option<i32>,
+    pub total: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

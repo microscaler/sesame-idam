@@ -353,7 +353,7 @@ pub struct FetchUserOauthTokensResponse {
 
     pub tokens: Vec<serde_json::Value>,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -393,7 +393,7 @@ pub struct GetUserAuditEventsResponse {
     pub page_size: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total: Option<i32>,
+    pub total: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -405,7 +405,7 @@ pub struct GetUserEventCountResponse {
     pub time_range: Option<serde_json::Value>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_count: Option<i32>,
+    pub total_count: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
@@ -572,7 +572,7 @@ pub struct PaginatedResponse {
 
     pub page_size: i32,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -596,7 +596,7 @@ pub struct QueryUsersResponse {
 
     pub page: i32,
 
-    pub total: i32,
+    pub total: i64,
 
     pub users: Vec<UserQueryItem>,
 }
@@ -766,7 +766,7 @@ pub struct UserQueryResponse {
 
     pub page: i32,
 
-    pub total: i32,
+    pub total: i64,
 
     pub users: Vec<UserQueryItem>,
 }

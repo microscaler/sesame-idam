@@ -38,7 +38,7 @@ pub struct Response {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "total_count")]
-    pub total_count: Option<i32>,
+    pub total_count: Option<i64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "user_id")]

@@ -179,7 +179,7 @@ pub struct AuditEventStats {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_range: Option<serde_json::Value>,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -473,7 +473,7 @@ pub struct GetAuditStatsResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_range: Option<serde_json::Value>,
 
-    pub total: i32,
+    pub total: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -496,7 +496,7 @@ pub struct ListAuditEventsResponse {
     pub sort_order: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total: Option<i32>,
+    pub total: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -527,7 +527,7 @@ pub struct PaginatedResponse {
     pub sort_order: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total: Option<i32>,
+    pub total: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -618,7 +618,7 @@ pub struct SearchAuditEventsResponse {
     pub sort_order: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total: Option<i32>,
+    pub total: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

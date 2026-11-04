@@ -33,7 +33,7 @@ pub struct Response {
     pub tokens: Vec<serde_json::Value>,
 
     #[serde(rename = "total")]
-    pub total: i32,
+    pub total: i64,
 }
 
 impl TryFrom<HandlerRequest> for Request {

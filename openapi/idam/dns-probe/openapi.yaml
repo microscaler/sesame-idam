@@ -99,6 +99,7 @@ components:
           description: 'When failed: unreachable, http, malformed, bad_name or internal'
         rcode:
           type: integer
+          format: int32
         ad:
           type: boolean
         signed:
@@ -113,10 +114,13 @@ components:
             type: string
         ttl:
           type: [integer, 'null']
+          format: int32
         negative_ttl:
           type: [integer, 'null']
+          format: int32
         ede:
           type: [integer, 'null']
+          format: int32
     Refusal:
       type: object
       required:
