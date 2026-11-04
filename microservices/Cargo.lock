@@ -3272,7 +3272,7 @@ dependencies = [
  "p256",
  "p384",
  "pem",
- "rand 0.8.6",
+ "rand 0.8.8",
  "rsa",
  "serde",
  "serde_json",
@@ -3981,7 +3981,7 @@ dependencies = [
  "num-integer",
  "num-iter",
  "num-traits",
- "rand 0.8.6",
+ "rand 0.8.8",
  "smallvec",
  "zeroize",
 ]
@@ -5049,9 +5049,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.8.6"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ca0ecfa931c29007047d1bc58e623ab12e5590e8c7cc53200d5202b69266d8a"
+checksum = "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
@@ -5630,7 +5630,7 @@ dependencies = [
  "bytes",
  "num-traits",
  "postgres-types",
- "rand 0.8.6",
+ "rand 0.8.8",
  "rkyv",
  "serde",
  "serde_json",
@@ -6136,7 +6136,7 @@ dependencies = [
  "prometheus 0.13.4",
  "proptest",
  "psl",
- "rand 0.8.6",
+ "rand 0.10.2",
  "redis 0.25.5",
  "regex",
  "ring",
@@ -6177,7 +6177,7 @@ dependencies = [
  "may",
  "may_minihttp",
  "may_postgres",
- "rand 0.8.6",
+ "rand 0.10.2",
  "ring",
  "rstest",
  "rstest-bdd",
@@ -6350,7 +6350,7 @@ dependencies = [
  "may_postgres",
  "microscaler-timing",
  "openssl",
- "rand 0.8.6",
+ "rand 0.10.2",
  "redis 0.25.5",
  "reqwest",
  "ring",
@@ -6420,7 +6420,7 @@ dependencies = [
  "may_postgres",
  "microscaler-timing",
  "prometheus 0.13.4",
- "rand 0.8.6",
+ "rand 0.10.2",
  "redis 0.25.5",
  "ring",
  "rsa",
@@ -6556,7 +6556,7 @@ dependencies = [
  "may",
  "may_minihttp",
  "may_postgres",
- "rand 0.8.6",
+ "rand 0.10.2",
  "redis 0.25.5",
  "ring",
  "rstest",
