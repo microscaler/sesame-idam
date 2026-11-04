@@ -1152,6 +1152,17 @@ No runtime code changed and no build or test command was run.
 - Publish wiring: Tilt ConfigMap + pact-manager mapping.
 - Verified against local login binary on `:18081` (2/2 provider, 6/6 consumer).
 
+## [2026-08-12] ops | Zot PVC cutover 120Gi → 40Gi
+
+- Recreated `registry/zot-data` on new 40Gi PV (`pvc-b901e7e4-…`); rsync `-aH` from old volume; deleted old 120Gi PV.
+- Retain-2 policy already live; sample repos show ≤2 tags; `/v2/` healthy after cutover.
+
+## [2026-08-12] fix | authz HandlerResponse.sse + Zot registry publish
+
+- Compile: authz-core `HandlerResponse` missing `sse` → set `sse: None`.
+- Registry: Zot PVC ENOSPC (60Gi) caused digest-mismatch pushes; expanded to 120Gi (`zot-registry.yaml`).
+- After expand, Docker schema2 `docker push` → 415 MANIFEST_INVALID; Tilt now publishes with `oci-mediatypes=true` via buildx. Verified login-service image publish.
+
 ## [2026-10-27] ADR-008 phase A | TOTP, passkeys, recovery codes, org policy; phase B designs
 
 - Built: MFA gate after every first factor (login, email code, magic link, SMS, social) in identity-login
