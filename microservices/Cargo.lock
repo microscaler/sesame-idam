@@ -359,7 +359,7 @@ dependencies = [
  "bytes",
  "form_urlencoded",
  "futures-util",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.10.1",
@@ -392,7 +392,7 @@ checksum = "08c78f31d7b1291f7ee735c1c6780ccde7785daae9a9206026862dab7d8792d1"
 dependencies = [
  "bytes",
  "futures-core",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body 1.0.1",
  "http-body-util",
  "mime",
@@ -426,7 +426,7 @@ dependencies = [
  "bytesize",
  "cookie",
  "expect-json",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body-util",
  "hyper 1.10.1",
  "hyper-util",
@@ -670,7 +670,7 @@ dependencies = [
  "flate2",
  "hmac 0.13.0",
  "http 0.2.12",
- "http 1.4.2",
+ "http 1.5.0",
  "jsonschema",
  "jsonwebtoken",
  "libc",
@@ -917,7 +917,7 @@ version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1820,7 +1820,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2386,7 +2386,7 @@ dependencies = [
  "fnv",
  "futures-core",
  "futures-sink",
- "http 1.4.2",
+ "http 1.5.0",
  "indexmap",
  "slab",
  "tokio",
@@ -2559,9 +2559,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.4.2"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6970f50e31d6fc17d3fa27329444bfa74e196cf62e95052a3f6fee181dba6425"
+checksum = "918d3568bebf352712bc2ef3d46a8bcf1a75b373be6539de198e9105cbbf9ce0"
 dependencies = [
  "bytes",
  "itoa",
@@ -2585,7 +2585,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
 dependencies = [
  "bytes",
- "http 1.4.2",
+ "http 1.5.0",
 ]
 
 [[package]]
@@ -2596,7 +2596,7 @@ checksum = "b021d93e26becf5dc7e1b75b1bed1fd93124b374ceb73f43d4d4eafec896a64a"
 dependencies = [
  "bytes",
  "futures-core",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body 1.0.1",
  "pin-project-lite",
 ]
@@ -2678,7 +2678,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "h2 0.4.15",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body 1.0.1",
  "httparse",
  "httpdate",
@@ -2695,7 +2695,7 @@ version = "0.27.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33ca68d021ef39cf6463ab54c1d0f5daf03377b70561305bb89a8f83aab66e0f"
 dependencies = [
- "http 1.4.2",
+ "http 1.5.0",
  "hyper 1.10.1",
  "hyper-util",
  "log",
@@ -2730,14 +2730,14 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body 1.0.1",
  "hyper 1.10.1",
  "ipnet",
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.4",
  "tokio",
  "tower-service",
  "tracing",
@@ -3339,7 +3339,7 @@ dependencies = [
  "either",
  "futures",
  "home",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.10.1",
@@ -3372,7 +3372,7 @@ dependencies = [
  "chrono",
  "derive_more 2.1.1",
  "form_urlencoded",
- "http 1.4.2",
+ "http 1.5.0",
  "json-patch",
  "k8s-openapi",
  "schemars",
@@ -3933,7 +3933,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4064,7 +4064,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05ed0821ab10d7703415a06df039c2493f3a7667999d8b4e104731de0c53796f"
 dependencies = [
  "derive_more 2.1.1",
- "http 1.4.2",
+ "http 1.5.0",
  "log",
  "once_cell",
  "regex",
@@ -4191,7 +4191,7 @@ version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2366db2dca4d2ad033cad11e6ee42844fd727007af5ad04a1730f4cb8163bf"
 dependencies = [
- "http 1.4.2",
+ "http 1.5.0",
  "opentelemetry",
  "opentelemetry-proto",
  "opentelemetry_sdk",
@@ -4964,7 +4964,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.4",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -5002,9 +5002,9 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.4",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5312,7 +5312,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.10.1",
@@ -5613,7 +5613,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-util",
- "http 1.4.2",
+ "http 1.5.0",
  "mime",
  "rand 0.9.4",
  "thiserror 2.0.18",
@@ -5690,7 +5690,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5767,7 +5767,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6124,7 +6124,7 @@ dependencies = [
  "hex",
  "hmac 0.13.0",
  "http 0.2.12",
- "http 1.4.2",
+ "http 1.5.0",
  "idna",
  "jsonwebtoken",
  "lazy_static",
@@ -6170,7 +6170,7 @@ dependencies = [
  "clap",
  "config 0.14.1",
  "hex",
- "http 1.4.2",
+ "http 1.5.0",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
@@ -6208,7 +6208,7 @@ dependencies = [
  "clap",
  "config 0.14.1",
  "http 0.2.12",
- "http 1.4.2",
+ "http 1.5.0",
  "may",
  "may_minihttp",
  "serde",
@@ -6231,7 +6231,7 @@ dependencies = [
  "config 0.14.1",
  "hex",
  "hmac 0.13.0",
- "http 1.4.2",
+ "http 1.5.0",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
@@ -6270,7 +6270,7 @@ dependencies = [
  "clap",
  "config 0.14.1",
  "http 0.2.12",
- "http 1.4.2",
+ "http 1.5.0",
  "may",
  "may_minihttp",
  "serde",
@@ -6317,7 +6317,7 @@ dependencies = [
  "clap",
  "config 0.14.1",
  "http 0.2.12",
- "http 1.4.2",
+ "http 1.5.0",
  "may",
  "may_minihttp",
  "serde",
@@ -6340,7 +6340,7 @@ dependencies = [
  "clap",
  "config 0.14.1",
  "hex",
- "http 1.4.2",
+ "http 1.5.0",
  "jsonwebtoken",
  "lifeguard",
  "lifeguard-derive",
@@ -6389,7 +6389,7 @@ dependencies = [
  "clap",
  "config 0.14.1",
  "http 0.2.12",
- "http 1.4.2",
+ "http 1.5.0",
  "may",
  "may_minihttp",
  "serde",
@@ -6410,7 +6410,7 @@ dependencies = [
  "chrono",
  "clap",
  "config 0.14.1",
- "http 1.4.2",
+ "http 1.5.0",
  "jsonwebtoken",
  "lifeguard",
  "lifeguard-derive",
@@ -6454,7 +6454,7 @@ dependencies = [
  "clap",
  "config 0.14.1",
  "http 0.2.12",
- "http 1.4.2",
+ "http 1.5.0",
  "may",
  "may_minihttp",
  "serde",
@@ -6475,7 +6475,7 @@ dependencies = [
  "chrono",
  "clap",
  "config 0.14.1",
- "http 1.4.2",
+ "http 1.5.0",
  "lazy_static",
  "lifeguard",
  "lifeguard-derive",
@@ -6513,7 +6513,7 @@ dependencies = [
  "clap",
  "config 0.14.1",
  "http 0.2.12",
- "http 1.4.2",
+ "http 1.5.0",
  "may",
  "may_minihttp",
  "serde",
@@ -6549,7 +6549,7 @@ dependencies = [
  "chrono",
  "clap",
  "config 0.14.1",
- "http 1.4.2",
+ "http 1.5.0",
  "lifeguard",
  "lifeguard-derive",
  "lifeguard-migrate",
@@ -6589,7 +6589,7 @@ dependencies = [
  "clap",
  "config 0.14.1",
  "http 0.2.12",
- "http 1.4.2",
+ "http 1.5.0",
  "may",
  "may_minihttp",
  "serde",
@@ -6948,7 +6948,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7305,7 +7305,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "h2 0.4.15",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.10.1",
@@ -7363,7 +7363,7 @@ dependencies = [
  "bitflags 2.13.0",
  "bytes",
  "futures-util",
- "http 1.4.2",
+ "http 1.5.0",
  "http-body 1.0.1",
  "mime",
  "pin-project-lite",
@@ -7504,7 +7504,7 @@ checksum = "6c01152af293afb9c7c2a57e4b559c5620b421f6d133261c60dd2d0cdb38e6b8"
 dependencies = [
  "bytes",
  "data-encoding",
- "http 1.4.2",
+ "http 1.5.0",
  "httparse",
  "log",
  "rand 0.9.4",
@@ -7744,7 +7744,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "841583fc36089d7d59419568ae157f43a5a03a2e5a81ba87c77d1596ef46e922"
 dependencies = [
  "base64 0.23.1",
- "http 1.4.2",
+ "http 1.5.0",
  "httparse",
  "log",
 ]
@@ -8084,7 +8084,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
