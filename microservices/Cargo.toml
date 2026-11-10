@@ -68,7 +68,7 @@ jsonwebtoken = { version = "11.1", features = ["rust_crypto"] }
 ring = "0.17"
 argon2 = "0.5"
 base64 = { version = "0.23", features = ["alloc"] }
-redis = { version = "0.25", features = ["aio", "tokio-comp", "connection-manager"] }
+redis = { version = "1.8", features = ["aio", "tokio-comp", "connection-manager"] }
 blake3 = "1.5"
 sha2 = "0.11"
 prometheus = "0.13"
