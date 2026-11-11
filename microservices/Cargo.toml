@@ -45,8 +45,8 @@ microscaler-timing = { git = "https://github.com/microscaler/microscaler-observa
 sesame_common = { package = "sesame-common", path = "idam/common" }
 # All shared libs are now modules within common, so individual workspace deps are removed
 # BRRTRouter: default-features = false so cross builds don't pull in jemalloc
-brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "cb10df40d46c83811aa5a3016388e5b92af8df6a", default-features = false }
-brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "cb10df40d46c83811aa5a3016388e5b92af8df6a" }
+brrtrouter = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "3724257b5821970a814024f2af4662add959e3ae", default-features = false }
+brrtrouter_macros = { git = "https://github.com/microscaler/BRRTRouter.git", rev = "3724257b5821970a814024f2af4662add959e3ae" }
 
 # Standard dependencies
 serde = { version = "1.0", features = ["derive"] }
@@ -91,9 +91,9 @@ ed25519-zebra = "5"
 p256 = { version = "0.13", features = ["ecdsa"] }
 
 # Database
-lifeguard = { git = "https://github.com/microscaler/lifeguard.git", rev = "d72423ca555580300f5d3ad56c99955b08b05ed1" }
-lifeguard-derive = { git = "https://github.com/microscaler/lifeguard.git", rev = "d72423ca555580300f5d3ad56c99955b08b05ed1" }
-lifeguard-migrate = { git = "https://github.com/microscaler/lifeguard.git", rev = "d72423ca555580300f5d3ad56c99955b08b05ed1" }
+lifeguard = { git = "https://github.com/microscaler/lifeguard.git", rev = "bf68b3ae0e446b435fffc0e6e0650c38ed936591" }
+lifeguard-derive = { git = "https://github.com/microscaler/lifeguard.git", rev = "bf68b3ae0e446b435fffc0e6e0650c38ed936591" }
+lifeguard-migrate = { git = "https://github.com/microscaler/lifeguard.git", rev = "bf68b3ae0e446b435fffc0e6e0650c38ed936591" }
 # The branch lifeguard follows: lifeguard-derive generates code against this crate, so the services must share it.
 may_postgres = { git = "https://github.com/microscaler/may_postgres.git", branch = "integration/microscaler-fork" }
 chrono = { version = "0.4", features = ["serde"] }
