@@ -16,7 +16,7 @@
 
 use anyhow::{Context, Result};
 use base64::Engine;
-use rand::Rng;
+use rand::RngExt;
 use redis::Commands;
 use sha2::{Digest, Sha256};
 
@@ -84,7 +84,7 @@ fn otp_attempts_key(channel: &str, tenant: &str, recipient: &str) -> String {
 /// Returns an error when Redis is unavailable — the caller keeps the HTTP
 /// response generic and skips the send.
 pub fn create_otp(channel: &str, tenant: &str, recipient: &str, user_id: &str) -> Result<String> {
-    let code = format!("{:06}", rand::thread_rng().gen_range(0..1_000_000));
+    let code = format!("{:06}", rand::rng().random_range(0..1_000_000));
     let mut conn = connection().context("otp: redis")?;
     let ttl = env_u64("OTP_TTL_SECS", 300);
     let value = format!("{}:{user_id}", sha256_hex(&code));
@@ -169,7 +169,7 @@ fn magic_key(tenant: &str, token_hash: &str) -> String {
 /// Returns an error when Redis is unavailable.
 pub fn create_magic_link(tenant: &str, user_id: &str) -> Result<String> {
     let mut raw = [0u8; 32];
-    rand::thread_rng().fill(&mut raw);
+    rand::rng().fill(&mut raw);
     let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
 
     let mut conn = connection().context("magiclink: redis")?;
@@ -198,7 +198,7 @@ fn reset_key(tenant: &str, token_hash: &str) -> String {
 /// Returns an error when Redis is unavailable.
 pub fn create_password_reset(tenant: &str, user_id: &str) -> Result<String> {
     let mut raw = [0u8; 32];
-    rand::thread_rng().fill(&mut raw);
+    rand::rng().fill(&mut raw);
     let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
 
     let mut conn = connection().context("pwreset: redis")?;

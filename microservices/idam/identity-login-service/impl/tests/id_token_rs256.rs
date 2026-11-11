@@ -13,7 +13,7 @@ fn id_tokens_are_rs256_with_the_configured_key() {
     let dir = std::env::temp_dir().join(format!("sesame-id-token-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
     // A throwaway key generated for this test; nothing private is committed.
-    let key = rsa::RsaPrivateKey::new(&mut rand::thread_rng(), 2048).expect("keygen");
+    let key = rsa::RsaPrivateKey::new(&mut rand08::thread_rng(), 2048).expect("keygen");
     let pem_path = dir.join("id-token.pem");
     std::fs::write(
         &pem_path,

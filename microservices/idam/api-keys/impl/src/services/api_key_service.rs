@@ -9,7 +9,7 @@
 use chrono::{Duration, Utc};
 use lifeguard::active_model::ActiveModelTrait;
 use lifeguard::{ColumnTrait, LifeError, LifeExecutor, LifeModelTrait};
-use rand::RngCore;
+use rand::Rng;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -62,7 +62,7 @@ impl ApiKeyService {
     #[must_use]
     pub fn generate_plaintext() -> String {
         let mut bytes = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut bytes);
+        rand::rng().fill_bytes(&mut bytes);
         format!("{KEY_PREFIX}{}", hex::encode(bytes))
     }
 

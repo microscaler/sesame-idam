@@ -6,7 +6,7 @@
 //! secret that lands outside the unlocked browser.
 
 use anyhow::{Context, Result};
-use rand::Rng;
+use rand::RngExt;
 use redis::Commands;
 use sha2::{Digest, Sha256};
 
@@ -77,7 +77,7 @@ fn attempts_key(tenant: &str, org_id: &str, user_id: &str) -> String {
 ///
 /// Returns when Redis is unavailable.
 pub fn create(tenant: &str, org_id: &str, user_id: &str) -> Result<String> {
-    let code = format!("{:06}", rand::thread_rng().gen_range(0..1_000_000));
+    let code = format!("{:06}", rand::rng().random_range(0..1_000_000));
     let mut conn = connection().context("owner_transfer_otp: redis")?;
     let ttl = ttl_secs();
     conn.set_ex::<_, _, ()>(otp_key(tenant, org_id, user_id), sha256_hex(&code), ttl)

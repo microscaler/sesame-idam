@@ -23,7 +23,7 @@
 
 use anyhow::{Context, Result};
 use base64::Engine;
-use rand::Rng;
+use rand::RngExt;
 use redis::Commands;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -74,7 +74,7 @@ pub fn ttl_secs() -> u64 {
 /// serialize.
 pub fn mint(payload: &CodePayload) -> Result<String> {
     let mut raw = [0u8; 32];
-    rand::thread_rng().fill(&mut raw);
+    rand::rng().fill(&mut raw);
     let code = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
 
     let json = serde_json::to_string(payload).context("authcode: serialize")?;
