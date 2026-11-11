@@ -457,7 +457,7 @@ mod tests {
     #[tokio::test]
     async fn test_health_endpoint() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         let response = server.get("/health").await;
         response.assert_status(StatusCode::OK);
@@ -467,7 +467,7 @@ mod tests {
     #[tokio::test]
     async fn test_flux_webhook_valid_payload() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         let payload = create_fluxcd_payload();
 
@@ -479,7 +479,7 @@ mod tests {
     #[tokio::test]
     async fn test_flux_webhook_invalid_payload_missing_fields() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         let payload = json!({
             "message": "Test message"
@@ -497,7 +497,7 @@ mod tests {
     #[tokio::test]
     async fn test_flux_webhook_invalid_severity() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         let mut payload = create_fluxcd_payload();
         payload
@@ -516,7 +516,7 @@ mod tests {
     #[tokio::test]
     async fn test_flux_webhook_get_notifications() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         // Send a notification
         let payload = create_fluxcd_payload();
@@ -540,7 +540,7 @@ mod tests {
     #[tokio::test]
     async fn test_flux_webhook_clear_notifications() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         // Send multiple notifications
         let payload = create_fluxcd_payload();
@@ -564,7 +564,7 @@ mod tests {
     #[tokio::test]
     async fn test_argo_webhook_handler() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         let payload = create_argocd_payload();
 
@@ -576,7 +576,7 @@ mod tests {
     #[tokio::test]
     async fn test_argo_webhook_get_notifications() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         // Send a notification
         let payload = create_argocd_payload();
@@ -594,7 +594,7 @@ mod tests {
     #[tokio::test]
     async fn test_argo_webhook_clear_notifications() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         // Send notifications
         let payload = create_argocd_payload();
@@ -612,7 +612,7 @@ mod tests {
     #[tokio::test]
     async fn test_segregated_storage() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         // Send FluxCD notification
         let flux_payload = create_fluxcd_payload();
@@ -644,7 +644,7 @@ mod tests {
     #[tokio::test]
     async fn test_generic_webhook_handler() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         let payload = json!({
             "eventType": "test-event",
@@ -659,7 +659,7 @@ mod tests {
     #[tokio::test]
     async fn test_generic_webhook_get_notifications() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         let payload = json!({
             "eventType": "test-event",
@@ -679,7 +679,7 @@ mod tests {
     #[tokio::test]
     async fn test_generic_webhook_rejects_flux_argo_paths() {
         let app = create_test_app();
-        let server = TestServer::new(app).unwrap();
+        let server = TestServer::new(app);
 
         let payload = json!({"message": "test"});
 

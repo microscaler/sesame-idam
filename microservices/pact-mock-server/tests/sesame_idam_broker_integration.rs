@@ -10,7 +10,7 @@ fn test_server() -> TestServer {
         "http://localhost:7174/saml/callback",
     );
     let app = pact_mock_server::sesame_idam_broker::build_app(state);
-    TestServer::new(app).expect("test server")
+    TestServer::new(app)
 }
 
 const API_KEY: &str = "ssoready_sk_test";
