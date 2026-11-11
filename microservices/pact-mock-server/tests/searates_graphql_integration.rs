@@ -10,7 +10,7 @@ use serde_json::json;
 async fn test_server() -> TestServer {
     let state = pact_mock_server::searates_graphql::AppState::from_pact_file("SEARATES-API.json");
     let app = pact_mock_server::searates_graphql::build_app(state);
-    TestServer::new(app).unwrap()
+    TestServer::new(app)
 }
 
 // ============================================================================
