@@ -16,7 +16,7 @@
 use anyhow::{Context, Result};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
-use rand::RngCore;
+use rand::TryRng;
 use redis::Commands;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -70,7 +70,9 @@ fn redis() -> Result<sesame_common::redis_pool::PooledConnection<'static>> {
 
 fn opaque() -> String {
     let mut bytes = [0u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rngs::SysRng
+        .try_fill_bytes(&mut bytes)
+        .expect("the OS random source is unavailable");
     URL_SAFE_NO_PAD.encode(bytes)
 }
 

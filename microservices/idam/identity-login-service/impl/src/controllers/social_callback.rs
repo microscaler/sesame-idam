@@ -5,7 +5,7 @@
 use base64::Engine;
 use brrtrouter::typed::{HttpJson, TypedHandlerRequest};
 use brrtrouter_macros::handler;
-use rand::RngCore;
+use rand::Rng;
 use sesame_idam_identity_login_service_gen::handlers::social_callback::{Request, Response};
 
 use crate::audit::EMITTER;
@@ -246,7 +246,7 @@ fn resolve_oauth_user<E: lifeguard::LifeExecutor>(
     }
 
     let mut random_secret = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut random_secret);
+    rand::rng().fill_bytes(&mut random_secret);
     let secret = base64::engine::general_purpose::STANDARD.encode(random_secret);
     let placeholder_password =
         password::hash_password(&secret).map_err(lifeguard::LifeError::Other)?;

@@ -85,6 +85,8 @@ openssl = { version = "0.10", features = ["vendored"] }
 [build-dependencies]
 lifeguard-migrate = { workspace = true }
 [dev-dependencies]
+# rsa 0.9 takes rand_core 0.6 RNGs (rand 0.8); move with rsa.
+rand08 = { package = "rand", version = "0.8" }
 # Test-only RSA key generation for RS256 ID token tests (ADR-015).
 rsa = { version = "0.9", features = ["pem"] }
 rstest = "0.21"

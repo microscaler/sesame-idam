@@ -71,6 +71,7 @@ lifeguard-migrate = { workspace = true }
 [dev-dependencies]
 # Test-only RSA key generation for RS256 ID token tests (ADR-015).
 rsa = { version = "0.9", features = ["pem"] }
+# rsa 0.9 takes rand_core 0.6 RNGs (rand 0.8); move with rsa.
 rand = "0.8"
 rstest = "0.21"
 rstest-bdd = "0.5.0"
