@@ -3253,7 +3253,7 @@ dependencies = [
  "p256",
  "p384",
  "pem 3.0.6",
- "rand 0.8.6",
+ "rand 0.8.8",
  "rsa",
  "serde",
  "serde_json",
@@ -4006,7 +4006,7 @@ dependencies = [
  "num-integer",
  "num-iter",
  "num-traits",
- "rand 0.8.6",
+ "rand 0.8.8",
  "smallvec",
  "zeroize",
 ]
@@ -5110,9 +5110,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.8.6"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ca0ecfa931c29007047d1bc58e623ab12e5590e8c7cc53200d5202b69266d8a"
+checksum = "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
@@ -5635,7 +5635,7 @@ dependencies = [
  "bytes",
  "num-traits",
  "postgres-types",
- "rand 0.8.6",
+ "rand 0.8.8",
  "rand 0.9.4",
  "serde",
  "serde_json",
@@ -6153,7 +6153,7 @@ dependencies = [
  "prometheus 0.13.4",
  "proptest",
  "psl",
- "rand 0.8.6",
+ "rand 0.10.2",
  "redis",
  "regex",
  "ring",
@@ -6368,7 +6368,7 @@ dependencies = [
  "microscaler-timing 0.1.0 (git+https://github.com/microscaler/microscaler-observability.git?branch=main)",
  "openssl",
  "rand 0.10.2",
- "rand 0.8.6",
+ "rand 0.8.8",
  "redis",
  "reqwest",
  "ring",
@@ -6438,7 +6438,7 @@ dependencies = [
  "may_postgres",
  "microscaler-timing 0.1.0 (git+https://github.com/microscaler/microscaler-observability.git?branch=main)",
  "prometheus 0.13.4",
- "rand 0.8.6",
+ "rand 0.10.2",
  "redis",
  "ring",
  "rsa",
