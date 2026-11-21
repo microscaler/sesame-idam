@@ -89,7 +89,7 @@ lifeguard-migrate = { workspace = true }
 rand08 = { package = "rand", version = "0.8" }
 # Test-only RSA key generation for RS256 ID token tests (ADR-015).
 rsa = { version = "0.9", features = ["pem"] }
-rstest = "0.21"
+rstest = "0.28"
 rstest-bdd = "0.5.0"
 rstest-bdd-macros = "0.5.0"
 
