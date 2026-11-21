@@ -91,7 +91,7 @@ rand08 = { package = "rand", version = "0.8" }
 rsa = { version = "0.9", features = ["pem"] }
 rstest = "0.21"
 rstest-bdd = "0.5.0"
-rstest-bdd-macros = "0.5.0"
+rstest-bdd-macros = "0.6.0"
 
 base64 = { workspace = true }
 ring = { workspace = true }
