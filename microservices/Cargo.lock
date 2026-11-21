@@ -671,7 +671,7 @@ dependencies = [
  "askama",
  "base64 0.23.1",
  "clap",
- "dashmap 6.2.1",
+ "dashmap",
  "flate2",
  "hmac 0.13.0",
  "http 0.2.12",
@@ -1348,19 +1348,6 @@ dependencies = [
  "darling_core 0.24.1",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "dashmap"
-version = "5.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "978747c1d849a7d2ee5e8adc0159961c48fb7e5db2f06af6723b80123bb53856"
-dependencies = [
- "cfg-if",
- "hashbrown 0.14.5",
- "lock_api 0.4.14",
- "once_cell",
- "parking_lot_core 0.9.12",
 ]
 
 [[package]]
@@ -6134,7 +6121,7 @@ dependencies = [
  "chrono",
  "clap",
  "config",
- "dashmap 5.5.3",
+ "dashmap",
  "ed25519-dalek",
  "ed25519-zebra",
  "futures-util",
