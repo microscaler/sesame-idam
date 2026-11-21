@@ -86,7 +86,7 @@ path = "examples/print_jwt_signing_env.rs"
 may = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
-rstest = "0.21"
+rstest = "0.28"
 rstest-bdd = "0.5.0"
 rstest-bdd-macros = "0.5.0"
 tokio = { workspace = true, features = ["full", "test-util"] }
