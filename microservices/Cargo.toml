@@ -91,11 +91,11 @@ ed25519-zebra = "5"
 p256 = { version = "0.13", features = ["ecdsa"] }
 
 # Database
-lifeguard = { git = "https://github.com/microscaler/lifeguard.git", rev = "bf68b3ae0e446b435fffc0e6e0650c38ed936591" }
-lifeguard-derive = { git = "https://github.com/microscaler/lifeguard.git", rev = "bf68b3ae0e446b435fffc0e6e0650c38ed936591" }
-lifeguard-migrate = { git = "https://github.com/microscaler/lifeguard.git", rev = "bf68b3ae0e446b435fffc0e6e0650c38ed936591" }
+lifeguard = { git = "https://github.com/microscaler/lifeguard.git", tag = "v0.1.4" }
+lifeguard-derive = { git = "https://github.com/microscaler/lifeguard.git", tag = "v0.1.4" }
+lifeguard-migrate = { git = "https://github.com/microscaler/lifeguard.git", tag = "v0.1.4" }
 # The branch lifeguard follows: lifeguard-derive generates code against this crate, so the services must share it.
-may_postgres = { git = "https://github.com/microscaler/may_postgres.git", branch = "integration/microscaler-fork" }
+may_postgres = { git = "https://github.com/microscaler/may_postgres.git", tag = "v0.1.2" }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 
@@ -107,7 +107,7 @@ sea-query = { version = "1.0.2", features = ["with-json", "with-chrono", "with-u
 # Patch crates.io may_minihttp → merged microscaler integration branch.
 [patch.crates-io]
 # may fork master: sub-millisecond timeouts honoured (no rounding to 0 / busy spin), recv_timeout.
-may = { git = "https://github.com/microscaler/may.git", rev = "2156e046291dfd568797f10630ffbc74694d33aa" }
+may = { git = "https://github.com/microscaler/may.git", rev = "a4e4c02867923b4e8703775b6620d29168d99468" }
 # sea-query 1.0.2 emits a bounded window-frame offset with no separator
 # ("$1PRECEDING") that Postgres rejects; the fix + regression tests live on
 # the microscaler fork (still version 1.0.2; PR to SeaQL pending). Aligns

@@ -35,5 +35,5 @@ sesame-saml-verifier = { path = "core" }
 
 [patch.crates-io]
 # may fork master (same as microservices/Cargo.toml).
-may = { git = "https://github.com/microscaler/may.git", rev = "2156e046291dfd568797f10630ffbc74694d33aa" }
+may = { git = "https://github.com/microscaler/may.git", rev = "a4e4c02867923b4e8703775b6620d29168d99468" }
 may_minihttp = { git = "https://github.com/microscaler/may_minihttp.git", branch = "integration/microscaler-fork" }
