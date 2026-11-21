@@ -3457,8 +3457,8 @@ dependencies = [
  "opentelemetry-prometheus",
  "opentelemetry_sdk",
  "postgres-types",
- "prometheus 0.14.0",
- "protobuf 3.7.2",
+ "prometheus",
+ "protobuf",
  "redis",
  "regex",
  "rust_decimal",
@@ -4236,7 +4236,7 @@ dependencies = [
  "once_cell",
  "opentelemetry",
  "opentelemetry_sdk",
- "prometheus 0.14.0",
+ "prometheus",
  "tracing",
 ]
 
@@ -4827,21 +4827,6 @@ dependencies = [
 
 [[package]]
 name = "prometheus"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d33c28a30771f7f96db69893f78b857f7450d7e0237e9c8fc6427a81bae7ed1"
-dependencies = [
- "cfg-if",
- "fnv",
- "lazy_static",
- "memchr",
- "parking_lot 0.12.5",
- "protobuf 2.28.0",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "prometheus"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ca5326d8d0b950a9acd87e6a3f94745394f62e4dae1b1ee22b2bc0c394af43a"
@@ -4851,7 +4836,7 @@ dependencies = [
  "lazy_static",
  "memchr",
  "parking_lot 0.12.5",
- "protobuf 3.7.2",
+ "protobuf",
  "thiserror 2.0.18",
 ]
 
@@ -4959,12 +4944,6 @@ checksum = "f94967dc7688f3054c7fac87473ffae4cc4c3904800e2d9f5b857246d8963b0a"
 dependencies = [
  "prost 0.14.4",
 ]
-
-[[package]]
-name = "protobuf"
-version = "2.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
 name = "protobuf"
@@ -6150,7 +6129,7 @@ dependencies = [
  "microscaler-timing 0.1.0 (git+https://github.com/microscaler/microscaler-observability.git?branch=main)",
  "once_cell",
  "p256",
- "prometheus 0.13.4",
+ "prometheus",
  "proptest",
  "psl",
  "rand 0.8.6",
@@ -6255,7 +6234,7 @@ dependencies = [
  "may",
  "may_minihttp",
  "may_postgres",
- "prometheus 0.13.4",
+ "prometheus",
  "redis",
  "ring",
  "rstest",
@@ -6437,7 +6416,7 @@ dependencies = [
  "may_minihttp",
  "may_postgres",
  "microscaler-timing 0.1.0 (git+https://github.com/microscaler/microscaler-observability.git?branch=main)",
- "prometheus 0.13.4",
+ "prometheus",
  "rand 0.8.6",
  "redis",
  "ring",
@@ -6501,7 +6480,7 @@ dependencies = [
  "may",
  "may_minihttp",
  "may_postgres",
- "prometheus 0.13.4",
+ "prometheus",
  "ring",
  "rstest",
  "rstest-bdd",

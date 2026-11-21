@@ -46,7 +46,7 @@ may = { workspace = true }
 # For brrtrouter runtime: ArcSwap for lock-free router/dispatcher updates
 arc-swap = { workspace = true }
 may_postgres = { workspace = true, features = ["with-serde_json-1", "with-chrono-0_4"] }
-prometheus = "0.13"
+prometheus = "0.14"
 
 # Lifeguard derive macros need these
 anyhow = { workspace = true }
