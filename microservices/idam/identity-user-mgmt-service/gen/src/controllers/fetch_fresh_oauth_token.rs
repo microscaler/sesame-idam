@@ -14,11 +14,11 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "token": "gho_new123abc456"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "expires_in": 3600,
   "provider": "github",
   "token": "gho_new123abc456"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

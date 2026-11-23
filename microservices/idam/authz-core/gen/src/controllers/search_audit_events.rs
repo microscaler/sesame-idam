@@ -33,7 +33,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "total": 142
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "events": [
     {
       "actor": "user",
@@ -53,7 +53,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
   "page": 1,
   "page_size": 50,
   "total": 142
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

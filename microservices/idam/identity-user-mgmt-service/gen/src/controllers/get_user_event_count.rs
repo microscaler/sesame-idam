@@ -22,7 +22,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c9"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "by_type": {
     "authentication": 85,
     "session_management": 22,
@@ -34,7 +34,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
   },
   "total_count": 127,
   "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c9"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

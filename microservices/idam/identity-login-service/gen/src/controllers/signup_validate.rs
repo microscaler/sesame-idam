@@ -16,13 +16,13 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "suggested_username": "alice_new"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "allowed": true,
   "email_exists": false,
   "phone_exists": false,
   "reason": null,
   "suggested_username": "alice_new"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

@@ -24,7 +24,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c9"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "actor": "user",
   "event_action": "login_success",
   "event_type": "authentication",
@@ -38,7 +38,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
   "timestamp": "2026-05-11T14:30:00Z",
   "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
   "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c9"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

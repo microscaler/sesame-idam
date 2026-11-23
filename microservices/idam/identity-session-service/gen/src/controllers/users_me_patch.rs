@@ -24,7 +24,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "username": "alice"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "avatar_url": "https://example.com/avatars/alice_v2.png",
   "created_at": "2024-01-01T00:00:00Z",
   "email": "alice@example.com",
@@ -38,7 +38,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
   "updated_at": "2024-01-16T12:00:00Z",
   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d",
   "username": "alice"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

@@ -15,12 +15,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "status": "pending"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "download_url": null,
   "estimated_completion": "2026-05-11T14:35:00Z",
   "export_id": "6ba7b810-9dad-11d1-80b4-00c04fd430cb",
   "status": "pending"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

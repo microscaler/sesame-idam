@@ -13,10 +13,10 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "expires_in": 60
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "code": "7Yk2t0Yr8Qn1pW5xQ3vB6mZ9aL4cS8dE",
   "expires_in": 60
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

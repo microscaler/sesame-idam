@@ -33,7 +33,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "total": 142
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "by_actor": {
     "admin": 30,
     "system": 12,
@@ -56,7 +56,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     "latest": "2026-05-11T14:30:00Z"
   },
   "total": 142
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

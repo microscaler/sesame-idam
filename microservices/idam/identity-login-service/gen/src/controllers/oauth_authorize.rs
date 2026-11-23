@@ -13,10 +13,10 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "message": "Request validation failed"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "error": "validation_error",
   "message": "Request validation failed"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

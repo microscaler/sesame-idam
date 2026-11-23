@@ -13,10 +13,10 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "state": "csrf-token-xyz"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "redirect_url": "https://github.com/login/oauth/authorize?client_id=abc",
   "state": "csrf-token-xyz"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

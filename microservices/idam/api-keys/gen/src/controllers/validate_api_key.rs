@@ -21,7 +21,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "valid": true
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "expires_at": 1736934600,
   "key_id": "550e8400-e29b-41d4-a716-446655440003",
   "name": "Production API Key",
@@ -32,7 +32,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
   ],
   "tenant_id": "1189c444-8a2d-4c41-8b4b-ae43ce79a492",
   "valid": true
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

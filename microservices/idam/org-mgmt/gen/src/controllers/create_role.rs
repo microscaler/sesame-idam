@@ -20,7 +20,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "role_id": "550e8400-e29b-41d4-a716-446655440010"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "created_at": "2024-01-16T12:00:00Z",
   "description": "Can manage projects and view team members",
   "name": "Project Manager",
@@ -30,7 +30,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     "team:read"
   ],
   "role_id": "550e8400-e29b-41d4-a716-446655440010"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

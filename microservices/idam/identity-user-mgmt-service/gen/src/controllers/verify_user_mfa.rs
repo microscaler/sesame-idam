@@ -14,11 +14,11 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "success": true
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "message": "MFA verified successfully",
   "mfa_required": false,
   "success": true
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

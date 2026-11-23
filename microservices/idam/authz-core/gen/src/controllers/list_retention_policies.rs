@@ -32,7 +32,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   }
     // ]
     match serde_json::from_str::<Response>(
-        r###"[
+        r#"[
   {
     "archive_after_days": 90,
     "created_at": "2026-01-01T00:00:00Z",
@@ -51,7 +51,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     "retention_days": 730,
     "tenant_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
   }
-]"###,
+]"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

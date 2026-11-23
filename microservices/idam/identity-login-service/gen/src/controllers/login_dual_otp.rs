@@ -16,13 +16,13 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "success": true
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "both_verified": false,
   "email_sent": true,
   "message": "Verification codes have been sent to your email and phone",
   "phone_sent": true,
   "success": true
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

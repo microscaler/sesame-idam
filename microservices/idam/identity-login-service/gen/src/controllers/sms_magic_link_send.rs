@@ -14,11 +14,11 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "message": "A magic link has been sent to your phone"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "expires_in": 900,
   "magic_link_sent": true,
   "message": "A magic link has been sent to your phone"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

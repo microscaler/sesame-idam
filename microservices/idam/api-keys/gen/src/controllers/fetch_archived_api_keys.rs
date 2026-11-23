@@ -25,7 +25,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "total": 1
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "api_keys": [
     {
       "archived_at": "2024-01-10T00:00:00Z",
@@ -37,7 +37,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
   "limit": 20,
   "page": 1,
   "total": 1
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

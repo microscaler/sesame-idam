@@ -15,12 +15,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "email": "alice@example.com",
   "migrated": true,
   "migrated_at": "2024-01-15T10:30:00Z",
   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

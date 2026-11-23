@@ -15,12 +15,12 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "status": "complete"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "download_url": "https://storage.example.com/exports/audit-6ba7b810.json",
   "estimated_completion": null,
   "export_id": "6ba7b810-9dad-11d1-80b4-00c04fd430cb",
   "status": "complete"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

@@ -16,13 +16,13 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "name": "Archived Key"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "archived_at": "2024-01-10T00:00:00Z",
   "archived_by": "admin@example.com",
   "key": "sk_arc_old***",
   "key_id": "550e8400-e29b-41d4-a716-446655440005",
   "name": "Archived Key"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

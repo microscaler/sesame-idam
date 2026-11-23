@@ -23,7 +23,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "access_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJsZXZlbCI6ImhpZ2gifQ.sig",
   "email": "alice@example.com",
   "email_verified": true,
@@ -36,7 +36,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
   "scope": "openid profile",
   "token_type": "Bearer",
   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {

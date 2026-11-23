@@ -19,7 +19,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> ApiResponse {
     //   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "access_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjMiLCJlbWFpbCI6ImFsaWNlQGV4cC5jb20iLCJvcmdfaWQiOiIxMTg5YzQ0NCJ9.sig",
   "expires_in": 900,
   "id_token": null,
@@ -29,7 +29,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> ApiResponse {
   "scope": "openid profile email",
   "token_type": "Bearer",
   "user_id": "31c41c16-c281-44ae-9602-8a047e3bf33d"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return ApiResponse::Ok(parsed),
         Err(e) => {

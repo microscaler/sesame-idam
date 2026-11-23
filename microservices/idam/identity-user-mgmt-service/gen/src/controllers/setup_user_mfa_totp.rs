@@ -21,7 +21,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
     //   "secret": "JBSWY3DPEHPK3PXP"
     // }
     match serde_json::from_str::<Response>(
-        r###"{
+        r#"{
   "backup_codes": [
     "12345678",
     "87654321",
@@ -32,7 +32,7 @@ pub fn handle(_req: TypedHandlerRequest<Request>) -> HttpJson<Response> {
   "mfa_required": true,
   "qr_code": "data:image/png;base64,example",
   "secret": "JBSWY3DPEHPK3PXP"
-}"###,
+}"#,
     ) {
         Ok(parsed) => return HttpJson::ok(parsed),
         Err(e) => {
