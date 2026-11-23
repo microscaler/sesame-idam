@@ -20,6 +20,39 @@ spec:
     - port: http
       path: {{ .Values.prometheus.path | default "/metrics" | quote }}
       interval: {{ .Values.podMonitoring.interval | quote }}
+      {{- $relabel := .Values.podMonitoring.metricRelabeling | default list }}
+      {{- if .Values.podMonitoring.slow.enabled }}
+      {{- $relabel = append $relabel (dict "sourceLabels" (list "__name__") "action" "drop" "regex" .Values.podMonitoring.slow.regex) }}
+      {{- end }}
+      {{- with $relabel }}
+      # series dropped (or kept) before ingestion: Managed Prometheus bills per sample
+      metricRelabeling:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   targetLabels:
     metadata: [pod, container, top_level_controller_name, top_level_controller_type]
+{{- if .Values.podMonitoring.slow.enabled }}
+---
+# The series podMonitoring.slow names, scraped less often than the rest (FinOps): its own PodMonitoring, so its job label
+# differs from the main endpoint's and the two never write the same series.
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: {{ .Values.service.name }}-slow
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+    app: {{ .Values.service.name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.service.name }}
+  endpoints:
+    - port: http
+      path: {{ .Values.prometheus.path | default "/metrics" | quote }}
+      interval: {{ .Values.podMonitoring.slow.interval | quote }}
+      metricRelabeling:
+        - { sourceLabels: [__name__], action: keep, regex: {{ .Values.podMonitoring.slow.regex | quote }} }
+  targetLabels:
+    metadata: [pod, container, top_level_controller_name, top_level_controller_type]
+{{- end }}
 {{- end }}

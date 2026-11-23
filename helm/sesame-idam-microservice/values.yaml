@@ -147,6 +147,16 @@ prometheus:
 podMonitoring:
   enabled: false
   interval: 30s
+  # Prometheus metricRelabeling rules for the endpoint (e.g. drop series nothing reads; Managed Prometheus bills per
+  # sample): [{sourceLabels: [__name__], action: drop, regex: "..."}]. Empty: everything is ingested.
+  metricRelabeling: []
+  # Series scraped less often than the rest (23 Nov 2026, FinOps): matched by name, dropped from the main endpoint and
+  # scraped by a second PodMonitoring (<service>-slow, so its series carry job="<service>-slow") every `interval`.
+  # In pp, op_duration_seconds every 2 minutes; raise its granularity again when there is revenue to pay for it.
+  slow:
+    enabled: false
+    interval: 120s
+    regex: "op_duration_seconds_.*"
 
 # ---------------------------------------------------------------------------
 # Release shape (Octopilot). Defaults keep the dev (Tilt) behaviour.
